@@ -181,7 +181,7 @@ import { calculateCastCost } from '../systems/spellcost.js';
 import { snapshotPlayer, restorePlayer, composeSessionState, restoreSessionState , copyEffectEntry } from '../systems/save.js';   // B4: the ONE quest+talk composer
 import { saveSlot, loadSlot, quickLoadSlot, QUICK_SAVE_NAME, requestScreenshot, slotLoaded } from '../systems/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave; SS1: the shot arms here, the HOST loop delivers it
 import { bindQuestFoeHost, placeFoeEnv, entityOccupancy } from './questFoeHost.js';
-import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs } from './exteriorFoes.js';   // QUEST-PARTY phase 3c: the party's quest words and the marker's law, one home   // B1: quest foes ride this pool   // RE1: the placement ring's env over this host's collider
+import { validQuestTags, questMarkerYields, QUEST_PUPPETS_MAX, validLooseSeqs, companionNames } from './exteriorFoes.js';   // QUEST-PARTY phase 3c: the party's quest words and the marker's law, one home   // B1: quest foes ride this pool   // RE1: the placement ring's env over this host's collider
 import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // RE1: FoeSpawner.PlaceFoeFreely, the one home
 import { dungeonQuestSpawnSpots } from '../systems/quest/place.js';   // FIELD BUGS 29h (BOUNTY-LAIR)
 import { fieldOfView } from '../ui/viewSettings.js';   // RE1: the ring needs the view cone the LOS arm avoids
@@ -277,7 +277,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2433); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2451); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1911,7 +1911,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14634 / exterior.js:3758), set
+  // host's own townTalk sink (world.js:14704 / exterior.js:3758), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2627,6 +2627,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // passes none
     allyMarks: opts.allyMarks ? (sp) => opts.allyMarks(sp) : null,   // SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: opts.peers ? () => opts.peers() : null,   // SPELLFX1: every player's body, where a peer's drawn missile stops
+    companionBodies: opts.companionBodies ? () => opts.companionBodies() : null,   // COMPANION-KIT: my companions here (the dungeon's own records)
     // QG1: the ready-spell doors - this host's own cast engine raises
     // into the same machine the world lane's does (opts.questBridge is
     // handed down by world.js/worldModes; the standalone ?dungeon
@@ -3039,7 +3040,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1112 against :1142; worldModes.js:7806 against :7833).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1112 against :1142; worldModes.js:7809 against :7836).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3861,8 +3862,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24364,
-              // exterior.js:5374 and worldModes.js:8519 already ran;
+              // playerArrowHitFoe is the one copy world.js:24438,
+              // exterior.js:5374 and worldModes.js:8522 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4357,15 +4358,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     let whole = full || !!heirOf;
     if (out.length > CELL_FRAME_RECORDS_MAX) { for (const [f] of src.slice(CELL_FRAME_RECORDS_MAX)) { f._sentKey = null; f._heir = null; f._maxSent = undefined; } out.length = src.length = CELL_FRAME_RECORDS_MAX; whole = false; }   // the relay's bound: the rest go next frame (AUDIT SETS M1: a maximum with them), and this one lists no whole
     if (!out.length && !whole) return null;
-    const qf = [], lf = [], cp = [];
+    const qf = [], lf = [], cp = [], cn = [];
     src.forEach(([f, qt], k) => {
       const i = out[k].i;
-      if (!qt && f.companion != null && !f.dead) cp.push(i);   // AUDIT CC-E1: my companions - the room stands them as my allies
+      if (!qt && f.companion != null && !f.dead) { cp.push(i); cn.push(f.entity?.name ?? ''); }   // AUDIT CC-E1: my companions - the room stands them as my allies; WK-U3: and their names
       if (!qt) { lf.push(i); return; }   // SUMMON-SYNC: a loose stand's number
       const fl = (f._questMarker ? 1 : 0) | (!f.dead && questTouched(f) ? 2 : 0);
       qf.push(fl ? [i, qt.q, qt.s, fl] : [i, qt.q, qt.s]);
     });
-    const frame = { n: ++_ownFrameSeq, k: _locationKey, full: whole ? 1 : 0, f: out, ...(qf.length ? { qf } : {}), ...(lf.length ? { lf } : {}), ...(cp.length ? { cp } : {}) };
+    const frame = { n: ++_ownFrameSeq, k: _locationKey, full: whole ? 1 : 0, f: out, ...(qf.length ? { qf } : {}), ...(lf.length ? { lf } : {}), ...(cp.length ? { cp, cn } : {}) };
     if (full || heirOf) fitMaxima(frame, src.map(([f], k) => [out[k], f]));
     return frame;
   }
@@ -4382,6 +4383,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (Number.isFinite(data.n)) { if (data.n <= o.n) return false; o.n = data.n; }
     o.at = performance.now();
     const tags = validQuestTags(data.qf), loose = validLooseSeqs(data.lf), comp = validLooseSeqs(data.cp);   // AUDIT CC-E1: `cp` the owner's companions (the loose numbers' own law)
+    const compNames = companionNames(data.cp, data.cn);   // AUDIT WK-U3: and their names
     const seen = new Set(), marks = [], named = new Set();
     for (const raw of data.f.slice(0, CELL_FRAME_RECORDS_MAX)) {
       const r = validFoeRecord(raw);
@@ -4414,10 +4416,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // same id, a tab that woke) - theirs again: mine goes, and their record stands it here as their puppet
       const took = f ? null : _ownAdopted.get(key);
       if (took) { _ownAdopted.delete(key); if (r.d !== 1 && !took.dead && !took._gone) letGoOwn(took); }
-      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r) && f.companion == null) adoptOwn(from, f, share); continue; }
+      if (f) { applyOwnRecord(f, r, share); if ((lo && comp.has(r.i)) || f.companion != null) companionPuppet(f, lo && comp.has(r.i), compNames.get(r.i)); f._heirElse = ownHeirElse(r); if (ownHeirIsMe(r) && f.companion == null) adoptOwn(from, f, share); continue; }
       if (_ownPending.has(key)) { _ownPending.set(key, r); continue; }
       if (r.d === 1 || r.t == null || !r.f || !canStandFoe(r.t) || ownPuppetsOf(from, lo) >= (lo ? CELL_LOOSE_PUPPETS : QUEST_PUPPETS_MAX)) continue;
-      _ownPending.set(key, { ...r, _comp: lo && comp.has(r.i) });
+      _ownPending.set(key, { ...r, _comp: lo && comp.has(r.i), _compName: compNames.get(r.i) ?? null });
       if (lo) _ownPendLoose.add(key);
       standOwnPuppet(from, r, qt, o.gen, lo).catch((e) => { _ownPending.delete(key); _ownPendLoose.delete(key); console.error('[online] another player\'s foe could not stand here:', e); });
     }
@@ -4452,16 +4454,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     _ownPups.set(key, f);
     const share = ownShare();
     applyOwnRecord(f, newest, share);
-    if (newest._comp ?? r._comp) companionPuppet(f, true);   // AUDIT CC-E1
+    if (newest._comp ?? r._comp) companionPuppet(f, true, newest._compName ?? r._compName);   // AUDIT CC-E1
     f._heirElse = ownHeirElse(newest);
     if (f.companion == null && (ownHeirIsMe(newest) || !!newest._orphanMine) && !adoptOwn(from, f, share) && heirOrphan) dropOwnPuppet(key, f);   // AUDIT CC-E1: a companion is never anyone's heir's
     return f;
   }
   /** AUDIT CC-E1: another's companion stood here as the owner's word says - an ally of every player in the room (team
    *  PlayerAlly, a shipmate no blow of mine reaches, a `companion` my foes may fight), or back to what it was. */
-  function companionPuppet(f, on) {
+  function companionPuppet(f, on, name = null) {
     if (on) {
-      f.companion = `peer:${f._ownFrom}:${f._ownI}`; f.shipmate = true;
+      f.companion = `peer:${f._ownFrom}:${f._ownI}`; f.shipmate = true; f.companionName = name ?? null;   // AUDIT WK-U3: his own name
       if (f.entity) { f.entity.team = 'PlayerAlly'; f.entity.mobileTeam = 'PlayerAlly'; }
     } else if (f.companion != null) { f.companion = null; f.shipmate = false; }
   }
@@ -4738,7 +4740,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2433). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2451). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5312,7 +5314,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1812's restoreWorld goes through
+    // construction (exteriorFoes.js:1827's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law

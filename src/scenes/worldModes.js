@@ -1288,7 +1288,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:392-393), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1123-1127 and
+   *  READ the effect list every frame (exteriorFoes.js:1138-1142 and
    *  cityGuards.js:1039-1049 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -6588,7 +6588,7 @@ export function createWorldModes(host) {
     // consuming the activation exactly as the standalone host's
     // `return null` does. The pool and collider are the CONTEXT's.
     if (host.activateDir?.() && interiorCtx) {
-      const f = pickFoe(eye, dir, interiorFoePool(), interiorCtx.collider, LOCK_PICK_DISTANCE);
+      const f = pickFoe(eye, dir, interiorFoePool().filter((f) => f.companion == null), interiorCtx.collider, LOCK_PICK_DISTANCE);   // AUDIT WK-P2: A TAP ON MY COMPANION OPENS HIS PACK, NEVER A LOCK-ON - the street's law (COMPANION-KIT, world.js), which only the street kept: a finger's tap on him indoors locked onto him, ate the press (no pack on a phone) and turned the camera to him. The four hosts: the street's arm and these two (a building's, the world's dungeon's) pass him by; exterior.js and the standalone dungeon.js stand no companion, and dungeonContext.js has no tap arm of its own
       if (f) { host.lockToggle?.(f); return true; }
       // TS1 (2026-09-12, Mac: "walking into the exit door puts you
       // outside without interaction"): touch.js's stick-half tap (TI1b)
@@ -6618,6 +6618,7 @@ export function createWorldModes(host) {
         hud: (t) => say(t),
         modal: (t) => mountInterior(new ActionTextBox(String(t).split('\n'))),
         makeEnemiesHostile: () => makeEnemiesHostile(interiorEnemyDatabase()),
+        openCompanion: (rec) => !!host.openCompanionPack?.(rec),   // COMPANION-KIT: my companion's pack
         playerFeet: player.pos,
         nothingText: () => townTalk?.randomText?.(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
       }) : false);
@@ -7244,6 +7245,7 @@ export function createWorldModes(host) {
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [], nodeMarks: (feet) => host.professionMarks?.(feet) ?? null,   // NODE-MARKS: the dungeon's nodes on its compass, at its own feet; WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
           allyMarks: (sp) => host.allyMarks?.(sp) ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame - SPELL-GIFT: with the spell
+          companionBodies: () => host.companionBodies?.() ?? null,   // COMPANION-KIT: my companions underground (the dungeon's own records)
           onLootClaimed: () => host.onLootClaimed?.(),   // AUDIT WORLD4 C2/D5: a claimed container makes the room's memory due this frame
           // A10: the Recall prompt (Teleport.cs:81-98). The outer host
           // owns it - the plan's arms are its pixel teleport, its mode
@@ -7292,7 +7294,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7789), so the OUTER host's one rides in.
+          // (dungeonContext.js:7791), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7570,7 +7572,7 @@ export function createWorldModes(host) {
     // so it is the one the feature was most missing from; the arm is
     // scenes/dungeon.js:258's, line for line, over this context's pool.
     if (host.activateDir?.() && dungeonCtx) {
-      const f = pickFoe(eye, dir, dungeonCtx.foes, dungeonCtx.collider, LOCK_PICK_DISTANCE);
+      const f = pickFoe(eye, dir, dungeonCtx.foes.filter((f) => f.companion == null), dungeonCtx.collider, LOCK_PICK_DISTANCE);   // AUDIT WK-P2: the street's law underground too (tryExit's note) - dungeon.js's own arm, which stands no companion, keeps its whole pool
       if (f) { host.lockToggle?.(f); return true; }
       if (host.activateLockOnly?.()) return false;   // TS1: the stick-half tap opens nothing (tryExit's note)
     }
@@ -7590,6 +7592,7 @@ export function createWorldModes(host) {
     const _enemyArm = (reach, nearerThan = Infinity) => (dungeonCtx ? tryMobileEnemyActivate(eye, dir, dungeonCtx.foes, dungeonCtx.collider,
       reach, getInteractionMode(), playerEntity, {
         nearerThan,
+        openCompanion: (rec) => !!host.openCompanionPack?.(rec),   // COMPANION-KIT: my companion's pack, underground
         // AUDIT 65 HP-2/HP-3: the sinks are the DUNGEON'S, not the
         // building's. DaggerfallUI.MessageBox builds on uiManager's
         // TopWindow (PlayerActivate.cs:1640/:1646 -> DaggerfallUI.cs:1328-1330)
@@ -8494,7 +8497,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14424's own wave-46 note); the interior
+          // a blow (world.js:14494's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11135,7 +11138,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3473-3495), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10869). So an F9 pressed in a shop
+     *  unconditionally (world.js:10939). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11174,7 +11177,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:10984)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11054)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11184,8 +11187,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9862`
-     *  and `dungeonContext.js:7800` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:9932`
+     *  and `dungeonContext.js:7802` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

@@ -823,7 +823,8 @@ test('AUDIT NAV1 (the presentation) THE ARCS AS LINES (#4): each ball\'s arc ARC
   assert.ok(Math.abs(d[3] - (0 - off) / ARC_DASH_M) < 1e-5 && Math.abs(d[NAVAL_STRIDE + 3] - (seg - off) / ARC_DASH_M) < 1e-5, 'u by the metres flown');
   assert.ok(Math.abs(d[6 * NAVAL_STRIDE + 3] - (seg - off) / ARC_DASH_M) < 1e-5, 'continuous into the next segment');
   const host = readFileSync(new URL('../src/scenes/navalHost.js', import.meta.url), 'utf8');
-  assert.match(host, /return \{ particles: effects\.drawList\(\), balls: shots\.balls\(\), floaters: shots\.floaters\(\), aim: aimDraw, time: clock \};/);
+  // PIN MOVED (SHIP-WATCH): the particles carry the far ships' lamps too, laid into the effects' list first
+  assert.match(host, /const particles = effects\.drawList\(\);\n\s*lampsInto\(particles\);[^\n]*\n\s*return \{ particles, balls: shots\.balls\(\), floaters: shots\.floaters\(\), aim: aimDraw, time: clock \};/);
 });
 
 test('AUDIT NAV1 (the presentation) THE FAR SHIPS\' COST (#17): an idle particle system - stopped, nothing alive - is stepped without a question (it walked up its node\'s parents to ask whether it was active, then did nothing: a war galley\'s 224 systems, one live, cost 0.45 ms a far frame), a playing or living one as ever; a ship\'s animators found once (her tree walked for them every frame: 0.44 ms); past NEAR_LIFE_M her rigging stepped every FAR_LIFE_EVERY frames with the time it missed - five far galleys 5.7 ms a frame, now 0.9 (mutants: the idle system asked, the walk every frame, the far stride unread, the missed time dropped)', async () => {
