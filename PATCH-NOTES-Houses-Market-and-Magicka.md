@@ -10,6 +10,19 @@ Melee fighters pay a smith to keep their gear in shape. Now casters pay to keep 
 - Selling a Restore Power potion back is priced the same way, so buying potions to resell never pays.
 - **Offline, nothing changes.**
 
+## The market (online)
+- **Sell anything from your pack.** Under **My listings**, choose **A piece from your pack (gold)** and set a price in gold. The piece leaves your pack at once. If you cancel, or it doesn't sell within 72 hours, it comes back. The new **Goods** view lists everyone's pieces.
+- A piece bought at a board in its seller's region reaches your pack at once. From another region it comes by courier.
+- Some things stay off the market, and the List form says why for each one:
+  - bound pieces (Sigil Stones and the Sigil Broker's wares)
+  - anything you're wearing, locked pieces, quest items and summoned items
+  - gold, letters of credit, boat deeds and boat parts
+  - arrows
+  - Stores materials such as ores, ingots, gems and herbs (list those from your Stores)
+- Pieces from your pack sell for gold only, not Drakes.
+- A crafted piece someone else made can't be sold as a crafted piece; only its maker can do that. It sells from your pack, for gold.
+- **Fixed:** listing a crafted piece someone had traded you made it vanish from your pack. It now stays.
+
 ## Decorating outside your home
 - **Yard pieces stay off the road.** A piece could be set down on the street, on its edges or on a track running past town, and the blue lot edge ran across the road. A piece on the road is now refused with a message, and the lot edge runs along the side of the road. Pieces can still touch the road's edge.
 - **No more furniture through your walls outside.** A long piece turned at an angle could be placed cutting through the corner of your house. It's now refused until it's clear of the wall.
@@ -48,5 +61,9 @@ Melee fighters pay a smith to keep their gear in shape. Now casters pay to keep 
 - `src/scenes/decorRoom.js` `restand` and `homeYards.js` `rebase` (YARD-RECENTRE): a world recentre moves every yard piece in place. `world.js` calls it on the recentre's own line.
 - `src/systems/skills.js` and `src/systems/advancement.js` (MOVE-BANK): past 100, a skill that can pass the cap has no 20,000-use bucket. The shift is read in float, and the carry is kept whole and re-priced at the next point's cost.
 - `src/systems/skillSoftcap.js` `overcapClimbSpeed` (CLIMB-PAST), `src/player/climbing.js` `climbingSpeed` and `src/player/motor.js`: climb speed is ×(1 + (effective − 100) / 100) past 100, bounded at effective 140.
-- The account service is unchanged: no deploy.
+- `src/net/marketLaw.js` `goodRefusal`, `server-account/src/market.js` `listGood` and `collectGood`, `src/systems/tradePack.js` `createMarketGoods` and `src/ui/marketTab.js` (MARKET-ANY): a realm character's pack piece lists for gold. It is taken out of the seller's realm record in the listing's batch and put into the buyer's record on collection. `src/net/marketBook.js` (MARKET-KEEP): `market-not-yours` is no longer read as proof of a copy.
+
+### For the team: deploy order
+- **The account service must deploy:** `acct44` with migration `0044_market_goods.sql`. The migration rebuilds `market_listings`, `market_sales` and `market_deliveries` with a third kind, and carries every row, report and index. `account-deploy.yml` runs it on merge.
+- A new client talking to the old service degrades safely. A pack listing is refused and the piece comes back. The Goods view says it could not be read.
 - Record: `bible/01-Overview/Field-Bugs-2026-10-01.md`. Tests: `test/fb1001_*.test.js`. Mutants: `tools/mutants/fb1001_*.json`.

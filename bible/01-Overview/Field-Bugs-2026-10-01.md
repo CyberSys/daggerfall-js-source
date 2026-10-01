@@ -14,12 +14,12 @@ The rule of the last batch stands (Mac, `Field-Bugs-2026-09-30b.md` part two: *"
 thing now"*): every report root-caused on the real modules with a reproduction before anything changed, the faults
 fixed wherever they failed the player, each fix pinned red on the code before it and mutation-checked. Five lanes ran
 at once, one a report (the yard and the road together); 6 is a design ask, not a fault, and was asked before it was
-built; 2's lane is the last out.
+built; 2 was both.
 
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "Decorating the exterior is bugged for houses." | three: a long piece turned at an angle could stand through the house's corner (the lot asked a piece's corners, not its ground); the town's minute read, answered before a place or a remove and landing after it, stood a removed piece back and dropped a new one for a minute; at a pixel crossing every yard piece was drawn 819 m off for a frame and not at all the next | fixed (YARD-CORNER, YARD-STALE, YARD-RECENTRE) |
-| 2 | "The market doesn't allow you to list any item that isnt bound, also it's bugged" | (its lane is still out) | open |
+| 2 | "The market doesn't allow you to list any item that isnt bound, also it's bugged" | only a Stores material or a crafted piece carrying its maker's record could list, by design (10.2: "Loot does not list") - nothing bound was ever offered, and nothing from the world either; and a crafted piece handed on by a trade was destroyed when its new holder pressed List | fixed (MARKET-KEEP), built (MARKET-ANY) |
 | 3 | "Switching textures on houses doesnt stay and resets" | three: the painter's "Paint it", "Put back" and "The town's own" were never drawn (they stood in the rent tab's row, which the decorator's sheet hides in every other tab), so a look could only be tried and was put away on leaving the tab; a town's read in flight when a look was painted landed over it and was believed for a minute; closing the panel left the tried look in the painter | fixed (LOOK-BUTTONS, LOOK-STALE, LOOK-TRIED) |
 | 4 | "Room renting is buggy" | six: a tenant could not rest in the room they rented; the renewal window offered days the service refuses, after the purse had paid; the owner's rooms were read once a visit; a house one room again hid its offers from its owner; the owner's "Room 2" was "Room 1" at the door; a rent that landed under a plaque's read kept the door shut a minute | fixed (RENT-REST, RENT-RENEW, RENT-FRESH, RENT-ORPHANS, RENT-NUMBER, HOMES-FORCE) |
 | 5 | "Exterior placement bounds shouldnt touch roads/pathways" | the lot was the house's box and six metres round it, and nothing read the ground: a piece stood in the street, and the marked edge ran across it | fixed (ROAD-LOT) |
@@ -328,3 +328,86 @@ a Fortify that lifts the live Climbing past 100 speeds the climb as it already s
 (16, 16 dead). Four hosts: none needed wiring - MOVE-BANK lives in `skills.js` and `advancement.js`, CLIMB-PAST in the
 motor and `climbing.js`; `world.js`, `exterior.js`, `worldModes.js` and `dungeonContext.js` each hand the odometer and
 the climbing deps as before.
+
+## MARKET-KEEP: a piece the service calls another's stays in the pack (2)
+
+**Reproduced first** (`test/fb1001_market.test.js`: the real Worker and the real anvil craft, the piece handed on with
+`settleRealmTrade` - the law the service settles a realm trade by): the crafter makes a sword and trades it to Ann; the
+product's owner stays the crafter. Ann presses List: the piece leaves her pack, the service answers `market-not-yours`,
+and her pack is empty - the piece destroyed. A listing kept through a network silence and answered "not yours" on a
+later settle was dropped from the save the same way, and the game's own take had already queued a checkpoint, so the
+realm record lost it too.
+
+**Why.** AUDIT 31 H1's `PIECE_GONE` (`net/marketBook.js`) read `market-not-yours` as proof the save's piece was a copy,
+beside listed, on the road and standing in a home - so the piece was never put back and a settle took it out of the
+save; the writs' Fill reads the same list (`net/writBook.js`). But "not yours" is a fact about the record alone: the
+hand-over of Professions-Arc section 18 (a trade moving a crafted piece's owner) was never built - the realm trade
+(`server-account/src/realmTrade.js`) moves the piece between saves and never `products.owner`, and a shop's shelf, a
+room's container and a looted body hand crafted pieces on without the service at all. A traded piece was its holder's
+only copy, and List destroyed it.
+
+**The fix** (`net/marketBook.js`, `net/writBook.js`'s reader): `market-not-yours` is no longer in `PIECE_GONE`; the
+piece goes back to the pack on a press and on a settle, for the market and the writs, and the refusal says it stays in
+the pack and can be sold from it for gold. The List form no longer offers such a piece as a crafted piece (MARKET-ANY's
+`ways`, below).
+
+**Found on the way, not changed.** A real copy can still exist: a crafted listing that lands and sells while the pack's
+checkpoint is lost in a crash leaves the copy an ordinary piece now, rather than removed - it can no longer list as a
+crafted piece. That is the price of never destroying a traded piece; the hand-over closes it at the root.
+
+## MARKET-ANY: a piece from the pack lists, for gold (2)
+
+**Reproduced first** (the real producers through the List form): a looted dagger and a looted piece of armour - not
+offered; a crafted Mithril Longsword - offered; a Sigil Stone and a Sigil Broker's ware - not offered. "Only bound items"
+read backwards: nothing bound was offered, and nothing from the world either - the form offers Stores materials and
+crafted pieces with a maker's record (`scenes/world.js`'s filter, `ui/marketTab.js` "You carry no crafted piece to
+sell"), and the service takes `material` or `piece` alone (`server-account/src/market.js`). A player who had crafted
+nothing could list nothing.
+
+**Why.** 10.2's rule ("Loot does not list": it has no provenance) was right while a save was the client's alone. Since
+REALM P1 a realm character's save is a record on the service, REALM P2.1 already moves a piece between two records in
+one write, and since REALM-DOOR every online character is a realm character.
+
+**The law** (`net/marketLaw.js` `goodRefusal`; `server-account/src/market.js` `listGood`, `collectGood`;
+`server-account/migrations/0044_market_goods.sql`; `net/marketBook.js`; `systems/tradePack.js` `createMarketGoods`;
+`ui/marketTab.js`; `net/accountClient.js`; Ledger A). A piece from a realm character's pack lists **for gold alone** -
+the move a realm trade already makes face to face, so no new trust. Never for Drakes: after the first save the service
+never inspects a checkpoint, so a client could write any piece into its record, and a save-edited piece must not buy
+Drakes (law 3; the threat table's "a save-edited item enters the economy"). Refused, each in words on the form: worn,
+locked, quest, summoned and bound pieces; gold, letters of credit, boat deeds and parts; arrows; Stores materials (ores,
+ingots, gems, herbs, hides, creature parts - GOLD-MARKET's wall: what Drakes bought never lists for gold); a record over
+the request body's bound. `listGood` reads where the realm record stands and takes the record's own piece at `pick`
+out of the seller's record in the listing's batch (`prepareRealmRecord` with a `mustChange` guard); the offer must be
+the record's (`recordIsOffered`), and a crafted piece whose record is the seller's must list as a crafted piece
+(`market-piece-route`). A gold buy writes a delivery (one bought in the board's region arrives at once); a cancel, an
+expiry and a moderator's removal write a returned one; `collectGood` puts the piece into the collector's record in the
+collect's batch, guarded. Nothing is copied: the piece is in one record, on the listing or on the road. The tab shows a
+**Goods** view after Auctions, the road, My listings and History rows, and "A piece from your pack (gold)" to realm
+characters alone; My listings sends the crafted pieces the tab holds and the service answers each one's `ways` (yours,
+another's, elsewhere, no record) - the crafted picker offers only one's own and names the others.
+
+**The service.** Migration 0044 rebuilds `market_listings`, `market_sales` and `market_deliveries` with the third kind
+(SQLite widens no CHECK in place), every row carried, every index made again as 0032 and 0043 (SCALE1) wrote them; the
+reports - `market_reports` names a listing by a cascading foreign key, and the drop cascades whatever
+`defer_foreign_keys` says - are kept aside and put back. No other table names the three. `ACCOUNT_VERSION` is `acct44`
+(`service.js`, `wrangler.toml`). **It deploys with the merge** (`account-deploy.yml` runs on `server-account/**`). A new
+client before the new service degrades safely: a pack listing is refused `bad-act` and the piece comes back, the crafted
+picker offers what it did with no `ways`, and the Goods view says it could not be read.
+
+**Found on the way, not changed - for Mac.** (1) Drakes for a pack piece: not built - law 3. (2) The wall on Stores
+materials keeps looted gems, herbs, metals and creature parts off the pack route too; relax it? (3) The trade hand-over
+(section 18): the realm trade could move a crafted piece's owner in its settle batch, which closes MARKET-KEEP at the
+root and the forged copy below - should a handed-on piece count as bought with gold, so it never relists for Drakes?
+(4) A pack piece lists as its whole stack; the service takes part of one, the form offers none. Also: the original
+crafter still owns the record of a piece traded away, and can list a forged copy as a crafted piece for Drakes (older
+than this batch; the hand-over closes it); Stores materials withdrawn to the pack still reach gold through a trade or a
+shop (older; the market walls them now); the four foods are not walled (their templates ride client settings; worth
+almost nothing).
+
+`test/fb1001_market.test.js` (3) and `test/fb1001_market_goods.test.js` (12), red on the code before (the goods file
+fails to load without its modules). `tools/mutants/fb1001_market.json` (64, 64 dead); the 246 market mutants of the
+arcs before (prof5, prof5b, audit30, audit31, goldmarket and others) re-run - 236 dead, 9 equivalent as recorded, and
+audit30's U2, which did not parse on the base either, re-aimed and dead. PIN MOVED: AUDIT 31 H1 at `market-listed`, the
+market's views, the gold wiring's pattern, eight `acct43` pins; mutant records re-aimed by content (audit30 S7, U16,
+U2; gatekeys; goldmarket's one-cache; prof5's cancel-still-listed, collect-early, collect-any-character; prof5b's
+any-piece-auctioned).
