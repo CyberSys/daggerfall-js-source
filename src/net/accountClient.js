@@ -1137,6 +1137,9 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     royalPass: (key, field, watch) => post('/v1/seats/royal/pass', { key, ...(field ? { field } : {}), ...(watch ? { watch: true } : {}) }),
     claimRoyal: (receipt) => post('/v1/seats/royal/claim', { receipt }),
     // CROWN2: fealty offered (`as` 'vassal' or 'liege'), accepted, broken or withdrawn; a Pact offered or signed, broken
+    // SEAT2b: a seat's works read; a project begun (`port`: DFU names the town a port - a Harbour's ask)
+    forts: (key) => post('/v1/seats/forts', { key }),
+    fortFund: (character, key, work, rid, port = false) => post('/v1/seats/fort/fund', { character, key, work, rid, ...(port ? { port: true } : {}) }),
     fealty: (character, tag, as) => post('/v1/seats/fealty', { character, tag, as }),
     fealtyAccept: (character, tag) => post('/v1/seats/fealty/accept', { character, tag }),
     fealtyBreak: (character, tag) => post('/v1/seats/fealty/break', { character, ...(tag ? { tag } : {}) }),

@@ -21,11 +21,12 @@
 // ═════════════════════════════════════════════════════════════════════
 import { accountKind, displayName, mintId, overRate } from './accounts.js';
 import { guildActorOf } from './guilds.js';
+import { titheCapAt } from './seatForts.js';   // SEAT2b: the Market Hall's Tithe cap
 import { confirmedSeats, seatsOpenFor } from './townSeats.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import {
-  seatWeekOf, seatWeekStartMs, SEAT_WEEK_MS, seatKeyOk, seatRegionOk, titheOk, edictOk, edictForTier, edictMayFollow, bailiwickOf, bountySitePixel, overreachOf, seatUpkeep,
-  SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, TITHE_CAP, CROWN_SCALE,
+  seatWeekOf, seatWeekStartMs, SEAT_WEEK_MS, seatKeyOk, seatRegionOk, edictOk, edictForTier, edictMayFollow, bailiwickOf, bountySitePixel, overreachOf, seatUpkeep,
+  SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, CROWN_SCALE,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -65,14 +66,15 @@ const stillSql = (rid, g) => `EXISTS (SELECT 1 FROM guild_members WHERE rowid = 
 export async function setTithe({ db, nowS }, player, env, { character, key, pct } = {}) {
   const l = await leverOf(db, player, env, character, key);
   if ('error' in l) return l;
-  if (!titheOk(l.hold.tier, pct)) return { error: 'bad-tithe' };
+  const cap = await titheCapAt(db, key, l.hold.tier, nowS);   // SEAT2b (7.5): a Market Hall's point a tier
+  if (!Number.isSafeInteger(pct) || pct < 0 || pct > cap) return { error: 'bad-tithe' };
   const week = weekAt(nowS);
   if (l.hold.tithe_week != null && Number(l.hold.tithe_week) === week) return { error: 'tithe-this-week' };
   if (await overRate({ db, nowS }, `seat-lever:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };
   const r = await db.prepare(`UPDATE town_seat_holds SET tithe = ?1, tithe_week = ?2
     WHERE key = ?3 AND guild_id = ?4 AND (tithe_week IS NULL OR tithe_week <> ?2)
-      AND ?1 <= CASE tier WHEN 'crown' THEN ${TITHE_CAP.crown} ELSE ${TITHE_CAP.palace} END AND ${stillSql(l.me.rid, '?4')}`)
-    .bind(pct, week, key, l.hold.guild_id).run();
+      AND ?1 <= ?5 AND ${stillSql(l.me.rid, '?4')}`)
+    .bind(pct, week, key, l.hold.guild_id, cap).run();
   if (!r?.meta?.changes) return { error: 'tithe-this-week' };
   return { ok: true, tithe: pct };
 }

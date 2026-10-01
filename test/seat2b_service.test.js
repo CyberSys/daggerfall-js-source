@@ -19,7 +19,7 @@ const rid = () => `fort-${String(++_rid).padStart(6, '0')}`;
 async function stood(t) {
   let now = T0;
   t.mock.method(Date, 'now', () => now * 1000);
-  const svc = await standService({ SEATS_OPEN: 'on', MARKS_OPEN: 'on', PROFESSIONS_OPEN: 'on' });
+  const svc = await standService({ SEATS_OPEN: 'on', MARKS_OPEN: 'on', PROFESSIONS_OPEN: 'on', BOARD_OPEN: 'on' });
   const raw = svc.env.DB._raw;
   const witnesses = [await svc.guest(), await svc.guest(), await svc.guest()];
   for (const seat of [ANTICLERE, WAYREST]) for (const w of witnesses) raw.prepare("INSERT INTO world_witness (kind, key, account, report, region, at) VALUES ('seat', ?, ?, ?, ?, ?)").run(String(seat.key), w.id, seatReportText(seat), seat.region, T0 - DAY);
@@ -176,4 +176,25 @@ test('SEAT2b SEAT WRITS: the holder posts a writ for its seat - delivered, its u
   assert.equal(b.ok, true, JSON.stringify(b));
   assert.deepEqual(s.raw.prepare('SELECT week, key, guild_id, material, qty FROM town_seat_camps').all().map((r) => [r.week, r.key, r.guild_id, r.material, r.qty]),
     [[W, ANTICLERE.key, eo.gid, 'plank:oak', 60]], 'the Oath\'s camp this week');
+});
+
+test('SEAT2b THE MARKET HALL: the holder\'s Tithe may stand a point higher a tier; an account listing at a board in its town may hold a quarter more listings a tier - not at another town\'s board (mutants: the cap\'s point; the town\'s board; the quarter)', async (t) => {
+  const s = await stood(t);
+  const sh = await s.guild('Gamal', 'The Silver Hand', 'SH');
+  s.hold(ANTICLERE, sh.gid);
+  const tithe = (pct) => s.svc.call('/v1/seats/tithe', { character: sh.gm.character, key: ANTICLERE.key, pct }, sh.gm.secret);
+  assert.equal((await tithe(11)).body.error, 'bad-tithe', 'a palace\'s ten');
+  s.raw.prepare("INSERT INTO town_seat_forts (key, work, tier, at) VALUES (?, 'market', 1, ?)").run(ANTICLERE.key, T0);
+  assert.equal((await tithe(12)).body.error, 'bad-tithe');
+  assert.deepEqual((await tithe(11)).body, { ok: true, tithe: 11 });
+  const seller = await s.svc.registered('Selma');
+  s.raw.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty) VALUES (?, ?, 'ore:mithril', 'own', 4000)`).run(seller.id, seller.character);
+  s.raw.prepare('INSERT INTO marks (account, balance) VALUES (?, 100000)').run(seller.id);
+  const list = async (board) => (await s.svc.call('/v1/market/list', { character: seller.character, kind: 'material', material: 'ore:mithril', region: 21, units: 1, price: 5, hubs: { 21: [402, 151] }, rid: rid(), ...(board ? { board } : {}) }, seller.secret)).body;
+  for (let i = 0; i < 30; i++) assert.equal((await list([470, 160])).ok, true, `listing ${i}`);
+  // the market's own window: posts an hour - so the clock moves on between batches
+  s.at(T0 + 3 * 3600);
+  assert.equal((await list([470, 160])).error, 'market-listings-max', 'another town\'s board: thirty');
+  for (let i = 0; i < 7; i++) assert.equal((await list([402, 151])).ok, true, `Anticlere's board, listing ${31 + i}`);
+  assert.equal((await list([402, 151])).error, 'market-listings-max', 'thirty-seven at a tier-1 Market Hall');
 });

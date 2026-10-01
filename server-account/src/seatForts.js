@@ -22,11 +22,13 @@
 // ═══════════════════════════════════════════════════════════════════
 import { accountKind, overRate } from './accounts.js';
 import { guildActorOf } from './guilds.js';
-import { seatsOpenFor } from './townSeats.js';
+import { seatsOpenFor, confirmedSeats } from './townSeats.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { seatWeekOf, seatKeyOk, SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR } from '../../src/net/townSeatLaw.js';
-import { FORT_WORKS, fortWork, fortMaxTier, fortMayRaise, fortNeeds, fortStandsAt, fortWanting } from '../../src/net/fortLaw.js';
+import { FORT_WORKS, fortWork, fortMaxTier, fortMayRaise, fortNeeds, fortStandsAt, fortWanting, marketHallListings, marketHallTitheCap } from '../../src/net/fortLaw.js';
+import { MARKET_LISTINGS_MAX } from '../../src/net/marketLaw.js';
+import { TITHE_CAP } from '../../src/net/townSeatLaw.js';
 import { specsAt } from '../../src/net/professionLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -218,3 +220,21 @@ export function fortsCapturedStatements(db, key, { fortifier = false } = {}) {
 }
 /** A Season's end (9.1): every seat's works a tier down; a building project keeps building. */
 export const fortsSeasonStatements = (db) => [db.prepare('UPDATE town_seat_forts SET tier = MAX(0, tier - 1) WHERE tier > 0')];
+
+// ─── THE MARKET HALL (7.5: "the town's boards list 25% more; the Tithe's cap +1%") ───
+
+/** A seat's Market Hall tier, or nought. */
+const marketTierOf = async (db, key, nowS) => (await fortTiersOf(db, key, nowS)).market ?? 0;
+/**
+ * THE OPEN LISTINGS an account may hold, listing at the board at map pixel `board` (`[x, y]`, or null): the market's
+ * MARKET_LISTINGS_MAX, a quarter more a tier where the board stands in a seat town with a Market Hall. DECIDED: the
+ * board's town, not its bailiwick - "the town's boards".
+ */
+export async function listingsCapAt(db, nowS, board) {
+  if (!Array.isArray(board)) return MARKET_LISTINGS_MAX;
+  if (!(await db.prepare("SELECT 1 FROM town_seat_forts WHERE work = 'market' AND tier > 0 LIMIT 1").first())) return MARKET_LISTINGS_MAX;
+  const seat = [...(await confirmedSeats(db, nowS)).values()].find((x) => x.pixel?.[0] === board[0] && x.pixel?.[1] === board[1]);
+  return seat ? marketHallListings(MARKET_LISTINGS_MAX, await marketTierOf(db, seat.key, nowS)) : MARKET_LISTINGS_MAX;
+}
+/** A held seat's Tithe cap: its tier's, a point more a Market Hall tier. */
+export const titheCapAt = async (db, key, tier, nowS) => marketHallTitheCap(TITHE_CAP[tier] ?? 0, await marketTierOf(db, key, nowS));

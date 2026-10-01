@@ -54,6 +54,7 @@ import { canModerate } from './titles.js';
 import { marksOpenFor, balanceOf } from './marks.js';
 import { boardOpenFor } from './board.js';
 import { titheAt } from './seatHolding.js';   // SEAT1d: the bailiwick's Tithe
+import { listingsCapAt } from './seatForts.js';   // SEAT2b: a Market Hall's listings
 import { titheOf } from '../../src/net/townSeatLaw.js';
 import { tideNow } from './tides.js';   // SEASON1 part two: a Bandit Summer's couriers (9.3)
 import { tideCourier } from '../../src/net/tideLaw.js';
@@ -697,6 +698,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   if (!currencyOk(currency)) return { error: 'bad-act' };
   if (currency === 'gold' && !REALM_ID_RE.test(character)) return { error: 'market-gold-realm' };   // GOLD-MARKET: gold is a realm record's
   const gold = currency === 'gold';
+  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // SEAT2b (7.5): a Market Hall's town lists a quarter more a tier
   const other = gold ? 'gold' : 'bought';   // GOLD-MARKET: the listing's second origin - bought in its own currency
   if (kind === 'material') {
     if (!material(key)) return { error: 'bad-material' };
@@ -740,7 +742,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
             -- AUDIT 30 S6: not while it stands in a home
             AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?7)))
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?14 || ':fee')`)
-      .bind(me, character, id, region, kind, key, provenance, units, price, wear, fee, nowS, nowS + MARKET_LISTING_S, rid, nonce, MARKET_LISTINGS_MAX, currency, other),
+      .bind(me, character, id, region, kind, key, provenance, units, price, wear, fee, nowS, nowS + MARKET_LISTING_S, rid, nonce, listingsMax, currency, other),
     // a material's units out of the Stores, bought first - GOLD-MARKET: a gold listing's gold's first, then its own
     ...(kind === 'material' ? (gold
       ? spendOrigins(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: mine, binds: [key, units, rid, nonce], order: ['gold', 'own'] })
@@ -763,7 +765,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   if (await spent(db, me, rid, ':fee')) return { error: 'prof-rid' };
   if (!gold && (await balanceOf(db, me)) < fee) return { error: 'marks-short' };
   const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  if (Number(open?.n ?? 0) >= listingsMax) return { error: 'market-listings-max' };
   if (kind === 'material') {
     // GOLD-MARKET: short only of units the other currency bought - the wall's own word
     const st = await storeOf(db, me, character, key);
@@ -1443,6 +1445,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
   if (!regionOk(region)) return { error: 'bad-region' };
   if (!provenanceOk(provenance)) return { error: 'bad-provenance' };
   if (!wearOk(wear)) return { error: 'bad-wear' };
+  const auctionsMax = await listingsCapAt(db, nowS, boardOf(board));   // SEAT2b (7.5): a Market Hall's town lists a quarter more a tier
   if (!priceOk(opening)) return { error: 'bad-price' };
   const made = await db.prepare('SELECT recipe, quality FROM products WHERE provenance = ?1').bind(provenance).first();
   if (made && !pieceListable(made.recipe)) return { error: 'market-not-listable' };
@@ -1467,7 +1470,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
         AND NOT EXISTS (SELECT 1 FROM market_deliveries WHERE provenance = ?5 AND collected = 0)
         AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?5)
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?11 || ':afee')`)
-      .bind(me, character, id, region, provenance, wear, opening, fee, nowS, nowS + AUCTION_S, rid, nonce, MARKET_LISTINGS_MAX, MASTERWORK),
+      .bind(me, character, id, region, provenance, wear, opening, fee, nowS, nowS + AUCTION_S, rid, nonce, auctionsMax, MASTERWORK),
     db.prepare(`UPDATE products SET listed = 1 WHERE provenance = ?4 AND ${posted}`).bind(me, rid, nonce, provenance),
     // SEAT1d: the board it was posted at - its Tithe's seat
     ...(boardOf(board) ? [db.prepare('UPDATE market_auctions SET board_x = ?4, board_y = ?5 WHERE seller = ?1 AND rid = ?2 AND n = ?3')
@@ -1484,7 +1487,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
   if (await spent(db, me, rid, ':afee')) return { error: 'prof-rid' };
   if ((await balanceOf(db, me)) < fee) return { error: 'marks-short' };
   const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  if (Number(open?.n ?? 0) >= auctionsMax) return { error: 'market-listings-max' };
   const p = await db.prepare('SELECT owner, listed, quality, bought_with FROM products WHERE provenance = ?1').bind(provenance).first();
   if (!p) return { error: 'market-no-record' };   // AUDIT 31 H1: no record at all - never "another owner's"
   if (p.owner !== me) return { error: 'market-not-yours' };
