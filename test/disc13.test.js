@@ -158,7 +158,7 @@ test('DISC13-A: the Light spell\'s candle hangs off the render feet the host han
   // with the view before the climb's feel, `aim`; CLIMB6: the climb's snapshot and that aim ride after the feet)
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) assert.match(rd(f), /magic\.update\(dt, player\.pos, _mfwd, player\.height, player\.feetAt\(\)\);/, f);
   assert.match(rd('src/scenes/worldModes.js'), /magic\.update\(dt, player\.pos, eyeDir\(\), player\.height, player\.feetAt\(\)\);/);
-  assert.match(rd('src/scenes/dungeonContext.js'), /magic\.update\(dt, playerFeet, \[-aim\[2\], -aim\[6\], -aim\[10\]\], playerHeight, playerRenderFeet\);/);
+  assert.match(rd('src/scenes/dungeonContext.js'), /magic\.update\(dt, playerFeet, \[-aimed\[2\], -aimed\[6\], -aimed\[10\]\], playerHeight, playerRenderFeet\);/);
   for (const f of ['src/scenes/dungeon.js', 'src/scenes/worldModes.js']) assert.match(rd(f), /drawFoes\(dt, canvas[^\n]*!!player\.crouching, player\.feetAt\(\), climbRigInput\(player, cam\.yaw\), aimView\);/, f);
 });
 

@@ -571,8 +571,8 @@
   {
     "name": "F10-the-dungeon-aims-with-the-felt-view",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const aim = aimView ?? view;",
-    "new": "    const aim = view;",
+    "old": "    const aimed = aimView ?? view;",
+    "new": "    const aimed = view;",
     "tests": [
       "test/auditclimbarc.test.js"
     ]
@@ -598,7 +598,7 @@
   {
     "name": "F10-the-blow-aimed-with-the-felt-view",
     "file": "src/scenes/dungeonContext.js",
-    "old": "resolvePlayerHit(eye, inView, playerFeet, [-aim[2], -aim[6], -aim[10]]);",
+    "old": "resolvePlayerHit(eye, inView, playerFeet, [-aimed[2], -aimed[6], -aimed[10]]);",
     "new": "resolvePlayerHit(eye, inView, playerFeet, [-view[2], -view[6], -view[10]]);",
     "tests": [
       "test/auditclimbarc.test.js"

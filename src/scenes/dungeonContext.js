@@ -3789,8 +3789,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24365,
-              // exterior.js:5384 and worldModes.js:8509 already ran;
+              // playerArrowHitFoe is the one copy world.js:24361,
+              // exterior.js:5381 and worldModes.js:8506 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -5973,7 +5973,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (_staleChunkNotice) { _staleChunkNotice = false; setMidScreenText(STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS); }
     // AUDIT CLIMB-ARC F10: what the player AIMS with - the look, the ears, the spell's line, the blow's, the activation's -
     // is the view before the climb's feel laid its pitch and roll on the picture (the world and exterior hosts read cam)
-    const aim = aimView ?? view;
+    const aimed = aimView ?? view;
     _ecvT += dt;
     respawnSweep(_ecvT);   // WORLD8: the hour's respawn, once a second
     const ecvOn = combatVisualsOn();   // ECV1: once per frame
@@ -5984,10 +5984,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // most of what a first-person arm does.
     _fpEye = eye;
     _fpFeet = playerFeet;   // HT1
-    _fpYaw = Math.atan2(-aim[2], -aim[10]);
+    _fpYaw = Math.atan2(-aimed[2], -aimed[10]);
     // The view matrix's third row is the camera's BACKWARD axis, so the
     // look direction is its negation and the pitch is that vector's y.
-    _fpPitch = Math.asin(Math.max(-1, Math.min(1, -aim[6])));
+    _fpPitch = Math.asin(Math.max(-1, Math.min(1, -aimed[6])));
     // MW-D15 / rule 32(a): the same latch, for the same reason - the arm
     // must see the stance the player is in THIS frame.
     _fpSneaking = !!playerSneaking;
@@ -6060,7 +6060,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // holding anyway.)
     worldHoverFrame({
       eye,
-      dir: eye ? [-aim[2], -aim[6], -aim[10]] : null,
+      dir: eye ? [-aimed[2], -aimed[6], -aimed[10]] : null,
       // the SAME list the press races - one seam, so the plaque cannot
       // name what the button ignores...
       // WORLD-HOVER H2: ...and the LIVE BODIES beside it, which are in
@@ -6071,7 +6071,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // So it is raced here, through the one precedence `raceWinner`
       // spells, where the list wins a tie as the strict `<` does.
       pick: () => {
-        const d = eye ? [-aim[2], -aim[6], -aim[10]] : null;
+        const d = eye ? [-aimed[2], -aimed[6], -aimed[10]] : null;
         if (!d) return null;
         return raceWinner({
           ground: pickActivatableHit(eye, d, api.dungeonActivationTargets(), collider),
@@ -6134,7 +6134,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         inCastle: castleBlockAt(playerFeet[0], playerFeet[2]),
       });
     }
-    magic.firePending(eye, [-aim[2], -aim[6], -aim[10]]);   // classic: the readied spell fires on the click
+    magic.firePending(eye, [-aimed[2], -aimed[6], -aimed[10]]);   // classic: the readied spell fires on the click
     // P13: the shared stealth senses context (EnemySenses' player-
     // side reads). S21: all three illusion branches are LIVE -
     // invisible always blocks (the 13 seers exempt), blending 8%
@@ -6216,7 +6216,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // the engine hangs the Light effect's magic candle 1.4 units in
     // FRONT of the player, and `-view[2..10]` is the same forward the
     // cast above fires down.
-    magic.update(dt, playerFeet, [-aim[2], -aim[6], -aim[10]], playerHeight, playerRenderFeet);   // M3: player spell missiles fly in the engine; DISC13-A the candle off the render feet
+    magic.update(dt, playerFeet, [-aimed[2], -aimed[6], -aimed[10]], playerHeight, playerRenderFeet);   // M3: player spell missiles fly in the engine; DISC13-A the candle off the render feet
     { const mv = lycanthropeMoveSound(playerEntity, dt); if (mv != null) audio.playOneShot(mv, 1); }   // LM1: the beast's own noise while transformed (real time)
     // S19: WeaponManager's paralysis gate - weapons hide and the
     // machine holds while paralyzed (casting is NOT gated, verbatim:
@@ -6233,7 +6233,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const ny = (pv[1] * x + pv[5] * y + pv[9] * z + pv[13]) / w;
         return nx >= -1 && nx <= 1 && ny >= -1 && ny <= 1;
       };
-      audio.setListener(eye, [-aim[2], -aim[6], -aim[10]]);   // A1: the camera is the ears
+      audio.setListener(eye, [-aimed[2], -aimed[6], -aimed[10]]);   // A1: the camera is the ears
       // A2 ambient pass. Torches: LoopIfPlayerNear - the looping
       // Burning source exists only while the player is within 5
       // (linear rolloff, volume 0.7); out of range it stops and
@@ -6264,7 +6264,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           // Combat bows: the strike frame LOOSES an arrow along the
           // look instead of the melee arc (WeaponManager verbatim
           // shape).
-          const lookDir = [-aim[2], -aim[6], -aim[10]];   // the view-matrix forward this file already uses for the viewmodel
+          const lookDir = [-aimed[2], -aimed[6], -aimed[10]];   // the view-matrix forward this file already uses for the viewmodel
           // one round per loose, verbatim (the ammo guard normally
           // pre-sheathes at zero). WHICH round is the weapon's answer:
           // a bow spends an Arrow, the Thunderlock a Dwemer Pellet.
@@ -6278,7 +6278,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           tallySwingSkills(playerEntity, playerWeapon.weapon);
           continue;
         }
-        const hitEnemy = resolvePlayerHit(eye, inView, playerFeet, [-aim[2], -aim[6], -aim[10]]);
+        const hitEnemy = resolvePlayerHit(eye, inView, playerFeet, [-aimed[2], -aimed[6], -aimed[10]]);
         // "// Fatigue loss" - unconditional, then the tally arm only
         // when the swing connected. swingWeaponFatigueLoss (11) was
         // ported as a constant and applied by nobody, and
