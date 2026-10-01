@@ -1085,3 +1085,39 @@ FOUND, not changed: a boulder on a settlement's ground still stands (glowing, on
 worked - its prompt now says why; standing none there needs the location's rect and type on the pixel. A pixel's
 boulders are 1 a day in the woods, 2 in the mountain woods, 3 in the mountains and deserts, none in swamps and
 rainforest (PROF0 6) - design, unchanged.
+
+## The rest of the life skills' audit (Mac: "Fix the rest")
+
+**BOULDERS and ROCK-SHARE.** With ROCK-FOOT a field's boulders stood, but a field holds few pieces with an open side,
+and one node a piece: on the shipped layouts (the stand-in meshes) raising the day's boulders alone stood two to two and
+a half a field a day whatever was asked, and took the veins' rocks - the veins at a rock fell from about 57% to 20% in the
+woods, 2 to 9% in the mountains. A piece now holds a node on each of its sides, every node at the field NODE_SPACING_M
+(6 m) from the next (`scenes/mineHost.js` claim), and the day's boulders are raised (`src/net/nodeLaw.js` NODE_COUNTS -
+the service's slot bound, so **acct47**): the Woodlands, the Haunted Woodlands and the Subtropical 3 (were 1), the
+Mountain Woods 4 (2), the Mountain and both Deserts 5 (3). The Swamp and the Rainforest keep none: their Court writs would
+start asking Rough Stone (PROF2's pin, "no boulders in a Swamp"). Measured over the same layouts: 93 to 98% of the day's
+boulders stand, and 93 to 98% of the veins at a rock. Deploy the account service (acct47) with or before the client: an
+older service refuses a boulder past its old count (`bad-node`).
+
+**SETTLE-STAND.** SETTLE-SAID made a ground node on a settlement's ground say so; it still stood there, glowing and on the
+compass, where no act could work it. The streaming world hands the gathering host the acts' own test (`settled`: the
+place's pixel's location, `isPlayerInTown` with its rect widened by a city block - Foraging's 'town', as `_musicLoc` and
+`_musicInLocationRect` answer it for the player), and the host stands no vein, boulder, herb patch or tree there
+(`scenes/gatherHost.js` stand: a kind with a `where`). SETTLE-SAID stays for the band's edge, where the player stands and
+the node does not.
+
+**CAST-LOOK.** Fishing's cast stood 0.6 m under the eye 3 m ahead whatever the look - inside the host's 12-degree cone only
+from some 23 degrees down to under one up (the audit drove the real host: a target at 0.5 degrees, none at 1). Looking out
+over the water there was no prompt, E went on to the door behind, and the net's Use told an angler in the water to
+"stand in it". The cast now stands where the look crosses 3 m ahead (`scenes/fishHost.js` castAt, held within
+CAST_RISE_M), and it yields: of the nodes in the cone, a node of the ground (an herb on the bank) is the target before it
+(`yields`, `scenes/gatherHost.js` findTarget).
+
+Pins: `test/fb1001_lifeskills.test.js` (4), `test/fb1001_rockfoot.test.js` ROCK-SHARE; `tools/mutants/fb1001_boulders.json`
+24, all dead. PIN MOVED, each by content: `prof1_law` (the counts), `prof2_law` and `prof2_service` (the Mountain's five; a
+sixth slot `bad-node`), `prof2_client` PROF2 stand (the nodes at a field 6 m apart), `fb1001_mining` VEIN-CLEAR (a stone a
+metre across over each vein's own tile, the boulders' - the veins fall back), `prof8_client` (the cast at the eye's
+height for a level look), and the nine account-version pins (acct47). Mutant records re-aimed by content, dead:
+`audit29.json` AUDIT29-C11 (its pins with the rock-foot suite), `prof2.json` PROF2-32 (the spacing at nothing).
+FOUND, not changed (the audit's "plausible"): a specialisation that changes what stands, taken mid-session, waits for
+the next state read (SEASONAL-EYE handles Herbalism 100's own); fishing from a deck may find the hull in the cast's ray.

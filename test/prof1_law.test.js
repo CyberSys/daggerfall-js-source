@@ -138,7 +138,7 @@ test('PROF1 law: how many nodes a pixel holds a day, by climate (PROF0 6); the t
   const C = mapsFile.CLIMATES;
   const row = (c) => { const n = NODE_COUNTS[c]; return [n.tree, n.herb, n.vein, n.boulder]; };
   assert.deepEqual([C.Woodlands, C.MountainWoods, C.Mountain, C.HauntedWoodlands, C.Swamp, C.Rainforest, C.Subtropical, C.Desert, C.Desert2].map(row),
-    [[6, 4, 2, 1], [5, 3, 3, 2], [2, 2, 6, 3], [4, 4, 2, 1], [3, 5, 1, 0], [6, 5, 1, 0], [4, 4, 2, 1], [0, 3, 5, 3], [0, 3, 5, 3]]);
+    [[6, 4, 2, 3], [5, 3, 3, 4], [2, 2, 6, 5], [4, 4, 2, 3], [3, 5, 1, 0], [6, 5, 1, 0], [4, 4, 2, 3], [0, 3, 5, 5], [0, 3, 5, 5]]);   // PIN MOVED (BOULDERS, acct47): the boulders 1/2/3 -> 3/4/5, the Swamp and the Rainforest none still
   assert.equal(NODE_COUNTS[C.Ocean], undefined);
   assert.deepEqual(NODE_TIER_WEIGHTS, [40, 25, 15, 10, 6, 4]);
   assert.deepEqual([0, 0.4999, 0.5, 0.8124, 0.8125, 0.9999].map((u) => drawTier(u, 3)), [1, 1, 2, 2, 3, 3], 'herbs: 40 : 25 : 15 renormalised (8 : 5 : 3)');

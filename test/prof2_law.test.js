@@ -145,10 +145,11 @@ test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, D
 
 test('PROF2 law: the boulders - the climate\'s count a day, tier 1, Rough Stone; the dungeon veins 1-4 a day, tiers 3-6, a dungeon\'s own id', () => {
   const b = boulders({ x: 300, y: 200, day: DAY, climate: C.Mountain });
-  assert.equal(b.length, 3);
+  assert.equal(b.length, 5, 'PIN MOVED (BOULDERS, acct47): the Mountain\'s five');
   assert.ok(b.every((n) => n.tier === 1 && n.material === 'stone:rough' && n.u >= 0.04 && n.u <= 0.96));
   assert.deepEqual(boulders({ x: 300, y: 200, day: DAY, climate: C.Swamp }), [], 'the Swamp has none');
-  assert.equal(boulder({ x: 300, y: 200, day: DAY, slot: 3, climate: C.Mountain }), null);
+  assert.ok(boulder({ x: 300, y: 200, day: DAY, slot: 4, climate: C.Mountain }));
+  assert.equal(boulder({ x: 300, y: 200, day: DAY, slot: 5, climate: C.Mountain }), null);
   const counts = new Set(), tiers = new Set(), mats = new Set();
   for (let id = 1; id < 400; id++) {
     const n = dungeonVeinCount(id, DAY);

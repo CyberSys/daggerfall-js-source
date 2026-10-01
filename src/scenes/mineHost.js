@@ -13,7 +13,8 @@
 //   nearest its point within VEIN_STONE_REACH tiles where nature could
 //   stand; else where nature stands at its point; else nowhere. A BOULDER
 //   is a piece itself - Quarrying works a rock field's boulders (5.2) -
-//   so a pixel with fewer pieces stands fewer. A piece holds one node.
+//   so a pixel with no clear side left stands fewer. ROCK-SHARE: a piece
+//   holds a node on each side, NODE_SPACING_M apart (it held one).
 //   THE PICTURE. The material's own item flat (TEXTURE.254: the metal's
 //   own, a new ore Lodestone's), a small cluster at the foot; a boulder's
 //   loose stone Lodestone's lump - no new art (law 6).
@@ -46,6 +47,8 @@ export const STONE_FLATS = 3;
 export const STONE_SCALE = 1.8;
 /** How far off a piece's box a node's flats stand (m), and how far a vein looks for a stone tile (tiles). */
 export const ROCK_OFFSET = 0.4;
+/** ROCK-SHARE: two nodes at a rock field stand at least this far apart (m) - on one piece's different sides, or two. */
+export const NODE_SPACING_M = 6;
 export const VEIN_STONE_REACH = 24;
 /** A Prospector's compass marks the veins stood within this many metres (PROF0 3.3). */
 export const PROSPECT_M = 200;
@@ -120,16 +123,22 @@ function nearestStone(samples, tilemap, locationRect, tx, ty, reach, rocks) {
  */
 export function standMineNodes({ px, py, day, climate, region = null, confirmed = false, samples, tilemap, locationRect = null, rocks = [] }) {
   const out = [];
-  const free = [...(rocks ?? [])];
-  // ROCK-FOOT: the nearest free piece with a foot clear of every piece - the side facing (x, z) first, then its others,
+  const pieces = rocks ?? [];
+  /** ROCK-SHARE: the feet taken - a piece holds a node on each of its sides NODE_SPACING_M apart */
+  const taken = [];
+  // ROCK-FOOT: the nearest piece with a foot clear of every piece - the side facing (x, z) first, then its others,
   // nearest that way first. A piece whose one foot fell inside a neighbour was spent and nothing stood: a field's pieces
-  // overlap, so a boulder stood only where the first piece asked faced open ground
+  // overlap, so a boulder stood only where the first piece asked faced open ground. ROCK-SHARE: and clear of every node
+  // stood - a field's few open sides held one node a piece, so its boulders ran out at two or three a day
   const claim = (x, z) => {
-    const order = free.map((b, i) => ({ i, d: toBox(b, x, z) })).sort((a, b) => a.d - b.d || a.i - b.i);
+    const order = pieces.map((b, i) => ({ i, d: toBox(b, x, z) })).sort((a, b) => a.d - b.d || a.i - b.i);
     for (const { i } of order) {
-      for (const [tx, tz] of footTargets(free[i], x, z)) {
-        const foot = rockFoot(free[i], tx, tz);
-        if (!insideRocks(rocks ?? [], foot[0], foot[1])) return { rock: free.splice(i, 1)[0], foot };
+      for (const [tx, tz] of footTargets(pieces[i], x, z)) {
+        const foot = rockFoot(pieces[i], tx, tz);
+        if (insideRocks(pieces, foot[0], foot[1])) continue;
+        if (taken.some((t) => Math.hypot(t[0] - foot[0], t[1] - foot[1]) < NODE_SPACING_M)) continue;
+        taken.push(foot);
+        return { rock: pieces[i], foot };
       }
     }
     return null;

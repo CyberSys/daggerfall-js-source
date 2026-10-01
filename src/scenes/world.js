@@ -8096,7 +8096,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           } })],
         renderer, getTexture, uploadRecord, billboardSize, flatBatchAabb,
         built: () => built, pixelTranslation: (x, y, out) => state.pixelTranslation(x, y, out),
-        pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } },
+        pixelInfo: (x, y) => { try { return { climate: maps.getClimateIndex(x, y), region: maps.getRegionIndexAt(x, y) }; } catch { return null; } }, settled: (pos) => { const wc = state.worldCoords(pos), p = worldCoordToMapPixel(wc.x, wc.z), loc = locationIndex.get(`${p.x},${p.y}`); return !!loc?.exterior?.exteriorData && isPlayerInTown(loc.mapTableData?.locationType, { mustBeInLocationRect: true, mustBeOutside: true, inLocationRect: isInLocationRect(wc.x, wc.z, locationWorldRect(loc, p.x, p.y)), inside: false }); },   // SETTLE-STAND: the acts' own settlement check (Foraging's 'town'), asked of a node's place
         nowMs: () => Date.now() + _sharedOffsetMs,
         eye: () => ({ pos: cam.pos, dir: [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)] }),
         // AUDIT 29 C1: a node seen - the eye's ray to it through the place's collider (the street's, or the dungeon's own)

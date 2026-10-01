@@ -48,17 +48,18 @@ export const NODE_KINDS = Object.freeze({ tree: 1, herb: 2, vein: 3, boulder: 4,
 // ─── HOW MANY (PROF0 6) ──────────────────────────────────────────────
 
 const counts = (tree, herb, vein, boulder) => Object.freeze({ tree, herb, vein, boulder });
-/** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). */
+/** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). BOULDERS (FIELD BUGS 2026-10-01, the
+ *  service's acct47): the boulders 3 / 4 / 5 where they were 1 / 2 / 3 - a field's pieces hold one on each side now. */
 export const NODE_COUNTS = Object.freeze({
-  [CLIMATES.Woodlands]: counts(6, 4, 2, 1),
-  [CLIMATES.MountainWoods]: counts(5, 3, 3, 2),
-  [CLIMATES.Mountain]: counts(2, 2, 6, 3),
-  [CLIMATES.HauntedWoodlands]: counts(4, 4, 2, 1),
+  [CLIMATES.Woodlands]: counts(6, 4, 2, 3),
+  [CLIMATES.MountainWoods]: counts(5, 3, 3, 4),
+  [CLIMATES.Mountain]: counts(2, 2, 6, 5),
+  [CLIMATES.HauntedWoodlands]: counts(4, 4, 2, 3),
   [CLIMATES.Swamp]: counts(3, 5, 1, 0),
   [CLIMATES.Rainforest]: counts(6, 5, 1, 0),
-  [CLIMATES.Subtropical]: counts(4, 4, 2, 1),
-  [CLIMATES.Desert]: counts(0, 3, 5, 3),
-  [CLIMATES.Desert2]: counts(0, 3, 5, 3),
+  [CLIMATES.Subtropical]: counts(4, 4, 2, 3),
+  [CLIMATES.Desert]: counts(0, 3, 5, 5),
+  [CLIMATES.Desert2]: counts(0, 3, 5, 5),
 });
 /** How many nodes of `kind` a pixel of `climate` holds a day. */
 export const nodeCount = (climate, kind) => NODE_COUNTS[climate]?.[kind] ?? 0;

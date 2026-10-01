@@ -396,15 +396,17 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
 
 | Climate | Trees | Herb patches | Veins | Boulders (quarry) |
 |---|---|---|---|---|
-| Woodlands | 6 | 4 | 2 | 1 |
-| MountainWoods | 5 | 3 | 3 | 2 |
-| Mountain | 2 | 2 | 6 | 3 |
-| HauntedWoodlands | 4 | 4 | 2 | 1 |
+| Woodlands | 6 | 4 | 2 | 3 |
+| MountainWoods | 5 | 3 | 3 | 4 |
+| Mountain | 2 | 2 | 6 | 5 |
+| HauntedWoodlands | 4 | 4 | 2 | 3 |
 | Swamp | 3 | 5 | 1 | 0 |
 | Rainforest | 6 | 5 | 1 | 0 |
-| Subtropical | 4 | 4 | 2 | 1 |
-| Desert, Desert2 | 0 | 3 | 5 | 3 |
+| Subtropical | 4 | 4 | 2 | 3 |
+| Desert, Desert2 | 0 | 3 | 5 | 5 |
 | Ocean | - | - | - | - (fishing only) |
+
+BOULDERS (FIELD BUGS 2026-10-01, Mac: "Fix the rest"; the service's acct47): the boulders were 1 / 2 / 3 / 1 / 0 / 0 / 1 / 3 - a rock field stood one or two a day in the woods. The fields' pieces now hold a node on each side (ROCK-SHARE, section 23), so the counts are raised; the Swamp and the Rainforest keep none (their Court writs ask no stone).
 
 - **A node's tier** rolls on the climate's table, higher tiers rarer (tier 1: 40%, 2: 25%, 3: 15%, 4: 10%, 5: 6%,
   6: 4%); a region's signature (4.7) replaces one vein a pixel with its signature ore.
@@ -1305,7 +1307,11 @@ instruction), and what was found (FACT):
   that point) where the pixel has one; else on the terrain's stone tile (tile 3, `terrainNature.js`) nearest its point
   within 24 tiles where nature could stand; else where nature stands at its point; else nowhere. A **boulder** is a
   rock-field piece itself - Quarrying works "a rock field's boulders" (5.2) - so a pixel with no rock field, or with
-  fewer pieces than its boulder slots, stands fewer. A piece holds one node. The node's picture is its material's own
+  no clear side left, stands fewer. ROCK-FOOT (FIELD BUGS 2026-10-01): a piece is carried as it stands out of the
+  ground (`terrainNature.js` rockFootprint), never its whole mesh's box; a node takes the nearest piece with a foot clear
+  of every piece, the side facing its point first, then its others; the boulders claim before the veins. ROCK-SHARE: a
+  piece holds a node on each of its sides, every node at the field NODE_SPACING_M (6 m) from the next (it held one
+  node, and a field's few open sides ran out at two or three). The node's picture is its material's own
   item flat (TEXTURE.254, the metal's own, a new ore Lodestone's; a boulder's loose stone Lodestone's), a small
   cluster at the piece's foot, as PROF1's patches are the herb's own flat (law 6).
 - **The dungeon veins** (section 6): `1 + hash % 4` a dungeon a UTC day, a dungeon named by DFU's own identity

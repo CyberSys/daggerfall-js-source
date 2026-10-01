@@ -282,8 +282,8 @@
   {
     "name": "PROF2-32-a-piece-holds-two",
     "file": "src/scenes/mineHost.js",
-    "old": "return { rock: free.splice(i, 1)[0], foot };",
-    "new": "return { rock: free[i], foot };",
+    "old": "export const NODE_SPACING_M = 6;",
+    "new": "export const NODE_SPACING_M = 0;",
     "tests": [
       "test/prof2_client.test.js"
     ]

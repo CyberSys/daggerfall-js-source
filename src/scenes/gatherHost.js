@@ -154,8 +154,9 @@ export function aimAt(eyePos, at, view) {
  * @property {(dt: number, ctx: { feet: number[], translation: (entry: any) => number[]|null }) => void} [frame] PROF4: every frame
  * @property {(entry: any) => void} [dropped] PROF4: a pixel torn down
  * @property {(ctx: { entity: any, dungeon: boolean }) => any[]} [looseNodesOf] PROF7: nodes that carry their own place -
- *   `{ key, at: () => number[]|null, lift?, reach? }`, `at` the node's scene place now (Hunting's bodies), above ground
- *   or below; the start's `ask` rides the harvest (the body's foe)
+ *   `{ key, at: () => number[]|null, lift?, reach?, yields? }`, `at` the node's scene place now (Hunting's bodies), above
+ *   ground or below; the start's `ask` rides the harvest (the body's foe). `yields` - CAST-LOOK: a node that stands
+ *   wherever the look is (Fishing's cast) is the target only when no other node in the cone is seen
  * @property {() => { n: number, cap: number }} [tally] PROF7: the day's count the chip says, where it is not the
  *   character's harvests against 60 (Hunting's: the account's hides against 30)
  * @property {(data: any) => string} [storesLine] PROF8: the goods' one line in the kind's own words (a haul's species)
@@ -182,8 +183,11 @@ export function aimAt(eyePos, at, view) {
  *   feet: () => number[], entity: () => any, keyLabel: (a: string) => string,
  *   input: () => ({ held: boolean, attack: boolean, choice: boolean }), active: () => boolean,
  *   activeDungeon?: () => boolean, onSettle?: () => void, clear?: (from: number[], to: number[], underground: boolean) => boolean,
+ *   settled?: (pos: number[]) => boolean,
  * }} deps `active` - the streaming world's exterior, walking, nothing over it (the host's); `activeDungeon` - a dungeon
- *   entered, walking, nothing over it; `nowMs` the shared clock
+ *   entered, walking, nothing over it; `nowMs` the shared clock; `settled` - SETTLE-STAND: whether a scene place is on a
+ *   settlement's ground as the acts' check reads it (FORAGE0 14.3: the place's pixel's town, farm, temple, tavern or
+ *   wealthy home, its footprint and a block round it), where no node of the ground (a kind with a `where`) stands
  */
 export function createGatherHost(deps) {
   const { book, hud, kinds } = deps;
@@ -241,6 +245,12 @@ export function createGatherHost(deps) {
     if (confirmed && (fact.climate !== info.climate || fact.region !== info.region)) { bare(); return; }
     const ctx = { entry, px: entry.px, py: entry.py, day, info, confirmed, specs, book };
     rec.nodes = kinds.flatMap((k) => k.nodesOf(ctx).map((n) => ({ ...n, kind: k.id })));
+    // SETTLE-STAND (FIELD BUGS 2026-10-01): a node of the ground on a settlement's ground is never worked there - its act
+    // refuses it, and SETTLE-SAID's prompt said why - so it stands nowhere: no picture, no glow, no compass mark
+    if (deps.settled) {
+      const tr = deps.pixelTranslation(entry.px, entry.py, _t);
+      rec.nodes = rec.nodes.filter((n) => !kindOf(n)?.where || !deps.settled([n.local[0] + tr[0], n.local[1] + tr[1], n.local[2] + tr[2]]));
+    }
     for (const k of kinds) k.stood?.(entry, rec.nodes.filter((n) => n.kind === k.id));   // PROF4: the felled trees sunk
     /** archive -> `${record}:${scale}` -> centres */
     const groups = new Map();
@@ -324,7 +334,7 @@ export function createGatherHost(deps) {
   function findTarget(own = kinds) {
     const { pos, dir } = deps.eye();
     const dl = Math.hypot(dir[0], dir[1], dir[2]) || 1;
-    /** @type {Array<{ ang: number, at: number[], best: any }>} */
+    /** @type {Array<{ ang: number, yields: boolean, at: number[], best: any }>} */
     const seen = [];
     const reachBox = NODE_REACH + 1;
     // PROF2: underground the dungeon's nodes, in its own space; above ground the streamed pixels'
@@ -366,13 +376,13 @@ export function createGatherHost(deps) {
         const ang = Math.acos(Math.max(-1, Math.min(1, cos))) * (180 / Math.PI);
         if (ang < NODE_AIM_DEG) {
           // the node's bearing below the eye (AUDIT 32 H7: a body under the player's feet asks them to step back)
-          seen.push({ ang, at: [w[0], pos[1] + up, w[2]], best: { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: s.loose ? under : !s.entry, loose: !!s.loose, info: s.info, world: w, pitch: Math.atan2(dy, Math.hypot(dx, dz)) * (180 / Math.PI) } });
+          seen.push({ ang, yields: n.yields === true, at: [w[0], pos[1] + up, w[2]], best: { node: n, px: s.entry?.px ?? null, py: s.entry?.py ?? null, dungeon: s.loose ? under : !s.entry, loose: !!s.loose, info: s.info, world: w, pitch: Math.atan2(dy, Math.hypot(dx, dz)) * (180 / Math.PI) } });
         }
       }
     }
     // AUDIT 29 C1: and seen - a ray to the node through the place's collider (a vein through a dungeon's wall, a patch
     // behind a rock, is no target); NODE-AIM: nearest the look first, and the first seen is the one
-    seen.sort((a, b) => a.ang - b.ang);
+    seen.sort((a, b) => Number(a.yields) - Number(b.yields) || a.ang - b.ang);   // CAST-LOOK: a node the look itself stands last
     for (const c of seen) if (!deps.clear || deps.clear(pos, c.at, c.best.dungeon)) return c.best;
     return null;
   }

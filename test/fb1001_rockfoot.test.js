@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 
 import { rockFootprint, groundAt, insideRocks } from '../src/world/terrainNature.js';
-import { standMineNodes, ROCK_OFFSET } from '../src/scenes/mineHost.js';
+import { standMineNodes, ROCK_OFFSET, NODE_SPACING_M } from '../src/scenes/mineHost.js';
 import { boulders, veins, nodeCount } from '../src/net/nodeLaw.js';
 import { objectMatrix } from '../src/world/wodLocationObjects.js';
 import { loadLocationPrefab } from '../src/world/wodLocationData.js';
@@ -67,39 +67,55 @@ test('ROCK-FOOT rockFootprint: a piece as it stands out of the ground - a sunk r
 
 test('ROCK-FOOT standMineNodes: a boulder whose piece faces into a neighbour stands on its open side; a piece shut on every side passes it to the next (mutants: one piece asked; one side asked)', () => {
   const law = boulders({ x: PX, y: PY, day: DAY, climate: WOODS });
-  assert.equal(law.length, 1, 'the Woodlands\' one boulder');
+  assert.equal(law.length, 3, 'the Woodlands\' three (BOULDERS)');
   const bx = law[0].u * TERRAIN_SIZE, bz = law[0].v * TERRAIN_SIZE;
+  const first = (rocks) => standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: grass, rocks }).find((n) => n.what === 'boulder' && n.slot === 0);
   // its point on a piece's west end, and a neighbour over that end and the point (the field's pieces overlap): the
   // foot facing the point is inside the neighbour - the piece's north side is open
   const p = [bx - 1, G, bz - 1, bx + 5, G + 4, bz + 1];
   const w = [bx - 10, G, bz - 10, bx + 0.5, G + 6, bz + 10];
-  const one = standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: grass, rocks: [p, w] }).filter((n) => n.what === 'boulder');
-  assert.equal(one.length, 1, 'it stands');
-  assert.deepEqual(one[0].rock, p, 'at its own piece');
-  assert.ok(near(one[0].local[0], bx + 2) && near(one[0].local[2], bz + 1 + ROCK_OFFSET), `on its open north side (${one[0].local[0] - bx}, ${one[0].local[2] - bz})`);
-  assert.equal(insideRocks([p, w], one[0].local[0], one[0].local[2]), false, 'clear of every piece');
+  const one = first([p, w]);
+  assert.ok(one, 'it stands');
+  assert.deepEqual(one.rock, p, 'at its own piece');
+  assert.ok(near(one.local[0], bx + 2) && near(one.local[2], bz + 1 + ROCK_OFFSET), `on its open north side (${one.local[0] - bx}, ${one.local[2] - bz})`);
+  assert.equal(insideRocks([p, w], one.local[0], one.local[2]), false, 'clear of every piece');
   // a piece wholly inside another, both over the point: its every foot is inside - the other is asked
   const a = [bx - 1, G, bz - 1, bx + 1, G + 3, bz + 1];
   const b = [bx - 20, G, bz - 20, bx + 20, G + 8, bz + 20];
-  const next = standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: grass, rocks: [a, b] }).filter((n) => n.what === 'boulder');
-  assert.equal(next.length, 1, 'still it stands');
-  assert.deepEqual(next[0].rock, b, 'at the piece round it');
-  assert.equal(insideRocks([a, b], next[0].local[0], next[0].local[2]), false);
+  const next = first([a, b]);
+  assert.ok(next, 'still it stands');
+  assert.deepEqual(next.rock, b, 'at the piece round it');
+  assert.equal(insideRocks([a, b], next.local[0], next.local[2]), false);
 });
 
-test('ROCK-FOOT: the boulders claim before the veins - a field\'s one piece is the boulder\'s, and the veins stand on the stone beside it', () => {
+test('ROCK-SHARE: a piece holds a node on each of its sides NODE_SPACING_M apart - the boulders first; a stone too small for two holds one, and the veins stand on the stone beside it (mutants: the spacing unasked; the boulders after the veins in the list)', () => {
   const law = veins({ x: PX, y: PY, day: DAY, climate: WOODS, region: GLENUMBRA });
   const b = boulders({ x: PX, y: PY, day: DAY, climate: WOODS })[0];
   const x = b.u * TERRAIN_SIZE, z = b.v * TERRAIN_SIZE;
-  const rocks = [[x - 3, G, z - 3, x + 3, G + 4, z + 3]];
   const stone = new Uint8Array(128 * 128).fill(3);
-  const nodes = standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: stone, rocks });
-  const bs = nodes.filter((n) => n.what === 'boulder'), vs = nodes.filter((n) => n.what === 'vein');
-  assert.equal(bs.length, 1, 'the boulder stands - the first vein took its piece before');
-  assert.deepEqual(bs[0].rock, rocks[0]);
+  const stand = (rocks) => standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: stone, rocks });
+  const apart = (nodes) => {
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const d = Math.hypot(nodes[i].local[0] - nodes[j].local[0], nodes[i].local[2] - nodes[j].local[2]);
+      assert.ok(d >= NODE_SPACING_M - 1e-9, `${nodes[i].key} and ${nodes[j].key} ${d.toFixed(2)} m apart`);
+    }
+  };
+  // a field's one great piece, sixty metres across: every boulder and every vein at its foot, each on its own side
+  const hill = [[x - 30, G, z - 30, x + 30, G + 9, z + 30]];
+  const all = stand(hill);
+  assert.equal(all.filter((n) => n.what === 'boulder').length, 3, 'the three boulders');
+  assert.equal(all.filter((n) => n.what === 'vein').length, law.length, 'and the veins');
+  assert.ok(all.every((n) => n.rock === hill[0] && !insideRocks(hill, n.local[0], n.local[2])), 'all at the piece, outside it');
+  apart(all);
+  // one stone a metre across: one node - the first boulder's; the rest of the boulders none, the veins on the stone
+  const pebble = [[x - 0.5, G, z - 0.5, x + 0.5, G + 1, z + 0.5]];
+  const few = stand(pebble);
+  const bs = few.filter((n) => n.what === 'boulder'), vs = few.filter((n) => n.what === 'vein');
+  assert.deepEqual(bs.map((n) => [n.slot, n.rock]), [[0, pebble[0]]], 'the first boulder claims it - before the veins');
   assert.equal(vs.length, law.length, 'every vein stands');
-  assert.ok(vs.every((n) => n.rock === null && !insideRocks(rocks, n.local[0], n.local[2])), 'on the stone, outside the rock');
-  assert.deepEqual(nodes.map((n) => n.what), [...vs.map(() => 'vein'), 'boulder'], 'the list in its order, the veins first');
+  assert.ok(vs.every((n) => n.rock === null && !insideRocks(pebble, n.local[0], n.local[2])), 'on the stone, outside the rock');
+  apart(few);
+  assert.deepEqual(few.map((n) => n.what), [...vs.map(() => 'vein'), 'boulder'], 'the list in its order, the veins first');
 });
 
 test('ROCK-FOOT over the shipped rock fields: most of the law\'s boulders stand, every one at a rock that shows and outside every piece (before: under one in ten, and one in sixteen at a rock)', () => {
@@ -128,6 +144,6 @@ test('ROCK-FOOT over the shipped rock fields: most of the law\'s boulders stand,
       }
     }
     assert.equal(shut, 0, `${label}: no boulder inside a piece`);
-    assert.ok(stood / want > 0.6, `${label}: ${stood} of ${want} boulders stand`);
+    assert.ok(stood / want > 0.85, `${label}: ${stood} of ${want} boulders stand`);   // ROCK-SHARE: a field's pieces hold one on each side
   }
 });

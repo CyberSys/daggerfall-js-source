@@ -16,7 +16,7 @@ import { veins, boulders, nodeKey, utcDayOfMs, dveinKey } from '../src/net/nodeL
 import { MINE_ACT, strikesFor, glintsMax, SMELT_RECIPES, smeltRecipe } from '../src/net/professionLaw.js';
 import { createMineAct, MINE_POINTS, aimOff } from '../src/systems/mineAct.js';
 import {
-  standMineNodes, rockFoot, mineFlats, mineRecord, minePlan, pickHandFrame, standDungeonVeins, ROCK_OFFSET, VEIN_FLATS, LODESTONE_RECORD,
+  standMineNodes, rockFoot, mineFlats, mineRecord, minePlan, pickHandFrame, standDungeonVeins, ROCK_OFFSET, NODE_SPACING_M, VEIN_FLATS, LODESTONE_RECORD,
   PICK_HAND, PROSPECT_M, DUNGEON_SKIP, mineKind,
 } from '../src/scenes/mineHost.js';
 import { createGatherHost, aimAt, wrapDeg } from '../src/scenes/gatherHost.js';
@@ -106,14 +106,14 @@ test('PROF2 act: every strike on the glint is the clean finish, in the fewest st
 
 // ─── WHERE A NODE STANDS ─────────────────────────────────────────────
 
-test('PROF2 stand: a vein stands at the foot of the rock piece nearest its law point, on the side facing it; a boulder IS a piece; a piece holds one node', () => {
+test('PROF2 stand: a vein stands at the foot of the rock piece nearest its law point, on the side facing it; a boulder IS a piece; the nodes at a field NODE_SPACING_M apart (ROCK-SHARE)', () => {
   const { samples, tilemap } = flatPixel(2);
   const day = 20500;
   const law = veins({ x: 400, y: 150, day, climate: MOUNTAIN, region: WAYREST });
   // one rock piece close by every vein's point, and one about every boulder's (ROCK-FOOT: the boulders claim first)
   const rocks = law.map((v) => [v.u * TERRAIN_SIZE - 2, 0, v.v * TERRAIN_SIZE + 4, v.u * TERRAIN_SIZE + 2, 6, v.v * TERRAIN_SIZE + 8]);
   const quarry = boulders({ x: 400, y: 150, day, climate: MOUNTAIN }).map((b) => [b.u * TERRAIN_SIZE - 2, 0, b.v * TERRAIN_SIZE - 2, b.u * TERRAIN_SIZE + 2, 5, b.v * TERRAIN_SIZE + 2]);
-  assert.equal(quarry.length, 3);
+  assert.equal(quarry.length, 5, 'the Mountain\'s five (BOULDERS)');
   const nodes = standMineNodes({ px: 400, py: 150, day, climate: MOUNTAIN, region: WAYREST, samples, tilemap, rocks: [...quarry, ...rocks] });
   const vs = nodes.filter((n) => n.what === 'vein');
   assert.equal(vs.length, law.length);
@@ -128,13 +128,17 @@ test('PROF2 stand: a vein stands at the foot of the rock piece nearest its law p
   const bs = nodes.filter((n) => n.what === 'boulder');
   assert.deepEqual(bs.map((n) => n.rock), quarry, 'every boulder its own nearest piece');
   assert.ok(bs.every((n) => n.key.startsWith('boulder:400:150:') && n.lift >= 0.4 && n.lift <= 1.2));
-  // the veins' pieces alone: the boulders take three first, and three veins stand off the rock - a piece holds one node
+  // the veins' pieces alone: the boulders claim first - ROCK-SHARE: a piece holds a node on each of its sides, the nodes
+  // NODE_SPACING_M apart - and a vein with no side left stands on the ground beside the field
+  assert.equal(NODE_SPACING_M, 6);
   const only = standMineNodes({ px: 400, py: 150, day, climate: MOUNTAIN, region: WAYREST, samples, tilemap, rocks });
-  assert.equal(only.filter((n) => n.what === 'boulder').length, 3, 'the boulders claim first');
-  assert.equal(only.filter((n) => n.what === 'vein').length, law.length, 'a vein with no piece left stands on the ground beside the field');
-  const held = only.filter((n) => n.rock).map((n) => n.rock);
-  assert.equal(held.length, rocks.length, 'every piece holds a node');
-  assert.equal(new Set(held).size, held.length, 'and one node only');
+  const onlyB = only.filter((n) => n.what === 'boulder');
+  assert.ok(onlyB.length >= 1 && onlyB.every((n) => rocks.includes(n.rock)), 'the boulders at the veins\' pieces');
+  assert.equal(only.filter((n) => n.what === 'vein').length, law.length, 'every vein stands');
+  const at = only.filter((n) => n.rock);
+  for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) {
+    assert.ok(Math.hypot(at[i].local[0] - at[j].local[0], at[i].local[2] - at[j].local[2]) >= 6 - 1e-9, 'two nodes at the field never closer than NODE_SPACING_M');
+  }
   assert.deepEqual(rockFoot([0, 0, 0, 10, 5, 10], 2, 5), [-ROCK_OFFSET, 5], 'a point inside a footprint: its nearest edge');
 });
 
