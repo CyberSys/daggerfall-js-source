@@ -1066,7 +1066,10 @@ export class PlayerMotor {
     // LEVITATION FORCES IT FALSE (:144) before the sink arms read it -
     // so floating up off deep water unsinks the capsule. The port
     // carries the flag now; the model that raises it is Wave B's.
-    const onWater = !!this.onExteriorWater && !this.levitating;
+    // AUDIT CLIMB2 C2: and a body the hands hold (on the wall, or in a move they make) is out of the water - the
+    // hosts' flag reads deep water up to 2 m under the capsule's centre, and the sink arms above the hold's own sank a
+    // hang from a quay to the swimmer's 0.3 m and swallowed the Crouch that lets go
+    const onWater = !!this.onExteriorWater && !this.levitating && !this._wall && !this._pkMove;
     if (this.levitating && this.crouching) {
       // (:139-143) the crouched levitator is stood and the method
       // RETURNS - no sink arm, no crouch block.
@@ -1162,7 +1165,7 @@ export class PlayerMotor {
       //
       // The pass condition is `!Number.isFinite(dist)`, not a
       // comparison against the distance: collider.sphereCast
-      // (collider.js:1208) returns Infinity ONLY on a clear sweep and a
+      // (collider.js:1211) returns Infinity ONLY on a clear sweep and a
       // finite dist (0 on a start-overlap) for any hit, which is
       // exactly Unity's boolean. One accepted deviation: Unity's
       // SphereCast ignores colliders overlapping the START sphere, so a
@@ -1458,6 +1461,15 @@ export class PlayerMotor {
     return { touching: false, wallDir: null };
   }
 
+  /** ClimbingMotor.cs:318-320's "ground directly below too close for climbing": a ray from the capsule's centre,
+   *  height/2 + CLIMB_GROUND_NEAR down. AUDIT CLIMB2 C6: the ground is the terrain's too - Unity's ray meets the
+   *  TerrainCollider, and the collider's raycast meets meshes only, so outdoors neither climb ever found the ground
+   *  (surfaceHit answers the nearer of the two; a host's stand-in collider without it, the meshes alone). */
+  _groundNear() {
+    const o = [this.pos[0], this.pos[1] + this.height / 2, this.pos[2]], down = [0, -1, 0], d = this.height / 2 + CLIMB_GROUND_NEAR;
+    return Number.isFinite(this.collider.surfaceHit ? this.collider.surfaceHit(o, down, d).dist : this.collider.raycast(o, down, d));
+  }
+
   /** M3 CLIMBING: ClimbingCheck + the classic ClimbMovement arm
    *  (:754-764), per fixed step - DFU calls the check from the
    *  motor's own flow and early-returns while climbing (:319-326).
@@ -1482,8 +1494,7 @@ export class PlayerMotor {
       horizontalPos: [this.pos[0], this.pos[2]],
       // ":318-320: ground directly below too close for climbing" -
       // from the capsule center, height/2 + 0.12 down
-      tooCloseToGround: () => Number.isFinite(this.collider.raycast(
-        [this.pos[0], this.pos[1] + this.height / 2, this.pos[2]], [0, -1, 0], this.height / 2 + CLIMB_GROUND_NEAR)),
+      tooCloseToGround: () => this._groundNear(),
     });
     if (!climbing) return false;
     // :322-326 zeroes moveDirection before the climb/swim/levitate
@@ -1669,7 +1680,17 @@ export class PlayerMotor {
 
   /** The ledge sensor's opts for this body: the band, and the stair check. */
   _pkGeo(low = 0, high = 0, footing = false) {
-    return { low, high, radius: CAPSULE_RADIUS, stand: CAPSULE_HEIGHT, crouch: CROUCH_HEIGHT, height: this.height, footing };
+    // AUDIT CLIMB2 C2: a swimmer's way out is a whole body's - the hold or the move it takes unsinks the 0.3 m capsule
+    const height = this.sunk ? CAPSULE_HEIGHT : this.height;
+    return { low, high, radius: CAPSULE_RADIUS, stand: CAPSULE_HEIGHT, crouch: CROUCH_HEIGHT, height, footing };
+  }
+
+  /** AUDIT CLIMB2 C2: the hands take the body out of the water - a sunk swimmer is stood whole (DoUnsinking's arming,
+   *  as the water's own edge has it) the moment a hold or a move begins. */
+  _pkUnsink() {
+    if (!this.sunk) return;
+    this._beginUnsink();
+    this.toggleSink = false;
   }
 
   /** CLIMB1: onto the top (a mantle), or over a thin one (the clamber). */
@@ -1735,9 +1756,10 @@ export class PlayerMotor {
    *  climbing a face (lipY null). Every reader of the climb reads it
    *  (climb.hold: the fatigue band's climbing arm, the bob, the torch, the
    *  shield, the motion bag) with none of the classic machine's rolls. */
-  _wallBegin(mode, normal, lipY, key, corner = false) {
+  _wallBegin(mode, normal, lipY, key) {
+    this._pkUnsink();
     this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false };
-    if (!corner) this._pkSide = null;   // AUDIT CLIMB2 A3: a new wall asks the look afresh; a corner keeps the hold's way round
+    this._pkSide = null;   // AUDIT CLIMB2 A3: a new wall asks the look afresh (a corner is no new wall: C7)
     if (key != null) this._wall.carrier = this.collider.bucketPose?.(key) ?? null;
     this._wallTally = 0;
     this._fcStart = null;
@@ -1809,14 +1831,19 @@ export class PlayerMotor {
     this.grip -= (rate * dt) / gripSeconds(skill, inputs.fatigue ?? 1);
     if (this.grip <= 0) { this.grip = 0; this._wallEnd(); return false; }
     if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); }
-    this._wallTally += dt;
-    if (this._wallTally > SYSTEM_TIMER_UPDATES_DIVISOR * CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY) { this._wallTally = 0; pk.tally?.(); }
+    this._wallTick(dt);
     const owned = w.mode === 'hang' ? this._hangStep(dt, input, side, vert, skill) : this._freeClimbStep(dt, side, vert, skill, inputs);
     if (this._wall) this._pkHold();
     // the climb's own mirror (AUDIT 65 XL-5): the step returns above both writers of the cached pair
     this.standing = this.grounded;
     this.movingLessThanHalfSpeed = this.grounded ? true : this._halfSpeedBase() / 2 >= this.speed;
     return owned;
+  }
+
+  /** CLIMB2: the Climbing skill tallied at the classic climb's continue cadence, while the hands hold the wall. */
+  _wallTick(dt) {
+    this._wallTally += dt;
+    if (this._wallTally > SYSTEM_TIMER_UPDATES_DIVISOR * CONTINUE_CLIMBING_SKILL_CHECK_FREQUENCY) { this._wallTally = 0; this.parkour?.tally?.(); }
   }
 
   /** CLIMB2: the face point a body hanging off it stands off. */
@@ -1888,8 +1915,7 @@ export class PlayerMotor {
     if (g) { this._pkHangAt(g); w.cornerRefused = 0; return true; }
     const move = this._pkCorner(s, reach, skill, geo);
     if (!move) { w.cornerRefused = s; return false; }
-    this._wallEnd();
-    this._parkourBegin(move);
+    this._parkourBegin(move);   // AUDIT CLIMB2 C7: the hands go round - the hold is not let go (_parkourAdvance)
     return true;
   }
 
@@ -1953,8 +1979,7 @@ export class PlayerMotor {
     // AUDIT CLIMB2 A1: not going up with the floor this near under the feet is standing, not a hold - ClimbingMotor's
     // own "ground directly below too close" abort (:318-320, height/2 + 0.12 from the capsule's centre). A climb begun
     // at the floor and let go of held the body there, on the wall and not on its feet, until the grip ran out.
-    if (vert <= 0 && Number.isFinite(this.collider.raycast(
-      [this.pos[0], this.pos[1] + this.height / 2, this.pos[2]], [0, -1, 0], this.height / 2 + CLIMB_GROUND_NEAR))) {
+    if (vert <= 0 && this._groundNear()) {
       this._wallEnd();
       return false;
     }
@@ -2006,7 +2031,9 @@ export class PlayerMotor {
       const fx = this.pos[0] - nz * (keep - got), fz = this.pos[2] + nx * (keep - got);
       if (this.collider.penetrationAt([fx, this.pos[1], fz], this.height) < 0.03) { this.pos[0] = fx; this.pos[2] = fz; }
     }
-    if (r.grounded) {
+    // a floor under the body ends the climb standing on it; AUDIT CLIMB2 C3: a ledge under the feet's rim only (a sill
+    // a hand wide) is no floor - the body is held on the wall over it, as the classic's own probe from the centre has it
+    if (r.grounded && this._groundNear()) {
       this._wallEnd();
       this.grounded = true;
       this.groundKey = r.groundKey ?? null;
@@ -2029,6 +2056,7 @@ export class PlayerMotor {
    *  the ceiling over the top. The eye sinks across the rise on the crouch's
    *  own clock, so it is down before the body passes under anything. */
   _parkourBegin(move) {
+    this._pkUnsink();
     this._pkMove = move;
     if (move.bill !== false) this.parkoured = move.kind;   // CLIMB2: a corner the shimmy turns is no new exertion
     this._pkJumpLatch = true;
@@ -2058,6 +2086,7 @@ export class PlayerMotor {
       const i = this.parkour.inputs?.() ?? {};
       this.grip = Math.max(0, this.grip - dt / gripSeconds(parkourSkill(i), i.fatigue ?? 1));
     }
+    if (m.kind === 'corner') this._wallTick(dt);   // AUDIT CLIMB2 C7: time round a corner is time on the wall
     if (m.carrier) {
       const now = this.collider.bucketPose(m.key);
       if (now) { carryMove(m, m.carrier, now); m.carrier = now; }
@@ -2074,8 +2103,20 @@ export class PlayerMotor {
     this.groundKey = null;
     if (m.t >= 1) {
       this._pkMove = null;
-      if (m.hang) {
-        this._wallBegin('hang', m.hang.normal, m.hang.lipY, m.key, m.kind === 'corner');   // CLIMB2: a catch ends held, under the lip
+      if (m.hang && m.kind === 'corner' && this._wall) {
+        // AUDIT CLIMB2 C7: A CORNER IS THE SAME HOLD GOING ON. Let go of and taken afresh, each corner said the grip's
+        // warning again, restarted the Climbing tally (a pillar's faces, each shorter than its cadence, never trained
+        // it) and dropped the climb's flag (the fatigue band billed a walk); only the wall held is the next face's.
+        const w = this._wall;
+        w.normal = [m.hang.normal[0], 0, m.hang.normal[2]];
+        w.lipY = m.hang.lipY;
+        w.key = m.key ?? null;
+        w.carrier = w.key != null ? (this.collider.bucketPose?.(w.key) ?? null) : null;
+        w.upRefused = false;
+        w.cornerRefused = 0;
+        this._pkHold();
+      } else if (m.hang) {
+        this._wallBegin('hang', m.hang.normal, m.hang.lipY, m.key);   // CLIMB2: a catch ends held, under the lip
       } else if (m.exit) {
         this.jumping = true;   // Jumping withholds the floor snap until the landing
         this.velY = m.exitVy ?? 0;

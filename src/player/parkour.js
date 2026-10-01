@@ -631,11 +631,14 @@ export function movePoint(m, t, out = [0, 0, 0]) {
 }
 
 /** Shift a move with the world (the motor's offsetOrigin) or with a deck that
- *  carries the body (carryBy). */
+ *  carries the body (carryBy) - and the lip of the hang it ends in (AUDIT
+ *  CLIMB2 C5: left behind, the hang a catch or a corner arrived in sought its
+ *  lip where it had been, and the hands let go). */
 export function offsetMove(m, offset) {
   for (const p of [m.from, m.up, m.to]) {
     p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];
   }
+  if (m.hang) m.hang.lipY += offset[1];
 }
 
 /** AUDIT CLIMB1 F5: a move onto what moves - a boat's hull, a lift - rides it.
@@ -644,7 +647,18 @@ export function offsetMove(m, offset) {
  *  at `was`, out at `now` (collider.js intoBucket's convention: local =
  *  r (p - t), so world = r-transposed local + t). */
 export function carryMove(m, was, now) {
+  const y0 = m.to[1];
   for (const p of [m.from, m.up, m.to]) carryPoint(p, was, now);
+  if (m.hang) carryLip(m.hang, m.to[1] - y0, was, now);   // AUDIT CLIMB2 C5: the hang it ends in, as a hold is carried
+}
+
+/** A hold's (or a move's hang's) wall turned with its bucket, its lip raised
+ *  as far as the body under it. */
+function carryLip(hold, rise, was, now) {
+  const n = carryPoint([hold.normal[0], 0, hold.normal[2]], was, now, true);
+  const l = Math.hypot(n[0], n[2]) || 1;
+  hold.normal = [n[0] / l, 0, n[2] / l];
+  if (hold.lipY != null) hold.lipY += rise;
 }
 
 /** A point carried by a bucket's rigid motion from `was` to `now` (turned
@@ -680,13 +694,19 @@ export const PARKOUR_WALL_MAX_NY = 0.7;
  *      the wall, down the window the lip may have moved in (PARKOUR_LIP_FOLLOW)
  *      every PARKOUR_GRIP_RUNG: the lip is where the wall steps OUT toward the
  *      body by the grip's depth - a rung meeting nothing, or a wall set back
- *      (a sill's), over one meeting the face where it was expected. No such
- *      step is no lip here: a wall that runs on through the window, or air;
+ *      (a sill's), over one meeting the face where it was expected - or where
+ *      a top no steeper than 45 degrees rises from it (an eave: its roof is
+ *      the grip's depth back only a rung or two up, so the depth is read up
+ *      the rungs the top rises through). A rung on the face is one the rung
+ *      under it stands out from by no more than the edge's inset: a rung on
+ *      a roof is not, however near the edge. No such step is no lip here: a
+ *      wall that runs on through the window, or air;
  *   2. THE TOP - a ray down just past the face from the open rung: no steeper
  *      than 45 degrees, in the window;
  *   3. THE FACE UNDER IT - a level ray just under the top meets the face, its
  *      normal within PARKOUR_FACE_FOLLOW of the one expected (the hang follows
- *      a curving wall and does not turn a corner);
+ *      a curving wall and does not turn a corner); under an eave, whose roof
+ *      runs on past the edge, the ray from the face's rung under the lip;
  *   4. THE HANG (with `fit`) - the body off the face by its radius and a gap,
  *      the lip PARKOUR_HANG_DROP over its feet, fitting there standing.
  * Answers { lipY, normal, face, feet, key } or null. `opts` = { radius, stand }.
@@ -699,16 +719,25 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   const ox = face[0] + normal[0] * back, oz = face[2] + normal[2] * back;
   const far = back + PARKOUR_LIP_FOLLOW + PARKOUR_GRIP_DEPTH + 0.05;
   const rungs = Math.round((2 * PARKOUR_LIP_FOLLOW) / PARKOUR_GRIP_RUNG);
-  let hiY = null, loY = null, prev = null;
-  for (let i = 0; i <= rungs; i++) {
-    const y = lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG;
-    const d = collider.raycast([ox, y, oz], dir, far);
-    const dist = Number.isFinite(d) ? d : Infinity;
-    if (prev != null && Math.abs(dist - back) <= PARKOUR_LIP_FOLLOW && prev - dist >= PARKOUR_GRIP_DEPTH) {
-      hiY = y + PARKOUR_GRIP_RUNG; loY = y;
-      break;
+  const rungY = (i) => lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG;
+  const seen = new Map();
+  const at = (i) => {   // rung i's distance into the wall (Infinity for none), each ray cast once
+    if (!seen.has(i)) { const d = collider.raycast([ox, rungY(i), oz], dir, far); seen.set(i, Number.isFinite(d) ? d : Infinity); }
+    return seen.get(i);
+  };
+  let hiY = null, loY = null;
+  for (let i = 1; i <= rungs && hiY == null; i++) {
+    const dist = at(i);
+    if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist < PARKOUR_EDGE_INSET) continue;
+    if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;   // a rung on a top rising away from the edge, not on the face
+    // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than 45 degrees rises through (each a rung's
+    // height or more back - this inset or more); a level top or a set-back wall is the depth at the first
+    let deep = at(i - 1);
+    for (let j = i - 2; j >= i - 3 && deep - dist < PARKOUR_GRIP_DEPTH; j--) {
+      if (at(j) - deep < PARKOUR_EDGE_INSET) break;
+      deep = at(j);
     }
-    prev = dist;
+    if (deep - dist >= PARKOUR_GRIP_DEPTH) { hiY = rungY(i - 1); loY = rungY(i); }
   }
   if (hiY == null) return null;
   // 2. the top, just past the face, from the open rung
@@ -718,8 +747,9 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   if (!Number.isFinite(top.dist) || !top.normal || top.normal[1] < PARKOUR_TOP_MIN_NY) return null;
   const y = hiY + 0.01 - top.dist;
   if (Math.abs(y - lipY) > PARKOUR_LIP_FOLLOW + 0.01) return null;
-  // 3. the face under it
-  const under = faceHit(collider, [ox, y - PARKOUR_UNDER, oz], dir, far);
+  // 3. the face under it - under an eave the roof runs on past the edge, and the face is the rung's under the lip
+  const under = faceHit(collider, [ox, y - PARKOUR_UNDER, oz], dir, far)
+    ?? faceHit(collider, [ox, Math.min(y - PARKOUR_UNDER, loY - PARKOUR_GRIP_RUNG), oz], dir, far);
   if (!under || under.normal[0] * normal[0] + under.normal[2] * normal[2] < PARKOUR_FACE_FOLLOW) return null;
   const n = under.normal;
   const fx = ox + dir[0] * under.dist, fz = oz + dir[2] * under.dist;
@@ -813,8 +843,5 @@ export function wallContact(collider, feet, dir, height, radius, reach = PARKOUR
 export function carryHold(pos, hold, was, now) {
   const y0 = pos[1];
   carryPoint(pos, was, now);
-  const n = carryPoint([hold.normal[0], 0, hold.normal[2]], was, now, true);
-  const l = Math.hypot(n[0], n[2]) || 1;
-  hold.normal = [n[0] / l, 0, n[2] / l];
-  if (hold.lipY != null) hold.lipY += pos[1] - y0;
+  carryLip(hold, pos[1] - y0, was, now);
 }

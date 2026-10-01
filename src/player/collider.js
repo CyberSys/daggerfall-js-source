@@ -683,10 +683,13 @@ export class Collider {
 
   /** AUDIT CLIMB1 F5: where a bucket stands now - `{ t, r }`, its translation and its turn (r null for an unturned
    *  one; intoBucket's convention: local = r (p - t)), copies, or null for no such bucket. The enhanced climb's move
-   *  onto a mover (a boat's hull) reads it every step and rides the difference (player/parkour.js carryMove). */
+   *  onto a mover (a boat's hull) reads it every step and rides the difference (player/parkour.js carryMove).
+   *  AUDIT CLIMB2 C4: null for a bucket that does not move with a pose - one stood again at its new place instead (a
+   *  parked wagon, a gate, an action object) has no pose to ride, and a recentre's shift of a remembered zero carried
+   *  the body back the whole recentre. */
   bucketPose(bucketKey) {
     const bucket = this._buckets.get(bucketKey);
-    if (!bucket) return null;
+    if (!bucket?.moves) return null;
     const t = bucket.t();
     const r = bucket.r ? bucket.r() : null;
     return { t: [t[0], t[1], t[2]], r: r ? Array.from(r) : null };

@@ -68,8 +68,8 @@
   {
     "name": "CLIMB2-grip-any-depth",
     "file": "src/player/parkour.js",
-    "old": "prev - dist >= PARKOUR_GRIP_DEPTH",
-    "new": "prev - dist >= 0",
+    "old": "if (deep - dist >= PARKOUR_GRIP_DEPTH) {",
+    "new": "if (deep - dist >= 0) {",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -145,8 +145,8 @@
   {
     "name": "CLIMB2-hold-not-carried",
     "file": "src/player/parkour.js",
-    "old": "  carryPoint(pos, was, now);\n  const n = carryPoint",
-    "new": "  const n = carryPoint",
+    "old": "  carryPoint(pos, was, now);\n  carryLip(",
+    "new": "  carryLip(",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -398,7 +398,7 @@
   {
     "name": "CLIMB2-never-tallied",
     "file": "src/player/motor.js",
-    "old": "{ this._wallTally = 0; pk.tally?.(); }",
+    "old": "{ this._wallTally = 0; this.parkour?.tally?.(); }",
     "new": "{ this._wallTally = 0; }",
     "tests": [
       "test/climb2.test.js",
@@ -530,7 +530,7 @@
   {
     "name": "CLIMB2-floor-does-not-end",
     "file": "src/player/motor.js",
-    "old": "    if (r.grounded) {\n      this._wallEnd();\n      this.grounded = true;",
+    "old": "    if (r.grounded && this._groundNear()) {\n      this._wallEnd();\n      this.grounded = true;",
     "new": "    if (false) {\n      this._wallEnd();\n      this.grounded = true;",
     "tests": [
       "test/climb2.test.js",
