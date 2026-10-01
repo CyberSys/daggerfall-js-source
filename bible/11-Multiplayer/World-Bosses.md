@@ -335,7 +335,7 @@ recovery:
 | **Ground Slam** | a disc, 7 m, around him | 1.6 s | 35% | 1+ |
 | **Charge** | a lane, 3.5 m wide, to the target and 22 m on; he runs it | 1.2 s | 25% | 1+ |
 | **Hellfire** | a 3.5 m disc under each of up to 5 players, where they stood | 2.0 s | 30% fire | 2+ |
-| **Flame Nova** | a ring from 4 m to 30 m - safe at his feet, or far across the floor from him | 2.2 s | 40% fire | 2+ |
+| **Flame Nova** | a ring from 4 m to 30 m - safe at his feet, or far across the floor from him (WB13a: to 16 m - at 30 the far side was past the floor; section 20, T2) | 2.2 s | 40% fire | 2+ |
 | **Dagon's Wrath** | the whole arena | 6 s | 999% | the wrath |
 
 (AUDIT WBX F12: WB4's table, as it first shipped - section 12's WBX4 raised every share and set a base beside it, and
@@ -1775,6 +1775,26 @@ the play"*), and what a player must do is shown before it is said.
 
 The hit law does not move except T2's ring: what lands is what the ground shows.
 
+**As built** (`render/gateTelegraph.js`, `scenes/gateCourt.js` perilAt, `ui/gateGroundView.js`, `scenes/gateHost.js`,
+`net/gateBrain.js` ATTACKS.nova):
+- The shader was rewritten from the lane's prototype, rendered beside the shipped one in Chromium.
+- The cone's edge is one continuous distance, so its line can be read off its own derivative (AUDIT WB9 F1's jump is
+  gone).
+- The blend is premultiplied (`blendFuncSeparate(ONE, ONE_MINUS_SRC_ALPHA, ZERO, ONE)`), so the frame's alpha is
+  untouched.
+- The line shows from the word (`alpha` is the afterglow's fade alone).
+- The landing decays over 90 ms.
+- The Charge's landing follows `runS`.
+- Paths and tethers are `TELEGRAPH_POOL.path`.
+- The quad is 0..1, laid over `telegraphQuadOver`.
+- **In it** reads my feet against his blow in flight (never the whole floor's) and his host's, landing soonest first.
+  It finds the way out over 24 bearings in 0.25 m steps, on the floor. It turns the way out by the camera's yaw
+  (`scenes/world.js` cam.yaw), and the ground view draws it as a chevron 72 px out from the crosshair.
+- Pinned: `test/wb13a_telegraphs.test.js` (13), and the re-pinned WB4, WB9d, WB9e and AUDIT WB9 laws.
+- AUDIT WB9's shader harness takes every derivative the shader asks for (it took one).
+- Mutants: `tools/mutants/wb13a.json` (22).
+- Seven older records were re-aimed by content (the fuse's is gone with the fuse).
+
 ### WB13b. The words
 
 Every line the feature says, traced to the tests that hold it and rewritten to say one thing and stop:
@@ -2266,3 +2286,24 @@ as #506 did, the patch notes ride the pull request: the two notes files this bra
 WB11 D1's pin keeps the court's words; the notes on the pull request say the same), and the branch's Testing rows and
 Active-Arcs entries are within GROWTH1's caps. Merging deploys world140 (`relay-deploy.yml`), which drops connected
 players once.
+
+**WB12a (2026-10-01) - Dagon's Breach and the Deadlands Ember.** Section 19 A above:
+- The chat's lines, Discord's posts and every name on screen say Dagon's Breach.
+- The Sigil Stone is the Deadlands Ember. A load repair (`systems/gateSpoils.js` nameEmbers) renames every old record.
+- A guard test scans every shipped string for the old names.
+- Relay world141 (not deployed).
+- Pins `test/wb12a_breach_words.test.js` (9); mutants `tools/mutants/wb12a.json` (10), with the campaigns it re-aimed
+  (162 dead).
+
+Mehrunes Dagon's day (WB12b) was dropped before it shipped (Mac: *"Let's forgoe the monthly raid"*).
+
+**WB13a (2026-10-01) - the telegraphs, honed.** Section 20 above, T1-T14:
+- `render/gateTelegraph.js`: the shader rewritten, every pool drawn, a quad per shape.
+- `net/gateBrain.js`: the Flame Nova's ring to 16 m.
+- `scenes/gateCourt.js` perilAt and `ui/gateGroundView.js`: a blow to come on your feet, said with the way out.
+- `scenes/gateHost.js`: paths and tethers as flowing dashes.
+- world141 re-hashed in place; the brain's law stays 5.
+- Pins `test/wb13a_telegraphs.test.js` (13), with WB4, WB9d, WB9e and AUDIT WB9 re-pinned; mutants
+  `tools/mutants/wb13a.json` (22), with seven older records re-aimed.
+- Seen in Chromium over the stand-in court: every attack, at a fighter's eye and from above, in all four aspects.
+- Not seen: the game's own art and a live fight.

@@ -264,8 +264,8 @@
   {
     "name": "WB8c-the-telegraph-fire-s-colour",
     "file": "src/render/gateTelegraph.js",
-    "old": "alpha: fadeIn * Math.max(0, fadeOut), color: attackColor(A, P),",
-    "new": "alpha: fadeIn * Math.max(0, fadeOut), color: attackColor(A, BASE_PROFILE),",
+    "old": "alpha: Math.max(0, fadeOut), color: attackColor(A, P),",
+    "new": "alpha: Math.max(0, fadeOut), color: attackColor(A, BASE_PROFILE),",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]

@@ -20,7 +20,7 @@ import {
   GLOW_UP, GLOW_RANGE, RUN_ANIM_SPEED, FIRE_CAST_ID, BURNING,
 } from '../src/world/gateBoss.js';
 import {
-  telegraphShape, telegraphField, telegraphQuad, GateTelegraphRenderer, TELEGRAPH_KIND, TELEGRAPH_FS, TELEGRAPH_VS, TELEGRAPH_POINTS_MAX,
+  telegraphShape, telegraphField, telegraphQuad, telegraphQuadOver, GateTelegraphRenderer, TELEGRAPH_KIND, TELEGRAPH_FS, TELEGRAPH_VS, TELEGRAPH_POINTS_MAX,
   TELEGRAPH_FADE_IN_MS, TELEGRAPH_FLASH_MS, TELEGRAPH_MARGIN,
 } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar, BOSS_BAR_TEXT, WRATH_WARN_MS } from '../src/ui/gateBossBar.js';
@@ -57,8 +57,8 @@ test('WB4 the shapes: a cone holds his body and its arc about his facing and not
   assert.ok(!inAttack(W('charge', { tg: [] }), 0, 0), 'a lane with no end is none');
   const nova = W('nova', { x: 1, z: 1 });
   assert.ok(!inAttack(nova, 1 + 3.9, 1), 'safe at his feet');
-  assert.ok(inAttack(nova, 1 + 4.1, 1) && inAttack(nova, 1 + 20, 1), 'the ring');
-  assert.ok(!inAttack(nova, 1 + 30.5, 1), 'and past it');
+  assert.ok(inAttack(nova, 1 + 4.1, 1) && inAttack(nova, 1 + 15.9, 1), 'the ring');
+  assert.ok(!inAttack(nova, 1 + 16.5, 1), 'and past it (WB13a: 16 m - it ran to 30, past the floor)');
   assert.ok(inAttack(W('wrath'), 23, -3), 'the whole court');
   assert.ok(!inAttack(W('cleave'), NaN, 0) && !inAttack({ a: 99 }, 0, 0), 'nothing for a point that is none or an attack that is none');
   assert.equal(segmentDistance(0, 5, 0, 0, 0, 0), 5);
@@ -217,7 +217,7 @@ test('WB4 the telegraph: the shader\'s own reading agrees with the strike\'s law
   assert.equal(hf.kind, TELEGRAPH_KIND.discs); assert.equal(hf.points.length, TELEGRAPH_POINTS_MAX, 'phase three\'s two volleys, all drawn');
   assert.equal(telegraphShape(cases[1], 1, 9500).kind, TELEGRAPH_KIND.disc);
   const slam = W('slam'), w = ATTACKS.slam.windup;
-  assert.equal(telegraphShape(slam, 1, 10000 - w).alpha, 0, 'it comes up at the word');
+  assert.equal(telegraphShape(slam, 1, 10000 - w).alpha, 1, 'WB13a: its line whole from the word (the shader brings the inside up)');
   assert.equal(telegraphShape(slam, 1, 10000 - w + TELEGRAPH_FADE_IN_MS).alpha, 1);
   assert.equal(telegraphShape(slam, 1, 10000 - w / 4).t, 0.75, 'filling with the wind-up');
   assert.equal(telegraphShape(slam, 1, 10000 - w / 4).flash, 0);
@@ -232,32 +232,33 @@ test('WB4 the telegraph: the shader\'s own reading agrees with the strike\'s law
   assert.ok(Math.abs(telegraphField(lane, 1, 1).s) < 1e-9 && Math.abs(telegraphField(lane, 7, 18).s - 1) < 1e-9);
   const ring = telegraphShape(cases[4], 1, 9500);
   assert.ok(Math.abs(telegraphField(ring, 3 + 4, -2).s) < 1e-9);
-  // the quad covers the floor
+  // WB13a: the quad is 0..1, laid by the vertex stage over its shape's own ground - the whole court's square for the
+  // whole floor's
   const q = telegraphQuad();
-  assert.equal(q.length, 12); assert.equal(Math.max(...q), COURT_R + TELEGRAPH_MARGIN); assert.equal(Math.min(...q), -(COURT_R + TELEGRAPH_MARGIN));
+  assert.equal(q.length, 12); assert.equal(Math.max(...q), 1); assert.equal(Math.min(...q), 0);
+  assert.deepEqual(telegraphQuadOver(telegraphShape(cases[5], 1, 9500), 0), [-(COURT_R + TELEGRAPH_MARGIN), -(COURT_R + TELEGRAPH_MARGIN), COURT_R + TELEGRAPH_MARGIN, COURT_R + TELEGRAPH_MARGIN]);
 });
 
 test('WB4 the shader\'s text says what the reading says: each shape\'s inside, the floor\'s edge, the fill against the wind-up, the flash, the fog (mutants: the cone\'s body dropped from the shader)', () => {
   for (const re of [
     /inside = d <= uR && \(d <= uBody \|\| ang <= uHalfArc\);/,
     /float ang = abs\(wrapAngle\(atan\(rel\.x, rel\.y\) - uYaw\)\);/,
-    /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; m = min\(m, length\(vCourt - uPts\[i\]\)\);[^\n]*\}\n\s*inside = m <= uR;/,   // WB9e: and the nearest's own centre, for the fuse's course
+    /for \(int i = 0; i < 10; i\+\+\) \{ if \(i >= uCount\) break; float di = length\(vCourt - uPts\[i\]\); if \(di < m\) \{ m = di; near = uPts\[i\]; \} \}\n\s*inside = m <= uR;/,   // WB9e: and the nearest's own centre (WB13a: its rim's dashes)
     /float ld = length\(vCourt - \(uOrigin \+ v \* h\)\);\n\s*inside = ld <= uHalfW;/,
     /inside = d >= uR0 && d <= uR1;/,
-    /if \(uOnWalk == 0\) \{ if \(c > uFloorR\) discard; \}/,   // AUDIT WB9 (court F4): the court's own disc - a laid walkway's strip is its own
-    /float filled = fin \* step\(s, uT\);/,
-    /light = mix\(light, 1\.1 \* fin \+ 0\.6 \* rim, uFlash\);/,
-    /vec3 col = uColor;/,
-    /o = vec4\(col \* light \* uAlpha \* fogFactorAt\(vWorld\), 1\.0\);/,
+    /bool clipOut = uOnWalk == 0 \? c > uFloorR : /,   // AUDIT WB9 (court F4): the court's own disc - a laid walkway's strip is its own
+    /float filled = fin \* \(1\.0 - smoothstep\(uT - fs, uT \+ fs, s\)\);/,   // WB13a: its front anti-aliased
+    /vec3 rgb = uColor \* inner \+ lineCol \* line;/,   // WB13a: the element inside, the danger edge on the line
+    /o = vec4\(rgb \* f, clamp\(a, 0\.0, 1\.0\) \* f\);/,   // premultiplied: the light added, the floor under a fill darkened
   ]) assert.match(TELEGRAPH_FS, re);
-  // WB9b: over the court it lies over - the quad's corner about that court's own centre
-  assert.match(TELEGRAPH_VS, /vCourt = uOnWalk == 1 \? [^\n]* : uCourt \+ aCourt;\n\s*vWorld = uCentre \+ vec3\(vCourt\.x, uLift, vCourt\.y\);/);   // AUDIT WB9 (court F4): or along a laid walkway
+  // WB9b: over the court it lies over; WB13a: over its own ground there (the vertex stage lays the 0..1 quad over uLo..uHi)
+  assert.match(TELEGRAPH_VS, /vCourt = uOnWalk == 1 \? [^\n]* : mix\(uLo, uHi, aCourt\);\n\s*vWorld = uCentre \+ vec3\(vCourt\.x, uLift, vCourt\.y\);/);   // AUDIT WB9 (court F4): or along a laid walkway
   assert.match(TELEGRAPH_FS, /uniform vec2 uPts\[10\];/);
 });
 
 function fakeGl() {
   const calls = [];
-  const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12 }, {
+  const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, POLYGON_OFFSET_FILL: 12, ONE_MINUS_SRC_ALPHA: 13, ZERO: 14 }, {
     get(t, k) {
       if (k in t) return t[k];
       return (...a) => { calls.push([k, ...a]); if (k === 'getShaderParameter' || k === 'getProgramParameter') return true; if (k === 'getUniformLocation') return a[1]; return {}; };
@@ -276,7 +277,7 @@ test('WB4 the pass: one quad added onto the frame, no depth written, lifted off 
   pass.draw(telegraphShape(W('hellfire', { tg: [[1, 2], [3, 4]] }), 2, 9500), I, I, [0, 0, 0], 3.5, { mode: 2, density: 0.009, range: [0, 1], camPos: [1, 2, 3] });
   assert.equal(pass.drawn, 1);
   assert.equal(calls.filter((c) => c[0] === 'drawArrays').length, 1);
-  assert.deepEqual(calls.filter((c) => c[0] === 'blendFunc').map((c) => c.slice(1)), [[gl.ONE, gl.ONE]]);
+  assert.deepEqual(calls.filter((c) => c[0] === 'blendFuncSeparate').map((c) => c.slice(1)), [[gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE]], 'WB13a: premultiplied, the frame\'s alpha untouched');
   assert.deepEqual(calls.filter((c) => c[0] === 'depthMask').map((c) => c[1]), [false, true]);
   const names = calls.map((c) => c[0]);
   const on = calls.findIndex((c) => c[0] === 'enable' && c[1] === gl.POLYGON_OFFSET_FILL), off = calls.findIndex((c) => c[0] === 'disable' && c[1] === gl.POLYGON_OFFSET_FILL);

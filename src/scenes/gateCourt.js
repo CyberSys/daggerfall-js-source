@@ -16,12 +16,12 @@
 // has already cued, landed and judged, and the host's doors.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H, inCourt, POSE_SLACK, RECKON_CLOSE_MS, WALKS, walkFormed } from '../net/gateBrain.js';
-import { strikeVerdict, blowOf, strikeDamage, savedShare, landingPools, poolUnder } from '../net/gateStrike.js';
+import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H, inCourt, POSE_SLACK, RECKON_CLOSE_MS, WALKS, walkFormed, HOST_BLOWS, hostBlowUnder } from '../net/gateBrain.js';
+import { strikeVerdict, blowOf, strikeDamage, savedShare, landingPools, poolUnder, inAttack, chargeHead, segmentDistance } from '../net/gateStrike.js';
 import { GATE_BOSSES, gateBossOf } from '../net/gateLaw.js';
 import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue, hostPulseColor } from '../world/gateBoss.js';
 import { courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT } from '../world/gateArena.js';
-import { GateTelegraphRenderer, telegraphShape, markShape, poolShapes, TELEGRAPH_STYLE } from '../render/gateTelegraph.js';
+import { GateTelegraphRenderer, telegraphShape, markShape, poolShapes, telegraphEdge, TELEGRAPH_STYLE, TELEGRAPH_EDGE, TELEGRAPH_NOW_MS } from '../render/gateTelegraph.js';
 import { CourtCrystalRenderer, crystalGrowth, CRYSTAL_GROW_MS, CRYSTAL_SHATTER_MS, CRYSTAL_FLASH_MS, CRYSTALS_DRAW_MAX } from '../render/courtCrystals.js';   // WB9c: the crystals of Oblivion, drawn
 import { GateFxRenderer, fxBurstOf, meteorFall, FX_BURST_MS, FX_BURSTS_MAX, FX_KINDS } from '../render/gateFx.js';   // WB9e: his blows seen landing
 import { tierColour } from '../render/spoilsGlow.js';   // WB9f: a piece's landing sparks in its tier's colour
@@ -125,6 +125,64 @@ const NONE = Object.freeze([]);
 /** The boss by his id (the relay's word), or the day's (net/gateLaw.js). */
 export const bossOf = (s) => GATE_BOSSES.find((b) => b.id === s?.boss) ?? gateBossOf(s?.day ?? 0);
 
+/** WB13a: the way out of a blow is sought along this many bearings, in steps this long, this far at most (m), and never
+ *  nearer the floor's rim than PERIL_RIM_M. */
+export const PERIL_BEARINGS = 24;
+export const PERIL_STEP_M = 0.25;
+export const PERIL_REACH_M = 20;
+export const PERIL_RIM_M = 0.4;
+/**
+ * WB13a: THE NEAREST WAY OUT of a shape (`inside(x, z)`, the court's frame) from my feet at (fx, fz), over the floor of
+ * court `court`: the bearing (a unit [dx, dz]) and how far, or null when none is in reach. Pure.
+ */
+export function wayOut(inside, fx, fz, court) {
+  const C = COURTS[court] ?? COURTS[0], R = COURT_R - PERIL_RIM_M;
+  let best = null;
+  for (let b = 0; b < PERIL_BEARINGS; b++) {
+    const a = (b / PERIL_BEARINGS) * Math.PI * 2, dx = Math.sin(a), dz = Math.cos(a);
+    for (let m = PERIL_STEP_M; m <= PERIL_REACH_M && (!best || m < best.m); m += PERIL_STEP_M) {
+      const x = fx + dx * m, z = fz + dz * m;
+      if (Math.hypot(x - C[0], z - C[1]) > R) break;
+      if (!inside(x, z)) { best = { dx, dz, m }; break; }
+    }
+  }
+  return best ? { dir: [best.dx, best.dz], m: best.m } : null;
+}
+/** WB13a: a bearing in the court's frame as the screen turns it, degrees - 0 ahead, 90 to the right - for a camera of
+ *  `yaw` (scenes/world.js cam.yaw: ahead [sin, cos], right [cos, -sin]). */
+export const screenBearing = (dir, yaw) => (Math.atan2(dir[0] * Math.cos(yaw) - dir[1] * Math.sin(yaw), dir[0] * Math.sin(yaw) + dir[1] * Math.cos(yaw)) * 180) / Math.PI;
+/**
+ * WB13a (2026-10-01, Mac: "hone in telegraphs"): A BLOW STILL TO COME ON MY FEET - in first person at sword reach the
+ * ground under me is out of sight (his Cleave's shape is none of the frame). The one landing soonest of his blow in
+ * flight (never the whole floor's: no step escapes the Wrath or the Reckoning) and his host's: its name, its wind-up's
+ * share `t`, `now` in its last TELEGRAPH_NOW_MS, its line's colour, and the nearest way out as the screen turns it
+ * (`arrow`, degrees; none without a camera's `yaw`) - or null. (fx, fz) my feet in the court's frame. Pure.
+ */
+export function perilAt(s, t, P, fx, fz, yaw = null) {
+  if (!s || s.day === null || s.fell || s.wrath != null || !Number.isFinite(fx) || !Number.isFinite(fz)) return null;
+  let best = null, inside = null;
+  const atk = s.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
+  if (A && A.shape !== 'all' && Number.isFinite(atk.at)) {
+    const w = windupOf(A, s.phase), run = A === ATTACKS.charge ? Math.max(A.active, 1) : 0, end = atk.tg?.[0];
+    if (t >= atk.at - w && t < atk.at + run) {
+      // the charge's run: the lane ahead of his head - the ground behind him is safe once he has passed
+      const head = run && t >= atk.at ? chargeHead(atk, t) : null;
+      const on = head && end ? segmentDistance(fx, fz, head[0], head[1], end[0], end[1]) <= Math.max(ATTACKS.charge.width / 2, P.bossR) : inAttack(atk, fx, fz, P);
+      if (on) { best = { at: atk.at, name: P.atk[A.key].name, t: w > 0 ? Math.max(0, Math.min(1, (t - (atk.at - w)) / w)) : 1, color: telegraphEdge(A) }; inside = (x, z) => inAttack(atk, x, z, P); }
+    }
+  }
+  for (const a of s.lg?.ads ?? NONE) {
+    const B = HOST_BLOWS[a.k], h = a.atk;
+    if (!B || !h || !Number.isFinite(h.at) || !(t < h.at) || t < h.at - B.windup || (best && best.at <= h.at)) continue;
+    if (Math.hypot(fx - h.x, fz - h.z) > B.r) continue;
+    best = { at: h.at, name: hostBlowUnder(a.k, P).name, t: Math.max(0, Math.min(1, (t - (h.at - B.windup)) / B.windup)), color: TELEGRAPH_EDGE };
+    inside = (x, z) => Math.hypot(x - h.x, z - h.z) <= B.r;
+  }
+  if (!best) return null;
+  const out = Number.isFinite(yaw) ? wayOut(inside, fx, fz, nearestCourt(fx, fz)) : null;
+  return { name: best.name, t: best.t, now: best.at - t <= TELEGRAPH_NOW_MS, color: best.color, arrow: out ? screenBearing(out.dir, /** @type {number} */ (yaw)) : null, way: out };
+}
+
 /** GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's;
  *  "Like for healers" - allies only): what my mates' spells healed in me goes to the relay at most this often (a word for
  *  every caster since the last). */
@@ -155,6 +213,7 @@ export const HEAL_SEND_MS = 1000;
  *   portalDoor?: (door: any) => void,
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
  *   me?: () => (string|null),
+ *   yaw?: () => (number|null),
  * }} deps
  *   WB9a: `veiled` - the step's fire is over the screen (ui/gateVeil.js): the marks' card waits under it. WB9c:
  *   `sendCrystal` - a blow of mine on a crystal of Oblivion, to the court's room (the wire's `xhit`). WB11c: `sendHost` -
@@ -171,7 +230,7 @@ export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
   strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, sendHost = () => false, sendHeal = () => false, rng = Math.random,
-  portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null,
+  portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null, yaw = () => null,
 }) {
   let pass = null;
   try { if (gl) pass = new GateTelegraphRenderer(gl); } catch (e) { console.warn('[gate] the telegraph would not build', e?.message ?? e); pass = null; }
@@ -662,8 +721,11 @@ export function createGateCourt({
       // CHART once he has fallen - the relay's own count of every challenger's part, to the side, never over the step's fire
       if (s.fell && chartAt === null) chartAt = t;
       drawGateDamageChart(chartAt !== null ? damageChartModel(s.fell, { boss: bossOf(s).name, me: me(), since: chartAt, now: t }) : null, { hidden: hudHidden() || veiled() });
-      // WB9d: his ground under me and his element on me, felt - the screen's rim in its colour, the warning while I stand in it
-      drawGateGround(groundViewModel({ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t }), { hidden: hudHidden() });
+      // WB9d: his ground under me and his element on me, felt - the screen's rim in its colour, the warning while I stand in
+      // it; WB13a: and a blow still to come on my feet, over all of it, with the way out
+      const fp = feet(), alive = !!fp && (player()?.health ?? 0) > 0;
+      const peril = alive ? perilAt(s, t, P, fp[0] - COURT_CENTRE[0], fp[2] - COURT_CENTRE[2], yaw()) : null;
+      drawGateGround(groundViewModel({ inside: inFire, ground: groundName, color: groundColor, biteAt, biteColor, now: t, peril }), { hidden: hudHidden() });
       if (healOwed.size && t - healSentAt >= HEAL_SEND_MS) sendOwed(t);   // GATE-HEAL: what my mates healed in me, out
       prevT = t;
     },

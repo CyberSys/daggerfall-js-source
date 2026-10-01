@@ -244,7 +244,9 @@ export const ATTACKS = Object.freeze({
   slam: Object.freeze({ id: 1, key: 'slam', name: 'Ground Slam', windup: 1600, active: 200, recover: 1100, shape: 'disc', r: 7, pct: 0.52, base: 14, el: null, aim: 'self', phase: 1, range: 4, w: 2, minGap: 0 }),
   charge: Object.freeze({ id: 2, key: 'charge', name: 'Charge', windup: 1200, active: 900, recover: 1200, shape: 'lane', w: 2, width: 3.5, len: 22, pct: 0.40, base: 12, el: null, aim: 'target', phase: 1, range: 40, minGap: 8 }),
   hellfire: Object.freeze({ id: 3, key: 'hellfire', name: 'Hellfire', windup: 2000, active: 300, recover: 900, shape: 'disc', r: 3.5, max: 5, pct: 0.40, base: 9, el: 'fire', aim: 'players', phase: 2, range: 40, w: 2, minGap: 0, pool: POOLS.hellfire }),
-  nova: Object.freeze({ id: 4, key: 'nova', name: 'Flame Nova', windup: 2200, active: 300, recover: 1300, shape: 'ring', r0: 4, r1: 30, pct: 0.58, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 1, minGap: 0 }),
+  // WB13a (2026-10-01, Mac: "hone in telegraphs"): its ring to 16 m - it ran to 30 on a floor of 24, so with him at the
+  // heart (every phase turn puts him there) 26% of the floor in phase two and 47% in phase three could not get out
+  nova: Object.freeze({ id: 4, key: 'nova', name: 'Flame Nova', windup: 2200, active: 300, recover: 1300, shape: 'ring', r0: 4, r1: 16, pct: 0.58, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 1, minGap: 0 }),
   wrath: Object.freeze({ id: 5, key: 'wrath', name: "Dagon's Wrath", windup: 6000, active: 500, recover: 0, shape: 'all', pct: 9.99, base: 0, el: 'fire', aim: 'self', phase: 99, range: 999, w: 0, minGap: 0 }),
   // WBX5: the Burning Court's reach - he leaps at whoever stands far off, and lands on them (and at every phase's turn,
   // into the court's heart); and a meteor falls where a fighter stands and leaves the ground burning
