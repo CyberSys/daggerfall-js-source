@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12156, dungeonContext.js:8257. A seam
+    / NOTEBOOK          world.js:12156, dungeonContext.js:8317. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7881` and `dungeonContext.js:1871` answer the same
+`worldModes.js:7883` and `dungeonContext.js:1871` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -17148,7 +17148,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2756` became
+second pass moved them a second time - `dungeonContext.js:2759` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came

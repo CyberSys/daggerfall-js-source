@@ -30,6 +30,7 @@ export const DAMAGE_CHART_TEXT = Object.freeze({
   title: 'Damage Dealt',
   sub: (boss, n) => `${boss} has fallen - ${n} ${n === 1 ? 'challenger' : 'challengers'}`,
   head: Object.freeze(['#', 'Challenger', 'Damage', 'Share', 'Blows', 'Best', 'Crystals', 'Falls']),
+  host: 'Host',   // WB11c: the column of his host's share - a Legion-Lord's court's alone
   level: (lv) => `Lv ${lv}`,
   you: '(you)',
   more: (k) => `and ${k} more`,
@@ -49,7 +50,8 @@ const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.t
  * What the chart shows now, or null (nothing to show). `fell` the court's fall (net/gateLink.js - its `dm` the relay's
  * chart, its `n` the fighters the fight held), `boss` his name, `me` my name on the relay (net/online.js `name`), `since`
  * when this screen first saw the fall and `now`, on one clock. Each row: its rank, name, level, damage (and the bar's
- * share of the most anyone dealt), share of the whole, blows, best, crystals, falls, and whether it is mine. Pure.
+ * share of the most anyone dealt), share of the whole, blows, best, crystals, falls, and whether it is mine. WB11c: under
+ * the Legion-Lord (a row carries `a`), `hosted` and each row's share of his host, a column after the falls. Pure.
  * @param {any} fell @param {{ boss?: string, me?: string|null, since?: number, now?: number }} [o]
  */
 export function damageChartModel(fell, { boss = 'The Warden', me = null, since = 0, now = 0 } = {}) {
@@ -60,9 +62,11 @@ export function damageChartModel(fell, { boss = 'The Warden', me = null, since =
   const shown = age - DAMAGE_CHART_DELAY_MS;
   const alpha = Math.min(1, shown / 250, (DAMAGE_CHART_MS - shown) / DAMAGE_CHART_FADE_MS);
   const whole = dm.reduce((s, r) => s + (r.d > 0 ? r.d : 0), 0), most = dm[0].d > 0 ? dm[0].d : 0;
+  const hosted = dm.some((r) => r.a !== undefined);   // WB11c: his host stood in this court
   const row = (r, i) => ({
     rank: i + 1, name: r.n, level: DAMAGE_CHART_TEXT.level(r.l), damage: chartNumber(r.d), frac: most > 0 ? Math.max(0, Math.min(1, r.d / most)) : 0,
     share: chartShare(r.d, whole), blows: chartNumber(r.h), best: chartNumber(r.b), crystals: chartNumber(r.x), falls: chartNumber(r.f), mine: sameName(r.n, me),
+    ...(hosted ? { host: chartNumber(r.a ?? 0) } : {}),
   });
   const rows = dm.slice(0, DAMAGE_CHART_ROWS).map(row);
   const at = dm.findIndex((r) => sameName(r.n, me));
@@ -70,9 +74,9 @@ export function damageChartModel(fell, { boss = 'The Warden', me = null, since =
   const n = Math.max(Number.isSafeInteger(fell.n) ? fell.n : 0, dm.length);
   const more = n - rows.length - (mine ? 1 : 0);
   return {
-    key: `${dm.length}:${dm.map((r) => `${r.n}|${r.l}|${r.d}|${r.x}|${r.h}|${r.b}|${r.f}`).join(';')}:${at}:${n}`,
+    key: `${dm.length}:${dm.map((r) => `${r.n}|${r.l}|${r.d}|${r.x}|${r.h}|${r.b}|${r.f}|${r.a ?? ''}`).join(';')}:${at}:${n}`,
     alpha: Math.round(alpha * 100) / 100,
-    title: DAMAGE_CHART_TEXT.title, sub: DAMAGE_CHART_TEXT.sub(boss, n), head: DAMAGE_CHART_TEXT.head,
+    title: DAMAGE_CHART_TEXT.title, sub: DAMAGE_CHART_TEXT.sub(boss, n), head: hosted ? [...DAMAGE_CHART_TEXT.head, DAMAGE_CHART_TEXT.host] : DAMAGE_CHART_TEXT.head, hosted,
     rows, mine, more: more > 0 ? DAMAGE_CHART_TEXT.more(more) : '',
   };
 }
@@ -105,15 +109,23 @@ export const DAMAGE_CHART_CSS = `
 .wb-dmg-mine { outline: 1px solid rgba(255,210,122,0.75); background: rgba(255,190,90,0.10); }
 .wb-dmg-gap { height: 6px; }
 .wb-dmg-more { font-size: 11px; text-align: center; opacity: 0.8; margin-top: 4px; font-style: italic; }
+.wb-dmg-row > .wb-dmg-host { display: none; }
+.wb-dmg-chart.wb-dmg-hosted { width: 590px; }
+.wb-dmg-hosted .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 46px 44px 62px 42px 46px; }
+.wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: block; }
 @media (max-width: 640px) {
   .wb-dmg-chart { width: 340px; }
   .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 40px; }
   .wb-dmg-row > .wb-dmg-blows, .wb-dmg-row > .wb-dmg-best, .wb-dmg-row > .wb-dmg-cx { display: none; }
+  .wb-dmg-chart.wb-dmg-hosted { width: 340px; }
+  .wb-dmg-hosted .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 40px; }
+  .wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: none; }
 }
 `;
 
-/** The cells of a row, in the head's order (the rank, the challenger, then the numbers). */
-const CELLS = Object.freeze(['rank', 'who', 'damage', 'share', 'blows', 'best', 'cx', 'falls']);
+/** The cells of a row, in the head's order (the rank, the challenger, then the numbers) - WB11c: the host's last, shown
+ *  only for a court his host stood in. */
+const CELLS = Object.freeze(['rank', 'who', 'damage', 'share', 'blows', 'best', 'cx', 'falls', 'host']);
 
 let root = null, parts = null;
 let shown = { vis: '', key: '', alpha: -1, sub: '' };
@@ -172,6 +184,7 @@ function writeRow(r, m) {
   r.cells[5].textContent = m.best;
   r.cells[6].textContent = m.crystals;
   r.cells[7].textContent = m.falls;
+  r.cells[8].textContent = m.host ?? '';   // WB11c
 }
 
 /** Draw the chart for a model (null hides it); `hidden` is the HUD's own hide. */
@@ -187,7 +200,8 @@ export function drawGateDamageChart(model, { hidden = false, doc = globalThis.do
   if (model.key !== shown.key) {
     shown.key = model.key;
     parts.title.textContent = model.title;
-    model.head.forEach((h, i) => { parts.head.cells[i].textContent = h; });
+    root.className = model.hosted ? 'wb-dmg-chart wb-dmg-hosted' : 'wb-dmg-chart';   // WB11c: the host's column shown or not
+    parts.head.cells.forEach((c, i) => { c.textContent = model.head[i] ?? ''; });
     parts.rows.forEach((r, i) => writeRow(r, model.rows[i] ?? null));
     parts.gap.style.display = model.mine ? '' : 'none';
     writeRow(parts.mine, model.mine);

@@ -318,8 +318,8 @@
   {
     "name": "WB8b-the-old-law-let-in",
     "file": "src/net/wire.js",
-    "old": "export const GATE_BRAIN_MIN = 4;",
-    "new": "export const GATE_BRAIN_MIN = 3;",
+    "old": "export const GATE_BRAIN_MIN = 5;",
+    "new": "export const GATE_BRAIN_MIN = 4;",
     "tests": [
       "test/wb8b_gate_marks.test.js"
     ]

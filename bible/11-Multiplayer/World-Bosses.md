@@ -1738,3 +1738,22 @@ the only take; no feet), `net/gateBrain.js` (the counts, `damageChart`, the char
 `fell` carries it), `net/gateLink.js` (the fold), `ui/gateDamageChart.js` (the readout), `scenes/gateCourt.js` (drawn
 from the fall, put away on leaving), `ui/enhancedPlusStyle.js` (its dress). Not seen over a real fight or on the
 deployed relay: the readout was looked at in headless Chromium over a mock court.
+
+**WB11 (2026-10-01) - his host, the Legion-Lord.** Section 17 above, whole, in three slices on one branch:
+**WB11a** - `net/gateMods.js` (the ninth trial), `net/gateLaw.js` (the rotation for nine: the bye seat, 144 gates); the
+rotation's own pins moved in `test/wb8b_gate_marks.test.js`, and every pin that named a day's marks re-read against
+it (`wb3_gate_room`, `wb8c_gate_detail` - its Rime-Wrought Colossal and Unyielding night is day 112 now -
+`discordgates`, `eventtip`). **WB11b** - `net/gateBrain.js` (HOST_KINDS and HOST_BLOWS, the waves, the walks, the
+blows, the drinking, the bearers' wait, the crumbling, `applyHostHit`, the state's `lg`, the chart's `a`; the profile's
+`legion`), `net/wire.js` (the six words, GATE_HOST_MAX, the brain's law 5, RELAY_VERSION world138), `server/src/index.js`.
+**WB11c** - `net/gateLink.js` (the fold), `net/gateStrike.js` (`hostVerdict`, `hostTelegraphAt`), `world/gateBoss.js` (the
+looks, the acts, the fall, the cues, the stand-in), `scenes/gateHost.js` (new: the court's host), `scenes/gateCourt.js`,
+`scenes/dungeonContext.js`, `scenes/hostMagic.js`, `scenes/worldModes.js`, `scenes/world.js`, `ui/gateBossBar.js`,
+`ui/gateMarksView.js`, `ui/gateDamageChart.js` (the host's column - the chart's DOM pins in `gateux_gate` took its empty
+cell). What moved from the page as written: a FIRST SIMULATED COURT found a Sapper risen beside the challenger he then
+leapt to, drunk 2.75 s after it rose - so each kind now RISES (HOST_RISE_MS: 0.8, 2.5, 1.5 s) before it walks or strikes
+and is never drunk while rising, and a Sapper rises SAP_SPAWN_CLEAR (8 m) clear of every challenger. The swing on one of
+his host is the eighteenth blood-splash site (`blood1_decals` recounted). Pins `test/wb11_gate_host.test.js` (19);
+mutants `tools/mutants/wb11.json` (37, all dead - the spawn's clearance and the Pulse's "someone near" survived the first
+run and have pins of their own now). Not seen in a browser or on the deployed relay: this container has no ARENA2, so the
+sprites, the tethers and the sounds are the tables' until a Legion-Lord court has been looked at and heard.
