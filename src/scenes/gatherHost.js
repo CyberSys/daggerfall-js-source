@@ -165,6 +165,8 @@ export function aimAt(eyePos, at, view) {
  *   NODE-MARKS: the node on the compass and in the glow - its footprint about its base (`w` across, `h` up, metres) and
  *   how far off the compass marks it (`reach`, NODE_MARK_M without one); null for a node never marked. Without it, a
  *   node is marked at NODE_MARK_SIZE while it is not gone for the day.
+ * @property {(node: any) => (string|null)} [where] SETTLE-SAID: the act's check of the ground the node stands on, in the
+ *   prompt's words (GROUND_WHERE_WORDS) - a ready plan there is no ready plan; null where it passes
  * @property {boolean} [marksLoose] NODE-MARKS: its loose nodes are walked for the marks (Hunting's bodies); without it
  *   they are never asked for there (Fishing's cast - the look itself, and its water's check is Foraging's whole world)
  */
@@ -411,6 +413,8 @@ export function createGatherHost(deps) {
    *  and a tool worn for the same refusal again. */
   function planFor(t, tool = null) {
     const plan = kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;
+    const where = plan?.ready ? (kindOf(t.node)?.where?.(t.node) ?? null) : null;   // SETTLE-SAID
+    if (where) return { ...plan, ready: false, rest: where };
     if (!plan?.ready || typeof book.closed !== 'function') return plan;
     if (book.closed(`account:${plan.profession}`)) return { ...plan, ready: false, rest: `${HARVESTS_PER_ACCOUNT_DAY} today across your characters` };
     if (t.node.what === 'dvein' && book.closed('deep')) {

@@ -183,7 +183,7 @@ import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } 
 import { createNoticeOverlay, closeNoticeDoor, noticeDoorOpen } from '../ui/noticeDoor.js';   // NOTICE1: the board's window, through its one door
 import { createProfBook } from '../net/profBook.js';   // PROF1: this character's professions - its Stores, its day, its harvests kept until answered
 import { createProfHud } from '../ui/profHud.js';   // PROF1: the prompt, the act's meter, the toasts, the day's chip, the rank's banner
-import { createGatherHost } from './gatherHost.js';   // PROF1/PROF2: the gathering professions in the streaming world - the nodes, the target, the act
+import { createGatherHost } from './gatherHost.js'; import { rockFootprint } from '../world/terrainNature.js';   // PROF1/PROF2: the gathering professions in the streaming world - the nodes, the target, the act
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
 import { mineKind } from './mineHost.js'; import { nodeCompassPoints } from '../ui/nodeMarks.js'; import { createNodeGlowPass } from '../render/nodeGlow.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; NODE-MARKS: every profession's nodes on the compass in its colour, and lit where they stand
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
@@ -3719,7 +3719,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (boxNearGate(gateClear, px, py, box[0], box[2], box[3], box[5])) { gateLedger.refused = true; _wodOffGate++; continue; }
         gateLedger.reach.push(box[0], box[2], box[3], box[5], 0);
         unionBox(box);
-        if (rockPick(m.pick)) pixelRocks.push(box);   // PROF2: a rock piece that stood - a vein's foot or a boulder
+        if (rockPick(m.pick)) { const foot = rockFootprint(cpu.positions, cpu.indices, m.matrix, samples); if (foot) pixelRocks.push(foot); }   // PROF2: a rock piece that stood - a vein's foot or a boulder; ROCK-FOOT: as it stands out of the ground, never its whole mesh's box (none if wholly under it)
         const entry = { gpu, local: m.matrix, _box: box, _order: m.modelId };
         models.push(entry);
         if (cpu.normals && cpu.uvs) { staticBuilder.add(cpu, m.matrix, resolveTexKey, m.normalMatrix); entry._batched = true; }

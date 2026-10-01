@@ -273,7 +273,7 @@
   {
     "name": "PROF2-31-boulders-anywhere",
     "file": "src/scenes/mineHost.js",
-    "old": "    if (!rock) continue;   // a boulder is a rock field's piece: none left, none stands\n",
+    "old": "    if (!claimed) continue;\n",
     "new": "",
     "tests": [
       "test/prof2_client.test.js"
@@ -282,8 +282,8 @@
   {
     "name": "PROF2-32-a-piece-holds-two",
     "file": "src/scenes/mineHost.js",
-    "old": "    return free.splice(bi, 1)[0];",
-    "new": "    return free[bi];",
+    "old": "return { rock: free.splice(i, 1)[0], foot };",
+    "new": "return { rock: free[i], foot };",
     "tests": [
       "test/prof2_client.test.js"
     ]

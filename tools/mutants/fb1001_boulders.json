@@ -1,0 +1,110 @@
+[
+  {
+    "name": "ROCK-FOOT-the-ground-unasked",
+    "file": "src/world/terrainNature.js",
+    "old": "  for (let i = 0; i < n; i++) if (above[i] >= 0) add(w[i * 3], w[i * 3 + 1], w[i * 3 + 2]);",
+    "new": "  for (let i = 0; i < n; i++) add(w[i * 3], w[i * 3 + 1], w[i * 3 + 2]);",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "ROCK-FOOT-the-cut-at-the-ground-left-out",
+    "file": "src/world/terrainNature.js",
+    "old": "      if ((above[a] >= 0) === (above[b] >= 0)) continue;",
+    "new": "      continue;",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "ROCK-FOOT-the-whole-box-carried",
+    "file": "src/scenes/world.js",
+    "old": "{ const foot = rockFootprint(cpu.positions, cpu.indices, m.matrix, samples); if (foot) pixelRocks.push(foot); }",
+    "new": "pixelRocks.push(box);",
+    "tests": [
+      "test/prof2_client.test.js"
+    ]
+  },
+  {
+    "name": "ROCK-FOOT-one-piece-asked",
+    "file": "src/scenes/mineHost.js",
+    "old": "    for (const { i } of order) {",
+    "new": "    for (const { i } of order.slice(0, 1)) {",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "ROCK-FOOT-one-side-asked",
+    "file": "src/scenes/mineHost.js",
+    "old": "  return [[x, z], ...sides.map(({ a }) => [cx + Math.cos(a) * far, cz + Math.sin(a) * far])];",
+    "new": "  return [[x, z]];",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "ROCK-FOOT-the-sides-unordered",
+    "file": "src/scenes/mineHost.js",
+    "old": "  sides.sort((p, q) => p.off - q.off || p.a - q.a);\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "ROCK-FOOT-the-boulders-after-the-veins-in-the-list",
+    "file": "src/scenes/mineHost.js",
+    "old": "  out.push(...stones);",
+    "new": "  out.unshift(...stones);",
+    "tests": [
+      "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "SETTLE-SAID-the-plan-never-asks",
+    "file": "src/scenes/gatherHost.js",
+    "old": "    if (where) return { ...plan, ready: false, rest: where };\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_settlesaid.test.js"
+    ]
+  },
+  {
+    "name": "SETTLE-SAID-the-dungeon-vein-asked-too",
+    "file": "src/scenes/mineHost.js",
+    "old": "(n.what === 'dvein' ? null : actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS))",
+    "new": "(actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS))",
+    "tests": [
+      "test/fb1001_settlesaid.test.js"
+    ]
+  },
+  {
+    "name": "SETTLE-SAID-no-ground-asked",
+    "file": "src/net/professionLaw.js",
+    "old": "export const GROUND_WHERE = Object.freeze(['town']);",
+    "new": "export const GROUND_WHERE = Object.freeze([]);",
+    "tests": [
+      "test/fb1001_settlesaid.test.js"
+    ]
+  },
+  {
+    "name": "SETTLE-SAID-the-patch-never-asks",
+    "file": "src/scenes/herbHost.js",
+    "old": "    where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_settlesaid.test.js"
+    ]
+  },
+  {
+    "name": "SETTLE-SAID-the-tree-never-asks",
+    "file": "src/scenes/treeHost.js",
+    "old": "    where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_settlesaid.test.js"
+    ]
+  }
+]

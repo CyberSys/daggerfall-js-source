@@ -265,11 +265,14 @@ test('VEIN-CLEAR: a vein with no rock left to claim stands on stone outside ever
   assert.equal(veinsStood.length, law.length, 'every vein stands');
   const inside = (p) => rocks.some((r) => p[0] > r[0] && p[0] < r[3] && p[2] > r[2] && p[2] < r[5]);
   for (const v of veinsStood) assert.equal(inside(v.local), false, `vein ${v.slot} at ${v.local.map((c) => c.toFixed(1))} is outside the rock`);
-  // no stone anywhere (grass): the last fallback, nature at the vein's own point - inside the piece, so it stands nowhere
+  // no stone anywhere (grass): the last fallback, nature at the vein's own point - inside the piece, so it stands nowhere.
+  // ROCK-FOOT: the boulders claim first - the Woodlands' one boulder takes the field's one piece, at its foot outside it
   const grass = standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: new Uint8Array(128 * 128).fill(2), rocks });
   const g = grass.filter((n) => n.what === 'vein');
-  assert.ok(g.length >= 1 && g.length < law.length, `the vein that claimed the rock stands at its foot, the rest nowhere (${g.length} of ${law.length})`);
-  for (const v of g) assert.equal(inside(v.local), false);
+  assert.equal(g.length, 0, `no vein has a piece left, and none stands inside one (${g.length} of ${law.length})`);
+  const b = grass.filter((n) => n.what === 'boulder');
+  assert.equal(b.length, 1, 'the boulder took the piece');
+  assert.equal(inside(b[0].local), false);
 });
 
 test('ACT-CLICK: the act\'s strike is either button - the world host\'s input reads the swing\'s and the activation\'s press off the edge ring (a left click, Mouse0, strikes; E does not) (mutants: the click left out; the hold read for the press)', () => {

@@ -1050,3 +1050,38 @@ Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mut
 cell, from the registry), and the nine account-version pins (acct46, past PATREON-LINK's acct45 at the merge). Mutant record re-aimed by content, dead:
 `fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
 own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).
+
+## ROCK-FOOT and SETTLE-SAID: the boulders (Mac: "People are trying to mine boulders on the outside, but it's not letting people mine"; "it gives a notification but you cant mine")
+
+**Reproduced first** (the real `standMineNodes` over every shipped `WOD_Rocks_*` and `WOD_Mountain_*` layout's own
+transforms, a cube standing in for each model at sizes and origins that bracket a real rock's - the meshes are ARENA2's,
+not in CI): under one boulder in ten of the law's stood, and one in sixteen to thirty at a rock that shows. A piece was
+carried as its WHOLE mesh's box (`scenes/world.js` pixelRocks) - the fields are a few models scaled by tens to hundreds,
+turned and sunk, so a box ran 90 m to over a kilometre where the rock showed a few metres. A boulder's one foot stood on
+that box's edge facing its point, and AUDIT 29 C11 stood nothing when the foot fell inside a neighbour's box - most of
+the time in a field whose pieces overlap - with the piece spent and no other piece or side asked; and the veins had
+claimed the field's clear pieces first. Where a boulder stood, its stones lay out on open ground, so a look at the rock,
+E or the Pick-Axe found no node - the Use said "Mining is done at an ore vein or a boulder ... walk up to one until the
+prompt shows". And on a settlement's ground (a town, a farm, a temple, a tavern, a wealthy home - its footprint and a
+city block round it) the prompt of a vein, a boulder, a patch or a tree said it was ready, and E or the tool's Use said
+"You cannot mine in a settlement!" (the act's own check, FORAGE0 14.3), every time; Hunting's and Fishing's plans ask it.
+
+**The fix.** ROCK-FOOT: a piece is carried as it stands out of the ground (`world/terrainNature.js` rockFootprint - its
+mesh above the terrain, each vertex above it and each edge where it crosses it; none for a piece wholly under it); a
+node takes the nearest piece with a foot clear of every piece, the side facing its point first, then its others nearest
+that way (`scenes/mineHost.js` claim, footTargets); the boulders claim before the veins (a vein has the stone beside the
+field to fall back on, a boulder has nothing). Over the same layouts: three boulders in four stand, every one at a rock
+that shows, none inside a piece; the veins stand as often or more, and at a rock twice as often. The herbs' and trees'
+NODE-CLEAR read the same, truer, pieces. SETTLE-SAID: the ground's nodes ask the settlement's check in the plan
+(`net/professionLaw.js` GROUND_WHERE, each kind's `where`, `scenes/gatherHost.js` planFor) - the prompt says "not in a
+settlement", E goes on to the door or says it, the tool's Use says it; a dungeon's vein asks none. Node places are the
+client's alone (the service checks a node's key and slot, never where it stands): no service change.
+
+Pins: `test/fb1001_rockfoot.test.js` (4), `test/fb1001_settlesaid.test.js` (2); `tools/mutants/fb1001_boulders.json`
+(12, all dead). PIN MOVED, each by content: `prof2_client` (the rock pieces' line; PROF2 stand and DONE WHEN with the
+boulders' own pieces, claimed first), `fb1001_mining` VEIN-CLEAR (the field's one piece the boulder's). Mutant records
+re-aimed by content, dead: `audit29.json` AUDIT29-C11-a-foot-inside-a-neighbour, `prof2.json` PROF2-31, PROF2-32.
+FOUND, not changed: a boulder on a settlement's ground still stands (glowing, on the compass) where it can never be
+worked - its prompt now says why; standing none there needs the location's rect and type on the pixel. A pixel's
+boulders are 1 a day in the woods, 2 in the mountain woods, 3 in the mountains and deserts, none in swamps and
+rainforest (PROF0 6) - design, unchanged.
