@@ -10943,6 +10943,42 @@ Pinned: `test/seat2a_siege_play.test.js` (7). `tools/mutants/seat2a4.json` (85, 
 and were killed by sharper pins (a fighter whole again by its vitality alone, the tier's own wave, the nearest board
 not the first, a pass on a siege's hello alone).
 
+### CROWN1 (part one) - the crown tier: reach, the Marches, the Free Lands, Conscription
+
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service and law; `acct49`, migration
+`0053_crown_edicts.sql` (the Edicts' CHECK widened for the crown's two - Conscription now, the Royal Tourney's id ready
+for part two). Seats-Arc 4.3, 4.4, 5.2 step 1, 7.6. SEAT2b, before it in 13's order, waits on PROF11 (Masonry); CROWN1
+reads nothing of it.
+
+- **Reach** (`townSeatLaw.js` `crownsHeld`, `seatReach`, `withReach`; `seatInfluence.js` `gatherStandings`): a guild
+  holding a crown earns a quarter more on every source but Tribute at that kingdom's palace seats; a March's claiming
+  crowns an eighth each, a guild holding both a quarter; a crown seat and another kingdom's nothing. It is applied to the
+  guild's week after its accounts' caps and its Tribute's room (the room stays a fifth of the week before reach), rounded
+  down - 4.4's worked example, 7,425 and 40 of Tribute at a March, is 8,393 to the unit. The standings, the Turning's
+  totals, a challenger's claim and the holder's own defence all read it, so a crown defends its own palaces better
+  (Seats-Arc 16, "A crown holder's own palaces").
+- **The Free Lands' Watch**: at a Free Land's seat every account's Watch counts a tenth more, rounded down, before the
+  account's 2,000 (`accountSeatInfluence`'s `watchBonus`). No crown reaches a Free Land (it is no kingdom's and no
+  March), and no Conscription touches it.
+- **Conscription** (`EDICTS.conscription`, `crown: true`; `edictForTier`): proclaimed by a crown's Officer or
+  Guildmaster alone - a palace's proclamation is refused (`edict-tier`, 409) and its Seat tab never offers it. Made law
+  at the Turning at no cost; at the Turning that ends the week it ruled (`seatTurning.js`), each other guild holding
+  palace seats of the kingdom pays the crown 2% of its share of the week's Tithe at each, a March's 1% to each claiming
+  crown that proclaims it (`conscriptionDue`). DECIDED here: the ledger names the guild a Tithe reached, not the seat it
+  was taken at, so a guild's week of Tithe (the `tithe` lines into its treasury in the week) is shared evenly over all
+  its Charters and each conscripted seat pays its share at its rate. It is paid after the upkeep and the Edicts, out of
+  what the treasury holds, up to the due (a treasury emptied pays what is left, never rolls the Turning back); to the
+  crown's treasury, or burnt where that is full (as a Tithe is). Every seat that pays loses 5 Standing
+  (`STANDING_CHANGES.conscripted`), and the Chronicle says so at the crown (`conscription`) and at each seat
+  (`conscripted`) - with the share due.
+
+Pinned: `test/crown1_law.test.js` (7), `test/crown1_service.test.js` (4), `test/crown1_client.test.js` (1).
+`tools/mutants/crown1.json` (48: 46 dead, 2 equivalent recorded - the read's own crown filter, which the law repeats,
+and a burnt Tithe's line, which names no guild). Seven survived the first run: two were dead code (the Free Land checks
+in `seatReach` and `conscriptionDue` - no kingdom or March holds one), removed; three were sharpened pins (a palace in
+a crown's own region, a crown seat never conscripted, a guild that took no Tithe never conscripted). PIN MOVED: the
+Edicts' list and Standing's rows (`test/seat1d_client.test.js`).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

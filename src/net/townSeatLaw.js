@@ -267,11 +267,13 @@ export function tributeRoom(others, tributeSoFar = 0) {
  * ONE ACCOUNT'S WEEK AT ONE SEAT, every source at its own cap and then all of them at ACCOUNT_SEAT_WEEK_CAP: `watch` its
  * ticks (each day's already at WATCH_DAY_CAP), `gates` the receipts that count, `renownXp` the XP earned in the seat's
  * region, `writ` the own units' value delivered, `homeDays` the days its counting homes stood this week (the guild's
- * HOMES_SEAT_MAX already chosen).
+ * HOMES_SEAT_MAX already chosen). CROWN1: `watchBonus` the Watch's share more (a Free Land's FREE_LAND_WATCH_BONUS, 4.3),
+ * rounded down, before the account's cap.
  * @param {{ watch?: number, gates?: number, renownXp?: number, writ?: number, homeDays?: number }} a
+ * @param {number} [watchBonus]
  */
-export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0 } = {}) {
-  const w = Math.max(0, watch) * WATCH_INFLUENCE;
+export function accountSeatInfluence({ watch = 0, gates = 0, renownXp = 0, writ = 0, homeDays = 0 } = {}, watchBonus = 0) {
+  const w = Math.floor(Math.max(0, watch) * WATCH_INFLUENCE * (1 + Math.max(0, watchBonus)) + 1e-9);   // CROWN1: a Free Land's tenth more
   const g = Math.min(GATE_WEEK_CAP, Math.max(0, gates) * GATE_INFLUENCE);
   const r = Math.min(RENOWN_WEEK_CAP, Math.floor(Math.max(0, renownXp) / RENOWN_XP_PER_INFLUENCE));
   const h = Math.max(0, homeDays) * HOME_INFLUENCE_DAY;
@@ -475,7 +477,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     const unchallenged = !seatTaken.has(s.key);
     const w = standingWeek({
       tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
-      writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law,
+      writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted,
     });
     standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
     if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
@@ -520,6 +522,9 @@ export function chronicleLine(row, seat) {
     case 'siege-absent': return `${when}, neither side came to the siege of ${seat.name}; ${guildWords(d.guild)} keeps it.`;
     case 'tourney-won': return `${when}, ${guildWords(d.guild)} won the Tourney for ${c}.`;
     case 'tourney-unheld': return `${when}, the Tourney for ${seat.name} was fought, but neither guild could pay for ${c}.`;
+    // CROWN1: Conscription paid (7.6) - at the crown, and at each seat that paid it
+    case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its kingdom's Tithe.`;
+    case 'conscripted': return `${when}, ${guildWords(d.guild)} paid ${Number(d.marks ?? 0).toLocaleString('en-US')} Marks of its Tithe to ${guildWords(d.crown)}'s Conscription.`;
     default: return null;
   }
 }
@@ -655,6 +660,7 @@ export const STANDING_CHANGES = Object.freeze({
   titheLow: 2, titheHigh: -3, unchallenged: STANDING_UNCHALLENGED, gate: 2, gateWeekMax: 6, noWatch: -5,
   siegeHeld: 15, throneReached: -5, festival: 10, neglect: -10, writ: 1, writWeekMax: 5, paidLate: -5,
   revoltTo: 20, curfew: -2, levy: -2, openGates: 3,
+  conscripted: -5,   // CROWN1 (7.6): a seat that paid a crown's Conscription
 });
 /** UNREST (SEAT0 7.3): below 20 challengers earn +25% influence there, and the arrival line says so; at 0 it revolts. */
 export const STANDING_UNREST = 20;
@@ -682,8 +688,12 @@ export const EDICTS = Object.freeze({
   festival: Object.freeze({ name: 'Festival', standing: STANDING_CHANGES.festival, cost: Object.freeze({ palace: 2500, crown: 10000 }), repeat: false }),
   levy: Object.freeze({ name: 'Levy', standing: STANDING_CHANGES.levy, cost: null, repeat: false }),
   bounty: Object.freeze({ name: 'Bounty', standing: 0, cost: null, repeat: false }),
+  // CROWN1 (SEAT0 7.6): a crown's alone - the kingdom's palace seats held by other guilds pay it a share of their Tithe
+  conscription: Object.freeze({ name: 'Conscription', standing: 0, cost: null, repeat: false, crown: true }),
 });
 export const edictOk = (e) => typeof e === 'string' && Object.hasOwn(EDICTS, e);
+/** CROWN1: whether `edict` may be proclaimed at a seat of `tier` - a crown's Edicts at a crown seat alone. */
+export const edictForTier = (edict, tier) => edictOk(edict) && (!EDICTS[edict].crown || tier === 'crown');
 /** Whether `edict` may be proclaimed for the week after one whose Edict was `last`. */
 export const edictMayFollow = (edict, last) => edictOk(edict) && (edict !== last || EDICTS[edict].repeat);
 /** What an Edict costs at a seat of `tier` (0 for most). */
@@ -705,9 +715,10 @@ export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
  * moved it (`[row, delta]`), the result held to 0-100. `o`: its tier and Standing; `tithe` its rate; `watched` whether
  * any of the holder's own members kept the Watch there; `gates` gates felled in its region; `writs` the holder's writs
  * filled there; `unchallenged` no Right granted against it; `upkeep` 'paid', 'late' (paid with the arrears) or
- * 'neglect'; `edict` the Edict the Turning makes law for the coming week (its row taken as it is proclaimed).
+ * 'neglect'; `edict` the Edict the Turning makes law for the coming week (its row taken as it is proclaimed);
+ * CROWN1: `conscripted` the seat paid a crown's Conscription this week (7.6).
  */
-export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null }) {
+export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false }) {
   const changes = [];
   const add = (row, d) => { if (d) changes.push([row, d]); };
   const t = titheStanding(tier, tithe);
@@ -719,6 +730,7 @@ export function standingWeek({ tier, standing, tithe = 0, watched = true, gates 
   if (upkeep === 'neglect') add('neglect', STANDING_CHANGES.neglect);
   if (upkeep === 'late') add('paidLate', STANDING_CHANGES.paidLate);
   if (edict && EDICTS[edict]?.standing) add(edict, EDICTS[edict].standing);
+  if (conscripted) add('conscripted', STANDING_CHANGES.conscripted);
   const sum = changes.reduce((a, [, d]) => a + d, 0);
   return { standing: Math.max(0, Math.min(STANDING_MAX, standing + sum)), changes };
 }
@@ -735,6 +747,7 @@ export const EDICT_WORDS = Object.freeze({
   festival: 'Music and banners; everyone in the town is Festive, +5 to every attribute for a day. Standing +10.',
   levy: 'A tenth of what is gathered near the town goes to its stockpile. Standing -2.',
   bounty: 'Camps in the region yield double, and the treasury pays 20 Drakes a camp cleared, from what is set aside.',
+  conscription: 'The kingdom\'s palace seats held by other guilds pay the crown 2% of their week\'s Tithe, a March\'s 1%. Standing -5 at every seat that pays.',
 });
 /** An Edict's line in the Seat tab, with its cost at a seat of `tier`. */
 export function edictLine(edict, tier) {
@@ -990,3 +1003,51 @@ export const SIEGE_WHY = Object.freeze({
   'honours-character': 'Honours are claimed for a character.',
   'honours-twice': 'Your Honours from this battle are claimed already.',
 });
+
+// ─── CROWN1: THE CROWN TIER - REACH, THE MARCHES, THE FREE LANDS, CONSCRIPTION (SEAT0 4.3, 7.6) ───
+
+/** KINGDOM REACH (4.3): a guild holding a crown earns a quarter more on every source but Tribute at that kingdom's palace
+ *  seats; a March's claiming crowns an eighth each (a guild holding both, a quarter); the Free Lands no crown's - instead
+ *  every guild's Watch there a tenth more. */
+export const KINGDOM_REACH = 0.25;
+export const MARCH_REACH = 0.125;
+export const FREE_LAND_WATCH_BONUS = 0.1;
+/** The kingdoms whose crown a guild holds, off its Charters (`[{ tier, region }]`). */
+export const crownsHeld = (holds) => new Set((holds ?? []).filter((h) => h.tier === 'crown').map((h) => CROWN_SEAT_REGIONS[h.region]).filter(Boolean));
+/** A guild's reach at a seat (`{ tier, region }`) holding the crowns `crowns` - a palace seat's alone (a crown seat is no
+ *  kingdom's palace); a Free Land is no kingdom's and no March, so none reaches it. */
+export function seatReach(seat, crowns) {
+  if (seat?.tier !== 'palace' || !crowns?.size) return 0;
+  if (isMarch(seat.region)) return MARCHES[seat.region].filter((k) => crowns.has(k)).length * MARCH_REACH;
+  const k = kingdomOf(seat.region);
+  return k && crowns.has(k) ? KINGDOM_REACH : 0;
+}
+/** A guild's week at a seat with its reach: every source but Tribute raised, rounded down (4.4's worked example:
+ *  7,425 + 40 Tribute at a March held by one claiming crown is 8,393). */
+export const withReach = (st, reach) => (reach > 0 ? { ...st, total: Math.floor(st.others * (1 + reach) + 1e-9) + st.tribute, reach } : { ...st, reach: 0 });
+
+/** CONSCRIPTION (7.6): a crown's Edict - the kingdom's palace seats held by other guilds pay it 2% of their Tithe for
+ *  the week, a March's 1% to each claiming crown that proclaims it; Standing -5 at every seat conscripted. */
+export const CONSCRIPTION = Object.freeze({ kingdom: 0.02, march: 0.01, standing: STANDING_CHANGES.conscripted });
+/**
+ * WHAT A CROWN CONSCRIPTS - pure. `kingdom` the proclaiming crown's ('daggerfall' ...), `crownGuild` its holder, `holds`
+ * every Charter (`[{ key, guild, tier, region }]`), `tithes` each guild's Tithe taken this week (Drakes). DECIDED (CROWN1):
+ * the ledger names the guild a Tithe reached, not the seat it was taken at, so a guild's week of Tithe is shared over its
+ * Charters - each conscripted seat pays its share of it at its rate. A Free Land is no crown's; a vassal's seat is CROWN2's.
+ * Answers `[{ guild, keys, amount }]`, a guild that holds nothing here never named.
+ */
+export function conscriptionDue({ kingdom, crownGuild, holds, tithes }) {
+  const by = new Map();
+  for (const h of holds ?? []) { let l = by.get(h.guild); if (!l) by.set(h.guild, l = []); l.push(h); }
+  const out = [];
+  for (const [guild, seats] of by) {
+    if (guild === crownGuild) continue;
+    const here = seats.filter((h) => h.tier === 'palace' && (isMarch(h.region) ? MARCHES[h.region].includes(kingdom) : kingdomOf(h.region) === kingdom));
+    if (!here.length) continue;
+    const rate = here.reduce((n, h) => n + (isMarch(h.region) ? CONSCRIPTION.march : CONSCRIPTION.kingdom), 0);
+    const amount = Math.floor((Math.max(0, tithes?.get(guild) ?? 0) * rate) / seats.length + 1e-9);
+    out.push({ guild, keys: here.map((h) => h.key).sort((a, b) => a - b), amount });
+  }
+  return out.sort((a, b) => (a.guild < b.guild ? -1 : a.guild > b.guild ? 1 : 0));
+}
+

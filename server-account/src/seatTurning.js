@@ -25,7 +25,8 @@
 // crown's scale); the batch pays the upkeep and the Edicts, lapses a
 // Charter neglected twice, writes every Standing, and sends a Bounty's
 // unspent escrow home. SEAT2a: the battles a Right or a Contested seat names placed in
-// the coming week (step 8) - their fighting is the relay's.
+// the coming week (step 8) - their fighting is the relay's. CROWN1: a crown's Conscription
+// that ruled the week paid out of the conscripted guilds' Tithe (7.6), after their upkeep.
 //
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
@@ -38,7 +39,8 @@ import { guildActorOf } from './guilds.js';
 import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
-import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS } from '../../src/net/townSeatLaw.js';
+import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, CROWN_SEAT_REGIONS, conscriptionDue } from '../../src/net/townSeatLaw.js';
+import { MARKS_MAX } from '../../src/net/marksLaw.js';
 
 /** The most weeks one read settles - a service asleep for longer starts its count again from there. */
 export const SETTLE_WEEKS_MAX = 8;
@@ -84,6 +86,22 @@ export async function settleWeek(db, week, nowS) {
   // challenger barred from the seat at this Turning
   const { results: afterRows = [] } = await db.prepare('SELECT key, guild_id, what FROM town_seat_aftermath WHERE week = ?').bind(week).all();
   const aftermath = (key, what) => afterRows.filter((r) => Number(r.key) === key && r.what === what).map((r) => r.guild_id);
+  // CROWN1 (7.6): THE CONSCRIPTIONS that ruled the week - each crown's, still held by the guild that proclaimed it, over
+  // the Tithe every guild took this week; a seat that pays loses its Standing row
+  const conscriptions = [];
+  const ruling = [...(await edictsOf(db, week))].filter(([key, e]) => e.edict === 'conscription' && holds.get(key)?.guild_id === e.guild && holds.get(key)?.tier === 'crown');
+  if (ruling.length) {
+    const { results: titheRows = [] } = await db.prepare("SELECT dst_id, SUM(amount) AS n FROM marks_ledger WHERE dst_kind = 'guild' AND kind = 'tithe' AND at >= ? AND at < ? GROUP BY dst_id")
+      .bind(fromS, atS).all();
+    const tithes = new Map(titheRows.map((t) => [t.dst_id, Number(t.n)]));
+    const charters = holdRows.map((h) => ({ key: Number(h.key), guild: h.guild_id, tier: h.tier, region: Number(h.region) }));
+    for (const [key, e] of ruling) {
+      for (const d of conscriptionDue({ kingdom: CROWN_SEAT_REGIONS[Number(holds.get(key).region)], crownGuild: e.guild, holds: charters, tithes })) {
+        if (d.amount > 0) conscriptions.push({ crownKey: key, crown: e.guild, ...d });
+      }
+    }
+  }
+  const conscripted = new Set(conscriptions.flatMap((c) => c.keys));
   const seats = [];
   for (const key of keys) {
     const seat = registry.get(key);
@@ -100,6 +118,7 @@ export async function settleWeek(db, week, nowS) {
         guild: h.guild_id, standing: Number(h.standing), truceWeek: h.truce_week == null ? null : Number(h.truce_week),
         tithe: Number(h.tithe), owed: Number(h.owed), watched: !!watched, gates: gatesIn.get(Number(h.region)) ?? 0, writs: Number(writs?.n ?? 0),
         edict: e?.edict ?? null, setAside: Number(e?.set_aside ?? 0), bonus: aftermath(key, 'bonus').includes(h.guild_id),
+        conscripted: conscripted.has(key),
       };
     }
     seats.push({
@@ -200,6 +219,17 @@ export async function settleWeek(db, week, nowS) {
       FROM town_seat_edicts WHERE key = ?4 AND week = ?5 AND state = 'law' AND set_aside > spent AND EXISTS (SELECT 1 FROM guilds WHERE id = guild_id)`)
       .bind(`bounty:${key}:${week}`, utcDay(nowS), nowS, key, week));
     stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'returned' WHERE key = ? AND week = ? AND state = 'law'").bind(key, week));
+  }
+  // CROWN1 (7.6): THE CONSCRIPTIONS PAID - after the upkeep and the Edicts, what is left of the guild's treasury up to
+  // its due, to the crown (burnt where the crown's treasury is full, as a Tithe is); a treasury empty pays nothing
+  for (const c of conscriptions) {
+    const to = `COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?2), 0) + MIN(?3, balance) <= ${MARKS_MAX} AND EXISTS (SELECT 1 FROM guilds WHERE id = ?2)`;
+    stmts.push(db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'guild', ?1, CASE WHEN ${to} THEN 'guild' ELSE 'burn' END, CASE WHEN ${to} THEN ?2 END, 'conscription', MIN(?3, balance), ?4, ?5, 'seats', 'The Turning', ?6
+      FROM guild_marks WHERE guild_id = ?1 AND balance > 0`)
+      .bind(c.guild, c.crown, c.amount, utcDay(nowS), nowS, `conscription-${week}-${c.crownKey}-${c.guild}`));
+    stmts.push(history(c.crownKey, 'conscription', { guild: names.get(c.crown), from: names.get(c.guild), marks: c.amount }));
+    for (const k of c.keys) stmts.push(history(k, 'conscripted', { guild: names.get(c.guild), crown: names.get(c.crown), marks: c.amount }));
   }
   // every held seat's Standing after its week (7.3); the unchallenged in the Chronicle
   for (const w of plan.standings) {

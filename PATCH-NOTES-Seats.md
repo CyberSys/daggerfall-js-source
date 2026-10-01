@@ -86,15 +86,21 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Fighting it.** From ten minutes before the battle until its window closes, the town's Notice Board offers **Enter the battle** (or **Watch the battle** if you didn't sign). You fight in the town's own streets. The bar across the top shows each banner (^ attackers, o defenders, ~ being raised), the Throne, the clock and each side's fighters; your vitality and your next wave sit at the lower right. When it ends, a result card shows who holds the seat, and your Honours once your receipt is claimed (the game claims it for you, and keeps it to try again if the server can't answer).
 - **Honours.** Fight on the winning side and earn **50 Marks and 2,000 Renown XP**; on the losing side **25 Marks and 1,000**. Every honoured fighter also rolls on the **Spoils of War**: a Warforged Steel Ingot or a Standard-bearer's Silk, into your Stores. The same two guilds earn Honours from each other once a Season (8 weeks).
 
+## The crowns (online)
+- **Kingdom reach.** A guild holding a crown - Daggerfall, Wayrest or Sentinel - earns **a quarter more** influence from every source but Tribute at that kingdom's palace seats, its own included, so a crown defends its realm better.
+- **The Marches.** Betony, Anticlere and Lainlyn are each claimed by two crowns. Each claiming crown's holder earns **an eighth more** there; a guild holding both claiming crowns, a quarter.
+- **The Free Lands.** No crown reaches Balfiera, Orsinium or the Wrothgarian Mountains. Instead, every guild's Watch there counts **a tenth more**.
+- **Conscription.** A new Edict, for a crown alone. While it rules, the kingdom's palace seats held by other guilds pay the crown **2%** of their Tithe for that week (a March's seats **1%** to each claiming crown that proclaims it). It's paid at the Turning, after the guild's own upkeep, from whatever its treasury holds; each seat that pays loses **5 Standing**, and both Chronicles say so. A guild's Tithe for the week is shared evenly across all its seats, and a guild that took no Tithe pays nothing. The Free Lands never pay.
+
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
 - **Fair sieges.** In a siege the server keeps every fighter's health and checks every blow, spell and step: a blow lands only if the weapon you carry can reach and deal it, nobody heals or strikes faster than the game allows, and nobody runs faster than the fastest legal runner. A siege's health is its own (300, more with your Renown) and never touches your character's health, items or gold. A siege room lets in only the fighters each side signed, and spectators.
-- Fortifications, deliveries to a seat's stockpile and the Siege Camp come in a later update. The Royal Tourney and Conscription come with the crowns' update.
+- Fortifications, deliveries to a seat's stockpile and the Siege Camp come in a later update. The Royal Tourney comes with the crowns' next update.
 
 ---
 
 ### For the team
-- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`** and **`0052_seat_siege_results.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct48`**).
+- Apply migrations **`0047_town_seats.sql`**, **`0048_seat_influence.sql`**, **`0049_seat_turning.sql`**, **`0050_seat_holding.sql`**, **`0051_seat_battles.sql`**, **`0052_seat_siege_results.sql`** and **`0053_crown_edicts.sql`** (with the guild halls' 0045 and 0046, after main's 0044) to production D1 and deploy the account service (**`acct49`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world141`).** It sends the Watch's ticks (world138), carries the seats' titles (world139), referees a siege's room (world140) and fights its battle by the service's pass (world141). Deploy it before the account service: an older relay refuses a token with a seat title in it.

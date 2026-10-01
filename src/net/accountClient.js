@@ -270,6 +270,7 @@ export const REFUSALS = Object.freeze({
   'tithe-this-week': 'The Tithe has been set this week already. It may change again after the Turning.',
   'bad-edict': 'There is no such Edict.',
   'edict-twice': 'That Edict rules this week, and only Market Day may be proclaimed two weeks running.',
+  'edict-tier': 'Only a crown may proclaim that Edict.',
   'seat-no-edict': 'No Edict is proclaimed for next week.',
   'bad-bounty': 'A Bounty sets aside at least 20 Drakes, and at most 100,000.',
   // SEAT2a: the battles' week - the window, the rosters, the Sellswords (the board's own words: townSeatLaw.js SIGN_WHY)

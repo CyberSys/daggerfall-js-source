@@ -295,6 +295,11 @@ and the seats' slices will read it rather than draw it again.
 - **The Free Lands**: no crown reaches them; instead every guild earns **+10%** there from the Watch (a free town
   welcomes whoever lives in it), and no Conscription (7.6) or vassalage (7.8) touches them.
 
+BUILT (CROWN1 part one, 2026-10-01; `06-Systems/Online-Arc.md` CROWN1): `townSeatLaw.js` `seatReach` and `withReach`,
+read by every standing (`seatInfluence.js` `gatherStandings`) and so by the Turning, a claim and a holder's defence -
+after the accounts' caps and Tribute's room, rounded down (4.4's 8,393 to the unit); the Free Lands' tenth on each
+account's Watch before its 2,000.
+
 ### 4.4 A worked example
 
 The Silver Hand (24 members) pledges Anticlere (a march) and holds the Crown of Daggerfall. In one week, 14 members
@@ -326,7 +331,7 @@ BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): steps 1-4, 6, 7 (
 `townSeatLaw.js` turningPlan and `server-account/src/seatTurning.js`; BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): step
 5 (the upkeep, Neglect and its lapse - reckoned before step 4, so a Charter that lapses is no siege's), Overreach's cut
 in step 3, Unrest's quarter in step 4, and the coming week's Edict made law with every row of Standing; reach is
-CROWN1's, the schedule (step 8) SEAT2a's, and the Siege Camps (step 7) SEAT2b's.
+CROWN1's (BUILT, part one: in step 1's totals), the schedule (step 8) SEAT2a's, and the Siege Camps (step 7) SEAT2b's.
 
 The Turning is never a job that runs. The account service settles week N **the first time anything asks about any
 seat after N's boundary** (`settleWeek(N)`, one D1 transaction, idempotent on `town_seat_weeks.week` - a second
@@ -690,6 +695,13 @@ Curfew on the player's own client; Open Gates in the town's homes as the service
 game day from the arrival; the Levy at the harvest (its tenth kept by the harvest's own roll); the Bounty's escrow, its
 claims (a camp is a World of Daggerfall site) and its doubled loot. The Royal Tourney and Conscription are CROWN1's.
 
+BUILT (CROWN1 part one, 2026-10-01; Online-Arc CROWN1): Conscription, a crown's alone (`edictForTier`; a palace's
+proclamation refused, `edict-tier`), made law at no cost and paid at the Turning that ends the week it ruled - after
+the upkeep and the Edicts, out of what the paying treasury holds, to the crown's treasury (burnt where it is full).
+DECIDED: the ledger names the guild a Tithe reached, not the seat, so a guild's week of Tithe is shared evenly over its
+Charters and each conscripted seat pays its share at its rate; a seat that pays nothing (its guild took no Tithe) loses
+no Standing. The Royal Tourney is part two (migration `0053` admits its id already).
+
 ### 7.7 Revolt
 
 A seat at Standing 0 revolts at its next siege window: a relay-run uprising (the gate's brain, with the adds the
@@ -916,7 +928,7 @@ bible updated in the same change, mutants recorded.
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world140`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct47`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world141`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct48`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
-| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription | - |
+| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct49`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); the Royal Tourney is part two. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts | - |
 | **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides | - |
 

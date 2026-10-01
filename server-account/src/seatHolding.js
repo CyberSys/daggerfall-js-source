@@ -24,7 +24,7 @@ import { guildActorOf } from './guilds.js';
 import { confirmedSeats, seatsOpenFor } from './townSeats.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import {
-  seatWeekOf, seatWeekStartMs, SEAT_WEEK_MS, seatKeyOk, seatRegionOk, titheOk, edictOk, edictMayFollow, bailiwickOf, bountySitePixel, overreachOf, seatUpkeep,
+  seatWeekOf, seatWeekStartMs, SEAT_WEEK_MS, seatKeyOk, seatRegionOk, titheOk, edictOk, edictForTier, edictMayFollow, bailiwickOf, bountySitePixel, overreachOf, seatUpkeep,
   SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, TITHE_CAP, CROWN_SCALE,
 } from '../../src/net/townSeatLaw.js';
 
@@ -95,6 +95,7 @@ export async function proclaimEdict({ db, nowS }, player, env, { character, key,
     return r?.meta?.changes ? { ok: true, next: null } : { error: 'seat-no-edict' };
   }
   if (!edictOk(edict)) return { error: 'bad-edict' };
+  if (!edictForTier(edict, l.hold.tier)) return { error: 'edict-tier' };   // CROWN1: a crown's Edicts at a crown seat alone
   const aside = edict === 'bounty' ? setAside : 0;
   if (edict === 'bounty' && (!Number.isSafeInteger(aside) || aside < BOUNTY_MARKS || aside > BOUNTY_SET_ASIDE_MAX)) return { error: 'bad-bounty' };
   const now = await db.prepare("SELECT edict FROM town_seat_edicts WHERE key = ? AND week = ? AND state = 'law'").bind(key, week).first();

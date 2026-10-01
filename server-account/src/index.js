@@ -268,7 +268,7 @@ const SEAT_STATUS = Object.freeze({
   'no-gate-key': 503,
   'seat-not-held': 409, 'seat-held-here': 409,   // SEAT1c: a Charter not the guild's to give up; a region its Charter pledges
   // SEAT1d: the Tithe set this week already, an Edict two weeks running, none to take back, the balance's cap 409
-  'tithe-this-week': 409, 'edict-twice': 409, 'seat-no-edict': 409, 'marks-full': 409,
+  'tithe-this-week': 409, 'edict-twice': 409, 'seat-no-edict': 409, 'marks-full': 409, 'edict-tier': 409,
   // SEAT2a: no battle, no contract, no such account 404; a side not this guild's, a member hired 403; the rosters' close, a
   // side or its Sellswords full, the account's war, a Sellsword's cooling, a second signing or hire 409
   'battle-none': 404, 'hire-none': 404, 'no-such-account': 404, 'battle-not-side': 403, 'sellsword-member': 403,

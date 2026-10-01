@@ -786,8 +786,8 @@
  {
   "name": "SEAT1d-tab-edict-repeat-offered",
   "file": "src/ui/seatTab.js",
-  "old": "    const allowed = Object.keys(EDICTS).filter((k) => edictMayFollow(k, h.edict));",
-  "new": "    const allowed = Object.keys(EDICTS);",
+  "old": "    const allowed = Object.keys(EDICTS).filter((k) => edictForTier(k, seat.tier) && edictMayFollow(k, h.edict));",
+  "new": "    const allowed = Object.keys(EDICTS).filter((k) => edictForTier(k, seat.tier));",
   "tests": [
    "test/seat1d_client.test.js"
   ]

@@ -68,8 +68,9 @@ import {
   SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   SEAT_WEEK_MS, SEAT_RECKONING_MS,
   accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn, seatDefence, SEAT_CHRONICLE_SHOWN,
-  overreachOf, unrestInfluence,
+  overreachOf, unrestInfluence, crownsHeld, seatReach, withReach, FREE_LAND_WATCH_BONUS,
 } from '../../src/net/townSeatLaw.js';
+import { isFreeLand } from '../../src/net/kingdomLaw.js';
 import { holdingOf } from './seatHolding.js';   // SEAT1d: the holder's own view of its Charter
 import { fightOf } from './seatBattles.js';   // SEAT2a: the battle as the Seat tab shows it
 
@@ -309,11 +310,13 @@ export async function creditRenown({ db, nowS }, player, env, { character, regio
  * EVERY PLEDGED GUILD'S WEEK AT A SEAT (SEAT0 4.2; 7.9's "the standings"): each guild's accounts' own influence (each
  * source at its cap, then ACCOUNT_SEAT_WEEK_CAP), and its Tribute inside its room. Pure over the rows the read gathers:
  * `rows` the seat's influence rows, `renown` the region's Renown rows, `homes` the town's 7-day members' homes, `binds`
- * account -> war-guild, `agreed` gate day -> its agreed region.
+ * account -> war-guild, `agreed` gate day -> its agreed region. CROWN1 (4.3): `reach` guild -> its reach here (a crown's
+ * at its kingdom's palace seats, a March's claiming crowns'), every source but Tribute raised by it; `freeLand` the seat
+ * a Free Land's, every account's Watch there a tenth more.
  * @param {{ guilds: string[], rows: any[], renown: any[], homes: any[], binds: Map<string, string>,
- *   agreed: Map<number, number>, weekStartS: number, nowS: number }} o
+ *   agreed: Map<number, number>, weekStartS: number, nowS: number, reach?: Map<string, number>, freeLand?: boolean }} o
  */
-export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS }) {
+export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS, reach = new Map(), freeLand = false }) {
   const out = [];
   for (const g of guilds) {
     /** @type {Map<string, { watch: number, gates: number, renownXp: number, writ: number, homeDays: number }>} */
@@ -334,8 +337,8 @@ export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekSt
       .map((h) => ({ player: h.player, days: homeDaysIn(Number(h.bought_at), weekStartS, nowS) }))
       .sort((x, y) => y.days - x.days).slice(0, HOMES_SEAT_MAX);
     for (const h of hs) if (h.days > 0) a(h.player).homeDays += h.days;
-    const per = new Map([...acc].map(([id, v]) => [id, accountSeatInfluence(v)]));
-    out.push({ guild: g, ...guildSeatInfluence([...per.values()], tributeMarks), accounts: [...per.values()].filter((v) => v > 0).length, per });
+    const per = new Map([...acc].map(([id, v]) => [id, accountSeatInfluence(v, freeLand ? FREE_LAND_WATCH_BONUS : 0)]));
+    out.push({ guild: g, ...withReach(guildSeatInfluence([...per.values()], tributeMarks), reach.get(g) ?? 0), accounts: [...per.values()].filter((v) => v > 0).length, per });
   }
   return out.sort((x, y) => y.total - x.total || (x.guild < y.guild ? -1 : 1));
 }
@@ -364,7 +367,11 @@ export async function gatherStandings(db, seat, week, nowS) {
     WHERE h.map_id = ? AND h.guild_id IS NULL AND m.guild_id IN (${qs}) AND m.joined_at <= ?`).bind(seat.key, ...guilds, nowS - SEAT_MEMBER_WAIT_S).all();
   const days = [...new Set(rows.filter((r) => r.source === 'gate').map((r) => Number(r.day)))];
   const agreed = await agreedGateRegions(db, days);
-  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS });
+  // CROWN1 (4.3): each guild's reach here - the crowns it holds, at a palace seat of their kingdom or March
+  const { results: crownRows = [] } = seat.tier === 'palace'
+    ? await db.prepare(`SELECT guild_id, tier, region FROM town_seat_holds WHERE tier = 'crown' AND guild_id IN (${qs})`).bind(...guilds).all() : { results: [] };
+  const reach = new Map(guilds.map((g) => [g, seatReach(seat, crownsHeld(crownRows.filter((h) => h.guild_id === g).map((h) => ({ tier: h.tier, region: Number(h.region) }))))]));
+  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS, reach, freeLand: isFreeLand(seat.region) });
 }
 
 /**

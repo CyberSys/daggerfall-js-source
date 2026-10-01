@@ -19,7 +19,7 @@ import {
   seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
-  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
+  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
   battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
@@ -151,7 +151,7 @@ export function createSeatTab(host, ui) {
     const sel = /** @type {HTMLSelectElement} */ (el('select', 'notice-input notice-seat-edict'));
     sel.setAttribute('aria-label', 'The Edict for next week');
     // none two weeks running but Market Day: this week's Edict is not offered again
-    const allowed = Object.keys(EDICTS).filter((k) => edictMayFollow(k, h.edict));
+    const allowed = Object.keys(EDICTS).filter((k) => edictForTier(k, seat.tier) && edictMayFollow(k, h.edict));   // CROWN1: a crown's own at a crown
     for (const k of allowed) {
       const o = /** @type {HTMLOptionElement} */ (el('option', null, EDICTS[k].name));
       o.value = k;
