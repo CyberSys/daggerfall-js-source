@@ -66,8 +66,15 @@ function drive(m, boxes, yaw, script, steps) {
 /** Catch the lip in front with Jump held, then, 20 steps into the hang, press `input` once. */
 const hangThen = (input) => (i, m, c) => {
   if (c.h == null) { if (m.hanging) { c.h = i; c.grip = m.grip; return {}; } return { jump: i > 5 && i < 40 }; }
-  if (i === c.h + 20) { c.before = m.grip; return input; }
+  if (i === c.h + 20) { c.before = m.grip; c.at = [...m.pos]; c.n = [...m._wall.normal]; return input; }
   return {};
+};
+/** AUDIT CLIMB-FIELD J1 (Mac: "You cant jump from a wall"): a press with no hold that way leaps nowhere - it pushes
+ *  off: the hands let go of the hang and the body flies out from the wall it hung on. */
+const pushedOff = (r, m) => {
+  const after = r.seen.slice(r.seen.indexOf('hang'));
+  const out = (m.pos[0] - r.ctx.at[0]) * r.ctx.n[0] + (m.pos[2] - r.ctx.at[2]) * r.ctx.n[2];
+  return !r.seen.includes('move:leap') && !m.onWall && after.includes('air') && out > 0.5;
 };
 
 test('CLIMB3 L1: Jump with Left or Right from a hang leaps to a hand-hold along the wall past where the lip ends - none that way, no leap; the shimmy\'s own lip is never leapt along', () => {
@@ -84,15 +91,16 @@ test('CLIMB3 L1: Jump with Left or Right from a hang leaps to a hand-hold along 
   // Left: the lip runs on that way past the reach - the shimmy's, no leap
   const l = climber(w.col);
   l.spawn(-1, 0.02, 0.45);
-  const rl = drive(l, w.boxes, 0, hangThen({ jump: true, strafe: -1 }), 120);
-  assert.ok(!rl.seen.includes('move:leap') && l.hanging && near(l.pos[0], -1, 0.02), 'no leap along the lip held; the hands keep it');
+  const rl = drive(l, w.boxes, 0, hangThen({ jump: true, strafe: -1 }), 200);
+  assert.ok(pushedOff(rl, l), `no leap along the lip held - the press pushes off (${rl.seen.join(' > ')})`);
   // a gap past the reach: no leap (Jumping 0 reaches 1.5 m from the hands)
   const g = world();
   g.box(-6, 0, 1, -0.3, 2.4, 4); g.box(1.6, 0, 1, 6, 2.4, 4); g.box(-6, 0, 1.5, 6, 6, 4);
-  const f = climber(g.col, { skill: 0 });
+  const f = climber(g.col, { skill: 50, jumping: 0 });   // Climbing 50 catches the 2.4 m lip (at 0 it never hung, and the pin read nothing)
   f.spawn(-1, 0.02, 0.45);
-  const rf = drive(f, g.boxes, 0, hangThen({ jump: true, strafe: 1 }), 120);
-  assert.ok(!rf.seen.includes('move:leap'), `a 1.9 m gap past Jumping 0's ${leapSideReach(0)} m: no leap`);
+  const rf = drive(f, g.boxes, 0, hangThen({ jump: true, strafe: 1 }), 200);
+  assert.ok(rf.ctx.at, 'hung, and pressed');
+  assert.ok(pushedOff(rf, f), `a 1.9 m gap past Jumping 0's ${leapSideReach(0)} m: no leap, pushed off`);
 });
 
 test('CLIMB3 L2: Jump from a hang with no top to climb onto leaps up to a lip in the Jumping skill\'s reach over the one held', () => {
@@ -111,7 +119,7 @@ test('CLIMB3 L2: Jump from a hang with no top to climb onto leaps up to a lip in
       assert.ok(r.seen.includes('move:leap') && m.hanging && near(m._wall.lipY, top, 0.02), `Jumping ${skill}: up to the lip ${(top - 2.4).toFixed(1)} m over, in its ${reach} m (${r.seen.join(' > ')})`);
       assert.ok(r.deepest < 0.035, `never into the stone (${r.deepest.toFixed(3)})`);
     } else {
-      assert.ok(!r.seen.includes('move:leap') && m.hanging && near(m._wall.lipY, 2.4, 0.02), `Jumping ${skill}: ${(top - 2.4).toFixed(1)} m over is past its ${reach} m - the sill held`);
+      assert.ok(pushedOff(r, m), `Jumping ${skill}: ${(top - 2.4).toFixed(1)} m over is past its ${reach} m - no leap, pushed off (${r.seen.join(' > ')})`);
     }
   }
 });
@@ -306,7 +314,7 @@ test('CLIMB3 L11: a leap\'s reach and pace are the Jumping skill\'s, Climbing he
     const { m, r } = sideLeap(ledges(1.1), { skill: 50, jumping });
     assert.ok(r.ctx.h != null, `Jumping ${jumping}: the sill held first`);
     if (leaps) assert.ok(r.seen.includes('move:leap') && m.hanging && m.pos[0] > 1.1, `Jumping ${jumping}: across a 1.4 m gap (x ${m.pos[0].toFixed(2)})`);
-    else assert.ok(!r.seen.includes('move:leap') && m.hanging && near(m.pos[0], -1, 0.02), `Jumping ${jumping}: a 1.4 m gap is past its ${leapSideReach(jumping)} m - the hands keep the sill`);
+    else assert.ok(pushedOff(r, m), `Jumping ${jumping}: a 1.4 m gap is past its ${leapSideReach(jumping)} m - no leap, pushed off`);
   }
   // the pace: up from the sill to a moulding 0.8 m over it - the same leap at both skills, flown at 4 m/s and at 6
   const leapSteps = (jumping) => {
@@ -324,7 +332,7 @@ test('CLIMB3 L11: a leap\'s reach and pace are the Jumping skill\'s, Climbing he
   for (const [jumping, leaps] of [[50, false], [100, true]]) {
     const { m, r } = sideLeap(ledges(0.8, { top: 3.0 }), { skill: 50, jumping });
     if (leaps) assert.ok(r.seen.includes('move:leap') && m.hanging && near(m._wall.lipY, 3.0, 0.02), `Jumping ${jumping}: up and along to the higher ledge`);
-    else assert.ok(!r.seen.includes('move:leap') && m.hanging && near(m._wall.lipY, 2.4, 0.02), `Jumping ${jumping}: along and up together is past its reach - no leap`);
+    else assert.ok(pushedOff(r, m), `Jumping ${jumping}: along and up together is past its reach - no leap, pushed off`);
   }
 });
 
@@ -332,7 +340,7 @@ test('CLIMB3 L12: a leap\'s way is proven - a pillar across the gap, no leap; fr
   const p = ledges(0.9);
   p.box(0.2, 0, 0.2, 0.4, 6, 1.5);   // a pillar in the gap, standing out from the wall behind it
   const { m, r } = sideLeap(p);
-  assert.ok(!r.seen.includes('move:leap') && m.hanging && near(m.pos[0], -1, 0.02), `no leap through the pillar (${r.seen.join(' > ')})`);
+  assert.ok(pushedOff(r, m), `no leap through the pillar - pushed off (${r.seen.join(' > ')})`);
   assert.ok(r.deepest < 0.035, `never into it (${r.deepest.toFixed(3)})`);
   // held on a ledge 0.3 m proud of the one beyond the gap: straight across, the body would cut the proud ledge's end
   const w = world();
@@ -467,10 +475,12 @@ test('CLIMB3 L17: a held Jump is no press - a free climb taken with Jump held (t
   const r = drive(m, w.boxes, 0, (i) => ({ forward: 1, jump: i > 5 }), 300);
   assert.ok(!r.seen.includes('move:leap'), `Jump held through the climb: no leap (${r.seen.join(' > ')})`);
   assert.ok(r.billed.includes('catch') && m.onWall && m.pos[1] > 1.5, `grabbed the wall and climbing on it (at ${m.pos[1].toFixed(2)})`);
-  // L1's Left: no hold that way - the press is spent and the hands hold, the body exactly where it hung
+  // L1's Left: no hold that way and no grip left to push off with (AUDIT CLIMB-FIELD J1: with it, the press pushes off)
+  // - the press is spent and the hands hold, the body exactly where it hung
   const l = climber(ledges(0.9).col);
   l.spawn(-1, 0.02, 0.45);
-  const rl = drive(l, [], 0, hangThen({ jump: true, strafe: -1 }), 80);
+  const weak = hangThen({ jump: true, strafe: -1 });
+  const rl = drive(l, [], 0, (i, mm, c) => { if (c.h != null && i === c.h + 20) mm.grip = PARKOUR_GRIP_MIN + PARKOUR_LEAP_GRIP - 0.01; return weak(i, mm, c); }, 80);
   const was = rl.log[rl.ctx.h + 19].pos, now = rl.log[rl.ctx.h + 20].pos;
   assert.ok(l.hanging && Math.hypot(now[0] - was[0], now[1] - was[1], now[2] - was[2]) < 1e-9, `the refused press held the step (moved ${Math.hypot(now[0] - was[0], now[1] - was[1], now[2] - was[2]).toExponential(2)} m)`);
 });

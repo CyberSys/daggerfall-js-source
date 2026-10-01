@@ -554,7 +554,7 @@
   {
     "name": "CLIMB2-no-top-arrival",
     "file": "src/player/motor.js",
-    "old": "      if (g && g.lipY - this.pos[1] <= PARKOUR_HANG_DROP + 0.04) {",
+    "old": "      if (level && !g.eave) {",
     "new": "      if (false) {",
     "tests": [
       "test/climb2.test.js",
