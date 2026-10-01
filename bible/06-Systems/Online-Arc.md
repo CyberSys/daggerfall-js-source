@@ -10685,7 +10685,7 @@ it - DECLARED (36) on the mod's Port-Ledger row - under HCC-ONLINE's law and no 
   theirs alone and never mine; gone from the room or quiet past FOES_STALE_MS, their boats go with their puppets; a
   clear (a transition, a fast travel, a room change) takes every peer's; a viewer with the mod off stands nothing.
 - **The landing**: each boat built as SpawnBoat builds one into the pool's PEER list - drawn, baked and lit as a
-  boat of mine, a collider, a ray's hit and an activation only as CSA-K makes one (below) - and posed every frame off
+  boat of mine and collided with as one (FIELD BUGS 2026-10-01b), a ray's hit and an activation only as CSA-K makes one (below) - and posed every frame off
   the word converted from the wire frame (AUDIT HCC O1), eased between words (a step past 20 m snaps) and led along the
   helm's way since CSA-K, its sails, crew and lanterns as the word says. Nothing of the cargo, the wind or the time scale rides; the bob, the wake, the oars and the sounds are
   the owner's own frame's.
@@ -10708,8 +10708,8 @@ field by field (`validPose`), so nothing rides there:
   the centimetre; a word when it changes and on every full frame, null aboard nothing; the boats' owner law (gone,
   stale, a clear). Every reader - the boat's owner among them - stands the passenger on its own copy of that boat
   (`scenes/comeSailAwayAboard.js` glue over `online.drawable()`), a frame ahead as it will be drawn.
-- **Physics stays each client's**: another's boat stands in a player's collider only while that player is aboard it
-  (PR-WAGON1's law), the deck carrying them by its move; the owner's pack refuses while any `ab` stands on the boat.
+- **Physics stays each client's**: another's boat stands in every player's collider as their own boats do, aboard it or
+  not (FIELD BUGS 2026-10-01b: PR-WAGON1's law set aside for boats), the deck carrying whoever stands on it by its move; the owner's pack refuses while any `ab` stands on the boat.
 
 Pinned: `test/csa_together.test.js` (20); mutants in `tools/mutants/csa_together.json`. Not verified in a browser with
 two players, as CSA-J.

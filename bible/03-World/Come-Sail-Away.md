@@ -1816,9 +1816,9 @@ the pose bounds, a unit quaternion,
 normalized, the bits and two flags) and lands past the room test
 (`scenes/exteriorFoes.js` setOnCsa). `scenes/comeSailAwayPeers.js` stands
 it: each boat built as SpawnBoat builds one, into the pool's PEER list
-(`scenes/comeSailAwayPool.js`) - drawn, baked and lit as a boat of mine,
-and a collider, a ray's hit and an activation only as CSA-K makes it one (a
-deck for whoever is aboard it, its ladder and boxes pressed: below), because
+(`scenes/comeSailAwayPool.js`) - drawn, baked, lit and collided with as a
+boat of mine (FIELD BUGS 2026-10-01b, below), and a ray's hit and an activation
+only as CSA-K makes it one (its ladder and boxes pressed: below), because
 the host's loops read the pool's own `boats` - and posed every frame off the word,
 converted from the wire frame each frame (AUDIT HCC O1), eased toward it
 (a step past twenty metres snaps: `easeToward`, the team's law) and turned
@@ -1883,7 +1883,9 @@ boat by its own ladder - BoardBoat (112401) answers on it as on one's own:
 stood at the sibling before the trigger (`boardPlaceOf`, the one export
 BoardBoat reads too), facing its forward, set on the ground within 3 m
 with THEIR deck among what that ray meets (`scenes/world.js` csaBoardPeer) -
-or by landing on its deck from above: in the air over it, the ray down
+by standing on it (FIELD BUGS 2026-10-01b: a deck stepped, climbed or come up
+onto is aboard, its colliders standing for everyone, below) - or by landing
+on its deck from above: in the air over it, the ray down
 from the body's centre (the riders' own ray, CSA_ABOARD_BELOW 3 m longer
 so a fall is met before it lands) meeting its colliders no higher than a
 step (0.3) over the feet. A swimmer is never taken aboard by the ray - inside
@@ -1894,15 +1896,19 @@ dragged off by the boat's going. Aboard is the motor standing on the boat's
 own colliders, or in the air over its deck; the ladder's first two frames
 (CSA_ABOARD_GRACE) are its own, the motor not having stood there yet.
 
-**The deck holds only who is aboard** (PR-WAGON1's law: another player's
-wagon never walls anyone out, Mac: "Others' wagons don't block"). Another
-player's boat stands in a player's collider only while that player is
-aboard it - its switched-on, non-trigger colliders, as buckets beside the
-player's own boats' (`scenes/world.js` csaSyncColliders), re-stood as it
-moves, gone the moment they are not aboard. Nobody else meets it: a
-swimmer passes through its hull, a walker on the shore under its bow. The
-mod's own rays (the placing, the riders' FixedUpdate, the helm's sweep)
-skip those buckets and meet the player's own boats alone, as before.
+**Her deck stands for everyone** (FIELD BUGS 2026-10-01b, Mac: "Players
+aren't colliding with other players' boats and can't stand on board").
+Another player's boat stands in every player's collider as their own boats
+do - its switched-on, non-trigger colliders, as buckets beside the player's
+own boats' (`scenes/world.js` csaSyncColliders), carried as it moves, aboard
+it or not, on the street alone. CSA-K stood them only for the one aboard
+(PR-WAGON1's "Others' wagons don't block"), so to everyone else her hull was
+walked and swum through and her deck was no floor; Mac's word sets that law
+aside for boats (a wagon's stands). A wader and a swimmer meet her hull, her
+deck is stood on, and a helm's sweep (CheckCollision's) meets her as it meets
+a boat of one's own, so a boat sailed at hers backs off it. The mod's own rays
+(the placing, the riders' FixedUpdate) skip those buckets and meet the
+player's own boats alone, as before.
 
 **Carried.** Once a frame, after the mod's own step and its colliders and
 before the eye is taken from the body (`scenes/world.js` csaPeersFrame,
@@ -1923,7 +1929,7 @@ nothing of it stood on), standing on something else, swimming, the boat
 gone (packed, its owner gone from the room, a clear) or the host's own
 leave - a transition, a fast travel, a teleport, a death, the mod off, a
 mode's frame (a building's, a dungeon's) - puts the one aboard off at once,
-the deck's buckets with them; the motor falls or swims as it would.
+the deck's buckets standing on; the motor falls or swims as it would.
 
 **Seen on the deck.** My place aboard - whose boat, which of their word's
 places, and my feet in that boat's own frame to the centimetre - rides my

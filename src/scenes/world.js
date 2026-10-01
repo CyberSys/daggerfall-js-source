@@ -5634,8 +5634,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   function csaSyncColliders() {
     const col = csaModeCollider();
     const want = new Set();
-    const aboard = csaAboard.aboard?.boat ?? null;   // CSA-K: another player's boat stands in MY collider while I am aboard it, and never else (PR-WAGON1: another's never walls me out)
-    for (const boat of aboard ? [...csaColliderBoats(), aboard] : csaColliderBoats()) {   // NAV-H: and the sea's ships near enough to board and to ram
+    const peers = (modes?.mode ?? 'exterior') === 'exterior' ? csa.peerBoats : [];   // FIELD BUGS 2026-10-01b (Mac: "Players aren't colliding with other players' boats and can't stand on board"): ANOTHER PLAYER'S BOAT STANDS IN MY COLLIDER AS MINE DOES - every one that stands, her hull and her deck's furniture, aboard her or not. CSA-K stood one only while I was aboard it (PR-WAGON1's "Others' wagons don't block", which Mac's word sets aside for boats): her hull was walked and swum through and her deck no floor to step, climb or come up onto (scenes/comeSailAwayAboard.js: standing on her is aboard her). THE FOUR HOSTS: on the street alone, this host's - a building's frame (worldModes.js) and a dungeon's (dungeonContext.js) stand no one's boat, and the standalone street (exterior.js) has no peers
+    for (const boat of peers.length ? [...csaColliderBoats(), ...peers] : csaColliderBoats()) {   // NAV-H: and the sea's ships near enough to board and to ram
       if (!boat.GameObject?.activeSelf) continue;
       const id = csaBoatId(boat);
       let i = 0;
@@ -6524,7 +6524,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /**
    * CSA-K: THE OTHERS' BOATS POSED, ONCE A FRAME, AND WHOEVER STANDS ABOARD ONE CARRIED. Posed off their words on the real
    * clock (their owners' worlds run on); then the deck I stand aboard carries me by its move (scenes/comeSailAwayAboard.js
-   * - my feet at their place on it, my facing turned with it) and its colliders stand again where it now is, all before
+   * - my feet at their place on it, my facing turned with it) and each one's colliders stand again where it now is, all before
    * the eye is taken from the body: in the walking frame from the mod's own step (csaUpdate, after the motor), else from
    * the pool's frame. A mode's frame (a building, a dungeon) stands no one's boat and puts me off any.
    */
@@ -6540,7 +6540,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       ground: (b) => (!player.grounded ? null : typeof player.groundKey === 'string' && player.groundKey.startsWith(`csaBoat:${csaBoatId(b)}:`) ? 'boat' : 'other'),
       carry: (d, yawDeg) => { player.carryBy(d[0], d[1], d[2]); cam.yaw += (yawDeg * Math.PI) / 180; _csaMovedPlayer = true; },   // the helm's turnPlayer: the child's world yaw turned with its parent's
     });
-    if (boat || _csaBuckets.size) csaSyncColliders();   // the deck where it stands now - or gone with the one I left
+    if (boat || _csaBuckets.size) csaSyncColliders();   // the boats where they stand now (FIELD BUGS 2026-10-01b: every peer's, aboard or not - the one I left stands on)
   }
   /** CSA-B: the boats' own LateUpdate and their lanterns' Updates (the pool), on Time.deltaTime. */
   function csaPoolFrame(dt) {
