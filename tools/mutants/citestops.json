@@ -5,7 +5,7 @@
     "old": "    if (m[1] === '/' && at !== end) continue;   // a slash after a number of the prose's own\n",
     "new": "",
     "tests": ["test/citeshift.test.js", "test/citemerge.test.js"],
-    "note": "Every bare /N after a cite is its continuation again: 8076/8077 moves as world.js:8077."
+    "note": "Every bare /N after a cite is its continuation again: 8076/8077 moves as world.js:8104."
   },
   {
     "name": "CITE-SLASH-the-chain-never-advances",

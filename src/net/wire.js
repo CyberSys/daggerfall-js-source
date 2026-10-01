@@ -3256,6 +3256,64 @@ export function validSiegeIn(m) {
   return { k: 'blow', to: m.to, w: m.w, m: m.m, d: m.d, r: m.r };
 }
 
+// ─── SEAT2a part four: WHAT THE CLIENT READS OF A SIEGE'S ROOM (net/siegeRef.js, server/src/index.js `_siege*`) ───
+
+/** A battle's results as the room says them at its end (net/siegeReceipt.js SIEGE_RESULTS - pinned equal: the wire
+ *  imports no receipt's law). */
+export const SIEGE_END_RESULTS = Object.freeze(['attack', 'defend', 'tie', 'forfeit', 'absent']);
+/** The most a roll call names (siegeRef.js SIEGE_FIGHTERS_MAX), the most a field's frame counts in the room. */
+export const SIEGE_ROLL_MAX = 48;
+export const SIEGE_ROOM_MAX = 200;
+const SIEGE_RC_RE = /^s1\.[A-Za-z0-9_-]{1,380}\.[A-Za-z0-9_-]{0,128}$/;
+const siegeHp = (v) => Number.isSafeInteger(v) && v >= 0 && v <= 1000;
+const siegeCode = (v) => v === 0 || v === 1 || v === 2;
+/**
+ * A SIEGE ROOM'S WORD, projected for the client - the roll call (`st`: `[id, hp, max, down, side?]`), one fighter's
+ * vitality (`hp`), a fall (`fell`), a rise (`up`, at its camp `p`), a step refused or a camp entered (`back`), a refusal
+ * (`no`), the field each second (`f`: each banner `[held, its raise, by whom]` - 0 no one, 1 the attackers, 2 the
+ * defenders - the Throne's seconds, the battle's start and end, who is in), the end (`end`: the result, a banner raised,
+ * and this fighter's own receipt) - or null.
+ */
+export function validSiegeOut(m) {
+  if (!m || typeof m !== 'object' || !SIEGE_OUT_KINDS.includes(m.k)) return null;
+  const isId = (v) => typeof v === 'string' && ID_RE.test(v);
+  switch (m.k) {
+    case 'st': {
+      if (!Array.isArray(m.f) || m.f.length > SIEGE_ROLL_MAX) return null;
+      const f = [];
+      for (const r of m.f) {
+        if (!Array.isArray(r) || (r.length !== 4 && r.length !== 5) || !isId(r[0]) || !siegeHp(r[1]) || !siegeHp(r[2]) || r[1] > r[2] || (r[3] !== 0 && r[3] !== 1)) return null;
+        if (r.length === 5 && r[4] !== 1 && r[4] !== 2) return null;
+        f.push(r.slice());
+      }
+      return { k: 'st', f };
+    }
+    case 'hp': return isId(m.id) && siegeHp(m.h) && siegeHp(m.m) && m.h <= m.m ? { k: 'hp', id: m.id, h: m.h, m: m.m } : null;
+    case 'fell': return isId(m.id) && isId(m.by) ? { k: 'fell', id: m.id, by: m.by } : null;
+    case 'up': {
+      if (!isId(m.id)) return null;
+      if (m.p === undefined) return { k: 'up', id: m.id };
+      const p = validPose(m.p);
+      return p ? { k: 'up', id: m.id, p } : null;
+    }
+    case 'back': { const p = validPose(m.p); return p ? { k: 'back', p } : null; }
+    case 'no': return typeof m.m === 'string' && m.m.length > 0 && m.m.length <= 120 ? { k: 'no', m: m.m } : null;
+    case 'f': {
+      if (!Array.isArray(m.b) || m.b.length < 3 || m.b.length > 4) return null;
+      if (!m.b.every((x) => Array.isArray(x) && x.length === 3 && siegeCode(x[0]) && intIn(x[1], 0, 20) && siegeCode(x[2]))) return null;
+      if (!intIn(m.th, 0, 180) || !Number.isSafeInteger(m.s) || !Number.isSafeInteger(m.e) || m.e <= m.s) return null;
+      if (!Array.isArray(m.n) || m.n.length !== 3 || !m.n.every((v) => intIn(v, 0, SIEGE_ROOM_MAX))) return null;
+      return { k: 'f', b: m.b.map((x) => x.slice()), th: m.th, s: m.s, e: m.e, n: m.n.slice() };
+    }
+    case 'end': {
+      if (!SIEGE_END_RESULTS.includes(m.r) || (m.a !== 0 && m.a !== 1)) return null;
+      if (m.rc !== undefined && (typeof m.rc !== 'string' || !SIEGE_RC_RE.test(m.rc))) return null;
+      return { k: 'end', r: m.r, a: m.a, ...(m.rc !== undefined ? { rc: m.rc } : {}) };
+    }
+    default: return null;
+  }
+}
+
 const gateMs = (v) => Number.isSafeInteger(v) && v > 0;
 const gateXZ = (v) => finite(v) && Math.abs(v) <= GATE_COURT_BOUND;
 const gateHp = (v) => Number.isSafeInteger(v) && v >= 0 && v <= GATE_HP_MAX;

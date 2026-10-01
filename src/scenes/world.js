@@ -547,7 +547,7 @@ import { createHallBanners, doorCornersOf } from './hallBanners.js';
 import { createSeatBanners, seatBannerAnchors, palaceKeysOf, townCentreOf } from './seatBanners.js';   // SEAT1a: a seat town's banners   // GUILD1d: ...hung beside its hall's door
 import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
 import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
-import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
+import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS, duelStub } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
 import { PageOffers, pageOfferText, pageShownText, pageTooFarText, keptPageTokens, keptLetterTokens, letterOfPage, PAGE_UNSUPPORTED_TEXT, PAGE_NO_READERS_TEXT, PAGE_GONE_TEXT } from '../net/journalPage.js';   // JOURNAL1: a page of the journal shown, and one shown to me kept
 import { quickslotTag, quickslotHand, tagText } from '../ui/quickslotTags.js';   // JOURNAL1: the F-menu's own key, named off the live bindings
@@ -689,6 +689,10 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
+import { createSiegeSession } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it
+import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
+import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
+import { siegeFieldOf, siegeFieldWire, buildingKeysOfType } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
@@ -1143,6 +1147,19 @@ export async function bootWorld(canvas, renderer, params, status) {
       relayNowS: () => (_sharedClockHeard ? Math.floor((Date.now() + _sharedOffsetMs) / 1000) : null),   // a receipt's life is the relay's
     })
     : null;
+  /** SEAT2a part four: the siege this client is in, made with the online session (net/siegeSession.js) - null offline. */
+  let siegeSession = null;
+  /** Each seat town's battlefield as its build derived it, by its map id (`{ key, px, py, field }` - a town's is fixed;
+   *  a handful of towns, never dropped). */
+  const siegeFieldsByTown = new Map();
+  /** The Seat tab's door into a battle: the field this game derived for the town (null where it is not built - the player
+   *  is not there), then the session. */
+  const siegeEnter = (seat, fight) => {
+    if (!siegeSession) return false;
+    let field = null;
+    for (const [mapId, t] of siegeFieldsByTown) if (built.has(t.key) && seatAtMapId(townSeats, mapId)?.key === seat.key) { field = siegeFieldWire(t.px, t.py, t.field); break; }   // the town built: the player is there
+    return siegeSession.enter(seat, fight, field);
+  };
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
   const seatHere = (mapId) => (seatBook?.open === true ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);   // SEAT1c: dressed in its holder
@@ -3996,11 +4013,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (BOUNTY1's split of the boards through its one memo, AUDIT 28 H8 - and kept on the pixel as `_boardSplit`, so it is
     // never worked out again; null off a seat, and the memo asks it then)
     const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? boardSplitOf({ boards: pixelBoards }) : null;
+    const seatPalaceKeys = pixelBoardSplit ? palaceKeysOf(locBlocks, makeBuildingKey) : [];
     const seatAnchors = pixelBoardSplit ? seatBannerAnchors({
-      frames: pixelHomeFrames, palaceKeys: palaceKeysOf(locBlocks, makeBuildingKey),
+      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,
       gates: pixelGates.map((g) => ({ local: g.local, box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit,
       centre: townCentreOf(pixelHomeFrames),
     }) : null;
+    // SEAT2a part four (Seats-Arc 6.2): the battlefield the town's own records give - the banners, the Throne, the camps
+    // (systems/siegeField.js), the same on every machine; sent for a battle's pass from the Seat tab
+    const siegeField = pixelBoardSplit ? siegeFieldOf({
+      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,
+      templeKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.Temple), hallKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.GuildHall),
+      gates: pixelGates.map((g) => ({ box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit, centre: townCentreOf(pixelHomeFrames),
+      tier: seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace',
+    }) : null;
+    if (siegeField) siegeFieldsByTown.set(dfLocation.mapTableData?.mapId, { key, px, py, field: siegeField });
     const wodKept = adoptWodCarry(key, wodSpawners, privateersHold);
     const wodLife = wodKept.life ?? {};   // L1-3: this terrain's identity - kept across a rebuild or a pool, new on a promote
     if (!wodKept.life) wodForgetPeerSites(key);   // AUDIT WOD7: a fresh promote's markers are its own again
@@ -15620,6 +15647,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     online.onGate = (g) => gateLink?.word(g);   // WB3b: the court's room's word about its boss
     online.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: a town cell's word about its raid - the ledger, the cleanse, my receipt
     online.onWatch = (r) => seatBook?.keepWatch(r);   // SEAT1b: the Watch's tick, kept where it stands in a seat's pixel
+    // SEAT2a part four: A SIEGE'S BATTLE - its words to the session; a step refused or a rise at the camp moves me there
+    // (the ground's own height to settle - the motor stands me on it); my receipt carried to the service
+    if (seatBook) {
+      const siegeMoveTo = (p) => { const q = onlineToScene(p); player.pos[0] = q[0]; player.pos[2] = q[2]; if (Number.isFinite(q[1])) player.pos[1] = Math.max(player.pos[1], q[1]); player._airVelX = 0; player._airVelZ = 0; };
+      const siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => accountId(), storage: appStorage(), onClaimed: (a) => siegeSession?.claimed(a) });
+      const siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }) });
+      siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk });
+      online.onSiege = (g, room) => siegeSession?.onSiege(g, room);
+      siegeClaims.offer();
+    }
     // JOURNAL1 (Addison Knox: "Player journals ... shared in-world for storytelling"): A PAGE HELD OUT TO ME. Held,
     // never opened over my game (net/journalPage.js PageOffers: a writer's newest replaces their last and waits
     // PAGE_HOLD_MS), under the name the room knows them by now, and said on the social tab once in a while per writer
@@ -16349,7 +16386,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** The melee arm, offered my swing BEFORE the ladder's pools: my opponent's capsule within a weapon's reach, in view
    *  and in sight - the foes' own test (exteriorFoes.js resolvePlayerHit's canSee). True when the strike left. */
   const duelMeleeHit = (eye, inViewFn) => {
-    if (!duelMgr.fighting) return false;
+    if (!duelMgr.fighting) return siegeMeleeHit(eye, inViewFn);   // SEAT2a part four: outside a duel, a siege's foe takes the arm's place
     const b = duelBody(duelMgr.opponent);
     if (!b) return false;
     const c = [b.feet[0], b.feet[1] + (b.height ?? CAPSULE_HEIGHT) / 2, b.feet[2]];
@@ -16358,6 +16395,33 @@ export async function bootWorld(canvas, renderer, params, status) {
     const wall = collider.raycast(eye, [dx / l, dy / l, dz / l], dist);
     if (!playerMeleeCanHit(dist, !!inViewFn?.(c), !Number.isFinite(wall) || wall >= dist - 1e-3)) return false;
     return duelStrikeOut('melee', weaponRig.playerWeapon.strikingWeapon, weaponRig.playerWeapon.machine?.state);
+  };
+  /** SEAT2a part four: THE MELEE ARM IN A SIEGE - the nearest foe (a fighter of the other side) within a weapon's reach,
+   *  in view and in sight (the duel's test); my swing rolled on my own sheet against a body of my own sheet, sent to the
+   *  relay, which clips it to DFU's range for the weapon my look holds (net/siegeRef.js). True when the swing was theirs. */
+  const siegeMeleeHit = (eye, inViewFn) => {
+    const foes = siegeSession?.foes() ?? [];
+    if (!foes.length) return false;
+    let best = null, bestD = Infinity;
+    for (const id of foes) {
+      const b = duelBody(id);
+      if (!b) continue;
+      const c = [b.feet[0], b.feet[1] + (b.height ?? CAPSULE_HEIGHT) / 2, b.feet[2]];
+      const dx = c[0] - eye[0], dy = c[1] - eye[1], dz = c[2] - eye[2];
+      const dist = Math.hypot(dx, dy, dz), l = dist || 1;
+      const wall = collider.raycast(eye, [dx / l, dy / l, dz / l], dist);
+      if (!playerMeleeCanHit(dist, !!inViewFn?.(c), !Number.isFinite(wall) || wall >= dist - 1e-3)) continue;
+      if (dist < bestD) { bestD = dist; best = id; }
+    }
+    if (!best) return false;
+    const weapon = weaponRig.playerWeapon.strikingWeapon;
+    const a = duelAttackerOf(playerEntity, weapon), w = duelWeaponOf(weapon), sw = duelSwingOf(weaponRig.playerWeapon.machine?.state);
+    const r = resolveDuelStrike({ by: 'melee', a, ...(w ? { w } : {}), ...(sw ? { sw } : {}) }, duelStub(a).stub);
+    if (r.dmg > 0) {
+      const held = weapon ? (composeLook(playerEntity)?.items ?? []).find((i) => i?.group === 'Weapons' && i.templateIndex === weapon.templateIndex) ?? null : null;
+      siegeSession.blow(best, { w: weapon ? weapon.templateIndex : -1, m: held?.material ?? 0, d: r.dmg, r: 0 });
+    }
+    return true;
   };
   /** My opponent's body as the arrows' target list takes one (arrowFlight.js foeTargets) - [] outside a fight. */
   const duelArrowTargets = () => {
@@ -18194,7 +18258,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
-      seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings
+      seatBattle: (st, f) => siegeEnter(st, f), seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings   // SEAT2a part four: the battle's door
     });
   };
   /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
@@ -19239,7 +19303,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const wc = state.worldCoords(player.pos);
     let key;
     const mp = overworld ? worldCoordToMapPixel(wc.x, wc.z) : null;
-    if (overworld) key = roomKeyFor({ host: 'world', mode, mapPixel: mp });
+    if (overworld) key = siegeSession?.room() ?? roomKeyFor({ host: 'world', mode, mapPixel: mp });   // SEAT2a part four: a battle entered stands in its own room
     else if (modes?.roomIdentity?.()?.kind === 'gate') key = gateRoomKey(modes?.roomIdentity?.()?.day);   // WB3b: the court's room is its gate's own
     else {
       const ident = modes?.roomIdentity?.();
@@ -19342,6 +19406,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // place - the hold bought nothing but a 500 ms strip with no socket in the cell I stood in); otherwise the hold
     else if (key !== online.room) { if (!online.room || isWorldRoom(key) || isWorldRoom(online.room) || (isCellRoom(key) && online.inRoom(key)) || now - _onlineKeySince >= ROOM_HOLD_MS) { online.setLook(composeLook(playerEntity)); online.join(key, { ...pose, ...arm }); } }   // the look re-composed: the next room's hello carries the gear worn now (PROFILE2: through setLook, so a halo the join PROMOTES - no hello of its own - is told too)
     else online.sendPose({ ...pose, ...arm, ...poseFx() });   // PEERFX1: and my landed blows and the blows I took
+    siegeSession?.tick();   // SEAT2a part four: the battle's pass, its `in`, its HUD, its window
     // WB3b: THE COURT'S ROOM HEARS MY LEVEL CLAIM once per welcome (net/gateBrain.js - the health I bring into the fight
     // and the bucket I may deal from); a reconnect's welcome says it again, and the relay keeps my first
     if (gateLink && online.gateOk && isGateRoom(online.room) && online.welcomes !== _gateInFor && online.sendGate({ k: 'in', lv: Math.max(1, playerEntity.level | 0), bv: GATE_BRAIN_V })) _gateInFor = online.welcomes;

@@ -236,7 +236,7 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       let r;
       try { r = await door.claimSiege(receipt, character()); } catch { r = { ok: false, error: 'offline' }; }
       standingsAt.clear();
-      if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', text: accountRefusalText(r?.error) };
+      if (!r?.ok) return { ok: false, error: r?.error ?? 'offline', ...(r?.why ? { why: r.why } : {}), text: accountRefusalText(r?.error) };   // the rung, which the carrier reads (net/siegeClaims.js)
       const d = r.data ?? {};
       return { ok: true, result: d.result, winner: d.winner ?? null, honours: d.honours ?? null };
     },

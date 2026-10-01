@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8254` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8281` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7140,7 +7140,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1101`, `src/net/online.js:2316`):**
+**Now (`src/net/wire.js:1101`, `src/net/online.js:2354`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -10903,6 +10903,45 @@ run: seven were killed by sharper pins (the Turning reading the week's bonus and
 plain defence and short of its x1.2, its pledge for the week - a void battle's pass, a dead heat at equal influence, the
 forfeit's Chronicle row, an unsettled field's 409); two are EQUIVALENT - the settled field's `IS NULL` guard (only two
 racing requests reach it) and the claim's read of a written result (the result's key refuses a second write whole).
+
+### SEAT2a (part four) - the client's siege: the room, the HUD, blows, the camp, the receipt
+
+2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Client only; the
+relay's `world141` row re-recorded once more (wire.js grew the client's projection `validSiegeOut` - the relay's law
+unchanged, never shipped under an earlier hash). Seats-Arc 6.2, 6.8, 19. With it SEAT2a is whole.
+
+- **The field from the town** (`src/systems/siegeField.js`, scenes/world.js on each seat town's build, beside its banner
+  anchors): the Throne a pace out of the palace's door; the defenders' camp 12 m before it (DECIDED: past the Throne's
+  8 m); the Gate 6 m inside the city gate farthest from the palace and the attackers' camp 14 m outside it (DECIDED: 6.2's
+  "farthest from the palace" names the attackers' gate; a town with no walls 40 m and 60 m out from its middle, away from
+  the palace); the Market the rumour board nearest the middle; the Temple's door, else the largest guild hall's; a
+  crown's Palace square 20 m before the door (DECIDED until CROWN1 measures the castle's entrance). The world point is
+  arithmetic off the pixel and the local metres - never the floating origin - in whole natives, so two clients on the
+  same town agree to the unit (the service's agreement needs exactly that).
+- **The socket** (`net/online.js`): a siege's room is joined as the primary room, its hello carrying a pass minted
+  fresh for it (`mintSiegePass`, bounded as the token is - an order lives a minute, so a reconnect asks again); its words
+  read from that socket alone (`validSiegeOut`), the client's words sent only at a relay that fights battles
+  (`siegeOk`), under the relay's own bucket.
+- **The session** (`net/siegeSession.js`, entered from the Seat tab's "Enter the battle" - "Watch the battle" for anyone
+  unsigned - while the door is open): the pass asked with this game's field (an unsettled field asked again every 5 s,
+  said in words); the world's room while it lasts (scenes/world.js keeps the battle's room over the town's cell); `in`
+  said on every open socket; a pull-back and this fighter's own rise move it to the camp (the ground's height the
+  motor's to settle); foes are the other side's standing fighters - a melee swing's arm reaches the nearest within reach
+  and sight (the duel's test), rolled on the player's own sheet against a body of the same sheet and sent to the referee,
+  which clips it; at the window's close it leaves and the town's cell is joined again.
+- **The HUD and the card** (`net/siegeLink.js` the fold and the words; `ui/siegeHud.js` the readout, updated not
+  rebuilt): 19's bar - the seat, the holder against the challenger, the clock to the start and to the end, each banner
+  `^` the attackers', `o` the defenders', `~` a raise under way (DECIDED: the field's frame says who raises, not who
+  contests), the Throne's share and rule; each side's fighters up and down; the vitality bar and the next wave; a
+  spectator's count; the result card's title in 19's capitals, the time and banners, the Honours once answered, a Claim
+  while a receipt waits.
+- **The receipts carried** (`net/siegeClaims.js`, the gate's claims' twin): a signed, unexpired receipt kept on the
+  device for its account and offered at once (and every ten minutes); let go when the service settles it - claimed,
+  claimed before, a void battle, not the relay's - and kept for a refusal the service can mend (its key, a clock).
+
+Pinned: `test/seat2a_siege_play.test.js` (7). `tools/mutants/seat2a4.json` (85, all dead) - four survived the first run
+and were killed by sharper pins (a fighter whole again by its vitality alone, the tier's own wave, the nearest board
+not the first, a pass on a siege's hello alone).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

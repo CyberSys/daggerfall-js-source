@@ -20,7 +20,7 @@ import {
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
-  battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX,
+  battleAnnouncement, sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 
@@ -53,7 +53,8 @@ const SHUT = new Set(['seats-closed', 'no-session', 'auth', 'seat-unconfirmed'])
 /**
  * @param {{ seat: { key: number, name: string, region: number, tier: string },
  *   book: ReturnType<typeof import('../net/townSeatBook.js').createTownSeatBook>,
- *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null) }} host
+ *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null),
+ *   enterBattle?: (seat: any, fight: any) => boolean }} host   SEAT2a part four: the world's door into the battle
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => any, rerender: () => void, nowS: () => number,
  *   alive?: () => boolean }} ui
  */
@@ -219,6 +220,17 @@ export function createSeatTab(host, ui) {
     } else if (f.open && (mine?.side || mine?.hire)) {
       const words = mine.hire ? `Sign as a Sellsword${mine.hire.fee ? ` (${mine.hire.fee} Drakes)` : ''}` : 'Sign for your side';
       const b = button('notice-seat-sign', words, () => act(() => book.sign(seat)));
+      b.disabled = busy;
+      out.append(b);
+    }
+    // SEAT2a part four: THE BATTLE ENTERED from here, while its door is open (ten minutes before the start to its
+    // window's close) - a signed fighter to fight, anyone else to watch (net/siegeSession.js, through the world's hook)
+    const nowS = ui.nowS();
+    if (host.enterBattle && f.startsAt && nowS >= passOpens({ starts_at: f.startsAt }) && nowS < passWindowEnds({ starts_at: f.startsAt, kind: f.kind, tier: f.tier })) {
+      const b = button('notice-seat-enter', mine?.signed ? 'Enter the battle' : 'Watch the battle', () => ui.run(async () => {
+        const ok = host.enterBattle(seat, f);
+        return ok ? { ok: true, text: mine?.signed ? 'To the field.' : 'You take your place to watch.' } : { ok: false, text: '' };
+      }));
       b.disabled = busy;
       out.append(b);
     }
