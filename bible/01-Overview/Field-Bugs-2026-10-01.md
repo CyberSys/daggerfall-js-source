@@ -1097,16 +1097,17 @@ getter. `scenes/world.js` and `scenes/exterior.js` mount it alike. `test/fb1001_
 classic climb under the spell fell at 19-27 m/s and billed the whole slip - 10 m of wall, 25 HP; 20 m, 72 HP: the slip
 arm (`player/motor.js`) integrated plain gravity and anchored its fall once, at the let-go, the one place gravity ran
 without the spell's arm. A slow fall pressed into a wall with Forward held was grasped at 18.4 m on the way down: the
-airborne grasp's 0.77 s timer is 1.6 m of a slow fall, its roll re-tried every 1.6 m (`player/climbing.js`). And no
-air control steers a fall: the liftoff momentum is replayed every step, so a glide five times as long carried 4.8 times
+airborne grasp's 0.77 s timer is 1.6 m of a slow fall, its roll re-tried every 1.6 m (`player/climbing.js`). And,
+without the Jump spell, no air control steers a fall: the liftoff momentum is replayed every step, so a glide five times as long carried 4.8 times
 as far - into a wall it pressed all the way down, and into a face steeper than the slope limit (72 and 75 degrees) the
 collider's push-out lifted the capsule more than the spell's 0.035 m a step lowered it: it hung at 12.7 m for 20 s, or
 crept up the face, and fell the whole height when the spell ran out.
 
 **The fix.** SLOW-SLIP: the slip takes the spell's arm - 2.1 m/s, its fall re-anchored every tick. SLOW-GRASP: a slow
 fall is not grasped onto a wall (a departure - Port-Ledger); a climb under way is untouched, and Forward at the wall's
-foot climbs as ever. SLOW-PRESS: on a slow fall the frozen momentum keeps only what the collider let it do, so the
-press into a face it was stopped by is spent. Enhanced Climbing's own grab (Jump + Forward) is a deliberate act and is
+foot climbs as ever. SLOW-PRESS: once a slow fall's press into a face has held it up a step's height, it is spent - the frozen
+momentum keeps what the collider let it do, and the Jump spell's air control is refused that way until the body
+leaves the face; a lip in the step band is still stepped onto (the audit's SP1, SP2). Enhanced Climbing's own grab (Jump + Forward) is a deliberate act and is
 left. `test/fb1001_slowfall.test.js`.
 
 ## ORBIT-FREE: a drag turns and tilts once it means to (6; asked)
@@ -1214,9 +1215,14 @@ pinned red on the branch before its fix (a gap pin's mutants are its claim) and 
 | F3 | FRIENDS-SYNC | the reconnect-replace leave's new compare was right and unpinned - `b.acct !== m.acct` survived every suite (every reconnect a logout, a party of one deleted) | pinned |
 | F4 | FRIENDS-SYNC | the A10/B9 rewrite pinned the bound with `<=`: three bound mutants that died before lived | pinned exactly again (`test/auditsoc.test.js`) |
 | F6 | FRIENDS-SYNC | the merge's bounds - 129 records over the 128-record write, a friend's request, my own other device, an online friend's picture - unpinned | pinned |
+| SP1 | SLOW-PRESS | under the Jump spell the airborne branch re-reads the input every step, so Forward held re-pressed a slow fall into a face past the slope limit after SLOW-PRESS had spent it: 72 degrees at a walk 19.9 s to come down 12 m, 74 at a run crept UP the face and stayed | the way the face refused is kept while it holds the body, and the air control refused it (`player/motor.js`) |
+| SP2 | SLOW-PRESS | a regression of part five's own: SLOW-PRESS spent the press on the step the body first touched a wall, and the collider's step-up needs that push the step after - a slow glide a step under a lower roof's lip fell into the street (148 of 230 arrivals at 1 m/s on the roof, 216 before) | spent only once the face has held the body over the spell's line further than a step's rise (STEP_OFFSET) |
+| SP3 | SLOW-PRESS, SLOW-SLIP | unpinned: the glide's along-face half (zeroing it passed every suite), a slip under the spell still the classic slip with its regain roll, and steering back once off a face | pinned |
 
 The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
 Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2.json` C2-one-half-sent. Pin moved:
 `soc2_session` (the hello's `ps`); the harness's hello with an account says `ps` unless a pin asks for an old build.
-`test/fb1001_friendsaudit.test.js`; `tools/mutants/fb1001_friendsaudit.json` (15, all dead). Seen and left (main's
+`test/fb1001_friendsaudit.test.js`; `tools/mutants/fb1001_friendsaudit.json` (15, all dead). `test/fb1001_slowaudit.test.js` (SP1 and SP2 red on the branch before);
+`tools/mutants/fb1001_slowaudit.json` (6, all dead), `fb1001_slowfall.json` judged dead again. Seen and left (no diff, every
+fall's): a peer's body has no in-air pose - the others see a slow faller walk or stand mid-air (a pose field, a relay). Seen and left (main's
 own): `auditworld34` A1 fails one run in two or three on main as on the branch (its 25 ms windows).
