@@ -3086,12 +3086,12 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  AUDIT-FIELD F7: A FLOOR, NOT THE WHOLE DISTANCE. The first cut
    *  called 64 "more than the fastest accelerated step", which is true
    *  of a fixed physics STEP and false of a FRAME: the motor moves
-   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1404),
+   *  `speed * min(dt, MAX_FRAME_DT) * scale` in one go (motor.js:1432),
    *  and the frame that hitches is exactly the frame in which the
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:2947) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:3054) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -8292,7 +8292,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2756 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6572
+  // that context through modes.dungeonCtx - so worldModes.js:6574
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -10875,7 +10875,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7698), so exterior mode and a
+    // composer, dungeonContext.js:7703), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11048,8 +11048,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       // incoming character does not inherit the old one's reel.
       cameraRecoiler.reset();
       resetVitalsDetector();   // BLOOD AUDIT 5: nor the difference between the two healths as a blow (VitalsChangeDetector.cs:139-158)
-      climbFeel.reset();   // AUDIT CLIMB-ARC F6: nor the old climb's turn and cues a load
       player.stopAutorun();   // AUDIT 27h S2: nor the old one's autorun latch - F11 off a death screen came back running at the sea
+      climbFeel.reset();   // AUDIT CLIMB-ARC F6: nor the old climb's turn and cues a load
       dwLoadStarted();   // DW-D: DeepWaterRuntime.OnStartLoad (SaveLoadManager raises it once a load is under way) - no swim hand until OnLoad
       if (dwPlayer) { dwPlayer.saveLoad(player); dwFlushStateChange(); }   // AUDIT DW-F: OutdoorSwimDriver.OnSaveLoad on OnStartLoad
       arrestFlow.abandon();   // AUDIT DISC28 AR-1: nor the old one's surrender question or trial - DaggerfallCourtWindow.OnPop's resets, never ReleaseFromPrison (arrestFlow.js abandon)
@@ -13008,7 +13008,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:247, "a right-click on a window is the window's...
+  // (dungeon.js:248, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -13528,7 +13528,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10068-10132 -
+  // worldModes answers it in BOTH modes (worldModes.js:10071-10135 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20116,7 +20116,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // main.js sets ?load when the menu resolves it, and its comment says
   // "Load Game rides the dungeon host's OWN quickLoad" - true when the
   // classic start booted scenes/dungeon.js, and U31 moved it HERE. The
-  // only reader of `load` in the whole tree is dungeon.js:119, so the
+  // only reader of `load` in the whole tree is dungeon.js:120, so the
   // flag arrived in this host and was discarded: the player got a
   // brand-new character in Privateer's Hold and the only way to reach
   // their save was to start a new game and press F11. A load is not a

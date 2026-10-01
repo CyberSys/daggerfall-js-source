@@ -148,7 +148,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
       motorState: () => (_motorRef ? { eyeLevel: _motorRef.eye[1] - _motorRef.pos[1], capsule: _motorRef.height } : null),
       placePlayer: placeLoadedPlayer,   // DIAL-LOAD: the host's load law, for every load the context runs - not routeKey's alone
       // MAC1 J: this host's canvas, for the pause door's relock. The
-      // context owns none of its own (dungeonContext.js:7718), so each
+      // context owns none of its own (dungeonContext.js:7723), so each
       // dungeon host hands its own in and the resume gesture carries
       // the pointer back with it (ui/pauseDoor.js:143-167).
       relock: () => requestLook(canvas) });
@@ -190,7 +190,7 @@ export async function bootDungeon(canvas, renderer, params, status) {
   // menu and the boot ?load arm all reach it), so the hook rides it.
   const _ctxQuickLoad = ctx.quickLoad;
   if (typeof _ctxQuickLoad === 'function') {
-    ctx.quickLoad = (...args) => { cameraRecoiler.reset(); climbFeel.reset(); return _ctxQuickLoad.apply(ctx, args); };   // AUDIT CLIMB-ARC F6: and the climb feel
+    ctx.quickLoad = (...args) => { climbFeel.reset(); cameraRecoiler.reset(); return _ctxQuickLoad.apply(ctx, args); };   // AUDIT CLIMB-ARC F6: and the climb feel
   }
   const headBobber = new HeadBobber();   // AUDIT 28 W10: HeadBobbing
   const climbFeel = createClimbFeelHost(() => player, cam, lookFilter, { audio, strain: (r) => playerClimbStrain(playerEntity, r) });   // CLIMB4: the climb's camera and sounds (world.js's law)

@@ -562,7 +562,7 @@
   {
     "name": "F6-the-dungeon's-quick-load-keeps-the-feel",
     "file": "src/scenes/dungeon.js",
-    "old": "{ cameraRecoiler.reset(); climbFeel.reset(); return _ctxQuickLoad.apply(ctx, args); };",
+    "old": "{ climbFeel.reset(); cameraRecoiler.reset(); return _ctxQuickLoad.apply(ctx, args); };",
     "new": "{ cameraRecoiler.reset(); return _ctxQuickLoad.apply(ctx, args); };",
     "tests": [
       "test/auditclimbarc.test.js"

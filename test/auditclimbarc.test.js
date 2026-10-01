@@ -216,8 +216,8 @@ test('AUDIT CLIMB-ARC F6: a teleport and a load reset the feel - no climb\'s tur
   assert.equal(feel.turnLeft, 0, 'the reset drops the owed turn');
   const w = src('scenes/world.js');
   assert.match(w, /async function _teleportToPixel\([^\n]*\n(?:[^\n]*\n){0,8}?\s*cameraRecoiler\.reset\(\);\n\s*climbFeel\.reset\(\);/, 'the teleport');
-  assert.match(w, /const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);(?:[^\n]*\n){1,12}?\s*cameraRecoiler\.reset\(\);\n\s*resetVitalsDetector\(\);[^\n]*\n\s*climbFeel\.reset\(\);/, 'the load');
-  assert.match(src('scenes/dungeon.js'), /ctx\.quickLoad = \(\.\.\.args\) => \{ cameraRecoiler\.reset\(\); climbFeel\.reset\(\); return _ctxQuickLoad\.apply\(ctx, args\); \};/, 'the dungeon\'s quick load');
+  assert.match(w, /const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);(?:[^\n]*\n){1,12}?\s*cameraRecoiler\.reset\(\);\n\s*resetVitalsDetector\(\);[^\n]*\n\s*player\.stopAutorun\(\);[^\n]*\n\s*climbFeel\.reset\(\);/, 'the load');
+  assert.match(src('scenes/dungeon.js'), /ctx\.quickLoad = \(\.\.\.args\) => \{ climbFeel\.reset\(\); cameraRecoiler\.reset\(\); return _ctxQuickLoad\.apply\(ctx, args\); \};/, 'the dungeon\'s quick load');
 });
 
 test('AUDIT CLIMB-ARC F7: a swing in flight when the hands take the wall lands nothing - WeaponManager\'s climbing return skips the hit frame (mutant: the swing\'s events kept on the wall)', async () => {
