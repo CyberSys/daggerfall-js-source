@@ -153,7 +153,7 @@ import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideI
   BOOKSHELF_TEXT, SHOP_SHELF_TEXT, LADDER_TEXT, BULLETIN_BOARD_TEXT, mobileEntityName, liveEntityName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder for the families THIS host stands   // WORLD-HOVER: the mod's ladder for the families THIS host stands
 import { LOCATION_TYPES, REGION_NAMES } from '../formats/mapsFile.js';   // WORLD-HOVER: .cs:777-782 - a dungeon exit names its town, or the region   // WORLD-HOVER: the texture record is DERIVED at its one reader, off the stored model id
 import { isShop, isRepairShop, stockShopShelf, stockHouseContainer, PRIVATE_PROPERTY_TEXT_ID, privatePropertyRows, calculateCost, calculateTradePrice, regionPriceAdjustment, SHOP_BUYS_GROUPS, shopBuysItem, stockSoulGems, stockGuildMagicItems, stockGuildPotions, dayShelf, createStockedDate, needsRestock, stockSearched } from '../systems/shopStock.js';   // X6: the soul-gem shelf; G4: the two guild shelves; A2: the daily restock
-import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT, tradeCost, getTradePrice } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal; FB0929: the keyed rows' prices are the counter's
+import { identifySpellPass, identifiedTallyText, NOT_ENOUGH_SPELL_POINTS_TEXT, tradeCost, getTradePrice, lotHasBoat } from '../systems/tradeModes.js';   // X7: the Identify SPELL's per-item roll; F067: its magicka refusal; FB0929: the keyed rows' prices are the counter's
 import { liveBundles, dispelBundle, dispellableBundles, DISPEL_MAGIC_TEXT } from '../systems/mysticism.js';   // X10: the Dispel Magic picker
 import { ListPickerWindow, listPickerArtLoaded } from '../ui/listPicker.js';   // X10
 import { createItemLabels, grantCreatedItem, lastCreateItemIndex, setLastCreateItemIndex } from '../systems/createItem.js';   // X11b
@@ -267,7 +267,7 @@ import { freeTavernRooms } from '../systems/guildServices.js';
 // B2: the bank - the window, the per-region accounts and the purse seam.
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
-import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
+import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
@@ -2530,6 +2530,9 @@ export function createWorldModes(host) {
         carriedWeightKg: carriedWeight(playerEntity),
         maxEncumbranceKg: entityMaxEncumbrance(playerEntity),   // DaggerfallTradeWindow.cs:1039 reads PlayerEntity.MaxEncumbrance
       }),
+      // SHIP-CREDIT (Mac: "Buy on credit"): a boat the purse falls short of - the bank of the shop's region lends the
+      // rest under DFU's loan law (banking.js creditDecision); a lot with no boat is offered none
+      credit: (staged, price) => (lotHasBoat(staged) ? shopCredit(b, price) : null),
       commit: (m, staged, price, proceeds) => commitTrade(shelf, m, staged, price, proceeds, identifySpell),
       // AUDIT 63 F48: DoSteal's five effects (DaggerfallTradeWindow.cs
       // :913-928). The same four sinks the private-property theft
@@ -2557,12 +2560,33 @@ export function createWorldModes(host) {
     });
   }
 
+  /** SHIP-CREDIT: the bank's region a shop answers to - its building's, as the bank's own counter reads it. */
+  const shopRegion = (b) => b?.regionIndex ?? buildingDirectory?.()?.regionIndex ?? 0;
+  /** SHIP-CREDIT: a boat's purchase of `price` on the bank's credit (banking.js creditDecision) at this shop - its
+   *  region's bank, the decision carrying the region it was asked of; online the Empire's own words for a refusal
+   *  another branch made. */
+  const shopCredit = (b, price) => creditAt(shopRegion(b), price);
+  function creditAt(region, price) {
+    const regions = playerEntity.bankAccounts?.length || BANK_REGION_COUNT;
+    playerEntity.bankAccounts ??= createBankAccounts(regions);
+    const c = { ...creditDecision(playerEntity.bankAccounts, region, { price, purse: totalGoldAmount(playerEntity), level: playerEntity.level ?? 1 }), region };
+    if (c.kind === 'refuse' && c.empireRegion != null) c.lines = empireRefusalLines(c, (i) => REGION_NAMES[i] ?? '');   // the bank's own naming (bankWindow.js)
+    return c;
+  }
   /** ConfirmTrade_OnButtonClick's Yes arm (:1027-1092), host side.
    *  One Mercantile tally per CONCLUDED DEAL, not per item - DFU
    *  raises OnTrade once and tallies once, however many goods moved. */
   function commitTrade(shelf, mode, staged, price, proceeds, identifySpell = null) {
     if (mode === 'Buy') {
-      deductGold(playerEntity, price);
+      // SHIP-CREDIT: on the bank's credit the purse pays its share and the loan the rest - asked again at the Yes of the
+      // region the offer named, and a credit the bank no longer gives (or another than offered) buys nothing
+      const credit = proceeds?.kind === 'credit' ? creditAt(proceeds.region, price) : null;
+      if (proceeds?.kind === 'credit' && (credit?.kind !== 'credit' || credit.loan !== proceeds.loan)) return false;
+      deductGold(playerEntity, credit ? credit.pay : price);
+      if (credit) {
+        takeCredit(playerEntity.bankAccounts, credit.region, credit.loan, { nowMinutes: Math.floor(ownMinutes()) });
+        hudText(`The bank lends you ${credit.loan} gold. You owe ${credit.owed} within a year.`);
+      }
       for (const it of staged) {
         const i = shelf.items.indexOf(it);
         if (i >= 0) shelf.items.splice(i, 1);

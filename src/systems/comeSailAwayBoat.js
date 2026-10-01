@@ -64,7 +64,10 @@ export const FIRST_HULL_MODEL_ID = 112410;
 /** The seven trigger prefabs and what Start registers on them (PlayerActivate.RegisterCustomActivation, 3.2). */
 export const TRIGGER_MODEL = Object.freeze({ drive: 112400, board: 112401, cargo: 112402, door: 112403, variant: 112404, status: 112405, position: 112406 });
 export const HULL_NAMES = Object.freeze(['Rowboat', 'Large Boat', 'Small Ship', 'Large Galley', 'Carrack']);
-export const HULL_PRICES = Object.freeze([4000, 8000, 100000, 200000, 150000]);
+/** What a hull's deed or parts cost (a shelf's, a packed boat's). SHIP-PRICE (2026-10-01, Mac: "make ship prices more
+ *  reasonable" - "About a quarter"): Rowboat 1,000, Large Boat 2,500, Small Ship 25,000, Large Galley 50,000, Carrack
+ *  37,500 (Come Sail Away's were 4,000, 8,000, 100,000, 200,000 and 150,000). An item already minted keeps its value. */
+export const HULL_PRICES = Object.freeze([1000, 2500, 25000, 50000, 37500]);
 export const HULL_WEIGHTS = Object.freeze([30, 120, 2400, 48000, 240000]);
 export const VARIANT_NAMES = Object.freeze(['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']);
 /** AUDIT PRE-MERGE 0928 O1: the variant objects each hull's prefab carries under its `Variants` node (GetVariantCount) -
