@@ -1530,6 +1530,11 @@ with this"* - the coven's ritual site too - and of it: the faithful stand **from
 faithful and a Summoner**, breaking the rite pays **an extra ember** to everyone who helped when the breach is closed
 (the boss unchanged), and **a chest** stands in their circle.
 
+Then, with A shipped and B under way: *"Let's forgoe the monthly raid. Instead, as we progress through this
+integration, I just want to continue to improve the boss, hone in telegraphs, and just overall bring more AAA grade
+polish to what is already developed. Also clean up text to be less explanatory and less AI."* So B is dropped (below),
+and the polish is section 20.
+
 ### The year, and why the doors close
 
 The game is 3E 417. Uriel Septim VII sits the Ruby Throne, the Amulet of Kings is worn, and the Dragonfires burn in
@@ -1545,7 +1550,7 @@ Covenant fights every one**: that is why a breach only stands for its window - t
 after it opens and **tears it shut** two hours after that (the seal and the collapse every gate already keeps), and
 Dagon's Wrath is the door slammed on whoever is still inside. The precedent is canon: Dagon's legions took the
 Battlespire in the years of the Imperial Simulacrum, a generation before the game. **No mechanic changes for the
-frame**; the words do (A), and three things are added (B, C, D).
+frame**; the words do (A), and two things are added (C, D - B, Mehrunes Dagon's day, was dropped).
 
 What stays, because it is lore-sound in 3E 417: the Deadlands (Dagon's realm), the Burning Court, the Dremora ranks,
 Valkynaz Ruhn and his title **Warden of the Burning Gate** (the faithful's name for the arch the breach wears),
@@ -1597,43 +1602,16 @@ sized for "12 Sigil Stones", is re-measured for "50 Deadlands Embers" in a real 
 **A guard**, as DRAKES pinned the old currency's name: no shipped source names an Oblivion Gate or a Sigil Stone in
 player text.
 
-### B. Mehrunes Dagon's day (WB12b)
+### B. Mehrunes Dagon's day (WB12b) - dropped
 
-**When.** Daggerfall's own calendar: Mehrunes Dagon's summoning day is the 20th of Sun's Dusk (day of the year 320 in
-`systems/daedraSummoning.js`), which the Bay also keeps as the Warriors' Festival (`systems/holidays.js`). One breach
-is exactly one game day of the shared clock (two real hours), so **the breach of game day d is Dagon's day when
-`d % 360 === 319`** - one breach every 360, every 30 real days, at the same times of day (the first: game day 679,
-opening 2026-10-10 08:32:30 UTC). The law is pure (`net/gateLaw.js isDagonsDay`, 360 pinned inline as 1440 is - the
-relay's graph never imports the calendar), pinned against the summoning table and the festival.
-
-**Harder - his Legion and a third trial.** On Dagon's day **the Legion-Lord always comes, with one more trial than
-usual**: the day's two trials become three. The marks cycle stays the plain rotation (its every law - each round every
-aspect, no two gates running sharing a mark - is the cycle's and is kept); a wrapper, `gateMarksOf(day)`, is what the
-relay's fight, the omen, the herald, the gate's card and the map's tip read: on any other day it IS the cycle's; on
-Dagon's day it adds the Legion-Lord when the cycle did not bring him, else the first trial (in a fixed order:
-Vengeful, Unyielding, Favoured, then the table's) that neither the day before nor the day after carries. The wire
-takes an aspect and up to three trials (`GATE_MARKS_WIRE_MAX`, apart from GATE_TRIALS_A_DAY, which the cycle's law
-needs at 2); the brain's law moves to **6** (a game of law 5 cannot read a third trial - it would drop the fight's
-every state - so it is refused at the gate and told to reload, on every day). The marks card and the boss bar hold
-four marks. **Every attack stays escapable** at 7.6 m/s under every great set (the law's test walks every slot of the
-cycle with Dagon's day's wrapper, not only the two the calendar lands on today).
-
-**Richer - double embers.** Every challenger who earns spoils on Dagon's day takes **two** Deadlands Embers. The ember
-draws no dice, so a stack of two leaves every other piece of a seed as it was. The account service believes what the
-pack holds by what the account closed, so the purse counts it: `gate_kills` gains `stones` (migration 0046, default 1 -
-no Dagon's day ever ran before it, the first falls after the epoch's day 319), written at the claim by the same law,
-and the purse is their sum.
-
-**The words.** The omen on Dagon's day: *"It is the 20th of Sun's Dusk, Mehrunes Dagon's day, and while the Bay keeps
-the Warriors' Festival every coven calls to him at once. The breach near N opens wider tonight: his Legion comes with
-him, and its fire pays double."*; the Discord omen post opens **Mehrunes Dagon's day.**; the marks card is titled
-*Dagon's Day - A Great Breach*.
+Dropped before it shipped (Mac: *"Let's forgoe the monthly raid"*). The design was one breach in 360 - the 20th of
+Sun's Dusk, every 30 real days - with the Legion-Lord always and a third trial, and double embers. Nothing of it is in
+the game: every breach is fought under the day's marks from the cycle, and pays one ember.
 
 ### C. On the Burning Doors (WB12c)
 
 A Mages Guild conjurer's account of the breaches (the text is the appendix below): what the common folk call them,
-the Covenant, the faithful and their rite, the Warden, why the doors close, the Battlespire, Dagon's day, the embers,
-and counsel - which tells a reader how the game works in the world's own words.
+the Covenant, the faithful and their rite, the Warden, why the doors close, the Battlespire, the embers, and counsel - which tells a reader how the game works in the world's own words.
 
 - **The book**: id **417** (the year; above the classic ids, its low byte no classic book's, under the decor law's
   0xffff), template 277 like every book, its price the classic law's own for its title (463), plain ASCII in
@@ -1667,8 +1645,7 @@ court's braziers are.
 **The faithful.** **6-8 of Dagon's faithful and a Summoner** (the day's roll), robed casters - mages, battlemages,
 healers and nightblades (Daggerfall has no witch; covens are places, not mobiles) - named *Dagon's Faithful* and *the
 Summoner*. They chant at the circle until disturbed; one woken wakes them all (a camp's law). The Summoner has three
-times a caster's health. **On Dagon's day the great rite**: twice the faithful (12-16) and *the Arch-Summoner* (five
-times). Online every player sees the same faithful: the first to come within reach springs them and owns them (the
+times a caster's health. Online every player sees the same faithful: the first to come within reach springs them and owns them (the
 World of Daggerfall camps' law), every other sees them as the owner's.
 
 **Breaking the rite.** The rite is broken when **the Summoner falls before the breach opens**. Everyone who struck one
@@ -1690,7 +1667,7 @@ when it was said, not each blow - a lie can buy a liar one ember.
 
 **The chest.** In the circle stands the faithful's chest. It opens **once the rite is broken**, for each character
 **once a day**: gold, two to four reagents of the rite (Sulphur, Ichor, Ectoplasm, Lich Dust, a Daedra's Heart
-rarely), and a small chance (one in twenty; one in ten on Dagon's day) at **a piece of Dagon's Brand** - a Magic piece
+rarely), and a small chance (one in twenty) at **a piece of Dagon's Brand** - a Magic piece
 of armour bearing the set's sigil.
 
 **The words.** At the omen: *"Dagon's faithful gather in the wilds near N to work the rite. Cut down their Summoner
@@ -1702,14 +1679,14 @@ rite nearby*; a broken rite is posted with who broke it.
 
 ### Versions and the deploy
 
-The relay's law moves to **world141** (the words of `gateLaw.js` and `gateHerald.js`, the brain's law 6, the third
-trial, the rite's word and the receipt's `r`), the brain's law to **6**, the account service to **acct46** (migration
-0046's `stones`, the claim of `r` and of a rite alone). Each deploy drops connected players once, as every relay
+The relay's law moves to **world141** (the words of `gateLaw.js` and `gateHerald.js`, the rite's word and the
+receipt's `r`); the brain's law stays 5. The account service moves to **acct46** (migration 0046's `stones` - the
+rite's ember in the purse - and the claim of `r` and of a rite alone). Each deploy drops connected players once, as every relay
 deploy does; a game from before it is refused at the breach and told to reload.
 
 ### What does not change
 
-Every mechanic of the fight on every day but Dagon's; the schedule; the rotation of marks; the spoils' dice; the
+Every mechanic of the fight; the schedule; the rotation of marks; the spoils' dice; the
 Broker's wares and prices; every id, key and column. The court is the Burning Court; the Deadlands are the Deadlands.
 
 ### Appendix - On the Burning Doors
@@ -1748,11 +1725,6 @@ Broker's wares and prices; every id, key and column. The court is the Burning Co
 > **The Battlespire.** I am asked whether the Prince has done such a thing before. He has, and worse. In the years of
 > the false Emperor his legions took the Battlespire itself, where the Empire trained its battlemages, and held it
 > until a single apprentice drove them out. Not since the Battlespire fell has Dagon found doors so wide as these.
->
-> **Dagon's day.** On the twentieth of Sun's Dusk the Bay keeps the Warriors' Festival, and Dagon's faithful keep his
-> day. On that night every coven calls to him at once, and the breach opens wider than any Warden can hold alone: his
-> Legion comes through with him, and his marks lie heavier. The fire of that night burns hotter too, and those who
-> close the door carry twice the embers out of it.
 >
 > **The embers.** Those who close a breach carry out coals of its fire. They do not cool and they do not go out, and in
 > the Guild we call them Deadlands embers. The Guild will buy them for study. A certain Broker of the wilds pays
