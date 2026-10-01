@@ -200,7 +200,7 @@
  {
   "name": "CROWN1C-sess-retry",
   "file": "src/net/royalSession.js",
-  "old": "      if (r?.error === 'ring-unsettled') { s.retryAt = nowMs() + ROYAL_PASS_RETRY_MS; say(r.text); return; }",
+  "old": "      if (r?.error === 'ring-unsettled') { s.tries++; s.retryAt = nowMs() + passRetryMs(s.tries, ROYAL_PASS_RETRY_MS); if (s.tries === 1) say(r.text); return; }",
   "new": "",
   "tests": [
    "test/crown1_royal_client.test.js"
@@ -227,7 +227,7 @@
  {
   "name": "CROWN1C-sess-mint",
   "file": "src/net/royalSession.js",
-  "old": "    online.mintSiegePass = async () => { const again = await pass(s?.seat, s?.field, !!s?.watch); return again?.ok ? again.pass : null; };",
+  "old": "    online.mintSiegePass = s.mint;",
   "new": "",
   "tests": [
    "test/crown1_royal_client.test.js"
@@ -362,8 +362,8 @@
  {
   "name": "CROWN1C-sess-leave-mint",
   "file": "src/net/royalSession.js",
-  "old": "      s = null;\n      online.mintSiegePass = null;",
-  "new": "      s = null;",
+  "old": "      if (mint && online.mintSiegePass === mint) online.mintSiegePass = null;",
+  "new": "      void 0;",
   "tests": [
    "test/crown1_royal_client.test.js"
   ]

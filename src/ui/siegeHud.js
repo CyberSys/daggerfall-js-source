@@ -11,6 +11,10 @@
 //
 // `siegeHudModel` (net/siegeLink.js) is pure - the state, the battle and the clock in, the lines out; the pins read it.
 //
+// AUDIT-SEATS C1 (2026-10-01): AND A WAY OUT - the bar's own Leave (`onLeave`, a battle's or a Royal Tourney's: the world
+// leaves whichever is entered), and the result card's Close, which dismisses the card by leaving the battle it ended.
+// The two buttons and the card's Claim are the readout's only clicks.
+//
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
 import { siegeHudModel } from '../net/siegeLink.js';   // the lines (pure, beside the fold - net/siegeSession.js draws through it)
 export { siegeHudModel };
@@ -26,11 +30,15 @@ export const SIEGE_HUD_CSS = `
 .sg-card { margin: 18px auto 0; width: 520px; max-width: 90vw; border: 1px solid rgba(240,210,140,0.8); background: rgba(14,10,6,0.85);
   padding: 10px 14px; pointer-events: auto; text-align: left; white-space: normal; }
 .sg-card-title { font-size: 15px; letter-spacing: 0.12em; }
-.sg-card button { margin-top: 8px; float: right; font: inherit; cursor: pointer; }
+.sg-card button { margin-top: 8px; margin-left: 6px; float: right; font: inherit; cursor: pointer; }
+.sg-leave { pointer-events: auto; margin-top: 3px; font: inherit; font-size: 12px; cursor: pointer; }
 `;
+/** AUDIT-SEATS C1: the readout's way out - the bar's button and the result card's. */
+export const SIEGE_HUD_WORDS = Object.freeze({ leave: 'Leave', close: 'Close' });
 
-/** The HUD on `doc` - `update(model)`, `hide()`, `destroy()`; `onClaim` the card's button. */
-export function createSiegeHud(doc, { onClaim = null } = {}) {
+/** The HUD on `doc` - `update(model)`, `hide()`, `destroy()`; `onClaim` the card's button; AUDIT-SEATS C1: `onLeave` the
+ *  bar's Leave and the card's Close. */
+export function createSiegeHud(doc, { onClaim = null, onLeave = null } = {}) {
   /** @type {any} */ let root = null;
   /** @type {Record<string, any>} */ const parts = {};
   const said = new Map();
@@ -50,8 +58,13 @@ export function createSiegeHud(doc, { onClaim = null } = {}) {
     parts.cardLine = doc.createElement('div'); parts.cardHonour = doc.createElement('div');
     parts.claim = doc.createElement('button'); parts.claim.textContent = 'Claim'; parts.claim.style.display = 'none';
     parts.claim.addEventListener?.('click', () => onClaim?.());
-    for (const c of [parts.cardTitle, parts.cardLine, parts.cardHonour, parts.claim]) parts.card.appendChild(c);
-    for (const c of [bar, parts.sides, parts.self, parts.card]) root.appendChild(c);
+    // AUDIT-SEATS C1: the card's Close (the battle ended - dismissing it leaves), and the bar's Leave
+    parts.close = doc.createElement('button'); parts.close.textContent = SIEGE_HUD_WORDS.close;
+    parts.close.addEventListener?.('click', () => onLeave?.());
+    parts.leave = doc.createElement('button'); parts.leave.className = 'sg-leave'; parts.leave.textContent = SIEGE_HUD_WORDS.leave;
+    parts.leave.addEventListener?.('click', () => onLeave?.());
+    for (const c of [parts.cardTitle, parts.cardLine, parts.cardHonour, parts.claim, parts.close]) parts.card.appendChild(c);
+    for (const c of [bar, parts.leave, parts.sides, parts.self, parts.card]) root.appendChild(c);
     doc.body?.appendChild(root);
   }
   return {
@@ -61,6 +74,7 @@ export function createSiegeHud(doc, { onClaim = null } = {}) {
       root.style.display = '';
       put('title', m.bar[0]); put('banners', m.bar[1]); put('sides', m.sides); put('self', m.self.join('\n'));
       parts.card.style.display = m.card ? '' : 'none';
+      parts.leave.style.display = m.card ? 'none' : '';   // AUDIT-SEATS C1: the card's Close stands for it once the battle has ended
       if (m.card) {
         put('cardTitle', m.card.title); put('cardLine', m.card.line); put('cardHonour', m.card.honour);
         parts.claim.style.display = m.card.claim ? '' : 'none';

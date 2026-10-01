@@ -130,8 +130,20 @@ export function siegeResultLine(s) {
   const marks = s.banners.map((b, i) => `${names[i]} ${b[0] === 1 ? '^' : b[0] === 2 ? 'o' : '-'}`).join('  ');
   return `${Math.floor(t / 60)} minutes ${t % 60} seconds.  ${marks}`.trimEnd();
 }
-/** The card's Honours line, once the service answered the claim (`honours` its answer, null for none earned). */
+/** AUDIT-SEATS C7: THE CARD'S WORDS FOR A CLAIM REFUSED FOR GOOD (net/siegeClaims.js siegeClaimSettles) - claimed before,
+ *  the battle void or gone, a receipt that is not the relay's (the account service's words for those - accountRefusalText
+ *  - speak of a gate's receipt and of signing a roster, not of this battle's Honours). */
+export const SIEGE_CLAIM_REFUSED = Object.freeze({
+  'honours-twice': 'Your Honours from this battle are claimed already.',
+  'battle-none': 'No Honours this battle: the battle was void.',
+  receipt: 'No Honours this battle: your receipt from it could not be read.',
+});
+/** AUDIT-SEATS C7: a settling refusal (`{ ok: false, error }`) in the card's words. */
+export const siegeClaimRefusal = (a) => SIEGE_CLAIM_REFUSED[a?.error] ?? SIEGE_CLAIM_REFUSED.receipt;
+/** The card's Honours line, once the service answered the claim (`honours` its answer, null for none earned; AUDIT-SEATS
+ *  C7: a refusal's own words, siegeClaimRefusal). */
 export function siegeHonourLine(honours) {
+  if (typeof honours === 'string') return honours;
   if (!honours) return 'No Honours this battle: they are earned by standing half the battle or felling a foe.';
   if (honours.spent) return 'Your Honour: these two guilds\' Honours were earned already this Season.';
   return `Your Honour: ${honours.marks} Marks, ${Number(honours.xp).toLocaleString('en-US')} Renown, one Spoils of War roll`;

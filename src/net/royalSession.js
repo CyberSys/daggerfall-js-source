@@ -11,11 +11,19 @@
 // createRoyalClaims). Left at the week's end or by the player - the world's own room is joined again.
 //
 // The world is handed in, so the pins drive it with fakes. Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
+//
+// AUDIT-SEATS (2026-10-01): C1 - the tourney is LEFT as a siege is (net/siegeSession.js): by the player (the HUD's Leave,
+// the chat's `/leave`), once away from the crown's city BATTLE_AWAY_MS, when its socket closes for good, and at the
+// week's end - a player who pressed "Watch the Royal Tourney" on a Monday no longer stands in its room all week, the
+// city's peers and its Watch gone; the HUD drawn only in its room. C2 - the one mint slot cleared only while it is this
+// session's own. C3 - an unsettled ring said once and asked again on the siege's backing-off wait.
 import { royalRoomKey, ROYAL_RING } from './siegeRef.js';
 import { foldRoyal, royalHudModel, royalAskStands, ROYAL_STATE_EMPTY } from './royalLink.js';
 import { readRoyalReceipt } from './siegeReceipt.js';
+import { passRetryMs, BATTLE_AWAY_MS } from './siegeSession.js';
 
-/** How long an unsettled ring waits before the pass is asked again, ms. */
+/** How long an unsettled ring waits before the pass is asked again, ms - the first wait (AUDIT-SEATS C3: doubling to
+ *  siegeSession.js PASS_RETRY_MAX_MS). */
 export const ROYAL_PASS_RETRY_MS = 5000;
 /** The words. */
 export const ROYAL_SESSION_TEXT = Object.freeze({
@@ -26,31 +34,38 @@ export const ROYAL_SESSION_TEXT = Object.freeze({
   refused: (why) => `The Royal Tourney would not have you: ${why}`,
   asked: (who) => `${who} challenges you to a bout - challenge them back from their card to accept.`,
   sent: (who) => `You challenge ${who} to a bout.`,
+  away: (city) => `You have left ${city}, and the Royal Tourney with it.`,   // AUDIT-SEATS C1
+  closed: 'The Royal Tourney\'s door has closed on you - you have left it.',   // AUDIT-SEATS C1: its socket closed for good
 });
 
 /**
  * THE SESSION. `online` (net/online.js), `pass(seat, field, watch)` and the bouts' `claims` (net/siegeClaims.js
- * createRoyalClaims, or null), `hud` (ui/siegeHud.js createSiegeHud, or null), `nowMs()`, `movePlayer(pose)` (a wire
- * pose), `say(text)`, `relayOk()` the relay keeps Royal Tourneys, `name(id)` a peer's name.
+ * createRoyalClaims, or null), `hud` (ui/siegeHud.js createSiegeHud, or null), `nowMs()` (AUDIT-SEATS C6: the relay's
+ * clock), `movePlayer(pose)` (a wire pose), `say(text)`, `relayOk()` the relay keeps Royal Tourneys, `name(id)` a peer's
+ * name; AUDIT-SEATS C1: `here(seat)` whether the player is still at the crown's city.
  * @param {{ online: any, pass: (seat: any, field: any, watch: boolean) => Promise<any>, claims?: any, hud?: any, nowMs?: () => number,
- *   movePlayer?: (p: any) => void, say?: (t: string) => void, relayOk?: () => boolean, name?: (id: string) => string }} deps
+ *   movePlayer?: (p: any) => void, say?: (t: string) => void, relayOk?: () => boolean, name?: (id: string) => string, here?: (seat: any) => boolean }} deps
  */
-export function createRoyalSession({ online, pass, claims = null, hud = null, nowMs = () => Date.now(), movePlayer = () => {}, say = () => {}, relayOk = () => true, name = () => '' }) {
-  /** @type {null | { seat: any, royal: any, field: any, watch: boolean, room: string, side: string, ends: number, sentIn: boolean, state: any, retryAt: number, joined: boolean }} */
+export function createRoyalSession({ online, pass, claims = null, hud = null, nowMs = () => Date.now(), movePlayer = () => {}, say = () => {}, relayOk = () => true, name = () => '', here = () => true }) {
+  /** @type {null | { seat: any, royal: any, field: any, watch: boolean, room: string, side: string, ends: number, sentIn: boolean, state: any, retryAt: number, joined: boolean, tries: number, mint: any, awayAt: number|null }} */
   let s = null;
   async function ask() {
     if (!s) return;
+    const at = s;
     const r = await pass(s.seat, s.field, s.watch);
-    if (!s) return;
+    if (s !== at) return;   // AUDIT-SEATS C1: left, or entered afresh, while it was asked
     if (!r?.ok) {
-      if (r?.error === 'ring-unsettled') { s.retryAt = nowMs() + ROYAL_PASS_RETRY_MS; say(r.text); return; }
+      // AUDIT-SEATS C3: said once, asked again on a backing-off wait
+      if (r?.error === 'ring-unsettled') { s.tries++; s.retryAt = nowMs() + passRetryMs(s.tries, ROYAL_PASS_RETRY_MS); if (s.tries === 1) say(r.text); return; }
       say(ROYAL_SESSION_TEXT.refused(r?.text ?? 'it is not open'));
       api.leave({ quiet: true });
       return;
     }
     s.side = r.side; s.ends = Number(r.endsAt) * 1000;
     s.room = royalRoomKey(s.seat.key, r.week);
-    online.mintSiegePass = async () => { const again = await pass(s?.seat, s?.field, !!s?.watch); return again?.ok ? again.pass : null; };
+    // AUDIT-SEATS C2: this session's own mint, kept, so a leave clears the slot only while it is still this one's
+    s.mint = async () => { const again = await pass(at.seat, at.field, at.watch); return again?.ok ? again.pass : null; };
+    online.mintSiegePass = s.mint;
     s.joined = true;
     say(ROYAL_SESSION_TEXT.entered(r.side));
   }
@@ -69,17 +84,21 @@ export function createRoyalSession({ online, pass, claims = null, hud = null, no
     enter(seat, royal, field, { watch = false } = {}) {
       if (!relayOk()) { say(ROYAL_SESSION_TEXT.old); return false; }
       if (!field) { say(ROYAL_SESSION_TEXT.notHere(seat?.name ?? 'the city')); return false; }
-      s = { seat, royal, field, watch: !!watch, room: '', side: 'watch', ends: 0, sentIn: false, state: ROYAL_STATE_EMPTY, retryAt: 0, joined: false };
+      if (s?.mint && online.mintSiegePass === s.mint) online.mintSiegePass = null;   // AUDIT-SEATS C2: entered afresh - the old pass's mint goes
+      s = { seat, royal, field, watch: !!watch, room: '', side: 'watch', ends: 0, sentIn: false, state: ROYAL_STATE_EMPTY, retryAt: 0, joined: false, tries: 0, mint: null, awayAt: null };
       ask();
       return true;
     },
-    /** Leave it (`quiet`: no word). */
-    leave({ quiet = false } = {}) {
-      if (!s) return;
+    /** Leave it (`quiet`: no word; `words` another word than the plain one). AUDIT-SEATS C1: true when there was a
+     *  tourney to leave. @param {{ quiet?: boolean, words?: string }} [o] */
+    leave({ quiet = false, words = ROYAL_SESSION_TEXT.left } = {}) {
+      if (!s) return false;
+      const mint = s.mint;
       s = null;
-      online.mintSiegePass = null;
+      if (mint && online.mintSiegePass === mint) online.mintSiegePass = null;   // AUDIT-SEATS C2: another battle's mint is not this one's to clear
       hud?.hide();
-      if (!quiet) say(ROYAL_SESSION_TEXT.left);
+      if (!quiet) say(words);
+      return true;
     },
     /** A word from the tourney's room (net/online.js onSiege). */
     onSiege(g, room) {
@@ -100,13 +119,19 @@ export function createRoyalSession({ online, pass, claims = null, hud = null, no
       return sent;
     },
     /** Each frame: the pass asked again while the ring settles, `in` said once on an open socket, the HUD drawn, the
-     *  tourney left at its week's end. */
+     *  tourney left at its week's end. AUDIT-SEATS C1: and left once the player has been away from the city
+     *  BATTLE_AWAY_MS, or its socket has closed for good; the HUD drawn only in the tourney's own room. */
     tick() {
       if (!s) return;
       const now = nowMs();
+      if (here(s.seat)) s.awayAt = null;
+      else if (s.awayAt == null) s.awayAt = now;
+      else if (now - s.awayAt >= BATTLE_AWAY_MS) { api.leave({ words: ROYAL_SESSION_TEXT.away(s.seat?.name ?? 'the city') }); return; }
       if (!s.joined) { if (s.retryAt && now >= s.retryAt) { s.retryAt = 0; ask(); } return; }
       if (s.ends && now >= s.ends) { api.leave(); return; }
-      const open = online.room === s.room && online.status === 'open';
+      if (online.room !== s.room) { s.sentIn = false; hud?.hide(); return; }
+      if (online.terminal) { api.leave({ words: ROYAL_SESSION_TEXT.closed }); return; }
+      const open = online.status === 'open';
       if (!open) s.sentIn = false;
       else if (!s.sentIn) s.sentIn = online.sendSiege({ k: 'in' });
       hud?.update(royalHudModel(s.state, { seat: s.seat?.name, prize: s.royal?.prize, endsMs: s.ends }, online.id, now, { watching: s.side === 'watch', name }));

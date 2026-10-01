@@ -37,9 +37,11 @@ export function siegeClaimSettles(r) {
 
 /**
  * THE CARRIER. `claim(receipt)` the book's call (`{ ok, ... }` or `{ ok: false, error, why? }`), `me()` the signed-in
- * account's id (null: none), `nowMs()`, `storage` (a Storage, or null), `onClaimed(answer, claims)` said for a settled
- * claim that the service took. CROWN1 part two: the same carrier for a Royal Tourney's bouts (createRoyalClaims) - its
- * store's key, its receipt's reader, its own settling answers and how many it keeps.
+ * account's id (null: none), `nowMs()`, `storage` (a Storage, or null), `onClaimed(answer, receipt)` said for a settled
+ * claim - AUDIT-SEATS C7: every settling answer, a refusal for good too (claimed before, a void battle, not the relay's),
+ * so the result card it answers never stands on "claim it" for a receipt already let go. CROWN1 part two: the same carrier
+ * for a Royal Tourney's bouts (createRoyalClaims) - its store's key, its receipt's reader, its own settling answers and
+ * how many it keeps.
  */
 export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.now(), storage = null, onClaimed = null,
   storeKey = SIEGE_CLAIMS_KEY, read = readSiegeReceipt, settles = siegeClaimSettles, max = SIEGE_CLAIMS_MAX }) {
@@ -53,6 +55,10 @@ export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.n
   return {
     /** The receipts kept. */
     list: () => kept.slice(),
+    /** AUDIT-SEATS C5: whether an unforced offer would go now - something kept, none in flight, the retry's wait run.
+     *  Asked each frame (scenes/world.js, the gate's frame) before the async offer, so a frame with nothing due makes
+     *  no Promise (AUDIT-SEATS C12's law). */
+    due: () => !busy && kept.length > 0 && nowMs() - offeredAt >= SIEGE_CLAIM_RETRY_MS,
     /** A receipt the relay handed this socket: kept (signed, unexpired, not already held), and offered at once. */
     keep(r) {
       const nowS = Math.floor(nowMs() / 1000);
@@ -81,7 +87,7 @@ export function createSiegeClaims({ claim, me = () => null, nowMs = () => Date.n
           if (!settles(a)) continue;
           kept = kept.filter((x) => x !== r);
           settled++;
-          if (a?.ok) onClaimed?.(a, r);
+          onClaimed?.(a, r);   // AUDIT-SEATS C7: every settling answer, taken or refused for good
         }
       } finally { busy = false; save(); }
       return settled;

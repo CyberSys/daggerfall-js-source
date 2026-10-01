@@ -162,7 +162,8 @@ test('AUDIT-SEATS THE HALL OF RECORDS FROM THE BOARD AND IN THE CASTLES: the Sea
   assert.match(modes, /const castleRecordsHere = \(\) => mode === 'dungeon' && !!dungeonLoc && !!host\.hallOfRecords\?\.here\?\.\(\(dungeonLoc\.mapTableData\?\.mapId \?\? 0\) >>> 0\);/);
   assert.match(modes, /ctx\.addActivationTargets\(\(\) => \(castleRecordsHere\(\) \? ctx\.castleShelves\.map\(\(s, i\) => \(\{ key: `records:\$\{i\}`, aabb: s\.aabb,/);
   assert.match(modes, /if \(key\.startsWith\('records:'\)\) \{ openCastleRecords\(\); return true; \}/);
-  assert.match(modes, /if \(mode !== 'dungeon' \|\| dungeonLoc !== at\) return;\n\s+if \(w\) mountServiceWindow\(w\);\n\s+else say\(HALL_OF_RECORDS_SHUT\);/);
+  // PIN MOVED (AUDIT-SEATS C11): and over a window opened meanwhile it is disposed, not stacked
+  assert.match(modes, /if \(mode !== 'dungeon' \|\| dungeonLoc !== at \|\| dungeonCtx\?\.overlayWindow\?\.\(\)\) \{ dropRecords\(w\); return; \}\n\s+if \(w\) mountServiceWindow\(w\);\n\s+else say\(HALL_OF_RECORDS_SHUT\);/);
 });
 
 test('AUDIT-SEATS THE CHRONICLE NAMES WHAT WAS PAID: a vassal\'s tribute and a Conscription whose treasury held less than the due say what it held - and nothing where it held nothing (mutants: the ledger\'s amount; the row\'s lookup; the empty)', async (t) => {

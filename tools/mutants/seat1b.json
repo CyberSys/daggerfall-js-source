@@ -433,7 +433,7 @@
   {
     "name": "SEAT1b-book-drops-on-no-answer",
     "file": "src/net/townSeatBook.js",
-    "old": "      const settled = r?.ok || WATCH_SETTLED.includes(r?.error) || SHUT.includes(r?.error);",
+    "old": "      const settled = r?.ok || WATCH_SETTLED.includes(r?.error);",
     "new": "      const settled = true;",
     "tests": [
       "test/seat1b_client.test.js"

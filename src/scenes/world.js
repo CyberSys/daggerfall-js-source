@@ -442,7 +442,7 @@ import { exteriorSurfaces, downProbe, rayDistanceFor, ON_EXTERIOR_WATER, exterio
 import { isOnFoot } from '../systems/transport.js';   // TransportManager.IsOnFoot - the raycast's reach and the mounted footstep gate
 import { floorLanding } from '../player/enterExit.js';   // FixStanding for the exterior arrivals (2026-08-27)
 import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../systems/skills.js';   // TO1: the avoid-encounter roll reads skillValue live (imported above, SURV6) Stealth   // AUDIT 64 F2: CheckAirControl's IsEnhancedJumping disjunct
-import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers } from '../characters/playerEntity.js';
+import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers, registerLevitateWard, registerFreeFlight } from '../characters/playerEntity.js';   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
 import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
@@ -691,12 +691,14 @@ import { carvedFloorLocalY } from './deepWatersHost.js';   // DW-D: the shore pr
 import { breathStep, setWaterBreathingRule } from '../systems/breath.js';   // DW-D: the dungeon's breath law, on the open sea; ApplyArgonianInfiniteBreath
 import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW-D: PlayerEntity's classic cadence, the dungeon's import
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
-import { createSiegeSession } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it
+import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
 import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
 import { createRoyalSession } from '../net/royalSession.js';   // CROWN1 part two: a Royal Tourney as this client fights it
 import { createRoyalClaims } from '../net/siegeClaims.js';   // CROWN1 part two: its bouts' receipts carried to the service
+import { createSiegeHerald } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battles announced in the server's voice
+import { siegeBlowKind, siegeCastClamp, siegeSpellNumbers, siegeSpellBarred, SIEGE_SPELL_BARRED_TEXT, SIEGE_DISMOUNT_TEXT } from '../combat/siegeCombat.js';   // AUDIT-SEATS G5: a battle's shafts, spells and saddle
 
 /** Internal_Strings_en 654 / 655, the two guild map-reveal notes
  *  (ThievesGuild.cs:115, DarkBrotherhood.cs:108). %map is the
@@ -1157,6 +1159,24 @@ export async function bootWorld(canvas, renderer, params, status) {
   let redChat = null;
   /** SEAT2a part four: the siege this client is in, made with the online session (net/siegeSession.js) - null offline. */
   let siegeSession = null;
+  /** AUDIT-SEATS C5: the battles' receipt carriers (net/siegeClaims.js) and the one HUD both draw through, kept here so the
+   *  gate's frame can offer what they hold on their own clock - null offline. */
+  let siegeClaims = null, royalClaims = null, siegeHud = null;
+  /** AUDIT-SEATS G1: the battles announced in the server's voice (net/siegeHerald.js) - null offline. */
+  let siegeHerald = null;
+  /** AUDIT-SEATS C6: the battles' clock - the relay's, as every relay-stamped time this scene reads (a pass's window, a
+   *  tourney's week, a receipt's life). */
+  const battleNowMs = () => Date.now() + _sharedOffsetMs;
+  /** AUDIT-SEATS C1: whether the player still stands at `seat`'s town - its own map pixel or one beside it (the attackers'
+   *  camp stands outside the walls), out in its streets or in one of its buildings; a dungeon is no town's street. */
+  const atSeat = (seat) => {
+    if (!Array.isArray(seat?.pixel) || (modes?.mode ?? 'exterior') === 'dungeon') return false;
+    const p = playerTravelPixel();
+    return Math.abs(p.x - seat.pixel[0]) <= 1 && Math.abs(p.y - seat.pixel[1]) <= 1;
+  };
+  /** AUDIT-SEATS C1: THE WAY OUT of whichever is entered, a battle or a Royal Tourney (the HUD's Leave and the card's
+   *  Close, the chat's `/leave`) - its own word said; true when there was one to leave. */
+  const leaveBattle = () => !!(siegeSession?.leave() || royalSession?.leave());
   /** Each seat town's battlefield as its build derived it, by its map id (`{ key, px, py, field }` - a town's is fixed;
    *  a handful of towns, never dropped). */
   const siegeFieldsByTown = new Map();
@@ -1166,6 +1186,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!siegeSession) return false;
     let field = null;
     for (const [mapId, t] of siegeFieldsByTown) if (built.has(t.key) && seatAtMapId(townSeats, mapId)?.key === seat.key) { field = siegeFieldWire(t.px, t.py, t.field); break; }   // the town built: the player is there
+    if (field) royalSession?.leave();   // AUDIT-SEATS C2: one battle at a time - the two share the one pass slot and the HUD
     return siegeSession.enter(seat, fight, field);
   };
   /** CROWN1 part two: the Royal Tourney this client is in, made with the online session (net/royalSession.js) - null
@@ -1177,6 +1198,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!royalSession) return false;
     let field = null;
     for (const [mapId, t] of siegeFieldsByTown) if (built.has(t.key) && seatAtMapId(townSeats, mapId)?.key === seat.key) { field = royalRingWire(t.px, t.py, t.field); break; }
+    if (field) siegeSession?.leave();   // AUDIT-SEATS C2: one battle at a time
     return royalSession.enter(seat, royal, field, { watch });
   };
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
@@ -4957,6 +4979,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   // transition pair edges on. ResetState (:398-401) drops it WITHOUT
   // firing exit - the teleport core is the port's ResetState.
   let _wasInLocationRect = false;
+  /** AUDIT-SEATS C4: whether the player still stands in the location `mapId` names - the rect's own edge, and that
+   *  location (an arrival said late, once the seats' read answers, is said only there). */
+  const stillAt = (mapId) => _wasInLocationRect && _musicLoc?.mapTableData?.mapId === mapId;
   const _musicLocationType = () => _musicLoc?.mapTableData?.locationType ?? 0xffff;
   const _musicLocationIndex = () => _musicLoc?.locationIndex ?? -1;
   // AUDIT 64 F10 - PlayerEnterExit's holiday-text fields (:78-80). The
@@ -8290,9 +8315,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
-    duelMark: () => { if (!duelMgr.fighting) return null; const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },
+    duelMark: () => { if (!duelMgr.fighting) return siegeSpellMarks(); const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },   // AUDIT-SEATS G5: outside a duel, a siege's foes
     castAtDuel: (id, sp) => duelSpellOut(id, sp),
     castRefusal: () => modes?.castRefusal?.() ?? null,   // HOME-MAGIC: a visitor casts nothing in another's online home (worldModes.js visitorMagicRefusal)
+    spellRefusal: (sp) => battleSpellRefusal(sp),   // AUDIT-SEATS G5: Teleport, Recall and Levitate do nothing in a siege's room
     collider: { raycast: (o, d, m) => ((modes?.mode === 'interior' && modes?.interiorCollider) ? modes?.interiorCollider : collider).raycast(o, d, m) },
     playerEntity,
     playerSinks: playerSpellSinks,
@@ -15681,16 +15707,29 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (the ground's own height to settle - the motor stands me on it); my receipt carried to the service
     if (seatBook) {
       const siegeMoveTo = (p) => { const q = onlineToScene(p); player.pos[0] = q[0]; player.pos[2] = q[2]; if (Number.isFinite(q[1])) player.pos[1] = Math.max(player.pos[1], q[1]); player._airVelX = 0; player._airVelZ = 0; };
-      const siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => accountId(), storage: appStorage(), onClaimed: (a) => siegeSession?.claimed(a) });
-      const siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }) });
-      siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk });
+      // AUDIT-SEATS C6: the receipts' lives and the sessions' windows on the relay's clock; C7: every settling answer, with
+      // the receipt it answers, to the card; C1: the HUD's Leave and the card's Close leave whichever is entered
+      siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs, onClaimed: (a, r) => siegeSession?.claimed(a, r) });
+      siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }), onLeave: () => leaveBattle() });
+      siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk,
+        nowMs: battleNowMs, here: (seat) => atSeat(seat) });
       // CROWN1 part two: A ROYAL TOURNEY - the same room's words, the same HUD; the bouts won carried to the service
-      const royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => accountId(), storage: appStorage() });
+      royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs });
       royalSession = createRoyalSession({ online, pass: (seat, field, watch) => seatBook.royalPass(seat, field, watch), claims: royalClaims, hud: siegeHud, movePlayer: siegeMoveTo,
-        say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.royalOk, name: (id) => peerName(id) ?? '' });
+        say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.royalOk, name: (id) => peerName(id) ?? '', nowMs: battleNowMs, here: (seat) => atSeat(seat) });
       online.onSiege = (g, room) => { siegeSession?.onSiege(g, room); royalSession?.onSiege(g, room); };
       siegeClaims.offer();
       royalClaims.offer();
+      // AUDIT-SEATS G1: THE BATTLES ANNOUNCED - each this week's at a seat this client derives, in red on every tab at the
+      // Turning and 24 h, 1 h and 5 min before (the latest passed, once, to a page opened late); its start read once a seat
+      siegeHerald = createSiegeHerald({
+        seats: () => (seatBook.open === true ? seatBook.data?.seats ?? null : null),
+        fightOf: (key) => seatBook.standings(key).then((r) => r?.data?.fight ?? null),
+        nameOf: (key) => seatAtMapId(townSeats, key)?.name ?? null,
+        say: (text, at) => (redChat ? redChat({ text, at }) : false),
+        nowMs: battleNowMs,
+      });
+      seatBook.read();   // AUDIT-SEATS C4: the seats read as the session starts - not first at some location's door
     }
     // JOURNAL1 (Addison Knox: "Player journals ... shared in-world for storytelling"): A PAGE HELD OUT TO ME. Held,
     // never opened over my game (net/journalPage.js PageOffers: a writer's newest replaces their last and waits
@@ -15894,6 +15933,11 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (!hub?.eventOk) return say('The server cannot stage live events yet.');
           return hub.sendStage(staged.kind);
         }   // CHAT-CHAN: from any tab, on the World channel - the one room every player online is in
+        // AUDIT-SEATS C1: `/leave` - out of the battle or the Royal Tourney entered (its own word said in the town's talk)
+        if (isBattleLeaveCommand(text)) {
+          if (!leaveBattle()) chatLog.push(tabId, { text: BATTLE_NONE_TEXT, system: true });
+          return true;
+        }
         // NOTICE1 (PROF0 20): `/note remove <id>` - a moderator's remove of a note from anywhere. NOT GUARDED HERE:
         // whether this player may is the account service's question, and its refusal comes back as a line.
         // SEAT1a (Seats-Arc 3.2): `/seat strike <key>` - a false seat struck from the registry. NOT GUARDED HERE (RED1's law).
@@ -16405,7 +16449,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** THE ATTACKER: my blow out - my sheet and my weapon (never a number: the defender resolves it). The swing is theirs
    *  when it left; its result comes back as `duelResultIn`. */
-  const duelStrikeOut = (by, weapon, swing, drawMs = 0) => {
+  const duelStrikeOut = (by, weapon, swing, drawMs = 0, to = null) => {
+    if (!duelMgr.fighting) return siegeStrikeOut(to, by, weapon, swing, drawMs);   // AUDIT-SEATS G5: outside a duel, my shaft on a battle's foe (`to`)
     const w = duelWeaponOf(weapon), sw = duelSwingOf(swing);
     const n = duelMgr.blow('strike', { by, p: campToWire(player.feetAt()), a: duelAttackerOf(playerEntity, weapon), ...(w ? { w } : {}), ...(sw ? { sw } : {}), ...(drawMs > 0 ? { at: Math.min(60000, Math.trunc(drawMs)) } : {}) });
     if (n) { _duelSent.set(n, { kind: 'strike', weapon }); if (_duelSent.size > 64) _duelSent.delete(_duelSent.keys().next().value); }
@@ -16413,6 +16458,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   /** My spell reached my opponent (the cast engine's duel marks, scenes/hostMagic.js): its harmful families out. */
   const duelSpellOut = (peerId, sp) => {
+    if (!duelMgr.fighting) return siegeSpellOut(peerId, sp);   // AUDIT-SEATS G5: outside a duel, my spell on a siege's foe
     const spell = duelSpellOf(sp);
     if (!spell || peerId !== duelMgr.opponent) return false;
     const n = duelMgr.blow('spell', { p: campToWire(player.feetAt()), level: Math.max(1, Math.min(30, Math.trunc(playerEntity.level || 1))), spell });
@@ -16451,20 +16497,91 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (dist < bestD) { bestD = dist; best = id; }
     }
     if (!best) return false;
-    const weapon = weaponRig.playerWeapon.strikingWeapon;
-    const a = duelAttackerOf(playerEntity, weapon), w = duelWeaponOf(weapon), sw = duelSwingOf(weaponRig.playerWeapon.machine?.state);
-    const r = resolveDuelStrike({ by: 'melee', a, ...(w ? { w } : {}), ...(sw ? { sw } : {}) }, duelStub(a).stub);
+    siegeStrikeOut(best, 'melee', weaponRig.playerWeapon.strikingWeapon, weaponRig.playerWeapon.machine?.state);
+    return true;
+  };
+  /** AUDIT-SEATS G5: MY BLOW ON A BATTLE'S FOE `to` - a swing or a shaft (`by` 'melee' or 'arrow': its kind on the wire,
+   *  combat/siegeCombat.js siegeBlowKind - the referee takes a shaft from a bow alone, at a shaft's reach), rolled on my
+   *  own sheet against a body of my own sheet (a shaft's the release's StrikeDown and its draw's time), sent to the relay,
+   *  which clips it to DFU's range for the weapon my look holds (net/siegeRef.js). True when it was the battle's. */
+  const siegeStrikeOut = (to, by, weapon, swing, drawMs = 0) => {
+    const battle = royalSession?.active() ? royalSession : siegeSession;
+    if (!to || !battle?.active() || !battle.foes().includes(to)) return false;
+    const a = duelAttackerOf(playerEntity, weapon), w = duelWeaponOf(weapon), sw = duelSwingOf(swing);
+    const r = resolveDuelStrike({ by, a, ...(w ? { w } : {}), ...(sw ? { sw } : {}), ...(drawMs > 0 ? { at: Math.min(60000, Math.trunc(drawMs)) } : {}) }, duelStub(a).stub);
     if (r.dmg > 0) {
       const held = weapon ? (composeLook(playerEntity)?.items ?? []).find((i) => i?.group === 'Weapons' && i.templateIndex === weapon.templateIndex) ?? null : null;
-      battle.blow(best, { w: weapon ? weapon.templateIndex : -1, m: held?.material ?? 0, d: r.dmg, r: 0 });
+      battle.blow(to, { w: weapon ? weapon.templateIndex : -1, m: held?.material ?? 0, d: r.dmg, r: siegeBlowKind(by) });
     }
     return true;
   };
-  /** My opponent's body as the arrows' target list takes one (arrowFlight.js foeTargets) - [] outside a fight. */
+  /** AUDIT-SEATS G5: a battle's foes' bodies (the Royal Tourney's bout's one, or a siege's other side), named - [] outside
+   *  a battle (one kept empty list: asked every frame by the arrows). */
+  const NO_BODIES = Object.freeze([]);
+  const battleFoeBodies = (battle) => {
+    if (!battle?.active()) return NO_BODIES;
+    const out = [];
+    for (const id of battle.foes()) { const b = duelBody(id); if (b) out.push(b); }
+    return out;
+  };
+  /** My opponent's body as the arrows' target list takes one (arrowFlight.js foeTargets) - [] outside a fight.
+   *  AUDIT-SEATS G5: outside a duel, a battle's foes - each marked a duel's, so a foe's shaft stops on them dealing
+   *  nothing and mine is a blow to the referee (`id`, through duelStrikeOut). */
   const duelArrowTargets = () => {
-    if (!duelMgr.fighting) return [];
+    if (!duelMgr.fighting) {
+      const bodies = battleFoeBodies(royalSession?.active() ? royalSession : siegeSession);
+      return bodies.length ? bodies.map((b) => ({ feet: b.feet, ref: { duel: true, id: b.id, dead: false, ai: { feet: b.feet, height: b.height ?? CAPSULE_HEIGHT } } })) : NO_BODIES;
+    }
     const b = duelBody(duelMgr.opponent);
     return b ? [{ feet: b.feet, ref: { duel: true, id: b.id, dead: false, ai: { feet: b.feet, height: b.height ?? CAPSULE_HEIGHT } } }] : [];
+  };
+  /** AUDIT-SEATS G5: a siege's foes as the cast engine's marks (hostMagic.js duelMarksFor) - my harmful spells reach them,
+   *  outside a duel. A Royal Tourney's bout is blows alone (its referee takes no cast). */
+  const siegeSpellMarks = () => {
+    const bodies = battleFoeBodies(siegeSession);
+    return bodies.length ? bodies.map((b) => ({ ...b, name: peerName(b.id) ?? 'a foe' })) : null;
+  };
+  /** AUDIT-SEATS G5: A SPELL OF MINE MET A SIEGE'S FOE - its harm, counted on a stand-in of my own sheet
+   *  (combat/siegeCombat.js siegeSpellNumbers), to the referee as a cast (it clips, and bounds the rate). */
+  const siegeSpellOut = (peerId, sp) => {
+    if (!siegeSession?.isFoe(peerId)) return false;
+    const { harm } = siegeSpellNumbers(sp, Math.max(1, Math.trunc(playerEntity.level || 1)), duelStub(duelAttackerOf(playerEntity)).stub, playerEntity);
+    return harm > 0 && siegeSession.cast(peerId, siegeCastClamp(harm, false));
+  };
+  /** AUDIT-SEATS G5: A GIFT OF MINE ON A SIEGE'S SIDE-MATE - its Heal Health, counted as the mate's own client would land
+   *  it, to the referee as a heal (the referee holds the mate's vitality; ALLY-CAST's frame would heal their save). False
+   *  for anyone else, or a gift with no heal in it - the ordinary door takes it then. */
+  const siegeHealOut = (id, frame) => {
+    if (!siegeSession?.active() || !siegeSession.mates().includes(id)) return false;
+    const { heal } = siegeSpellNumbers(frame?.spell, Math.max(1, Math.trunc(frame?.level || 1)), duelStub(duelAttackerOf(playerEntity)).stub, playerEntity);
+    return heal > 0 && siegeSession.cast(id, siegeCastClamp(heal, true), true);
+  };
+  /** AUDIT-SEATS G5: whether I stand in a siege's own room - its wards hold there (Teleport, Recall, Levitate; the saddle). */
+  const inSiegeRoom = () => !!online?.room && online.room === siegeSession?.room();
+  /** AUDIT-SEATS G5: the cast engine's word on a spell here (hostMagic.js spellRefusal) - a siege's wards. */
+  const battleSpellRefusal = (sp) => (inSiegeRoom() && siegeSpellBarred(sp) ? SIEGE_SPELL_BARRED_TEXT : null);
+  registerLevitateWard(() => inSiegeRoom());   // AUDIT-SEATS G5: a Levitate already running lifts nothing in a siege's room
+  /** AUDIT-SEATS G4 (Seats-Arc 6.6, 19: "a free camera (WASD, the mouse, the pad's sticks); nothing they do reaches the
+   *  fight"): whether I watch a battle - a siege or a Royal Tourney, on a spectator's pass - from its own room. */
+  const spectatingHere = () => {
+    const b = siegeSession?.active() ? siegeSession : royalSession;
+    return !!b?.active() && b.side() === 'watch' && !!online?.room && online.room === b.room();
+  };
+  registerFreeFlight(() => spectatingHere());   // AUDIT-SEATS G4: the spectator's camera is free - the motor's own flight over the town
+  /** AUDIT-SEATS G4: where the spectator stood when its camera went free, in the wire's frame (the floating origin moves
+   *  under a flight) - the watching ended out on the street, it is set back on its feet there, no fall billed; ended any
+   *  other way (a door, a death), it is forgotten. */
+  let _watchedFrom = null;
+  const spectatorFrame = () => {
+    const watching = spectatingHere();
+    if (watching) { if (!_watchedFrom) _watchedFrom = campToWire(player.pos); return; }
+    if (!_watchedFrom) return;
+    if ((modes?.mode ?? 'exterior') === 'exterior') {
+      const q = campToScene(_watchedFrom);
+      player.pos[0] = q[0]; player.pos[1] = q[1]; player.pos[2] = q[2];
+      player._airVelX = 0; player._airVelZ = 0; player.velY = 0; player.falling = false; player.fallStart = player.pos[1];
+    }
+    _watchedFrom = null;
   };
   /** The defender's answer to one of my blows: the HUD's number (HN1's seam), my opponent's health on the target bar,
    *  and for a strike that landed the sound, the blood and my weapon's wear (FormulaHelper's DamageEquipment attacker
@@ -16858,8 +16975,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     gateClaims?.tick();   // WB5b: what the account service has not counted yet, offered again on its own clock
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
-    seatBook?.claimWatch();   // SEAT1b: the Watch's kept ticks, claimed a claim's worth or ten minutes at a time
+    if (seatBook?.claimWatchDue()) seatBook.claimWatch();   // SEAT1b: the Watch's kept ticks, claimed a claim's worth or ten minutes at a time   // AUDIT-SEATS C12: asked in sync first - no Promise a frame
     seatBook?.redTick();   // CROWN2: the seats' list read again for the server's red lines
+    if (siegeClaims?.due()) siegeClaims.offer();   // AUDIT-SEATS C5: a battle's receipt the service has not settled, offered again on its own clock (SIEGE_CLAIM_RETRY_MS)
+    if (royalClaims?.due()) royalClaims.offer();   // AUDIT-SEATS C5: and a bout's - before its week is over and the service answers `royal-over`
+    siegeHerald?.tick();   // AUDIT-SEATS G1: the battles announced in red, at their marks
+    if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.()) { leaveBattle(); _watchedFrom = null; }   // AUDIT-SEATS C1: the dead fight in no battle - its HUD stood frozen over the death screen (the battle's tick is the living online frame's); G4: and a spectator's spot is the respawn's to replace
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior') drawGateBanner(null);   // WB2: the countdown is the street's; the pool's own frame runs there alone
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior' && modes?.gateArenaDay?.() == null) drawGateMarksCard(null);   // WB9a: the gate's card is the street's, the court draws its own - anywhere else, none
     // WB3b: the court stands until its gate's day is over - then it comes apart around whoever is in it, who land
@@ -18961,7 +19082,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** ...and the door the cast leaves through: the link's own directed frame (net/online.js sendCast), which answers
    *  whether it went - a refusal (the gate, the socket gone, a relay too old to route it) lets the release fall
    *  through to the ordinary arm. */
-  const castAtAllyDoor = (id, frame) => !!online?.sendCast?.(frame);
+  const castAtAllyDoor = (id, frame) => siegeHealOut(id, frame) || !!online?.sendCast?.(frame);   // AUDIT-SEATS G5: a heal on a siege's side-mate is the referee's
   /** SOC5's own forward - the camera's yaw and pitch, the ray the F key casts; PEER-PLAQUE1's modal pick casts the same one (AUDIT DROPS E3). */
   const socialFwd = () => [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
   /** INSPECT1: THE PROFILE OF THE PLAYER THE F KEY FOUND. It stands at once from what the room already knows - their
@@ -19462,6 +19583,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     else online.sendPose({ ...pose, ...arm, ...poseFx() });   // PEERFX1: and my landed blows and the blows I took
     siegeSession?.tick();   // SEAT2a part four: the battle's pass, its `in`, its HUD, its window
     royalSession?.tick();   // CROWN1 part two: the tourney's pass, its `in`, its HUD, its week
+    // AUDIT-SEATS G5 (Seats-Arc 6.1: "Horses are dismounted on entry"): no rider in a siege's room - set on foot, said
+    if (inSiegeRoom() && isRiding(player.transportMode)) { setTransportModeHere(TRANSPORT_MODES.Foot); townTalk.say(SIEGE_DISMOUNT_TEXT); }
+    spectatorFrame();   // AUDIT-SEATS G4: a spectator's free camera begun - or, its watching over, set back where it stood
     // WB3b: THE COURT'S ROOM HEARS MY LEVEL CLAIM once per welcome (net/gateBrain.js - the health I bring into the fight
     // and the bucket I may deal from); a reconnect's welcome says it again, and the relay keeps my first
     if (gateLink && online.gateOk && isGateRoom(online.room) && online.welcomes !== _gateInFor && online.sendGate({ k: 'in', lv: Math.max(1, playerEntity.level | 0), bv: GATE_BRAIN_V })) _gateInFor = online.welcomes;
@@ -22381,7 +22505,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }
     csaDrawHelmPanel();   // CSA-L: the helm panel, once a frame in every mode
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
-    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
+    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; siegeHud?.hide(); /* AUDIT-SEATS C1: no online frame (a load, a spawn), no battle's tick - its HUD hidden, never frozen; the next tick draws it again */ }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
     setCourtRules(modes?.gateArenaDay?.() != null);   // WBX6: the Deadlands keep no regeneration - set before any magic round of this frame, cleared the frame the court is gone
     meterFor(renderer.gl)?.markCpu('sim');   // PERF-CPU: everything between here and the next mark is the rest of the simulation
@@ -24181,12 +24305,18 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // client, standing in it, reports the seat it derived (once a day; net/townSeatBook.js witness)
         if (onlineOn) {
           const mapId = _musicLoc?.mapTableData?.mapId;
-          seatBook?.read();
-          const seat = seatHere(mapId);
-          const hub = hubAtMapId(regionHubs, mapId);
-          if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }
-          else if (hub) townTalk.say(hubArrivalLine(hub), 5);
-          if (seat) seatEdicts.arrived(seat);   // SEAT1d: the town's news after its line (Unrest, the Edict), a Festival's buff
+          const arrive = () => {
+            if (!stillAt(mapId)) return;
+            const seat = seatHere(mapId);
+            const hub = hubAtMapId(regionHubs, mapId);
+            if (seat) { townTalk.say(seatArrivalLine(seat), 5); seatBook.witness(seat); }
+            else if (hub) townTalk.say(hubArrivalLine(hub), 5);
+            if (seat) seatEdicts.arrived(seat);   // SEAT1d: the town's news after its line (Unrest, the Edict), a Festival's buff
+          };
+          // AUDIT-SEATS C4: the arrival waits on the seats' read - asked here un-awaited, the first seat town of a session
+          // (a save loaded inside one) read a book not yet open and was no seat: no Charter, no witness, no Edict's news,
+          // no Festival. Said once the read answers, while the player still stands in that same town (stillAt).
+          if (seatBook) seatBook.read().then(arrive, arrive); else Promise.resolve().then(arrive);
         }
         onlineHomes?.ensure(_musicLoc?.mapTableData?.mapId);   // HOME1: the town's homes asked for as I walk in - its doors' names and prices are ready before I reach one
         // RR3: RoleplayRealism.PlayerGPS_OnEnterLocationRect (:259-267) - the master armorer's shop discovered under its own name
@@ -24646,7 +24776,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // gated on `m.enemy`, and this bow branch `continue`s past the
       // melee hit chain below. The damage door is each pool's own, so
       // a killed watchman still runs the crime and the corpse.
-      onPlayerArrowHitFoe: (m, t) => (t?.duel ? duelStrikeOut('arrow', m.weapon ?? null, 'StrikeDown', weaponRig.playerWeapon?.lastDrawMs ?? 0) : playerArrowHitFoe(m, t, {   // DUEL1: my shaft on my duel opponent is a strike their client resolves
+      onPlayerArrowHitFoe: (m, t) => (t?.duel ? duelStrikeOut('arrow', m.weapon ?? null, 'StrikeDown', weaponRig.playerWeapon?.lastDrawMs ?? 0, t.id) : playerArrowHitFoe(m, t, {   // DUEL1: my shaft on my duel opponent is a strike their client resolves   // AUDIT-SEATS G5: on a battle's foe (`t.id`), a shaft to the referee
         playerEntity, playerWeapon: weaponRig.playerWeapon, playerFeet: player.pos,
         dealDamage: (f, d) => (cityGuards.guards.includes(f)
           ? cityGuards.hurtGuard(f, d, player.pos, m.dir)   // AUDIT-39r: the shaft shoves the watch too (WeaponManager.cs:576-595)

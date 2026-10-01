@@ -470,8 +470,8 @@
  {
   "name": "SEAT2a4-claims-said",
   "file": "src/net/siegeClaims.js",
-  "old": "          if (a?.ok) onClaimed?.(a, r);",
-  "new": "          if (false) onClaimed?.(a, r);",
+  "old": "          onClaimed?.(a, r);   // AUDIT-SEATS C7",
+  "new": "          void a;   // AUDIT-SEATS C7",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -596,8 +596,8 @@
  {
   "name": "SEAT2a4-ses-retry",
   "file": "src/net/siegeSession.js",
-  "old": "      if (r?.error === 'field-unsettled') { s.retryAt = nowMs() + SIEGE_PASS_RETRY_MS; say(r.text); return; }",
-  "new": "      if (r?.error === 'field-unsettled') { s.retryAt = nowMs(); say(r.text); return; }",
+  "old": "s.retryAt = nowMs() + passRetryMs(s.tries);",
+  "new": "s.retryAt = nowMs();",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -605,7 +605,7 @@
  {
   "name": "SEAT2a4-ses-mint",
   "file": "src/net/siegeSession.js",
-  "old": "    online.mintSiegePass = async () => { const again = await pass(s?.seat, s?.field); return again?.ok ? again.pass : null; };",
+  "old": "    online.mintSiegePass = s.mint;",
   "new": "    online.mintSiegePass = null;",
   "tests": [
    "test/seat2a_siege_play.test.js"

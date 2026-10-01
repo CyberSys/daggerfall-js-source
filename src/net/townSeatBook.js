@@ -55,8 +55,17 @@ export const SEAT_RED_SEEN_MAX = 100;
 /** CROWN2: how often an online client reads the seats' list again for the server's red lines, ms. */
 export const SEAT_RED_READ_MS = 15 * 60_000;
 /** SEAT1b: the answers after which a claim's receipts are let go - counted, or refused for good (a watch claim answers
- *  each receipt's fate in its `why`, and none of them is mended by asking again). */
-const WATCH_SETTLED = Object.freeze(['bad-watch', 'seats-need-account']);
+ *  each receipt's fate in its `why`, and none of them is mended by asking again). AUDIT-SEATS C10: and the seats shut to
+ *  this account - but never `auth` or `no-session`: a session run out is mended by signing in again, and the ticks it
+ *  held were dropped with it. */
+const WATCH_SETTLED = Object.freeze(['bad-watch', 'seats-need-account', 'seats-closed']);
+/** AUDIT-SEATS C9: THE STANDINGS' CACHE, whose every clear (an act, a claim, a Tribute) moves its generation - so a read
+ *  asked BEFORE an act and answered after it is not kept as the seat's standings (it was the seat before the act: the
+ *  Edict just proclaimed read as none for the cache's thirty seconds). */
+class StandingsCache extends Map {
+  gen = 0;
+  clear() { this.gen++; super.clear(); }
+}
 
 /** A developer's chat word (SEAT0 3.2: "`/seat strike <key>`"): `{ op: 'strike', key }`, `{ error }` in words, or null
  *  when the line is not /seat. NEVER GUARDED HERE (RED1's law): whether this player may is the service's question. */
@@ -128,8 +137,9 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     try { storage?.setItem?.(SEAT_REPORTED_KEY, JSON.stringify(reported)); } catch { /* this page keeps it */ }
   };
   const dayNow = () => Math.floor(nowMs() / 1000 / SEAT_REPORT_EVERY_S);
-  /** SEAT1b: each seat's standings as last read, `{ at, data }` by key; the Tribute asked and its one request id */
-  const standingsAt = new Map();
+  /** SEAT1b: each seat's standings as last read, `{ at, data }` by key (AUDIT-SEATS C9: cleared by generation); the
+   *  Tribute asked and its one request id */
+  const standingsAt = new StandingsCache();
   /** SEASON1 part three: each seat's Hall of Records as last read, `{ at, data }` by key */
   const recordsAt = new Map();
   /** @type {{ ask: string, rid: string }|null} */
@@ -364,9 +374,10 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     async standings(key, { force = false } = {}) {
       const kept = standingsAt.get(key);
       if (!force && kept && nowMs() - kept.at < SEAT_STANDINGS_CACHE_MS) return { data: kept.data, error: null };
+      const gen = standingsAt.gen;   // AUDIT-SEATS C9: an act between the ask and its answer makes the answer old
       let r;
       try { r = await door.standings(key, character()); } catch { r = { ok: false, error: 'offline' }; }
-      if (r?.ok) { standingsAt.set(key, { at: nowMs(), data: r.data }); return { data: r.data, error: null }; }
+      if (r?.ok) { if (gen === standingsAt.gen) standingsAt.set(key, { at: nowMs(), data: r.data }); return { data: r.data, error: null }; }
       if (SHUT.includes(r?.error)) open = false;
       return { data: kept?.data ?? null, error: r?.error ?? 'server' };
     },
@@ -431,6 +442,15 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     },
     /** How many receipts this device holds for the signed-in account. */
     watchHeldCount: () => watchHeld().filter((w) => w.s === me()).length,
+    /** AUDIT-SEATS C12: WHETHER claimWatch WOULD CLAIM NOW - its own test, asked each frame before the async call
+     *  (scenes/world.js), counted in a loop: a frame with nothing due makes no Promise and no list. */
+    claimWatchDue() {
+      if (watchBusy || open !== true) return false;
+      const list = watchHeld(), who = me(), t = relayNowS();
+      let n = 0, oldest = Infinity;
+      for (const w of list) if (w.s === who && (t == null || w.e > t)) { n++; if (w.i < oldest) oldest = w.i; }
+      return n > 0 && (n >= SEAT_WATCH_CLAIM_MAX || (t == null ? nowMs() : t * 1000) - oldest * 1000 >= SEAT_WATCH_CLAIM_EVERY_MS);
+    },
     /**
      * THE KEPT TICKS CLAIMED (`/v1/seats/watch`) - the signed-in account's, SEAT_WATCH_CLAIM_MAX at a time, once a claim's
      * worth is held or the oldest has waited SEAT_WATCH_CLAIM_EVERY_MS (`force` now). An answer lets the claimed ones go
@@ -449,7 +469,7 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       watchBusy = true;
       let r;
       try { r = await door.watch(character(), batch.map((w) => w.r)); } catch { r = { ok: false, error: 'offline' }; } finally { watchBusy = false; }
-      const settled = r?.ok || WATCH_SETTLED.includes(r?.error) || SHUT.includes(r?.error);
+      const settled = r?.ok || WATCH_SETTLED.includes(r?.error);   // AUDIT-SEATS C10: a session run out keeps them
       if (settled) {
         const gone = new Set(batch.map((w) => w.r));
         writeWatch(watchHeld().filter((w) => !gone.has(w.r)));
