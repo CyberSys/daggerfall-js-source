@@ -56,7 +56,7 @@
 //   POST /v1/duel/loss   { winner }       -> { recorded, wins, losses }
 //   POST /v1/duel/record { id }           -> { id, wins, losses, gates }
 // WB5b, the gates closed. The caller is the account the receipt names:
-//   POST /v1/gate/claim  { receipt }      -> { recorded, closed }
+//   POST /v1/gate/claim  { receipt, region?, character? } -> { recorded, closed, seat? }   (SEAT1b: `seat` the kill's influence)
 // MARKS1, Marks - an account's alone, behind MARKS_OPEN (marks.js); `rid` the act's own id:
 //   POST /v1/marks/balance {}                               -> { balance, today, bank }
 //   POST /v1/marks/exchange { marks, rid }                  -> { ok, marks, gold, balance, exchangedToday } | { repeat, ... }
@@ -86,7 +86,7 @@
 // save carries (RENOWN-CHAR: a track a character again - RENOWN-ACCOUNT
 // kept one an account for a day); the level rides the token when the
 // mint names one:
-//   POST /v1/renown/xp { character, xp, name?, rid? } -> { character, xp, level, credited, rose, order, max?, repeat? }
+//   POST /v1/renown/xp { character, xp, name?, rid?, region? } -> { character, xp, level, credited, rose, order, max?, repeat? }   (SEAT1b: `region` where it was earned)
 //   POST /v1/auth/token { character? }    -> { ..., level, xp }   (RENOWN4: xp, the track's total)
 //   (REALM-DOOR: the token says whether that character is one of the account's realm characters, `rc`)
 //
@@ -150,6 +150,7 @@ import {
 import { buyHall, sellHall, setHallEntry, setHeraldry } from './halls.js';   // GUILD1d: the guild hall and heraldry
 import { readGuildBoard, pinGuildNote, takeDownGuildNote } from './guildBoard.js';   // GUILD1e: a guild's own board
 import { listSeats, witnessSeat, strikeSeat } from './townSeats.js';   // SEAT1a: the seats' witnessed registry
+import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTribute } from './seatInfluence.js';   // SEAT1b: influence
 import { decorOf, placeDecor, moveDecor, removeDecor, hideDecorBase, yardsOf } from './decor.js';   // DECOR1: an online home's decor; BASE-HIDE: what its owner took out
 import { gateStrikeStatement, gateStrikeAnswer, marksOf, marksCardOf, exchangeMarks, depositGuildMarks, withdrawGuildMarks, marksReport } from './marks.js';   // MARKS1: the server's currency
 import { readBoard, pinNote, takeDownNote, reportNote, moderateNote, postNotice, removeNotice } from './board.js';   // NOTICE1: the Notice Board
@@ -246,10 +247,15 @@ const BOARD_STATUS = Object.freeze({
   'notes-full': 409,
   'board-rate': 429, 'board-ops-rate': 429,
 });
-/** SEAT1a: each seat refusal's status - not this account's (a guest, the switch, a developer's act) 403, a seat struck
+/** SEAT1a (SEAT1b): each seat refusal's status - not this account's (a guest, the switch, a developer's act) 403, a seat struck
  *  409, the hour's reports spent 429, a bad shape 400 (the default). */
 const SEAT_STATUS = Object.freeze({
   'seats-need-account': 403, 'seats-closed': 403, 'not-developer': 403, 'seat-struck': 409, 'seats-rate': 429,
+  // SEAT1b: a rank, a guild or the Marks not this account's 403; no confirmed seat or guild 404; the week's phase, the
+  // guild's reach, a pledge not there, Tribute's room, the treasury 409; no relay key 503
+  'guild-rank': 403, 'guilds-need-account': 403, 'marks-closed': 403, 'no-guild': 404, 'seat-unconfirmed': 404,
+  'seat-reckoning': 409, 'seat-pledges-full': 409, 'seat-no-pledge': 409, 'seat-tribute-cap': 409, 'guild-marks-short': 409,
+  'no-gate-key': 503,
 });
 /** PROF1: each professions refusal's status - not this account's (a guest, the switch, the Marks' switch, the rank) 403,
  *  no such writ 404, a conflict with what stands (the day, the hour, the cap, the Stores, a node or writ taken) 409, the
@@ -613,7 +619,7 @@ const service = {
         // one row a (day, account). No public half here yet is the
         // service's own gap, not the player's: 503, and the client keeps
         // the receipt for the week it carries.
-        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle), { strike: (d) => gateStrikeStatement(ctx, who.player, env, d) });
+        const r = await claimGate(ctx, who.player, body.receipt, await gatePublicKey(env, subtle), { strike: (d) => gateStrikeStatement(ctx, who.player, env, d), region: body.region ?? null });
         // AUDIT WB A5: a refused receipt says WHICH rung refused it - the client keeps one the service can mend (its key
         // not the relay's pair, a clock) and lets go of one it cannot
         if (r.error) return json({ error: r.error, ...(r.why ? { why: r.why } : {}) }, r.error === 'no-gate-key' ? 503 : r.error === 'not-yours' ? 403 : 400, origin);
@@ -622,6 +628,9 @@ const service = {
         // are not this account's
         const answer = { ...r };
         delete answer.day; delete answer.struck;   // the service's own: the line's day and whether the batch struck
+        // SEAT1b (Seats-Arc 4.2): a kill recorded now is influence for the account's war-guild where it pledged in the
+        // region the claim named (`seat` the answer: counted, or why not - the kill stands either way)
+        if (r.recorded && body.region != null) answer.seat = await creditGate(ctx, who.player, env, { character: body.character ?? null, day: r.day, region: body.region });
         return json(r.recorded ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);
       }
 
@@ -655,6 +664,9 @@ const service = {
         // answer that was lost may have been the one with the rise in it.
         const r = await reportRenownXp(ctx, who.player, { character: body.character, xp: body.xp, name: body.name ?? null, rid: body.rid ?? null });
         if (r.error) return no(r.error, r.error === 'renown-full' ? 409 : 400, origin);
+        // SEAT1b (Seats-Arc 4.2: "The Renown report grows `region`"): what this report CREDITED - never what it asked, and
+        // nothing for a repeat - kept for the character's war-guild where it pledged in that region
+        if (body.region != null && r.credited > 0 && !r.repeat) await creditRenown(ctx, who.player, env, { character: body.character, region: body.region, xp: r.credited });
         let order = null;
         if (r.rose || (r.repeat && r.level > 1)) {
           const key = await signingKey(env, subtle);
@@ -811,13 +823,19 @@ const service = {
       // ═══ SEAT1a: THE SEATS ════════════════════════════════════════════
       //
       // The witnessed registry (townSeats.js): the seats the witnesses confirmed, read by anyone the switch lets in; a
-      // seat reported by the client standing in its town; a developer's strike.
+      // seat reported by the client standing in its town; a developer's strike. SEAT1b (seatInfluence.js): a guild's
+      // pledge, a seat's standings, the Watch's receipts, Tribute.
       if (path.startsWith('/v1/seats/')) {
         if (request.method !== 'POST') return no('method', 405, origin);
         const act = {
           '/v1/seats/list': () => listSeats(ctx, who.player, env),
           '/v1/seats/witness': () => witnessSeat(ctx, who.player, env, body),
           '/v1/seats/strike': () => strikeSeat(ctx, who.player, env, body),
+          // SEAT1b: influence - a guild's pledge, the standings at a seat, the Watch's ticks claimed, Tribute paid
+          '/v1/seats/pledge': () => pledgeSeat(ctx, who.player, env, body),
+          '/v1/seats/standings': () => readStandings(ctx, who.player, env, body),
+          '/v1/seats/watch': async () => claimWatch(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
+          '/v1/seats/tribute': () => payTribute(ctx, who.player, env, body),
         }[path];
         if (!act) return no('not-found', 404, origin);
         const r = await act();

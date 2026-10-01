@@ -253,7 +253,8 @@ test('SEAT1a the banners: the palace door\'s two, a gate\'s on its town side bes
 test('SEAT1a the hosts by source: the boot pass derives the seats over the hubs\' own rows; the book online; the arrival line a seat\'s, and the seat reported; the map\'s seatAt; the banners measured at the build and hung with the halls\'; /seat strike; the four hosts (mutants: the rows; the arrival; the witness; the anchors; the merge)', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /const townSeats = deriveTownSeats\(_hubRows, \{ regionNameOf: \(r\) => maps\.getRegionName\(r\), isHub: \(k\) => regionHubs\.byMapId\.has\(k\) \}\);\n\s*_hubRows\.length = 0;/, 'the game\'s own rows, before they are let go');
-  assert.match(w, /const seatBook = params\.has\('online'\)\n\s*\? createTownSeatBook\(\{ door: accountSeats\(/);
+  // SEAT1b (PIN MOVED): the book's door is named once, for the Watch's account beside it
+  assert.match(w, /const _seatDoor = params\.has\('online'\) \? accountSeats\(\{ fetch: \(u, i\) => globalThis\.fetch\(u, i\), storage: appStorage\(\) \}\) : null;\n\s*const seatBook = _seatDoor\n\s*\? createTownSeatBook\(\{\n\s*door: _seatDoor,/);
   assert.match(w, /const seatHere = \(mapId\) => \(seatBook\?\.open === true \? seatAtMapId\(townSeats, mapId\) : null\);/);
   assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
   assert.match(w, /seatAt: seatBook \? \(summary\) => seatHere\(summary\?\.mapID \?\? summary\?\.mapId\) : null,/);

@@ -46,6 +46,7 @@ import {
 import { accountRefusalText } from '../net/accountClient.js';   // PROF1: a writ's refusal, in words
 import { createMarketTab } from './marketTab.js';   // PROF5: the Market tab
 import { createWorkTab } from './workTab.js';   // PROF6: the Work tab's guild writs and commissions
+import { createSeatTab } from './seatTab.js';   // SEAT1b: the Seat tab - a seat town's standings, pledges and Tribute
 import { bannerSvg } from './heraldryArt.js';   // GUILD1e: a guild's banner over its notes and its posters
 
 /** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
@@ -134,11 +135,13 @@ function injectSkin(doc = document) {
  *   market?: (any | null),
  *   guilds?: boolean,
  *   guildOnly?: ({ name: string } | null),
+ *   seat?: ({ seat: any, book: any, nameOf?: (key: number) => (string|null) } | null),
  * }} deps `work` - PROF1's Court writs for the board's region (net/profBook.js), or null where the professions are not
  *   this account's; PROF6: with `writs` (net/writBook.js) the guild writs and commissions beside them (ui/workTab.js),
  *   `pieces` the pieces in the save that answer a commission; `market` - PROF5's Market tab's host (ui/marketTab.js createMarketTab's `m`), or null where the
  *   market is not; `guilds` - GUILD1e: the Guilds tab shown (online, the board open); `guildOnly` - the board in a guild's
- *   hall: the guild's own notes alone, under the guild's name (no town is read)
+ *   hall: the guild's own notes alone, under the guild's name (no town is read); `seat` - SEAT1b: a seat town's
+ *   Seat tab (ui/seatTab.js createSeatTab's host - the seat, the seats' book), shown while the seats are open to this account
  */
 export function mountNoticeBoard(host, deps) {
   const exit = () => deps.onExit?.();
@@ -186,6 +189,26 @@ export function mountNoticeBoard(host, deps) {
     alive: () => alive,
   }) : null;
   let marketOpened = false;
+  // SEAT1b (Seats-Arc 7.9): the Seat tab, at a seat town's rumour board while the seats are open to this account - its
+  // own door, as the market's
+  const seatHost = guildOnly ? null : (deps.seat ?? null);
+  const seatShown = () => !!seatHost && seatHost.book?.open === true;
+  let seatBusy = false, seatOpened = false;
+  const seatTab = seatHost ? createSeatTab({ ...seatHost, banner: (h, w) => bannerImg(h, w) }, {
+    busy: () => seatBusy,
+    run: async (start) => {
+      if (seatBusy) return;
+      seatBusy = true; render();
+      let r = null;
+      try { r = await start(); } finally { seatBusy = false; }
+      if (!alive) return;
+      word = { ok: !!r?.ok, text: r?.text ?? '' };
+      render();
+    },
+    rerender: () => { if (alive) render(); },
+    nowS,
+    alive: () => alive,
+  }) : null;
   // PROF6: the Work tab's guild writs and commissions - their own door, as the market's
   let workBusy = false;
   const workMore = work?.writs ? createWorkTab({
@@ -218,7 +241,7 @@ export function mountNoticeBoard(host, deps) {
 
   const back = () => {
     if (tab === 'work' && workMore?.closeForm()) { render(); return; }   // AUDIT 31 U12: Escape closes an open form first
-    if (tab === 'work' || tab === 'market' || view === 'board') exit(); else { view = 'board'; reading = null; render(); }
+    if (tab === 'work' || tab === 'market' || tab === 'seat' || view === 'board') exit(); else { view = 'board'; reading = null; render(); }
   };
   const onKey = (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -292,7 +315,7 @@ export function mountNoticeBoard(host, deps) {
     line.setAttribute('aria-live', 'polite');
     title.append(line);
     const acts = el('div', 'notice-headacts');
-    if (tab === 'work' || tab === 'market') {
+    if (tab === 'work' || tab === 'market' || tab === 'seat') {
       acts.append(button('notice-close', 'Close', exit));
       head.append(title, acts);
       return [head, tabsNode()];
@@ -316,7 +339,7 @@ export function mountNoticeBoard(host, deps) {
   function tabsNode() {
     const tabs = el('nav', 'notice-tabs');
     const shown = guildOnly ? [['guilds', 'Guild notes']]
-      : [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : [])];
+      : [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];
     if (!shown.some(([id]) => id === tab)) tab = shown[0][0];
     for (const [id, label] of shown) {
       const t = el(shown.length > 1 ? 'button' : 'span', `notice-tab${tab === id ? ' on' : ''}`, label);
@@ -328,6 +351,7 @@ export function mountNoticeBoard(host, deps) {
           tab = id; word = null;
           if (id === 'work') openWork();
           if (id === 'market' && market && !marketOpened) { marketOpened = true; market.open(); }
+          if (id === 'seat' && seatTab && !seatOpened) { seatOpened = true; seatTab.open(); }   // SEAT1b
           if (id === 'guilds') { view = 'board'; reading = null; if (!gboard && !gbusy) loadGuild(false); }   // GUILD1e
           else if (view === 'gpin') view = 'board';
           render();
@@ -698,6 +722,7 @@ export function mountNoticeBoard(host, deps) {
     win.append(...header());
     if (tab === 'work' && workShown()) win.append(workBody());
     else if (tab === 'market' && market && marketShown()) win.append(market.body());
+    else if (tab === 'seat' && seatTab && seatShown()) win.append(seatTab.body());   // SEAT1b
     else if (tab === 'guilds' && guildsShown()) win.append(view === 'gpin' ? guildPinBody() : view === 'read' && reading ? readBody() : guildsBody());   // GUILD1e
     else win.append(view === 'read' && reading ? readBody() : view === 'pin' ? pinBody() : view === 'notice' ? noticeBody() : boardBody());
     giveBack(kept);

@@ -210,6 +210,7 @@ import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../..
 // bible/03-World/Raiding-Parties.md, "The relay holds the raid (RAID3)".
 import { raidWordFits, raidWordSane, raidSig, raidLedgerId, raidEvictPick, newRaidLedger, foldRaidWord, raidCleansed, raidEarned, raidTop, raidLedgerState, raidLedgerEndMinute, raidDayOfKey, RAID_KEEP_MS, RAID_LEDGERS_MAX, RAID_LEDGERS_BY_MAX, RAID_SAVE_MS, RAID_DAY_MINUTES, RAID_ACCOUNTS_MAX, raidDaySlots, raidOnSlot, raidDayIds, readRaidTowns, raidTownsHash, RAID_TOWNS_SHA_RE } from '../../src/net/raidLaw.js';   // RAID-ROLL: the day's roll
 import { mintRaidReceipt, readRaidReceipt } from '../../src/net/raidReceipt.js';
+import { mintWatchReceipt, watchDue } from '../../src/net/watchReceipt.js';   // SEAT1b: the Watch's tick and its rhythm - the relay's third signature
 // DISCORD-GATES (2026-09-28, Mac: "Discord live gates?" - the omen, 15 minutes before, pinging an opt-in role, and the
 // boss slain): ONE FILE JOINS THE BUNDLE - net/gateHerald.js (the posts and when they are owed, pure law - it imports
 // gateLaw.js and wire.js, both here). The hub posts off its own alarm; bible/11-Multiplayer/World-Bosses.md, "THE
@@ -307,6 +308,10 @@ export class Room {
      *  which is right: it is derived from a config string that cannot
      *  change without a deploy, and a deploy is a new object. */
     this._verifyKey = undefined;   // undefined = not tried, null = there is none
+    /** SEAT1b (Seats-Arc 4.2): THE WATCH - each verified account's last tick and last move in this room, ms. Memory: a
+     *  deploy or an eviction forgets it, and the next pose that moves starts it again (the account service's daily cap is
+     *  what bounds the ticks, never this). Bounded by the room's own sockets, the oldest let go past SOCKETS_MAX. */
+    this._watch = new Map();
     /** ACC1d/F8: THE SIGNATURES THIS ROOM HAS ALREADY HONOURED, and
      *  when each stops mattering. A token is spent once (Mac). PER-ROOM
      *  and in memory, because the relay has no global state a hello
@@ -1904,6 +1909,9 @@ export class Room {
         if (inRange(a.key ?? '', m.p, b.pose)) heard.push([other, b]);
       }
       for (const [other] of (still ? heard : poseFan(heard, m.p, (e) => e[1].pose, met.turn, (e) => e[1].id))) this._send(other, out);   // SLAM10: the far tier bucketed by the listener's ID, so a moving crowd cannot shuffle who is served
+      // SEAT1b (Seats-Arc 4.2): THE WATCH - a verified account standing in a cell, having moved, is ticked every
+      // WATCH_TICK_MS with a receipt only the account service counts, and only in a seat's own pixel (net/watchReceipt.js)
+      if (isCellRoom(a.key) && typeof met.sub === 'string' && met.sub) await this._watchTick(ws, met.sub, m.p, !unmoved, now);
       return;
     }
     if (m.t === 'chat') {
@@ -2331,6 +2339,28 @@ export class Room {
     if (!(await this._gateTellHub({ d: f.day, at: f.fell.at, top: f.fell.top, n: f.fell.n, rc: Object.entries(f.rc ?? {}), here: f.here ?? [] }))) return;
     f.told = true;
     await this._gateSave(f, now, true);
+  }
+  /**
+   * SEAT1b: THE WATCH'S TICK (Seats-Arc 4.2: "Relay-witnessed socket; the position is the client's own claim, so it is
+   * bounded"). `moved` whether this pose moved; a tick is due each WATCH_TICK_MS while the account moved in the last
+   * WATCH_MOVED_MS (net/watchReceipt.js watchDue). The receipt names the account and the map pixel the pose stands in -
+   * `cellRoomOfWire`'s own arithmetic, no game data - and a fresh nonce; the account service decides whether that pixel is
+   * a seat's and whether the account's guild pledged there. A pose off the map mints nothing.
+   */
+  async _watchTick(ws, sub, p, moved, now) {
+    let w = this._watch.get(sub);
+    if (!w) {
+      if (this._watch.size >= SOCKETS_MAX) this._watch.delete(this._watch.keys().next().value);
+      this._watch.set(sub, (w = { at: -Infinity, moved: -Infinity }));
+    }
+    if (moved) w.moved = now;
+    if (!watchDue(w, now)) return;
+    const [x, y] = mapPixelOfWire(p.x, p.z);
+    if (!(x >= 0 && x < 1000 && y >= 0 && y < 500)) return;
+    w.at = now;
+    let r;
+    try { r = await mintWatchReceipt({ s: sub, x, y, c: rand32() }, await this._receiptKeyOf(), { subtle: crypto.subtle, nowS: Math.floor(now / 1000) }); } catch { return; }
+    this._send(ws, JSON.stringify({ t: 'watch', r }));
   }
   /** The relay's signing key, imported once (a CryptoKey cannot be stored; a deploy is a new object). */
   async _receiptKeyOf() {

@@ -119,6 +119,18 @@ export async function listSeats({ db, nowS }, player, env) {
 }
 
 /**
+ * SEAT1b: THE SEATS A PLEDGE, A TICK OR A TRIBUTE MAY NAME - every confirmed seat (a disputed one too: it keeps every
+ * effect it had), by key: `Map<key, { key, name, region, tier, pixel, state }>`. The ignored accounts left out, as the
+ * list leaves them.
+ * @param {any} db
+ * @param {number} nowS
+ */
+export async function confirmedSeats(db, nowS) {
+  const { seats } = seatFacts(await allSeatRows(db), nowS);
+  return new Map(seats.filter((s) => factConfirmed(s.fact)).map((s) => [s.key, { ...s.fact.seat, state: s.fact.state }]));
+}
+
+/**
  * A SEAT WITNESSED - the client standing in a seat town reports the seat it derived (`{ key, name, region, tier, pixel }`,
  * checked by townSeatLaw.js seatReportOf). A registered account a week old is counted (its first answer on the seat
  * stands); anyone else's report is answered, and counts for nothing (`counted: false` and why). A struck seat is refused.

@@ -47,6 +47,7 @@ import {
   hashPassword, verifyPassword, needsRehash, passwordRefusal,
   mintRecoveryCode, codeForHashing,
 } from './password.js';
+import { seatRegionOk } from '../../src/net/townSeatLaw.js';   // SEAT1b: a gate claim's region
 
 /** A session's raw secret, in bytes. 32 bytes of CSPRNG is the whole
  *  of the credential; nothing about the player is encoded in it. */
@@ -828,15 +829,17 @@ export async function gateRecordOf({ db }, playerId) {
  * @param {{ id: string, handle?: string|null }} player the session's account
  * @param {unknown} receipt @param {CryptoKey|null} publicKey
  */
-export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey, { strike = null } = {}) {
+export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey, { strike = null, region = null } = {}) {
   if (!publicKey) return { error: 'no-gate-key' };
   const v = await verifyReceipt(receipt, publicKey, { subtle, nowS });
   if (!v.ok) return { error: 'receipt', why: v.why };
   const c = v.claims;
   if (c.s !== player.id) return { error: 'not-yours' };
   if (!player.handle) return { recorded: false, why: 'guest', ...(await gateRecordOf({ db }, player.id)) };
-  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)')
-    .bind(c.d, player.id, c.b, c.x, nowS);
+  // SEAT1b (Seats-Arc 4.2): with the region the claiming client derived for the kill's day - the day's region is the one
+  // at least three of its claims agree on (seatInfluence.js), null where the claim named none
+  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, region) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
+    .bind(c.d, player.id, c.b, c.x, nowS, seatRegionOk(region) ? region : null);
   // MARKS1 / AUDIT 28 M4: the gate's Marks (marks.js gateStrikeStatement) IN THE SAME BATCH as the row - one transaction,
   // so a strike that fails takes the row with it and the retry claims afresh; `strike` null where Marks are not this
   // account's, and the row is written alone

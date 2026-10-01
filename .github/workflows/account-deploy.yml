@@ -56,6 +56,7 @@ on:
       - "src/net/hallLaw.js"
       - "src/net/heraldryLaw.js"
       - "src/net/townSeatLaw.js"
+      - "src/net/watchReceipt.js"
       - "src/net/marksLaw.js"
       - "src/net/boardLaw.js"
       - "src/net/professionLaw.js"

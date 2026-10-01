@@ -1,0 +1,435 @@
+// @ts-check
+// ═════════════════════════════════════════════════════════════════════
+// SEAT1b (2026-09-30, Mac: "Finish the seats") - INFLUENCE: the pledge,
+// the week's sources and the standings.
+//
+// bible/11-Multiplayer/Seats-Arc.md 4.1-4.2. Influence is counted per
+// guild, per seat, per week (townSeatLaw.js seatWeekOf). A guild PLEDGES
+// to one seat a region, in at most five (an Officer's or the
+// guildmaster's act, until the Reckoning). Every source then counts for
+// an account's guild at that guild's pledged seat in the region it was
+// earned in - never where the guild pledged nothing:
+//
+//   the Watch    a relay-signed tick (net/watchReceipt.js `k1`) in a
+//                confirmed seat's own pixel; 1 each, 60 an account a UTC
+//                day (in the write);
+//   gate kills   a gate receipt claimed with the region the client
+//                derived for its game day, 300 each - counted only where
+//                3 of that day's claims agree on the region (on read),
+//                only in its own week, 900 an account a week;
+//   Renown       the XP a character was credited in a region, 1 per 20,
+//                400 an account a week;
+//   homes        a counting member's home in the seat's town, 25 a day,
+//                5 homes a guild a seat - read, never written;
+//   Tribute      Marks out of the guild's Drake treasury, burnt, 1 per
+//                10, never past 20% of the guild's week at the seat.
+//
+// The stockpile's deliveries (the Writs source, SEAT0 4.2) are SEAT1c's,
+// with the Siege Camp they fill and the Turning that spends it; the
+// sources' table already admits their rows (`writ`, `bought`) and the law
+// reads them (townSeatLaw.js guildSeatInfluence).
+//
+// ═══ WHO COUNTS ═════════════════════════════════════════════════════
+//
+// A character 7 days in its guild (SEAT_MEMBER_WAIT_S); an account
+// BOUND to that guild for the week - the first guild one of its
+// characters contributes to (town_seat_binds: per-account war, Mac:
+// "Yes"). Its other characters earn nothing for any other guild that
+// week. A receipt names an account, not a character, so the Watch's
+// ticks and a gate's kill count for the account's war-guild through any
+// of its seasoned members; Renown is a character's, and counts only
+// through that character. One account's whole week at one seat is at
+// most 2,000 from every source together (ACCOUNT_SEAT_WEEK_CAP) - read,
+// each source at its own cap first (townSeatLaw.js accountSeatInfluence).
+//
+// ═══ SUMMED ON READ, CAPPED ON WRITE ════════════════════════════════
+//
+// Every event is a row (town_seat_influence, town_seat_renown), never a
+// running total two writers race. Each write asks, IN its statement, that
+// the account is bound to the guild it credits and that the guild's
+// pledge still stands where the row counts; the Watch's day cap is asked
+// there too. The standings read the rows and the law caps them.
+//
+// Behind SEATS_OPEN (townSeats.js seatsOpenFor). EVERY CLOCK IS AN
+// ARGUMENT, as in accounts.js.
+// ═════════════════════════════════════════════════════════════════════
+import { accountKind, displayName, overRate } from './accounts.js';
+import { guildActorOf } from './guilds.js';
+import { heraldryOfRow } from './halls.js';
+import { mustChange } from './realm.js';
+import { seatsOpenFor, confirmedSeats } from './townSeats.js';
+import { marksOpenFor } from './marks.js';
+import { verifyWatchReceipt } from '../../src/net/watchReceipt.js';
+import { gateTimes } from '../../src/net/gateLaw.js';
+import { MARKS_RID_RE, utcDay } from '../../src/net/marksLaw.js';
+import { RENOWN_XP_REPORT_MAX } from '../../src/net/renown.js';
+import {
+  seatWeekOf, seatWeekStartMs, seatPhaseOf, seatRegionOk, seatKeyOk, seatMay, SEAT_POWERS, SEAT_PLEDGE_REGIONS_MAX, SEAT_MEMBER_WAIT_S,
+  SEAT_PLEDGES_HOUR, SEAT_WATCH_CLAIM_MAX, WATCH_DAY_CAP, GATE_INFLUENCE, GATE_REGION_AGREE, HOMES_SEAT_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
+  SEAT_WEEK_MS, SEAT_RECKONING_MS,
+  accountSeatInfluence, guildSeatInfluence, tributeRoom, homeDaysIn,
+} from '../../src/net/townSeatLaw.js';
+
+const weekAt = (nowS) => seatWeekOf(nowS * 1000);
+/** Whether a member row has stood its 7 days (SEAT0 4.2: "A new member waits"). */
+const seasoned = (m, nowS) => Number(m.joined_at) <= nowS - SEAT_MEMBER_WAIT_S;
+/** The ranks that may do a seat's `power`, in SQL (`rank IN (...)`) - SEAT_POWERS' own. */
+const ranksSql = (power) => SEAT_POWERS[power].join(', ');
+
+async function boundTo(db, week, account) {
+  return (await db.prepare('SELECT guild_id FROM town_seat_binds WHERE week = ? AND account = ?').bind(week, account).first())?.guild_id ?? null;
+}
+/** The guild's pledged seat in a region this week, or null. */
+async function pledgeIn(db, week, guildId, region) {
+  const r = await db.prepare('SELECT key FROM town_seat_pledges WHERE week = ? AND guild_id = ? AND region = ?').bind(week, guildId, region).first();
+  return r ? Number(r.key) : null;
+}
+async function pledgesOf(db, week, guildId) {
+  const { results = [] } = await db.prepare('SELECT region, key, set_by, at FROM town_seat_pledges WHERE week = ? AND guild_id = ? ORDER BY region').bind(week, guildId).all();
+  return results.map((p) => ({ region: Number(p.region), key: Number(p.key), by: p.set_by, at: Number(p.at) }));
+}
+
+/**
+ * THE ACCOUNT'S WAR THIS WEEK (SEAT0 4.2, Mac: "Yes"): the guild a contribution counts for, and the member it counts
+ * through - `{ guild, char }`, or `{ why }`. Bound already: its war-guild, through `character` when that is a seasoned
+ * member of it, else (`anyCharacter` - a receipt names an account) through any seasoned member of the account's. Not
+ * bound yet: `character`'s own guild, 7 days a member - which the write then binds.
+ */
+async function warOf(db, player, character, nowS, week, { anyCharacter = false } = {}) {
+  if (accountKind(player) !== 'linked') return { why: 'guest' };
+  const bound = await boundTo(db, week, player.id);
+  const me = typeof character === 'string'
+    ? await db.prepare('SELECT guild_id, joined_at FROM guild_members WHERE player = ? AND char_id = ?').bind(player.id, character).first() : null;
+  if (bound == null) {
+    if (!me) return { why: 'no-guild' };
+    return seasoned(me, nowS) ? { guild: me.guild_id, char: character } : { why: 'new-member' };
+  }
+  if (me && me.guild_id === bound) return seasoned(me, nowS) ? { guild: bound, char: character } : { why: 'new-member' };
+  if (!anyCharacter) return { why: me ? 'bound-elsewhere' : 'no-guild' };
+  const other = await db.prepare('SELECT char_id FROM guild_members WHERE player = ? AND guild_id = ? AND joined_at <= ? ORDER BY joined_at, char_id LIMIT 1')
+    .bind(player.id, bound, nowS - SEAT_MEMBER_WAIT_S).first();
+  return other ? { guild: bound, char: other.char_id } : { why: me ? 'bound-elsewhere' : 'no-guild' };
+}
+
+/**
+ * WHERE A CONTRIBUTION COUNTS: the war-guild's pledged seat in `region` this week - `{ guild, char, key, week }`, or
+ * `{ counted: false, why }`. A contribution that counts for nothing is answered, never refused (the act it rode on
+ * stands). `key` given: that seat must be the pledge.
+ */
+async function countsAt(db, player, character, region, nowS, { key = null, anyCharacter = false } = {}) {
+  const week = weekAt(nowS);
+  const war = await warOf(db, player, character, nowS, week, { anyCharacter });
+  if ('why' in war) return { counted: false, why: war.why };
+  const pledged = await pledgeIn(db, week, war.guild, region);
+  if (pledged == null || (key != null && pledged !== key)) return { counted: false, why: 'no-pledge' };
+  return { guild: war.guild, char: war.char, key: pledged, week };
+}
+
+/** THE BIND, and the two things every influence row asks in its own statement: the account bound to the guild it
+ *  credits, and that guild's pledge still standing at the seat (`?1` the week, `?2` the key, `?3` the guild, `?4` the
+ *  account). */
+const bindStatement = (db, at, account, nowS) => db.prepare(
+  'INSERT OR IGNORE INTO town_seat_binds (week, account, guild_id, char_id, at) VALUES (?, ?, ?, ?, ?)',
+).bind(at.week, account, at.guild, at.char, nowS);
+const STILL_COUNTS = `(SELECT guild_id FROM town_seat_binds WHERE week = ?1 AND account = ?4) = ?3
+  AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?3 AND key = ?2)`;
+
+// ─── THE PLEDGE ──────────────────────────────────────────────────────
+
+/**
+ * PLEDGE A GUILD TO A SEAT for this week (SEAT0 4.1): an Officer's or the guildmaster's, a confirmed seat, in the Muster.
+ * One seat a region - a pledge moved within a region replaces the last - and at most SEAT_PLEDGE_REGIONS_MAX regions,
+ * counted inside the write, with the rank. `key` null and a `region` takes that region's pledge down.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function pledgeSeat({ db, nowS }, player, env, { character, key = null, region = null } = {}) {
+  if (accountKind(player) !== 'linked') return { error: 'seats-need-account' };
+  if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
+  const a = await guildActorOf(db, player, character);
+  if ('error' in a) return a;
+  if (!seatMay(Number(a.me.rank), 'pledge')) return { error: 'guild-rank' };
+  if (seatPhaseOf(nowS * 1000) !== 'muster') return { error: 'seat-reckoning' };
+  if (await overRate({ db, nowS }, `seat-pledge:${player.id}`, SEAT_PLEDGES_HOUR, 3600)) return { error: 'seats-rate' };
+  const week = weekAt(nowS);
+  const gid = a.me.guild_id;
+  // the rank, again IN the write: one made a Member between the read and the write pledges nothing
+  const rankHeld = `EXISTS (SELECT 1 FROM guild_members WHERE rowid = ${Number(a.me.rid)} AND guild_id = ?2 AND rank IN (${ranksSql('pledge')}))`;
+  if (key == null) {
+    if (!seatRegionOk(region)) return { error: 'bad-seat' };
+    const r = await db.prepare(`DELETE FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?2 AND region = ?3 AND ${rankHeld}`).bind(week, gid, region).run();
+    return r?.meta?.changes ? { ok: true, pledges: await pledgesOf(db, week, gid) } : { error: 'seat-no-pledge' };
+  }
+  if (!seatKeyOk(key)) return { error: 'bad-seat' };
+  const seat = (await confirmedSeats(db, nowS)).get(key);
+  if (!seat) return { error: 'seat-unconfirmed' };
+  const r = await db.prepare(`INSERT INTO town_seat_pledges (week, guild_id, region, key, set_by, at)
+    SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${rankHeld}
+      AND (SELECT COUNT(*) FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?2 AND region <> ?3) < ?7
+    ON CONFLICT (week, guild_id, region) DO UPDATE SET key = excluded.key, set_by = excluded.set_by, at = excluded.at`)
+    .bind(week, gid, seat.region, key, displayName(player), nowS, SEAT_PLEDGE_REGIONS_MAX).run();
+  if (!r?.meta?.changes) {
+    const still = await db.prepare(`SELECT ${rankHeld.replace(/\?2/g, '?1')} AS m`).bind(gid).first();
+    return { error: still?.m ? 'seat-pledges-full' : 'guild-rank' };
+  }
+  return { ok: true, pledges: await pledgesOf(db, week, gid) };
+}
+
+// ─── THE WATCH ───────────────────────────────────────────────────────
+
+/**
+ * THE WATCH'S TICKS CLAIMED (SEAT0 4.2): each receipt the relay signed (net/watchReceipt.js) - this account's, issued
+ * this week, in a confirmed seat's own pixel - counts 1 for the account's war-guild at its pledged seat there, at most
+ * WATCH_DAY_CAP an account a UTC day of issue (asked in the write), each receipt once. `character` the one standing
+ * watch. Answers how many counted, and why the rest did not.
+ * @param {{db: any, nowS: number, subtle: SubtleCrypto}} ctx
+ * @param {CryptoKey|null} publicKey the relay's public half (index.js gatePublicKey)
+ */
+export async function claimWatch({ db, nowS, subtle }, player, env, { character, receipts } = {}, publicKey = null) {
+  if (accountKind(player) !== 'linked') return { error: 'seats-need-account' };
+  if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
+  if (!Array.isArray(receipts) || receipts.length < 1 || receipts.length > SEAT_WATCH_CLAIM_MAX) return { error: 'bad-watch' };
+  if (!publicKey) return { error: 'no-gate-key' };
+  const seats = await confirmedSeats(db, nowS);
+  const byPixel = new Map([...seats.values()].map((s) => [`${s.pixel[0]},${s.pixel[1]}`, s]));
+  const week = weekAt(nowS);
+  let counted = 0;
+  /** @type {Record<string, number>} */
+  const why = {};
+  const no = (w) => { why[w] = (why[w] ?? 0) + 1; };
+  for (const r of receipts) {
+    const v = await verifyWatchReceipt(r, publicKey, { subtle, nowS });
+    if (!v.ok) { no(v.why); continue; }
+    const c = v.claims;
+    if (c.s !== player.id) { no('not-yours'); continue; }
+    if (weekAt(c.i) !== week) { no('old-week'); continue; }
+    const seat = byPixel.get(`${c.x},${c.y}`);
+    if (!seat) { no('no-seat'); continue; }
+    const at = await countsAt(db, player, character, seat.region, nowS, { key: seat.key, anyCharacter: true });
+    if ('counted' in at) { no(at.why); continue; }
+    const day = utcDay(c.i);
+    const ref = `${c.s}:${c.c}:${c.i}`;
+    const [, ins] = await db.batch([
+      bindStatement(db, at, player.id, nowS),
+      db.prepare(`INSERT OR IGNORE INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, day, ref, at)
+        SELECT ?1, ?2, ?3, ?4, ?5, 'watch', 1, ?6, ?7, ?8, ?9
+        WHERE ${STILL_COUNTS}
+          AND (SELECT COUNT(*) FROM town_seat_influence WHERE account = ?4 AND source = 'watch' AND day = ?7) < ?10`)
+        .bind(week, seat.key, at.guild, player.id, at.char, seat.region, day, ref, nowS, WATCH_DAY_CAP),
+    ]);
+    if (ins?.meta?.changes) counted++;
+    else no((await db.prepare("SELECT 1 FROM town_seat_influence WHERE source = 'watch' AND ref = ?").bind(ref).first()) ? 'claimed' : 'capped');
+  }
+  return { ok: true, counted, ...(Object.keys(why).length ? { why } : {}) };
+}
+
+// ─── GATE KILLS AND RENOWN (written beside their own acts) ───────────
+
+/**
+ * A GATE KILL'S INFLUENCE (SEAT0 4.2): the claim that recorded game day `day`'s kill, with the region the client derived
+ * for it - written for the account's war-guild at its pledged seat there, when the kill's day falls in this week. Counted
+ * on read only where GATE_REGION_AGREE of the day's claims agree on the region (gate_kills.region).
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function creditGate({ db, nowS }, player, env, { character, day, region } = {}) {
+  if (!seatsOpenFor(player, env)) return { counted: false, why: 'seats-closed' };
+  if (!seatRegionOk(region) || !Number.isSafeInteger(day) || day < 0) return { counted: false, why: 'no-region' };
+  if (weekAt(Math.floor(gateTimes(day).riseAt / 1000)) !== weekAt(nowS)) return { counted: false, why: 'old-week' };
+  const at = await countsAt(db, player, character, region, nowS, { anyCharacter: true });
+  if ('counted' in at) return at;
+  const [, ins] = await db.batch([
+    bindStatement(db, at, player.id, nowS),
+    db.prepare(`INSERT OR IGNORE INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, day, ref, at)
+      SELECT ?1, ?2, ?3, ?4, ?5, 'gate', ?6, ?7, ?8, ?9, ?10 WHERE ${STILL_COUNTS}`)
+      .bind(at.week, at.key, at.guild, player.id, at.char, GATE_INFLUENCE, region, day, `${day}:${player.id}`, nowS),
+  ]);
+  return ins?.meta?.changes ? { counted: true, key: at.key } : { counted: false, why: 'bound-elsewhere' };
+}
+
+/** Each gate day's region, where GATE_REGION_AGREE of its claims agree on it - the most agreeing; two regions level at
+ *  the top agree on neither. */
+async function agreedGateRegions(db, days) {
+  const out = new Map();
+  if (!days.length) return out;
+  const { results = [] } = await db.prepare(`SELECT day, region, COUNT(*) AS n FROM gate_kills
+    WHERE region IS NOT NULL AND day IN (${days.map(() => '?').join(', ')}) GROUP BY day, region`).bind(...days).all();
+  const best = new Map();
+  for (const r of results) {
+    const d = Number(r.day), n = Number(r.n);
+    const b = best.get(d);
+    if (!b || n > b.n) best.set(d, { n, region: Number(r.region), level: false });
+    else if (n === b.n) b.level = true;
+  }
+  for (const [d, b] of best) if (b.n >= GATE_REGION_AGREE && !b.level) out.set(d, b.region);
+  return out;
+}
+
+/**
+ * RENOWN IN THE REGION (SEAT0 4.2): the XP `character` was credited, earned in `region` - kept for the week where its
+ * war-guild pledged there (read at that pledge, 1 per 20, at most 400 an account a week). Only through the character
+ * itself: Renown is a character's.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function creditRenown({ db, nowS }, player, env, { character, region, xp } = {}) {
+  if (!seatsOpenFor(player, env)) return { counted: false, why: 'seats-closed' };
+  if (!seatRegionOk(region) || !Number.isSafeInteger(xp) || xp < 1 || xp > RENOWN_XP_REPORT_MAX) return { counted: false, why: 'no-region' };
+  const at = await countsAt(db, player, character, region, nowS);
+  if ('counted' in at) return at;
+  const [, ins] = await db.batch([
+    bindStatement(db, at, player.id, nowS),
+    db.prepare(`INSERT INTO town_seat_renown (week, account, char_id, region, xp) SELECT ?1, ?4, ?5, ?6, ?7
+      WHERE (SELECT guild_id FROM town_seat_binds WHERE week = ?1 AND account = ?4) = ?3
+        AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?3 AND region = ?6 AND key = ?2)
+      ON CONFLICT (week, account, char_id, region) DO UPDATE SET xp = xp + excluded.xp`)
+      .bind(at.week, at.key, at.guild, player.id, at.char, region, xp),
+  ]);
+  return ins?.meta?.changes ? { counted: true, key: at.key } : { counted: false, why: 'bound-elsewhere' };
+}
+
+// ─── THE STANDINGS ───────────────────────────────────────────────────
+
+/**
+ * EVERY PLEDGED GUILD'S WEEK AT A SEAT (SEAT0 4.2; 7.9's "the standings"): each guild's accounts' own influence (each
+ * source at its cap, then ACCOUNT_SEAT_WEEK_CAP), and its Tribute inside its room. Pure over the rows the read gathers:
+ * `rows` the seat's influence rows, `renown` the region's Renown rows, `homes` the town's 7-day members' homes, `binds`
+ * account -> war-guild, `agreed` gate day -> its agreed region.
+ * @param {{ guilds: string[], rows: any[], renown: any[], homes: any[], binds: Map<string, string>,
+ *   agreed: Map<number, number>, weekStartS: number, nowS: number }} o
+ */
+export function standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS, nowS }) {
+  const out = [];
+  for (const g of guilds) {
+    /** @type {Map<string, { watch: number, gates: number, renownXp: number, writ: number, homeDays: number }>} */
+    const acc = new Map();
+    const a = (id) => { let v = acc.get(id); if (!v) acc.set(id, v = { watch: 0, gates: 0, renownXp: 0, writ: 0, homeDays: 0 }); return v; };
+    let tributeMarks = 0;
+    for (const r of rows) {
+      if (r.guild_id !== g) continue;
+      if (r.source === 'tribute' || r.source === 'bought') { tributeMarks += Number(r.amount); continue; }
+      if (binds.get(r.account) !== g) continue;
+      if (r.source === 'watch') a(r.account).watch += Number(r.amount);
+      else if (r.source === 'gate') { if (agreed.get(Number(r.day)) === Number(r.region)) a(r.account).gates += 1; }
+      else if (r.source === 'writ') a(r.account).writ += Number(r.amount);
+    }
+    for (const r of renown) if (binds.get(r.account) === g) a(r.account).renownXp += Number(r.xp);
+    // HOMES: a 7-day member's, its account bound to this guild - the guild's HOMES_SEAT_MAX that stood longest this week
+    const hs = homes.filter((h) => h.guild_id === g && binds.get(h.player) === g)
+      .map((h) => ({ player: h.player, days: homeDaysIn(Number(h.bought_at), weekStartS, nowS) }))
+      .sort((x, y) => y.days - x.days).slice(0, HOMES_SEAT_MAX);
+    for (const h of hs) if (h.days > 0) a(h.player).homeDays += h.days;
+    const per = new Map([...acc].map(([id, v]) => [id, accountSeatInfluence(v)]));
+    out.push({ guild: g, ...guildSeatInfluence([...per.values()], tributeMarks), accounts: [...per.values()].filter((v) => v > 0).length, per });
+  }
+  return out.sort((x, y) => y.total - x.total || (x.guild < y.guild ? -1 : 1));
+}
+
+async function gatherStandings(db, seat, week, nowS) {
+  const { results: pledged = [] } = await db.prepare('SELECT guild_id FROM town_seat_pledges WHERE week = ? AND key = ?').bind(week, seat.key).all();
+  const guilds = pledged.map((p) => p.guild_id);
+  if (!guilds.length) return [];
+  const qs = guilds.map(() => '?').join(', ');
+  const { results: rows = [] } = await db.prepare('SELECT guild_id, account, source, amount, region, day FROM town_seat_influence WHERE week = ? AND key = ?').bind(week, seat.key).all();
+  const { results: bindRows = [] } = await db.prepare(`SELECT account, guild_id FROM town_seat_binds WHERE week = ? AND guild_id IN (${qs})`).bind(week, ...guilds).all();
+  const binds = new Map(bindRows.map((b) => [b.account, b.guild_id]));
+  const { results: renown = [] } = await db.prepare('SELECT account, xp FROM town_seat_renown WHERE week = ? AND region = ?').bind(week, seat.region).all();
+  // the town's homes whose owning character is a 7-day member of a pledged guild (a guild's hall is no member's home)
+  const { results: homes = [] } = await db.prepare(`SELECT h.player, h.bought_at, m.guild_id FROM homes h
+    JOIN guild_members m ON m.player = h.player AND m.char_id = h.char_id
+    WHERE h.map_id = ? AND h.guild_id IS NULL AND m.guild_id IN (${qs}) AND m.joined_at <= ?`).bind(seat.key, ...guilds, nowS - SEAT_MEMBER_WAIT_S).all();
+  const days = [...new Set(rows.filter((r) => r.source === 'gate').map((r) => Number(r.day)))];
+  const agreed = await agreedGateRegions(db, days);
+  return standingsOf({ guilds, rows, renown, homes, binds, agreed, weekStartS: Math.floor(seatWeekStartMs(week) / 1000), nowS });
+}
+
+/**
+ * THE STANDINGS AT A SEAT (SEAT0 7.9: "every pledged guild's influence this week, live"), the week's clock, and - for
+ * the reading character - its guild's pledges, its account's war and its own week here, and the room left for Tribute.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function readStandings({ db, nowS }, player, env, { key, character = null } = {}) {
+  if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
+  if (!seatKeyOk(key)) return { error: 'bad-seat' };
+  const seat = (await confirmedSeats(db, nowS)).get(key);
+  if (!seat) return { error: 'seat-unconfirmed' };
+  const week = weekAt(nowS);
+  const list = await gatherStandings(db, seat, week, nowS);
+  const ids = list.map((s) => s.guild);
+  const { results: gs = [] } = ids.length
+    ? await db.prepare(`SELECT id, name, tag, heraldry FROM guilds WHERE id IN (${ids.map(() => '?').join(', ')})`).bind(...ids).all() : { results: [] };
+  const byId = new Map(gs.map((g) => [g.id, g]));
+  const start = seatWeekStartMs(week);
+  let mine = null;
+  if (typeof character === 'string' && accountKind(player) === 'linked') {
+    const me = await db.prepare('SELECT guild_id, rank, joined_at FROM guild_members WHERE player = ? AND char_id = ?').bind(player.id, character).first();
+    if (me) {
+      const s = list.find((x) => x.guild === me.guild_id);
+      mine = {
+        guild: me.guild_id, rank: Number(me.rank), seasoned: seasoned(me, nowS), bound: await boundTo(db, week, player.id),
+        pledges: await pledgesOf(db, week, me.guild_id), influence: s?.per.get(player.id) ?? 0,
+        tributeRoom: s ? tributeRoom(s.others, s.tribute) * TRIBUTE_MARKS_PER_INFLUENCE : 0,
+      };
+    }
+  }
+  return {
+    seat, week, phase: seatPhaseOf(nowS * 1000),
+    reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
+    standings: list.map((s) => {
+      const g = byId.get(s.guild);
+      return { guild: { id: s.guild, name: g?.name ?? '', tag: g?.tag ?? '', heraldry: heraldryOfRow(g?.heraldry) }, influence: s.total, tribute: s.tribute, accounts: s.accounts };
+    }),
+    ...(mine ? { mine } : {}),
+  };
+}
+
+// ─── TRIBUTE ─────────────────────────────────────────────────────────
+
+/**
+ * TRIBUTE (SEAT0 4.2): the guildmaster spends `marks` of the guild's Drake treasury on its pledge at `key` - burnt, a
+ * `guild -> burn` line of kind `tribute` under the request id - worth 1 influence per 10, never past the guild's room
+ * (tributeRoom: 20% of its week there, read first). One batch: the line only where the treasury holds it, the id is
+ * unspent, the rank still stands and the pledge too; the influence row only with it. Asked again, the line it made
+ * answers `repeat`.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function payTribute({ db, nowS }, player, env, { character, key, marks, rid } = {}) {
+  if (accountKind(player) !== 'linked') return { error: 'seats-need-account' };
+  if (!seatsOpenFor(player, env)) return { error: 'seats-closed' };
+  if (typeof rid !== 'string' || !MARKS_RID_RE.test(rid)) return { error: 'marks-rid' };
+  const prior = await db.prepare('SELECT kind FROM marks_ledger WHERE actor = ? AND rid = ?').bind(player.id, rid).first();
+  if (prior) return prior.kind === 'tribute' ? { ok: true, repeat: true } : { error: 'marks-rid' };
+  if (!marksOpenFor(player, env)) return { error: 'marks-closed' };
+  const a = await guildActorOf(db, player, character);
+  if ('error' in a) return a;
+  if (!seatMay(Number(a.me.rank), 'tribute')) return { error: 'guild-rank' };
+  if (!Number.isSafeInteger(marks) || marks < TRIBUTE_MARKS_PER_INFLUENCE || marks % TRIBUTE_MARKS_PER_INFLUENCE !== 0) return { error: 'bad-tribute' };
+  if (!seatKeyOk(key)) return { error: 'bad-seat' };
+  const week = weekAt(nowS);
+  const seat = (await confirmedSeats(db, nowS)).get(key);
+  if (!seat) return { error: 'seat-unconfirmed' };
+  const gid = a.me.guild_id;
+  if ((await pledgeIn(db, week, gid, seat.region)) !== key) return { error: 'seat-no-pledge' };
+  const s = (await gatherStandings(db, seat, week, nowS)).find((x) => x.guild === gid);
+  const room = s ? tributeRoom(s.others, s.tribute) : 0;
+  if (marks / TRIBUTE_MARKS_PER_INFLUENCE > room) return { error: 'seat-tribute-cap' };   // the room is the standings' to say (mine.tributeRoom)
+  try {
+    await db.batch([
+      db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+        SELECT 'guild', ?1, 'burn', NULL, 'tribute', ?2, ?3, ?4, ?5, ?6, ?7
+        WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?2
+          AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?5 AND rid = ?7)
+          AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?8 AND guild_id = ?1 AND rank IN (${ranksSql('tribute')}))
+          AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ?9 AND guild_id = ?1 AND key = ?10)`)
+        .bind(gid, marks, utcDay(nowS), nowS, player.id, displayName(player), rid, Number(a.me.rid), week, key),
+      mustChange(db),
+      db.prepare(`INSERT INTO town_seat_influence (week, key, guild_id, account, char_id, source, amount, region, ref, at)
+        VALUES (?, ?, ?, ?, ?, 'tribute', ?, ?, ?, ?)`)
+        .bind(week, key, gid, player.id, character, marks, seat.region, `${player.id}:${rid}`, nowS),
+    ]);
+  } catch {
+    const landed = await db.prepare('SELECT kind FROM marks_ledger WHERE actor = ? AND rid = ?').bind(player.id, rid).first();
+    if (landed) return landed.kind === 'tribute' ? { ok: true, repeat: true } : { error: 'marks-rid' };
+    const bal = await db.prepare('SELECT balance FROM guild_marks WHERE guild_id = ?').bind(gid).first();
+    if (Number(bal?.balance ?? 0) < marks) return { error: 'guild-marks-short' };
+    return { error: (await pledgeIn(db, week, gid, seat.region)) !== key ? 'seat-no-pledge' : 'guild-rank' };
+  }
+  return { ok: true, influence: marks / TRIBUTE_MARKS_PER_INFLUENCE, marks };
+}

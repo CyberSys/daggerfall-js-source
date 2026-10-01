@@ -1,0 +1,147 @@
+// @ts-check
+// SEAT1b (2026-09-30, Mac: "Finish the seats"): THE SEAT TAB of the Notice Board (bible/11-Multiplayer/Seats-Arc.md 7.9:
+// "its Seat tab, at every Notice Board in a seat town (not its bounty boards) ... the standings: every pledged guild's
+// influence this week, live") - drawn inside the board's window (ui/noticeWindow.js), beside Notices, Work, Market and
+// Guilds, at a seat town's rumour board while the seats are open to this account.
+//
+// WHAT HANGS THERE, top to bottom: the seat's Charter (SEAT1a's words - unheld until SEAT1c's claims); the week's clock
+// (the Muster until the Reckoning, then the Reckoning until the Turning); THE STANDINGS - every guild pledged here this
+// week, its banner, its name and its influence, highest first; the reader's own guild at this seat (pledged here, or to
+// another seat of the region, or nowhere; whether this character counts yet and whether its account fights for another
+// guild this week; its own week here against the 2,000 cap); an Officer's or the guildmaster's pledge buttons, in the
+// Muster; and the guildmaster's Tribute, with its room.
+//
+// A seat is run from its town's board, in person - that is the point of a physical board: the war has a place.
+//
+// Every act goes through the window's one-at-a-time door (`ui.run`), and the standings are read again after each.
+import { accountRefusalText } from '../net/accountClient.js';
+import {
+  seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
+  SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
+} from '../net/townSeatLaw.js';
+
+/** @param {string} tag @param {string|null} [cls] @param {string|null} [text] */
+const el = (tag, cls = null, text = null) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+const button = (cls, text, onPress) => {
+  const b = /** @type {HTMLButtonElement} */ (el('button', `act ${cls}`, text));
+  b.setAttribute('type', 'button');
+  b.onclick = (e) => { e?.stopPropagation?.(); return onPress(); };
+  return b;
+};
+
+/** What the tab says while it has no standings to show. */
+export const SEAT_TAB_WORDS = Object.freeze({
+  reading: 'Reading the week\'s standings...',
+  slow: 'The standings could not be read - the counting-house is slow to answer.',
+  shut: 'The seats are not open to you yet.',
+});
+/** The refusals that say the seats are shut to this account (no retry offered). */
+const SHUT = new Set(['seats-closed', 'no-session', 'auth', 'seat-unconfirmed']);
+
+/**
+ * @param {{ seat: { key: number, name: string, region: number, tier: string },
+ *   book: ReturnType<typeof import('../net/townSeatBook.js').createTownSeatBook>,
+ *   nameOf?: (key: number) => (string|null), banner?: (heraldry: any, width: number) => (Node|null) }} host
+ * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => any, rerender: () => void, nowS: () => number,
+ *   alive?: () => boolean }} ui
+ */
+export function createSeatTab(host, ui) {
+  const { seat, book } = host;
+  const nameOf = host.nameOf ?? (() => null);
+  const banner = host.banner ?? (() => null);
+  let data = null, error = null, loading = false;
+  let tributeDrakes = 0;
+
+  async function load(force) {
+    if (loading) return;
+    loading = true; ui.rerender();
+    let r;
+    try { r = await book.standings(seat.key, { force }); } catch { r = { data: null, error: 'offline' }; }
+    loading = false;
+    if (ui.alive && !ui.alive()) return;
+    if (r.data) data = r.data;
+    error = r.error;
+    ui.rerender();
+  }
+  /** An act through the window's door, the standings read afresh after it. */
+  const act = (start) => ui.run(async () => { const r = await start(); load(true); return r; });
+
+  function standingsNode() {
+    const list = el('ol', 'notice-standings');
+    const rows = data?.standings ?? [];
+    rows.forEach((s, i) => {
+      const li = el('li', `notice-standing${data?.mine?.guild === s.guild.id ? ' mine' : ''}`);
+      const img = banner(s.guild.heraldry, 26);
+      if (img) li.append(img);
+      li.append(el('span', null, seatStandingLine(s, i)));
+      list.append(li);
+    });
+    if (!rows.length) list.append(el('li', 'notice-empty', seatNoStandingsLine(seat)));
+    return list;
+  }
+
+  function leversNode(mine) {
+    const out = el('div', 'notice-seat-levers');
+    const here = mine.pledges.find((p) => p.region === seat.region) ?? null;
+    const busy = ui.busy();
+    if (seatMay(mine.rank, 'pledge') && data.phase === 'muster') {
+      let b = null;
+      if (here?.key === seat.key) b = button('notice-seat-drop', SEAT_PLEDGE_WORDS.drop, () => act(() => book.unpledge(seat.region)));
+      else if (here) b = button('notice-seat-pledge', SEAT_PLEDGE_WORDS.move(seat), () => act(() => book.pledge(seat)));
+      else if (mine.pledges.length >= SEAT_PLEDGE_REGIONS_MAX) out.append(el('p', 'notice-seat-mine', SEAT_PLEDGE_WORDS.full));
+      else b = button('notice-seat-pledge', SEAT_PLEDGE_WORDS.pledge(seat), () => act(() => book.pledge(seat)));
+      if (b) { b.disabled = busy; out.append(b); }
+    }
+    if (seatMay(mine.rank, 'tribute') && here?.key === seat.key) {
+      const room = Math.max(0, Number(mine.tributeRoom) || 0);
+      out.append(el('p', 'notice-seat-mine', seatTributeLine(room)));
+      if (room >= TRIBUTE_MARKS_PER_INFLUENCE) {
+        const n = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-drakes'));
+        n.type = 'number'; n.min = String(TRIBUTE_MARKS_PER_INFLUENCE); n.step = String(TRIBUTE_MARKS_PER_INFLUENCE); n.max = String(room);
+        if (!tributeDrakes || tributeDrakes > room) tributeDrakes = Math.min(100, room - (room % TRIBUTE_MARKS_PER_INFLUENCE));
+        n.value = String(tributeDrakes);
+        n.setAttribute('aria-label', 'Drakes of Tribute');
+        n.setAttribute('data-focus', 'seat-tribute');
+        n.oninput = () => { tributeDrakes = Math.floor(Number(n.value) || 0); };
+        const pay = button('notice-seat-tribute', 'Pay Tribute', () => {
+          const marks = Math.floor(tributeDrakes / TRIBUTE_MARKS_PER_INFLUENCE) * TRIBUTE_MARKS_PER_INFLUENCE;
+          if (marks < TRIBUTE_MARKS_PER_INFLUENCE || marks > room) return ui.run(async () => ({ ok: false, text: accountRefusalText('bad-tribute') }));
+          return act(() => book.tribute(seat, marks));
+        });
+        pay.disabled = busy;
+        out.append(n, pay);
+      }
+    }
+    return out;
+  }
+
+  return {
+    /** The tab first shown: the standings read. */
+    open: () => load(false),
+    /** The standings read again (the window's refresh). */
+    reload: () => load(true),
+    body() {
+      const body = el('div', 'notice-cork notice-seat');
+      const c = seatInfoLine(seat);
+      body.append(el('p', 'notice-section', c));
+      if (!data) {
+        const shut = SHUT.has(error ?? '');
+        const p = el('p', 'notice-empty', loading || !error ? SEAT_TAB_WORDS.reading : shut ? (error === 'seat-unconfirmed' ? accountRefusalText(error) : SEAT_TAB_WORDS.shut) : SEAT_TAB_WORDS.slow);
+        if (error && !shut && !loading) p.append(button('notice-retry', 'Try again', () => load(true)));
+        body.append(p);
+        return body;
+      }
+      body.append(el('p', 'notice-seat-week', seatWeekLine(data, ui.nowS())));
+      body.append(el('p', 'notice-section', 'This week\'s standings'));
+      body.append(standingsNode());
+      for (const line of seatMineLines(seat, data.mine ?? null, nameOf)) body.append(el('p', 'notice-seat-mine', line));
+      if (data.mine) body.append(leversNode(data.mine));
+      return body;
+    },
+  };
+}

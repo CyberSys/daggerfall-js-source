@@ -253,6 +253,14 @@ export const REFUSALS = Object.freeze({
   'bad-seat': 'That seat could not be read.',
   'seats-rate': 'You have reported a great many seats this hour. Try again later.',
   'seat-struck': 'That seat was struck from the registry.',
+  // SEAT1b: influence (server-account/src/seatInfluence.js)
+  'seat-unconfirmed': 'That seat is not confirmed yet. Seats are confirmed once enough players have seen them.',
+  'seat-reckoning': 'Pledges are locked until the Turning, Sunday 18:00 UTC.',
+  'seat-pledges-full': 'Your guild has pledged in five regions this week. Take one pledge down first.',
+  'seat-no-pledge': 'Your guild is not pledged to that seat this week.',
+  'seat-tribute-cap': 'Tribute is at most a fifth of your guild\'s week at a seat. Earn more influence there first.',
+  'bad-tribute': 'Tribute is paid in tens of Drakes.',
+  'bad-watch': 'Those watch receipts could not be read.',
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -857,7 +865,7 @@ export function accountDuels({ fetch, storage }) {
 /** WB5b: the kill receipt the relay signed for this account, carried to
  *  the service - `{ recorded, closed }`, or `{ recorded: false, why }`
  *  (`claimed`, `guest`). */
-export const claimGateReceipt = (io, receipt) => call(io, '/v1/gate/claim', { receipt });
+export const claimGateReceipt = (io, receipt, extra = null) => call(io, '/v1/gate/claim', { receipt, ...(extra ?? {}) });   // SEAT1b: `extra` the kill's `region` and the claiming `character`
 
 /**
  * WB5b: THE GATES' ONE CALL, bound to this device's stored session (read
@@ -868,7 +876,7 @@ export const claimGateReceipt = (io, receipt) => call(io, '/v1/gate/claim', { re
 export function accountGates({ fetch, storage }) {
   const io = () => { const s = storedSession(storage); return s ? { fetch, base: serviceBase(storage), secret: s.secret } : null; };
   return {
-    claim: async (receipt) => { const i = io(); return i ? claimGateReceipt(i, receipt) : { ok: false, error: 'no-session' }; },
+    claim: async (receipt, extra = null) => { const i = io(); return i ? claimGateReceipt(i, receipt, extra) : { ok: false, error: 'no-session' }; },
     /** AUDIT WB A9: the signed-in account's id - the receipts this device may offer are its alone. */
     me: () => storedSession(storage)?.id ?? null,
   };
@@ -893,7 +901,7 @@ export function accountRaids({ fetch, storage }) {
 }
 
 /** RENOWN1: what one of this account's characters earned online - `{ character, xp, level, credited, rose, order }`. */
-export const reportRenownXp = (io, character, xp, name = null, rid = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id
+export const reportRenownXp = (io, character, xp, name = null, rid = null, region = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}), ...(region != null ? { region } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id; SEAT1b: `region` where it was earned
 
 /**
  * RENOWN1: THE RENOWN'S REPORT, bound to this device's stored
@@ -902,14 +910,14 @@ export const reportRenownXp = (io, character, xp, name = null, rid = null) => ca
  * never a knock.
  */
 export function accountRenown({ fetch, storage }) {
-  const report = async (character, xp, name = null, rid = null, keepalive = false) => {
+  const report = async (character, xp, name = null, rid = null, keepalive = false, region = null) => {
     const s = storedSession(storage);
-    return s ? reportRenownXp({ fetch, base: serviceBase(storage), secret: s.secret, keepalive }, character, xp, name, rid) : { ok: false, error: 'no-session' };
+    return s ? reportRenownXp({ fetch, base: serviceBase(storage), secret: s.secret, keepalive }, character, xp, name, rid, region) : { ok: false, error: 'no-session' };
   };
   return {
-    report: (character, xp, name = null, rid = null) => report(character, xp, name, rid),
+    report: (character, xp, name = null, rid = null, region = null) => report(character, xp, name, rid, false, region),
     /** AUDIT RENOWN1 GAME-8: the same report as the page goes - `keepalive`, so the browser finishes it after the page. */
-    leave: (character, xp, name = null, rid = null) => report(character, xp, name, rid, true),
+    leave: (character, xp, name = null, rid = null, region = null) => report(character, xp, name, rid, true, region),
   };
 }
 
@@ -1057,9 +1065,17 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
 export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
   const post = waitedPost({ fetch, storage }, waitMs);
   return {
+    /** SEAT1b: the account this device is signed in as - the Watch's receipts it may claim are its alone. */
+    me: () => storedSession(storage)?.id ?? null,
     list: () => post('/v1/seats/list', {}),
     witness: (seat) => post('/v1/seats/witness', { seat }),
     strike: (key) => post('/v1/seats/strike', { key }),
+    // SEAT1b: influence - the standings at a seat (with the reader's own guild), a pledge set or taken down, the Watch's
+    // receipts claimed, Tribute paid under its own request id
+    standings: (key, character) => post('/v1/seats/standings', { key, character }),
+    pledge: (character, key, region = null) => post('/v1/seats/pledge', { character, key, ...(region != null ? { region } : {}) }),
+    watch: (character, receipts) => post('/v1/seats/watch', { character, receipts }),
+    tribute: (character, key, marks, rid) => post('/v1/seats/tribute', { character, key, marks, rid }),
   };
 }
 

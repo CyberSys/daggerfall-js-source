@@ -990,6 +990,16 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-section + .notice-grid { margin-bottom: 18px; }
 .notice-banner { flex: none; width: 30px; height: auto; filter: drop-shadow(2px 3px 0 rgba(5,6,8,0.45)); }
 .notice-poster .notice-banner { width: 38px; align-self: center; }
+/* SEAT1b: the Seat tab - the week's clock, the standings (each guild under its banner, the reader's own marked), the
+   reader's own lines and the levers (ui/seatTab.js) */
+.notice-seat-week, .notice-seat-mine { margin: 4px 6px 10px; font-size: 13px; color: #e6dccb; text-shadow: 1px 1px 0 #050608; }
+.notice-standings { list-style: none; margin: 0 4px 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.notice-standing { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 14px; color: #f3ead8;
+  background: rgba(5,6,8,0.35); text-shadow: 1px 1px 0 #050608; }
+.notice-standing.mine { outline: 1px solid rgba(243,239,44,0.55); }
+.notice-standing .notice-banner { width: 26px; }
+.notice-seat-levers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 4px 12px; }
+.notice-seat-drakes { width: 7em; }
 @media (max-width: 720px) {
   .notice-shell { padding: 8px; }
   .notice-cork { padding: 10px; }

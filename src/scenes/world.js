@@ -1124,8 +1124,16 @@ export async function bootWorld(canvas, renderer, params, status) {
     : null;
   // SEAT1a (Seats-Arc 3.2): whether the seats are open to this account (SEATS_OPEN), the ones the witnesses confirmed,
   // and the seat this client stands in reported once a day (net/townSeatBook.js). Online only - offline the Bay is DFU's.
-  const seatBook = params.has('online')
-    ? createTownSeatBook({ door: accountSeats({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }), storage: appStorage() })
+  // SEAT1b: and this device's half of influence - the standings, a pledge, Tribute, and the Watch's receipts, kept for the
+  // signed-in account while they stand in a seat's own pixel as this client derives the seats
+  const seatPixels = new Set(townSeats.list.map((s) => `${s.pixel[0]},${s.pixel[1]}`));
+  const _seatDoor = params.has('online') ? accountSeats({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }) : null;
+  const seatBook = _seatDoor
+    ? createTownSeatBook({
+      door: _seatDoor, storage: appStorage(), me: _seatDoor.me, character: () => characterIdOf(playerEntity),
+      isSeatPixel: (x, y) => seatPixels.has(`${x},${y}`),
+      relayNowS: () => (_sharedClockHeard ? Math.floor((Date.now() + _sharedOffsetMs) / 1000) : null),   // a receipt's life is the relay's
+    })
     : null;
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
@@ -15238,9 +15246,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   const renownHour = () => Math.floor((Date.now() + _sharedOffsetMs) / 3_600_000);
   let renownSaid = null;   // AUDIT RENOWN1 UI-5: the highest level the page has announced - a rise is said against this, never against renownNow
   const renownTracker = onlineOn ? createRenownTracker({
-    report: (c, xp, name, rid) => renownAccount.report(c, xp, name, rid),
-    leave: (c, xp, name, rid) => renownAccount.leave(c, xp, name, rid),   // AUDIT RENOWN1 GAME-8: the page's last word, finished by the browser
+    report: (c, xp, name, rid, region) => renownAccount.report(c, xp, name, rid, region),
+    leave: (c, xp, name, rid, region) => renownAccount.leave(c, xp, name, rid, region),   // AUDIT RENOWN1 GAME-8: the page's last word, finished by the browser
     character: () => characterIdOf(playerEntity),
+    region: () => { const px = playerTravelPixel(); const r = maps.getRegionIndexAt(px.x, px.y); return Number.isSafeInteger(r) ? r : null; },   // SEAT1b: where the XP was earned - a pledged seat's region counts it (Seats-Arc 4.2)
     name: () => (typeof playerEntity?.name === 'string' ? playerEntity.name : null),
     earning: () => !!online && !seatOut(),   // ONE-SEAT: a tab another took the seat from earns nothing - its character is not online
     onAnswer: (data, sent) => {
@@ -15479,6 +15488,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     online.onDuel = (id, d, sub = null) => { duelMgr.onFrame(id, d, sub); };
     online.onGate = (g) => gateLink?.word(g);   // WB3b: the court's room's word about its boss
     online.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: a town cell's word about its raid - the ledger, the cleanse, my receipt
+    online.onWatch = (r) => seatBook?.keepWatch(r);   // SEAT1b: the Watch's tick, kept where it stands in a seat's pixel
     // JOURNAL1 (Addison Knox: "Player journals ... shared in-world for storytelling"): A PAGE HELD OUT TO ME. Held,
     // never opened over my game (net/journalPage.js PageOffers: a writer's newest replaces their last and waits
     // PAGE_HOLD_MS), under the name the room knows them by now, and said on the social tab once in a while per writer
@@ -16386,8 +16396,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT ONLINE2 F2: THE RELAY'S CLOCK, in seconds - null until a welcome has said it. A receipt's life is the relay's
    *  (it stamped it); a device a week ahead of it let every receipt go unasked, its Renown never counted. */
   const relayNowS = () => (_sharedClockHeard ? Math.floor((Date.now() + _sharedOffsetMs) / 1000) : null);
+  /** SEAT1b (Seats-Arc 4.2): a kill's REGION, as this client's own scan of the map puts the day's gate - the service counts
+   *  the kill's influence where three claims agree on it - and the character claiming (its guild's war); null before the
+   *  scan has finished, and the kill is claimed as before. */
+  const gateSeatWord = (r) => {
+    const c = readReceipt(r);
+    let site = null;
+    try { site = c && _gateScan ? findGateSite(c.d, _gateScan) : null; } catch { site = null; }
+    return site ? { region: site.region, character: characterIdOf(playerEntity) } : null;
+  };
   const gateClaims = params.has('online') ? createGateClaims({
-    claim: _accountGates.claim,
+    claim: (r) => _accountGates.claim(r, gateSeatWord(r)),
     me: _accountGates.me,
     nowS: relayNowS,
     store: _spoilsStore,
@@ -16594,6 +16613,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const gateFrame = () => {
     try { gateOmen?.frame(); } catch (e) { console.warn('[gate] frame', e?.message ?? e); }
     gateClaims?.tick();   // WB5b: what the account service has not counted yet, offered again on its own clock
+    seatBook?.claimWatch();   // SEAT1b: the Watch's kept ticks, claimed a claim's worth or ten minutes at a time
     if (gateOmen) reportGateSite();   // DISCORD-GATES: where the gate stands, to the hub
     raidClaims?.tick();   // RAID4: and the raids' receipts, on theirs
     if (gatePool && (modes?.mode ?? 'exterior') !== 'exterior') drawGateBanner(null);   // WB2: the countdown is the street's; the pool's own frame runs there alone
@@ -17997,6 +18017,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (noticeBook.open !== true) { noticeBook.read(town.mapId); return false; }
     // PROF1: the Work tab - the town's region's Court writs - while the professions are this account's
     const region = (() => { try { return maps.getRegionIndexAt(town.px, town.py); } catch { return null; } })();
+    const seatAt = seatHere(town.mapId);   // SEAT1b (Seats-Arc 7.9): the Seat tab, at a seat town's board alone
     const work = profBook?.state.open === true && Number.isInteger(region) ? {
       book: profBook, region, regionName: REGION_NAMES[region] ?? 'the region', countName: materialCountLabel,
       onTaken: (r) => profWritTaken(r),
@@ -18028,6 +18049,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       town: { name: town.name, mapId: town.mapId }, rumour: rumour ?? [], bountyLine: !!town.bountyLine,
       gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,
       guilds: true,   // GUILD1e: the Guilds tab - the town's recruitment posters, and the reader's own guild's board
+      seat: seatAt ? { seat: seatAt, book: seatBook, nameOf: (k) => seatAtMapId(townSeats, k)?.name ?? null } : null,   // SEAT1b: a seat town's standings
     });
   };
   /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
