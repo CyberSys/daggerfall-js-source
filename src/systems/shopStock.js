@@ -55,6 +55,7 @@ import { findFactionByTypeAndRegion } from './talk.js';           // S41: Persis
 import { MERCHANTS_FACTION_ID } from './guilds.js';               // S41: FactionIDs.The_Merchants, one home
 import { turnOnConditionFlag, turnOffConditionFlag, REGION_FLAGS, REGION_COUNT } from './regionConditions.js';   // S42: the store S41's flag was waiting on
 import { isOnlinePage } from './onlineLane.js';   // REALM P0.4: online, a shop pays at most half what it asks
+import { restorePowerStack, RESTORE_POWER_SHELF } from './restorePower.js';   // MANA-SHOP: online, every alchemist sells Restore Power
 
 // ItemGroups ids used by the shelf tables (DaggerfallUnityEnums).
 const GROUP_NAMES = Object.freeze({
@@ -379,6 +380,9 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
       }
     }
   }
+  // MANA-SHOP (systems/restorePower.js): online every alchemist carries Restore Power, every day - after the classic
+  // shelf, drawing no roll, so the day's stock above is the stock it always was
+  if (buildingType === BUILDING_TYPES.Alchemist && isOnlinePage()) add(restorePowerStack(RESTORE_POWER_SHELF));
   return items;
 }
 

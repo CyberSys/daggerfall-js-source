@@ -236,7 +236,7 @@
   {
     "name": "HOME1-two-asks-in-flight",
     "file": "src/systems/onlineHomes.js",
-    "old": "    const flying = asking.get(id);\n    if (flying) return flying;\n",
+    "old": "    const flying = asking.get(id);\n    // FB1001 (LOOK-STALE, HOMES-FORCE): a forced ask is asked AFTER the flight it finds - never answered by it (ASYNC\n    // NEVER DROPS): that flight set out before whatever forced this one (a look painted, a room rented), and its answer\n    // does not hold it. The one exception is a forced flight that set out after my last write: its answer is the one asked\n    if (flying) return !force || (forcedFlight.has(id) && askedAt.get(id) === writesTo(id)) ? flying : afterFlight(id, flying);\n",
     "new": "",
     "tests": [
       "test/home1.test.js"

@@ -227,8 +227,8 @@
   {
     "name": "GOLDMARKET-book-one-cache",
     "file": "src/net/marketBook.js",
-    "old": ", (q.materials ?? []).join(','), q.currency ?? 'marks'].join('|');",
-    "new": ", (q.materials ?? []).join(',')].join('|');",
+    "old": ", (q.materials ?? []).join(','), q.currency ?? 'marks', (q.pieces ?? []).join(',')].join('|');",
+    "new": ", (q.materials ?? []).join(','), (q.pieces ?? []).join(',')].join('|');",
     "tests": [
       "test/goldmarket_client.test.js"
     ]

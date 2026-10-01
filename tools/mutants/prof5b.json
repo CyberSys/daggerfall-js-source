@@ -315,8 +315,8 @@
   {
     "name": "PROF5b-tab-any-piece-auctioned",
     "file": "src/ui/marketTab.js",
-    "old": "const pieces = m.pieces().filter((p) => !auction || p.item.quality === MASTERWORK);",
-    "new": "const pieces = m.pieces();",
+    "old": "const all = m.pieces().filter((p) => !auction || p.item.quality === MASTERWORK);",
+    "new": "const all = m.pieces();",
     "tests": [
       "test/prof5b_client.test.js"
     ]

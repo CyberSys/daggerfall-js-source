@@ -165,7 +165,12 @@ export function tallySkill(entity, skillId, amount = 1, movement = false) {
     const whole = Math.floor(total);
     frac[skillId] = total - whole;
     if (!whole) return;
-    amount = whole;
+    // MOVE-BANK (FIELD BUGS 2026-10-01 #7): past 100 the count is PROGRESS's - advancement.js raiseSkills spends it in
+    // float, so DFU's 20000 clamp below (which keeps its int32 shift in range) has nothing to guard here. It threw away
+    // everything a mastered runner ran past 83 minutes between two rests (four uses a second), and at level 30 a full
+    // bucket was 0.68 of the first point however long the run.
+    entity.skillUses[skillId] += whole;
+    return;
   }
   entity.skillUses[skillId] += amount;
   if (entity.skillUses[skillId] > 20000) entity.skillUses[skillId] = 20000;
@@ -275,7 +280,7 @@ export function levelUpSkillSum(entity) {
  *          if (ImprovedAthleticism) += improvedAthleticismMultiplier;
  *      }
  *
- *  - exactly the shape shared.js:1433 already uses for the same pair
+ *  - exactly the shape shared.js:1434 already uses for the same pair
  *  on the fatigue rate, so the item alone does nothing and the two
  *  together make +20%. X1 landed the Jump SPELL's term (+0.6,
  *  AcrobatMotor's own jumpSpellMultiplier :16, added when

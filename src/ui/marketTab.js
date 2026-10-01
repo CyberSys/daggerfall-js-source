@@ -31,12 +31,19 @@
 // gold, its Buy the purse's (the exact cost out of it as the service is asked); the List form's "Priced in" for a Stores
 // material or a piece - gold's units its own and those gold bought, never Drakes'; under My listings, the gold the sales
 // hold and its Collect into the bank here. Any other character sees the Drakes' market alone, as before.
+//
+// MARKET-ANY (FIELD BUGS 2026-10-01, "The market doesn't allow you to list any item that isnt bound"): GOODS after
+// the Auctions - the pieces players list from their packs, for gold, each its name and condition, its courier and Buy; the
+// List form's "A piece from your pack" - a realm character's, for gold alone - offering every piece of the pack that may
+// go and saying of the rest why not (worn, locked, bound, a quest's, arrows...); and the crafted pieces offered as the
+// service says each may list (`ways` - a piece whose maker's record names another lists from the pack). A piece from a
+// pack that arrives - bought, or come back - is collected into the record as a crafted one is minted.
 import { accountRefusalText } from '../net/accountClient.js';
 import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
   listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
-  goldText, goldSaleOf,
+  goldText, goldSaleOf, GOODS_FAMILIES, MARKET_HELD_MAX,
 } from '../net/marketLaw.js';
 import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
 import { marksText, MARK_WORTH_GOLD } from '../net/marksLaw.js';
@@ -72,6 +79,8 @@ const select = (options, value, onChange, label = null) => {
 const intOf = (s, lo, hi) => { const n = Math.floor(Number(s)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : lo; };
 /** The units a picked row offers first, and its courier quotes for (AUDIT 30 U18). */
 const PICK_UNITS = 20;
+/** MARKET-ANY: the pack pieces the List form names, at most, of those that may not go. */
+const GOODS_SAID = 8;
 /** AUDIT 30 U9: the words that say the view a press was made from has moved - it is read again. */
 /** The words that say the view a press was made from has moved - read again (AUDIT 31 B8: the book's own list, so the
  *  tab and the book never disagree - a bid that leads, a bid standing, a bid overtaken as it was decided). */
@@ -132,7 +141,11 @@ export function medianLineNode(line) {
  *   putBack: (item: any, where: string) => void, mint: (piece: any, why: string) => void, pieceName: (piece: any) => string,
  *   drop?: (item: any, where: string) => void,
  *   weavers: ReadonlyArray<{ key: string, marks: number }>, stock: (key: string, n: number) => Promise<{ ok: boolean, text?: string }>,
- * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3)
+ *   goods?: () => Array<{ item: any, name: string, why: string|null }>, good?: (item: any) => { offered: any, pick: number, take: () => ((() => void) | null) },
+ *   goodName?: (rec: any) => string,
+ * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3); MARKET-ANY:
+ *   `goods` - the pack's pieces, each with why it may not list (null: it may), `good(item)` - the piece's wire record, its
+ *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
  *   alive: () => boolean }} ui the window's
  */
@@ -140,7 +153,7 @@ export function createMarketTab(m, ui) {
   const st = {
     view: 'materials', family: /** @type {string|null} */ (null), tier: 0, query: '', picked: /** @type {string|null} */ (null),
     qty: 1, data: /** @type {any} */ (null), error: /** @type {string|null} */ (null), stale: false, loading: false,
-    list: { kind: 'material', material: '', units: 1, price: 1, piece: '', currency: 'marks' }, post: { material: '', units: 1, price: 1 },
+    list: { kind: 'material', material: '', units: 1, price: 1, piece: '', currency: 'marks', good: /** @type {any} */ (null) }, post: { material: '', units: 1, price: 1 },
     currency: 'marks',   // GOLD-MARKET: the currency the Materials, Crafted and History views show
     fills: /** @type {Record<string, number>} */ ({}), weave: /** @type {Record<string, number>} */ ({}),
     bid: /** @type {Record<string, number>} */ ({}),   // PROF5b: the bids typed, by auction
@@ -159,9 +172,15 @@ export function createMarketTab(m, ui) {
     return marketCatalogue().filter((c) => (!st.family || c.family === st.family) && (!st.tier || c.tier === st.tier)
       && m.name(c.key).toLowerCase().includes(needle)).map((c) => c.key);
   };
+  /** MARKET-ANY: a pack piece's name, and its stack ("x12"). */
+  const goodName = (rec) => `${m.goodName?.(rec) ?? 'a piece'}${(rec?.stackCount ?? 1) > 1 ? ` x${rec.stackCount}` : ''}`;
+  /** MARKET-ANY: the crafted pieces the save holds, for the service to say how each may list ("My listings" reads them). */
+  const heldIds = () => [...new Set([...m.pieces().map((p) => p.item?.provenance), ...(m.goods?.() ?? []).map((g) => g.item?.provenance)]
+    .filter((pv) => typeof pv === 'string'))].sort().slice(0, MARKET_HELD_MAX);
   const q = () => {
     const found = st.view === 'materials' ? searched() : null;
-    return { region: m.region, hubs: m.hubs, ...(['materials', 'orders', 'crafted', 'auctions'].includes(st.view) ? { family: st.family } : {}),
+    return { region: m.region, hubs: m.hubs, ...(['materials', 'orders', 'crafted', 'auctions', 'goods'].includes(st.view) ? { family: st.family } : {}),
+      ...(st.view === 'mine' ? { pieces: heldIds() } : {}),   // MARKET-ANY
       ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}), ...(found ? { materials: found } : {}),
       ...(viewCurrency() === 'gold' ? { currency: 'gold' } : {}) };   // GOLD-MARKET: a gold view asks gold's rows
   };
@@ -188,7 +207,7 @@ export function createMarketTab(m, ui) {
   /** AUDIT 30 U10: a piece arrived while the tab stands is collected - each delivery asked once a showing (a refusal is
    *  said, and the next showing asks again). */
   const tried = new Set();
-  const arrived = () => (m.book.state.road ?? []).filter((x) => x.kind === 'piece' && x.ready && !tried.has(x.id));
+  const arrived = () => (m.book.state.road ?? []).filter((x) => (x.kind === 'piece' || x.kind === 'item') && x.ready && !tried.has(x.id));   // MARKET-ANY: a pack's piece too
   const collectArrived = () => { if (arrived().length && !ui.busy()) settle(); };
   /** On the tab shown: the kept acts settled (and the arrived pieces collected), then the view read. */
   async function open() {
@@ -207,7 +226,7 @@ export function createMarketTab(m, ui) {
   const held = (key) => listableUnits(m.stores().get(key), 'marks');
   const where = (row) => (row.region === m.region ? 'here' : m.regionNameOf(row.region));
   /** The units a row's pick starts at, and its courier's quote is for. */
-  const pickOf = (row) => (row.kind === 'piece' || row.kind === 'auction' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
+  const pickOf = (row) => (row.kind === 'piece' || row.kind === 'auction' || row.kind === 'item' ? 1 : Math.max(1, Math.min(row.units, PICK_UNITS)));
   // GOLD-MARKET: a gold row's courier a Drake's worth of gold a Drake, as the service charges it
   const courierOf = (row, units) => (row.region === m.region ? 0 : row.road ? courierFee(units, row.road.road) * (row.currency === 'gold' ? MARK_WORTH_GOLD : 1) : null);
   /** AUDIT 30 U16: a unit's price landed here - its courier's share of the pick's. */
@@ -217,7 +236,7 @@ export function createMarketTab(m, ui) {
     if (!row.road) return ' no courier knows the road';
     const n = pickOf(row);
     const c = courierOf(row, n);
-    return ` +${row.currency === 'gold' ? goldText(c) : c} courier${row.kind === 'piece' ? '' : ` for ${n}`}, ${arrivalText(row.road.seconds, 0)}`;
+    return ` +${row.currency === 'gold' ? goldText(c) : c} courier${row.kind === 'piece' || row.kind === 'item' ? '' : ` for ${n}`}, ${arrivalText(row.road.seconds, 0)}`;
   };
 
   function viewsNode() {
@@ -240,7 +259,7 @@ export function createMarketTab(m, ui) {
     box.append(el('h4', null, 'On the road'));
     for (const x of road) {
       const from = x.from == null ? '' : ` from ${m.regionNameOf(x.from)}`;
-      const what = x.kind === 'material' ? `${x.units} ${m.countName(x.material, x.units)}` : m.pieceName(x.piece);
+      const what = x.kind === 'material' ? `${x.units} ${m.countName(x.material, x.units)}` : x.kind === 'item' ? goodName(x.item) : m.pieceName(x.piece);
       const when = x.kind === 'material' ? (x.waiting ? 'arrived - waiting for room in your Stores' : arrivalText(x.arrivesAt, ui.nowS()))
         : x.why === 'returned' ? 'back from the market' : arrivalText(x.arrivesAt, ui.nowS());
       box.append(el('p', 'market-roadline', `${what}${from} - ${when}`));
@@ -308,13 +327,25 @@ export function createMarketTab(m, ui) {
     if (row.reports != null) b.append(el('span', 'market-mod', plural(row.reports, 'report')));
     return b;
   }
+  /** MARKET-ANY: a piece listed from a pack - its name, its condition, its price in gold and where it stands. */
+  function goodRow(row) {
+    const it = row.item;
+    const b = rowButton(row, ' market-piece market-good');
+    b.append(el('b', null, goodName(it)),
+      el('span', 'market-quality', wearText(wearOf(it)) ?? 'whole'),
+      el('span', 'market-price', priceText(row.price, row.currency)),
+      el('span', 'market-where', `${where(row)}${roadText(row)}`));
+    if (row.mine) b.append(el('span', 'market-mine', 'yours'));
+    if (row.reports != null) b.append(el('span', 'market-mod', plural(row.reports, 'report')));
+    return b;
+  }
   /** The picked row's bar: "Buy N for P Marks + C courier?", Buy; Report; a moderator's Remove. A number typed moves the
    *  words and the button that hang on it, never the bar (AUDIT 30 U8). */
   function pickedBar(row) {
     const bar = el('div', 'market-bar');
-    const piece = row.kind === 'piece';
+    const piece = row.kind === 'piece' || row.kind === 'item';   // MARKET-ANY: a pack's piece is bought whole
     const unitsNow = () => (piece ? 1 : intOf(st.qty, 1, row.units));
-    const what = (units) => (piece ? m.pieceName(row.piece) : `${units} ${m.countName(row.material, units)}`);
+    const what = (units) => (row.kind === 'item' ? goodName(row.item) : piece ? m.pieceName(row.piece) : `${units} ${m.countName(row.material, units)}`);
     const ask = el('span', 'market-ask');
     ask.setAttribute('aria-live', 'polite');
     const gold = row.currency === 'gold';   // GOLD-MARKET: bought off the purse, at its exact cost
@@ -418,13 +449,28 @@ export function createMarketTab(m, ui) {
     return box;
   }
 
+  /** MARKET-ANY: how the service says a crafted piece the save holds may list ("My listings" reads it, `ways`) - `yours`,
+   *  `other`, `elsewhere`, `none` - or null while it has not said. */
+  const heldState = (pv) => (st.view === 'mine' ? st.data?.ways?.[pv] ?? null : null);
+  /** A crafted piece offered as one: the service's `yours` - or, from a service that names none, every one (as before). */
+  const pieceListedAsCrafted = (pv) => (st.data?.ways ? heldState(pv) === 'yours' : true);
+  /** Why a pack piece with a maker's record does not list from the pack (null: it does - its record names another). */
+  const craftedWhy = (item) => {
+    if (typeof item?.provenance !== 'string') return null;
+    const h = heldState(item.provenance);
+    return h === 'other' || h === 'none' ? null : h === 'yours' ? 'your own make - list it as a crafted piece' : h === 'elsewhere' ? 'on the market already' : 'being looked up';
+  };
   function listForm() {
     const box = el('div', 'market-listform');
     box.append(el('h4', null, 'List on the market'));
-    box.append(select([['material', 'From the Stores'], ['piece', 'A crafted piece'], ['auction', 'An auction (Masterworks)']], st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
+    // MARKET-ANY: a realm character lists a piece from its pack too - for gold alone
+    if (st.list.kind === 'item' && !(goldOk() && m.goods)) st.list.kind = 'material';
+    const kinds = [['material', 'From the Stores'], ['piece', 'A crafted piece'], ['auction', 'An auction (Masterworks)'],
+      ...(goldOk() && m.goods ? [['item', 'A piece from your pack (gold)']] : [])];
+    box.append(select(kinds, st.list.kind, (v) => { st.list.kind = v; ui.rerender(); }, 'What to list'));
     // GOLD-MARKET: a realm character prices a Stores material or a piece in Drakes or gold (an auction stays Drakes')
-    const gold = goldOk() && st.list.kind !== 'auction' && st.list.currency === 'gold';
-    if (goldOk() && st.list.kind !== 'auction') {
+    const gold = goldOk() && st.list.kind !== 'auction' && (st.list.currency === 'gold' || st.list.kind === 'item');
+    if (goldOk() && st.list.kind !== 'auction' && st.list.kind !== 'item') {
       box.append(select([['marks', 'Priced in Drakes'], ['gold', 'Priced in gold']], st.list.currency, (v) => { st.list.currency = v === 'gold' ? 'gold' : 'marks'; ui.rerender(); }, 'Currency'));
     }
     const cur = gold ? 'gold' : 'marks';
@@ -448,15 +494,43 @@ export function createMarketTab(m, ui) {
       can = () => !!st.list.material && most >= st.list.units;
       send = () => act(() => m.book.list({ region: m.region, kind: 'material', material: st.list.material, units: st.list.units, price: st.list.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }),
         `Listed ${st.list.units} ${m.countName(st.list.material, st.list.units)} at ${priceText(st.list.price, cur)} each.`);
+    } else if (st.list.kind === 'item') {
+      // MARKET-ANY: every piece of the pack that may go, and of the rest why not - a crafted piece as the service says
+      const all = (m.goods?.() ?? []).map((g) => ({ ...g, why: g.why ?? craftedWhy(g.item) }));
+      const goods = all.filter((g) => !g.why);
+      if (!goods.some((g) => g.item === st.list.good)) st.list.good = goods[0]?.item ?? null;
+      const chosen = goods.find((g) => g.item === st.list.good) ?? null;
+      box.append(goods.length ? select(goods.map((g, i) => [String(i), goodName(g.item)]), String(goods.indexOf(/** @type {any} */ (chosen))), (v) => { st.list.good = goods[Number(v)]?.item ?? null; ui.rerender(); }, 'Piece from your pack')
+        : el('span', 'notice-tip', 'Nothing in your pack can go on the market.'),
+      el('span', 'notice-label', 'Price in gold'), price);
+      const refused = all.filter((g) => g.why);
+      if (refused.length) {
+        const shown = refused.slice(0, GOODS_SAID).map((g) => `${goodName(g.item)} (${g.why})`).join('; ');
+        box.append(el('p', 'notice-tip market-refused', `Not for the market: ${shown}${refused.length > GOODS_SAID ? `; and ${plural(refused.length - GOODS_SAID, 'more')}` : ''}.`));
+      }
+      worth = () => st.list.price;
+      can = () => !!chosen;
+      send = () => act(() => {
+        const g = /** @type {any} */ (m.good)?.(chosen?.item);
+        if (!g?.offered || !(g.pick >= 0)) return Promise.resolve({ ok: false, error: 'piece-held' });
+        const hub = m.hubs?.[m.region];
+        return m.book.list({ region: m.region, kind: 'item', item: g.offered, pick: g.pick, price: st.list.price, hubs: hub ? { [m.region]: hub } : {}, currency: 'gold' }, null, g);
+      }, `Listed ${chosen ? goodName(chosen.item) : 'it'} at ${goldText(st.list.price)}.`);
     } else {
       // PROF5b: an auction offers the Masterworks alone (10.2)
       const auction = st.list.kind === 'auction';
-      const pieces = m.pieces().filter((p) => !auction || p.item.quality === MASTERWORK);
+      // MARKET-ANY: only the pieces whose maker's record is this account's, standing nowhere else, as the service says
+      const all = m.pieces().filter((p) => !auction || p.item.quality === MASTERWORK);
+      const pieces = all.filter((p) => pieceListedAsCrafted(p.item.provenance));
+      const others = all.filter((p) => heldState(p.item.provenance) === 'other' || heldState(p.item.provenance) === 'none').length;
+      const elsewhere = all.filter((p) => heldState(p.item.provenance) === 'elsewhere').length;
       if (!pieces.some((p) => p.item.provenance === st.list.piece)) st.list.piece = pieces[0]?.item.provenance ?? '';
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
       box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
         : el('span', 'notice-tip', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
       el('span', 'notice-label', auction ? 'Opening bid in Drakes' : `Price in ${unitWord}`), price);
+      if (others) box.append(el('p', 'notice-tip', `${plural(others, 'crafted piece')} you hold ${others === 1 ? 'names' : 'name'} another owner in ${others === 1 ? 'its' : 'their'} maker's record: only that owner sells ${others === 1 ? 'it' : 'them'} as a crafted piece. ${goldOk() && m.goods ? 'List it as a piece from your pack, for gold.' : ''}`.trim()));
+      if (elsewhere) box.append(el('p', 'notice-tip', `${plural(elsewhere, 'crafted piece')} you hold ${elsewhere === 1 ? 'stands' : 'stand'} on the market, on the road or in a home already.`));
       worth = () => st.list.price;
       can = () => !!chosen;
       const piece = () => ({ item: chosen.item, where: chosen.where, take: () => m.take(chosen.item, chosen.where), putBack: m.putBack });
@@ -471,6 +545,8 @@ export function createMarketTab(m, ui) {
       const fee = listingFee(worth());
       hint.textContent = full ? `You have ${MARKET_LISTINGS_MAX} listings standing, the most one account may. Cancel one, or wait for one to sell.`
         // GOLD-MARKET: no fee now - each sale pays its share and the tax; the gold is held for the seller to collect
+        // MARKET-ANY: a piece from the pack - where it goes, and why gold alone
+        : st.list.kind === 'item' ? `No fee to list: its sale pays 1% and ${saleTax(100)}% tax out of its price. It leaves your pack now and stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it sells). If you cancel, or it does not sell, it comes back to your pack. A piece from your pack sells for gold alone.`
         : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made or bought with gold sells for gold.`
         : st.list.kind === 'auction'
           ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${saleTax(100)}%.`
@@ -553,8 +629,8 @@ export function createMarketTab(m, ui) {
     const ul = el('ul', 'market-list');
     for (const l of rows) {
       const li = el('li', `market-listing state-${l.state}`);
-      li.append(el('b', null, l.kind === 'piece' ? m.pieceName(l.piece) : `${m.name(l.material)} - ${l.units} of ${l.listed} left`),
-        el('span', 'market-price', `${priceText(l.price, l.currency)}${l.kind === 'piece' ? '' : ' each'}`),
+      li.append(el('b', null, l.kind === 'piece' ? m.pieceName(l.piece) : l.kind === 'item' ? goodName(l.item) : `${m.name(l.material)} - ${l.units} of ${l.listed} left`),
+        el('span', 'market-price', `${priceText(l.price, l.currency)}${l.kind === 'material' ? ' each' : ''}`),
         el('span', 'market-where', l.region === m.region ? 'here' : m.regionNameOf(l.region)),
         el('span', 'market-state', l.state === 'open' ? `${plural(Math.max(0, Math.ceil((l.expiresAt - ui.nowS()) / 3600)), 'hour')} left` : l.state));
       if (l.state === 'open') li.append(button('market-cancel', 'Cancel', () => act(() => m.book.cancel(l.id, m.mint), 'Cancelled. The goods are back; the fee is kept.')));
@@ -625,7 +701,7 @@ export function createMarketTab(m, ui) {
       const verb = { bought: ['Bought', 'paid'], sold: ['Sold', 'to you'], filled: ['Filled an order with', 'to you'], ordered: ['Your order took', 'paid'],
         won: ['Won at auction', 'paid'], auctioned: ['Sold at auction', 'to you'] };   // PROF5b
       for (const t of trades) {
-        const what = t.kind === 'piece' ? 'a crafted piece' : `${t.units} ${m.countName(t.material, t.units)}`;
+        const what = t.kind === 'piece' ? 'a crafted piece' : t.kind === 'item' ? goodName(t.item) : `${t.units} ${m.countName(t.material, t.units)}`;
         const [v, way] = verb[t.side] ?? [t.side, ''];
         tl.append(el('li', 'market-trade', `${v} ${what} - ${priceText(t.total, t.currency)} ${way} - ${agoText(t.at, ui.nowS())}`));
       }
@@ -675,6 +751,18 @@ export function createMarketTab(m, ui) {
       if (st.data && !rows.length) list.append(el('p', 'notice-empty', st.view === 'materials' ? 'Nothing of that is listed on the Bay\'s boards.' : 'No crafted piece of that kind is listed.'));
       box.append(list);
       if (st.view === 'materials') box.append(weaversNode());
+    } else if (st.view === 'goods') {
+      // MARKET-ANY: the pieces listed from packs, in gold - bought off the purse as any gold row
+      box.append(filtersNode(GOODS_FAMILIES));
+      const rows = [...(st.data?.rows ?? [])].sort((a, b) => landed(a) - landed(b) || a.price - b.price);
+      const list = el('div', 'market-rows');
+      for (const r of rows) {
+        list.append(goodRow(r));
+        if (st.picked === r.id) list.append(pickedBar(r));
+      }
+      if (st.data && !rows.length) list.append(el('p', 'notice-empty', st.family ? 'No piece of that kind is listed.' : 'Nobody has listed a piece from their pack.'));
+      if (!goldOk()) list.append(el('p', 'notice-tip', accountRefusalText('market-gold-realm')));
+      box.append(list);
     } else if (st.view === 'mine') box.append(mineNode());
     else if (st.view === 'orders') {
       box.append(filtersNode(MARKET_FAMILIES));

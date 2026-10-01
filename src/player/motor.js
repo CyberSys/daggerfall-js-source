@@ -1399,9 +1399,10 @@ export class PlayerMotor {
       // the move (PlayerSpeedChanger.cs:424-431) - the same flag the
       // skill check doubles - so the Climbing spell's speed half rides
       // the deps thunk per frame, not a value latched at mount.
-      const enhanced = !!climb.deps?.inputs?.().enhanced;
+      // CLIMB-PAST: and the live Climbing the check reads, whose points past 100 climb faster (climbing.js)
+      const ci = climb.deps?.inputs?.() ?? {};
       const r = this.collider.move(this.pos,
-        wd[0] * this.speed * dt, climbingSpeed(this.speed, enhanced) * dt, wd[2] * this.speed * dt,
+        wd[0] * this.speed * dt, climbingSpeed(this.speed, !!ci.enhanced, ci.climbing ?? 0) * dt, wd[2] * this.speed * dt,
         this.height, false);
       this.grounded = r.grounded;
     } else {
