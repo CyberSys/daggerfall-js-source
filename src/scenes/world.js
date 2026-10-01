@@ -5895,6 +5895,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       boxes, packable: !!boat.packable, sailingThis, sailing: !!csaRuntime?.isSailing(), aboard: csaStandsOn(boat),
       passengers: csaPassengersOn(boat), variants: boat.VariantObject != null && boat.GetVariantCount >= 1,
       naval: navalOn(), crewed: !!boat.crewed, companions: !!boat.uid,   // SHIP-CREW: her crew's card and her orders - AUDIT CC-A9: hands go ashore by her deed's number
+      noDeed: !!csaRuntime?.deedMissing?.(boat),   // SHIP-PACK: a ship is picked up with her deed in the pack
     });
     return { boxes, rows };
   };
@@ -6171,7 +6172,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-H: the items, the cargo, the variants and the ports
     isPortTown: (x, y) => csaIsPortTown(x, y),
     nearestPort: () => csaNearestPort(),   // DEED-PORT: the refusal names where to go
-    items: { create: (templateIndex) => mintBoatItem(templateIndex, csaNewItemUid()), addToPlayer: (item) => addItem((playerEntity.items ??= []), item) },   // ItemBuilder.CreateItem; AddItem(item, AddPosition.Back)
+    items: { create: (templateIndex) => mintBoatItem(templateIndex, csaNewItemUid()), addToPlayer: (item) => addItem((playerEntity.items ??= []), item), player: () => (playerEntity.items ??= []) },   // ItemBuilder.CreateItem; AddItem(item, AddPosition.Back); SHIP-PACK: the pack a ship's deed is found in
     closeInventory: () => { _csaInventoryClosed = true; },   // the class's CloseWindow, carried out on the use's result (below)
     openCargo: (cargo) => csaOpenCargo(cargo),
     openListPicker: (rows, onPick) => csaOpenListPicker(rows, onPick),
@@ -8383,7 +8384,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2761 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6611
+  // that context through modes.dungeonCtx - so worldModes.js:6613
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13621,7 +13622,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10118-10182 -
+  // worldModes answers it in BOTH modes (worldModes.js:10120-10184 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20786,7 +20787,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   // aimed by the journey: LaunchFromParts), or the boat at whose helm the traveller stands, or mine moored within reach,
   // boarded at the start - SAILS its sea legs through the mod's own keys (systems/seaHelm.js: the rudder, the sails and
   // the oars, pressed through the helm's one input seam as CSA-L's panel presses them), and at the LANDFALL leaves the
-  // helm by the mod's own key, steps ashore and packs a packable boat (a crewed ship is left moored where it landed);
+  // helm by the mod's own key, steps ashore and packs a packable boat (SHIP-PACK: a ship too, her deed in the pack - else
+  // she is left moored where she landed);
   // then the land legs are walked on. Everything else is the mod's: the wind's pull, the oars' fatigue, the beach that
   // stops a boat dead, the cargo's weight.
   const TV_SEA_MOORED_M = 60;    // my boat moored this near is boarded at a journey's start
@@ -20811,7 +20813,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  so she crosses wherever the runtime's own word on the handling is responsive (this helm's, else the row's). */
   const tvSeaCrosses = (rig) => !!rig && (rig.sails > 0 || rig.crewed) && (rig.cargo > 0 || !!csaRuntime?.helmResponsive());
   const tvSeaRig = (b) => ({ sails: b.Sails.length, crewed: !!b.crewed, cargo: b.modifierCargoThreshold });
-  /** The parts in the pack of a packable boat that crosses (the Large Boat's - the Rowboat's have no sail). */
+  /** The parts in the pack of a packable boat that crosses (the Large Boat's, and SHIP-PACK's ships' - the Rowboat's have
+   *  no sail). */
   const tvSeaParts = () => (playerEntity.items ?? []).find((it) => it?.templateIndex === CSA_PARTS_TEMPLATE && tvSeaCrosses(csa.hullRig?.(csaHullFromMessage(it.message ?? 0)))) ?? null;
   /** THE BOAT a journey may cross the water in: at its helm now, mine moored within reach (boarded at the start), or a
    *  packable one's parts in the pack; `start` where the route begins (afloat or ashore), `again` whether a landfall
@@ -20978,7 +20981,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         break ashore;
       }
     }
-    if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory"
+    if (tvSea.means?.again && boat.packable && csaPassengersOn(boat) === 0 && !csaRuntime.deedMissing(boat)) csaCall(() => csaRuntime.PackBoat(boat, true));   // "You store the boat in your inventory" - SHIP-PACK: a ship with her deed in the pack
     else {
       tvSay(TRAVEL_VIEW_TEXT.leftMoored);
       if (tvSea.means) tvSea.means = { ...tvSea.means, again: false };

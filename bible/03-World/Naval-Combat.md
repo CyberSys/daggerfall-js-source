@@ -1476,22 +1476,20 @@ sent only by the player who stands the sea (SEA-TRAFFIC's election).
 Pins: `test/seaease.test.js` (the numbers, the measured hour, the relief's law, standing by, the host's relief and its
 cry, no relief, the stray and the peer's stray). `tools/mutants/seaease.json`: 37 mutants, all dead.
 
-## SHIP-PRICE (2026-10-01) - a boat about a quarter of the price - DECLARED
+## SHIP-PRICE (2026-10-01) - a boat about a quarter of the price - WITHDRAWN before the merge
 
-Mac: *"make ship prices more reasonable and provide more accessibility options to acquiring"* - his pick, "About a
-quarter". Come Sail Away's hulls cost 4,000, 8,000, 100,000, 200,000 and 150,000; they cost 1,000 (Rowboat), 2,500
-(Large Boat), 25,000 (Small Ship), 50,000 (Large Galley) and 37,500 (Carrack) now (`systems/comeSailAwayBoat.js
-HULL_PRICES`) - what a shelf's deed or parts sell for (AssignVariantsToShopItems) and what a packed boat's item is worth.
-An item already minted keeps the value it was bought at. The bank's classic ship (Daggerfall's own, `banking.js
-SHIP_PRICES`, the realm's customs pinned equal) is unchanged - not a boat that sails.
-
-Pins: `test/shipcredit.test.js` (SHIP-PRICE), `test/csa_items.test.js` (the shelf's values off the table, PIN MOVED).
+Built on the branch for Mac's *"make ship prices more reasonable"* ("About a quarter": the hulls at 1,000 to 50,000) and
+withdrawn at the review before the merge, never shipped: *"Remove the changes to ship reduction cost."* Come Sail
+Away's own prices stand - 4,000 (Rowboat), 8,000 (Large Boat), 100,000 (Small Ship), 200,000 (Large Galley) and
+150,000 (Carrack) (`systems/comeSailAwayBoat.js HULL_PRICES`). Its pin and its two mutants went with it;
+`test/csa_items.test.js` reads the shelf's literal prices again. SHIP-CREDIT and SHIP-CLAIM stand on the mod's prices.
 
 ## SHIP-CREDIT (2026-10-01) - a boat bought on the bank's credit - DECLARED
 
 Mac's second pick of the same ask: *"Buy on credit - Pay part now; the bank lends you the rest under Daggerfall's own
-loan rules."* At a shop's counter a lot holding a boat (Come Sail Away's parts or deed - `tradeModes.js lotHasBoat`)
-that the purse falls short of is offered on credit, in both trade skins (`ui/nativeTrade.js`, `ui/enhancedTrade.js`):
+loan rules."* At a shop's counter a lot of boats and nothing else (Come Sail Away's parts or deeds - `tradeModes.js
+lotAllBoats`) that the purse falls short of is offered on credit, in both trade skins (`ui/nativeTrade.js`,
+`ui/enhancedTrade.js`):
 the purse pays what it holds - `CREDIT_DOWN_SHARE` (a fifth) of the price at least - and the bank of the shop's region
 lends the rest under BorrowLoan's own law (`banking.js creditDecision`): borrowDecision's refusals (a loan or a
 default standing there; online the Empire's one loan a character, in its own words), `LOAN_MINIMUM` at least (a
@@ -1502,14 +1500,19 @@ price, what the bank lends, what is paid now and owed within the year, and "Buy 
 the gold's own. The host asks the bank again at the Yes (`worldModes.js commitTrade`) and buys nothing on a credit no
 longer given.
 
-Pins: `test/shipcredit.test.js`. `tools/mutants/shipcredit.json`: 30 mutants (SHIP-PRICE's two with them), all dead.
+THE BOAT ALONE (the review before the merge, 2026-10-01): a basket that held a boat put the whole basket on the bank's
+credit - a sword and a cask of wine lent on beside the hull. The bank lends on boats bought by themselves: a lot that
+holds a boat among other goods is refused under the gold's own refusal ("The bank lends on a boat bought by itself.",
+`CREDIT_BOAT_ALONE`), and the Yes buys nothing on credit for more than boats.
+
+Pins: `test/shipcredit.test.js` (5). `tools/mutants/shipcredit.json`: 33 mutants, all dead (SHIP-PRICE's two withdrawn
+with it; five for the boat alone).
 
 ## SHIP-CLAIM (2026-10-01) - a prize claimed as the captor's own boat - DECLARED
 
 Mac: *"provide more accessibility options to acquiring"* ships - and of the choices put to him, *"Claim captured prizes -
-Keep a ship you take by boarding as your own boat, instead of scuttling her or casting her adrift"* (the hulls were made
-about a quarter as dear the same day - SHIP-PRICE). Daggerfall has no ships and Come Sail Away no captured one; the
-claim is the port's own, and the boat she becomes is the mod's.
+Keep a ship you take by boarding as your own boat, instead of scuttling her or casting her adrift"*. Daggerfall has no
+ships and Come Sail Away no captured one; the claim is the port's own, and the boat she becomes is the mod's.
 
 - **Her third fate** (`ui/navalPlunderWindow.js`): HER FATE has CLAIM HER beside Scuttle her and Cast her adrift, and
   under the three a line saying what she becomes ("Keep her as your own Small Ship: her deed to your pack, her hold
@@ -1520,15 +1523,16 @@ claim is the port's own, and the boat she becomes is the mod's.
   again; a refusal stays, with a word. Her fate answers a boolean from every exit (THE MODAL CONTRACT).
 - **Her deed** (`systems/comeSailAwayItems.js mintDeed`): the shelf's own deed - the mod's items' UID off the world's
   mint (`mintUid`), her hull and variant in its message and name ("Deed to Small Ship 'I'") - worth `PRIZE_DEED_SHARE`
-  (a quarter) of her hull's shelf price (`navalPlunder.js prizeDeedValue`: 625 a Large Boat, 6,250 a Small Ship,
-  12,500 a Large Galley, 9,375 a Carrack): her papers - a taken ship is no bought one, and a full-price deed would make
+  (a quarter) of her hull's shelf price (`navalPlunder.js prizeDeedValue`: 2,000 a Large Boat, 25,000 a Small Ship,
+  50,000 a Large Galley, 37,500 a Carrack): her papers - a taken ship is no bought one, and a full-price deed would make
   every pirate a fortune to sell. Into the pack as the mod adds its items (`packDeed`: AddItem, no weight's gate).
 - **Her boat where she lies** (`systems/comeSailAway.js LaunchFromDeed`, LaunchFromParts' sibling for a deed):
   PlaceBoat at her place, her bow along her heading, on the terrain under her (`terrainAt`), then the item's half
   (takePlaceItem): the deed's UID on her, so the deed answers her. A bought deed's port rule is untouched - a deed whose
   boat stands is refused there, the port's to move. A hull the mod spends a deed on placing (not `crewed`: the Large
   Boat - a pirate sloop or a coaster) spends this one too: she is the mod's small boat, picked up into her parts and
-  placed again like any other.
+  placed again like any other - and since SHIP-PACK (`03-World/Come-Sail-Away.md`) so is every claimed ship, her deed
+  in the pack, her parts at her papers' worth.
 - **Her hold**, what is left of it, aboard her as her cargo.
 - **Her hurts, as shares**, on her state as a boat of mine (`myBoatState`, by her deed's UID): her hull - never under
   one point, she floats - and her canvas, so she wants a shipwright; her crew gone - NO hands aboard (the yard sells
@@ -1550,10 +1554,14 @@ claim is the port's own, and the boat she becomes is the mod's.
   `terrainAt`, `redeck`); `scenes/exterior.js` (no Come Sail Away runtime), `scenes/worldModes.js` and
   `scenes/dungeonContext.js` (no sea) stand none - pinned by a sweep.
 
-OPEN for Mac: a claimed Large Boat is the mod's small boat to the letter - her deed spent on placing, and Pick up packs
-her into Parts at PackBoat's full price (2,500), not her papers' quarter.
+~~OPEN for Mac: a claimed Large Boat is the mod's small boat to the letter - her deed spent on placing, and Pick up packs
+her into Parts at PackBoat's full price, not her papers' quarter.~~ CLOSED by SHIP-PACK at the review before the merge:
+a boat's parts carry the worth of what placed her (`itemValue`), so a claimed prize of any hull packs at her papers'
+quarter - a pirate sloop's 2,000, never the shelf's 8,000 - and a taken ship is no fortune in parts.
 
-Pins: `test/shipclaim.test.js` (12). `tools/mutants/shipclaim.json`: 58 mutants, all dead.
+Pins: `test/shipclaim.test.js` (14 - the two SHIP-PACK ones: a claimed ship picked up and placed again is the same
+ship, her hurts and her empty crew kept by her number; a claimed Large Boat packs at her papers' worth).
+`tools/mutants/shipclaim.json`: 58 mutants, all dead; `tools/mutants/shippack.json` holds the pick-up's.
 
 ## The tests
 

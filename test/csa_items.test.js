@@ -126,9 +126,8 @@ test('CSA-H: AssignVariantsToShopItems (the OnLootSpawned subscriber) - a deed t
   assignVariantsToShopItems(items, range);
   assert.deepEqual([items[0].message, items[0].value, items[0].name, items[0].weightInKg], [30, HULL_PRICES[3], "Deed to Large Galley 'I'", undefined]);
   assert.deepEqual(items[1], { group: 'UselessItems2', templateIndex: 50, name: 'Oil', value: 5 });
-  // SHIP-PRICE (PIN MOVED): the hulls' prices a quarter of Come Sail Away's - read off the table, which seaprice pins
-  assert.deepEqual([items[2].message, items[2].value, items[2].weightInKg, items[2].name], [0, HULL_PRICES[0], HULL_WEIGHTS[0], "Parts of Rowboat 'I'"]);
-  assert.deepEqual([items[3].message, items[3].value, items[3].name], [10, HULL_PRICES[1], "Deed to Large Boat 'I'"]);
+  assert.deepEqual([items[2].message, items[2].value, items[2].weightInKg, items[2].name], [0, 4000, HULL_WEIGHTS[0], "Parts of Rowboat 'I'"]);
+  assert.deepEqual([items[3].message, items[3].value, items[3].name], [10, 8000, "Deed to Large Boat 'I'"]);
   assert.equal(draws.length, 0, 'one draw per deed, in the shelf\'s order');
   // the shelf mints its items with no UID: the two take one each (DFU's construction gave them one), the rest none
   const shelf = [{ group: 'UselessItems2', templateIndex: 1321 }, { group: 'UselessItems2', templateIndex: 50 }, { group: 'UselessItems2', templateIndex: 1320 }, mintBoatItem(1321, 7)];
@@ -320,7 +319,8 @@ test('CSA-H: the host\'s seams - the two use handlers on the item-use door (the 
   assert.match(w, /const win = new ListPickerWindow\(\{ items: rows, backdrop: 'none', onPick: \(i\) => onPick\(i\),/);   // DaggerfallPopupWindow's Color.clear: the world stays behind it
   assert.match(w, /if \(modes\?\.mountWindow\?\.\(win\)\) _csaPicker = win;/);
   assert.match(w, /const csaShelfStocked = \(items\) => \{ if \(csaOn\(\) && Array\.isArray\(items\)\) assignVariantsToShopItems\(mintShelfBoatUids\(items, csaNewItemUid\), \(min, max\) => min \+ Math\.floor\(Math\.random\(\) \* \(max - min\)\)\); return items; \};/);
-  assert.match(w, /items: \{ create: \(templateIndex\) => mintBoatItem\(templateIndex, csaNewItemUid\(\)\), addToPlayer: \(item\) => addItem\(\(playerEntity\.items \?\?= \[\]\), item\) \},/);
+  // SHIP-PACK (PIN MOVED): and the pack itself, which a ship's deed is found in and taken from as she is picked up
+  assert.match(w, /items: \{ create: \(templateIndex\) => mintBoatItem\(templateIndex, csaNewItemUid\(\)\), addToPlayer: \(item\) => addItem\(\(playerEntity\.items \?\?= \[\]\), item\), player: \(\) => \(playerEntity\.items \?\?= \[\]\) \},/);
   const m = src('scenes/worldModes.js');
   // THE MERGE: CSA-H's subscriber is one of PlayerActivate.OnLootSpawned's (FORAGE3's one home), by its mod's name, a
   // shop shelf's alone - and both shelf doors raise it, after Roleplay Realism's subscribers

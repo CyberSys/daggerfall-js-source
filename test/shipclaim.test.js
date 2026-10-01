@@ -304,6 +304,40 @@ test('SHIP-CLAIM a small boat: a Large Boat taken (a pirate sloop, her variant h
   assert.equal(h.log.say.at(-1), `${name} is yours - she lies where you took her.`);
 });
 
+test('SHIP-CLAIM and SHIP-PACK a claimed ship picked up and placed again is the same ship: her deed goes with her into her parts - her number, her papers\' worth (a quarter); placed again, her deed back; her hurts and her empty crew kept by her number - the pick-up never mends nor crews her (mutants: a new number, the shelf\'s price, the deed kept)', async () => {
+  const h = await claimSea();
+  const { m } = taken(h, 'pirateBrig');
+  assert.equal(m.fate('claim'), true);
+  const { b, st } = claimed(h);
+  const deed = h.pack[0];
+  const was = { hull: st.damage.hullShare(), sail: st.damage.sailShare() };
+  let mint = 7000;
+  h.sc.deps.items = { create: (t) => mintBoatItem(t, ++mint), addToPlayer: (it) => h.pack.push(it), player: () => h.pack };
+  assert.equal(h.rt.PackBoat(b, true), true);
+  const parts = h.pack.at(-1);
+  assert.ok(!h.pack.includes(deed), 'her deed went with her');
+  assert.deepEqual([parts.templateIndex, parts.UID, parts.value], [BOAT_PARTS_TEMPLATE, deed.UID, HULL_PRICES[2] * 0.25]);
+  const again = h.rt.LaunchFromParts(parts, () => h.pack, [2000, 0, 300], [0, 0, 1], h.sc.terrains[1]);
+  assert.deepEqual(h.pack.map((it) => [it.templateIndex, it.UID, it.value]), [[BOAT_DEED_TEMPLATE, deed.UID, HULL_PRICES[2] * 0.25]], 'her deed back');
+  const st2 = h.host._myState(again);
+  assert.ok(st2 === st, 'her own state, by her number');
+  assert.ok(close(st2.damage.hullShare(), was.hull, 1e-9) && close(st2.damage.sailShare(), was.sail, 1e-9), 'not mended');
+  assert.deepEqual([st2.damage.crew, st2.crew.hands.length], [0, 0], 'nobody aboard');
+});
+
+test('SHIP-CLAIM and SHIP-PACK a claimed Large Boat picked up packs at her papers\' worth - a quarter of her hull\'s price - never at the shelf\'s, so a prize is no fortune in parts (the review before the merge; mutants: the shelf\'s price)', async () => {
+  const h = await claimSea();
+  const { m } = taken(h, 'pirateSloop');
+  assert.equal(m.fate('claim'), true);
+  assert.deepEqual(h.pack, [], 'her deed spent on placing');
+  const b = h.rt.state.AllBoats.find((x) => x !== h.boat);
+  let mint = 7000;
+  h.sc.deps.items = { create: (t) => mintBoatItem(t, ++mint), addToPlayer: (it) => h.pack.push(it), player: () => h.pack };
+  assert.equal(h.rt.PackBoat(b, true), true);
+  assert.deepEqual([h.pack[0].templateIndex, h.pack[0].value], [BOAT_PARTS_TEMPLATE, prizeDeedValue(1)]);
+  assert.equal(prizeDeedValue(1), HULL_PRICES[1] / 4);
+});
+
 test('SHIP-CLAIM kept by both saves: the naval save holds her hurts and her empty crew by her deed\'s UID, Come Sail Away\'s her boat - hull, place, heading and hold; loaded, the deed\'s UID answers her and her state is hers again (mutants: the UID unminted, the link)', async () => {
   const h = await claimSea();
   const { e, m } = taken(h, 'pirateBrig', { yaw: -1.1 });

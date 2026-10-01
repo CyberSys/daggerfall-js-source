@@ -128,7 +128,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2581 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2582 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -370,6 +370,11 @@ export const LETTER_OF_CREDIT_TEXT = 'You are paid with a letter of credit.';
 export const CREDIT_ITEM_TEMPLATES = Object.freeze([1320, 1321]);
 /** SHIP-CREDIT: whether a lot staged to buy holds a boat - only a boat is sold on the bank's credit. */
 export const lotHasBoat = (staged = []) => staged.some((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex));
+/** SHIP-CREDIT (the review before the merge, 2026-10-01: a boat in the basket put the whole basket on the bank's
+ *  credit): whether a lot staged to buy is boats and nothing else - the one lot the bank lends on. */
+export const lotAllBoats = (staged = []) => staged.length > 0 && staged.every((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex));
+/** SHIP-CREDIT: the refusal of a lot that holds a boat among other goods (creditRefusalRows names it). */
+export const CREDIT_BOAT_ALONE = 'boatAlone';
 /** SHIP-CREDIT: the offer's box - what the purse holds against the price, what the bank lends, what is paid now and
  *  owed within the year (banking.js creditDecision's `credit`), and the question. */
 export function creditRows({ loan, pay, owed }, price, purse) {
@@ -387,7 +392,8 @@ export function creditRefusalRows(r, empireLines = null) {
   const text = r?.result === CREDIT_REFUSALS.ALREADY_HAVE_LOAN ? 'The bank will not lend: a loan of yours stands here.'
     : r?.result === CREDIT_REFUSALS.ALREADY_DEFAULTED ? 'The bank lends nothing to one who has defaulted.'
       : r?.result === CREDIT_REFUSALS.NOT_ENOUGH_GOLD ? `The bank lends on a boat only to one who pays ${r.down} gold down.`
-        : r?.result === CREDIT_REFUSALS.LOAN_REQUEST_TOO_HIGH ? `The bank will lend you no more than ${r.max} gold.` : null;
+        : r?.result === CREDIT_REFUSALS.LOAN_REQUEST_TOO_HIGH ? `The bank will lend you no more than ${r.max} gold.`
+          : r?.result === CREDIT_BOAT_ALONE ? 'The bank lends on a boat bought by itself.' : null;
   return text ? [{ text, center: true }] : [];
 }
 /** SHIP-CREDIT: the refusals creditRefusalRows names - banking.js TRANSACTION_RESULT's (pinned equal). */
@@ -476,7 +482,7 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    (:161) feeds worldModes.js:2335-2355, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9638), the entry point the magic arc owed.
+//    (worldModes.js:9640), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:244,
 //    spent letters-before-coins by deductGold at court.js:286, and

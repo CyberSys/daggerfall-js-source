@@ -1408,7 +1408,9 @@ object destroyed, its record off the list. Steal mode at the rudder packs
 a packable boat not driven (the Rowboat and the Large Boat; CSA-D's
 refusal "You cannot pack a boat you are driving!" stands), and fast
 travel packs a packable boat sailed (CSA-D's OnPreFastTravel); placing
-parts brings their cargo aboard again (CSA-C's arm).
+parts brings their cargo aboard again (CSA-C's arm). SHIP-PACK (below):
+every hull packs now - a ship with her deed in the pack - and the parts
+keep the boat's UID, her worth and a carried weight.
 
 LOST-BOAT (the port's own, FIELD BUGS 2026-09-29h; Julian: "the large boats
 floating underneath the town ... very loud boat noises but no boats to be
@@ -2116,7 +2118,7 @@ row's (42).
   host's one input seam (`csaJourneyHelm`, read by `input.has` beside the keys and CSA-L's panel, and by the autorun):
   the rudder keys held, the ToggleSail key's edge, the oars' autorun, and at the landfall the disembark key - the mod's
   code moves, turns, beaches and leaves the boat, and PackBoat packs it. A packable boat is to hand again after its
-  landfall; a crewed one is left moored. The Rowboat (no sail) is no crossing's boat; the Carrack (no Cargo modifier) is
+  landfall; a crewed one is left moored - SHIP-PACK: a ship is packed too when her deed is in the pack. The Rowboat (no sail) is no crossing's boat; the Carrack (no Cargo modifier) is
   one under the Responsive helm only, which gives her a hold (`tvSeaCrosses`: AUDIT
   NAV2 F16 - she was refused under the default helm she sails best under). AUDIT
   NAV2 F17: while the journey holds the helm (the travel view up) the helm panel is
@@ -2149,7 +2151,8 @@ own (`systems/csaBoatMenu.js`, pure):
   on any plaque list.
 - **A refused row is listed with its reason**, and its press says the mod's words: the pick-up at her helm ("You
   cannot pack a boat you are driving!") or with another player on her deck; a deed's ship, which the mod never packs
-  ("a deed ship stays afloat"); a style at the helm.
+  ("a deed ship stays afloat" - since SHIP-PACK no hull of the mod's, and a ship's refusal is her deed not in the pack
+  instead); a style at the helm.
 - **Where no plaque stands** - a phone's tap, the classic skins, a building's or a dungeon's plaque (C5) - a press on a box does what it did, and a press on
   the hull opens the same rows as a list (`csaOpenBoatMenu`, the variant picker's `ListPickerWindow`), put away before
   the verb runs.
@@ -2199,6 +2202,41 @@ mark; the port's (`ui/boatMarks.js`, a leaf):
 - The world host's edit is line-neutral (the import folded beside the quest marks', the door beside the ships'): 346
   cites point into `scenes/world.js`. Pins: `test/boatmark.test.js` (8); `tools/mutants/boatmark.json` (26, all dead).
   Not verified in a browser.
+
+## Every hull picked up (SHIP-PACK, 2026-10-01 - DEPARTURE)
+
+The review before the merge: *"Allow larger ships to be picked up, just like smaller vessels."* The mod packs only a
+hull whose prefab carries an active `Packable` node - the Rowboat and the Large Boat. The Small Ship, the Large Galley
+and the Carrack carry `Crewed` alone: they stand where their deed put them, and the deed calls them to a port. The port
+packs every hull (`getBoatTransforms`: `Crewed` sets `packable` too), and makes a ship's parts HER:
+- **Her deed goes with her.** A deed ship (crewed, her deed's number on her) is picked up only with that deed in the
+  pack (`deedMissing`); the deed is taken out and her parts go in. Without it Steal mode at her helm says *"Her deed
+  must be in your pack to pick her up."* (`DEED_NOT_HELD_TEXT`), the menu's Pick up says why ("her deed is not in your
+  pack"), and PackBoat itself refuses (it answers false) for every caller: a fast travel from her helm and an Overworld
+  landfall leave her where she lies, as a ship always was. A deed kept elsewhere would call a second ship of hers to a
+  port. A ship no item placed (number 0) packs without one.
+- **Her deed comes back.** A ship's parts placed (the click, `LaunchFromParts`) are spent - the mod keeps a crewed
+  hull's item, so one parts item would have stood ships without end - and her deed is given back where they lay in the
+  pack (`takePlaceItem`, `mintDeed`): her number, their worth, her hull. She stands by it as a bought ship does: it
+  calls her to a port, and the lost-boat rule leaves her for it.
+- **Her number.** Her parts keep her UID, where the C# mints every pack a new one: her naval state
+  (`scenes/navalHost.js myBoatState` - her hurts, her crew, her guns), her crew's names and her hands ashore
+  (`systems/naval/crewCompanions.js`) are hers again when she stands. Under a new number every ship came back mended and
+  fully crewed - a claimed prize's empty decks filled for nothing. The spent PackedCargoes entry under her number
+  (TransferAll empties and keeps it) is hers to fill again; any other key already held still throws, and now before her
+  hold has moved.
+- **Her worth.** A boat keeps the value of the item that placed her (`itemValue`, kept by the save as `Value`), and her
+  parts are worth it: a claimed prize's papers, a quarter of her hull's price, never the shelf's (Naval-Combat
+  SHIP-CLAIM's OPEN, closed). A boat no item placed packs at her hull's price, as before.
+- **Her weight.** The ships' table weights (2,400, 48,000 and 240,000 kg) were never an item's in the mod. Packed, a hull
+  weighs no more than the Large Boat's parts (120 kg, `packedHullWeight`), her hold's weight on top as ever: in the pack
+  the table's would hold the bearer under the water and sink any boat she sailed.
+- The boat menu lists Pick up on every hull (`systems/csaBoatMenu.js`). The world host hands the runtime the pack
+  (`items.player`) and the menu its word (`noDeed`); an Overworld landfall packs a ship only with her deed.
+- Pins: `test/shippack.test.js` (8) and `test/shipclaim.test.js`'s two; `test/boatmenu.test.js`, `test/csa_boats.test.js`,
+  `test/csa_items.test.js` and `test/ows2_crossing.test.js` PIN MOVED. `tools/mutants/shippack.json` (24, all dead);
+  boatmenu's, csa_items', csa_placing's, ows2's and audit0928_save's records re-aimed by content and killed again. Not
+  seen in a browser.
 
 ## What was already waiting in the port
 

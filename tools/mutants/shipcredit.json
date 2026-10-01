@@ -1,23 +1,5 @@
 [
   {
-    "name": "SP-prices-back",
-    "file": "src/systems/comeSailAwayBoat.js",
-    "old": "export const HULL_PRICES = Object.freeze([1000, 2500, 25000, 50000, 37500]);",
-    "new": "export const HULL_PRICES = Object.freeze([4000, 8000, 100000, 200000, 150000]);",
-    "tests": [
-      "test/shipcredit.test.js"
-    ]
-  },
-  {
-    "name": "SP-galley-at-half",
-    "file": "src/systems/comeSailAwayBoat.js",
-    "old": "[1000, 2500, 25000, 50000, 37500]",
-    "new": "[1000, 2500, 25000, 100000, 37500]",
-    "tests": [
-      "test/shipcredit.test.js"
-    ]
-  },
-  {
     "name": "SC-down-share",
     "file": "src/systems/banking.js",
     "old": "export const CREDIT_DOWN_SHARE = 0.2;",
@@ -236,7 +218,7 @@
   {
     "name": "SC-host-any-lot",
     "file": "src/scenes/worldModes.js",
-    "old": "credit: (staged, price) => (lotHasBoat(staged) ? shopCredit(b, price) : null),",
+    "old": "credit: (staged, price) => (!lotHasBoat(staged) ? null : lotAllBoats(staged) ? shopCredit(b, price) : { kind: 'refuse', result: CREDIT_BOAT_ALONE }),",
     "new": "credit: (staged, price) => shopCredit(b, price),",
     "tests": [
       "test/shipcredit.test.js"
@@ -245,7 +227,7 @@
   {
     "name": "SC-host-not-asked-again",
     "file": "src/scenes/worldModes.js",
-    "old": "      if (proceeds?.kind === 'credit' && (credit?.kind !== 'credit' || credit.loan !== proceeds.loan)) return false;\n",
+    "old": "      if (proceeds?.kind === 'credit' && (!lotAllBoats(staged) || credit?.kind !== 'credit' || credit.loan !== proceeds.loan)) return false;\n",
     "new": "",
     "tests": [
       "test/shipcredit.test.js"
@@ -265,6 +247,51 @@
     "file": "src/scenes/worldModes.js",
     "old": "        takeCredit(playerEntity.bankAccounts, credit.region, credit.loan, { nowMinutes: Math.floor(ownMinutes()) });\n",
     "new": "",
+    "tests": [
+      "test/shipcredit.test.js"
+    ]
+  },
+  {
+    "name": "SC-basket-lent",
+    "file": "src/scenes/worldModes.js",
+    "old": "lotAllBoats(staged) ? shopCredit(b, price) : { kind: 'refuse', result: CREDIT_BOAT_ALONE }",
+    "new": "shopCredit(b, price)",
+    "tests": [
+      "test/shipcredit.test.js"
+    ]
+  },
+  {
+    "name": "SC-commit-basket",
+    "file": "src/scenes/worldModes.js",
+    "old": "(!lotAllBoats(staged) || credit?.kind !== 'credit'",
+    "new": "(credit?.kind !== 'credit'",
+    "tests": [
+      "test/shipcredit.test.js"
+    ]
+  },
+  {
+    "name": "SC-all-boats-any",
+    "file": "src/systems/tradeModes.js",
+    "old": "staged.length > 0 && staged.every((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex))",
+    "new": "staged.some((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex))",
+    "tests": [
+      "test/shipcredit.test.js"
+    ]
+  },
+  {
+    "name": "SC-all-boats-empty",
+    "file": "src/systems/tradeModes.js",
+    "old": "staged.length > 0 && staged.every(",
+    "new": "staged.every(",
+    "tests": [
+      "test/shipcredit.test.js"
+    ]
+  },
+  {
+    "name": "SC-boat-alone-unsaid",
+    "file": "src/systems/tradeModes.js",
+    "old": "          : r?.result === CREDIT_BOAT_ALONE ? 'The bank lends on a boat bought by itself.' : null;",
+    "new": "          : null;",
     "tests": [
       "test/shipcredit.test.js"
     ]

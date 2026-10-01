@@ -1,34 +1,24 @@
-// SHIP-PRICE and SHIP-CREDIT (2026-10-01, Mac: "make ship prices more reasonable and provide more accessibility options
-// to acquiring"; his picks "About a quarter" and "Buy on credit - Pay part now; the bank lends you the rest under
-// Daggerfall's own loan rules") - THE HULLS' PRICES a quarter of Come Sail Away's; A BOAT BOUGHT ON CREDIT at a shop's
-// counter: the purse its share (CREDIT_DOWN_SHARE at least), the bank of the shop's region the rest under BorrowLoan's
-// own law, paid to the shop - the offer and its refusals in both trade skins, the host's commit asking again
-// (bible/03-World/Naval-Combat.md SHIP-PRICE, SHIP-CREDIT).
+// SHIP-CREDIT (2026-10-01, Mac: "make ship prices more reasonable and provide more accessibility options to acquiring";
+// his pick "Buy on credit - Pay part now; the bank lends you the rest under Daggerfall's own loan rules") - A BOAT BOUGHT
+// ON CREDIT at a shop's counter: the purse its share (CREDIT_DOWN_SHARE at least), the bank of the shop's region the
+// rest under BorrowLoan's own law, paid to the shop - the offer and its refusals in both trade skins, the host's commit
+// asking again; a boat bought by itself, never a basket a boat is in (bible/03-World/Naval-Combat.md SHIP-CREDIT).
+// SHIP-PRICE, the hulls at a quarter of their price, was withdrawn before the merge: Come Sail Away's prices stand.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { HULL_PRICES, HULL_NAMES } from '../src/systems/comeSailAwayBoat.js';
 import {
   createBankAccounts, creditDecision, takeCredit, borrowLoan, calculateBankLoanRepayment, CREDIT_DOWN_SHARE, LOAN_MINIMUM,
   LOAN_MAX_PER_LEVEL, LOAN_REPAY_MINUTES, TRANSACTION_RESULT, EMPIRE_LOAN_DIVISOR,
 } from '../src/systems/banking.js';
-import { lotHasBoat, creditRows, creditRefusalRows, CREDIT_ITEM_TEMPLATES, CREDIT_REFUSALS } from '../src/systems/tradeModes.js';
+import { lotHasBoat, lotAllBoats, creditRows, creditRefusalRows, CREDIT_ITEM_TEMPLATES, CREDIT_REFUSALS, CREDIT_BOAT_ALONE } from '../src/systems/tradeModes.js';
 import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE } from '../src/systems/comeSailAwayItems.js';
 import { NativeTradeWindow } from '../src/ui/nativeTrade.js';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
 const MODES = src('scenes/worldModes.js');
 const ENHANCED = src('ui/enhancedTrade.js');
-
-// ── SHIP-PRICE ─────────────────────────────────────────────────────────────────────────────────────────────────────
-
-test('SHIP-PRICE the hulls about a quarter of Come Sail Away\'s, as Mac picked them: Rowboat 1,000, Large Boat 2,500, Small Ship 25,000, Large Galley 50,000, Carrack 37,500 (mutants: a price put back)', () => {
-  assert.deepEqual([...HULL_NAMES], ['Rowboat', 'Large Boat', 'Small Ship', 'Large Galley', 'Carrack']);
-  assert.deepEqual([...HULL_PRICES], [1000, 2500, 25000, 50000, 37500]);
-  const csa = [4000, 8000, 100000, 200000, 150000];
-  for (let h = 0; h < csa.length; h++) assert.ok(HULL_PRICES[h] / csa[h] >= 0.25 && HULL_PRICES[h] / csa[h] <= 0.32, HULL_NAMES[h]);
-});
 
 // ── SHIP-CREDIT: the bank's law ────────────────────────────────────────────────────────────────────────────────────
 
@@ -73,12 +63,18 @@ test('SHIP-CREDIT the loan a credit purchase takes is BorrowLoan\'s debt and yea
 
 // ── SHIP-CREDIT: the trade window ──────────────────────────────────────────────────────────────────────────────────
 
-test('SHIP-CREDIT the lot: only a boat - Come Sail Away\'s parts or deed - is sold on credit; the refusals named are the bank\'s own (mutants: any lot, a template missed)', () => {
+test('SHIP-CREDIT the lot: only a boat - Come Sail Away\'s parts or deed - is sold on credit, and only bought by itself (a boat among other goods is refused, never the basket lent on); the refusals named are the bank\'s own (mutants: any lot, a template missed, a basket lent on)', () => {
   assert.deepEqual([...CREDIT_ITEM_TEMPLATES], [BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE]);
   assert.equal(lotHasBoat([{ templateIndex: 1321 }]), true);
   assert.equal(lotHasBoat([{ templateIndex: 100 }, { templateIndex: 1320 }]), true);
   assert.equal(lotHasBoat([{ templateIndex: 100 }]), false);
   assert.equal(lotHasBoat([]), false);
+  // the review before the merge: a boat in the basket put the whole basket on the bank's credit
+  assert.equal(lotAllBoats([{ templateIndex: 1321 }]), true);
+  assert.equal(lotAllBoats([{ templateIndex: 1321 }, { templateIndex: 1320 }]), true, 'two boats are boats');
+  assert.equal(lotAllBoats([{ templateIndex: 100 }, { templateIndex: 1320 }]), false, 'a boat among other goods');
+  assert.equal(lotAllBoats([]), false);
+  assert.deepEqual(creditRefusalRows({ result: CREDIT_BOAT_ALONE }).map((r) => r.text), ['The bank lends on a boat bought by itself.']);
   for (const k of Object.keys(CREDIT_REFUSALS)) assert.equal(CREDIT_REFUSALS[k], TRANSACTION_RESULT[k], k);
   assert.deepEqual(creditRows({ loan: 19000, pay: 6000, owed: 20900 }, 25000, 6000).map((r) => r.text), [
     'You have 6000 of the 25000 gold.', 'The bank will lend you 19000 gold for the boat.', 'You pay 6000 now, and owe 20900 within a year.', 'Buy on credit?',
@@ -91,7 +87,7 @@ test('SHIP-CREDIT the lot: only a boat - Come Sail Away\'s parts or deed - is so
   assert.deepEqual(creditRefusalRows({ result: 1 }), []);
 });
 
-const deed = () => ({ templateIndex: 1321, name: "Deed to Small Ship 'I'", value: 25000, message: 20 });
+const deed = () => ({ templateIndex: 1321, name: "Deed to Small Ship 'I'", value: 100000, message: 20 });
 const hooks = (o = {}) => ({
   mode: 'Buy', shelfItems: () => [], packItems: () => [], accepts: () => true, enchanted: () => false,
   priceCtx: () => ({ quality: 10, skills: {} }), gold: () => 6000, rows: (id) => [{ text: `#${id}`, center: true }],
@@ -127,13 +123,13 @@ test('SHIP-CREDIT the classic trade window: a boat the purse falls short of is o
   assert.ok(plain.box.rows.every((x) => /^#/.test(x.text)));
 });
 
-test('SHIP-CREDIT the enhanced trade window and the host: the same offer and refusal; the shop asks the bank only for a boat; the commit asks again at the Yes and buys nothing on a credit no longer given, pays the purse its share, takes the loan in the shop\'s region and says so (mutants: the host\'s hook, the second asking, the share, the loan untaken)', () => {
+test('SHIP-CREDIT the enhanced trade window and the host: the same offer and refusal; the shop asks the bank only for a boat bought by itself, refusing a basket a boat is in; the commit asks again at the Yes and buys nothing on a credit no longer given or on more than boats, pays the purse its share, takes the loan in the shop\'s region and says so (mutants: the host\'s hook, the basket lent on, the second asking, the share, the loan untaken)', () => {
   assert.match(ENHANCED, /const credit = mode === 'Buy' \? deps\.credit\?\.\(\[\.\.\.stagedForCost\(\)\], price\) \?\? null : null;/);
   assert.match(ENHANCED, /box = \{ rows: creditRows\(credit, price, deps\.gold\?\.\(\) \?\? 0\), buttons: 'YesNo', onYes: \(\) => confirmTrade\(price, credit\) \};/);
   assert.match(ENHANCED, /creditRefusalRows\(credit, credit\.lines\)/);
   assert.match(ENHANCED, /const proceeds = isSelling \? sellProceeds\(price, deps\.weight\?\.\(\) \?\? \{\}\) : credit;/);
-  assert.match(MODES, /credit: \(staged, price\) => \(lotHasBoat\(staged\) \? shopCredit\(b, price\) : null\),/);
-  assert.match(MODES, /const credit = proceeds\?\.kind === 'credit' \? creditAt\(proceeds\.region, price\) : null;\n\s*if \(proceeds\?\.kind === 'credit' && \(credit\?\.kind !== 'credit' \|\| credit\.loan !== proceeds\.loan\)\) return false;\n\s*deductGold\(playerEntity, credit \? credit\.pay : price\);/);
+  assert.match(MODES, /credit: \(staged, price\) => \(!lotHasBoat\(staged\) \? null : lotAllBoats\(staged\) \? shopCredit\(b, price\) : \{ kind: 'refuse', result: CREDIT_BOAT_ALONE \}\),/);
+  assert.match(MODES, /const credit = proceeds\?\.kind === 'credit' \? creditAt\(proceeds\.region, price\) : null;\n\s*if \(proceeds\?\.kind === 'credit' && \(!lotAllBoats\(staged\) \|\| credit\?\.kind !== 'credit' \|\| credit\.loan !== proceeds\.loan\)\) return false;\n\s*deductGold\(playerEntity, credit \? credit\.pay : price\);/);
   assert.match(MODES, /takeCredit\(playerEntity\.bankAccounts, credit\.region, credit\.loan, \{ nowMinutes: Math\.floor\(ownMinutes\(\)\) \}\);/);
   assert.match(MODES, /const c = \{ \.\.\.creditDecision\(playerEntity\.bankAccounts, region, \{ price, purse: totalGoldAmount\(playerEntity\), level: playerEntity\.level \?\? 1 \}\), region \};/);
   assert.match(MODES, /const shopCredit = \(b, price\) => creditAt\(shopRegion\(b\), price\);/);
