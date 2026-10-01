@@ -46,6 +46,10 @@ import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk } from '../../src/net/nodeLaw.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
+import { fortMaterialOk } from '../../src/net/fortLaw.js';   // SEAT2b: what a seat writ may ask
+import { seatKeyOk } from '../../src/net/townSeatLaw.js';
+import { confirmedSeats } from './townSeats.js';
+import { supplyForts } from './seatForts.js';   // SEAT2b: a stockpile's delivery moved into its projects
 import { saleTax, saleTaxOn, provenanceOk, pieceListable, UNYIELDED, WEAR_WHOLE } from '../../src/net/marketLaw.js';
 import {
   WRIT_S, GUILD_WRITS_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX, WRIT_WINDOW_S, WRIT_SETTLE_MAX, WRIT_SHOWN, WRIT_RECENT_S, WRIT_RID_RE,
@@ -59,7 +63,7 @@ const TAKERS_SQL = WRIT_POWERS.storesWithdraw.join(', ');
 /** AUDIT 31 L9: what a guild's standing writs of a material still want - the guild Stores' room they hold (guild `g`,
  *  material `m`, the moment `now`, in SQL). */
 const reservedSql = (g, m, now) => `COALESCE((SELECT SUM(left_units) FROM guild_writs WHERE guild_id = ${g} AND material = ${m} AND state = 'open'
-  AND expires_at > ${now}), 0)`;
+  AND expires_at > ${now} AND seat IS NULL), 0)`;   // SEAT2b: a seat writ's units go to the seat, never the guild Stores
 /** A guild's Stores of a material, in SQL. */
 const guildHeldSql = (g, m) => `COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = ${g} AND material = ${m}), 0)`;
 
@@ -98,7 +102,9 @@ const guildWritView = (w, me, may = false) => ({
   material: w.material, units: Number(w.units), left: Number(w.left_units), pay: Number(w.pay), escrow: Number(w.escrow),
   at: Number(w.at), expiresAt: Number(w.expires_at), state: w.state, mine: w.poster === me, may,
   // AUDIT 31 U10: what the guild Stores can still take of its material - a delivery past it is refused
-  room: Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)),
+  room: w.seat == null ? Math.max(0, GUILD_STORES_MAX - Number(w.guild_held ?? 0)) : null,
+  // SEAT2b: a seat writ's seat, and whether it fills a Siege Camp (else the seat's stockpile)
+  seat: w.seat == null ? null : Number(w.seat), camp: Number(w.camp ?? 0) === 1,
 });
 const COMMISSION_ROW = `SELECT c.*, pp.handle AS poster_handle, cp.handle AS crafter_handle FROM commissions c
   JOIN players pp ON pp.id = c.poster LEFT JOIN players cp ON cp.id = c.crafter`;
@@ -268,7 +274,7 @@ async function budgetOf(db, guildId, nowS) {
  * on the boards of `region` for seven days; the whole pay escrowed from the character's guild's Marks treasury. The
  * Guildmaster's; an Officer's within the Officers' budget this seat week.
  */
-export async function postGuildWrit(ctx, player, env, { character, region, material: key, units, pay, rid } = {}) {
+export async function postGuildWrit(ctx, player, env, { character, region, material: key, units, pay, rid, seat = null } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -289,8 +295,23 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
   if (a.error) return a;
   const rank = Number(a.me.rank);
   if (!writMay(rank, 'postWrit')) return { error: 'guild-rank' };
-  if (await overRate(ctx, `writ-post:${me}`, WRIT_POSTS_MAX, WRIT_WINDOW_S)) return { error: 'writ-rate' };
   const g = a.me.guild_id;
+  // SEAT2b (Professions-Arc 11; Seats-Arc 4.2, 7.5): A SEAT WRIT - for a confirmed seat of this region and a material a
+  // work asks; the holder's fills the seat's stockpile, a pledged challenger's (this week) its Siege Camp
+  let camp = 0;
+  if (seat != null) {
+    if (!seatKeyOk(seat)) return { error: 'bad-seat' };
+    const s = (await confirmedSeats(db, nowS)).get(seat);
+    if (!s || Number(s.region) !== region) return { error: 'writ-elsewhere' };
+    if (!fortMaterialOk(key)) return { error: 'bad-material' };
+    const holds = await db.prepare('SELECT 1 FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(seat, g).first();
+    if (!holds) {
+      const pledged = await db.prepare('SELECT 1 FROM town_seat_pledges WHERE week = ? AND key = ? AND guild_id = ?').bind(seatWeek(nowS), seat, g).first();
+      if (!pledged) return { error: 'seat-not-pledged' };
+      camp = 1;
+    }
+  }
+  if (await overRate(ctx, `writ-post:${me}`, WRIT_POSTS_MAX, WRIT_WINDOW_S)) return { error: 'writ-rate' };
   const officer = rank === GUILD_RANK_MASTER ? 0 : 1;
   const escrow = units * pay;
   const week = seatWeek(nowS);
@@ -299,18 +320,18 @@ export async function postGuildWrit(ctx, player, env, { character, region, mater
   await db.batch([
     // THE DECISION: the rank still held, the treasury's Marks, the guild's twenty, an Officer's budget, the id unspent
     db.prepare(`INSERT OR IGNORE INTO guild_writs (id, guild_id, poster, poster_char, officer, week, region, material, units, left_units, pay, escrow,
-        at, expires_at, rid, n)
-      SELECT ?3, ?4, ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?9, ?10, ?11, ?12, ?13, ?14, ?15
+        at, expires_at, rid, n, seat, camp)
+      SELECT ?3, ?4, ?1, ?2, ?5, ?6, ?7, ?8, ?9, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?19, ?20
       WHERE EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND char_id = ?2 AND guild_id = ?4 AND rank = ?16)
         AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?4), 0) >= ?11
         -- AUDIT 31 L1: the twenty that stand - one past its seventh day, not yet swept, is not among them
         AND (SELECT COUNT(*) FROM guild_writs WHERE guild_id = ?4 AND state = 'open' AND expires_at > ?12) < ?17
         -- AUDIT 31 L9: the guild Stores' room for it, past what they hold and what the standing writs of it still want
-        AND ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18
+        AND (?19 IS NOT NULL OR ${guildHeldSql('?4', '?8')} + ${reservedSql('?4', '?8', '?12')} + ?9 <= ?18)   -- SEAT2b: a seat writ fills no guild Stores
         AND (?5 = 0 OR COALESCE((SELECT SUM(units * pay) FROM guild_writs WHERE guild_id = ?4 AND week = ?6 AND officer = 1), 0) + ?11
           <= COALESCE((SELECT budget FROM guild_writ_budgets WHERE guild_id = ?4), 0))
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?14 || ':wesc')`)
-      .bind(me, character, id, g, officer, week, region, key, units, pay, escrow, nowS, nowS + WRIT_S, rid, nonce, rank, GUILD_WRITS_MAX, GUILD_STORES_MAX),
+      .bind(me, character, id, g, officer, week, region, key, units, pay, escrow, nowS, nowS + WRIT_S, rid, nonce, rank, GUILD_WRITS_MAX, GUILD_STORES_MAX, seat, camp),
     // the pay held: the treasury to the ledger's escrow end, the writ's id
     db.prepare(`${INSERT_LINE} SELECT 'guild', guild_id, 'escrow', id, 'writ-escrow', escrow, ?4, at, poster, material, rid || ':wesc'
       FROM guild_writs WHERE poster = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce, utcDay(nowS)),
@@ -375,7 +396,7 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
         -- AUDIT 31 S6: no character of the account holds a rank that takes this guild's Stores out
         AND NOT EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND guild_id = w.guild_id AND rank IN (${TAKERS_SQL}))
         AND ${spendableSql('?1', '?3', 'w.material')} >= ?4   -- GOLD-MARKET: never gold's units
-        AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13
+        AND (w.seat IS NOT NULL OR COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13)
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?14`)
       .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, Number(w.left_units), GUILD_STORES_MAX, MARKS_MAX),
     // the writ drawn down, a filled one closed
@@ -385,10 +406,16 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
     // the deliverer's units out, bought first; into the guild Stores as the guild's own (7: a writ's units are bought to
     // whoever withdraws them)
     ...spendStatements(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: filled, binds: [w.material, units, rid, nonce] }),
-    db.prepare(`INSERT INTO guild_prof_stores (guild_id, material, dep_player, dep_char, qty, moved_by, moved_at)
+    ...(w.seat == null ? [db.prepare(`INSERT INTO guild_prof_stores (guild_id, material, dep_player, dep_char, qty, moved_by, moved_at)
       SELECT guild_id, material, '', '', units, ?4, at FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3
       ON CONFLICT (guild_id, material, dep_player, dep_char) DO UPDATE SET qty = guild_prof_stores.qty + excluded.qty,
-        moved_by = excluded.moved_by, moved_at = excluded.moved_at`).bind(me, rid, nonce, who),
+        moved_by = excluded.moved_by, moved_at = excluded.moved_at`).bind(me, rid, nonce, who)]
+      // SEAT2b: a seat writ's units to the seat - the holder's stockpile, or the challenger's Siege Camp this week
+      : Number(w.camp) === 1 ? [db.prepare(`INSERT INTO town_seat_camps (week, key, guild_id, material, qty)
+          SELECT ?4, ?5, guild_id, material, units FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3
+          ON CONFLICT (week, key, guild_id, material) DO UPDATE SET qty = town_seat_camps.qty + excluded.qty`).bind(me, rid, nonce, seatWeek(nowS), Number(w.seat))]
+      : [db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT ?4, material, units FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3
+          ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`).bind(me, rid, nonce, Number(w.seat))]),
     // the Marks: the pay out of the escrow, the tax burnt from it
     db.prepare(`${INSERT_LINE} SELECT 'escrow', writ, 'account', filler, 'writ-pay', pay, day, at, filler, material, rid || ':wpay'
       FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3 AND pay > 0`).bind(me, rid, nonce),
@@ -396,7 +423,10 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
       FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2 AND n = ?3 AND tax > 0`).bind(me, rid, nonce),
   ]);
   const made = await db.prepare('SELECT * FROM guild_writ_fills WHERE filler = ?1 AND rid = ?2').bind(me, rid).first();
-  if (made?.n === nonce) return answer(made);
+  if (made?.n === nonce) {
+    if (w.seat != null && Number(w.camp) !== 1) await supplyForts(db, Number(w.seat), nowS);   // SEAT2b: into the seat's projects
+    return answer(made);
+  }
   if (made) return answer(made, { repeat: true });
   if (await spent(db, me, rid, ':wpay')) return { error: 'prof-rid' };
   const now = await db.prepare('SELECT * FROM guild_writs WHERE id = ?1').bind(id).first();

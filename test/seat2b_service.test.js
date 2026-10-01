@@ -141,3 +141,39 @@ test('SEAT2b THE DROPS: a capture takes every work a tier down and a building pr
   await db.batch(fortsSeasonStatements(db));
   assert.deepEqual(tiers(), { walls: [2, null], shrine: [0, null], market: [0, 1] }, 'a Season\'s wear, the project kept');
 });
+
+test('SEAT2b SEAT WRITS: the holder posts a writ for its seat - delivered, its units go to the seat\'s stockpile and into its project, never the guild Stores; a pledged challenger\'s fills its Siege Camp for the week; a guild neither holding nor pledged, a material no work asks and another region refused (mutants: the destination; the camp; the pledge; the material)', async (t) => {
+  const s = await stood(t);
+  const sh = await s.guild('Gamal', 'The Silver Hand', 'SH');
+  const eo = await s.guild('Horst', 'Ebon Oath', 'EO');
+  const dg = await s.guild('Doran', 'Daggers', 'DG');
+  s.hold(ANTICLERE, sh.gid);
+  s.treasury(sh.gid, 20_000); s.treasury(eo.gid, 20_000); s.treasury(dg.gid, 20_000);
+  s.raw.prepare('INSERT INTO town_seat_pledges (week, guild_id, region, key, set_by, at) VALUES (?, ?, ?, ?, ?, ?)').run(W, eo.gid, ANTICLERE.region, ANTICLERE.key, 'x', T0);
+  const env = s.svc.env;
+  env.PROFESSIONS_OPEN = 'on';
+  const post = async (g, o) => (await s.svc.call('/v1/writs/post', { character: g.gm.character, region: 21, material: 'stone:cut', units: 100, pay: 3, rid: rid(), ...o }, g.gm.secret)).body;
+  assert.equal((await post(dg, { seat: ANTICLERE.key })).error, 'seat-not-pledged');
+  assert.equal((await post(sh, { seat: ANTICLERE.key, material: 'ore:mithril', pay: 1 })).error, 'bad-material', 'no work asks it');
+  assert.equal((await post(sh, { seat: ANTICLERE.key, region: 22 })).error, 'writ-elsewhere');
+  const held = await post(sh, { seat: ANTICLERE.key });
+  assert.equal(held.ok, true, JSON.stringify(held));
+  assert.deepEqual([held.writ.seat, held.writ.camp, held.writ.room], [ANTICLERE.key, false, null]);
+  const camp = await post(eo, { seat: ANTICLERE.key, material: 'plank:oak', pay: 1 });
+  assert.deepEqual([camp.writ.seat, camp.writ.camp], [ANTICLERE.key, true]);
+  // the holder's project, waiting on stone
+  assert.equal((await s.fund(sh.gm, ANTICLERE.key, 'shrine')).status, 200);
+  const carter = await s.svc.registered('Carter');
+  s.raw.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty) VALUES (?, ?, 'stone:cut', 'own', 500), (?, ?, 'plank:oak', 'own', 500)`).run(carter.id, carter.character, carter.id, carter.character);
+  const supply = async (w, units) => (await s.svc.call('/v1/writs/supply', { character: carter.character, region: 21, writ: w.writ.id, units, rid: rid() }, carter.secret)).body;
+  const a = await supply(held, 100);
+  assert.equal(a.ok, true, JSON.stringify(a));
+  assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM guild_prof_stores WHERE guild_id = ?').get(sh.gid).n, 0, 'never the guild Stores');
+  const f = await s.forts(sh.gm, ANTICLERE.key);
+  assert.deepEqual(f.works.shrine.held, [['stone:cut', 100], ['metal:silver', 0]], 'into the Shrine at once');
+  assert.deepEqual(s.stockOf(ANTICLERE.key), {}, 'the Shrine took all it asked');
+  const b = await supply(camp, 60);
+  assert.equal(b.ok, true, JSON.stringify(b));
+  assert.deepEqual(s.raw.prepare('SELECT week, key, guild_id, material, qty FROM town_seat_camps').all().map((r) => [r.week, r.key, r.guild_id, r.material, r.qty]),
+    [[W, ANTICLERE.key, eo.gid, 'plank:oak', 60]], 'the Oath\'s camp this week');
+});

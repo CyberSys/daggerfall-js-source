@@ -45,3 +45,7 @@ CREATE TABLE IF NOT EXISTS town_seat_camps (
   qty       INTEGER NOT NULL DEFAULT 0 CHECK (qty >= 0),
   PRIMARY KEY (week, key, guild_id, material)
 );
+-- A SEAT WRIT (Professions-Arc 11; Seats-Arc 4.2): a guild writ posted for a seat - the holder's to its stockpile
+-- (`camp` 0), a pledged challenger's to its Siege Camp (`camp` 1); its deliveries go there, not to the guild Stores
+ALTER TABLE guild_writs ADD COLUMN seat INTEGER;
+ALTER TABLE guild_writs ADD COLUMN camp INTEGER NOT NULL DEFAULT 0 CHECK (camp IN (0, 1));

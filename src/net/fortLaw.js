@@ -46,6 +46,10 @@ export const FORT_WORKS = Object.freeze([
     tier(2000, ['plank:oak', 400], ['stone:cut', 200]), tier(5000, ['plank:teak', 800], ['stone:cut', 400])]) }),
 ]);
 const BY_ID = new Map(FORT_WORKS.map((w) => [w.id, w]));
+/** Every material a work's tier asks - what a seat writ may ask for its stockpile or a Siege Camp (Professions-Arc 11:
+ *  "A seat's writs build its fortifications"). */
+export const FORT_MATERIALS = Object.freeze([...new Set(FORT_WORKS.flatMap((w) => w.tiers.flatMap((t) => t.needs.map(([k]) => k))))].sort());
+export const fortMaterialOk = (key) => FORT_MATERIALS.includes(key);
 /** A work by its id, or null. */
 export const fortWork = (id) => (typeof id === 'string' ? BY_ID.get(id) ?? null : null);
 /** A work's highest tier (2 or 3), or 0 for none. */
