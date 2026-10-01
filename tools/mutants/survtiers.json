@@ -943,8 +943,8 @@
   {
     "name": "SURVTIERS-the-note-grows-a-third-sentence",
     "file": "src/systems/features.js",
-    "old": "comes back once you’ve seen to them; on Hard",
-    "new": "comes back once you’ve seen to them. On Hard",
+    "old": "comes back once you\u2019ve seen to them; on Hard",
+    "new": "comes back once you\u2019ve seen to them. On Hard",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -961,8 +961,8 @@
   {
     "name": "SURVTIERS-the-potion-cite-falls-short",
     "file": "src/systems/potions.js",
-    "old": "exterior.js:2531) and useItem.js:379",
-    "new": "exterior.js:2531) and useItem.js:351",
+    "old": "exterior.js:2534) and useItem.js:379",
+    "new": "exterior.js:2534) and useItem.js:351",
     "tests": [
       "test/citedrift.test.js"
     ],
