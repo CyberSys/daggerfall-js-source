@@ -1252,6 +1252,139 @@ topDealers' own sort (the chart's sort reads the same). Found on the way, not th
 WB3-a-blow-from-off-the-court survives on the base too (WB9's in-court check after the floor's makes the floor's slack
 unreachable from its pins).
 
+## 17. His host - the Legion-Lord (WB11, 2026-10-01)
+
+Asked what could build on the gates, Mac took the second idea of the list - *adds*, the thing section 9 named and left
+("No adds. Every add would need an owner to run it; the relay could own simple ones as it owns the boss - later") - and,
+offered three kinds (Harriers in the first phase, Sappers in the second, Ward-Bearers at each new court) and four
+questions, answered: *"1. All three 2. Your choice 3. Your choice 4. Trial rotation"*. The questions were: (1) which
+kinds; (2) a Sapper that reaches him - does it heal him or ward him; (3) do the Ward-Bearers replace the fixed ward at
+each new court; (4) are the adds part of every fight, or a new trial in the marks' rotation. So: all three, as a TRIAL -
+the ninth, **Legion-Lord** - which rebuilds the rotation; and the two calls left to this page are made below.
+
+**The calls (Mac's "your choice").** (2) A Sapper that reaches him HEALS him - a share of the health he stands for, a
+few times a fight at most. A ward would have been a second ward beside the Ward-Bearers' own, and the two would read as
+one; a heal is the Soul-Hungry trial's own currency (a fight pushed toward the Wrath), and it is seen on the bar the
+moment it lands. (3) Yes: under the trial, the ward at a new court holds WHILE HIS WARD-BEARERS STAND (to a cap), then
+his profile's own ward while the turn's signature is cast - WB9b's order kept, the fixed wait turned into a fight.
+
+### The trial, and the rotation for nine (WB11a)
+
+`net/gateMods.js` GATE_TRIALS gains its ninth: **Legion-Lord** (`legion`) - *"His host fights beside him - Imps harry
+whoever stands far from him, Atronachs march to heal him, and his Ward-Bearers hold his ward in each new court"*. Its
+sign is three figures; its tip (MARK_TIPS) says what to do: cut the Imps down off the far ones, stop each Atronach
+before it reaches him, break the Ward-Bearers to break the ward. The profile (`fightProfile`) carries `legion`; the
+Warden unmarked and every set without it carry none, and NOTHING of the host runs, rolls or is said in such a fight - an
+unmarked fight's beats, frames and dice are what they were.
+
+THE ROTATION (`net/gateLaw.js marksCycle`) was built on the round-robin's perfect matchings of EIGHT trials. Nine is odd,
+so the circle method sits one out: the nine trials and a BYE make ten seats, the ten make nine matchings, and each
+matching is four real pairs and one trial resting. A round is still one matching under one turn of the aspects (four
+gates, every aspect once, no trial twice); the nine matchings run under each of the four turns - **4 x 36 = 144 gates,
+twelve real days**, every aspect with every pair of the nine once. What the eight-trial cycle promised, and what moved:
+
+- no two gates running share an aspect or a trial (the seams' depth-first walk, the wrap included) - kept;
+- each round of four gates (4k to 4k+3) brings every aspect and EIGHT of the nine trials - the ninth rests, a
+  different one each round, never one two rounds running;
+- a pair of trials comes back no sooner than 33 gates (66 real hours; it was 25), under another aspect each time;
+- every trial stands in 32 of the 144 (22%; each of the eight stood in 28 of 112, 25%) - a Legion-Lord night about
+  two and two-thirds times a real day.
+
+The law needs `floor(trials / 2) === aspects` - eight or nine trials for four aspects (thrown on anything else; pinned).
+A new cycle moves the marks of every gate to come, so the relay and every screen must agree on it: the brain's law
+goes to 5 (below), and a game that does not know it is told to reload, as at every brain law before.
+
+### The host (WB11b - the brain)
+
+`net/gateBrain.js` HOST_KINDS, by wire id:
+
+| id | kind | who, by his aspect | when | body | moves | health |
+|---|---|---|---|---|---|---|
+| 0 | **Harrier** | an Imp, whatever he wears | phase one, in waves | r 0.5, h 1.5 | 5.0 m/s at the challenger standing FARTHEST from him | HARRIER_S (3) s of the court's mean reference damage |
+| 1 | **Sapper** | a Fire, Ice, Iron or Flesh Atronach (Burning, Rime, Storm, Venom) | phase two, in waves | r 0.7, h 2.3 | 1.6 m/s straight at him | SAPPER_TEAM_S (6) s of the court's whole reference damage, shared over the wave |
+| 2 | **Ward-Bearer** | a Fire Daedra, a Frost Daedra, a Daedra Seducer (her winged form) or a Daedroth | rise as he lands in each new court | r 0.6, h 2.2 | stands | BEARER_TEAM_S (8) s of the court's whole reference damage, shared |
+
+Counted by the living challengers in HIS court (`n`), as the crystals are: Harriers `clamp(1 + ceil(n/3), 2, 5)` a wave
+and no more than 6 standing; Sappers `clamp(1 + floor(n/4), 1, 4)` a wave and no more than 6; Ward-Bearers
+`clamp(2 + floor(n/6), 2, 4)`. Every health at least HOST_HP_MIN. Sized so: a Harrier is three of a challenger's own
+blows; a court that splits up breaks a wave of Sappers, or the Ward-Bearers, in about their team seconds over the
+groups it splits into, and one that stands together round one does not.
+
+- **The Harriers** rise out of the fire at the first court's rim (HOST_RIM_R, 2 m in), never within HOST_SPAWN_CLEAR of a
+  challenger: the first wave HARRY_FIRST_MS after the fight began, then one every HARRY_EVERY_MS while the first phase
+  lasts. Each runs at the living challenger in his court who stands farthest from HIM - the archer, the caster, the
+  healer at the edge - and keeps that mark HOST_RETARGET_MS. In reach it **Bites**: a 2 m disc about itself, a 0.9 s
+  wind-up, 12% and 4, plain - stepped out of in half a second. Melee peels them; a ranged fighter who stands off is
+  their mark.
+- **The Sappers** rise at the second court's rim on the side away from him (SAP_SPREAD either side of the point
+  opposite him, never within SAP_FROM_HIM), SAP_FIRST_MS after the Burning Court's turn is done and every SAP_EVERY_MS
+  after, while the second phase lasts. Each walks straight at him, its path drawn on the floor. One that reaches him
+  (his body, its own and SAP_REACH_SLACK) is CONSUMED, and while his feedings last (SAP_FEEDS_MAX a fight) he drinks
+  it: SAP_HEAL of the health he stands for, never past it. They strike nobody - they are the objective.
+- **The Ward-Bearers** rise as the bound lands him in the second court, and again in the third: on a ring BEARER_RING_R
+  about its heart, evenly. They stand. The turn's queue under the trial is the bound, the wait for a challenger
+  (WB9b's), then **the bearers' wait**: from the first challenger's arrival his ward holds while one stands - BEARER_WARD
+  _MAX_MS at most, when any still standing crumble - and when the last falls it breaks into his profile's own ward
+  (SHIELD_MS, Unyielding's 6 s), under which the signature is cast as before. Every BEARER_PULSE_MS each one standing
+  with a challenger within BEARER_PULSE_NEAR **Pulses**: a 3.5 m disc about itself, a 1.4 s wind-up, 18% and 6 of his
+  aspect's element (the saving throw answers it). The ward's two words are WB9b's `ph`: at the arrival it says the
+  longest the bearers can hold it, at the break the profile's ward.
+- **Crumbled**: at every phase's turn every one standing crumbles (each kind is its phase's or its court's); at his fall
+  and at the Wrath the host is gone with him (those words say it - no word of its own).
+- **A blow on one** (`applyHostHit`) is judged by the hand and the purse a blow on him is - his blow rate and his bucket,
+  a melee blow within MELEE_REACH of its body, from the floor and from HIS court - and counts as dealt (the receipt's
+  bar). It is never his threat. The chart counts it apart (`hd`, the row's `a`), as the crystals' `x`. Vengeful's weight
+  is on the host's blows too; no other trial touches it.
+- **Pure, and silent without the trial**: the host's dice are the rng the relay hands every beat (its CSPRNG), and a
+  fight without the trial draws none of them.
+
+### The wire (WB11b - relay world138, the brain's law 5)
+
+| frame | way | what |
+|---|---|---|
+| `{k:'ahit', i, q, d, r}` | client -> room | a blow on host body `i` (a sequence, the number, its kind) |
+| `{k:'ad', w, m, a: [[i, x, z]...], at}` | room -> all | a wave risen: its kind, the health each, each one's number and spot |
+| `{k:'amv', m: [[i, x, z, tx, tz, v, at]...]}` | room -> all | the beat's walks said again, one word for every one that moved its goal |
+| `{k:'aatk', a: [[i, at, x, z]...]}` | room -> all | the beat's blows begun - which body, when it lands, the disc's centre |
+| `{k:'ah', h: [[i, h]...]}` | room -> all | the host's health, at most every HP_SEND_MS, when it has moved |
+| `{k:'adie', is, w, n?, h?, m?, at}` | room -> all | gone: slain (by `n`), fed to him (his health after) or crumbled |
+| the state's `lg` | room -> one | every one standing: `[i, k, h, m, x, z, tx, tz, v, at, la, lx, lz]` - its walk and the blow in flight (`la` 0, none) |
+
+GATE_HOST_MAX (16) bounds every list (the brain's HOST_STANDING_MAX pinned under it). GATE_BRAIN_V and GATE_BRAIN_MIN
+go to 5: a game that knows neither the host nor the nine-trial rotation would stand in an Imp's bite, never see an
+Atronach walking, fight a ward it cannot break, and name tonight's marks wrong - it is refused at the `in` and told to
+reload (GATE-RELOAD's words). The bump redeploys the relay and drops every connected player once.
+
+### The host seen, heard and fought (WB11c - the client)
+
+- **The fold** (`net/gateLink.js`): the host as the court holds it - each one's spot, walk, health and blow in flight,
+  and the last few gone (how, and by whom) for the court to play out; cleared at his fall and the Wrath.
+- **The bodies** (`world/gateBoss.js HOST_LOOKS`, `hostAct`, `hostStandIn`): Daggerfall's own sprites at their own size
+  (an Imp hovers), on their own walk, attack, hurt and idle tables (the Seducer on her winged form's), each a body my
+  swing, my shaft and my spell meet by its surface as they meet him (`scenes/dungeonContext.js gateHostBodies`, the
+  magic host's `hostMarks`) - never in `foes`. Every metal bites; their armour is a knight's in plate, as his is.
+- **The ground**: each blow's disc on the floor, wound up in the telegraph pass as his are; a Sapper's path to him a
+  faint lane in his aspect's colour; a Ward-Bearer's tether to him in the ward's gold while it holds. Each blow is judged
+  against my own feet at its landing (co-op's law) and lands through the same door as his.
+- **The words**: a wave's rising ("Valkynaz Ruhn calls his host - Imps rise from the fire!", "Fire Atronachs march on
+  Valkynaz Ruhn - cut them down before they reach him!"), the bearers' ("His Ward-Bearers hold his ward - break them to
+  break it!"), a Sapper drunk ("A Fire Atronach reaches Valkynaz Ruhn - he drinks it in."), a Ward-Bearer cut down by
+  name and the last ("The last Ward-Bearer falls - his ward breaks!") - each said while it is news, never a stale one.
+- **The bar**: while the bearers hold his ward, its callout counts them ("Ward-Bearers - 2 of 3 stand"); the foot counts
+  the rest of his host standing. The damage chart's row shows the host's share.
+- **The sound**: each one's own bark rising, winding up and striking, its hurt and its fall - Daggerfall's clips; his
+  growl when a Sapper is drunk.
+
+### What it does not do, said so
+
+- The host does not path (the courts are open discs) and never crosses a walkway: each kind lives and dies in his court.
+- It carries no spoils (his are the fight's) and puts no threat on him.
+- The Seducer is drawn in her winged form alone; her change is not played.
+- Offline there is no gate, and so no host.
+
+Pinned (WB11a-c): `test/wb11_gate_host.test.js`, with the rotation's own pins moved in `test/wb8b_gate_marks.test.js`;
+the slices' record is under Shipped.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
