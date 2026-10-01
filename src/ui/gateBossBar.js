@@ -11,7 +11,7 @@
 // `bossBarModel` is pure - the court's state and the clock in, what the bar says out; the pins read it.
 //
 // Not a DFU member. Ledger A (WB).
-import { ATTACK_BY_ID, ATTACKS, PHASE_AT, PHASE_NAMES, profileOf } from '../net/gateBrain.js';
+import { ATTACK_BY_ID, ATTACKS, PHASE_AT, profileOf } from '../net/gateBrain.js';
 import { telegraphAt } from '../net/gateStrike.js';
 import { countdownText } from '../net/gateLaw.js';
 import { attackColor, crystalColor, STUN_COLOR } from '../world/gateBoss.js';
@@ -30,8 +30,9 @@ export const BOSS_BAR_TEXT = Object.freeze({
   fallen: 'Fallen',
   wrathIn: (left) => `Dagon's Wrath in ${left}`,
   fighters: (n) => (n === 1 ? '1 in the court' : `${n} in the court`),
-  // WBX5 (Mac: "The boss phases need to be more defined"): the phase he fights in, by its number and its name
-  phase: (n) => `${['I', 'II', 'III'][Math.max(1, Math.min(3, n | 0)) - 1]} - ${PHASE_NAMES[Math.max(1, Math.min(3, n | 0)) - 1]}`,
+  // GATE-UX (2026-10-01, Mac: "Remove the text below each boss health bar that shows phase details"): WBX5's phase line
+  // ("II - The Burning Court") is gone from the foot - the marks cut in his health say where the phases turn, and a
+  // turn is still said over the screen as it comes (scenes/gateCourt.js courtPhaseText)
   // WB9c: DAGON'S RECKONING on the bar - its name, the crystals still standing and the seconds to its landing; the stun
   // a broken one leaves him in, and its seconds; and the next one's coming, in the foot
   reckon: (name, left, n, secs) => `${name} - ${left} of ${n} ${n === 1 ? 'crystal' : 'crystals'} - ${secs}s`,
@@ -99,7 +100,6 @@ export function bossBarModel(s, now, boss) {
     warded: !s.fell && now < s.shieldUntil, fallen: !!s.fell, callout,
     wrath: !s.fell && s.wrath == null && toWrath <= WRATH_WARN_MS ? BOSS_BAR_TEXT.wrathIn(countdownText(toWrath)) : null,
     fighters: s.fighters | 0,
-    phaseName: BOSS_BAR_TEXT.phase(s.phase),   // WBX5
     reckonIn: toReckon !== null ? BOSS_BAR_TEXT.reckonIn(countdownText(toReckon)) : null,   // WB9c
   };
 }
@@ -187,7 +187,7 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
     parts.callout.textContent = callout;
     parts.callout.style.color = color;
   }
-  const foot = [model.fallen ? null : model.phaseName, BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? null : model.reckonIn, model.wrath].filter(Boolean).join('  -  ');   // WBX5: the phase first; WB9c: the next Reckoning
+  const foot = [BOSS_BAR_TEXT.fighters(model.fighters), model.fallen ? null : model.reckonIn, model.wrath].filter(Boolean).join('  -  ');   // WB9c: the next Reckoning; GATE-UX: no phase line
   if (foot !== shown.foot) { shown.foot = foot; parts.foot.textContent = foot; }
 }
 

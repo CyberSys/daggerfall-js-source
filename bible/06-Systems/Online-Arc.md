@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8093` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8094` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:352`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10391,7 +10391,7 @@ holds no such quest (AUDIT DISC28 QS-J keeps it on the partner's word, `_keptTag
 world, so a kill there with no linked copy in the room counted nowhere, and the owner's copy stood a fresh foe at the
 marker. Now the heir says it: a kept foe at zero health says its fall once (`keptKillTick`, both pools), the heir's party
 pose carries it for five minutes (`qk` - quest, Foe symbol, the foe's stream number; net/wire.js validPartyPose,
-RELAY_VERSION world136), and every member's linked copy counts the injury and the kill, wherever that member stands
+RELAY_VERSION world137), and every member's linked copy counts the injury and the kill, wherever that member stands
 (`scenes/questFoeHost.js creditKeptKills`). A linked member in the room who saw the puppet fall counted it already: the
 puppet's death names its owner and number, and both doors ask one ledger (`KeptKillLedger`), so the kill counts once.
 A relay before world136 strips the field and nothing changes. The record and the report it answered:

@@ -65,7 +65,7 @@ lane is the room's, so a death nobody linked saw was nobody's word.
   ledger keyed by the holder's account, the quest, the symbol and the number (`KeptKillLedger.credit`), remembered
   past the hold. Whichever lands first counts.
 
-**The relay.** `qk` is a party-pose field, so the hub must project it: RELAY_VERSION world135 -> world136, which
+**The relay.** `qk` is a party-pose field, so the hub must project it: RELAY_VERSION world136 -> world137 (main's GATE-UX took world136 first), which
 `relay-deploy.yml` deploys on the merge - and a relay deploy drops every open socket once. Until it is live the hub
 strips the field, and the kill counts on no copy that did not see it, as before; nothing else changes.
 
@@ -74,9 +74,9 @@ say in the dungeon, the witness's key equal to the heir's, the ledger, Runaway P
 owner's and a linked copy from the heir's word (and not on an unlinked one, and not twice), and the hosts' wiring.
 Red on the code before (the module's exports are not there). Mutants: `tools/mutants/keptkill.json` (22, all dead).
 PIN MOVED: `test/questparty.test.js` (the world host's
-`onPuppetDied` shape); the relay's version pins to world136 and `relayversion.test.js`'s row; mutants
+`onPuppetDied` shape); the relay's version pins to world137 and `relayversion.test.js`'s row; mutants
 `questparty.json` QP-no-kill-credit and `questparty3c.json` QP3C-no-kill re-aimed by content, `soc1.json`
-S38-version-not-bumped to world136.
+S38-version-not-bumped to world137.
 
 **Not changed.** The handover itself: QS-J's reason stands (refused, the foe was lost for every linked member in the
 room). A kept foe killed while its owner's relay link is down past the hold is still uncounted on the owner's copy; the
