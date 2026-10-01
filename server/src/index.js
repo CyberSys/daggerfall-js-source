@@ -2272,13 +2272,13 @@ export class Room {
     }
     // a blow: from a fighter (a correct client says `in` first), from where its own pose stands - the dead strike nothing
     if (!f || !f.players[a.sub]) { this._junk(ws); return; }
-    // GATE-HEAL: what healed this fighter, and by whom - '' itself, else the socket in this room the peer id names (a
-    // fighter of this fight, else nobody); believed within its own heal bucket, from its own pose (net/gateBrain.js
-    // applyHeal). A figure for the round-up alone: it keeps no beat and wakes nothing.
+    // GATE-HEAL: what another's spell healed in this fighter, and whose - the socket in this room the peer id names
+    // (another fighter of this fight, else nobody: allies only); believed within its own heal bucket, from its own pose
+    // (net/gateBrain.js applyHeal). A figure for the round-up alone: it keeps no beat and wakes nothing.
     if (m.k === 'heal') {
       const pose = a.pose ? this._courtOf(a.pose) : null;   // the fallen too: a heal before a fall may be said after it
       for (const [by, n] of m.h) {
-        const healer = by === '' ? a.sub : [...this._all()].find(([, b]) => b.id === by)?.[1]?.sub ?? null;
+        const healer = [...this._all()].find(([, b]) => b.id === by)?.[1]?.sub ?? null;
         if (healer) applyHeal(f, a.sub, healer, n, pose, now);
       }
       return;

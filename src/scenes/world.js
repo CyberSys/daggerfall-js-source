@@ -16589,7 +16589,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     send: (hit) => !!online?.sendGate?.({ k: 'hit', ...hit }),   // WB4b: a blow of mine on him, to the court's room
     sendCrystal: (hit) => !!online?.sendGate?.({ k: 'xhit', ...hit }),   // WB9c: a blow of mine on a crystal of Oblivion
     sendHost: (hit) => !!online?.sendGate?.({ k: 'ahit', ...hit }),   // WB11c: a blow of mine on one of his host
-    sendHeal: (heal) => !!online?.sendGate?.({ k: 'heal', ...heal }),   // GATE-HEAL: what healed me, and by whom
+    sendHeal: (heal) => !!online?.sendGate?.({ k: 'heal', ...heal }),   // GATE-HEAL: what my mates' spells healed in me, and whose
     portalDoor: (door) => { modes?.dungeonCtx?.exitDoors?.push?.(door); },   // WBX2: its door, for the exit's ray and name - and (SS3) its press, the one way through it
     // WBX7: a soul trap of mine still on him as he fell - the port's own kill roll (EnemyEntity.AttemptSoulTrap), his soul
     // into an empty gem of my pack, its words; the tether's arm is not his (the relay has already killed him)

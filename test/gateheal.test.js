@@ -1,13 +1,15 @@
 // GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - asked which healing,
-// he chose each challenger's): HEALING ON THE ROUND-UP. Each fighter's game says what healed it and by whom (itself, or
-// the mate whose spell it was); the relay believes it within the receiver's own heal bucket and credits the HEALER; the
-// kill's chart carries each healer's figure, and the round-up shows a Healed column whenever anyone healed.
+// Mac chose each challenger's; then "Like for healers" - asked whether a fighter's own potions and self-heals count, Mac
+// chose allies only): HEALING ON THE ROUND-UP. Each fighter's game says what another's spell healed in it and whose spell
+// it was; the relay believes it within the receiver's own heal bucket and credits the CASTER - a heal on oneself is no
+// one's. The kill's chart carries each healer's figure, and the round-up shows a Healed column whenever anyone healed
+// another.
 //
 //   the brain     net/gateBrain.js applyHeal, healRef, the bucket; damageChart's `hl`
-//   the wire      `heal` ([[by, n], ...] - '' myself, else the caster's peer id); a chart row's `hl`; the relay's door
-//   the relay     a heal credited to the caster by the peer id its socket says, or to the one healed
+//   the wire      `heal` ([[by, n], ...] - each caster's peer id); a chart row's `hl`; the relay's door
+//   the relay     a heal credited to the caster by the peer id its socket says - never to the one healed
 //   the session   no `heal` to a relay that would junk it
-//   the court     scenes/gateCourt.js - the health watch, a mate's heal by its own door, the word out
+//   the court     scenes/gateCourt.js - another's heal by the ally-cast door, the word out; my own healing no one's
 //   the chart     ui/gateDamageChart.js - the Healed column, wide and narrow
 //   the plumbing  scenes/world.js - the ally-cast door tells the court; the court's word goes out as `heal`
 //
@@ -18,12 +20,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   COURTS, COURT_CENTRE, HIT_KINDS, HEAL_REF_BASE, HEAL_REF_LV, HEAL_REFILL_S, HEAL_DEPTH_X, healRef,
-  newFight, joinFight, applyHeal, applyHit, damageChart, stateOf, dpsRef,
+  newFight, joinFight, applyHeal, applyHit, damageChart,
 } from '../src/net/gateBrain.js';
 import { validGateIn, validGateOut, GATE_KINDS, GATE_HEAL_ROWS_MAX, GATE_HEAL_WIRE_MAX, GATE_HEAL_RELAY_MIN, relaySupportsGateHeal, GATE_BRAIN_V, RELAY_VERSION } from '../src/net/wire.js';
 import { gateTimes, gateRoomKey } from '../src/net/gateLaw.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
-import { createGateCourt, HEAL_SEND_MS, HEAL_GAP_MS } from '../src/scenes/gateCourt.js';
+import { createGateCourt, HEAL_SEND_MS } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { damageChartModel, drawGateDamageChart, DAMAGE_CHART_TEXT, DAMAGE_CHART_DELAY_MS, DAMAGE_CHART_CSS } from '../src/ui/gateDamageChart.js';
 import { destroyGateBossBar } from '../src/ui/gateBossBar.js';
@@ -44,15 +46,15 @@ function fightOf(n = 3, lv = 10) {
 
 // ═══ THE BRAIN ═════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('GATE-HEAL the brain: a heal is credited to its HEALER - the mate whose spell it was, or the one healed - believed within the receiver\'s heal bucket (HEAL_DEPTH_X references deep, a reference refilled over HEAL_REFILL_S), and never a part in the fight (mutants: credited to the receiver; the bucket uncapped; never refilled)', () => {
+test('GATE-HEAL the brain: a heal is credited to its CASTER - another fighter, never the one healed (a heal on oneself is no one\'s) - believed within the receiver\'s heal bucket (HEAL_DEPTH_X references deep, a reference refilled over HEAL_REFILL_S), and never a part in the fight (mutants: credited to the receiver; one\'s own heal credited; the bucket uncapped; never refilled)', () => {
   assert.equal(healRef(10), HEAL_REF_BASE + HEAL_REF_LV * 10);
   const f = fightOf(3, 10), ref = healRef(10), depth = HEAL_DEPTH_X * ref;
   assert.equal(applyHeal(f, 's2', 's1', 40, ON, T0 + 1000), 40);
   assert.deepEqual([f.players.s1.healed, f.players.s2.healed ?? 0], [40, 0], 'the caster\'s, not the one healed');
-  assert.equal(applyHeal(f, 's2', 's2', 15, ON, T0 + 1000), 15, 'a heal of its own');
-  assert.equal(f.players.s2.healed, 15);
+  assert.equal(applyHeal(f, 's2', 's2', 15, ON, T0 + 1000), 0, 'a heal on oneself');
+  assert.equal(f.players.s2.healed ?? 0, 0, 'no one\'s');
   // the receiver's bucket: spent by what it says it was healed, whoever healed it
-  assert.equal(applyHeal(f, 's2', 's3', 1e5, ON, T0 + 1000), depth - 55, 'clipped at the bucket');
+  assert.equal(applyHeal(f, 's2', 's3', 1e5, ON, T0 + 1000), depth - 40, 'clipped at the bucket');
   assert.equal(applyHeal(f, 's2', 's3', 50, ON, T0 + 1000), 0, 'empty');
   const half = HEAL_REFILL_S * 500;
   assert.ok(Math.abs(applyHeal(f, 's2', 's3', 1e5, ON, T0 + 1000 + half) - ref / 2) < 1e-6, 'half a reference back in half the refill');
@@ -94,18 +96,20 @@ test('GATE-HEAL the chart: each healer\'s row carries `hl` (whole), none for one
   applyHit(old, 's1', 10, HIT_KINDS.Spell, ON, T0 + 1000);
   assert.ok(damageChart(old).every((r) => !('hl' in r)));
   assert.ok(applyHeal(old, 's2', 's1', 10, ON, T0 + 1000) === 10, 'a bucket from before it starts full');
-  void dpsRef; void stateOf;
 });
 
 // ═══ THE WIRE ══════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('GATE-HEAL the wire: `heal` - one to GATE_HEAL_ROWS_MAX rows, each healer once (\'\' myself, else a peer id), whole points to GATE_HEAL_WIRE_MAX, projected row by row; a chart row\'s `hl` whole and bounded (a bad one is no chart, never a refused kill); the relay that hears it (mutants: a healer twice; a fraction; the projection skipped)', () => {
+test('GATE-HEAL the wire: `heal` - one to GATE_HEAL_ROWS_MAX rows, each a caster\'s peer id once (no row of my own: a heal on myself is no one\'s), whole points to GATE_HEAL_WIRE_MAX, projected row by row; a chart row\'s `hl` whole and bounded (a bad one is no chart, never a refused kill); the relay that hears it (mutants: a caster twice; a fraction; a row of my own)', () => {
   assert.ok(GATE_KINDS.includes('heal'));
-  assert.deepEqual(validGateIn({ k: 'heal', h: [['', 12], ['peer-0009', 30]], junk: 1 }), { k: 'heal', h: [['', 12], ['peer-0009', 30]] });
+  assert.deepEqual(validGateIn({ k: 'heal', h: [['peer-0008', 12], ['peer-0009', 30]], junk: 1 }), { k: 'heal', h: [['peer-0008', 12], ['peer-0009', 30]] });
+  const most = Array.from({ length: GATE_HEAL_ROWS_MAX }, (_, i) => [`peer-${1000 + i}`, GATE_HEAL_WIRE_MAX]);
+  assert.deepEqual(validGateIn({ k: 'heal', h: most })?.h, most, 'the most a word holds');
   for (const bad of [
-    { k: 'heal' }, { k: 'heal', h: [] }, { k: 'heal', h: Array.from({ length: GATE_HEAL_ROWS_MAX + 1 }, (_, i) => [`peer-${1000 + i}`, 1]) },
-    { k: 'heal', h: [['', 12], ['', 3]] }, { k: 'heal', h: [['', 0]] }, { k: 'heal', h: [['', 1.5]] }, { k: 'heal', h: [['', GATE_HEAL_WIRE_MAX + 1]] },
-    { k: 'heal', h: [['a b', 5]] }, { k: 'heal', h: [[7, 5]] }, { k: 'heal', h: [['', 5, 1]] }, { k: 'heal', h: 'x' },
+    { k: 'heal' }, { k: 'heal', h: [] }, { k: 'heal', h: [...most, ['peer-2000', 1]] },
+    { k: 'heal', h: [['', 12]] }, { k: 'heal', h: [['peer-0009', 12], ['peer-0009', 3]] }, { k: 'heal', h: [['peer-0009', 0]] },
+    { k: 'heal', h: [['peer-0009', 1.5]] }, { k: 'heal', h: [['peer-0009', GATE_HEAL_WIRE_MAX + 1]] },
+    { k: 'heal', h: [['a b', 5]] }, { k: 'heal', h: [[7, 5]] }, { k: 'heal', h: [['peer-0009', 5, 1]] }, { k: 'heal', h: 'x' },
   ]) assert.equal(validGateIn(bad), null, JSON.stringify(bad).slice(0, 80));
   assert.equal(relaySupportsGateHeal(`world${GATE_HEAL_RELAY_MIN - 1}`), false);
   assert.equal(relaySupportsGateHeal(`world${GATE_HEAL_RELAY_MIN}`), true);
@@ -121,7 +125,7 @@ test('GATE-HEAL the wire: `heal` - one to GATE_HEAL_ROWS_MAX rows, each healer o
 
 // ═══ THE RELAY ═════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('GATE-HEAL the relay: a fighter\'s `heal` credits the caster its socket\'s peer id names, or the one healed; a peer id of no fighter credits nobody; a word from a socket not in the fight is junk; a fallen fighter\'s word counts (said after the fall); the kill\'s chart carries the figures (mutants: credited to the receiver; the peer id never read)', async () => {
+test('GATE-HEAL the relay: a fighter\'s `heal` credits the caster its socket\'s peer id names - never the one healed (its own peer id credits nobody); a peer id of no fighter credits nobody; a word from a socket not in the fight is junk; a fallen fighter\'s word counts (said after the fall) (mutants: credited to the receiver; the peer id never read; the fallen word refused)', async () => {
   const DAY = 202, TT = gateTimes(DAY);
   const realNow = Date.now; let clock = TT.openAt + 1000; Date.now = () => clock;
   try {
@@ -132,17 +136,17 @@ test('GATE-HEAL the relay: a fighter\'s `heal` credits the caster its socket\'s 
     const c = r.connect(); await r.hello(c, 'peer-0003', at(-3, 10));
     for (const s of [a, b]) await r.raw(s, JSON.stringify({ t: 'gate', k: 'in', lv: 10, bv: GATE_BRAIN_V }));
     const f = r.room._fight, sub = (id) => `acct-${id}`;
-    await r.raw(b, JSON.stringify({ t: 'gate', k: 'heal', h: [['peer-0001', 40], ['', 15], ['peer-0003', 9], ['peer-7777', 9]] }));
-    assert.deepEqual([f.players[sub('peer-0001')].healed, f.players[sub('peer-0002')].healed], [40, 15], 'the caster, and itself');
+    await r.raw(b, JSON.stringify({ t: 'gate', k: 'heal', h: [['peer-0001', 40], ['peer-0002', 15], ['peer-0003', 9], ['peer-7777', 9]] }));
+    assert.deepEqual([f.players[sub('peer-0001')].healed, f.players[sub('peer-0002')].healed ?? 0], [40, 0], 'the caster; its own peer id, nobody');
     assert.equal(f.players[sub('peer-0003')], undefined, 'one who never said `in` is no fighter, credited nothing');
     const junk = c.meters?.junk ?? 0;
-    await r.raw(c, JSON.stringify({ t: 'gate', k: 'heal', h: [['', 10]] }));
+    await r.raw(c, JSON.stringify({ t: 'gate', k: 'heal', h: [['peer-0001', 10]] }));
     assert.equal(c.meters?.junk ?? 0, junk + 1, 'not in the fight: junk');
-    assert.equal(f.players[sub('peer-0003')], undefined);
+    assert.equal(f.players[sub('peer-0001')].healed, 40);
     // a fallen fighter's late word still counts
     await r.pose(a, at(0, 10, { dd: 1 }));
-    await r.raw(a, JSON.stringify({ t: 'gate', k: 'heal', h: [['', 7]] }));
-    assert.equal(f.players[sub('peer-0001')].healed, 47);
+    await r.raw(a, JSON.stringify({ t: 'gate', k: 'heal', h: [['peer-0002', 7]] }));
+    assert.equal(f.players[sub('peer-0002')].healed, 7);
   } finally { Date.now = realNow; }
 });
 
@@ -154,14 +158,14 @@ function gateRig(relayV) {
   const log = console.log, warn = console.warn; console.log = () => {}; console.warn = () => {};
   try { s.join(gateRoomKey(202), { x: 25.6, y: 0, z: 45, yaw: 0 }); const ws = sockets[0]; ws.open(); ws.receive({ t: 'welcome', id: 'aaaa-0001', peers: [], host: 'aaaa-0001', world: null, v: relayV }); return { s, ws }; } finally { console.log = log; console.warn = warn; }
 }
-test('GATE-HEAL the session: a `heal` goes only to a relay that hears it - an older one junks an unknown gate word (mutant: the door dropped)', () => {
+test('GATE-HEAL the session: a `heal` goes only to a relay that hears it - an older one junks an unknown gate word (mutants: the door dropped; every relay heard)', () => {
   const old = gateRig(`world${GATE_HEAL_RELAY_MIN - 1}`);
   assert.equal(old.s.gateHealOk, false);
-  assert.equal(old.s.sendGate({ k: 'heal', h: [['', 5]] }), false);
+  assert.equal(old.s.sendGate({ k: 'heal', h: [['peer-0009', 5]] }), false);
   assert.equal(old.s.sendGate({ k: 'in', lv: 10 }), true, 'the rest of the gate as ever');
   const now = gateRig(RELAY_VERSION);
-  assert.equal(now.s.sendGate({ k: 'heal', h: [['', 5]] }), true);
-  assert.deepEqual(JSON.parse(now.ws.sent.at(-1)), { t: 'gate', k: 'heal', h: [['', 5]] });
+  assert.equal(now.s.sendGate({ k: 'heal', h: [['peer-0009', 5]] }), true);
+  assert.deepEqual(JSON.parse(now.ws.sent.at(-1)), { t: 'gate', k: 'heal', h: [['peer-0009', 5]] });
 });
 
 // ═══ THE COURT ═════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -180,46 +184,60 @@ function court() {
   return { c, link, clock, me, sent, frame, shut: (v) => { open = !v; } };
 }
 
-test('GATE-HEAL the court: a rise in my health between two frames, standing at both, is my healing; a blow, a fall and a revival are none; a gap in my frames counts nothing; nor a fight fallen (mutants: a revival counted; the gap believed; the watch after the fall)', () => {
+test('GATE-HEAL the court: my own healing is no one\'s - a potion or a spell of my own moves my health and nothing goes out; another\'s spell, told by the ally-cast door with the caster\'s peer id, is owed to the caster - and nobody\'s once he has fallen, under the Wrath or outside a fight (mutants: owed after the fall; under the Wrath; outside a fight)', () => {
   const h = court();
   h.frame(); h.frame();
-  h.me.health = 70; h.frame();
-  h.me.health = 60; h.frame();
-  h.me.health = 0; h.frame(); h.me.health = 100; h.frame();
-  h.me.health = 80; h.frame(); h.clock.t += HEAL_GAP_MS + 1; h.me.health = 95; h.frame();
+  h.me.health = 70; h.frame(); h.clock.t += HEAL_SEND_MS; h.frame();
+  h.me.health = 95; h.frame(); h.clock.t += HEAL_SEND_MS; h.frame();
+  assert.deepEqual(h.sent, [], 'my potion and my own spell: no one\'s');
+  assert.equal(h.c.healedBy('peer-0009', 25), true);
+  h.me.health = 100; h.frame();
+  assert.deepEqual(h.sent.map((m) => m.h), [[['peer-0009', 25]]], 'the caster\'s');
+  for (const [st, why] of [[{ fell: { at: 1, top: [], n: 3 } }, 'he has fallen'], [{ wrath: 5 }, 'the Wrath'], [{ day: null }, 'no fight']]) {
+    const live = h.link.st;
+    h.link.st = { ...live, ...st };
+    assert.equal(h.c.healedBy('peer-0009', 5), false, why);
+    h.link.st = live;
+  }
   h.clock.t += HEAL_SEND_MS; h.frame();
-  assert.deepEqual(h.sent.map((m) => m.h), [[['', 20]]], 'the potion alone');
-  h.link.st = { ...h.link.st, fell: { at: h.clock.t, top: [], n: 3 } };
-  h.me.health = 99; h.frame(); h.clock.t += HEAL_SEND_MS; h.frame();
-  assert.equal(h.sent.length, 1, 'nothing once he has fallen');
+  assert.equal(h.sent.length, 1, 'nothing owed');
   h.c.leave();
 });
 
-test('GATE-HEAL the court: a mate\'s spell is the caster\'s - said by its own door with the caster\'s peer id, taken as seen so never counted again nor as mine; out as one word at most every HEAL_SEND_MS, each healer once, whole points with the fractions kept; what is owed goes as the court is left; a word the relay would not hear is kept (mutants: a mate\'s heal counted twice; the fractions dropped; the leave forgetting)', () => {
+test('GATE-HEAL the court: out as one word at most every HEAL_SEND_MS - each caster once, whole points with the fractions kept, GATE_HEAL_ROWS_MAX casters a word (the rest the next), GATE_HEAL_WIRE_MAX points a row (the rest kept), every word one the wire takes; a word the relay would not hear is kept; what is owed goes as the court is left (mutants: a word every frame; the fractions dropped; the rows uncapped; a row past the wire\'s bound; the leave forgetting)', () => {
   const h = court();
   h.frame(); h.frame();
-  assert.equal(h.c.healedBy('peer-0009', 25), true);
-  h.me.health += 25; h.frame();
-  assert.deepEqual(h.sent.map((m) => m.h), [[['peer-0009', 25]]], 'the caster\'s, at once - none of it mine');
-  h.me.health += 10.5; h.frame();
-  h.me.health += 10.75; h.frame();
+  h.c.healedBy('peer-0009', 25); h.frame();
+  assert.deepEqual(h.sent.map((m) => m.h), [[['peer-0009', 25]]], 'at once');
+  h.c.healedBy('peer-0009', 10.5); h.c.healedBy('peer-0008', 10.75); h.frame();
   assert.equal(h.sent.length, 1, 'not again inside HEAL_SEND_MS');
   h.clock.t += HEAL_SEND_MS; h.frame();
-  assert.deepEqual(h.sent.at(-1).h, [['', 21]], 'mine, whole points - the quarter kept for the next');
-  h.me.health += 0.8; h.frame(); h.clock.t += HEAL_SEND_MS; h.frame();
-  assert.deepEqual(h.sent.at(-1).h, [['', 1]], 'the quarter and four-fifths more: a whole point');
+  assert.deepEqual(h.sent.at(-1).h, [['peer-0009', 10], ['peer-0008', 10]], 'each caster once, whole points - the half and the three-quarters kept');
+  h.c.healedBy('peer-0009', 0.5); h.clock.t += HEAL_SEND_MS; h.frame();
+  assert.deepEqual(h.sent.at(-1).h, [['peer-0009', 1]], 'the half and a half more: a whole point (the three-quarters still short of one)');
+  // the most a word holds: GATE_HEAL_ROWS_MAX casters, GATE_HEAL_WIRE_MAX points each - the rest the next word
+  const many = Array.from({ length: GATE_HEAL_ROWS_MAX + 1 }, (_, i) => `peer-${2000 + i}`);
+  for (const id of many) h.c.healedBy(id, 4);
+  h.c.healedBy('peer-0007', GATE_HEAL_WIRE_MAX + 5);
+  h.clock.t += HEAL_SEND_MS; h.frame();
+  assert.deepEqual(h.sent.at(-1).h, many.slice(0, GATE_HEAL_ROWS_MAX).map((id) => [id, 4]));
+  h.clock.t += HEAL_SEND_MS; h.frame();
+  assert.deepEqual(h.sent.at(-1).h, [[many.at(-1), 4], ['peer-0007', GATE_HEAL_WIRE_MAX]]);
+  h.clock.t += HEAL_SEND_MS; h.frame();
+  assert.deepEqual(h.sent.at(-1).h, [['peer-0007', 5]], 'past the wire\'s bound: kept for the next');
+  // a word the relay would not hear is kept, and goes as the court is left
   h.shut(true);
-  h.me.health += 3; h.frame(); h.clock.t += HEAL_SEND_MS; h.frame();
-  assert.equal(h.sent.length, 3, 'a word that did not go');
+  h.c.healedBy('peer-0008', 3); h.clock.t += HEAL_SEND_MS; h.frame();
+  assert.equal(h.sent.length, 6, 'a word that did not go');
   h.shut(false);
   h.c.leave();
-  assert.deepEqual(h.sent.at(-1).h, [['', 3]], 'kept (with the quarter), and sent as the court is left');
-  assert.equal(h.c.healedBy('peer-0009', 5), false, 'outside a fight, nobody\'s');
+  assert.deepEqual(h.sent.at(-1).h, [['peer-0008', 3]], 'kept (with the three-quarters), and sent as the court is left');
+  for (const m of h.sent) assert.ok(validGateIn({ k: 'heal', h: m.h }), `the wire takes ${JSON.stringify(m.h).slice(0, 60)}`);
 });
 
 // ═══ THE CHART ═════════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('GATE-HEAL the round-up: a Healed column, last, whenever anyone healed - every row its figure (0 for none) - and none in a court nobody healed in; after the host\'s on a Legion-Lord night; on a narrow screen in the share\'s place; drawn into its own cell (mutants: the column always; never; the narrow fold)', () => {
+test('GATE-HEAL the round-up: a Healed column, last, whenever anyone healed another - every row its figure (0 for none) - and none in a court nobody did; after the host\'s on a Legion-Lord night; on a narrow screen in the share\'s place; drawn into its own cell (mutants: the column always; never; the narrow fold; the cell unwritten)', () => {
   const at = { since: 0, now: DAMAGE_CHART_DELAY_MS + 100 };
   const row = (n, d, more = {}) => ({ n, l: 10, d, x: 0, h: 3, b: 50, f: 0, ...more });
   const m = damageChartModel({ at: 1, top: [], n: 2, dm: [row('Ann', 900), row('Bo', 100, { hl: 1234 })] }, at);
@@ -264,11 +282,12 @@ function fakeDoc() {
 
 // ═══ THE PLUMBING ══════════════════════════════════════════════════════════════════════════════════════════════════
 
-test('GATE-HEAL the plumbing, read: the ally-cast door tells the court what a mate\'s spell moved and whose it was; the court\'s word goes out as the wire\'s `heal`; the relay judges it by applyHeal from the receiver\'s own pose (mutants: the door silent; the word never sent)', () => {
+test('GATE-HEAL the plumbing, read: the ally-cast door - which never hears my own spell and turns the fallen away - tells the court what another\'s spell moved and whose it was; the court\'s word goes out as the wire\'s `heal`; the relay judges it by applyHeal from the receiver\'s own pose, the caster by peer id (mutants: the door silent; the word never sent)', () => {
+  assert.match(read('src/net/online.js'), /_directedIn\(m, now, kind, buckets, gate, hz, valid, deliver\) \{\n\s*if \(typeof m\.id !== 'string' \|\| m\.id === this\.id\) return;/, 'my own never comes through the door');
   const w = read('src/scenes/world.js');
-  assert.match(w, /const healed = Math\.max\(0, Math\.trunc\(playerEntity\.health - before\)\);[\s\S]{0,200}if \(healed > 0\) gateCourt\?\.healedBy\?\.\(id, healed\);/);
+  assert.match(w, /online\.onCast = \(id, d\) => \{[\s\S]{0,200}if \(playerEntity\.health <= 0 \|\| modes\?\.deathUp\?\.\(\)\) return;[\s\S]{0,1400}const healed = Math\.max\(0, Math\.trunc\(playerEntity\.health - before\)\);[\s\S]{0,200}if \(healed > 0\) gateCourt\?\.healedBy\?\.\(id, healed\);/);
   assert.match(w, /sendHeal: \(heal\) => !!online\?\.sendGate\?\.\(\{ k: 'heal', \.\.\.heal \}\),/);
   const r = read('server/src/index.js');
   assert.match(r, /if \(m\.k === 'heal'\) \{\n\s*const pose = a\.pose \? this\._courtOf\(a\.pose\) : null;/);
-  assert.match(r, /const healer = by === '' \? a\.sub : \[\.\.\.this\._all\(\)\]\.find\(\(\[, b\]\) => b\.id === by\)\?\.\[1\]\?\.sub \?\? null;\n\s*if \(healer\) applyHeal\(f, a\.sub, healer, n, pose, now\);/);
+  assert.match(r, /const healer = \[\.\.\.this\._all\(\)\]\.find\(\(\[, b\]\) => b\.id === by\)\?\.\[1\]\?\.sub \?\? null;\n\s*if \(healer\) applyHeal\(f, a\.sub, healer, n, pose, now\);/);
 });

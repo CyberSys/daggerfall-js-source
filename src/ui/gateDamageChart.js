@@ -15,10 +15,10 @@
 // The first DAMAGE_CHART_ROWS are shown; when I am further down, my own row is shown under them at my rank, and the
 // fighters not shown are counted. `damageChartModel` is pure - the pins' door.
 //
-// GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's):
-// a Healed column, last, whenever anyone in the court healed - what each challenger healed, themselves and their allies
-// (net/gateBrain.js applyHeal: each one healed says it, the healer is credited); on a narrow screen it takes the share's
-// place. The ranking is the damage's still.
+// GATE-HEAL (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's;
+// "Like for healers" - allies only): a Healed column, last, whenever anyone in the court healed another - what each
+// challenger healed in others (net/gateBrain.js applyHeal: each one healed says it, the caster is credited); on a narrow
+// screen it takes the share's place. The ranking is the damage's still.
 //
 // Not a DFU member. Ledger A (WB).
 
@@ -36,7 +36,7 @@ export const DAMAGE_CHART_TEXT = Object.freeze({
   sub: (boss, n) => `${boss} has fallen - ${n} ${n === 1 ? 'challenger' : 'challengers'}`,
   head: Object.freeze(['#', 'Challenger', 'Damage', 'Share', 'Blows', 'Best', 'Crystals', 'Falls']),
   host: 'Host',   // WB11c: the column of his host's share - a Legion-Lord's court's alone
-  heal: 'Healed',   // GATE-HEAL: the column of what each healed - a court someone healed in alone
+  heal: 'Healed',   // GATE-HEAL: the column of what each healed in others - a court someone healed another in alone
   level: (lv) => `Lv ${lv}`,
   you: '(you)',
   more: (k) => `and ${k} more`,
@@ -58,7 +58,7 @@ const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.t
  * when this screen first saw the fall and `now`, on one clock. Each row: its rank, name, level, damage (and the bar's
  * share of the most anyone dealt), share of the whole, blows, best, crystals, falls, and whether it is mine. WB11c: under
  * the Legion-Lord (a row carries `a`), `hosted` and each row's share of his host, a column after the falls. GATE-HEAL:
- * where anyone healed (a row carries `hl`), `healed` and what each row healed, the last column. Pure.
+ * where anyone healed another (a row carries `hl`), `healed` and what each row healed in others, the last column. Pure.
  * @param {any} fell @param {{ boss?: string, me?: string|null, since?: number, now?: number }} [o]
  */
 export function damageChartModel(fell, { boss = 'The Warden', me = null, since = 0, now = 0 } = {}) {
@@ -70,7 +70,7 @@ export function damageChartModel(fell, { boss = 'The Warden', me = null, since =
   const alpha = Math.min(1, shown / 250, (DAMAGE_CHART_MS - shown) / DAMAGE_CHART_FADE_MS);
   const whole = dm.reduce((s, r) => s + (r.d > 0 ? r.d : 0), 0), most = dm[0].d > 0 ? dm[0].d : 0;
   const hosted = dm.some((r) => r.a !== undefined);   // WB11c: his host stood in this court
-  const healed = dm.some((r) => r.hl !== undefined);   // GATE-HEAL: someone healed in it
+  const healed = dm.some((r) => r.hl !== undefined);   // GATE-HEAL: someone healed another in it
   const row = (r, i) => ({
     rank: i + 1, name: r.n, level: DAMAGE_CHART_TEXT.level(r.l), damage: chartNumber(r.d), frac: most > 0 ? Math.max(0, Math.min(1, r.d / most)) : 0,
     share: chartShare(r.d, whole), blows: chartNumber(r.h), best: chartNumber(r.b), crystals: chartNumber(r.x), falls: chartNumber(r.f), mine: sameName(r.n, me),

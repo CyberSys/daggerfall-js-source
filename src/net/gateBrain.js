@@ -661,11 +661,12 @@ export function damageChart(f) {
 
 // ═══ GATE-HEAL: HEALING ON THE ROUND-UP ════════════════════════════════════════════════════════════════════════════
 //
-// (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's.) What a
-// fighter's game says it was healed - by itself, or by the mate whose spell it was - is credited to the HEALER, for the
-// chart alone. Only the one healed knows what moved (ALLY-CAST's law: the receiver decides), so the receiver says it;
-// what it says is believed within its own heal bucket, so no healer's figure can be made absurd. It buys nothing: no
-// receipt, no share, no threat, no spoils. bible/11-Multiplayer/World-Bosses.md section 18.
+// (2026-10-01, Mac: "Can we add a line on the damage round up showing the amount healed?" - each challenger's; "Like
+// for healers" - allies only.) What a fighter's game says another's spell healed in it is credited to the CASTER, for the
+// chart alone; a heal on oneself is no one's. Only the one healed knows what moved (ALLY-CAST's law: the receiver
+// decides), so the receiver says it; what it says is believed within its own heal bucket, so no healer's figure can be
+// made absurd. It buys nothing: no receipt, no share, no threat, no spoils. bible/11-Multiplayer/World-Bosses.md
+// section 18.
 
 /** A fighter's reference health at a level, for its heal bucket - generous (DFU's bars run lower). */
 export const HEAL_REF_BASE = 40;
@@ -676,14 +677,15 @@ export const healRef = (lv) => HEAL_REF_BASE + HEAL_REF_LV * Math.max(1, lv | 0)
 export const HEAL_REFILL_S = 3;
 export const HEAL_DEPTH_X = 2;
 /**
- * GATE-HEAL: `sub` WAS HEALED `n` POINTS BY `by` (a fighter of this fight: itself, or the mate whose spell it was) - the
- * receiver standing at `pose` (the court's frame, its own) on the laid floor while the fight lives. Believed within the
- * receiver's heal bucket and credited to the healer's `healed`; never a part in the fight. Answers what was credited.
+ * GATE-HEAL: `sub` WAS HEALED `n` POINTS BY `by` (ANOTHER fighter of this fight, the one whose spell it was - never
+ * `sub` itself) - the receiver standing at `pose` (the court's frame, its own) on the laid floor while the fight lives.
+ * Believed within the receiver's heal bucket and credited to the healer's `healed`; never a part in the fight. Answers
+ * what was credited.
  * @param {any} f @param {string} sub @param {string} by @param {number} n @param {{x: number, z: number}|null} pose @param {number} now
  */
 export function applyHeal(f, sub, by, n, pose, now) {
   const p = f.players[sub], q = f.players[by];
-  if (!p || !q || f.fell || f.wrath || now >= f.wrathAt || !Number.isFinite(n) || !(n > 0)) return 0;
+  if (!p || !q || sub === by || f.fell || f.wrath || now >= f.wrathAt || !Number.isFinite(n) || !(n > 0)) return 0;
   if (!pose || !Number.isFinite(pose.x) || !Number.isFinite(pose.z) || !onFloor(pose.x, pose.z, f.xa, now, POSE_SLACK)) return 0;
   const ref = healRef(p.lv), depth = HEAL_DEPTH_X * ref;
   p.hb = Math.min(depth, (Number.isFinite(p.hb) ? p.hb : depth) + (Math.max(0, now - (Number.isFinite(p.hbAt) ? p.hbAt : now)) / 1000) * (ref / HEAL_REFILL_S));
