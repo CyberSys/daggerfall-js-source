@@ -488,7 +488,7 @@ GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being
 ## 8. The interface
 
 DECIDED (Mac: "actual UI integration for life skills"). Everything is drawn in the Enhanced Plus UI - the one UI
-since MENU-TOGGLE and PLUS-DEAD (`PATCH-NOTES-One-UI-Choice.md`) - in its brass and bone, scaled by the UI scale,
+since MENU-TOGGLE and PLUS-DEAD - in its brass and bone, scaled by the UI scale,
 laid out for the phone's touch layer as for the desktop.
 
 - **The prompt**: bottom centre above the hotbar - "[E] Chop Oak - Logging 34". **The hover** (World Tooltips):
@@ -2511,7 +2511,7 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   lane - the act's `hand` is none, as the Basket's); no splash is played at the tug (no splash clip is wired for an act);
   peers do not see the throw (5.1's pose activity field is none of the acts' yet).
 - **Pinned**: `test/prof8_law.test.js` (7), `test/prof8_service.test.js` (3, through the real Worker), `test/prof8_client
-  .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead). Patch notes: `PATCH-NOTES-Fishing.md`.
+  .test.js` (12). Mutants: `tools/mutants/prof8.json` (34, all dead).
 
 ## 31. NODE-MARKS - every node on the compass, and its glow, as built (BUILT 2026-10-01)
 
@@ -2567,8 +2567,7 @@ and nothing in the world set a node apart from the ground about it. DECIDED here
   own switch does).
 - **Pinned**: `test/nodemarks.test.js` (19); `tools/nodeGlowProbe.mjs` compiles, links and draws the glow in a real WebGL2
   context over a stand-in node and wall, and through the world host's own pass with the renderer's typed camera, and
-  reads the frame back (14 checks). Mutants: `tools/mutants/nodemarks.json` (58, all dead). Patch notes:
-  `PATCH-NOTES-Nodes-on-the-Compass.md`.
+  reads the frame back (14 checks). Mutants: `tools/mutants/nodemarks.json` (58, all dead).
 
 ### AUDIT NODE-MARKS (2026-10-01, Mac: "Audit this")
 
@@ -2717,8 +2716,7 @@ PROF11, DECIDED here, and what was found (FACT):
 - **The pages**: the Stores page's Mason's Bench; Masonry practised on the Professions page; a work's XP said as its own
   profession's (FOUND: it said Smithing's).
 - **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
-  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead). Patch notes:
-  `PATCH-NOTES-Masonry.md`.
+  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead).
 
 ## 35. PROF9 - Cooking, as built (BUILT 2026-10-02)
 
@@ -2850,8 +2848,7 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
   tests; the hall door's gate is `onlineHomes.js` hallEntryTurnable, the row's and the press's. Pinned (four tests), 17
   mutants added, all dead; seven re-aimed (prof9, guild_yard, guild1d).
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
-  `test/prof9_client.test.js` (21). Mutants: `tools/mutants/prof9.json` (162, all dead - AUDIT PROF-541 R2-S7's three among them). Patch notes:
-  `PATCH-NOTES-Cooking.md`.
+  `test/prof9_client.test.js` (21). Mutants: `tools/mutants/prof9.json` (162, all dead - AUDIT PROF-541 R2-S7's three among them).
 
 ## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
 
@@ -2954,8 +2951,7 @@ Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jew
   jeweller's hand is **written on the piece** (`hand`, 1 or 2, `itemFields.js`; a hand its recipe takes alone) and the
   cap is that hand's (`craftedJewelPoints`) - no hand, no hand's share.
 - **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (7, through the real Worker),
-  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (166, all dead). Patch notes:
-  `PATCH-NOTES-Jewelcrafting.md`.
+  `test/prof10_client.test.js` (13). Mutants: `tools/mutants/prof10.json` (166, all dead).
 
 ## 37. PROF12 - Alchemy and the Enchanting layer, as built (BUILT 2026-10-02)
 
@@ -3132,7 +3128,7 @@ Seats-Arc 7.5). What sections 1, 2, 3.3, 4.1, 4.3, 4.5, 9.3 and 9.4 left open fo
   service's route list. Pinned in eight tests, 19 mutants added, all dead; four re-aimed by content (prof12, seat2b_peace).
 - **Pinned**: `test/prof12_law.test.js` (15), `test/prof12_service.test.js` (13, through the real Worker),
   `test/prof12_client.test.js` (16), `test/prof12_apothecary.test.js` (4, the Apothecary through the real Worker). Mutants:
-  `tools/mutants/prof12.json` (206: 205 dead - AUDIT PROF-541 R2's six among them - and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused). Patch notes: `PATCH-NOTES-Alchemy.md`; the Apothecary's in `PATCH-NOTES-Seats-Finished.md`.
+  `tools/mutants/prof12.json` (206: 205 dead - AUDIT PROF-541 R2's six among them - and PROF12-spends-no-hash recorded equivalent - B1's ingredient comparison holds everything DFU's hash refused).
 
 ## Appendix A - a day of a gatherer
 
