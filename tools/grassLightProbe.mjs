@@ -13,7 +13,7 @@
 import { exteriorAmbient, sunScale, sunDirection, SUN_RIG_COLOR } from '../src/world/worldClock.js';
 import { weatherSunlightScale } from '../src/world/weather.js';
 import { elDecode, elEncode, elTonemapRGB, elAttenuation, EL_EXPOSURE } from '../src/render/enhancedLighting.js';
-import { LAB_DIM, grassLit, GRASS_TILE_MEANS } from '../src/render/labGrass.js';
+import { LAB_DIM, grassLit, GRASS_TILE_MEANS, GRASS_TONES } from '../src/render/labGrass.js';
 
 const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 const hex = (c) => '#' + c.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join('');
@@ -63,8 +63,9 @@ for (const lane of [false, true]) {
   }
 }
 
-// GRASS-LIT2: the hillside and the lantern. `was` is the blade before GRASS-LIT2 (straight up, no lanterns) - grassLit
-// with the case's normal and lanterns taken away; `now` is grassLit as it stands.
+// GRASS-LIT2: the hillside and the lantern. `was` is the blade before GRASS-LIT2 (straight up, no lanterns, and on the
+// classic lane GRASS_TONES - its own tones are GRASS-LIT2's) - grassLit with the case's normal and lanterns taken away;
+// `now` is grassLit as it stands. AUDIT GRASS-LIT2: the classic `was` had been painted in today's classic tones.
 const SLOPES = [['level', [0, 1, 0]], ['30 deg toward the sun', [0.5, 0.866, 0]], ['30 deg away from it', [-0.5, 0.866, 0]]];   // the 9:00 sun stands to +x
 const LANTERN = { at: [2.5, 1.6, 0], range: 18, color: [0.98, 0.79, 0.54] };
 for (const lane of [false, true]) {
@@ -74,7 +75,7 @@ for (const lane of [false, true]) {
   console.log(`-- 9:00, sunny, sun ${base.sunDir.map((v) => v.toFixed(2))}`);
   for (const [name, normal] of SLOPES) {
     const mean = GRASS_TILE_MEANS.woodland, light = { ...base, normal };
-    const g = ground(mean, light, lane), was = grassLit(mean, 0.5, base, lane), now = grassLit(mean, 0.5, light, lane);
+    const g = ground(mean, light, lane), was = grassLit(mean, 0.5, base, lane, 1, GRASS_TONES), now = grassLit(mean, 0.5, light, lane);
     console.log(`  ${name.padEnd(22)} ground ${hex(g)} | was ${hex(was)} (${(lum(was) / lum(g)).toFixed(2)}x) | now ${hex(now)} (${(lum(now) / lum(g)).toFixed(2)}x)`);
   }
   const m = minute(23, 30);
@@ -82,7 +83,7 @@ for (const lane of [false, true]) {
   console.log('-- 23:30, a lantern 2.5 m off at 1.6 m');
   for (const [where, root] of [['under it', [2.5, 0, 0]], ['at 2.5 m', [0, 0, 0]], ['at 8 m', [-5.5, 0, 0]], ['at 15 m', [-12.5, 0, 0]]]) {
     const mean = GRASS_TILE_MEANS.woodland, lit = { ...night, root, points: [LANTERN] };
-    const g = ground(mean, lit, lane), was = grassLit(mean, 0.5, night, lane), now = grassLit(mean, 0.5, lit, lane);
+    const g = ground(mean, lit, lane), was = grassLit(mean, 0.5, night, lane, 1, GRASS_TONES), now = grassLit(mean, 0.5, lit, lane);
     console.log(`  ${where.padEnd(22)} ground ${hex(g)} | was ${hex(was)} (${(lum(was) / lum(g)).toFixed(2)}x) | now ${hex(now)} (${(lum(now) / lum(g)).toFixed(2)}x)`);
   }
 }

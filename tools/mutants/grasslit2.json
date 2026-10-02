@@ -22,12 +22,13 @@
   {
     "name": "GRASSLIT2-twin-tones-by-lane",
     "file": "src/render/labGrass.js",
-    "old": "(lane ? GRASS_TONES : GRASS_TONES_CLASSIC).slice(0, 3)",
-    "new": "GRASS_TONES.slice(0, 3)",
+    "old": "(tones ?? (lane ? GRASS_TONES : GRASS_TONES_CLASSIC)).slice(0, 3)",
+    "new": "(tones ?? GRASS_TONES).slice(0, 3)",
     "tests": [
       "test/grasslit2.test.js",
       "test/grasslit.test.js"
-    ]
+    ],
+    "note": "AUDIT GRASS-LIT2 (PIN MOVED): re-aimed by content - the twin takes an optional tones override now (the probe's classic before-column)."
   },
   {
     "name": "GRASSLIT2-slope-ignored",
@@ -706,6 +707,44 @@
     "new": "    float att = sh * clamp(1.0 - d / uPointLights[i].w, 0.0, 1.0);\n    acc += att *",
     "tests": [
       "test/grasslit2.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GRASSLIT2-C-twin-tones-override-ignored",
+    "file": "src/render/labGrass.js",
+    "old": "(tones ?? (lane ? GRASS_TONES : GRASS_TONES_CLASSIC)).slice(0, 3)",
+    "new": "(lane ? GRASS_TONES : GRASS_TONES_CLASSIC).slice(0, 3)",
+    "tests": [
+      "test/grasslit2.test.js",
+      "test/grasslit.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GRASSLIT2-C-light-probe-was-in-todays-tones",
+    "file": "tools/grassLightProbe.mjs",
+    "old": "was = grassLit(mean, 0.5, night, lane, 1, GRASS_TONES)",
+    "new": "was = grassLit(mean, 0.5, night, lane)",
+    "tests": [
+      "test/grasslit2.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GRASSLIT2-C-look-probe-default-lane-only",
+    "file": "tools/grassLookProbe.mjs",
+    "old": "window.__grassTones?.(x.tones, x.classic)",
+    "new": "window.__grassTones?.(x.tones)",
+    "tests": [
+      "test/grasslit2.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-GRASSLIT2-C-height-bit-into-slope",
+    "file": "src/render/labGrass.js",
+    "old": "'  uint hw = uint(aPA.w * 65535.0 + 0.5);\\n'",
+    "new": "'  uint hw = uint(aPA.w * 65535.0 + 0.5); hw ^= ((hw >> 10u) & 1u) << 9u;\\n'",
+    "tests": [
+      "test/grasslit2.test.js",
+      "test/grasslit.test.js"
     ]
   }
 ]

@@ -17,7 +17,9 @@ the field on and asks a texture mod once; the shot hooks' zero step, yaw and sam
 uniform count the docs quoted (210, six of them from a comment; 212 now). The tests had walked past
 24 of 35 mutants of the new code - the stage's word fed as a double hid the float32 rounding, the
 JS twin's hillside, moon and lanterns were unchecked, and the ground's lantern formulas were the
-test's own copy - and ten tests pay them. 72 mutants, 71 dead and one recorded equivalent. Record:
+test's own copy - and eleven tests pay them. The probe numbers the docs quoted were an intermediate
+build's (the probe's classic "before" painted in the new tones), and the photograph correction named
+a cause the code rules out; both mended. 76 mutants, 75 dead and one recorded equivalent. Record:
 `Audit-Forest1-Grass.md` (AUDIT GRASS-LIT2).
 
 **2026-10-02 - GRASS-LIT2: THE NOT-DONE LIST.** Mac: *"Tackle the not done."* The five things

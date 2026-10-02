@@ -79,7 +79,8 @@ test('GRASS-LIT: on the classic lane a blade in the ground\'s own colour is lit 
       assert.ok(close(mid, ground.map((v, i) => v * (light.amb[i] * shade + light.sunCol[i] * light.sunScale * lam))));
     }
   }
-  // the shipped tones: the root a touch under the ground, the middle and the tip over it - never the old two-thirds
+  // the classic lane's tones (GRASS-LIT2's GRASS_TONES_CLASSIC; AUDIT GRASS-LIT2: this said "the shipped tones", which
+  // are the lane's): the root a touch under the ground, the middle and the tip over it - never the old two-thirds
   const g = terrain(WOOD, NOON, false);
   const lum = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   const root = fragment({ t: 0, light: NOON }), mid = fragment({ t: 0.5, light: NOON }), tip = fragment({ t: 0.9, light: NOON });

@@ -744,12 +744,13 @@ export const GAME_GRASS_FS = applyGrassEdits(applyGrassEdits(applyGrassEdits(LAB
  * `{ amb, sunCol, sunScale, sunDir, moonCol?, moonScale?, moonDir? }` (display colours), `lane` true for
  * Enhanced Lighting (exposure EL_EXPOSURE, the eye's `adapt`). GRASS-LIT2: each lane's own tones; `light.normal` the
  * ground's (level when absent); `light.points` the lanterns `[{ at, range, color }]` (display colours, unshadowed)
- * read at `light.root`.
+ * read at `light.root`. AUDIT GRASS-LIT2: `tones` paints with other tones than the lane's own - the probe's
+ * blade from before GRASS-LIT2, whose classic lane drew in GRASS_TONES.
  */
-export function grassLit(ground, t, light, lane = false, adapt = 1) {
+export function grassLit(ground, t, light, lane = false, adapt = 1, tones = null) {
   const ss = (a, b, x) => smoothstep(a, b, x);
   const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
-  const [root, mid, tip] = (lane ? GRASS_TONES : GRASS_TONES_CLASSIC).slice(0, 3).map((k) => ground.map((v, i) => v * k[i]));
+  const [root, mid, tip] = (tones ?? (lane ? GRASS_TONES : GRASS_TONES_CLASSIC)).slice(0, 3).map((k) => ground.map((v, i) => v * k[i]));
   let c = mix(root, mid, ss(0, 0.55, t));
   c = mix(c, tip, ss(0.5, 1, t));
   // the blade's normal at rest - the ground's own, past the lean's share (GRASSLIT_VS_EDITS: normalize(1.2 * gN))

@@ -15,8 +15,9 @@
 //
 // Env: Q the page query (keep `shot&world`; `class=0` skips character creation, `season=summer` grows the grass);
 // PREFS a JSON of uiPrefs to boot with (`{"grassStyle":"smooth"}`, `{"enhancedLighting":false}`); EVAL; KEYS
-// (comma-separated, default `Enter,n,n`); VARIANTS a JSON array of `{ name, tones?, eval? }`; W/H the viewport;
-// PORT the dev server's (5201); DEBUG every console line. KEYS=',' presses none (an empty KEYS is the default's).
+// (comma-separated, default `Enter,n,n`); VARIANTS a JSON array of `{ name, tones?, classic?, eval? }` - a palette
+// paints the lane booted (`classic` the classic lane's, by default when PREFS turn Enhanced Lighting off); W/H the
+// viewport; PORT the dev server's (5201); DEBUG every console line. KEYS=',' presses none (an empty KEYS is the default's).
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 
@@ -24,9 +25,10 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers';
 const out = process.argv[2];
 if (!out) { console.error('usage: node tools/grassLookProbe.mjs out.png'); process.exit(2); }
 const port = Number(process.env.PORT || 5201);
-// GRASS-LIT2: `__pose` DOES NOT MOVE THE EYE ACROSS THE GROUND. Without `&fly` it sets the look alone; with `&fly` the
-// look and the height. The eye's x and z stay over the pixel's origin corner, where the boot stands the player (FIX-C) -
-// read off the terrain program's uView and `__renderer._camPos`. Photograph what stands in view of that corner.
+// GRASS-LIT2: `__pose` DOES NOT MOVE THE EYE ACROSS THE GROUND. It turns the view; the eye's x and z, read off the
+// terrain program's uView and `__renderer._camPos`, stay at the pixel's origin corner. `__pose` writes `cam.pos` alike
+// with `&fly` or without (shot mode never walks); what takes it back is not run down (AUDIT GRASS-LIT2: this said FIX-C
+// and `&fly`, and the code says neither). Photograph what stands in view of that corner.
 const query = process.env.Q || 'shot&world&class=0&season=summer&tod=12:00&weather=sunny';
 const prefs = JSON.parse(process.env.PREFS || '{}');
 const server = await createServer({ root: process.cwd(), configFile: process.cwd() + '/vite.config.js', server: { port, strictPort: true }, logLevel: 'error' });
@@ -59,7 +61,8 @@ await frames(3);
 const variants = process.env.VARIANTS ? JSON.parse(process.env.VARIANTS) : null;
 if (!variants) { await page.screenshot({ path: out, timeout: 300000 }); console.log('shot', out); }
 else for (const v of variants) {
-  await page.evaluate((x) => { if (x.tones !== undefined) window.__grassTones?.(x.tones); if (x.eval) (0, eval)(x.eval); }, v);
+  // AUDIT GRASS-LIT2: a palette paints the lane that is shot - the classic lane's tones are its own (`classic` forces it)
+  await page.evaluate((x) => { if (x.tones !== undefined) window.__grassTones?.(x.tones, x.classic); if (x.eval) (0, eval)(x.eval); }, { ...v, classic: v.classic ?? prefs.enhancedLighting === false });
   await frames(3);
   const file = out.replace(/\.png$/, `_${v.name}.png`);
   await page.screenshot({ path: file, timeout: 300000 }); console.log('shot', file);

@@ -33,8 +33,9 @@ const zeros3 = (n) => Array.from({ length: n }, () => [0, 0, 0]);
  *  `casterOf` the lights' shadow slots (-1: none). Answers the stage's outputs. */
 function vertex({ w = packHeightSlope(0.5, 0, 0, 0), sunDir = [0, 1, 0], moonDir = [0, 1, 0], lean = [0.5, 0.5], lane = 0, lights = [], vertexId = 2, casterOf = null, shadow = 1, cell = null, bind = {} }) {   // AUDIT A1: `cell` the cell's list (default: every light, in order); AUDIT C: `lean` aPB.xy, `bind` more globals
   const f = glslFunctions(LAB_GRASS_HEAD + GAME_GRASS_FIELD + GAME_GRASS_VS, {
-    // AUDIT GRASS-LIT2 C1: a unorm16 reaches the stage as a FLOAT32 - w / 65535 in doubles is exact, and hid a floor
-    aCorner: [0.5, 0.5], aPA: [0.5, 0.5, 0, Math.fround(w / 65535)], aPB: [...lean, 0.5, 0.5], aPC: [0.2, 0.3, 0.1, 0],
+    // AUDIT GRASS-LIT2 C1: a unorm16 reaches the stage as a FLOAT32, and a GPU may normalise it by the reciprocal -
+    // the value such a GPU hands the stage; w / 65535 in doubles is exact, and hid a floor
+    aCorner: [0.5, 0.5], aPA: [0.5, 0.5, 0, Math.fround(w * Math.fround(1 / 65535))], aPB: [...lean, 0.5, 0.5], aPC: [0.2, 0.3, 0.1, 0],
     uVP: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], uTime: 0, uWind: 0, uRange: 300, uEye: [0, 1, 0], uSunDir: sunDir, uMoonDir: moonDir, uWindDir: [1, 0],
     uSnowFull: 1.1, uSlotN: 0, uCellFrame: [0, 0, 0, 1], uBladeScale: [heightFloor(), heightSpan(), 0.05, 0.05], uCellSize: 30, uPixel: 0, uPxVariants: 8,
     uGFieldOrigin: [0, 0], uGFieldM: 1, uSnowGlobal: 0, uWindV: [0, 0], uSunScale: 0.6, uCamPos: [0, 0, 0], uIndirect: [0, 0, 0, 0], uIndirectColor: [0, 0, 0],
@@ -488,21 +489,27 @@ function fragment({ ground = WOOD, t = 0.5, light = NOON, lane = false, vLam = 1
   return f.globals.o.slice(0, 3);
 }
 
-test('AUDIT GRASS-LIT2 C1: the stage reads its word as the GPU hands it - a float32 unorm, half of whose words land a hair under themselves, so it rounds and never floors; the six bits\' top is the height law\'s top', () => {
-  let under = 0;
-  for (let k = 0; k < 65536; k++) if (Math.fround(k / 65535) * 65535 < k) under++;
-  assert.ok(under > 30000, `${under} of the 65,536 words reach the stage under themselves`);
+test('AUDIT GRASS-LIT2 C1: the stage rounds its word, never floors it - a GPU that normalises a unorm16 by the reciprocal in float32 hands 512 of the 65,536 words over a hair under themselves; the six bits\' top is the height law\'s top', () => {
+  const f = Math.fround, recip = f(1 / 65535);
+  const under = [];
+  let exact = 0;
+  for (let w = 0; w < 65536; w++) {
+    if (f(f(w * recip) * 65535) < w) under.push(w);   // the reciprocal, the product in float32
+    if (f(f(w / 65535) * 65535) < w) exact++;          // a correctly rounded normalise
+  }
+  assert.equal(under.length, 512, 'the words a floor reads one down on such a GPU');
+  assert.equal(exact, 0, 'and none where the normalise is correctly rounded - the + 0.5 is for the GPUs that are not');
   const sun = [0.5, 0.7, -0.3], sl = Math.hypot(...sun);
-  let seen = 0;
-  for (const [hn, nx, nz] of [[1, 0.3, -0.2], [0, -0.45, 0.25], [0.37, 0.6, 0], [0.81, -0.2, -0.65]]) for (const i of [0, 1, 2, 5]) {
-    const w = packHeightSlope(hn, nx, nz, i), u = unpackHeightSlope(w);
-    if (Math.fround(w / 65535) * 65535 < w) seen++;
-    const g = vertex({ w, sunDir: sun });
-    const n = [u.nx, Math.sqrt(1 - u.nx * u.nx - u.nz * u.nz), u.nz];
+  const check = (w) => {
+    const u = unpackHeightSlope(w), g = vertex({ w, sunDir: sun });
+    const n = [u.nx, Math.sqrt(Math.max(0, 1 - u.nx * u.nx - u.nz * u.nz)), u.nz];
     assert.ok(Math.abs(g.vLam - Math.max(0, (n[0] * sun[0] + n[1] * sun[1] + n[2] * sun[2]) / sl)) < 1e-9, `word ${w}: its slope`);
     assert.ok(Math.abs(g.gl_Position[1] - (heightFloor() + u.hn * heightSpan()) * 0.5) < 1e-12, `word ${w}: its height`);
-  }
-  assert.ok(seen >= 4, `${seen} of the words held here are ones a floor read one down`);
+  };
+  // a spread of those words, decoded as packed (the harness multiplies in doubles; each is under itself there too)
+  for (let k = 0; k < under.length; k += 64) check(under[k]);
+  // and packed blades at odd and even heights and steep slopes either way
+  for (const [hn, nx, nz] of [[1, 0.3, -0.2], [0, -0.45, 0.25], [0.37, 0.6, 0], [0.81, -0.2, -0.65]]) for (const i of [0, 1, 2, 5]) check(packHeightSlope(hn, nx, nz, i));
   // the top code is the tallest blade the height law draws, the bottom its shortest - 63 steps between, not 62 or 64
   assert.ok(Math.abs(vertex({ w: packHeightSlope(1, 0, 0, 0) }).gl_Position[1] - (heightFloor() + heightSpan()) * 0.5) < 1e-12);
   assert.ok(Math.abs(vertex({ w: packHeightSlope(0, 0, 0, 0) }).gl_Position[1] - heightFloor() * 0.5) < 1e-12);
@@ -684,4 +691,17 @@ test('AUDIT GRASS-LIT2 C10: the ground the lanterns are held to IS the terrain p
   assert.ok(tfs.includes('lit += tex * pointAcc;'), 'on the albedo');
   assert.ok(EL_TERRAIN_FS.includes('    if (d >= uPointLights[i].w) continue;') && EL_TERRAIN_FS.includes('    float att = sh * elAttenuation(d, uPointLights[i].w);\n    acc += att * (max(dot(n, Ln), 0.0) + spec) * uPointColors[i];\n'), 'the lane: elAttenuation on n.L (the spec set aside, as groundLanterns says)');
   assert.ok(EL_TERRAIN_FS.includes('elPointLit(vWorldPos, n)'), 'and the lane\'s terrain reads it');
+});
+
+test('AUDIT GRASS-LIT2 C11: the probes measure what they say - the light probe\'s classic "was" is the blade before GRASS-LIT2, in GRASS_TONES, and the look probe paints the lane it boots', () => {
+  // the twin paints with other tones on asking, its lane's own by default
+  assert.deepEqual(grassLit(WOOD, 0.5, NOON, false, 1, GRASS_TONES_CLASSIC), grassLit(WOOD, 0.5, NOON, false));
+  const old = grassLit(WOOD, 0.5, NOON, false, 1, GRASS_TONES), now = grassLit(WOOD, 0.5, NOON, false);
+  assert.ok(old.every((v, i) => v > now[i]), 'the classic blade before GRASS-LIT2 was the brighter');
+  // the light probe's two "was" columns take it; the docs quote that probe (0.21-0.52x and 1.34-1.43x before)
+  const light = readFileSync(new URL('../tools/grassLightProbe.mjs', import.meta.url), 'utf8');
+  assert.ok(light.includes('was = grassLit(mean, 0.5, base, lane, 1, GRASS_TONES)') && light.includes('was = grassLit(mean, 0.5, night, lane, 1, GRASS_TONES)'));
+  // the look probe hands a palette to the lane booted - one argument painted the default lane's alone
+  const look = readFileSync(new URL('../tools/grassLookProbe.mjs', import.meta.url), 'utf8');
+  assert.ok(look.includes('window.__grassTones?.(x.tones, x.classic)') && look.includes('classic: v.classic ?? prefs.enhancedLighting === false'));
 });
