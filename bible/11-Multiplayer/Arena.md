@@ -234,8 +234,82 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 
 | Slice | What ships | Verifiable by |
 |---|---|---|
-| **ARENA1** | the colosseum in cell (4,3) of Daggerfall (both layouts), the model vendored and drawn, ARENADAG.RMB, the building list strip, the gate's people (Herald opens a placeholder card), the undercroft dungeon, the displaced records moved (offline) | ARENA2 data: the city's grid, the strip, the model's mesh and collider, the move of a deed |
+| **ARENA1** (SHIPPED 2026-10-02 - the record below) | the colosseum in cell (4,3) of Daggerfall (both layouts), the model vendored and drawn, ARENADAG.RMB, the building list strip, the gate's people (Herald opens a placeholder card), the undercroft dungeon, the displaced records moved (offline) | ARENA2 data: the city's grid, the strip, the model's mesh and collider, the move of a deed |
 | **ARENA2** | the bout law, AI fighters (bout team, foe yield floor), exhibitions on the city floor, the instance of the floor, the ladder's ten tiers offline, the crowd (sound, sight, mood, words), the Herald, the HUD | the bout law's tests, a bout played through headless |
 | **ARENA3** | the teams, the Arena window (all tabs, offline records), tier titles and Grand Champion offline, purses, the bookmaker | UI probes, the window's model tests |
 | **ARENA4** | online: the account service tables and board, the relay's arena rooms, matchmaking, PVP-REF, the relay-run ladder opponent, spectators, the online titles and the laurel glyph, the online home move | the relay over fake sockets, the service over node:sqlite |
 | **ARENA5** | the audit: every slice re-read against this page, the probes, the mutants | |
+
+## ARENA1 record (2026-10-02) - SHIPPED
+
+**What stands.** Daggerfall's cell (4,3) is **ARENADAG.RMB** in every read of the city - MAPS.BSA's, Beautiful
+Cities', a pinned town's, and with Replace Game Artwork off (`src/world/arenaCity.js`; the door's new `editLocation`
+seam, run by `MapsFile.getLocation` after the location is read with its indices set, never by `readClassicLocation`,
+which a pack's edit is taken against). The block is the port's own, served by `registerPortBlock` behind no switch at
+the fixed index **900100** (the gate court's 900000 is the precedent), so DFU's new-block sequence - the first mod
+block at BsaFile.Count, RR3b's pin - and every pack's indices are untouched. The building list loses exactly the
+entries the old block's named buildings DREW (`talkTopics.drawNamedBuildings`, the readers' own draw, which now also
+answers each block's draws).
+
+**Measured with ARENA2** (`test/arena1_city.test.js`): classic - 316 entries to **313** (GEMSAL03's tavern and two gem
+stores; its sixteen houses draw nothing), the city's 647 buildings to **628** (19 gone, none left in the cell), and
+**all 628 others unchanged** in name, faction, quality, type and seed; Beautiful Cities - 566 to **563**, 566 buildings
+to **547**, **all 547 unchanged**. Both: LocationId 50026, the castle 50027 (16 blocks), MapId unchanged, the Palace
+(faction 201) standing.
+
+**The model** (`src/world/arenaModel.js`, `vendor/daggerfall-arena/`, `tools/daggerfallArenaExtract.mjs`): Kamer's
+4,773 triangles carried; **365** that are copies of Daggerfall's dungeon models left out and rebuilt from the player's
+ARCH3D as **18 placements** of 8 models (62209, 63000, 63004, 63007, 63024, 63028, 63035, 72006; 13 whole, 39
+triangles under another of Daggerfall's pictures as Kamer gave them). Rebuilt and merged it is the bundle's mesh again,
+**5,138 of 5,138 triangles** - corners, uvs, winding and picture (`test/arena1_extract.test.js`). The design page's
+"25 placements" were the survey's overlapping matches; the tool claims each triangle once, so 18 carry all 365.
+Registered as 864102 climate-free (RuntimeMaterials' `ApplyClimate` 0) with the pieces it reads
+(`registerCustomModel(..., { climateFree, needs })`; `dataPipeline` loads their pictures, then hands the build
+`classicModel`). The bundle's two textures are Daggerfall's own and are not carried.
+
+**The four hosts.** `scenes/world.js` - WIRED: the colosseum drawn and merged by an empty table (`NO_CLIMATE_REMAP`,
+never the pixel's climate swap), its mesh collider (every placed model's: the tiers, the floor and the walls), the
+43600 stair handed the undercroft (`arenaDoorTarget`, its own exit group `<pixel>:undercroft`), the quest location
+underground the undercroft's own record (`_questLoc`), the displaced deed moved at load (`moveArenaDeed`, before the
+pins). `scenes/exterior.js` (Daggerfall's own city host) - WIRED: the same draw table, collider and stair; FLAGGED: it
+builds no save doors, so no deed is moved there. `scenes/worldModes.js` (interiors, and the exterior press both hosts
+share) - WIRED: the Herald's click, and an inside save or anchor in a building the arena took stands outside.
+`scenes/dungeonContext.js` - FLAGGED: the undercroft is an ordinary dungeon there (no code of its own); 864102 never
+stands underground.
+
+**The gate's people** (`ARENA_GATE_PEOPLE`): the Herald (183:5, the Court of Daggerfall 595), two wardens (183:2,
+183:3, the Royal Guard 372), the Red and Blue recruiters (182:25, 182:28) and the bookmaker (182:24) - the People of
+Daggerfall 518 - just outside the north arch, between Kamer's lamp posts. The Herald's click opens `ARENA_TEXT`'s
+notice through the one box (the enhanced notice panel; the parchment on the classic skin); the others talk as the
+city's people do. Placeholders for ARENA2/3.
+
+**The undercroft**: Kamer's 32 blocks (start N0000077), laid out from BLOCKS.BSA; its record carries his location id
+55398 and map id 211207 under the city's region, climate and pixel, off the travel map. A save made below re-enters it
+(`dungeonStartDoorFor` by `dungeon:55398`); the castle's own doors are another exit group.
+
+**Displaced records, offline.** `layoutPins.recordStands` answers false for a record keyed to the cell
+(`arenaRecordDisplaced`), so: a rented room is honoured at any inn of the city (`findRentedRoom`), a ticket at any smith
+(`isBeingRepairedAt`), a quest site is chosen again (`Place.reseatMovedSite`, run in `applyLayoutPins`), an inside save
+or a Recall anchor stands outside (`restoreInterior`'s new guard - the old block index alone could have matched another
+town's GEMSAL03). A house deed is moved once (`systems/arenaMove.js`): to a free house of its type in the city (any
+house when none is free), never one another record holds or an active quest's, by the market's xorshift seeded by the
+map id and old key; its scene renamed with it (`sceneCache.renameScene` - the entry, its other layouts' visits, their
+permanence); the cell's discoveries forgotten, the new house discovered as the player's residence, the Daggerfall
+Bank's letter and a notebook line. Verified with ARENA2 in both layouts: a GEMSAL03 House2 deed lands on a House2 of
+the city outside the cell.
+
+**ARENA4 - the online homes' migration** (written down, not built). The account service owns online homes: `homes`
+(PK map_id, building_key; 0010, `layout` 0046), `home_decor` (0011, `yard` 0039), `home_hidden` (0015) and `home_rooms`
+(0037), each keyed (map_id, building_key) with `ON DELETE CASCADE` from `homes`. One migration (the next free number) and
+one service pass must, for every `homes` row whose map_id is Daggerfall's (1291010263) and whose building_key is in cell
+(4,3) (`key >> 16 = 4 AND (key >> 8) & 255 = 3`): pick the new key by `arenaHouseFor` over the city as its row's
+`layout` stands it, excluding every building_key a `homes` row of that map already holds; insert the new `homes` row
+(every column carried, `look`, `rent_due` and `layout` with it), re-key its `home_decor`, `home_hidden` and `home_rooms`
+rows (tenants keep their rooms), then delete the old `homes` row - in that order, in one transaction, so the cascade
+never takes the children; and leave the owner a notice for the next login (the Daggerfall Bank's letter). Idempotent: a
+row already outside the cell is never touched. The relay's `interior:m<map>.<key>` rooms follow the key.
+
+**Not done / open.** Not seen in a browser or on a GPU: the colosseum's look, the tiers' walkability under the port's
+collider, and the gate people's footing on the terrain at the block's edge are unverified by eye. Smaller Dungeons (a
+setting) may trim the undercroft as it trims any keep. The Herald's line is a placeholder until ARENA2's bouts and
+ARENA3's Arena window.

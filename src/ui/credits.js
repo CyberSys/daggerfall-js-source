@@ -389,6 +389,16 @@ export const CREDITS = Object.freeze({
       contact: 'DFU Discord',
       vendor: Object.freeze(['world-events-raiding-parties']),
     }),
+    // ARENA1: Kamer's fifth - after his raiding parties.
+    Object.freeze({
+      title: 'Daggerfall Arena',
+      version: '1.0',
+      author: 'Kamer',
+      what: 'The colosseum: his arena model, its tiers, torches and braziers, and the 32-block dungeon beneath it - stood in the middle of Daggerfall city as the Arena of Daggerfall, its undercroft below. Drawn in the player\u2019s own Daggerfall pictures; the parts of it that are Daggerfall\u2019s own dungeon pieces are read from the player\u2019s game.',
+      terms: 'Vendored with the author\u2019s permission, relayed by Mac (2026-10-02); see vendor/daggerfall-arena/README.md.',
+      contact: 'DFU Discord',
+      vendor: Object.freeze(['daggerfall-arena']),
+    }),
     Object.freeze({
       title: 'Iliac Puddle No More',
       version: '1.2.2',

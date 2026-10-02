@@ -4,9 +4,11 @@
 > left as it wrote them.** They were true of the fifteen rows that
 > existed on 2026-09-15 and they are the record of what putting those
 > rows side by side found. The live numbers are derived, not written:
-> `vendor/` holds 44 directories and 26 of their READMEs still carry an
+> `vendor/` holds 45 directories and 26 of their READMEs still carry an
 > unfilled permission line, each shown as `RECORD OPEN` in the table
-> (WD3, 2026-10-01: carademono's `beautiful-villages` and `beautiful-cities`, the forty-third and
+> (ARENA1, 2026-10-02: Kamer's `daggerfall-arena`, the forty-fifth - his permission relayed by Mac
+> and written in its README, so the open count stands;
+> WD3, 2026-10-01: carademono's `beautiful-villages` and `beautiful-cities`, the forty-third and
 > forty-fourth - Mac's word of permission recorded ("We have permission"), the author's own words
 > not yet, so the open count rises by two;
 > THE MERGE of main into the professions branch, 2026-09-28, counted them again: FORAGE1's
@@ -137,6 +139,7 @@ not the date the slice shipped, where those differ.
 | `shield-widget` | manifest, settings, presets | RedRoryOTheGlen | 1.6 | shipped zip `Shield_Widget-733-1-6`; behaviour off the DLL's IL | granted (Mac handed the zip over 2026-09-19) - **RECORD OPEN** | SW1 | 2026-09-19 | `05-Combat/Shield-Widget.md` |
 | `diverse-weapons` | manifest, the script (MIT, verbatim), its Weapon Widget preset, the readme, and the 12,624 sprites (`public/art/diverse-weapons/`, re-encoded from the bundle - DW2) | RealAKP | 1.7.3 | shipped zip `Diverse Weapons 1.7.3` (Nexus 242, Mac's Drive link 2026-09-23); the law is DFU's own (`WeaponBasics.GetModdedWeaponFilename`, `FPSWeapon`) | granted (Mac handed the zip over 2026-09-23); the script MIT by its header, the sprites never in the repository - **RECORD OPEN** | DW1 | 2026-09-23 | `05-Combat/Diverse-Weapons.md` |
 | `windmills-kamer` | five `.dae` meshes + placements | Kamer | 2.0 | `WindMills.rar`, supplied by Mac 2026-08-29 | granted by the author, confirmed by Mac 2026-08-29 | WM1 | 2026-08-29 | `03-World/Windmills.md` |
+| `daggerfall-arena` | manifest verbatim; the colosseum (model 864102) as data - his own 4,773 triangles, the 23-slot RuntimeMaterials table, the collider record, and 18 placements of Daggerfall's own dungeon models rebuilt from the player's ARCH3D; ARENADAG.RMB cut from his DFARENA.RMB; his 32-block dungeon; no texture (both are Daggerfall's own) | Kamer | 1.0 | `daggerfall_arena.rar` (one `.dfmod`), supplied by Mac 2026-10-02; `tools/daggerfallArenaExtract.mjs` writes every file but the README | granted by the author, relayed by Mac 2026-10-02 | ARENA1 | 2026-10-02 | `11-Multiplayer/Arena.md` |
 | `world-of-daggerfall` | manifest, the eight C# sources (carried inside the bundle as TextAssets, so nothing here is a decompile), the 65 prefab layouts verbatim, and the 2,413 instance lists read through the ported reader into one pack per region folder with every source file's sha256 recorded | Kamer | 2.0 | shipped `.rar` `World_of_Daggerfall_WindowsLinux-181-2-0-1773339543`, handed over by Mac 2026-09-23; `tools/worldOfDaggerfallAssets.mjs` reproduces every vendored file byte for byte | granted by the author (the grant that covers his windmills), confirmed by Mac 2026-09-23 | WOD1-WOD5 | 2026-09-23 | `03-World/World-Of-Daggerfall.md` |
 | `world-tooltips` | manifest, settings, and the mod's OWN source - the bundle ships `Modded_HUDTooltipWindow.cs` as a Unity TextAsset, so nothing here is a decompile | jefetienne | 1.1 | shipped zip `World_Tooltips_-_Windows_1.1-158-1-1-1655327614`, handed over by Mac 2026-09-21; `tools/worldTooltipsAssets.mjs` reproduces all three vendored files byte for byte | MIT ("Copyright (c) 2009-2018 jefetienne", shipped as `LICENSE-world-tooltips`, beside Daggerfall Workshop's own) | WORLD-HOVER | 2026-09-21 | `10-UI/UI-Arc.md` |
 
