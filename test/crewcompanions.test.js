@@ -389,7 +389,7 @@ test('CREW-COMPANIONS by source: both pools knock a companion out before every d
   const knockD = d.indexOf("if (foe.companion != null) { foe.entity.health = 1; foe._knockedOut = true; return; }");
   assert.ok(knockD > 0 && knockD < d.indexOf('attemptSoulTrap(foe.entity', knockD), 'the dungeon: before the trap and the corpse');
   assert.match(d, /if \(foe\.dead \|\| \(fromPlayer && !peer && foe\.companion != null\)\) return;/, 'no blow of mine reaches him');
-  assert.match(d, /const live = foes\.filter\(\(f\) => !f\.dead && f\.companion == null\);/, 'nor my swing');
+  assert.match(d, /const live = (?:dropFateHeld\()?foes\.filter\(\(f\) => !f\.dead && f\.companion == null\)\)?;/, 'nor my swing');   // PIN MOVED (the revenant audit): and one held by its fate
   assert.match(d, /foes: foes\.filter\(\(f\) => f\._ownFrom == null && f\.companion == null\)/, 'the room\'s save holds none');
   assert.match(d, /function removeLooseFoe\(f\) \{\n\s*if \(!f \|\| f\._gone \|\| !foes\.includes\(f\)\) return false;\n\s*dropOwnPuppet\(null, f\);/, 'the out door');
 });

@@ -947,17 +947,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2512 (the factory) and :1904 (a
+                        worldModes.js:2515 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1269, world.js:4832,
-                        exterior.js:2628. It is the only window TWO
+                        dungeonContext.js:1274, world.js:4836,
+                        exterior.js:2637. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12622, dungeonContext.js:8380. A seam
+    / NOTEBOOK          world.js:12777, dungeonContext.js:8525. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -7640,7 +7640,7 @@ PX5 (same day, Mac): TIMERS, THE CLOCK, AND MAIN/SIDE. Three asks,
 each grounded in something the port already carries. (1) QUEST
 TIMERS: the world's questLog walk now reports the TIGHTEST RUNNING
 clock per quest - Clock resources carry remainingTimeInSeconds with
-clockEnabled/clockFinished (quest/clock.js:125,164) - and the journal
+clockEnabled/clockFinished (quest/clock.js:270,164) - and the journal
 draws it under the quest name as 'Time remains: N days N hours'
 (hours+min under a day, min alone under an hour), URGENT GOLD below
 one game day, with a gold gem pushed right on the rail row of any
@@ -8636,7 +8636,7 @@ hours, hours with minutes under a day, minutes alone under an hour,
 and never "0 min", because a live clock always has a minute left. The
 threshold is one GAME DAY in seconds, not a guess. The clock is the
 machine's - the TIGHTEST running Clock resource on the quest
-(clockEnabled && !clockFinished, quest/clock.js:125,164) - and all
+(clockEnabled && !clockFinished, quest/clock.js:270,164) - and all
 three log builders walk it identically, world.js twice on purpose (its
 own questLog and the pauseQuestLog worldModes borrows, so the modal
 host's journal shows the same timers the world's does). 1 pin, 5
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3388 as a second book built by hand 342 lines below the
+worldModes.js:3391 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8764,7 +8764,7 @@ window over, and both halves of it were here too.
 IT READ THE NAMES AND THREW AWAY THE NUMBERS. `spellEffects` hands
 back the effect RECORDS, and every one carries `magnitudeBaseLow/High`
 with its per-level step, `durationBase/Mod`, and `chanceBase/Mod` -
-the exact fields systems/effects.js:531-539 reads to resolve a live
+the exact fields systems/effects.js:532-540 reads to resolve a live
 effect. The first draft printed the two names and dropped the rest,
 which is the chronicle's flattened date wearing a different hat. Each
 part now appears only when the effect HAS it, because "0 to 0" is
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5290 and
+questJournal.js from charSheetNav:53, world.js:5294 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:8195` and `dungeonContext.js:1888` answer the same
+`worldModes.js:8201` and `dungeonContext.js:2002` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:13071`,
+the other half went stale unnoticed. (The rest cite named `world.js:13226`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:13077` now.)
+deleted the second and the cite is `world.js:13232` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2365`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2369`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10591` named a line that is 8950, `:1771` one that is
+read: `world.js:10745` named a line that is 8950, `:1775` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:10325-10357` and `dungeonContext.js:1692` were
+that is 8907. `world.js:10479-10511` and `dungeonContext.js:1806` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17148,7 +17148,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2777` became
+second pass moved them a second time - `dungeonContext.js:2891` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came

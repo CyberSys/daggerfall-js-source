@@ -62,7 +62,7 @@
 // billboard indices ride along for the questor flat-pick (Q4-iii).
 
 import { QuestMachine, TICKS_PER_SECOND } from '../systems/quest/machine.js';
-import { clockCounts } from '../systems/quest/clock.js';   // DEAD-CLOCK: a clock whose end changes nothing is no deadline
+import { clockCounts, questTimeFree } from '../systems/quest/clock.js';   // DEAD-CLOCK: a clock whose end changes nothing is no deadline
 import { repairActiveQuests } from '../systems/quest/questRepair.js';   // QREPAIR: the Settings' repair
 import { QuestListsManager } from '../systems/quest/questLists.js';
 import { QuestOfferFlow } from '../systems/quest/offerFlow.js';
@@ -460,7 +460,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
      * (and, GUIDE1, the step each was written at), and the TIGHTEST
      * RUNNING clock on the quest's resources (Clock carries
      * `remainingTimeInSeconds` in game seconds beside
-     * `clockEnabled`/`clockFinished`, quest/clock.js:125,164). The
+     * `clockEnabled`/`clockFinished`, quest/clock.js:270,164). The
      * archive is the notebook's filed entries; `ended` the completed
      * quests the machine still holds, with their verdict.
      *
@@ -503,7 +503,9 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
         if (!messages.length) continue;
         let clockSeconds = null;
         const clocks = [];   // AUDIT GUIDE H1: each counting clock by name - the lens counts only one the journal names
-        for (const r of q.resources.values()) {
+        // TIMEFREE: online a quest has no time left to show - its deadlines never run out (quest/clock.js), so no
+        // "Time remains", no "Under a day left", no urgent herald, on any surface this walk feeds
+        if (!questTimeFree(q)) for (const r of q.resources.values()) {
           if (r.clockEnabled && !r.clockFinished && Number.isFinite(r.remainingTimeInSeconds) && clockCounts(q, r)) {   // DEAD-CLOCK
             const left = r.liveRemainingSeconds(q);   // QT-LIVE1: as of NOW, not as of the last tick the pause gate let through
             clockSeconds = clockSeconds == null ? left : Math.min(clockSeconds, left);

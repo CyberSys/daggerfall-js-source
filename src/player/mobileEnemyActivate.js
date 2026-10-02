@@ -98,8 +98,17 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   // static funnel DaggerfallUI.cs:783-789 gives every caller.
   midScreen = setMidScreenText,
   openCompanion = null,
+  openFate = null,   // REVENANT-FATE: (foe) => the yielded revenant's choice (the host's loot-menu door)
 } = {}) {
   if (!foe || foe.dead) return false;
+  // REVENANT-FATE (2026-10-02, Mac: "Players should have the option to kill or spare"; "the choice popup should reuse
+  // the loot menu"): a beaten revenant on its knees is reached as a body is - at the treasure's reach, the HUD's one
+  // refusal past it - and opens its fate's window; a peer's (a puppet's) is its owner's choice
+  if (foe.yielded && !foe.puppet && openFate) {
+    if (!(distance <= TREASURE_ACTIVATION_DISTANCE)) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // the treasure's reach, as his pack's (WK-P6)
+    openFate(foe);
+    return true;
+  }
   const entity = foe.entity ?? null;
   // COMPANION-KIT (2026-10-01, Mac: companions "act as storage"): my companion activated opens his pack - Steal from him
   // is the shipmate's silent break below

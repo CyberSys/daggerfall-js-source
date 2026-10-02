@@ -545,7 +545,7 @@ export function damageEquipment(attacker, target, damage, weapon, struckBodyPart
     if (_overrides.get('applyConditionDamageThroughPhysicalHit')?.(item, owner, damage, { say, rolls }) === true) return;
     let amount = Math.trunc((10 * damage + 50) / 100);
     if (amount === 0 && dice100(20, rolls())) amount = 1;
-    lowerCondition(item, dfuBlowWear(amount, rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale; WEAR-TWICE: twice it
+    lowerCondition(item, dfuBlowWear(amount, rolls), owner, say);   // BALANCE1: DFU's amount, on the port's wear scale; WEAR-TWICE: twice it, WEAR-ONE: once again
   };
   hit(weapon, attacker);
   const slots = equipTableOf(target);

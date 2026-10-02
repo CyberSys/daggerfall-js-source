@@ -17,11 +17,12 @@
 // seconds ago is not your target, and a bar that never leaves is
 // furniture. It clears at once when the foe dies, because a dead thing
 // has no health to report.
+import { foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: what a special foe is called, one home
+
 export const FOE_TARGET_SECONDS = 6;
-/** LOOT7 (the Loot arc): a CHAMPION's trait before its name, as systems/champions.js championName says it - the entity's
- *  own `champion` id title-cased (every trait's name is its id's, test/loot7_champions.test.js); this leaf imports
- *  nothing, so it is spelt here. */
-const titled = (e, base) => (typeof e.champion === 'string' && e.champion && base ? `${e.champion.charAt(0).toUpperCase()}${e.champion.slice(1)} ${base}` : base);
+/** LOOT7 (the Loot arc): a CHAMPION's trait before its name; ELITE FOES: "Elite" before it; REVENANT: its own name -
+ *  systems/foeTitle.js, the one home every surface asks (a leaf, as this one is). */
+const titled = (e, base) => foeTitle(e, base);
 
 let _foe = null;
 let _left = 0;
@@ -50,7 +51,7 @@ export function foeTarget() {
   if (!e || _foe.dead) return null;
   const max = e.maxHealth || e.health || 1;
   return {
-    name: `${e.eliteFoe ? 'Elite ' : ''}${String(titled(e, e.name ?? e.career?.name ?? 'Foe'))}`,   // LOOT7: a champion's trait before its name; ELITE FOES: the target bar names an elite
+    name: String(titled(e, e.name ?? e.career?.name ?? 'Foe')),   // LOOT7: a champion's trait before its name; ELITE FOES: an elite's word; REVENANT: its own name
     health: Math.max(0, e.health ?? 0),
     maxHealth: max,
     fade: Math.min(1, _left / 1.5),   // the last second and a half

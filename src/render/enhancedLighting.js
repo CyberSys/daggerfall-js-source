@@ -68,6 +68,7 @@ import { BAYER_GLSL, BAYER_MEAN, DISSOLVE_GLSL } from './orderedDither.js';   //
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
+import { FLAT_DISSOLVE_GLSL } from '../systems/dissolve.js';   // DISSOLVE: the classic BB_FS's own
 import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
@@ -626,6 +627,7 @@ uniform vec4 uConceal;
 uniform float uHitFlash;   // HITFLASH1
 uniform float uEliteGlow;  // ELITE FOES
 uniform float uEliteTime;  // ELITE FOES: the embers' clock
+uniform vec4 uDissolve;  // DISSOLVE: the burn's share and its edge (systems/dissolve.js)
 uniform vec3 uTint;
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -647,6 +649,7 @@ ${EL_POINT_LIT_GLSL}
 ${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
 ${ELITE_GLOW_GLSL}
+${FLAT_DISSOLVE_GLSL}
 out vec4 outColor;
 void main() {
   vec2 uv = vUV;
@@ -657,13 +660,14 @@ void main() {
   vec4 tex = (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) ? vec4(0.0) : texture(uTex, uv);   // ELITE FOES: the widened quad's margin is empty
   if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
     // ELITE FOES: the rim and the embers, bright enough in linear light for the bloom to catch
-    if (uEliteGlow != 0.0 && uConceal.x == 0.0) {   // negative: an elite's corpse - the rim alone
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0) {   // negative: an elite's corpse - the rim alone; DISSOLVE: none round a body burning away or through a portal
       if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, min(eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), vec3(1.0)), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }   // in DISPLAY colour, past the exposure: through the tone curve a dark dungeon's exposure took it to white (Mac's screenshot) - this is the classic lane's blue
       float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
       if (em > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, min(eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), vec3(1.0)), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }   // display colour, as the rim
     }
     discard;
   }
+  if (dissolveGone(uv)) discard;   // DISSOLVE: burnt away, or not yet through its portal
   vec3 emission = elDecode(texture(uEmissionTex, uv).rgb);
   vec3 albedo = max(elDecode(tex.rgb) - emission, vec3(0.0));
   vec3 base = vBBBase + vec3(0.0, 0.5, 0.0);   // EL2: the shadow is read a half unit up the sprite's base, once for the whole flat
@@ -687,6 +691,7 @@ void main() {
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3's mode, which this lane never drew
   lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: a struck body's red - the lane had no flash at all
+  lit = dissolveLit(lit, uv, elDecode(uDissolve.yzw));   // DISSOLVE: the burning edge, its colour decoded into the lane's linear light (the bloom catches it)
   if (uConceal.x == 4.0) lit = vec3(0.0);
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;

@@ -374,6 +374,45 @@ temple's cure days and Heart's Day keep their share of the year, in shorter, mor
 year number climbs about 49 a real year. TIME1 reads every date reader its census finds for one that
 counts years, before the years run faster.
 
+### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online]
+
+Mac: "we recently adjusted quest timing for online and im really getting tired of it ... Is there a way we can overhaul
+online quests to not use time and edit anything questwise to make since that depends on time?" Asked what a waiting step
+does online: "Short real wait"; asked whether the bounties, the curse quests and the crime-guild letters go too: yes.
+
+- **A clock is a deadline or a delay, and the script says which** (`quest/clock.js` `clockIsDeadline`, read once per
+  clock, `isDeadline`): a deadline's end loses the quest (its task, and what it starts or a positive `when` of it sets
+  off, ends the quest with no GivePc, TrainPc or StartQuest), costs a standing (a negative `change repute` or
+  `legal repute`), or shuts a reward waiting on `not _clock_`. Everything else is a delay. A clock a clock starts is
+  asked on its own (Brisienna's invitation is a delay that starts her fortnight, a deadline). AUDIT TIMEFREE
+  (`01-Overview/Audit-Timefree.md`) sharpened the reading: a standing lost or a reward shut counts only by what the
+  end or the reader itself DOES, not by a chain of later `when`s (T2); `end quest` is a loss only when the end ALONE
+  sets it off, by the engine's own reading of the `when` (T3 - the main quest's endings wait on the story); a quest
+  item handed over is progress (T4); `Clock _x_ 00:00` with no travel arm is "at once" (T3); and a CLOSING - a clock
+  a task starts after settling the quest (the reward paid, the next quest begun, a deadline already lost) - is a delay
+  (T1), as is, at run time, a task-started deadline once the quest is a success, unless it was started after the
+  success (a new limit - T5). Penalties the reading cannot see are deadlines by hand (`ONLINE_DEADLINES`: the cure
+  quests' hunters, U0C00Y00's escape, M0B11Y18's mark leaving, Brisienna's month - T6), and one closing after a
+  failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03). Of the 399 vendored clocks, 262 are deadlines and 137
+  delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js`).
+- **Online a deadline never runs out**: charged nothing, its sample still moving, so a quest taken offline resumes it
+  where it stood. QFAIL-FREE stays as the net under anything else that ends a quest unfinished.
+- **Online a delay lands on the short wait**: its remainder is cut once to `ONLINE_DELAY_SECONDS` (24 minutes of the
+  character's clock, about two real minutes of play at 12:1) and charged as any clock (WORLD7's played step, raised
+  time whole).
+- **The words**: a clock's `=x_` day count reads "a few" online ("within a few days"); the journal walk
+  (`scenes/questBridge.js questLog`) reads no clock online, so no surface shows "Time remains" or herald's urgency;
+  the Online pane says so.
+- **The rest**: a quest letter waits for town but not the sky's morning (GivePc); a taken bounty never lapses and
+  shows no time left (`scenes/bountyHost.js`); the curse quests roll every 24 of the character's minutes while their
+  arm has nothing running (`racialQuests.js racialArmIdle`, `worldTick.js`), not every 38 and 84 days; a crime guild's
+  letter is due 24 minutes after the tally, not three days (`crimeGuilds.js`).
+- **Left on the sky, said so**: `daily from` windows. They are schedules, not waits - A0C00Y12, N0C00Y10 and L0B50Y11
+  split the day between a house, an inn and a store; CUSTOM01 and M0B30Y08 read `not` a window - so forcing them open
+  would break those quests. They come round every real hour (SKY-SLOW); N0B10Y03 keeps GUARD-ONLINE's arrival window.
+  Spawn intervals (`create foe every N minutes`), QAE RaiseTime and TrainPc's three hours are pacing, kept.
+- Offline: none of it. DFU's clock, whole.
+
 ## 7. On screen
 
 - **The date and time the menus show, and the rest window's "World time":** the sky.
@@ -528,6 +567,15 @@ terms; 9 is new and not built.
   the sky (6.3a). TIME4: the Online pane's sentence, this page, `Lived-Time.md`, `Online-Arc.md`, `Quest-Arc.md`,
   `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes
   (`PATCH-NOTES-A-Faster-Sky.md`). The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
+- 2026-10-02: TIMEFREE (6.3b) - online quests are not time: deadlines never run out, delays land on the short wait,
+  no countdowns, bounties never lapse, the curse quests and crime-guild letters on the short wait.
+  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead), `PATCH-NOTES-Time-Free-Quests.md`.
+- 2026-10-02: AUDIT TIMEFREE (`01-Overview/Audit-Timefree.md`): every vendored clock read by hand, the main quest's
+  whole; nineteen misread clocks corrected (T1-T6) - among them Brisienna's close, the main quest's endings and
+  letter43, quests that never closed after their reward. `test/audit_timefree.test.js`,
+  `tools/mutants/audit_timefree.json` (14, all dead).
+- 2026-10-02: AUDIT TIMEFREE II: the real machine ticked online and offline (Brisienna, K'avar's letter, a deadline
+  across the switch); main merged in; the patch notes' words corrected.
 - 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
   the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
   now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the
