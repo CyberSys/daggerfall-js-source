@@ -22,6 +22,7 @@ import { applyRarity, rarityEligible } from './lootRarity.js';
 import { goldStack } from './inventory.js';
 import { isAmmunition } from './itemTemplates.js';
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';   // ELITE-FLOOR: the watch is never an elite
+import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // ELITE-FLOOR: a kind's own level, the same on every client
 
 /** Health and damage, times the foe's own (rolled, before any Elite Dungeon doubling - an elite is 5x, not 10x). */
 export const ELITE_FOE_HEALTH_MULT = 5;
@@ -48,8 +49,8 @@ export const ELITE_FOE_MIN_LEVEL = 3;
 
 /** ELITE-FLOOR: may this freshly built foe stand as an elite? Never under ELITE_FOE_MIN_LEVEL, never the city watch,
  *  never an ally - LOOT7's own exclusions (systems/champions.js applyChampion). */
-export const eliteEligible = (entity) => !!entity
-  && (entity.level | 0) >= ELITE_FOE_MIN_LEVEL
+export const eliteEligible = (entity, { checkLevel = true } = {}) => !!entity
+  && (!checkLevel || (entity.level | 0) >= ELITE_FOE_MIN_LEVEL)
   && entity.mobileType !== KNIGHT_CITY_WATCH
   && entity.team !== 'PlayerAlly' && entity.mobileTeam !== 'PlayerAlly';
 
@@ -64,10 +65,10 @@ export const isEliteFoe = (entity) => !!entity?.eliteFoe;
  *  word (the record's `k`), so only the blows, the size and the glow are stood here (and its owner already asked
  *  eliteEligible). Idempotent. ELITE-FLOOR: answers whether it stands as an elite - false for a foe eliteEligible
  *  refuses, which is then built as it would have been. */
-export function promoteEliteFoe(entity, { own = true, eliteDungeon = false } = {}) {
+export function promoteEliteFoe(entity, { own = true, eliteDungeon = false, checkLevel = true } = {}) {
   if (!entity) return false;
   if (entity.eliteFoe) return true;
-  if (own && !eliteEligible(entity)) return false;
+  if (own && !eliteEligible(entity, { checkLevel })) return false;
   entity.eliteFoe = true;
   // the hosts promote BEFORE any other scaling (and in place of the Elite Dungeon's doubling), so this is the foe's own
   // roll: an elite is 5x, not 10x
@@ -116,7 +117,10 @@ export function pickDungeonElites(enemies, key, { elite = true } = {}) {
     ? ELITE_FOE_DUNGEON_MIN + Math.floor(rng() * (ELITE_FOE_DUNGEON_MAX - ELITE_FOE_DUNGEON_MIN + 1))
     : (rng() < ELITE_FOE_NORMAL_DUNGEON_CHANCE ? 1 : 0);
   const pool = [];
-  enemies.forEach((e, i) => { if (e && !e.allied && e.reaction !== 'passive' && e.champion == null) pool.push(i); });   // never a LOOT7 champion (systems/champions.js; its trait index, 0 a trait too) - one or the other
+  // ELITE-FLOOR, the same on every client: a kind under the floor by its OWN level never stands as one (a class foe's
+  // level is the party's, built per client, so the floor is the pick's here and promoteEliteFoe is told not to re-ask)
+  const kindLevel = (t) => (t >= 128 ? Infinity : (ENEMY_BASICS[t]?.level ?? 0));
+  enemies.forEach((e, i) => { if (e && !e.allied && e.reaction !== 'passive' && e.champion == null && kindLevel(e.mobileType) >= ELITE_FOE_MIN_LEVEL) pool.push(i); });   // never a LOOT7 champion (systems/champions.js; its trait index, 0 a trait too) - one or the other
   let n = 0;
   while (n < want && pool.length) {
     const at = Math.floor(rng() * pool.length);

@@ -35,6 +35,13 @@ shared run online (a room's layout foe vanishing on one client would leave it st
 while running, its walk still drawn. It is retired through the quest pool's own door (`escapeDungeonFoe`). A slain
 nemesis closes there too.
 
+**One flee law** for every pool: `nemesisFleeStep` answers each frame with `start`, `run`, `escape`, `cornered` or
+nothing. A foe chased down, its run spent within 20 m (`NEMESIS_ESCAPE_NEAR`), is **cornered**: it turns and fights to
+the end and never runs again ("Then I take you with me!"). Only out of reach does it escape. The step is asked only of a
+foe running or under the line, so nothing is made per foe per frame.
+
+**A slain foe is no one's nemesis**: a death no blow names never goes to a foe already dead (a fall after the fight).
+
 ## 2. What it becomes
 
 A record per character:
@@ -53,13 +60,17 @@ A record per character:
   (to 5) and gives it a new epithet, never the one it wore.
 - **Named at once**: the foe that killed you wears its new name where it stands (`entity.nemesis`). Kill it there and
   it is slain.
-- **Cap**: five living nemeses. A sixth replaces the weakest, oldest.
+- **Cap**: five living nemeses. A sixth replaces the weakest, oldest, which is BURIED: its record becomes a tombstone (its
+  id and a newer revision), which every merge keeps over an older copy, so an older save never raises it.
+- **Bounded**: the page keeps the newest 12 slain (`NEMESIS_FALLEN_MAX`); older ones are buried too. At most 200
+  tombstones are kept (`NEMESIS_TOMBS_MAX`).
 - **Told once**: after a kill, the player is told once they stand alive again (online's respawn, or the next load
   offline): "The Orc that killed you lives on as Grushnak the Butcher. It will come for you again."
 
 ## 3. Its return
 
 - **Due** one to three days later on the character's own clock (`worldTick.ownMinutes`).
+- **Claimed by its roll**: the record is out from the roll that picks it, so no second copy stands while its stand loads. A stand that stood nobody frees it (`releaseNemesisStand`).
 - On a due nemesis, an open-world encounter roll (`scenes/world.js runEncounterTick`) stands it instead, 50% of the
   rolls. Only one is out at a time, the highest rank first. This happens before the party's group-roll gate: a nemesis
   is the player's own.
@@ -71,7 +82,7 @@ A record per character:
 - **Taunt**: in sight, on me, within 25 m, once each return. The line knows its last deed and the player's name. A
   beast or a mindless thing (rats, bears, atronachs, zombies...) bares its teeth instead.
 - **Out** from its stand until it dies, escapes, or leaves. Outrun past the cull, swept by a load, or the like, it is
-  due again in six hours (`nemesisPresence`, with a few seconds' grace for a stand still loading).
+  due again in six hours (`nemesisPresence`, which looks in the open world's pool and in whichever host the player stands in, with a few seconds' grace for a stand still loading).
 - **Slain**: its record is closed (`defeated`). It never returns: "Grushnak the Butcher has fallen. Your nemesis is no
   more."
 

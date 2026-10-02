@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { nemesisToReturn, nemesisSpawnOptions, nemesisPresence, takeNemesisNotice, nemesisSay } from '../systems/nemesis.js';   // NEMESIS: who comes back, and what the player is told
+import { nemesisToReturn, nemesisSpawnOptions, nemesisPresence, takeNemesisNotice, nemesisSay, releaseNemesisStand } from '../systems/nemesis.js';   // NEMESIS: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2)
@@ -7845,7 +7845,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       });
       // NEMESIS: a due nemesis may take an open-world roll instead - the player's own, whoever rolls the group's wanderers
       const _nemesis = hit && _m === 'exterior' ? nemesisToReturn(playerEntity, { now }) : null;
-      if (_nemesis) { _standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet); break; }
+      if (_nemesis) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet)).then((f) => { if (!f) releaseNemesisStand(_nemesis); }); break; }   // claimed by the roll; a stand that stood nobody frees it
       if (hit && _rollsForGroup) {   // PSCALE1: a roll that is not the group's stands nothing - the group's roller stands it for everyone
         // RE1: DFU's own placement. This used to walk eight compass
         // points at minDistance and take the first with ground under
@@ -11041,7 +11041,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7835), so exterior mode and a
+    // composer, dungeonContext.js:7826), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

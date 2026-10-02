@@ -79,7 +79,7 @@ import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../syst
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
-import { nemesisCandidate, nemesisFleeHealth, rollNemesisFlee, nemesisDeed, nemesisSlain, applyNemesis, grantNemesisLoot, nemesisById, nemesisSay, nemesisTauntEvent, nemesisFleeEvent, nemesisEscapeEvent, nemesisSlainEvent, NEMESIS_FLEE_SECONDS, NEMESIS_ESCAPE_DISTANCE, NEMESIS_TAUNT_DISTANCE } from '../systems/nemesis.js';   // NEMESIS: the foes that kill you or run, and come back
+import { nemesisFleeStep, nemesisFleeHealth, nemesisDeed, nemesisSlain, applyNemesis, grantNemesisLoot, nemesisById, nemesisSay, nemesisTauntEvent, nemesisFleeEvent, nemesisCorneredEvent, nemesisEscapeEvent, nemesisSlainEvent, NEMESIS_TAUNT_DISTANCE } from '../systems/nemesis.js';   // NEMESIS: the foes that kill you or run, and come back
 import { elitesAllowed, promoteEliteFoe, rollOverworldElite, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 5% of the wilds' foes   // HITFLASH1
 
 // The port's allocation-owner guards (classic self-limits through the
@@ -1078,6 +1078,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (v && v.clip >= 0) audio?.play3d?.(v.clip, mid, 1, { maxDistance: 16, pitch: 1 + v.pitchLift });   // AUDIT 58: EnemySounds.cs:172-175
   }
 
+  /** NEMESIS: a running foe's one step - its walk, no blow and no cast in it (the anim step the loop's tail takes). */
+  function fleeWalk(f, dt, eye) {
+    f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: false, rangedStriking: false, hurting: f.ai.hurtKnock, casting: false }, f.ai.yaw, f.ai.feet, eye);
+  }
   /** NEMESIS: a fleeing foe out of reach - gone as the cull takes a foe (no corpse, no kill, its batch freed; online
    *  its record leaves the stream), made a nemesis (or a stronger one), and said. */
   function escapeFoe(f) {
@@ -1171,30 +1175,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // EnemyAttack.cs:59-61), not merely no anim intent.
       const _fPaused = !!(f.mobile?.isPlayingOneShot() && f.mobile.oneShotPauseActionsWhilePlaying());
       if (groundStands && !groundStands(f.ai.feet[0], f.ai.feet[2])) f.ai.holdFrame(); else f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);   // FALL-HOLD: no ground built under it - held, not stepped; FOE-CATCHUP: three steps a frame at most
-      // NEMESIS (systems/nemesis.js): A FOE RUNNING FOR ITS LIFE runs and does nothing else - no blow, no cast, no
-      // cull - and once out of reach (its run spent, or NEMESIS_ESCAPE_DISTANCE off) it has ESCAPED: gone without a
-      // corpse or a kill, and a nemesis made of it. A special foe of mine on me, under a fifth of its health for the
-      // first time, rolls once whether it runs.
-      const _onMe = isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting;
-      // ...but it still WALKS: the anim step a running foe takes is the one below with no blow and no cast in it
-      const _runStep = () => { f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: false, rangedStriking: false, hurting: f.ai.hurtKnock, casting: false }, f.ai.yaw, f.ai.feet, eye); };
-      if (f.fleeing) {
-        if (!(f.ai.fleeLeft > 0) || Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]) > NEMESIS_ESCAPE_DISTANCE) escapeFoe(f);
-        else _runStep();
-        continue;
-      }
-      if (!f._fleeRolled && _onMe && f.ai.isHostile && nemesisFleeHealth(f.entity) && nemesisCandidate(f.entity, f)) {
-        f._fleeRolled = true;
-        if (rollNemesisFlee(f.entity)) {
-          f.fleeing = true;
-          f.ai.flee(playerFeet, NEMESIS_FLEE_SECONDS);
-          nemesisSay(nemesisFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive }), say);   // NEMESIS-CARD: the card on the enhanced skin, the line on the classic
-          _runStep();
-          continue;
-        }
-      }
+      // NEMESIS (systems/nemesis.js nemesisFleeStep - one law for every pool): a special foe of mine on me, under a fifth
+      // of its health for the first time, may RUN - and running it strikes and casts nothing, its walk still drawn (and no
+      // cull); out of reach it has ESCAPED (no corpse, no kill, a nemesis made of it); run down, it is CORNERED and turns
+      // to fight to the end
+      const _flee = f.fleeing || (!f._fleeRolled && nemesisFleeHealth(f.entity)) ? nemesisFleeStep(f, playerFeet, { onMe: () => isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting }) : null;   // asked only of a foe running or under the line - nothing made per foe per frame
+      if (_flee === 'escape') { escapeFoe(f); continue; }
+      if (_flee === 'start') nemesisSay(nemesisFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive }), say);   // NEMESIS-CARD: the card on the enhanced skin, the line on the classic
+      else if (_flee === 'cornered') nemesisSay(nemesisCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.archive }), say);
+      if (_flee === 'start' || _flee === 'run') { fleeWalk(f, dt, eye); continue; }
       // NEMESIS: a returning nemesis in sight and near says what it came to say - once a return
-      if (f.entity.nemesis && !f._taunted && _onMe && f.ai.inSight
+      if (f.entity.nemesis && !f._taunted && f.ai.inSight && (isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting)
         && Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]) < NEMESIS_TAUNT_DISTANCE) {
         f._taunted = true;
         const r = nemesisById(f.entity.nemesis.id);

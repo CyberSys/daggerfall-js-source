@@ -120,7 +120,7 @@ import { exhaustionOutcome } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // RESTDOOR1: the enhanced/native fork, same law as ui/tradeDoor.js
 import { setEnemyAlert, areEnemiesNearby, intermittentEnemySpawn } from '../systems/encounters.js';
-import { nemesisToReturn, nemesisSpawnOptions, nemesisPresence, takeNemesisNotice, nemesisSay } from '../systems/nemesis.js';   // NEMESIS: the world host's twin - who comes back, and what the player is told
+import { nemesisToReturn, nemesisSpawnOptions, nemesisPresence, takeNemesisNotice, nemesisSay, releaseNemesisStand } from '../systems/nemesis.js';   // NEMESIS: the world host's twin - who comes back, and what the player is told
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, this host's answers
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions
@@ -1887,7 +1887,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       });
       // NEMESIS: a due nemesis may take the roll instead (the world host's twin)
       const _nemesis = hit && _m === 'exterior' ? nemesisToReturn(playerEntity, { now }) : null;
-      if (_nemesis) { _standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet); break; }
+      if (_nemesis) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet)).then((f) => { if (!f) releaseNemesisStand(_nemesis); }); break; }   // claimed by the roll; a stand that stood nobody frees it
       if (hit) { _standEncounterFoe(hit, playerFeet); break; }
       // CAMP1 - GROUP ENCOUNTERS (camps and packs, systems/campEncounters.js):
       // only reached when the single-encounter roll above was empty.

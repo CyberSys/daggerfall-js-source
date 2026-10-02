@@ -39,6 +39,9 @@ const { FRAME_ROLES } = await import('../src/ui/enhancedFrame.js');
 const { HUD_PIECES } = await import('../src/ui/hudLayout.js');
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+const { modSaveRecords, restoreModSaveRecords } = await import('../src/systems/modSaveData.js');
+const modSave = () => modSaveRecords()[N.NEMESIS_SAVE];
+const restore = (rec) => restoreModSaveRecords({ [N.NEMESIS_SAVE]: rec });
 const stats = () => ({ strength: 50, intelligence: 50, willpower: 50, agility: 50, endurance: 50, personality: 50, speed: 50, luck: 50 });
 const player = (id = 'char-c') => ({
   isPlayer: true, name: 'Ayla Stormwind', characterId: id, items: [], stats: stats(), skills: new Array(35).fill(30), level: 5,
@@ -291,8 +294,9 @@ test('NEMESIS-HARM: a death no blow names goes to the foe whose harm last reache
 
 test('NEMESIS-DUNGEON, NEMESIS-WIRE, the single-location host: a special foe of mine alone runs in a dungeon (never a room\'s shared foe online), aims at nothing while it runs and is retired through the quest pool\'s door when out of reach; a slain one closes; the name rides the foe record, bounded and printable; the single-location host stands returns as the world\'s does (mutants: a room foe runs; the name unbounded; the host forgets)', () => {
   const d = read('src/scenes/dungeonContext.js');
-  assert.match(d, /if \(f\.fleeing\) \{\s*\n\s*_tgt = null;\s*\n\s*if \(!\(f\.ai\.fleeLeft > 0\) \|\| Math\.hypot\(_pf\[0\] - f\.ai\.feet\[0\], _pf\[2\] - f\.ai\.feet\[2\]\) > NEMESIS_ESCAPE_DISTANCE\) \{ escapeDungeonFoe\(f\); continue; \}/);
-  assert.match(d, /\} else if \(!f\._fleeRolled && \(!onlineRoom\(\) \|\| !_roomFoe\) && f\.ai\.isHostile/, 'mine alone - never a room\'s shared foe');
+  assert.match(d, /const _flee = f\.fleeing \|\| \(!f\._fleeRolled && nemesisFleeHealth\(f\.entity\)\) \? nemesisFleeStep\(f, _pf, \{ mayRun: !onlineRoom\(\) \|\| !_roomFoe, onMe: /, 'the one flee law - mine alone, never a room\'s shared foe');
+  assert.match(d, /if \(_flee === 'escape'\) \{ escapeDungeonFoe\(f\); continue; \}/);
+  assert.match(d, /if \(_flee === 'start' \|\| _flee === 'run'\) _tgt = null;/, 'running, it aims at nothing; its walk below');
   assert.match(d, /function escapeDungeonFoe\(f\) \{\s*\n\s*questPoolOps\.removeFoe\(f\);/);
   assert.match(d, /if \(foe\.entity\?\.nemesis\) \{ const nr = nemesisSlain\(playerEntity, foe\.entity\);/);
   // the wire
@@ -309,6 +313,111 @@ test('NEMESIS-DUNGEON, NEMESIS-WIRE, the single-location host: a special foe of 
   // the single-location host
   const e = read('src/scenes/exterior.js');
   assert.match(e, /nemesisPresence\(exteriorFoes\.foes, \{ now \}\);\s*\n\s*nemesisSay\(takeNemesisNotice\(playerEntity\), \(l\) => townTalk\.say\(l\)\);/);
-  assert.match(e, /const _nemesis = hit && _m === 'exterior' \? nemesisToReturn\(playerEntity, \{ now \}\) : null;\s*\n\s*if \(_nemesis\) \{ _standEncounterFoe\(\{ \.\.\.hit, mobileType: _nemesis\.mobileType, nemesis: _nemesis \}, playerFeet\); break; \}/);
+  assert.match(e, /const _nemesis = hit && _m === 'exterior' \? nemesisToReturn\(playerEntity, \{ now \}\) : null;\s*\n\s*if \(_nemesis\) \{ Promise\.resolve\(_standEncounterFoe\(\{ \.\.\.hit, mobileType: _nemesis\.mobileType, nemesis: _nemesis \}, playerFeet\)\)\.then\(\(f\) => \{ if \(!f\) releaseNemesisStand\(_nemesis\); \}\); break; \}/);
   assert.match(e, /\.\.\.\(hit\.nemesis \? nemesisSpawnOptions\(hit\.nemesis, effectiveLevel\(playerEntity\)\) : \{\}\)/);
+});
+
+test('NEMESIS AAA: the one flee law - a roll once under the line, a run, an escape only out of reach, CORNERED when run down (it fights on, never runs again); a room\'s shared foe never runs (mutants: the run spent is an escape at any distance; cornered runs again; a shared foe runs)', () => {
+  fresh();
+  const foe = (over = {}) => ({ entity: orc({ health: 5, maxHealth: 60 }), ai: { feet: [0, 0, 0], isHostile: true, fleeLeft: 0, flee(from, s) { this.fleeLeft = s; this.fled = from; } }, ...over });
+  const f = foe();
+  assert.equal(N.nemesisFleeStep(f, [0, 0, 0], { rolls: () => 0.99 }), null, 'the roll lost');
+  assert.equal(f._fleeRolled, true);
+  assert.equal(N.nemesisFleeStep(f, [0, 0, 0], { rolls: () => 0 }), null, 'once, never again');
+  const g = foe();
+  assert.equal(N.nemesisFleeStep(g, [0, 0, 0], { rolls: () => 0 }), 'start');
+  assert.equal(g.ai.fleeLeft, N.NEMESIS_FLEE_SECONDS);
+  assert.equal(N.nemesisFleeStep(g, [5, 0, 0]), 'run', 'running');
+  g.ai.fleeLeft = 0;
+  assert.equal(N.nemesisFleeStep(g, [5, 0, 0]), 'cornered', 'run down: cornered');
+  assert.equal(g.fleeing, false);
+  assert.equal(N.nemesisFleeStep(g, [5, 0, 0], { rolls: () => 0 }), null, 'it fights on - it never runs again');
+  const h = foe(); N.nemesisFleeStep(h, [0, 0, 0], { rolls: () => 0 }); h.ai.fleeLeft = 0;
+  assert.equal(N.nemesisFleeStep(h, [N.NEMESIS_ESCAPE_NEAR + 1, 0, 0]), 'escape', 'its run spent out of reach: escaped');
+  const k = foe(); N.nemesisFleeStep(k, [0, 0, 0], { rolls: () => 0 });
+  assert.equal(N.nemesisFleeStep(k, [0, 0, N.NEMESIS_ESCAPE_DISTANCE + 1]), 'escape', 'far off mid-run: escaped');
+  assert.equal(N.nemesisFleeStep(foe(), [0, 0, 0], { rolls: () => 0, mayRun: false }), null, 'a room\'s shared foe never runs');
+  assert.equal(N.nemesisFleeStep(foe(), [0, 0, 0], { rolls: () => 0, onMe: () => false }), null, 'nor one fighting another');
+  const cor = N.nemesisCorneredEvent(orc(), 'Mighty Orc Warlord');
+  assert.equal(cor.kicker, 'Cornered'); assert.ok(cor.speech); assert.match(cor.line, /is cornered and turns to fight!$/);
+});
+
+test('NEMESIS AAA: a returning nemesis is CLAIMED by the roll that stands it - no second copy while its stand loads; a stand that stood nobody frees it (mutants: no claim; the claim never freed)', () => {
+  fresh();
+  const me = player('char-claim');
+  const r = N.nemesisDeed(me, orc(), 'fled', { now: 0, rolls: () => 0 });
+  const late = N.NEMESIS_RETURN_MAX_MINUTES + 1;
+  assert.equal(N.nemesisToReturn(me, { now: late, rolls: () => 0 }), r);
+  assert.equal(r.out, true, 'claimed');
+  assert.equal(N.nemesisToReturn(me, { now: late, rolls: () => 0 }), null, 'the next roll stands no second copy');
+  N.releaseNemesisStand(r);
+  assert.equal(r.out, false);
+  assert.equal(N.nemesisToReturn(me, { now: late, rolls: () => 0 }), r, 'free for a later roll');
+});
+
+test('NEMESIS AAA: the forgotten and the long-fallen leave TOMBSTONES a merge keeps - an older save never raises one; the page keeps the newest fallen; the tombstones themselves are bounded (mutants: spliced, not buried; no fallen bound; the tombstone loses the merge)', () => {
+  fresh();
+  const me = player('char-tomb');
+  const first = N.nemesisDeed(me, orc(), 'fled', { now: 0, rolls: () => 0 });
+  const save = JSON.parse(JSON.stringify(modSave()));
+  for (let i = 1; i <= N.NEMESIS_MAX; i++) { const x = N.nemesisDeed(me, orc({ champion: 'swift' }), 'fled', { now: i, rolls: () => 0 }); x.rank = 2; }
+  assert.equal(N.nemesisById(first.id), null, 'past the cap the weakest, oldest is forgotten');
+  assert.equal(N.livingNemeses().length, N.NEMESIS_MAX);
+  restore(save);
+  assert.equal(N.livingNemeses().length, 1, 'the old save alone');
+  N.nemesisToReturn(me, { now: 0 });   // the mirror read in
+  assert.equal(N.nemesisById(first.id), null, 'the tombstone outranks the older save - never raised');
+  assert.equal(N.livingNemeses().length, N.NEMESIS_MAX);
+  // the fallen, bounded
+  fresh();
+  const me2 = player('char-fallen');
+  for (let i = 0; i < N.NEMESIS_FALLEN_MAX + 4; i++) { const x = N.nemesisDeed(me2, orc(), 'fled', { now: i, rolls: () => 0 }); N.nemesisSlain(me2, { nemesis: { id: x.id } }, { now: 100 + i }); }
+  assert.equal(N.allNemeses().filter((x) => x.defeated).length, N.NEMESIS_FALLEN_MAX, 'the page keeps the newest fallen');
+  assert.equal(N.mergeNemeses([{ id: 'a', rev: 9, gone: true }], [{ id: 'a', rev: 3, mobileType: 7, given: 'G', epithet: 'the X' }])[0].gone, true);
+  assert.deepEqual(N.mergeNemeses([{ id: 'a', rev: 2, gone: true }], [])[0], { id: 'a', rev: 2, gone: true }, 'a tombstone is its id and revision alone');
+});
+
+test('NEMESIS AAA: a foe already slain is no one\'s nemesis - a fall after the fight names nobody dead; a nemesis standing in the host the player is in (a dungeon) is present, not lost (mutants: the dead blamed; presence the open world\'s alone)', async () => {
+  fresh();
+  const me = player('char-dead');
+  const corpse = orc({ health: 0 });
+  H.markPlayerHarm(corpse);
+  hurtPlayer(me, 500);
+  await tick();
+  assert.equal(N.livingNemeses().length, 0, 'the dead orc is not blamed');
+  // presence: the dungeon's pool through the player's door
+  fresh();
+  const me2 = player('char-door');
+  const killer = orc();
+  const r = N.nemesisDeed(me2, killer, 'slew', { now: 0, rolls: () => 0 });
+  setPlayerDoor({ foes: () => [{ entity: killer, dead: false }], feet: () => [0, 0, 0], hurtFoe: () => {}, castOnPlayer: () => {} });
+  N.nemesisPresence([], { now: 10, wall: Date.now() + 60000 });
+  assert.equal(r.out, true, 'standing in the dungeon - present');
+  setPlayerDoor(null);
+  N.nemesisPresence([], { now: 10, wall: Date.now() + 60000 });
+  assert.equal(r.out, false, 'gone from every pool - lost');
+});
+
+test('NEMESIS AAA: a card whose slide ends on an exact frame is taken down (mutants: zero read as standing)', () => {
+  fresh();
+  const me = player('char-zero');
+  const r = N.nemesisDeed(me, orc(), 'slew', { now: 0, rolls: () => 0 });
+  withPage((doc) => {
+    globalThis.matchMedia = () => ({ matches: true });   // no typing: straight to the hold
+    N.nemesisSay(N.nemesisTauntEvent(r, me.name, { rolls: () => 0 }));
+    const hold = C._nemesisCards()[0].leftMs;
+    C.drawNemesisCards({ dt: hold / 1000, doc });
+    assert.equal(C._nemesisCards()[0].out, true, 'sliding');
+    for (let i = 0; i < 13; i++) C.drawNemesisCards({ dt: 0.02, doc });   // 13 x 20ms = the 260ms slide, to the frame
+    assert.equal(C._nemesisCards().length, 0, 'down on the exact frame');
+  });
+});
+
+test('ELITE-FLOOR online: a dungeon\'s elites are picked by the KIND\'s own level, the same on every client - a rat never, a class foe (the party\'s level) eligible - and the build does not ask the client\'s own level again (mutants: the per-client level asked)', async () => {
+  const { pickDungeonElites, ELITE_FOE_MIN_LEVEL } = await import('../src/systems/eliteFoes.js');
+  const recs = [{ mobileType: MOBILE_TYPES.Rat }, { mobileType: MOBILE_TYPES.Rat }, { mobileType: MOBILE_TYPES.Rat }, { mobileType: MOBILE_TYPES.Rat }];
+  assert.equal(pickDungeonElites(recs, 'loc', { elite: true }), 0, `a rat (level ${ENEMY_BASICS[MOBILE_TYPES.Rat].level}) is under ${ELITE_FOE_MIN_LEVEL}`);
+  const mixed = [{ mobileType: MOBILE_TYPES.Rat }, { mobileType: 130 }, { mobileType: MOBILE_TYPES.Orc }, { mobileType: 133 }];
+  assert.ok(pickDungeonElites(mixed, 'loc', { elite: true }) >= 3);
+  assert.equal(mixed[0].eliteFoe, undefined, 'never the rat');
 });

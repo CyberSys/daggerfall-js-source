@@ -43,7 +43,7 @@ test('ELITE-FLOOR: under level 3, the watch and an ally are never elites - the f
 
 test('ELITE-FLOOR: the dungeon\'s build arm promotes only when the promotion stands - a refused one falls through to the plain build (the Elite Dungeon\'s doubling, LOOT7\'s champion arm)', () => {
   const dc = read('src/scenes/dungeonContext.js');
-  assert.match(dc, /if \(e\?\.eliteFoe && entity && promoteEliteFoe\(entity, \{ eliteDungeon: !!e\.elite \}\)\) \{ if \(e\.elite\) entity\.elite = true; return; \}\s*(?:\/\/[^\n]*)?\n\s*if \(!e\?\.elite \|\| !entity\) return void applyChampion\(entity, e\?\.champion\);/);
+  assert.match(dc, /if \(e\?\.eliteFoe && entity && promoteEliteFoe\(entity, \{ eliteDungeon: !!e\.elite, checkLevel: false \}\)\) \{ if \(e\.elite\) entity\.elite = true; return; \}\s*(?:\/\/[^\n]*)?\n\s*if \(!e\?\.elite \|\| !entity\) return void applyChampion\(entity, e\?\.champion\);/);
 });
 
 test('FOE-TITLE: a nemesis by its name, a champion by its trait, an elite as Elite, anyone else as it was - on the target bar, the hover, the death line and the body alike (mutants: the elite unnamed off the target bar; the nemesis named by its kind)', () => {

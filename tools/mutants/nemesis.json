@@ -29,8 +29,8 @@
   {
     "name": "NEMESIS-the-mercy-ignored",
     "file": "src/systems/nemesis.js",
-    "old": "    if (!(entity.health <= 0) || !killer || killer.isPlayer) return;",
-    "new": "    if (!killer || killer.isPlayer) return;",
+    "old": "if (!(entity.health <= 0) || !killer || killer.isPlayer || !(killer.health > 0)) return;",
+    "new": "if (!killer || killer.isPlayer || !(killer.health > 0)) return;",
     "tests": [
       "test/nemesis.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "NEMESIS-the-slain-returned",
     "file": "src/systems/nemesis.js",
-    "old": "export const livingNemeses = () => _state.list.filter((r) => !r.defeated);",
-    "new": "export const livingNemeses = () => _state.list.slice();",
+    "old": "export const livingNemeses = () => _state.list.filter((r) => !r.defeated && !r.gone);",
+    "new": "export const livingNemeses = () => _state.list.filter((r) => !r.gone);",
     "tests": [
       "test/nemesis.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "NEMESIS-out-over-a-load",
     "file": "src/systems/nemesis.js",
-    "old": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => ({ ...r, out: false, outAt: 0 })) }),",
-    "new": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => ({ ...r })) }),",
+    "old": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0 })) }),",
+    "new": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r })) }),",
     "tests": [
       "test/nemesis.test.js"
     ]
@@ -136,17 +136,17 @@
   },
   {
     "name": "NEMESIS-the-flee-rolled-every-frame",
-    "file": "src/scenes/exteriorFoes.js",
-    "old": "        f._fleeRolled = true;\n        if (rollNemesisFlee(f.entity)) {",
-    "new": "        if (rollNemesisFlee(f.entity)) {",
+    "file": "src/systems/nemesis.js",
+    "old": "  f._fleeRolled = true;\n  if (!rollNemesisFlee(f.entity, rolls)) return null;",
+    "new": "  if (!rollNemesisFlee(f.entity, rolls)) return null;",
     "tests": [
-      "test/nemesis.test.js"
+      "test/nemesis_card.test.js"
     ]
   },
   {
     "name": "ELITE-FLOOR-no-floor",
     "file": "src/systems/eliteFoes.js",
-    "old": "  && (entity.level | 0) >= ELITE_FOE_MIN_LEVEL\n",
+    "old": "  && (!checkLevel || (entity.level | 0) >= ELITE_FOE_MIN_LEVEL)\n",
     "new": "\n",
     "tests": [
       "test/elitefloor_foetitle.test.js"
@@ -227,7 +227,7 @@
   {
     "name": "NEMESIS-CARD-a-nemesis-twice",
     "file": "src/ui/nemesisCard.js",
-    "old": "    if (ev.id) for (const c of _cards) if (c.ev.id === ev.id && !c.out) c.out = NEMESIS_SLIDE_MS;\n",
+    "old": "    if (ev.id) for (const c of _cards) if (c.ev.id === ev.id && c.outMs == null) c.outMs = NEMESIS_SLIDE_MS;\n",
     "new": "",
     "tests": [
       "test/nemesis_card.test.js"
@@ -236,7 +236,7 @@
   {
     "name": "NEMESIS-CARD-no-cap",
     "file": "src/ui/nemesisCard.js",
-    "old": "    for (const c of _cards.slice(NEMESIS_CARDS_MAX)) if (!c.out) c.out = NEMESIS_SLIDE_MS;\n",
+    "old": "    for (const c of _cards.slice(NEMESIS_CARDS_MAX)) if (c.outMs == null) c.outMs = NEMESIS_SLIDE_MS;\n",
     "new": "",
     "tests": [
       "test/nemesis_card.test.js"
@@ -281,8 +281,8 @@
   {
     "name": "NEMESIS-DUNGEON-a-room-foe-runs",
     "file": "src/scenes/dungeonContext.js",
-    "old": "!f._fleeRolled && (!onlineRoom() || !_roomFoe) && f.ai.isHostile",
-    "new": "!f._fleeRolled && f.ai.isHostile",
+    "old": "nemesisFleeStep(f, _pf, { mayRun: !onlineRoom() || !_roomFoe,",
+    "new": "nemesisFleeStep(f, _pf, { mayRun: true,",
     "tests": [
       "test/nemesis_card.test.js"
     ]
@@ -308,9 +308,110 @@
   {
     "name": "NEMESIS-EXTERIOR-the-host-forgets",
     "file": "src/scenes/exterior.js",
-    "old": "      if (_nemesis) { _standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet); break; }\n",
+    "old": "if (_nemesis) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet)).then((f) => { if (!f) releaseNemesisStand(_nemesis); }); break; }",
+    "new": "if (false) { break; }",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-the-run-spent-escapes-anywhere",
+    "file": "src/systems/nemesis.js",
+    "old": "    if (d > NEMESIS_ESCAPE_NEAR) return 'escape';\n    f.fleeing = false;\n    return 'cornered';",
+    "new": "    return 'escape';",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-cornered-runs-again",
+    "file": "src/systems/nemesis.js",
+    "old": "    f.fleeing = false;\n    return 'cornered';",
+    "new": "    f.fleeing = false;\n    f._fleeRolled = false;\n    return 'cornered';",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-no-claim",
+    "file": "src/systems/nemesis.js",
+    "old": "  due[0].out = true;\n",
     "new": "",
     "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-the-claim-never-freed",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (r && r.out && !r.defeated && !r.gone) { r.out = false; r.outAt = 0; }",
+    "new": "  /* kept */",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-spliced-not-buried",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (i >= 0) _state.list[i] = /** @type {any} */ ({ id: r.id, rev: (r.rev | 0) + 1, gone: true });",
+    "new": "  if (i >= 0) _state.list.splice(i, 1);",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-no-fallen-bound",
+    "file": "src/systems/nemesis.js",
+    "old": "  for (const r of fallen.slice(NEMESIS_FALLEN_MAX)) bury(r);\n",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-the-dead-blamed",
+    "file": "src/systems/nemesis.js",
+    "old": "killer.isPlayer || !(killer.health > 0)) return;",
+    "new": "killer.isPlayer) return;",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-presence-the-open-worlds-alone",
+    "file": "src/systems/nemesis.js",
+    "old": "    pools ??= [...(foes ?? []), ...(playerDoor()?.foes?.() ?? [])];",
+    "new": "    pools ??= [...(foes ?? [])];",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-AAA-zero-read-as-standing",
+    "file": "src/ui/nemesisCard.js",
+    "old": "  const gone = _cards.filter((c) => c.outMs != null && c.outMs <= 0);",
+    "new": "  const gone = _cards.filter((c) => c.outMs && c.outMs <= 0);",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-FLOOR-the-per-client-level-asked",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "promoteEliteFoe(entity, { eliteDungeon: !!e.elite, checkLevel: false })",
+    "new": "promoteEliteFoe(entity, { eliteDungeon: !!e.elite })",
+    "tests": [
+      "test/elitefloor_foetitle.test.js",
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-FLOOR-the-kind-floor-dropped",
+    "file": "src/systems/eliteFoes.js",
+    "old": "e.champion == null && kindLevel(e.mobileType) >= ELITE_FOE_MIN_LEVEL) pool.push(i);",
+    "new": "e.champion == null) pool.push(i);",
+    "tests": [
+      "test/elitefloor_foetitle.test.js",
       "test/nemesis_card.test.js"
     ]
   }

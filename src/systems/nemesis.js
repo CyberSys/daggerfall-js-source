@@ -74,6 +74,12 @@ export const NEMESIS_FLEE_CHANCE_NEMESIS = 0.15;
 export const NEMESIS_FLEE_SECONDS = 8;
 /** ...or the moment it is this far from the player. */
 export const NEMESIS_ESCAPE_DISTANCE = 45;
+/** ...or its run spent past this far (metres). Spent nearer - chased down - it is CORNERED: it turns and fights. */
+export const NEMESIS_ESCAPE_NEAR = 20;
+/** How many slain nemeses a character's page keeps (the newest); older ones, and the forgotten, leave a tombstone. */
+export const NEMESIS_FALLEN_MAX = 12;
+/** How many tombstones are kept - each one id and a revision, so an older save never raises what was put down. */
+export const NEMESIS_TOMBS_MAX = 200;
 /** It comes back between one and three days later, on the character's own clock. */
 export const NEMESIS_RETURN_MIN_MINUTES = 1440;
 export const NEMESIS_RETURN_MAX_MINUTES = 4320;
@@ -149,7 +155,7 @@ const GROWLS = Object.freeze([
 /** @typedef {{ id: string, rev: number, mobileType: number, gender: 'male'|'female', given: string, epithet: string,
  *   name: string, rank: number, kills: number, escapes: number, returns: number, trait: string|null, elite: boolean,
  *   born: number, dueAt: number, out: boolean, outAt: number, defeated: boolean, defeatedAt: number|null,
- *   notice: string|null, history: NemesisDeed[], archive: number|null }} NemesisRecord */
+ *   notice: string|null, history: NemesisDeed[], archive: number|null, gone?: boolean }} NemesisRecord */
 
 /** @type {{ list: NemesisRecord[], mirrorId: string|null }} */
 const _state = { list: [], mirrorId: null };
@@ -197,18 +203,19 @@ export function nemesisEpithet(deed, rank, playerName, rolls = Math.random, curr
   return pick(choices.length ? choices : pool.map((e) => fill(e, { p })), rolls);
 }
 
-/** The living nemeses (the slain kept in their records, `defeated`). */
-export const livingNemeses = () => _state.list.filter((r) => !r.defeated);
-/** Every record, the slain too - a journal's page. */
-export const allNemeses = () => _state.list.slice();
+/** The living nemeses (the slain kept in their records, `defeated`; the forgotten are tombstones, `gone`). */
+export const livingNemeses = () => _state.list.filter((r) => !r.defeated && !r.gone);
+/** Every record, the slain too - a journal's page (never a tombstone). */
+export const allNemeses = () => _state.list.filter((r) => !r.gone);
 /** NEMESIS-PAGE: this character's records (the mirror read in first), the slain too - the pause menu's page. */
-export function nemesesFor(player) { ensureMirror(player); return _state.list.slice(); }
-export const nemesisById = (id) => _state.list.find((r) => r.id === id) ?? null;
+export function nemesesFor(player) { ensureMirror(player); return allNemeses(); }
+export const nemesisById = (id) => _state.list.find((r) => r.id === id && !r.gone) ?? null;
 
 const isStr = (v) => typeof v === 'string';
 const isNum = (v) => Number.isFinite(v);
 /** A record read back (a save, the app's storage) - the shape checked, anything else dropped. */
 function sanitize(r) {
+  if (r && isStr(r.id) && r.id && r.gone === true) return { id: r.id, rev: isNum(r.rev) ? r.rev : 0, gone: true };   // a tombstone: the id and its revision alone
   if (!r || !isStr(r.id) || !r.id || !Number.isInteger(r.mobileType) || !isStr(r.given) || !isStr(r.epithet)) return null;
   const rank = Math.max(1, Math.min(NEMESIS_MAX_RANK, Number.isInteger(r.rank) ? r.rank : 1));
   return {
@@ -253,6 +260,23 @@ function persist() {
   try { appStorage()?.setItem(storeKey(_state.mirrorId), JSON.stringify({ v: 1, list: _state.list })); } catch { /* storage full or gone: the save still keeps it */ }
 }
 const touch = (r) => { r.rev = (r.rev | 0) + 1; };
+/** A record forgotten: its place in the list becomes a tombstone (its id and a newer revision), which a merge keeps over
+ *  any older copy of the record. */
+function bury(r) {
+  const i = _state.list.indexOf(r);
+  if (i >= 0) _state.list[i] = /** @type {any} */ ({ id: r.id, rev: (r.rev | 0) + 1, gone: true });
+}
+/** THE LIST KEPT BOUNDED: the newest NEMESIS_FALLEN_MAX slain stay on the page, older ones are buried; the oldest
+ *  tombstones past NEMESIS_TOMBS_MAX go (a save older than two hundred buryings is the one thing that could raise one). */
+function prune() {
+  const fallen = _state.list.filter((r) => r.defeated && !r.gone).sort((a, b) => (b.defeatedAt ?? 0) - (a.defeatedAt ?? 0));
+  for (const r of fallen.slice(NEMESIS_FALLEN_MAX)) bury(r);
+  const tombs = _state.list.filter((r) => r.gone);
+  if (tombs.length > NEMESIS_TOMBS_MAX) {
+    const drop = new Set(tombs.slice(0, tombs.length - NEMESIS_TOMBS_MAX));
+    _state.list = _state.list.filter((r) => !drop.has(r));
+  }
+}
 const deed = (r, d, at) => { r.history.push({ deed: d, at }); if (r.history.length > HISTORY_MAX) r.history.splice(0, r.history.length - HISTORY_MAX); };
 const dueFrom = (now, rolls) => now + NEMESIS_RETURN_MIN_MINUTES + Math.floor(rolls() * (NEMESIS_RETURN_MAX_MINUTES - NEMESIS_RETURN_MIN_MINUTES + 1));
 
@@ -292,11 +316,11 @@ export function nemesisDeed(player, entity, deedName, { mobileType = entity?.mob
       archive: Number.isInteger(archive) ? archive : null,   // NEMESIS-CARD: the sprite it wore (a retextured kind's own), for its portrait
     };
     _state.list.push(r);
-    // past the cap: the weakest, oldest living one is forgotten
+    // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
     const living = livingNemeses();
     if (living.length > NEMESIS_MAX) {
       const drop = living.filter((x) => x !== r).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];
-      if (drop) _state.list.splice(_state.list.indexOf(drop), 1);
+      if (drop) bury(drop);
     }
   }
   r.name = joinName(r.given, r.epithet);
@@ -308,6 +332,7 @@ export function nemesisDeed(player, entity, deedName, { mobileType = entity?.mob
   r.out = deedName === 'slew';
   r.outAt = r.out ? Date.now() : 0;
   touch(r);
+  prune();
   persist();
   return r;
 }
@@ -325,7 +350,7 @@ function armDeathCheck(entity) {
     _deathCheck = false;
     const killer = _blowKiller ?? playerHarmMark();
     _blowKiller = null;
-    if (!(entity.health <= 0) || !killer || killer.isPlayer) return;
+    if (!(entity.health <= 0) || !killer || killer.isPlayer || !(killer.health > 0)) return;   // a foe I slew is no nemesis - a fall after the fight names nobody dead
     const rec = playerDoor()?.foes?.()?.find((x) => x?.entity === killer) ?? null;
     nemesisDeed(entity, killer, 'slew', { mobileType: rec?.mobileType ?? killer.mobileType, gender: rec?.gender ?? 'male', rec, archive: rec?.archive ?? rec?.mobileArchive ?? null });
   });
@@ -353,6 +378,35 @@ export function rollNemesisFlee(entity, rolls = Math.random) {
 /** Under the line? (a foe's own share of its health; a dead one never) */
 export const nemesisFleeHealth = (entity) => !!entity && entity.health > 0 && entity.health < (entity.maxHealth || 1) * NEMESIS_FLEE_HEALTH;
 
+/**
+ * THE FLEE, ONE LAW FOR EVERY POOL (scenes/exteriorFoes.js, scenes/dungeonContext.js): one frame of a foe record
+ * `f` ({ entity, ai, fleeing?, _fleeRolled? }) against the player's feet. Answers what the host does now:
+ *   'start'    - it breaks and runs (the motor's flee, characters/enemyMotor.js) - say it; no blow, no cast; its walk drawn
+ *   'run'      - still running: no blow, no cast; its walk drawn
+ *   'escape'   - out of reach (NEMESIS_ESCAPE_DISTANCE off, or its run spent past NEMESIS_ESCAPE_NEAR): retire it - no
+ *                corpse, no kill - and make it a nemesis (nemesisDeed 'fled')
+ *   'cornered' - its run spent with the player close behind: it turns and fights to the end (it never runs again) - say it
+ *   null       - nothing: it fights on as ever
+ * `onMe()` - whether it fights the player (asked only when it might run); `mayRun` - the host's word that the foe is the
+ * player's alone (a room's shared foe never runs: vanishing on one client would leave it standing on the rest).
+ */
+export function nemesisFleeStep(f, feet, { onMe = () => true, mayRun = true, rolls = Math.random } = {}) {
+  if (f.fleeing) {
+    const d = Math.hypot(feet[0] - f.ai.feet[0], feet[2] - f.ai.feet[2]);
+    if (d > NEMESIS_ESCAPE_DISTANCE) return 'escape';
+    if (f.ai.fleeLeft > 0) return 'run';
+    if (d > NEMESIS_ESCAPE_NEAR) return 'escape';
+    f.fleeing = false;
+    return 'cornered';
+  }
+  if (!mayRun || f._fleeRolled || !f.ai?.isHostile || !nemesisFleeHealth(f.entity) || !onMe() || !nemesisCandidate(f.entity, f)) return null;
+  f._fleeRolled = true;
+  if (!rollNemesisFlee(f.entity, rolls)) return null;
+  f.fleeing = true;
+  f.ai.flee(feet, NEMESIS_FLEE_SECONDS);
+  return 'start';
+}
+
 /** Slain: the record is closed. Answers the record (its name for the line), or null for no nemesis. */
 export function nemesisSlain(player, entity, { now = nowMinutes() } = {}) {
   const id = entity?.nemesis?.id;
@@ -363,6 +417,7 @@ export function nemesisSlain(player, entity, { now = nowMinutes() } = {}) {
   r.defeated = true; r.defeatedAt = now; r.out = false; r.notice = null;
   deed(r, 'fell', now);
   touch(r);
+  prune();
   persist();
   return r;
 }
@@ -377,7 +432,14 @@ export function nemesisToReturn(player, { now = nowMinutes(), rolls = Math.rando
   if (living.some((r) => r.out)) return null;
   const due = living.filter((r) => r.dueAt <= now).sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);
   if (!due.length || rolls() >= NEMESIS_RETURN_CHANCE) return null;
+  // CLAIMED from here: its stand crosses awaits (the career's bytes, the sprite) and the next roll must not stand it twice
+  due[0].out = true;
+  due[0].outAt = Date.now();
   return due[0];
+}
+/** A claimed stand that stood nobody (no place for it, the pool full, a sweep) - free to come on a later roll. */
+export function releaseNemesisStand(r) {
+  if (r && r.out && !r.defeated && !r.gone) { r.out = false; r.outAt = 0; }
 }
 /** The spawn options a returning nemesis stands with (scenes/exteriorFoes.js spawnFoe): its record, its gender, and a
  *  class foe's level over the player's. */
@@ -403,9 +465,12 @@ export function applyNemesis(entity, r, { now = nowMinutes() } = {}) {
  *  pools' live records ({ entity, dead }). A stand still crossing its awaits has a few seconds' grace. */
 export function nemesisPresence(foes, { now = nowMinutes(), wall = Date.now() } = {}) {
   let changed = false;
+  // the open world's pool and whichever host the player stands in (a dungeon's foe that killed me stands there)
+  let pools = null;
   for (const r of _state.list) {
-    if (!r.out || r.defeated || wall - r.outAt < 15000) continue;
-    const here = (foes ?? []).some((f) => f && !f.dead && f.entity?.nemesis?.id === r.id);
+    if (!r.out || r.defeated || r.gone || wall - r.outAt < 15000) continue;
+    pools ??= [...(foes ?? []), ...(playerDoor()?.foes?.() ?? [])];
+    const here = pools.some((f) => f && !f.dead && f.entity?.nemesis?.id === r.id);
     if (here) continue;
     r.out = false;
     r.dueAt = Math.max(r.dueAt, now + NEMESIS_LOST_MINUTES);
@@ -505,7 +570,7 @@ export function nemesisPortrait({ mobileType, gender = 'male', archive = null } 
   if (!Number.isInteger(a)) return null;
   return { archive: a, record: b?.hasIdle ? 15 : 0 };
 }
-const KICKERS = Object.freeze({ taunt: 'Nemesis', flee: 'Fleeing', escape: 'Escaped', slain: 'Nemesis slain', rise: 'A nemesis rises' });
+const KICKERS = Object.freeze({ taunt: 'Nemesis', flee: 'Fleeing', cornered: 'Cornered', escape: 'Escaped', slain: 'Nemesis slain', rise: 'A nemesis rises' });
 /** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} NemesisEvent */
 /** One thing a nemesis (or a special foe about to become one) says or does, as a face draws it: `kind` (taunt, flee,
@@ -540,6 +605,15 @@ export function nemesisFleeEvent(entity, base, { gender = 'male', archive = null
   const src = liveSource(entity, base, gender);
   const speaks = nemesisSpeaks(entity?.mobileType);
   return nemesisEvent('flee', src, { speech: speaks ? 'This isn\'t over!' : null, body: speaks ? null : 'Breaks and runs!', line: nemesisFleeLine(entity, base), archive });
+}
+/** Run down before it got away: it turns and fights. */
+export function nemesisCorneredEvent(entity, base, { gender = 'male', archive = null } = {}) {
+  const src = liveSource(entity, base, gender);
+  const speaks = nemesisSpeaks(entity?.mobileType);
+  return nemesisEvent('cornered', src, {
+    speech: speaks ? 'Then I take you with me!' : null, body: speaks ? 'Cornered - it turns to fight.' : 'Cornered - it turns on you.',
+    line: `${src.name} is cornered and turns to fight!`, archive,
+  });
 }
 /** Out of reach - a nemesis now, or a stronger one. */
 export function nemesisEscapeEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
@@ -590,7 +664,7 @@ export function takeNemesisNotice(player) {
 // ── the save ────────────────────────────────────────────────────────
 registerModSaveData(NEMESIS_SAVE, {
   newSaveData: () => ({ v: 1, list: [] }),
-  getSaveData: () => ({ v: 1, list: _state.list.map((r) => ({ ...r, out: false, outAt: 0 })) }),
+  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0 })) }),
   restoreSaveData: (rec) => { _state.list = mergeNemeses(rec?.list ?? [], []); _state.mirrorId = null; },
   newGame: () => { _state.list = []; _state.mirrorId = null; },
 });

@@ -215,7 +215,7 @@ import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, elit
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a nemesis, a champion or an elite is named on the hover even while hostile
-import { nemesisCandidate, nemesisFleeHealth, rollNemesisFlee, nemesisDeed, nemesisSlain, nemesisSay, nemesisFleeEvent, nemesisEscapeEvent, nemesisSlainEvent, NEMESIS_FLEE_SECONDS, NEMESIS_ESCAPE_DISTANCE } from '../systems/nemesis.js';   // NEMESIS-DUNGEON: a special foe of mine alone may run, and get away
+import { nemesisFleeStep, nemesisFleeHealth, nemesisDeed, nemesisSlain, nemesisSay, nemesisFleeEvent, nemesisCorneredEvent, nemesisEscapeEvent, nemesisSlainEvent } from '../systems/nemesis.js';   // NEMESIS-DUNGEON: a special foe of mine alone may run, and get away
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: HARD1 - the ring is this context's to own and to end
 import { createHitEffects, bloodCentre } from './hitEffects.js';
@@ -281,7 +281,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2514); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2505); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1158,7 +1158,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
   }
   function applyEliteScaling(entity, e) {
-    if (e?.eliteFoe && entity && promoteEliteFoe(entity, { eliteDungeon: !!e.elite })) { if (e.elite) entity.elite = true; return; }   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling
+    if (e?.eliteFoe && entity && promoteEliteFoe(entity, { eliteDungeon: !!e.elite, checkLevel: false })) { if (e.elite) entity.elite = true; return; }   // ELITE-FLOOR: the pick's own (by the kind's level, every client alike)   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling
     if (!e?.elite || !entity) return void applyChampion(entity, e?.champion);   // LOOT7: a plain dungeon's champion (its loot reads the mark, so before it)
     entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * ELITE_HEALTH_SCALE));
     entity.health = entity.maxHealth;
@@ -4767,7 +4767,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2514). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2505). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5341,7 +5341,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1888's restoreWorld goes through
+    // construction (exteriorFoes.js:1879's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -6460,24 +6460,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applyEnemyMotorEffectFlags(f.ai, f.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
       f.ai.update(foeFrameDt(dt), _pf, _armed(f, _senses, _roomFoe), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
       _tgt = _targetFeet(f);   // MT-iv: whatever it SELECTED
-      // NEMESIS-DUNGEON (systems/nemesis.js): A FOE RUNNING FOR ITS LIFE - the open world's law, here where the foe is MINE
-      // ALONE (offline, or past the room's shared run - a room's layout foe vanishing on one client would leave it
-      // standing on the rest). Running, it aims at nothing (no blow, no cast; the walk below still draws it); out of
-      // reach - its run spent, or NEMESIS_ESCAPE_DISTANCE off - it has ESCAPED: gone without a corpse, a nemesis made.
-      if (f.fleeing) {
-        _tgt = null;
-        if (!(f.ai.fleeLeft > 0) || Math.hypot(_pf[0] - f.ai.feet[0], _pf[2] - f.ai.feet[2]) > NEMESIS_ESCAPE_DISTANCE) { escapeDungeonFoe(f); continue; }
-      } else if (!f._fleeRolled && (!onlineRoom() || !_roomFoe) && f.ai.isHostile
-        && (!foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target))
-        && nemesisFleeHealth(f.entity) && nemesisCandidate(f.entity, f)) {
-        f._fleeRolled = true;
-        if (rollNemesisFlee(f.entity)) {
-          f.fleeing = true;
-          f.ai.flee(_pf, NEMESIS_FLEE_SECONDS);
-          _tgt = null;
-          nemesisSay(nemesisFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
-        }
-      }
+      // NEMESIS-DUNGEON (systems/nemesis.js nemesisFleeStep - the open world's own law): a special foe MINE ALONE (offline,
+      // or past the room's shared run - a room's layout foe vanishing on one client would leave it standing on the rest)
+      // may run; running it aims at nothing (no blow, no cast; the walk below still draws it); out of reach it has
+      // ESCAPED - retired through the quest pool's door, no corpse, a nemesis made; run down, it is CORNERED and fights on
+      const _flee = f.fleeing || (!f._fleeRolled && nemesisFleeHealth(f.entity)) ? nemesisFleeStep(f, _pf, { mayRun: !onlineRoom() || !_roomFoe, onMe: () => !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target) }) : null;   // asked only of a foe running or under the line
+      if (_flee === 'escape') { escapeDungeonFoe(f); continue; }
+      if (_flee === 'start') nemesisSay(nemesisFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
+      else if (_flee === 'cornered') nemesisSay(nemesisCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
+      if (_flee === 'start' || _flee === 'run') _tgt = null;
       // CH3 (characters-8): a past-threshold landing bills the
       // player's fall formula - trunc(5 x (drop - 5)) - through the
       // pool's damage door (no knockback), ringing FallDamage at the

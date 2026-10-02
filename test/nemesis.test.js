@@ -223,12 +223,14 @@ test('NEMESIS ITS KEEPING: the save slot carries the records (never as out); the
 
 test('NEMESIS THE HOSTS: the open world\'s pool rolls the flee once under a fifth, runs and escapes without a corpse, taunts once in sight, closes a slain one; the spawn stands its trait or glow, then its rank, before its loot; the world\'s roll stands a due one, whoever rolls the group\'s wanderers, and reads its presence and its notice', () => {
   const x = read('src/scenes/exteriorFoes.js');
-  assert.match(x, /if \(f\.fleeing\) \{\s*\n\s*if \(!\(f\.ai\.fleeLeft > 0\) \|\| Math\.hypot\(playerFeet\[0\] - f\.ai\.feet\[0\], playerFeet\[2\] - f\.ai\.feet\[2\]\) > NEMESIS_ESCAPE_DISTANCE\) escapeFoe\(f\);\s*\n\s*else _runStep\(\);\s*\n\s*continue;/, 'a running foe does nothing else but walk, and escapes out of reach');
-  assert.match(x, /const _runStep = \(\) => \{ f\._mout = f\.mobile\.update\(dt, \{ moving: f\.ai\.moving, striking: false, rangedStriking: false, hurting: f\.ai\.hurtKnock, casting: false \}/, 'its walk drawn, no blow and no cast in it');
-  assert.match(x, /if \(!f\._fleeRolled && _onMe && f\.ai\.isHostile && nemesisFleeHealth\(f\.entity\) && nemesisCandidate\(f\.entity, f\)\) \{\s*\n\s*f\._fleeRolled = true;\s*\n\s*if \(rollNemesisFlee\(f\.entity\)\) \{\s*\n\s*f\.fleeing = true;\s*\n\s*f\.ai\.flee\(playerFeet, NEMESIS_FLEE_SECONDS\);/, 'once, under the line, mine on me');
+  assert.match(x, /const _flee = f\.fleeing \|\| \(!f\._fleeRolled && nemesisFleeHealth\(f\.entity\)\) \? nemesisFleeStep\(f, playerFeet, \{ onMe: \(\) => isLocalPlayerTarget\(f\.ai\.target\) \|\| !f\.ai\._armedTargeting \}\) : null;/, 'the one flee law, asked only of a foe running or under the line');
+  assert.match(x, /if \(_flee === 'escape'\) \{ escapeFoe\(f\); continue; \}/, 'out of reach: escaped');
+  assert.match(x, /if \(_flee === 'start' \|\| _flee === 'run'\) \{ fleeWalk\(f, dt, eye\); continue; \}/, 'running: its walk and nothing else');
+  assert.match(x, /function fleeWalk\(f, dt, eye\) \{\s*\n\s*f\._mout = f\.mobile\.update\(dt, \{ moving: f\.ai\.moving, striking: false, rangedStriking: false, hurting: f\.ai\.hurtKnock, casting: false \}/, 'no blow and no cast in it');
+  assert.match(x, /else if \(_flee === 'cornered'\) nemesisSay\(nemesisCorneredEvent\(/, 'cornered: said');
   assert.match(x, /function escapeFoe\(f\) \{\s*\n\s*releaseFoeBatch\(f\);\s*\n\s*f\.dead = true;[\s\S]{0,300}nemesisDeed\(playerEntity, f\.entity, 'fled'/, 'gone without a corpse, made a nemesis');
   assert.doesNotMatch(x.slice(x.indexOf('function escapeFoe(f)'), x.indexOf('function escapeFoe(f)') + 600), /f\.corpse = true|sayEnemyDied|reportPlayerKill/, 'no corpse, no kill');
-  assert.match(x, /if \(f\.entity\.nemesis && !f\._taunted && _onMe && f\.ai\.inSight/, 'the taunt, once a return');
+  assert.match(x, /if \(f\.entity\.nemesis && !f\._taunted && f\.ai\.inSight && \(isLocalPlayerTarget\(f\.ai\.target\) \|\| !f\.ai\._armedTargeting\)/, 'the taunt, once a return');
   assert.match(x, /if \(f\.entity\?\.nemesis\) \{ const nr = nemesisSlain\(playerEntity, f\.entity\); if \(nr && !peer\) nemesisSay\(nemesisSlainEvent\(nr, playerEntity\?\.name, \{ archive: f\.archive \}\), say\); \}/, 'slain at last');
   const spawn = x.slice(x.indexOf('async function spawnFoe('), x.indexOf('const gender = MobileUnit.resolveGender'));
   assert.match(spawn, /nemesis \? nemesis\.elite : rollOverworldElite\(Math\.random\)/, 'an elite stands as one again, never a fresh roll');
@@ -237,7 +239,7 @@ test('NEMESIS THE HOSTS: the open world\'s pool rolls the flee once under a fift
   assert.ok(iApply > spawn.indexOf('applyChampion(entity') && iApply < iLoot, 'its rank over its trait, before its loot');
   assert.match(spawn, /if \(entity\.nemesis\) grantNemesisLoot\(entity, builtLevel\);/);
   const w = read('src/scenes/world.js');
-  assert.match(w, /const _nemesis = hit && _m === 'exterior' \? nemesisToReturn\(playerEntity, \{ now \}\) : null;\s*\n\s*if \(_nemesis\) \{ _standEncounterFoe\(\{ \.\.\.hit, mobileType: _nemesis\.mobileType, nemesis: _nemesis \}, playerFeet\); break; \}\s*\n\s*if \(hit && _rollsForGroup\)/, 'before the group\'s gate - a nemesis is the player\'s own');
+  assert.match(w, /const _nemesis = hit && _m === 'exterior' \? nemesisToReturn\(playerEntity, \{ now \}\) : null;\s*\n\s*if \(_nemesis\) \{ Promise\.resolve\(_standEncounterFoe\(\{ \.\.\.hit, mobileType: _nemesis\.mobileType, nemesis: _nemesis \}, playerFeet\)\)\.then\(\(f\) => \{ if \(!f\) releaseNemesisStand\(_nemesis\); \}\); break; \}[^\n]*\n\s*if \(hit && _rollsForGroup\)/, 'before the group\'s gate - a nemesis is the player\'s own');
   assert.match(w, /\.\.\.\(hit\.nemesis \? nemesisSpawnOptions\(hit\.nemesis, effectiveLevel\(playerEntity\)\) : \{\}\)/);
   assert.match(w, /nemesisPresence\(exteriorFoes\.foes, \{ now \}\);\s*\n\s*nemesisSay\(takeNemesisNotice\(playerEntity\), \(l\) => townTalk\.say\(l\)\);/);
 });

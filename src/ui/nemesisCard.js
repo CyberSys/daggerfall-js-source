@@ -96,7 +96,7 @@ body .nemcard-body { margin-top: 4px; font-size: 12px; line-height: 1.3; color: 
 body .nemcard-body:empty { display: none; }
 @keyframes nemcard-blink { 50% { opacity: 0; } }
 /* what it is: a taunt and a rise in blood, a flight and an escape in amber, a fall in brass */
-body .nemcard.is-taunt, body .nemcard.is-rise { border-left-color: #8c3a32; }
+body .nemcard.is-taunt, body .nemcard.is-rise, body .nemcard.is-cornered { border-left-color: #8c3a32; }
 body .nemcard.is-flee, body .nemcard.is-escape { border-left-color: #c9822e; }
 body .nemcard.is-flee .nemcard-kicker, body .nemcard.is-escape .nemcard-kicker { color: #e0a54a; }
 body .nemcard.is-slain { border-left-color: #c08a3e; }
@@ -130,7 +130,7 @@ const reducedMotion = () => {
 };
 const docOf = () => (typeof document === 'undefined' ? null : document);
 
-/** @typedef {{ seq: number, ev: any, el: any, sayEl: any, caret: any, typed: number, full: string, holdMs: number, leftMs: number, out: number, settled: boolean }} Card */
+/** @typedef {{ seq: number, ev: any, el: any, sayEl: any, caret: any, typed: number, full: string, holdMs: number, leftMs: number, outMs: number|null, settled: boolean }} Card */
 /** @type {Card[]} */
 let _cards = [];
 let _seq = 0;
@@ -243,7 +243,7 @@ export function showNemesisCard(ev) {
     if (!d?.body || !d.createElement) return false;
     const stack = ensure(d);
     // a new word from the same nemesis takes its old card's place
-    if (ev.id) for (const c of _cards) if (c.ev.id === ev.id && !c.out) c.out = NEMESIS_SLIDE_MS;
+    if (ev.id) for (const c of _cards) if (c.ev.id === ev.id && c.outMs == null) c.outMs = NEMESIS_SLIDE_MS;
     const { el, say } = build(d, ev);
     const caret = d.createElement('span');
     caret.className = 'nemcard-caret';
@@ -251,7 +251,7 @@ export function showNemesisCard(ev) {
     const full = quoted(ev.speech);
     const still = reducedMotion();
     /** @type {Card} */
-    const card = { seq: ++_seq, ev, el, sayEl: say, caret, typed: still ? full.length : 0, full, holdMs: nemesisHoldMs(`${full} ${ev.body ?? ''}`), leftMs: 0, out: 0, settled: false };
+    const card = { seq: ++_seq, ev, el, sayEl: say, caret, typed: still ? full.length : 0, full, holdMs: nemesisHoldMs(`${full} ${ev.body ?? ''}`), leftMs: 0, outMs: null, settled: false };   // outMs: null standing, else the slide's ms left
     card.leftMs = card.holdMs;
     paintWords(card);
     stack.insertBefore(el, stack.firstChild ?? null);
@@ -259,7 +259,7 @@ export function showNemesisCard(ev) {
     el.classList.add('nemcard-in');
     _cards.unshift(card);
     // past the cap, the oldest goes
-    for (const c of _cards.slice(NEMESIS_CARDS_MAX)) if (!c.out) c.out = NEMESIS_SLIDE_MS;
+    for (const c of _cards.slice(NEMESIS_CARDS_MAX)) if (c.outMs == null) c.outMs = NEMESIS_SLIDE_MS;
     return true;
   } catch (e) {
     if (!_faultSaid) { _faultSaid = true; console.warn(`[nemesis-card] the card could not be drawn; the line is said instead: ${e?.message ?? e}`); }
@@ -290,16 +290,16 @@ export function drawNemesisCards({ hidden = false, dt = 0, doc = docOf() } = {})
   if (hidden) return _cards.length;
   const ms = Math.max(0, Number(dt) || 0) * 1000;
   for (const c of _cards) {
-    if (c.out) {
+    if (c.outMs != null) {
       if (!c.el.classList.contains('nemcard-out')) { c.el.classList.remove('nemcard-in'); c.el.classList.add('nemcard-out'); }
-      c.out -= ms;
+      c.outMs -= ms;
       continue;
     }
     if (c.typed < c.full.length) { c.typed = Math.min(c.full.length, c.typed + NEMESIS_TYPE_CPS * (ms / 1000)); paintWords(c); continue; }
     c.leftMs -= ms;
-    if (c.leftMs <= 0) c.out = NEMESIS_SLIDE_MS;
+    if (c.leftMs <= 0) c.outMs = NEMESIS_SLIDE_MS;
   }
-  const gone = _cards.filter((c) => c.out && c.out <= 0);
+  const gone = _cards.filter((c) => c.outMs != null && c.outMs <= 0);
   for (const c of gone) { try { c.el.remove(); } catch { /* already gone */ } }
   _cards = _cards.filter((c) => !gone.includes(c));
   if (!_cards.length) takeDown();
@@ -313,7 +313,7 @@ export function clearNemesisCards() {
   takeDown();
 }
 /** Tests: the cards standing, as the law reads them. */
-export const _nemesisCards = () => _cards.map((c) => ({ kind: c.ev.kind, name: c.ev.name, typed: Math.floor(c.typed), full: c.full, out: c.out > 0, leftMs: c.leftMs }));
+export const _nemesisCards = () => _cards.map((c) => ({ kind: c.ev.kind, name: c.ev.name, typed: Math.floor(c.typed), full: c.full, out: c.outMs != null, leftMs: c.leftMs }));
 export function _resetNemesisCardsForTests() { clearNemesisCards(); _seq = 0; _faultSaid = false; }
 
 /** HUD-MOVE's preview (ui/hudLayout.js): a card standing where the real ones will, while the UI is unlocked. */
