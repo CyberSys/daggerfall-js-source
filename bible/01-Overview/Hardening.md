@@ -232,7 +232,7 @@ has and `exterior.js` lacks is the streaming host's own (terrain pixels,
 riding, online peers). Everything `exterior.js` has and `world.js` lacks
 is a `?rig`/`?rigNear`/`?shot` probe rig, its own `refreshSeason` - whose
 streaming twin `tickSeason` is documented AND cites `refreshSeason` by
-name at `world.js:858` - and two math helpers in the shot path. **No
+name at `world.js:859` - and two math helpers in the shot path. **No
 drift.**
 
 **S2 - the mode-transition teardown order. Three candidate findings, all
