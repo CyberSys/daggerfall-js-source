@@ -6422,7 +6422,10 @@ reads one, all of them DFU's one clock offline:
 - **`nowSeconds`, the CHARACTER's clock** (LIVED1's own): the Clock resource, CreateFoe's and PlaySound's
   intervals, GUARD-ONLINE's watch, the tombstone's week. A rest, a loiter or a journey spends them, as in DFU: the
   time RAISED since a sample is charged whole (the session's count, `worldTick.js raisedMinutes`), the time lived
-  with the world one played step at most (WORLD7's bound, on the lived part alone). The rest ticks the quests
+  with the world one played step at most (WORLD7's bound, on the lived part alone). [SUPERSEDED BY QCLOCK-WORLD
+  2026-10-02 (`Online-Time-Arc.md` 6.3c) for the Clock and CreateFoe's interval: online the raise is charged
+  nothing, the lived time one step - a rest spends no quest days. PlaySound's interval, GUARD-ONLINE's watch (one
+  quest's hall, kept by waiting there) and the tombstone's week still read the character's clock raw.] The rest ticks the quests
   online too (`restSession.js`; RESTX2's stand-down retired).
 - **`skySeconds`, the SKY**: DailyFrom's window, GivePc's daytime, the season trigger, QAE's "until", the
   date/time macros.

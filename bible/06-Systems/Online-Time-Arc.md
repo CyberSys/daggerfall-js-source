@@ -54,7 +54,7 @@ The next one would have been the full moon. This page replaces the pattern with 
 |---|---|---|---|
 | **The sky** (new) | TimeScale 24: a day every real hour (SKY-SLOW; designed at 48) | nobody; a function of wall time | what the world looks like, and every "what time of day, what date, which moon" |
 | **The event clock** (WORLD5's shared clock, unchanged) | TimeScale 12: a day every 2 real hours | nobody; a function of wall time | what the world schedules, stocks, prices and meters for everyone; the relay's every read |
-| **Your clock** (LIVED1's, unchanged) | TimeScale 12 while you play | you: a rest, a loiter, a journey, a sentence | your body, magic, needs, contracts and standing; and, new, your quests' countdowns |
+| **Your clock** (LIVED1's, unchanged) | TimeScale 12 while you play | you: a rest, a loiter, a journey, a sentence | your body, magic, needs, contracts and standing; and, new, your quests' countdowns (QCLOCK-WORLD: online only as it moves with the world - a raise charges them nothing) |
 
 LIVED1's "world's clock" becomes two: the sky, which is new, and the event clock, which is the clock
 LIVED1 already calls the world's. In code `worldMinutes()` keeps its meaning (the event clock online, the
@@ -251,7 +251,8 @@ Nothing in this table changes. It is listed so the census has its other half.
 Unchanged: everything `Lived-Time.md` lists under "Reads the character's clock", and the camp encounter
 window (`campEncounters.js`: 180 game minutes, which is the "15 real minutes" Mac asked for only because
 your clock keeps TimeScale 12). Added by TIME3: a quest's countdowns, its spawn and sound intervals and
-its tombstones (6.3).
+its tombstones (6.3). [QCLOCK-WORLD (6.3c): online the countdowns and the spawn interval charge only the time
+lived with the world - the event clock's movement while you play - and never a raise.]
 
 ### 5.4 Real time
 
@@ -310,7 +311,8 @@ by `ONLINE_MINUTES_PER_MS` today, which stays the event clock's rate, and would 
 
 - **A quest's countdowns run on the character's clock:** the Clock resource ("you have N days", "come
   back in N days"), the spawn intervals (`CreateFoe`) and the tombstones. A rest or a loiter spends quest
-  days as in DFU, and so does a journey. A three-day wait is a 72-hour rest: about half a minute.
+  days as in DFU, and so does a journey. A three-day wait is a 72-hour rest: about half a minute. [SUPERSEDED BY
+  6.3c: online a raise spends no quest days.]
 - **WORLD7's played step stays as the bound on the lived part of a frame,** so a hidden tab is still
   forgiven; a raise is charged whole.
 - **A quest's hour and date reads use the sky:** `DailyFrom`, and any date a script tests. A `daily from`
@@ -447,7 +449,8 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   sentence as it is true when the pane opens - before the switch, "a day in the world is two hours of real time
   until" the switch in the player's own time - and the sentences after it add that a full moon holds a
   lycanthrope for its night alone and that quest timers run on the character's own time, so a rest spends a
-  quest's days as in Daggerfall.]
+  quest's days as in Daggerfall. QCLOCK-WORLD (6.3c): that quest timers run on the world's clock while you
+  play, and resting, waiting and travelling don't spend a quest's days.]
 - **The vampire's nightfall words:** the sky's rate (6.2).
 - **A character's deadlines** ("7 days of your time (14h of play)"): unchanged. They are on the
   character's clock, whose rate does not change.

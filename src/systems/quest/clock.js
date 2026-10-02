@@ -317,7 +317,7 @@ export class Clock extends QuestResource {
   restoreSaveData(dataIn) {
     if (dataIn == null) return;
     this._lastWorldTimeSample = Number.isFinite(dataIn.lastWorldTimeSample) ? dataIn.lastWorldTimeSample : wholeSeconds(this.parentQuest);   // AUDIT WORLD7/8 A11: a save from before the field stamped NaN into the remainder
-    this._lastRaisedSample = this.parentQuest?.raisedSeconds?.() ?? null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted ACROSS it (AUDIT TIME: the count now, so a raise after it, before the first tick, is charged whole)
+    this._lastRaisedSample = this.parentQuest?.raisedSeconds?.() ?? null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted ACROSS it (AUDIT TIME: the count now, so a raise after it, before the first tick, is a raise - QCLOCK-WORLD: charged nothing)
     this.startingTimeInSeconds = dataIn.startingTimeInSeconds;
     this.remainingTimeInSeconds = dataIn.remainingTimeInSeconds;
     this.flag = dataIn.flag;

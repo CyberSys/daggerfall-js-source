@@ -5,14 +5,16 @@
   work as they do in Daggerfall again. A deadline can run out, and a wait lasts its days. This undoes the time-free
   quests from the last update.
 - **Quest timers run on the world's clock while you play.** A quest day is about two real hours of play.
-- **Resting, waiting and travelling don't use up quest time online.** An eight-hour rest, a long wait or a fast-travel
-  journey takes nothing off a quest's clock. Only time you spend playing counts.
+- **Resting, waiting and travelling don't use up a quest's timers online.** An eight-hour rest, a long wait or a
+  fast-travel journey takes nothing off a quest's clock, and doesn't bring a "come back in a few days" any sooner.
+  Only time you spend playing counts. Waiting days for a letter or a meeting means playing those hours.
 - **Time logged off never counts**, and neither does a tab left in the background.
 - **Countdowns are back** in the journal, the quest tracker, the quest rail and the map markers, along with the
   "running out of time" warnings. Quest text says the real number of days again.
-- **Bounties lapse again** if you don't finish them in time.
+- **Bounties lapse again** a day after you take them. That day is your character's own time, so resting uses it up.
 - **Quest letters wait for morning again**, as well as for you to be in town.
-- **Vampire, werewolf, Thieves Guild and Dark Brotherhood quests** keep Daggerfall's waits again.
+- **Vampire, werewolf, Thieves Guild and Dark Brotherhood quests** keep Daggerfall's waits again. These waits count
+  your character's own time, so resting does bring them sooner.
 - A failed quest online still costs its faction nothing.
 - Offline play is unchanged: quest timers work as in Daggerfall, and a rest spends a quest's days.
 

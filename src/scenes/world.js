@@ -15174,7 +15174,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     classicSeconds: () => playerTicker.ownMinutes * 60,   // TIME3 (Online-Time-Arc.md 6.3): the quest's clock is the CHARACTER's own - its countdowns, intervals and tombstones; a rest spends it (the one clock offline)
     skySeconds: () => skyMinutes() * 60,   // TIME3: a quest's hour, date and season are the sky's
     worldSeconds: () => playerTicker.classicMinutes * 60,   // TIME3: the event clock - the journal's dates are stamped on it
-    raisedSeconds: () => raisedMinutes() * 60,   // TIME3: the session's raises - a countdown charges them whole
+    raisedSeconds: () => raisedMinutes() * 60,   // TIME3: the session's raises - QCLOCK-WORLD: a countdown charges none of them
     questClockStepMax: () => (sharedClockOn() ? PLAYED_STEP_MAX_SECONDS : Infinity),   // WORLD7: online a quest clock charges PLAYED time - one step a frame, the time away forgiven (WORLD5 stood every clock down, and no delay ever ran)
     sharedClock: () => sharedClockOn(),   // GUARD-ONLINE: a guarded quest's window online is the player's arrival's
     playerEntity,

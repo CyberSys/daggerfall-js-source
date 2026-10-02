@@ -1255,7 +1255,7 @@ let _ownMinutes = null;
 // tick's raiseMinutes, and advanceOwnMinutes). A quest's countdowns run on the character's clock, which moves two
 // ways online: with the world while they live in it - a quest charges that by one played step a frame at most, the
 // rest is time away and forgiven (WORLD7: a hidden tab, a menu left open) - and ahead of it when they raise time, which
-// a quest charges whole, as DFU charges a RaiseTime: a three-day wait is a 72-hour rest. This count tells the two
+// a quest charges nothing (QCLOCK-WORLD - TIME3 charged it whole, as DFU charges a RaiseTime). This count tells the two
 // apart. A load moves the clock and raises nothing; a clock installed or removed starts a session and the count with
 // it; offline there is one clock, no raise to tell apart, and it reads 0.
 let _raisedMinutes = 0;

@@ -101,7 +101,7 @@
   {
     "name": "TIME3-the-restore-keeps-a-raise-sample",
     "file": "src/systems/quest/clock.js",
-    "old": "    this._lastRaisedSample = this.parentQuest?.raisedSeconds?.() ?? null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted ACROSS it (AUDIT TIME: the count now, so a raise after it, before the first tick, is charged whole)\n",
+    "old": "    this._lastRaisedSample = this.parentQuest?.raisedSeconds?.() ?? null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted ACROSS it (AUDIT TIME: the count now, so a raise after it, before the first tick, is a raise - QCLOCK-WORLD: charged nothing)\n",
     "new": "",
     "tests": [
       "test/time3_quests.test.js",

@@ -27,7 +27,7 @@
 //   worldSeconds()              - TIME3: the event clock (worldMinutes()
 //                                 * 60) - the journal's dates
 //   raisedSeconds()             - TIME3: the session's raises
-//                                 (raisedMinutes() * 60), charged whole
+//                                 (raisedMinutes() * 60), charged nothing (QCLOCK-WORLD)
 //   playerEntity                - { name, level, gender, ... }
 //   playerRaceName()            - the birth race name (%ra)
 //   getReputation(factionId)    - factionRep.getReputation over the
@@ -255,7 +255,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     // member never reached the machine: TrainPc stamped the world's minute, the guild's gate read the character's
     // (refused for 84 days of their time behind the world, open at once ahead of it)
     ownMinutes: () => ctx.ownMinutes?.() ?? null,
-    questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock bounds the LIVED part of a gap to the host's step, a raise charged whole (TIME3); a host that says nothing charges every clock, DFU's own
+    questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock bounds the LIVED part of a gap to the host's step, a raise charged nothing (QCLOCK-WORLD; TIME3 charged it whole); a host that says nothing charges every clock, DFU's own
     sharedClock: () => !!ctx.sharedClock?.(),   // GUARD-ONLINE: online, a guarded quest's window is the player's arrival's (quest/onlineGuard.js)
     getQuestSourceLines: (name) => ctx.data.getQuestSourceLines(name),
     playerLevel: () => ctx.playerEntity?.level ?? 0,
