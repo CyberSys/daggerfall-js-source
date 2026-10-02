@@ -17,10 +17,13 @@ const REAL_MIN_PER_SKY_DAY = 1440 / SWITCH.minutesPerMs / 60_000;
 const minuteOfDay = (m) => ((m % 1440) + 1440) % 1440;
 
 test('TIME4 the Online pane says the sky\'s day as it is when the pane opens: two hours until the switch (and when, in this machine\'s time), half an hour from it - midnight on the hour and the half hour, dusk at :22 and :52', () => {
-  const before = skyDayWords(SWITCH.fromMs - 1, (ms) => `<${ms}>`);
-  assert.equal(before, `A day in the world is two hours of real time until <${SWITCH.fromMs}>; from then on it is half an hour: midnight falls on the hour and the half hour, and dusk at :22 and :52.`);
-  const after = skyDayWords(SWITCH.fromMs);
-  assert.equal(after, 'A day in the world is half an hour of real time: midnight falls on the hour and the half hour, and dusk at :22 and :52.');
+  const utc = (ms) => new Date(ms).getUTCMinutes() + new Date(ms).getUTCSeconds() / 60;
+  const before = skyDayWords(SWITCH.fromMs - 1, (ms) => `<${ms}>`, utc);
+  assert.equal(before, `A day in the world is two hours of real time until <${SWITCH.fromMs}>; from then on it is half an hour: midnight falls on the hour and the half hour, and dusk at :22:30 and :52:30.`);
+  const after = skyDayWords(SWITCH.fromMs, String, utc);
+  assert.equal(after, 'A day in the world is half an hour of real time: midnight falls on the hour and the half hour, and dusk at :22:30 and :52:30.');
+  // AUDIT TIME: the minutes are this machine's own - a clock set a quarter of an hour off UTC (Nepal's +5:45) hears its own
+  assert.equal(skyDayWords(SWITCH.fromMs, String, (ms) => (utc(ms) + 45) % 60), 'A day in the world is half an hour of real time: midnight falls at :15 and :45, and dusk at :37:30 and :07:30.');
   // ...and every number in it is the law's
   assert.equal(REAL_MIN_PER_SKY_DAY, 30, 'half an hour: the sky\'s rate (change it and change the words)');
   for (let k = 1; k <= 48; k++) {
@@ -43,7 +46,7 @@ test('TIME4 the patch notes say the law\'s own figures: a day of 30 minutes, a f
   assert.match(notes, /^# Patch Notes: A faster sky\n/);
   assert.match(notes, /\*\*A day online is now 30 minutes\.\*\*/);
   assert.equal(REAL_MIN_PER_SKY_DAY, 30);
-  assert.match(notes, /Midnight falls on the hour and the half hour, real time, and dusk at :22 and :52\./);
+  assert.match(notes, /Midnight falls on the hour and the half hour, real time, and dusk at :22:30 and :52:30 \(the Online page gives your own clock's times\)\./);
   // a night (dusk to dawn) and the longest wait for nightfall (dawn to dusk) are twelve sky hours each
   const night = ((24 - DUSK_HOUR + DAWN_HOUR) * 60) / SWITCH.minutesPerMs / 60_000;
   const day = ((DUSK_HOUR - DAWN_HOUR) * 60) / SWITCH.minutesPerMs / 60_000;

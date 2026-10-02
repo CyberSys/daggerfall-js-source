@@ -114,11 +114,18 @@ test('TIME3 the Clock online: the time RAISED since its sample is charged whole 
   c.own += 100; c.raised += 5000; over.tick(q);
   assert.equal(over.remainingTimeInSeconds, days3 - 100, 'a raise is charged no further than the clock moved');
   const back = new Clock(q, 'Clock _r_ 3.00:00'); back.startTimer();
-  back.restoreSaveData(back.getSaveData());
-  c.own += 10 * HOUR_S; c.raised += 10 * HOUR_S; back.tick(q);
-  assert.equal(back.remainingTimeInSeconds, days3 - PLAYED_STEP_MAX_SECONDS, 'a restored clock\'s first gap is a resume: one step, no raise counted across the restore');
+  c.raised += 50 * HOUR_S;   // raised before the restore (another timeline, a partner's): never counted across it
+  back.restoreSaveData({ ...back.getSaveData(), lastWorldTimeSample: c.own - 5 * DAY_S });
+  back.tick(q);
+  assert.equal(back.remainingTimeInSeconds, days3 - PLAYED_STEP_MAX_SECONDS, 'a restored clock\'s first gap is a resume: one step for the time behind it, no raise counted across the restore');
   c.own += 10 * HOUR_S; c.raised += 10 * HOUR_S; back.tick(q);
   assert.equal(back.remainingTimeInSeconds, days3 - PLAYED_STEP_MAX_SECONDS - 10 * HOUR_S, '...and the next rest is charged whole');
+  // AUDIT TIME: a raise AFTER the restore and before its first tick (a load, then a rest; a share landing under a menu,
+  // then a journey) is charged whole - the count is sampled at the restore
+  const early = new Clock(q, 'Clock _e_ 3.00:00'); early.startTimer();
+  early.restoreSaveData(early.getSaveData());
+  c.own += DAY_S; c.raised += DAY_S; early.tick(q);
+  assert.equal(early.remainingTimeInSeconds, 2 * DAY_S, 'a day rested after the restore: a day off');
   const fresh = new Clock(q, 'Clock _f_ 3.00:00'); fresh.startTimer();
   c.raised = 0; c.own += 4 * HOUR_S; fresh.tick(q);
   assert.equal(fresh.remainingTimeInSeconds, days3 - PLAYED_STEP_MAX_SECONDS, 'a count that went back (a new session) is a resume too');
@@ -228,6 +235,18 @@ test('TIME3 a quest reads three clocks: an hour, a day\'s light, a season and a 
   assert.deepEqual([bare.skySeconds(), bare.worldSeconds(), bare.raisedSeconds], [42, 42, null], 'a quest with one clock reads it for all three (offline, headless)');
 });
 
+test('TIME3 AUDIT: GUARD-ONLINE\'s watch is a countdown on the CHARACTER\'s clock - the sky turning moves nothing, ten minutes of their own time opens it', () => {
+  const own = { s: 1_000_000 }, sky = { s: 4_000_000 };
+  const q = { questName: 'N0B10Y03', nowSeconds: () => own.s, skySeconds: () => sky.s, hooks: { sharedClock: () => true }, getPlace: () => ({ isPlayerHere: () => true }) };
+  const watch = new DailyFrom(q); watch.minDailySeconds = 0; watch.maxDailySeconds = 3 * HOUR_S;
+  assert.equal(watch.checkTrigger(), false, 'the arrival: the watch begins, shut');
+  assert.equal(watch.guardAnchor, 1_000_000, 'anchored on the character\'s clock');
+  sky.s += 4 * HOUR_S;
+  assert.equal(watch.checkTrigger(), false, 'four hours of the sky: still shut - the watch is not the sky\'s');
+  own.s += 10 * 60;
+  assert.equal(watch.checkTrigger(), true, 'ten minutes of their own time: open');
+});
+
 test('TIME3 the journal\'s date: a step stamped on the event clock is read on the sky\'s calendar - the date the player saw when it was logged; offline the stamp\'s own', () => {
   const T = SKY_SEGMENTS[0].fromMs + 3 * DAY_S * 1000 + 12_345;
   const eventS = Math.floor(sharedClassicMinutes(T) * 60);
@@ -325,6 +344,40 @@ test('TIME3 a party\'s copies, end to end: the receiver\'s rest spends the recei
   const after = rm.sharedCandidateNamed(sq.questName);
   assert.equal(clockOf(after).clockFinished, true, 'a clock run out on one copy has run out for the party');
   assert.equal(taskOf(after, '_wait_').triggered, true, 'and the task it fired rides the resync');
+});
+
+test('TIME3 AUDIT: a resync from a partner behind keeps what this copy has done - a clock run out stays run out with its task fired, and a wave\'s interval stays this holder\'s', () => {
+  tables();
+  const S = { own: 2_000_000, raised: 0 }, R = { own: 9_000_000, raised: 0 };
+  const machine = (c) => new QuestMachine({ nowSeconds: () => c.own, raisedSeconds: () => c.raised, worldSeconds: () => 5_000_000, questClockStepMax: () => PLAYED_STEP_MAX_SECONDS, world: { currentRegionIndex: () => 0 }, showPopup() {} });
+  const sm = machine(S), rm = machine(R);
+  const sq = sm.scheduleQuest(WAIT_3_DAYS, 0, { rolls: () => 0.4 });
+  sm.tick(); sm.markQuestShared(sq.questName);
+  rm.receiveSharedQuest(sm.getShareableQuestData(sq.uid)); rm.tick();
+  for (let k = 0; k < 72 * 6; k++) { R.own += 600; R.raised += 600; rm.tick(); }
+  const mine = () => rm.sharedCandidateNamed(sq.questName);
+  assert.equal(clockOf(mine()).clockFinished, true);
+  assert.equal(taskOf(mine(), '_wait_').triggered, true);
+  rm.updateSharedQuest(sq.questName, sm.getShareableQuestData(sq.uid));   // the sender, three days still to wait
+  assert.equal(clockOf(mine()).clockFinished, true, 'run out here, it stays run out');
+  assert.equal(clockOf(mine()).clockEnabled, false);
+  assert.equal(taskOf(mine(), '_wait_').triggered, true, 'and its task stays fired');
+  // a wave's interval: this holder's timing survives a resync
+  const wm = (c, world) => new QuestMachine({ nowSeconds: () => c.own, raisedSeconds: () => c.raised, worldSeconds: () => 5_000_000, questClockStepMax: () => PLAYED_STEP_MAX_SECONDS, world, showPopup() {} });
+  const world = () => { const w = { currentRegionIndex: () => 0, isPlayerInLocationRect: () => true, created: [], createFoeGameObjects: (foe, n) => { w.created.push(n); return Array.from({ length: n }, (_, i) => ({ i })); }, tryPlaceFoe: () => true, raiseOnEncounterEvent() {} }; return w; };
+  const A = { own: 100_000, raised: 0 }, B = { own: 700_000, raised: 0 }, aw = world(), bw = world();
+  const am = wm(A, aw), bm = wm(B, bw);
+  const SRC = ['Quest: __QV', 'QRC:', 'Message:  1011', ' x', '', 'QBN:', 'Foe _rat_ is 2 Giant_rat', '', ' send _rat_ every 240 minutes 9 times with 100% success'];
+  const aq = am.scheduleQuest(SRC, 0, { rolls: () => 0.99 }); am.tick(); am.markQuestShared(aq.questName);
+  const bq = bm.receiveSharedQuest(am.getShareableQuestData(aq.uid)); bm.tick();
+  const wave = (q) => [...q.tasks.values()].flatMap((t) => t.actions).find((x) => x.typeName === 'CreateFoe');
+  const before = wave(bq).lastSpawnTime;
+  for (let k = 0; k < 18; k++) { B.own += 600; B.raised += 600; bm.tick(); }   // three hours rested toward B's wave
+  bm.updateSharedQuest(aq.questName, am.getShareableQuestData(aq.uid));
+  const after = wave(bm.sharedCandidateNamed(aq.questName));
+  assert.equal(after.lastSpawnTime, before, 'the wave\'s last is this holder\'s - the resync did not restart it');
+  for (let k = 0; k < 6; k++) { B.own += 600; B.raised += 600; bm.tick(); }
+  assert.ok(bw.created.length >= 1, 'and the fourth hour rested brings the wave');
 });
 
 test('TIME3 saves: an online save from before TIME3 has its countdowns moved onto the character\'s clock once, at the load; a TIME3 save and an offline one load as they stand; the doors between the lanes move only a TIME3 envelope\'s journal dates', () => {

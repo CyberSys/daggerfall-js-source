@@ -1322,16 +1322,30 @@ export class QuestMachine {
     // copy's remainder and samples - the days this character spent on it, not the partner's: a member's rest spends
     // their own copy's days. A clock the partner's copy started, stopped or ran out takes the envelope's state, and the
     // task it fired rides the resync like any other - a clock that runs out on one copy has run out for the party.
-    const clocksBefore = new Map();
-    for (const r of quest.resources.values()) if (r.isClock && r.clockEnabled && !r.clockFinished) clocksBefore.set(r.symbol?.name, { remaining: r.remainingTimeInSeconds, sample: r._lastWorldTimeSample, raised: r._lastRaisedSample });
+    // AUDIT TIME: and a clock THIS copy has run out stays run out, its task as it fired - a partner behind on it (their
+    // copy still counting) brought it back running and un-fired the task, a finish that is monotonic like an action's.
+    // A wave's interval is the holder's too (CreateFoe's timing, by task and action), or every resync restarted it.
+    const clocksBefore = new Map(), finishedBefore = new Map(), wavesBefore = new Map();
+    for (const r of quest.resources.values()) {
+      if (r.isClock && r.clockEnabled && !r.clockFinished) clocksBefore.set(r.symbol?.name, { remaining: r.remainingTimeInSeconds, sample: r._lastWorldTimeSample, raised: r._lastRaisedSample });
+      if (r.isClock && r.clockFinished) finishedBefore.set(r.symbol?.name, quest.getTask?.(r.symbol)?.triggered ?? null);
+    }
+    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { if (action.typeName === 'CreateFoe') wavesBefore.set(`${t}:${a}`, { last: action.lastSpawnTime, tick: action._lastTick, raised: action._lastRaised }); a++; } t++; } }
     quest.restoreSaveData({ ...questData, uid }, this._saveResolvers());
     for (const r of quest.resources.values()) {
+      if (r.isClock && !r.clockFinished && finishedBefore.has(r.symbol?.name)) {
+        r.clockEnabled = false; r.clockFinished = true; r.remainingTimeInSeconds = 0;
+        const task = quest.getTask?.(r.symbol), fired = finishedBefore.get(r.symbol?.name);
+        if (task && fired) task.triggered = true;
+        continue;
+      }
       const was = r.isClock && r.clockEnabled && !r.clockFinished ? clocksBefore.get(r.symbol?.name) : null;
       if (!was) continue;
       r.remainingTimeInSeconds = was.remaining;
       r._lastWorldTimeSample = was.sample;
       r._lastRaisedSample = was.raised;
     }
+    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { const w = action.typeName === 'CreateFoe' ? wavesBefore.get(`${t}:${a}`) : null; if (w && w.last) { action.lastSpawnTime = w.last; action._lastTick = w.tick; action._lastRaised = w.raised; } a++; } t++; } }
     for (const r of quest.resources.values()) if (r.isItem && itemsBefore.has(r.symbol?.name)) r.daggerfallUnityItem = itemsBefore.get(r.symbol?.name);
     this._relinkQuestItems(quest);
     for (const r of quest.resources.values()) {

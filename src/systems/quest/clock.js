@@ -201,8 +201,8 @@ export class Clock extends QuestResource {
    *  TIME3: online the quest's clock is the character's own (LIVED1), and the gap has two parts: the time RAISED since
    *  the sample (a rest, a loiter, a journey, a sentence - the session's count, raisedSeconds) is charged whole, as DFU
    *  charges a RaiseTime, and the time lived with the world is charged one played step at most (WORLD7: the rest is
-   *  time away, forgiven). Never more than the clock moved, never less than nothing. A sample with no count beside it
-   *  (a restore, a share, a new session) charges the lived step alone - a resume. */
+   *  time away, forgiven). Never more than the clock moved, never less than nothing. A sample with no count beside it,
+   *  or one from another session, charges the lived step alone - a resume. */
   chargeSeconds(caller) {
     const now = wholeSeconds(caller);
     const step = caller.questClockStepMax?.() ?? Infinity;
@@ -313,7 +313,7 @@ export class Clock extends QuestResource {
   restoreSaveData(dataIn) {
     if (dataIn == null) return;
     this._lastWorldTimeSample = Number.isFinite(dataIn.lastWorldTimeSample) ? dataIn.lastWorldTimeSample : wholeSeconds(this.parentQuest);   // AUDIT WORLD7/8 A11: a save from before the field stamped NaN into the remainder
-    this._lastRaisedSample = null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted across it
+    this._lastRaisedSample = this.parentQuest?.raisedSeconds?.() ?? null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted ACROSS it (AUDIT TIME: the count now, so a raise after it, before the first tick, is charged whole)
     this.startingTimeInSeconds = dataIn.startingTimeInSeconds;
     this.remainingTimeInSeconds = dataIn.remainingTimeInSeconds;
     this.flag = dataIn.flag;

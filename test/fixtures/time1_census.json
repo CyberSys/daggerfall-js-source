@@ -45,12 +45,6 @@
    "why": "the sky's own law"
   },
   {
-   "file": "src/net/skyLaw.js",
-   "has": "const have = ((skyClassicMinutes(t) % 1440) + 1440) % 1440;",
-   "clock": "law",
-   "why": "the sky's own law"
-  },
-  {
    "file": "src/scenes/arrestFlow.js",
    "has": "banish(playerEntity, region(), trustedWorldMinutes());",
    "clock": "event",
@@ -658,6 +652,12 @@
   },
   {
    "file": "src/scenes/worldModes.js",
+   "has": "rerollDay: dayOfYearFromMinutes(Math.floor(worldMinutes())),",
+   "clock": "event",
+   "why": "the coven's once-a-day re-roll, a stamp saved on the player"
+  },
+  {
+   "file": "src/scenes/worldModes.js",
    "has": "classicMinutes: () => Math.floor(skyMinutes()),",
    "clock": "sky",
    "why": "the spellbook's calendar (the Witches Festival)"
@@ -817,6 +817,12 @@
    "has": "export function statsLaw(detail, entity, { worldNow = trustedWorldMinutes() } = {}) {",
    "clock": "event",
    "why": "a banishment's term"
+  },
+  {
+   "file": "src/ui/enhancedMenu.js",
+   "has": "const midnight = wallMsForSkyMinutes(Math.ceil(skyClassicMinutes(turn) / 1440) * 1440);",
+   "clock": "sky",
+   "why": "the Online pane's sentence: the sky's first midnight after its switch, said in local minutes (TIME4)"
   }
  ]
 }

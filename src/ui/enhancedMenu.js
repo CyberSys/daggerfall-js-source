@@ -110,7 +110,7 @@ import {
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
 import { offlineCopyOf, onlineCopyOf } from '../systems/offlineCopy.js';   // AUDIT LIVED1 E/G: the doors between the lanes
 import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the shared clock's minute a character joins at
-import { SKY_SEGMENTS } from '../net/skyLaw.js';   // TIME4: the sky's day, said at the door
+import { SKY_SEGMENTS, skyClassicMinutes, wallMsForSkyMinutes } from '../net/skyLaw.js';   // TIME4: the sky's day, said at the door
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
   sweepUnsent,
@@ -325,13 +325,18 @@ let _pickedSaveKey = null;
 let _pickedSaveName = null;
 let _saveNameDraft = '';
 /** TIME4 (bible/06-Systems/Online-Time-Arc.md section 7): THE SKY'S DAY, SAID AT THE DOOR - what is true when the
- *  pane opens. From the sky's switch on (net/skyLaw.js SKY_SEGMENTS) a day is half an hour, its midnights on the hour
- *  and the half hour UTC and its dusk (18:00) at :22 and :52 past them; before it the sky is still the event clock's,
- *  a day every two hours, and the sentence says when it turns, in this machine's own time. test/time4_words.test.js
- *  holds the numbers to the law. */
-export function skyDayWords(nowMs = Date.now(), localTime = (ms) => new Date(ms).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) {
+ *  pane opens. From the sky's switch on (net/skyLaw.js SKY_SEGMENTS) a day is half an hour; its midnights and its dusks
+ *  (18:00, twenty-two and a half real minutes after a midnight) are said in this machine's own minutes - on the hour
+ *  and the half hour for most of the world, a quarter past and a quarter to where a clock is set fifteen minutes off.
+ *  Before the switch the sky is still the event clock's, a day every two hours, and the sentence says when it turns.
+ *  test/time4_words.test.js holds the numbers to the law. */
+export function skyDayWords(nowMs = Date.now(), localTime = (ms) => new Date(ms).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+  localMinute = (ms) => { const d = new Date(ms); return d.getMinutes() + d.getSeconds() / 60; }) {
   const turn = SKY_SEGMENTS[SKY_SEGMENTS.length - 1].fromMs;
-  const day = 'midnight falls on the hour and the half hour, and dusk at :22 and :52';
+  const midnight = wallMsForSkyMinutes(Math.ceil(skyClassicMinutes(turn) / 1440) * 1440);
+  const m0 = ((localMinute(midnight) % 30) + 30) % 30;
+  const at = (m) => { const v = ((m % 60) + 60) % 60; return `:${String(Math.floor(v)).padStart(2, '0')}${v % 1 ? ':30' : ''}`; };
+  const day = `${m0 === 0 ? 'midnight falls on the hour and the half hour' : `midnight falls at ${at(m0)} and ${at(m0 + 30)}`}, and dusk at ${at(m0 + 22.5)} and ${at(m0 + 52.5)}`;
   return nowMs >= turn
     ? `A day in the world is half an hour of real time: ${day}.`
     : `A day in the world is two hours of real time until ${localTime(turn)}; from then on it is half an hour: ${day}.`;

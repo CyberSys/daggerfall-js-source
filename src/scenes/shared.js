@@ -2356,7 +2356,7 @@ export function createRestDeps(entity, opts = {}) {
       return healed;
     },
     fullyHealed: () => restFullyHealed(entity),
-    sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online, and the session's quest gate (RESTX2) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
+    sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online (TIME3: the session's quest gate, RESTX2's, is gone) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,

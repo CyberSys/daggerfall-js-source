@@ -102,7 +102,15 @@ test('TIME1 the tool: tools/skyCutover.mjs lists the aligned instants, and says 
   const before = cutoverLines(['--after', new Date(SWITCH.fromMs - 3_600_000).toISOString()]);
   assert.match(before[0], /^TimeScale 48 \(a sky day every 30 real minutes\)/);
   assert.ok(before.some((l) => l.includes(new Date(SWITCH.fromMs).toISOString())), before.join('\n'));
-  assert.match(cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString()])[1], /already runs at this rate/);
+  // AUDIT TIME: a merge that lands a day after the switch - the tool lists where the last row may MOVE, laid on the sky
+  // without it, and a row moved there is seamless with midnight on the hour and the half hour
+  const late = cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString()]);
+  assert.match(late[0], /aligned instants for the last row/, late.join('\n'));
+  const moved = Date.parse(late[1].trim().split(/\s+/)[0]);
+  assert.ok(moved >= SWITCH.fromMs + 86_400_000, late.join('\n'));
+  const law = skyLawOf([{ fromMs: moved, minutesPerMs: RATE }]);
+  assert.ok(near(law.minutesAt(moved), sharedClassicMinutes(moved)), 'no jump where it moves to');
+  assert.ok(near(minuteOfDay(law.minutesAt(nextHalfHour(moved))), 0) || near(minuteOfDay(law.minutesAt(nextHalfHour(moved))), 1440), 'midnight on the half hour after it');
   assert.match(cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString(), '--scale', '60'])[1], /^ {2}\d{4}-/, 'another rate has instants of its own');
   assert.match(cutoverLines(['--after', 'never'])[0], /is not a date/);
 });
@@ -278,4 +286,21 @@ test('TIME1 by source - THE FOUR HOSTS RULE: world.js installs the sky beside th
   assert.match(world, /skyMinute: \(\) => Math\.floor\(skyMinutes\(\)\),   \/\/ TIME1: the wilds' night/, "the wilds' night");
   assert.match(rd('src/scenes/exteriorFoes.js'), /night = isNight\(\(skyMinute \?\? currentMinute\)\(\)\)/);
   assert.match(rd('src/systems/worldTick.js'), /skyMinutes: _sharedClock \? skyMinutes\(\) : null \}\);/, "the tick's rounds read the sky");
+});
+
+test('TIME1 AUDIT: the coven\'s re-roll is a STAMP on the event clock - the sky\'s days turning four times as fast re-roll nothing; the event clock\'s next day does; a prince\'s own day is the sky\'s', async () => {
+  const { daedraForSummoner, DAEDRA, WITCHES_COVEN_TYPE: COVEN } = await import('../src/systems/daedraSummoning.js');
+  const state = {};
+  let k = 0;
+  const rolls = () => [0.1, 0.5, 0.9][k++ % 3];
+  const first = daedraForSummoner({ factionId: 1, factionType: COVEN, dayOfYear: 280, rerollDay: 250, state, rolls });
+  for (const skyDay of [281, 282, 283]) assert.equal(daedraForSummoner({ factionId: 1, factionType: COVEN, dayOfYear: skyDay, rerollDay: 250, state, rolls }), first, `the sky's day ${skyDay}: the same prince`);
+  assert.equal(state.daedraSummonDay, 250, 'the saved stamp is the event clock\'s day');
+  assert.notEqual(daedraForSummoner({ factionId: 1, factionType: COVEN, dayOfYear: 284, rerollDay: 251, state, rolls }), first, 'the event clock\'s next day re-rolls');
+  const offline = {};
+  daedraForSummoner({ factionId: 1, factionType: COVEN, dayOfYear: 90, state: offline, rolls });
+  assert.equal(offline.daedraSummonDay, 90, 'offline (no rerollDay) DFU\'s one day');
+  const prince = DAEDRA.find((d) => d.dayOfYear > 0);
+  assert.equal(daedraForSummoner({ factionId: 999, factionType: 0, dayOfYear: prince.dayOfYear, rerollDay: 1 }), prince, 'a prince answers on the sky\'s day');
+  assert.match(rd('src/scenes/worldModes.js'), /rerollDay: dayOfYearFromMinutes\(Math\.floor\(worldMinutes\(\)\)\),/);
 });

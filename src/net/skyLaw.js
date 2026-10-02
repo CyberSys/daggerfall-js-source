@@ -84,19 +84,22 @@ export const skyMinutesPerMsAt = (nowMs) => LAW.rateAt(nowMs);
  * at every whole multiple of the new day's length since the Unix epoch (on the hour and the half hour at TimeScale 48):
  * where the sky's hour as it stands (`skyClassicMinutes`) already equals the new schedule's. Whole seconds, at most
  * `count`, within `withinMs`; an instant where the sky already runs at that rate is no switch, and is never listed.
- * The tool (tools/skyCutover.mjs) and the pin share it.
+ * `segments` is the sky the switch is laid on - SKY_SEGMENTS for a new row after the last; AUDIT TIME: the list
+ * without its last row to MOVE that row (a merge that lands after it). The tool (tools/skyCutover.mjs) and the pin
+ * share it.
  */
-export function alignedSkySwitches(minutesPerMs, afterMs, { count = 6, withinMs = 24 * 3600 * 1000 } = {}) {
+export function alignedSkySwitches(minutesPerMs, afterMs, { count = 6, withinMs = 24 * 3600 * 1000, segments = SKY_SEGMENTS } = {}) {
+  const law = segments === SKY_SEGMENTS ? LAW : skyLawOf(segments);
   const dayMs = 1440 / minutesPerMs;
   /** The new schedule's minute of the day at an instant less the sky's as it stands, as a signed gap within half a day. */
   const gap = (t) => {
     const want = (((t % dayMs) + dayMs) % dayMs) * minutesPerMs;
-    const have = ((skyClassicMinutes(t) % 1440) + 1440) % 1440;
+    const have = ((law.minutesAt(t) % 1440) + 1440) % 1440;
     return ((want - have + 2160) % 1440) - 720;
   };
   const out = [];
   for (let t = Math.ceil(afterMs / 1000) * 1000; t <= afterMs + withinMs && out.length < count; t += 1000) {
-    if (skyMinutesPerMsAt(t - 1) !== minutesPerMs && Math.abs(gap(t)) < 1e-6) out.push(t);
+    if (law.rateAt(t - 1) !== minutesPerMs && Math.abs(gap(t)) < 1e-6) out.push(t);
   }
   return out;
 }

@@ -4518,6 +4518,7 @@ export function createWorldModes(host) {
         factionId: summonerId,
         factionType: summoner?.type ?? null,
         dayOfYear: dayOfYearFromMinutes(Math.floor(skyMinutes())),   // TIME1: a prince's day is the sky's calendar
+        rerollDay: dayOfYearFromMinutes(Math.floor(worldMinutes())),   // TIME1: the coven's re-roll is a stamp - the event clock's day
         // The coven's remembered roll lives on the player, as DFU's
         // PlayerEntity.DaedraSummonIndex/Day do.
         state: playerEntity,

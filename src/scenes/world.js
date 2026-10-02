@@ -8378,7 +8378,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2761 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6587
+  // that context through modes.dungeonCtx - so worldModes.js:6588
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13616,7 +13616,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10094-10158 -
+  // worldModes answers it in BOTH modes (worldModes.js:10095-10159 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -21342,7 +21342,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (tvBandSeen.life !== life) bandPrune(life);
       // AUDIT OW3 T7-8: the life's night read ONCE - offline the clock is the game's, and a dusk crossed mid-life turned
       // the bands about me over at the next pixel
-      const night = tvBandSeen.life === life ? tvBandSeen.night : bandNight(life * BAND_LIFE_MS);
+      const night = tvBandSeen.life === life ? tvBandSeen.night : bandNight(life * BAND_LIFE_MS + BAND_LIFE_MS / 2);   // AUDIT TIME: at the life's MIDDLE - a twelve-minute life against the sky's fifteen-minute nights, the night most of the life sees (it was the start's: two in five of a life out of step)
       tvBandSeen = { at, life, night, list: bandsNear({ at, ms, night, ok: bandOk }) };
     }
     return tvBandSeen.list;

@@ -46,8 +46,8 @@
 // the window's own real-time timer (REST_WAIT_PER_HOUR /
 // LOITER_WAIT_PER_HOUR real seconds a simulated hour) paces every
 // sub-tick, exactly as offline always did. So online:
-//   - the counter ticks down at the offline rate (eight hours in six
-//     real seconds; three hours of loiter in under four);
+//   - the counter ticks down at the offline rate (eight hours in under
+//     four real seconds; three hours of loiter in under three);
 //   - `advanceMinutes` is spent on EVERY sub-tick, so the magic-round
 //     catch-up and the hourly rest-interruption encounter roll
 //     (runEncounterTick / the dungeon's _restAdvance) run online as

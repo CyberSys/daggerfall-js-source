@@ -189,7 +189,8 @@ the day. The sun is the world's - night falls in about 23 minutes."* (`worldNigh
 with main's VAMP-HOOD (`01-Overview/Field-Bugs-2026-09-29.md`): a raised hood opens the map by day,
 online and offline; bare-headed, the map door says DFU's line, the nightfall, then the hood's hint.]
 
-A world day is two real hours, so the wait is at most one. The vampire's thirst is theirs: rests and
+A world day is two real hours, so the wait is at most one. [TIME1: the sun is the sky's now, a day every half
+hour, so the wait is at most fifteen minutes and the line says so at that rate ("about 8 minutes").] The vampire's thirst is theirs: rests and
 journeys make them hungry, as DFU has it. A vampire must still be fed within their own day to rest.
 
 ## Party
@@ -248,7 +249,8 @@ it.
   AUDIT LIVED1b F3).
 - **Copy to offline:** the offline world's clock is the character's, so every marker of theirs stays
   in tune - and the WORLD's stamps the envelope carries (a quest clock's sample, a CreateFoe's last
-  wave, the rumours' limits, the spawned dungeons' ledger, a fire's hours; AUDIT LIVED1b: a journal
+  wave [TIME3: a quest's countdowns are the character's own in an envelope taken since TIME3, and stay;
+  only its journal dates move], the rumours' limits, the spawned dungeons' ledger, a fire's hours; AUDIT LIVED1b: a journal
   step's date (R3) and a cached building's stock days, by whole days (D2)) are rebased onto it by the
   distance between the two clocks at the save; `worldMinutes` goes (`systems/offlineCopy.js
   offlineCopyOf`, AUDIT LIVED1 E). The raids' schedule is the shared day's and means nothing on another
@@ -288,7 +290,7 @@ it.
   - the ticker's `ownMinutes`, and `advance` online;
   - RaiseSkills on the character's clock;
   - the turn's fortnight;
-  - the rest deps' composed quest stand-down.
+  - the rest deps' composed quest stand-down [retired by TIME3: the rest ticks the quests online too].
 - `systems/restSession.js`: one sub-tick law.
 - The four hosts:
   - `world.js`, `exterior.js`, `worldModes.js` and `dungeonContext.js`: every personal read on the

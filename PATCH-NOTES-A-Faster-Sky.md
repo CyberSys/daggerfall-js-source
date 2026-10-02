@@ -1,6 +1,6 @@
 # Patch Notes: A faster sky
 
-**A day online is now 30 minutes.** Nights, full moons and quest hours come round four times as often. Midnight falls on the hour and the half hour, real time, and dusk at :22 and :52.
+**A day online is now 30 minutes.** Nights, full moons and quest hours come round four times as often. Midnight falls on the hour and the half hour, real time, and dusk at :22:30 and :52:30 (the Online page gives your own clock's times).
 
 ## The sky
 - The sun, moons, stars, seasons and calendar all run on the faster sky.

@@ -93,7 +93,8 @@ census test holds every reader to its clock (section 5).
 
 ## 3. The rate
 
-One constant, `SKY_MINUTES_PER_MS`; every number below follows from it.
+One constant, `SKY_MINUTES_PER_MS`; every number below follows from it. [As built: the rate is the last row of
+`SKY_SEGMENTS` in `net/skyLaw.js`, `48 / 60 / 1000`.]
 
 | TimeScale | Sky day | Night, and the longest wait for dusk | Full-moon beast form (6.1's rule) | Moon cycle | Year | Season |
 |---|---|---|---|---|---|---|
@@ -144,6 +145,10 @@ export const wallMsForSkyMinutes = (m) => (m < SKY_CUTOVER_MINUTES ? wallMsForCl
   : SKY_CUTOVER_MS + (m - SKY_CUTOVER_MINUTES) / SKY_MINUTES_PER_MS);
 ```
 
+[As designed. As built (TIME1): `SKY_SEGMENTS`, a list of `{ fromMs, minutesPerMs }` rows read by `skyLawOf`, so a
+later change of rate is a new row that starts where the last one stood - the same law with no jump at any switch.
+`skyClassicMinutes`, `wallMsForSkyMinutes` and `skyMinutesPerMsAt` are its doors.]
+
 - **No jump.** At the cutover both laws read the same minute, so the sky does not skip.
 - **Aligned.** If the cutover falls where the old sky's time of day already equals the new schedule's,
   the new sky's midnights land on the hour and the half hour forever after. At TimeScale 48 those
@@ -161,11 +166,18 @@ export const wallMsForSkyMinutes = (m) => (m < SKY_CUTOVER_MINUTES ? wallMsForCl
   the sky's by up to a day.
 - **Saves do not change.** `classicMinutes` stays the character's clock, and an online save's
   `worldMinutes` stays the event clock's minute it left at. No stamp changes clock (section 5's rule), so
-  no envelope needs a migration and the offline copy's rebase (`offlineCopy.js`) is untouched.
+  no envelope needs a migration and the offline copy's rebase (`offlineCopy.js`) is untouched. [TIME1 and TIME2:
+  true. TIME3: superseded for quest envelopes - a countdown's stamps moved to the character's clock, an online
+  save from before TIME3 is moved once at the load, and the lane doors move a TIME3 envelope's journal dates
+  alone (6.3a).]
 - **Release-day skew.** A tab open across the deploy draws the old sky until it reloads; the build
   notice (SRV-N, `Server-Update-Notice.md`) already asks it to. Until then two players side by side see
   different times of day, and each one's night spawns, curse and hour windows follow their own tab.
-  Nothing the relay keeps is decided on the sky, so nothing it holds can desync.
+  Nothing the relay keeps is decided on the sky, so nothing it holds can desync. [AUDIT TIME: the ACCOUNT
+  SERVICE does decide on the sky - `nodeLaw.js dayDate` gives a herb's, the Basket's and a writ's season and
+  month - so it moved to `acct47` with this build, and a client still on the old build disagrees with it from
+  the switch on: a herb it stands, the service may grant as another, refuse as another tier, or refuse as out
+  of season. The build notice is the cure, as for the sky; an installed desktop build must update.]
 
 ## 5. Every reader, by clock
 
@@ -271,7 +283,7 @@ Secunda are full four days apart (`gameDate.js lunarPhase`: offsets +3 and -1 on
 werewolf meets two such nights two real hours apart, then none for fourteen hours. DFU's rule, the whole
 calendar day, stays offline.
 
-- **The law:** `isFullMoonNight(skyMinutes)`. A night belongs to the date of its dusk: the hours before
+- **The law:** `isFullMoonNight(skyMinutes)` (built as `gameDate.js isFullMoonNightFromMinutes`). A night belongs to the date of its dusk: the hours before
   06:00 are the previous date's night. `lycanthropyMagicRound` forces the change when it holds and no
   Hircine ring is worn; offline it keeps `isFullMoonFromMinutes`.
 - **At dawn the lock ends.** Changing back is the power, ungated, as DFU has it. The once-a-day gate on
@@ -299,7 +311,8 @@ by `ONLINE_MINUTES_PER_MS` today, which stays the event clock's rate, and would 
   that copy is the "cross-player-visible state" for which `restSession.js` still stands quest ticks down
   under an online rest. Recommended: each copy runs on its holder's clock, so a member's rest spends only
   their own copy's days. LIVED1 recommended the owner's clock instead; that needs the owner's deadline
-  carried in the copy. TIME3 settles which before any code (OPEN 3).
+  carried in the copy. TIME3 settles which before any code (OPEN 3). [Settled and built: the holder's clock, and
+  the rest ticks quests online now (6.3a).]
 - **GUARD-ONLINE stays as it is.** Its reason, a two-hour wait, shrinks to at most 26 minutes (a three-hour
   window in a 30-minute day), so Mac may retire it later (OPEN 5).
 
@@ -395,8 +408,8 @@ counts years, before the years run faster.
   - The tick: unchanged windows. `runMagicRoundsFor`'s `skyMinutes` is the sky's reading.
   - `worldNightfallText`: the sky's reading, rate and inverse.
   - The weather's roll and evolution: the sky's season handed in (6.4).
-- **`systems/lycanthropy.js`:** `isFullMoonNight` online (6.1).
-- **`systems/quest/`:** the machine's two clocks (6.3).
+- **`systems/lycanthropy.js`:** `isFullMoonNightFromMinutes` online (6.1), through `moonNight`.
+- **`systems/quest/`:** the machine's two clocks (6.3) - built as four seams (6.3a).
 - **The install,** `scenes/world.js` (today's line 786):
   `setSharedClock(() => sharedClassicMinutes(Date.now() + _sharedOffsetMs), (m) => wallMsForClassicMinutes(m) - _sharedOffsetMs, { sky: () => skyClassicMinutes(Date.now() + _sharedOffsetMs), skyWall: (m) => wallMsForSkyMinutes(m) - _sharedOffsetMs })`.
 - **THE FOUR HOSTS RULE:** `world.js`, `exterior.js`, `worldModes.js` and `dungeonContext.js` each move
@@ -423,7 +436,8 @@ counts years, before the years run faster.
    `World-Bosses.md`, `Clock-Arc.md`.
 5. **AUDIT TIME** over the arc, the house's four lenses.
 
-Each slice is pinned red first, with its own mutant campaign (`tools/mutants/time<n>.json`), a Testing.md
+Each slice is pinned red first, with its own mutant campaign (`tools/mutants/time<n>.json`; TIME4, words alone,
+is held by `test/time4_words.test.js` instead), a Testing.md
 row, and its player-facing notes in its pull request's description. TIME2 and TIME3 are independent of
 each other once TIME1 has landed.
 
@@ -439,6 +453,11 @@ each other once TIME1 has landed.
   list names it;
 - a sky read and an event read in each of the four hosts, crossing a sky midnight that is not an event
   midnight: the season, the hour and the moon move, and the prices, the shelves and the weather do not.
+  [As built: the four hosts are scenes no test runs headless, so they are held by source - `time1_sky`'s
+  four-hosts test names each host's sky reads - and by the census, which fixes every reader line in `src/` to
+  its clock both ways. The laws those lines call are executed: the season and the hour (`weatherSim`,
+  `weatherMap`, the dome's two minutes), the moon through the tick, the professions' day, the shelves' and
+  the prices' event clock (the census's named readers).]
 
 ## 10. Alternatives weighed
 
@@ -496,4 +515,16 @@ terms; 9 is new and not built.
   times, `tools/skyCutover.mjs`. TIME2: the full moon's night online. TIME3: quests on the character's clock and
   the sky (6.3a). TIME4: the Online pane's sentence, this page, `Lived-Time.md`, `Online-Arc.md`, `Quest-Arc.md`,
   `World-Bosses.md`, `Clock-Arc.md`, the Port Ledger's departures, the patch notes
-  (`PATCH-NOTES-A-Faster-Sky.md`). Each slice's mutant campaign is `tools/mutants/time<n>.json`, all dead.
+  (`PATCH-NOTES-A-Faster-Sky.md`). The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
+- 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
+  the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
+  now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the
+  switch once its instant had passed - at the last row's own rate it lays the instants on the sky without that
+  row; the roaming bands read their life's night at its middle (one in five of a life out of step with the sky,
+  the least a twelve-minute life allows; it was two in five); a raise after a restore or a share and before the
+  first tick was forgiven - the count is sampled at the restore; a resync from a partner behind un-finished a
+  clock this copy had run out, and restarted this holder's wave interval - both are this copy's now; the account
+  service moved to `acct47` (it reads the sky's season through `nodeLaw.js`); the Online pane says this
+  machine's own minutes (dusk at :22:30, or :37:30 where a clock is a quarter off); GUARD-ONLINE's watch pinned
+  to the character's clock; stale words in this page, `Lived-Time.md` and three comments. Each fix has a pin and
+  a mutant.
