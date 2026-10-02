@@ -2,8 +2,9 @@
 // dungeon host does (every block's placed models and its enabled action doors, at each block's origin), then from every
 // floor point `--step` metres apart climbs every wall within 1 m that has a top between 2.4 m and 16 m with room to
 // stand on it: Forward held at the wall's own normal and at each `--offsets` degree either side, the enhanced climb on
-// at `skill` (default 100, so the grip does not decide). A climb that does not end standing on the top is run again on
-// the classic lane with every roll passing; the line counts the walls, the climbs, the tops, the climbs that never took
+// at `skill` (default 100, so the grip does not decide). A top is one stood on: on it, and still on it after a second
+// with nothing held (a frame's touch of a slope the climber slides off and falls from is no top). A climb that does not
+// end standing on the top is run again on the classic lane with every roll passing; the line counts the walls, the climbs, the tops, the climbs that never took
 // hold within 1 m of their start (slid along the wall, or started in a void), the failures, and the failures the
 // classic lane topped. `--fails` prints each failure. The record's figures are this tool's, over --all.
 //
@@ -20,6 +21,7 @@ import { layoutDungeon } from '../src/world/dungeonLayout.js';
 import { Collider } from '../src/player/collider.js';
 import { multiply } from '../src/world/mat4.js';
 import { PlayerMotor } from '../src/player/motor.js';
+import { isMain } from './lib/isMain.mjs';
 
 export const RECORD_DUNGEONS = Object.freeze([
   ['Daggerfall', "Ruins of Old Carololda's Farm"], ["Alik'r Desert", 'Castle Lhishen'], ['Dragontail Mountains', "The M'ell Graveyard"],
@@ -98,7 +100,10 @@ export function probe(col, blocks, { skill = 100, fatigue = 1, offsets = [0, 8, 
       const on = classic ? m.climb?.isClimbing : (m.onWall || !!m._pkMove);
       if (on && startD == null) startD = Math.hypot(m.pos[0] - x, m.pos[2] - z);
       maxY = Math.max(maxY, m.pos[1]);
-      if (m.grounded && m.pos[1] > topY - 0.3) return { top: true, startD, maxY };
+      if (m.grounded && m.pos[1] > topY - 0.3) {
+        for (let k = 0; k < 60; k++) m.update(1 / 60, { forward: 0, strafe: 0, run: false, jump: false, crouch: false }, yaw);
+        return m.grounded && m.pos[1] > topY - 0.3 ? { top: true, startD, maxY } : { top: false, startD, maxY, endY: m.pos[1] };
+      }
     }
     return { top: false, startD, maxY, endY: m.pos[1] };
   };
@@ -136,7 +141,7 @@ export function probe(col, blocks, { skill = 100, fatigue = 1, offsets = [0, 8, 
   return { ...n, failures: fails };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const argv = process.argv.slice(2);
   const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : d; };
   const flag = (k) => { const i = argv.indexOf(k); if (i >= 0) argv.splice(i, 1); return i >= 0; };
