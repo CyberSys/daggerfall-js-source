@@ -288,7 +288,11 @@ test('WD3 the loader: each pack a URL the build emits (never a chunk), fetched o
   const M = src('src/scenes/modWorldData.js');
   assert.match(M, /import\.meta\.glob\('\.\.\/\.\.\/vendor\/\*\/WorldDataPack\/\*\.pack\.json\.gz', \{ eager: true, query: '\?url', import: 'default' \}\)/);
   assert.match(M, /const door = latchWorldDataDoor\(\);/);
-  assert.match(M, /latchModLoaded\(vendor, on && door\);\n {6}if \(on && door\) n \+= await loadPackFrom\(vendor, url, \(\) => true\);/, 'a closed door loads no pack and stamps none (AUDIT WD3 P2)');
+  assert.match(M, /const got = on && door \? await loadPackFrom\(vendor, url, \(\) => true\) : 0;\n {6}latchModLoaded\(vendor, got > 0\);\n {6}if \(on && door && !got\) _missing\.add\(vendor\);/, 'a closed door loads no pack and stamps none (AUDIT WD3 P2); a pack that did not load is a mod not loaded, and said (B1)');
+  assert.match(M, /const counts = await Promise\.all\(Object\.entries\(globPacks\(\)\)\.map\(/, 'the packs fetched side by side (AUDIT WD3 B4)');
+  assert.match(M, /signal: AbortSignal\.timeout\(PACK_FETCH_TIMEOUT_MS\)/, 'and never held for ever');
+  assert.match(M, /if \(!name\.startsWith\('location-'\) && \(blocks\+\+ % 8\) !== 0\) return;/, 'one block in eight spot-checked');
+  assert.match(src('src/formats/worldDataPack.js'), /if \(typeof globalThis\.process === 'undefined' \|\| !globalThis\.process\.versions\?\.node\) throw new Error\('this browser cannot inflate the pack \(no DecompressionStream\)'\);/, 'a browser never reaches for node:zlib');
   assert.match(M, /if \(!worldDataDoorOpen\(\)\) return false;/, 'and honours no pin into one');
   assert.match(M, /configureLayoutPins\(\{ vendorOn: \(v\) => modLatchedOn\(v\) === true, vendorVersion: \(v\) => _packs\.get\(v\)\?\.mod\?\.version \?\? '' \}\);/);
   assert.match(M, /_pending\.set\(vendor, loadPackFrom\(vendor, entry\[1\], \(\) => false\)\.finally\(\(\) => _pending\.delete\(vendor\)\)\);\n {2}return \(await _pending\.get\(vendor\)\) > 0;/, 'a pinned pack answers only where a pin lets it in, fetched once however many ask');

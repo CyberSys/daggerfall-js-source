@@ -281,7 +281,9 @@ export async function readPackText(bytes) {
       const stream = new Blob([bytes]).stream().pipeThrough(new globalThis.DecompressionStream('gzip'));
       return await new Response(stream).text();
     }
-    const zlib = await import('node:zlib');
+    // under node only - a browser without DecompressionStream says so, and the pack's towns stand as Daggerfall's
+    if (typeof globalThis.process === 'undefined' || !globalThis.process.versions?.node) throw new Error('this browser cannot inflate the pack (no DecompressionStream)');
+    const zlib = await import(/* @vite-ignore */ 'node:zlib');
     return zlib.gunzipSync(bytes).toString('utf8');
   }
   return new TextDecoder().decode(bytes);

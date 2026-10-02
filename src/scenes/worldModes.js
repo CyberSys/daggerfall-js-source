@@ -268,7 +268,7 @@ import { freeTavernRooms } from '../systems/guildServices.js';
 // B2: the bank - the window, the per-region accounts and the purse seam.
 import { BankWindow, preloadBankArt, bankArtLoaded, BANK_RECTS, BANK_PANEL_X, BANK_PANEL_Y } from '../ui/bankWindow.js';
 import { BankPurchaseWindow, preloadPurchaseArt, purchaseArtLoaded } from '../ui/bankPurchaseWindow.js';   // H2
-import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
+import { createBankAccounts, createHouses, BANK_REGION_COUNT, TRANSACTION_RESULT, ownsHouse, isHouseOwned, deedStands, ownedHouseKey, houseSellPrice, housesForSale, allocateHouseToPlayer, purchaseHouse, ownsShip, ownedShipType, purchaseShip, sellShip, sellHouse, SHIP_COORDS, SHIP_INTERIOR_MAP_IDS, housePrice, creditMarksSale, marksSaleCredit, crossedDeedLines, goldRegion, creditDecision, takeCredit, empireRefusalLines } from '../systems/banking.js';   // H1/H2   // H3: the two leaves - the sell price and the ship
 // HOME1: the online homes - the door's one answer, the offer, the owner's menu, and an owned home's own scene
 import {
   homeCandidate, homePurchasable, homeSceneName, homeDoorAnswer, homeDoorTitle, homeLockedLine, homeBelongsLine,
@@ -309,6 +309,7 @@ import {
   takeSceneDecor,   // DECOR1e: a sold room's placed pieces
   takeSceneOwn,     // DECOR2a: and the owner's own things that stood in it
   clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
+  layoutSceneName,  // WD3 (AUDIT WD3 R1): a permanent scene's visit in another layout, kept beside it
 } from '../systems/sceneCache.js';
 import { WORLD_CONTEXT } from '../systems/teleportAnchor.js';   // A10: SetAnchor's world context, one enum for the three hosts
 import { stampLayout, layoutStampAt, layoutLocationKeyOfMapId, layoutsMatch } from '../systems/layoutPins.js';   // WD3: an interior's scene keeps its town's layout
@@ -2602,7 +2603,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:728, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:744, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -3223,6 +3224,7 @@ export function createWorldModes(host) {
       // IsActiveQuestBuilding(building, residencesOnly: true) - a house
       // the quest machine is using is not for sale (:169).
       isActiveQuestBuilding: (bs) => (questBridge ? questBridge.machine.isActiveQuestBuilding(dir.mapId, bs.buildingKey, bs.buildingType) : false),   // DISC28-I
+      stands: (bs) => houseMeshRadius(bs) > 0,   // AUDIT WD3 H2: a house with no model of its own is no house to sell
     });
   }
   /**
@@ -3416,13 +3418,19 @@ export function createWorldModes(host) {
   function cacheInteriorScene() {
     const name = currentInteriorScene();
     if (!name) return;
-    // WD3 (AUDIT WD3 S1): a permanent scene held back for its own layout (restoreInteriorScene below) is the house's
-    // decor, its hidden furniture and its chests - this visit, in another layout, must never write over it
-    if (_sceneHeldForLayout === name) return;
     const state = currentSceneState();
-    // WD3: the layout of the town this building stands in, where the host can place the town (systems/layoutPins.js)
-    const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
-    if (townKey != null) stampLayout(state, layoutStampAt(townKey));
+    // WD3: the layout of the town this building stood in when the visit began (AUDIT WD3 R4: a pin landing mid-visit
+    // moves the town, not this room), where the host can place the town (systems/layoutPins.js)
+    if (_visitLayout !== null) stampLayout(state, _visitLayout);
+    // WD3 (AUDIT WD3 S1/R1): a permanent scene held back for its own layout (restoreInteriorScene below) is the house's
+    // decor, its hidden furniture and its chests - this visit, in another layout, never writes over it; what it left
+    // is kept beside it, for this layout
+    if (_sceneHeldForLayout === name) {
+      const alt = layoutSceneName(name, _visitLayout);
+      cacheScene(sceneCache(), alt, state);
+      addPermanentScene(sceneCache(), alt);
+      return;
+    }
     cacheScene(sceneCache(), name, state);
   }
 
@@ -3432,18 +3440,23 @@ export function createWorldModes(host) {
   function restoreInteriorScene() {
     _keptHidden = [];   // BASE-HIDE: this visit's
     _sceneHeldForLayout = null;
+    const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
+    _visitLayout = townKey != null ? layoutStampAt(townKey) : null;   // AUDIT WD3 R4: the layout this visit stands in
     const name = currentInteriorScene();
     if (!name || !interiorCtx) return;
-    const data = restoreCachedScene(sceneCache(), name);
+    let data = restoreCachedScene(sceneCache(), name);
     if (!data) return;
     // WD3: A SCENE CACHED IN ANOTHER LAYOUT OF THIS TOWN was another building's - its shelves, chests and floor are
     // never laid into this one. An ordinary scene goes (the world moving on would take it anyway); a permanent one (a
-    // house, a rented room) is kept, unrestored, for the layout it belongs to - which a save's pins hold its town in.
-    const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
-    if (townKey != null && !layoutsMatch(data.layout, layoutStampAt(townKey))) {
-      if (containsPermanentScene(sceneCache(), name)) { cacheScene(sceneCache(), name, data); _sceneHeldForLayout = name; }
-      console.warn(`[layout] ${name}: cached in another layout of this town - not restored`);
-      return;
+    // house, a rented room) is kept, unrestored, for the layout it belongs to - which a save's pins hold its town in -
+    // and a visit made before in THIS layout is what this one restores (AUDIT WD3 R1).
+    if (townKey != null && !layoutsMatch(data.layout, _visitLayout)) {
+      if (!containsPermanentScene(sceneCache(), name)) { console.warn(`[layout] ${name}: cached in another layout of this town - not restored`); return; }
+      cacheScene(sceneCache(), name, data);
+      _sceneHeldForLayout = name;
+      console.warn(`[layout] ${name}: kept for the layout it was made in - this visit stands apart from it`);
+      data = restoreCachedScene(sceneCache(), layoutSceneName(name, _visitLayout));
+      if (!data) return;
     }
     for (const c of data.lootContainers) {
       const [kind, i] = c.key.split(':');
@@ -3499,6 +3512,7 @@ export function createWorldModes(host) {
   let _keptHidden = [];
   /** WD3: the permanent scene this visit holds back unrestored (another layout's) - and so never caches over. */
   let _sceneHeldForLayout = null;
+  let _visitLayout = null;   // WD3 (AUDIT WD3 R4): the town's layout when this visit began - its scene is stamped with it
 
   /** DECOR1c: WHO OWNS THE ROOM'S PLACED PIECES - the character whose online home it is; else (offline, or a building
    *  no online home names) the owner of Daggerfall's own house, or of the ship. */
@@ -3740,6 +3754,7 @@ export function createWorldModes(host) {
       const dir = buildingDirectory?.();
       const key = ownedHouseKey(playerEntity.houses ?? [], bankRegion());
       if (!key || !dir?.buildings?.length) return null;
+      if (!deedStands(playerEntity.houses?.[bankRegion()])) return null;   // AUDIT WD3 H1: a sleeping deed is neither priced nor sold
       return dir.buildings.find((bs) => bs.buildingKey === key) ?? null;
     };
     let win = null;
@@ -6081,6 +6096,7 @@ export function createWorldModes(host) {
     if (!homes) return;
     // WD3 (AUDIT WD3 O1/O2): a home is a building key, which names a building only in its town's layout - none is bought
     // before the room's layouts of the homes' towns are heard, and a claim refused for its town's layout hears them again
+    if (host.homeTownsMissing?.()) { townTalk?.say?.(accountRefusalText('home-towns')); return; }   // AUDIT WD3 B1: a town mod's pack did not load here
     if (host.homeLayoutsHeard?.() === false) { townTalk?.say?.(accountRefusalText('home-layout')); host.hearHomeLayouts?.(); return; }
     const region = bd.regionIndex ?? 0;
     const mapId = homeTownOf(bd);
@@ -8563,7 +8579,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14657's own wave-46 note); the interior
+          // a blow (world.js:14671's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -10363,6 +10379,9 @@ export function createWorldModes(host) {
   registerPresenter({ mount: (win) => showQuestOverlay(win), priority: 10 });
   return {
     get mode() { return mode; },
+    // WD3 (AUDIT WD3 R7): the room's layouts of the homes' towns have landed - a home's room the player stands in, its
+    // pieces unasked while they were unheard, asked now (loadHomeDecor: once a visit, the visit's own)
+    homeLayoutsLanded() { loadHomeDecor(); },
     // UNSTUCK1 (per-request, online-chat command): teleports the
     // player to the door they came in by - the SAME exterior spot
     // tryExit/tryExitDungeon land on, just reached with no ray and no
@@ -11204,7 +11223,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3477-3499), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11009). So an F9 pressed in a shop
+     *  unconditionally (world.js:11012). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11243,7 +11262,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11213)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11227)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11253,7 +11272,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9999`
+     *  HARD2c: this used to spell them out, and named `world.js:10002`
      *  and `dungeonContext.js:7808` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

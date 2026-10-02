@@ -89,6 +89,32 @@ test('WD3 online, the service: a claim keeps the layout its client\'s town stand
   assert.deepEqual((await call('/v1/homes/layouts', {}, guest)).body.towns, [[TOWN, BOTH], [CLASSIC_TOWN, null]]);
 });
 
+test('WD3 online, the claim\'s ONE write keeps a town in one layout (AUDIT WD3 R5) - a first claim in another layout of a town another first claim has just seated, past the check before it, seats nothing and is answered home-layout', async (t) => {
+  let now = T0;
+  t.mock.method(Date, 'now', () => now * 1000);
+  const { env, registered, seatHome } = await standService();
+  const aldric = await registered('Aldric'), mara = await registered('Mara');
+  assert.equal((await seatHome(aldric, { mapId: TOWN, buildingKey: 0x10203, region: 17, price: 42000, layout: BV })).status, 200);
+  // the race: a check before the batch can pass while another first claim lands - the write's own predicate refuses
+  const homes = await import('../server-account/src/homes.js');
+  assert.equal(typeof homes.claimHome, 'function');
+  const src2 = src('server-account/src/homes.js');
+  assert.match(src2, /AND NOT EXISTS \(SELECT 1 FROM homes t WHERE t\.map_id = \? AND NOT \(\$\{LAYOUT_MATCH_SQL\}\)\)/);
+  const raw = env.DB._raw;
+  const mods = (layout) => { const m = new Set(layout ? layout.split('+').map((p) => p.split('@')[0]) : []); return HOME_LAYOUT_MODS.flatMap((v) => [`${v}@`, m.has(v) ? 1 : 0]); };
+  const sql = `SELECT COUNT(*) AS n FROM homes t WHERE t.map_id = ? AND NOT (${HOME_LAYOUT_MODS.map(() => '(instr(COALESCE(t.layout, \'\'), ?) > 0) = ?').join(' AND ')})`;
+  assert.equal(raw.prepare(sql).get(TOWN, ...mods(BV)).n, 0, 'the same mods, another version or none: no mismatch');
+  assert.equal(raw.prepare(sql).get(TOWN, ...mods(BOTH)).n, 1, 'another layout: refused by the write');
+  assert.equal(raw.prepare(sql).get(TOWN, ...mods(null)).n, 1, 'Daggerfall\'s own: refused by the write');
+  now += 60;
+  // a town seated in another layout (as by a racing first claim) is answered home-layout, naming it, and seats nothing
+  const RACE = TOWN + 1;
+  raw.prepare(`INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid, layout) VALUES (?, 5, ?, 'char-x', 'X', 17, 'private', 1, ?, 0, ?)`).run(RACE, aldric.id, now, BOTH);
+  const lost = await seatHome(mara, { mapId: RACE, buildingKey: 6, region: 17, price: 42000, layout: BV });
+  assert.deepEqual([lost.status, lost.body?.error, lost.body?.layout], [409, 'home-layout', BOTH]);
+  assert.equal(raw.prepare('SELECT COUNT(*) AS n FROM homes WHERE map_id = ?').get(RACE).n, 1);
+});
+
 test('WD3 online, the client: the homes\' towns asked at the boot, before the first town is built (a wait of HOME_LAYOUTS_WAIT_MS, then asked again behind the play, each wait longer); online the pins are the service\'s alone - a save\'s own records would stand one player\'s town apart from the room\'s; the claim sends its town\'s layout, none for Daggerfall\'s', () => {
   assert.match(src('src/net/accountClient.js'), /layouts: \(\) => post\('\/v1\/homes\/layouts', \{\}\),/);
   const W = src('src/scenes/world.js');
@@ -98,10 +124,21 @@ test('WD3 online, the client: the homes\' towns asked at the boot, before the fi
   assert.match(W, /\}, HOME_LAYOUTS_WAIT_MS \* Math\.min\(attempt, HOME_LAYOUTS_RETRIES\)\);/);
   assert.match(W, /ask\.then\(\(late\) => \{ if \(_serverLayoutRecords === null\) takeHomeLayouts\(late\); \}\);/, 'the first ask\'s late answer heard');
   assert.match(W, /const forgotten = homeLayoutsOnline && _serverLayoutRecords === null \? 0 : pruneDiscoveryLayouts\(\);/, 'nothing forgotten before the service has said (AUDIT WD3 S4)');
-  assert.match(W, /homeLayoutsHeard: \(\) => !homeLayoutsOnline \|\| _serverLayoutRecords !== null,\n {4}hearHomeLayouts,/);
+  // AUDIT WD3 R2/B1: heard is APPLIED - the pins standing - and every town pack of the room's loaded here
+  assert.match(W, /homeLayoutsHeard: \(\) => !homeLayoutsOnline \|\| \(_homeLayoutsApplied && !worldDataPacksMissing\(\)\.length\),/);
+  assert.match(W, /homeTownsMissing: \(\) => homeLayoutsOnline && worldDataPacksMissing\(\)\.length > 0,\n {4}hearHomeLayouts,/);
+  assert.match(W, /if \(!set\) return;   \/\/ overtaken by a later answer, which marks it\n {6}_homeLayoutsApplied = true;\n {6}modes\?\.homeLayoutsLanded\?\.\(\);/, 'the room furnished once they land (AUDIT WD3 R7)');
+  assert.match(W, /_serverLayoutRecords = null;   \/\/ not applied: asked again\n {6}askHomeLayoutsAgain\(1\);/);
+  assert.match(W, /const gen = \+\+_pinsGen;/);
+  assert.match(W, /if \(gen !== _pinsGen\) return false;   \/\/ AUDIT WD3 R3/, 'an overtaken call sets nothing');
+  assert.match(W, /heard: \(\) => !homeLayoutsOnline \|\| \(_homeLayoutsApplied && !worldDataPacksMissing\(\)\.length\),/, 'nor a yard (AUDIT WD3 R6)');
+  const Y = src('src/scenes/homeYards.js');
+  assert.match(Y, /if \(deps\.heard\?\.\(\) === false\) return;/);
+  assert.match(Y, /if \(!feet \|\| !deps\.outside\?\.\(\) \|\| deps\.heard\?\.\(\) === false\) return null;/);
   // until heard no home is bought and no home's room furnished; a claim refused for its town's layout hears them again
   const M = src('src/scenes/worldModes.js');
-  assert.match(M, /if \(host\.homeLayoutsHeard\?\.\(\) === false\) \{ townTalk\?\.say\?\.\(accountRefusalText\('home-layout'\)\); host\.hearHomeLayouts\?\.\(\); return; \}/);
+  assert.match(M, /if \(host\.homeTownsMissing\?\.\(\)\) \{ townTalk\?\.say\?\.\(accountRefusalText\('home-towns'\)\); return; \}   \/\/ AUDIT WD3 B1: a town mod's pack did not load here\n {4}if \(host\.homeLayoutsHeard\?\.\(\) === false\) \{ townTalk\?\.say\?\.\(accountRefusalText\('home-layout'\)\); host\.hearHomeLayouts\?\.\(\); return; \}/);
+  assert.match(M, /homeLayoutsLanded\(\) \{ loadHomeDecor\(\); \},/);
   assert.match(M, /if \(r\.error === 'home-layout'\) host\.hearHomeLayouts\?\.\(\);/);
   assert.match(M, /if \(host\.homeLayoutsHeard\?\.\(\) === false\) \{ console\.warn\('\[layout\] the homes\\' towns are not heard yet - the room\\'s pieces wait'\); return; \}/);
   assert.match(src('server-account/src/index.js'), /if \(r\.error === 'home-layout'\) return json\(\{ error: 'home-layout', layout: r\.layout \?\? null \}, 409, origin\);/);

@@ -29,7 +29,7 @@ import { attachTouch } from '../ui/touch.js';
 import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks the same hooks
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
-import { loadModWorldData, ensureWorldDataPack } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
+import { loadModWorldData, ensureWorldDataPack, worldDataPacksMissing } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
 import { configureLayoutPins, layoutRecordsOf, pinsFrom, setLayoutPins, stampLayout, layoutStampOfPixel, HOME_LAYOUTS_WAIT_MS, HOME_LAYOUTS_RETRIES } from '../systems/layoutPins.js';   // WD3: a town keeps the layout a save's things were made in
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
@@ -1116,6 +1116,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   // again behind the play, and the towns it names are built again when it lands.
   const homeLayoutsOnline = !!homesApi;
   let _serverLayoutRecords = null;   // [{ locationKey, stamp, kind }] once the service has answered
+  let _homeLayoutsApplied = false;   // AUDIT WD3 R2: and once its pins stand (the packs they let in fetched, the towns rebuilt)
+  let _pinsGen = 0;   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
   let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
@@ -8419,7 +8421,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2762 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6643
+  // that context through modes.dungeonCtx - so worldModes.js:6659
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8760,6 +8762,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     cursorOff: () => setCursorActive(false), stick: () => touch?.axes() ?? gamepad?.axes() ?? null,
     say: (l) => townTalk.say(l), refusal: (w) => accountRefusalText(w), openSlot: (o) => townTalk.showOverlay(o),
     look: { preview: (mapId, bk, look) => previewHomeLook(mapId, bk, look), season: () => season },   // HOME-LOOK
+    heard: () => !homeLayoutsOnline || (_homeLayoutsApplied && !worldDataPacksMissing().length),   // WD3 (AUDIT WD3 R6, B1): the homes' towns' layouts, heard and standing
     now: () => Date.now(),
   }) : null;
   let _farmSyncT = 0;   // BOUNTY-FARM: the pool is brought in line twice a second
@@ -11113,7 +11116,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     _serverLayoutRecords = towns.filter((t) => Array.isArray(t)).map(([mapId, layout]) => ({
       locationKey: _layoutKeyOfMapId.get(Number(mapId) >>> 0) ?? null, stamp: typeof layout === 'string' ? layout : undefined, kind: 'house',
     }));
-    return applyLayoutPins().catch((e) => console.warn('[layout] the homes\' towns:', e?.message ?? e));
+    return applyLayoutPins().then((set) => {
+      if (!set) return;   // overtaken by a later answer, which marks it
+      _homeLayoutsApplied = true;
+      modes?.homeLayoutsLanded?.();   // AUDIT WD3 R7: a home's room the player stands in is furnished now
+    }).catch((e) => {
+      console.warn('[layout] the homes\' towns:', e?.message ?? e);
+      _serverLayoutRecords = null;   // not applied: asked again
+      askHomeLayoutsAgain(1);
+    });
   }
   /** WD3: an answer that did not come in time is asked again, a few times, further apart; the towns it pins are built
    *  again where they stand (applyLayoutPins). */
@@ -11143,6 +11154,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    * discoveries were made forgets them (systems/discovery.js). `extras` is the restore's - the inside save's building.
    */
   async function applyLayoutPins(extras = null) {
+    const gen = ++_pinsGen;
     // ONLINE THE TOWNS ARE THE ROOM'S: only the service's homes hold one (every client the same pins - a save's own
     // records would stand one player's town apart from the room's); offline, the save's
     const records = homeLayoutsOnline ? (_serverLayoutRecords ?? []) : layoutRecordsOf({
@@ -11160,6 +11172,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const v of [...pin.in]) if (!(await ensureWorldDataPack(v))) pin.in.delete(v);
     }
     for (const [k, pin] of [...pins]) if (!pin.in.size && !pin.out.size) pins.delete(k);
+    if (gen !== _pinsGen) return false;   // AUDIT WD3 R3: a later call (newer records) overtook this one while its packs loaded
     const changed = setLayoutPins(pins);
     let rebuilt = 0;
     for (const key of changed) {
@@ -11180,6 +11193,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const forgotten = homeLayoutsOnline && _serverLayoutRecords === null ? 0 : pruneDiscoveryLayouts();
     if (pins.size || changed.size) console.log(`[layout] ${pins.size} town(s) kept in a save's layout (${[...pins.values()].map((p) => p.why).join(', ') || 'none'}); ${changed.size} read again, ${rebuilt} rebuilt${forgotten ? `; ${forgotten} discovered building(s) forgotten where a layout moved` : ''}`);
     else if (forgotten) console.log(`[layout] ${forgotten} discovered building(s) forgotten where a layout moved`);
+    return true;
   }
   async function worldQuickLoad({ mostRecent = false, key = null, snap: picked = null } = {}) {
     if (_loading) return;
@@ -13738,7 +13752,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10151-10215 -
+  // worldModes answers it in BOTH modes (worldModes.js:10167-10231 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20017,7 +20031,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     onlineHomes,
     homesApi,   // HOME-RENT: a home's rooms, through the service's own door (null offline)
     // WD3 (AUDIT WD3 O1/O2): whether the homes' towns are heard (offline always), and asked again on a claim refused for its town's layout
-    homeLayoutsHeard: () => !homeLayoutsOnline || _serverLayoutRecords !== null,
+    homeLayoutsHeard: () => !homeLayoutsOnline || (_homeLayoutsApplied && !worldDataPacksMissing().length),
+    // AUDIT WD3 B1: online, a town mod of the room's whose pack did not load here - this client's towns are not the room's
+    homeTownsMissing: () => homeLayoutsOnline && worldDataPacksMissing().length > 0,
     hearHomeLayouts,
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon

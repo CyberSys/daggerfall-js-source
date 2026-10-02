@@ -29,7 +29,7 @@ import { rentRoom } from '../src/systems/tavern.js';
 import { leaveForRepair } from '../src/systems/repairService.js';
 import { makeAnchor, WORLD_CONTEXT } from '../src/systems/teleportAnchor.js';
 import { discoverBuilding, discoveredBuildings, snapshotDiscovery, restoreDiscovery, pruneDiscoveryLayouts } from '../src/systems/discovery.js';
-import { createSceneCache, cacheScene, restoreCachedScene, snapshotSceneCache, restoreSceneCache } from '../src/systems/sceneCache.js';
+import { createSceneCache, cacheScene, restoreCachedScene, snapshotSceneCache, restoreSceneCache, addPermanentScene, removePermanentScene, layoutSceneName } from '../src/systems/sceneCache.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const BV = 'beautiful-villages', BC = 'beautiful-cities';
@@ -218,10 +218,10 @@ test('WD3 every record is stamped where it is made: the deed, the room, the repa
   assert.match(src('src/systems/quest/place.js'), /if \(sd\?\.siteType === SITE_TYPES\.Building && sd\.buildingKey > 0\) stampLayout\(sd, layoutStampOfMapId\(sd\.mapId\)\);/);
   assert.match(src('src/systems/onlineHomes.js'), /const stamp = layoutStampOfMapId\(mapId\);\n {4}const layout = stamp && stamp !== CLASSIC_LAYOUT \? stamp : null;/);
   assert.match(src('src/scenes/world.js'), /if \(interior\) \{ const at = playerTravelPixel\(\); stampLayout\(interior, layoutStampOfPixel\(at\.x, at\.y\)\); \}/);
-  assert.match(src('src/scenes/worldModes.js'), /if \(townKey != null\) stampLayout\(state, layoutStampAt\(townKey\)\);\n {4}cacheScene\(sceneCache\(\), name, state\);/);
+  assert.match(src('src/scenes/worldModes.js'), /if \(_visitLayout !== null\) stampLayout\(state, _visitLayout\);/);
 });
 
-test('WD3 an interior\'s cached scene carries its town\'s layout through the save, and is restored only into that layout - an ordinary one cached in another layout goes, a permanent one is kept for its own', () => {
+test('WD3 an interior\'s cached scene carries its town\'s layout through the save, and is restored only into that layout - an ordinary one cached in another layout goes, a permanent one is kept for its own and a visit in another layout kept beside it', () => {
   const cache = createSceneCache();
   cacheScene(cache, 'interior:1001:66051', { lootContainers: [], layout: 'beautiful-villages@1.4.2' });
   cacheScene(cache, 'interior:1004:7', { lootContainers: [], layout: '' });
@@ -229,10 +229,25 @@ test('WD3 an interior\'s cached scene carries its town\'s layout through the sav
   restoreSceneCache(back, JSON.parse(JSON.stringify(snapshotSceneCache(cache))));
   assert.equal(restoreCachedScene(back, 'interior:1001:66051').layout, 'beautiful-villages@1.4.2');
   assert.equal('layout' in restoreCachedScene(back, 'interior:1004:7'), false, 'a classic town\'s scene carries none');
+  // AUDIT WD3 R1: a permanent scene's visit in another layout is kept BESIDE it, under its own name, permanent too, and
+  // goes with it when the house is sold or the room expires
+  const held = createSceneCache();
+  const house = 'interior:1001:66051';
+  addPermanentScene(held, house);
+  const alt = layoutSceneName(house, '');
+  assert.equal(alt, 'interior:1001:66051|classic');
+  assert.equal(layoutSceneName(house, 'beautiful-villages@1.4.2'), 'interior:1001:66051|beautiful-villages@1.4.2');
+  addPermanentScene(held, alt); addPermanentScene(held, 'interior:1001:660510|classic');
+  removePermanentScene(held, house);
+  assert.deepEqual([...held.permanent], ['interior:1001:660510|classic'], 'the sale takes its visits, never another building\'s');
   const W = src('src/scenes/worldModes.js');
-  assert.match(W, /if \(townKey != null && !layoutsMatch\(data\.layout, layoutStampAt\(townKey\)\)\) \{\n {6}if \(containsPermanentScene\(sceneCache\(\), name\)\) \{ cacheScene\(sceneCache\(\), name, data\); _sceneHeldForLayout = name; \}\n {6}console\.warn\(`\[layout\] \$\{name\}: cached in another layout of this town - not restored`\);\n {6}return;\n {4}\}/);
-  // AUDIT WD3 S1: the held scene is never written over by the visit's own leaving (the other layout's empty chests)
-  assert.match(W, /function cacheInteriorScene\(\) \{\n {4}const name = currentInteriorScene\(\);\n {4}if \(!name\) return;\n(?: {4}\/\/.*\n)+ {4}if \(_sceneHeldForLayout === name\) return;/);
+  assert.match(W, /if \(townKey != null && !layoutsMatch\(data\.layout, _visitLayout\)\) \{\n {6}if \(!containsPermanentScene\(sceneCache\(\), name\)\) \{ console\.warn\(`\[layout\] \$\{name\}: cached in another layout of this town - not restored`\); return; \}\n {6}cacheScene\(sceneCache\(\), name, data\);\n {6}_sceneHeldForLayout = name;\n(?: {6}.*\n) {6}data = restoreCachedScene\(sceneCache\(\), layoutSceneName\(name, _visitLayout\)\);/);
+  // the held scene is never written over by the visit's own leaving; the visit is kept beside it (AUDIT WD3 S1/R1)
+  assert.match(W, /if \(_sceneHeldForLayout === name\) \{\n {6}const alt = layoutSceneName\(name, _visitLayout\);\n {6}cacheScene\(sceneCache\(\), alt, state\);\n {6}addPermanentScene\(sceneCache\(\), alt\);\n {6}return;\n {4}\}/);
+  // nor furnished there: the deed sleeps where its town stands in another layout (banking.js deedStands, AUDIT WD3 H1)
+  assert.match(src('src/systems/banking.js'), /return ownedHouseKey\(houses, regionIndex\) === buildingKey && deedStands\(houses\?\.\[regionIndex\]\);/);
+  // AUDIT WD3 R4: stamped with the layout the visit began in
+  assert.match(W, /_visitLayout = townKey != null \? layoutStampAt\(townKey\) : null;/);
 });
 
 test('WD3 the discoveries: a town\'s found buildings carry the layout they were found in, through the save; a load where the layout moved forgets them (the town itself stays found), a town in its layout or one the host cannot place keeps them', () => {
@@ -294,4 +309,30 @@ test('WD3 a questor met indoors is stamped with their town\'s layout (AUDIT WD3 
   assert.match(P, /this\.questorData = \{ \.\.\.ZERO_NPC_DATA, \.\.\.\(dataIn\.questorData \?\? \{\}\) \};/, 'and restored with it');
   assert.match(src('src/systems/quest/machine.js'), /if \(resource\.isPerson && resource\.isQuestor && resource\.questorData\?\.buildingKey > 0\) out\.push\(resource\.questorData\);/);
   assert.match(src('src/scenes/world.js'), /questors: questBridge\?\.machine\?\.getAllActiveQuestors\?\.\(\) \?\? \[\],/);
+});
+
+test('WD3 a deed SLEEPS where its town stands in another layout (AUDIT WD3 H1) - no building is the player\'s by its key there (door, cupboards, bed, furniture, the bank\'s sale) until the town stands in its layout again; one whose town the host cannot place stands as Daggerfall read it; and the market never sells a house with no model of its own (H2)', async () => {
+  const { isHouseOwned, deedStands, housesForSale } = await import('../src/systems/banking.js');
+  world();
+  const houses = [{}, {}];
+  allocateHouseToPlayer(houses, 1, { buildingKey: 0x10203, mapId: 1001, location: 'Aldleigh' });
+  assert.equal(isHouseOwned(houses, 1, 0x10203), true, 'its town in the layout it was bought in');
+  world({ on: [] });   // the village now Daggerfall's own (its pack not loaded, the pin dropped)
+  assert.equal(deedStands(houses[1]), false);
+  assert.equal(isHouseOwned(houses, 1, 0x10203), false, 'the key names another building here');
+  world();
+  assert.equal(isHouseOwned(houses, 1, 0x10203), true, 'and wakes with its layout');
+  assert.equal(deedStands({ mapId: 424242, buildingKey: 5, layout: BV + '@1.4.2' }), true, 'a town the host cannot place');
+  assert.equal(deedStands({ buildingKey: 5 }), true, 'a deed naming no town');
+  const src2 = src('src/scenes/worldModes.js');
+  assert.match(src2, /if \(!deedStands\(playerEntity\.houses\?\.\[bankRegion\(\)\]\)\) return null;/, 'the bank prices and sells no sleeping deed');
+  // H2: the market's candidates - a house standing on no model is skipped, every other as before
+  const { BUILDING_TYPES } = await import('../src/world/buildingNames.js');
+  const b = (k, t, m = 1) => ({ buildingKey: k, buildingType: t, modelIdNum: m });
+  const list = [b(1, BUILDING_TYPES.Tavern), b(3, BUILDING_TYPES.House2, null), b(4, BUILDING_TYPES.HouseForSale, null), ...Array.from({ length: 37 }, (_, i) => b(10 + i, BUILDING_TYPES.House2))];
+  const sold = housesForSale(list, { mapId: 9, month: 3, stands: (x) => x.modelIdNum != null });
+  assert.ok(sold.length > 0 && sold.every((x) => x.buildingKey !== 3 && x.buildingKey !== 4), 'neither the doorless house nor a doorless house-for-sale');
+  assert.ok(housesForSale(list, { mapId: 9, month: 3 }).some((x) => x.buildingKey === 4), 'which the market without the law would sell');
+  assert.deepEqual(housesForSale(list.map((x) => (x.buildingKey === 3 || x.buildingKey === 4 ? { ...x, buildingType: BUILDING_TYPES.Tavern } : x)), { mapId: 9, month: 3 }).map((x) => x.buildingKey), sold.map((x) => x.buildingKey), 'the roll is the one a town where they were no house rolls');
+  assert.match(src2, /stands: \(bs\) => houseMeshRadius\(bs\) > 0,/);
 });

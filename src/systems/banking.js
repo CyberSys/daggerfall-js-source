@@ -40,7 +40,7 @@
 import { CRIMES } from './court.js';
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';   // H1: the houses-for-sale filter
 import { isOnlinePage } from './onlineLane.js';   // EMPIRE-BANK: online, the Empire lends a tenth
-import { stampLayout, layoutStampOfMapId } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
+import { stampLayout, layoutStampOfMapId, layoutLocationKeyOfMapId, layoutsMatch } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit } from './inventory.js';
 import {
   DAYS_PER_YEAR, DAYS_PER_MONTH, MINUTES_PER_DAY,
@@ -176,7 +176,19 @@ export const ownsHouse = (houses, regionIndex) => (houses?.[regionIndex]?.buildi
 export const ownedHouseKey = (houses, regionIndex) => houses?.[regionIndex]?.buildingKey ?? 0;
 export function isHouseOwned(houses, regionIndex, buildingKey) {
   if (!(buildingKey > 0)) return false;          // :142 - key 0 is "no building"
-  return ownedHouseKey(houses, regionIndex) === buildingKey;
+  return ownedHouseKey(houses, regionIndex) === buildingKey && deedStands(houses?.[regionIndex]);
+}
+/**
+ * WD3 (AUDIT WD3 H1): A DEED NAMES ITS BUILDING ONLY IN THE LAYOUT IT WAS BOUGHT IN. Where its town stands in another
+ * now (offline, a town mod's pack that could not be loaded for it - Replace Game Artwork off, the network; online, a
+ * deed that came through customs from before the mods, which no home of the service's pins) the key names a
+ * stranger's house, a shop, a temple or nothing, so the deed SLEEPS: no building is the player's by it - its door, its
+ * cupboards, its bed, its furniture, its sale - until its town stands in its layout again. A deed whose town the host
+ * cannot place stands as Daggerfall always read it.
+ */
+export function deedStands(slot) {
+  if (!slot?.mapId || layoutLocationKeyOfMapId(slot.mapId) == null) return true;
+  return layoutsMatch(slot.layout, layoutStampOfMapId(slot.mapId));
 }
 
 /**
@@ -391,11 +403,15 @@ export function sellShip(accounts, regionIndex, player, { removePermanentScene =
  * which is what that expression was reaching for. Recorded in Ledger A.
  */
 export const MAX_HOUSES_FOR_SALE = 20;
-export function housesForSale(buildings, { mapId = 0, month = 0, isActiveQuestBuilding = null } = {}) {
+export function housesForSale(buildings, { mapId = 0, month = 0, isActiveQuestBuilding = null, stands = null } = {}) {
   const maxForSale = Math.min(Math.floor(buildings.length / 10), MAX_HOUSES_FOR_SALE);
   const forSale = [];
   const candidates = [];
   for (const b of buildings) {
+    // WD3 (AUDIT WD3 H2): a building with no model of its own stands nowhere and has no door - two of Beautiful Cities'
+    // House2 (DABOOKBL02 13, DAGENRBL03 4) - and is never sold (priced at 0, entered by nobody). Every house of
+    // Daggerfall's own stands on its model, so no classic market changes.
+    if (stands && !stands(b)) continue;
     if (b.buildingType === BUILDING_TYPES.HouseForSale) forSale.push(b);
     else if (isResidence(b.buildingType) && !(isActiveQuestBuilding?.(b) ?? false)) candidates.push(b);
   }
@@ -1042,7 +1058,7 @@ export function bankingStatusRows(accounts, { regionName = () => '', dueText = n
 //    the permanent-scene set, so housesForSale, allocateHouseToPlayer
 //    and sellHouse above are live; H2/H4 brought the BUY UI itself -
 //    DaggerfallBankPurchasePopUp is ui/bankPurchaseWindow.js
-//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3106
+//    (BankPurchaseWindow :102), mounted at scenes/worldModes.js:3107
 //    openPurchase with drawBankModelPreview (:1938) as the dedicated
 //    3D model panel, and ui/bankWindow.js:292-305 routes BUY HOUSE's
 //    'pick' into it (a host without the window still falls back to

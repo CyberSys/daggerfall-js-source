@@ -39,7 +39,7 @@ import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 import {
   HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX, HOME_LAYOUTS_MAX,
-  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf, homeLayoutOk, homeLayoutsMatch,
+  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf, homeLayoutOk, homeLayoutsMatch, HOME_LAYOUT_MODS,
 } from '../../src/net/homeLaw.js';
 import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
 
@@ -52,10 +52,18 @@ const homeOf = (row) => ({
 /** THE CLAIM'S ONE WRITE: the house the character's, while it is nobody's and the character holds fewer than its cap.
  *  `paid` (AUDIT REALM L1-F3, migration 0020): the gold a realm record paid for it - the price, for a realm character's
  *  claim; nothing for any other character's, whose client paid (or did not) out of a save the service never sees. */
+// WD3 (AUDIT WD3 R5): a town's homes in ONE layout, in the write itself - the claim's mods each in a home of the town
+// or not, as homeLayoutsMatch reads them (versions aside), so two first claims in two layouts at once seat one
+const LAYOUT_MATCH_SQL = HOME_LAYOUT_MODS.map(() => `(instr(COALESCE(t.layout, ''), ?) > 0) = ?`).join(' AND ');
+const layoutMatchBinds = (layout) => {
+  const mods = new Set(typeof layout === 'string' && layout ? layout.split('+').map((p) => p.split('@')[0]) : []);
+  return HOME_LAYOUT_MODS.flatMap((m) => [`${m}@`, mods.has(m) ? 1 : 0]);
+};
 const claimStatement = (db, player, { mapId, buildingKey, region, character, price, layout = null }, nowS, paid = 0) => db.prepare(`INSERT OR IGNORE INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid, layout)
     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT t.layout FROM homes t WHERE t.map_id = ? ORDER BY t.bought_at, t.building_key LIMIT 1), CASE WHEN EXISTS (SELECT 1 FROM homes t WHERE t.map_id = ?) THEN NULL ELSE ? END)
-    WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?`)
-  .bind(mapId, buildingKey, player.id, character, displayName(player), region, HOME_ENTRY_DEFAULT, price, nowS, paid, mapId, mapId, layout, player.id, character, HOME_CAP);
+    WHERE (SELECT COUNT(*) FROM homes WHERE player = ? AND char_id = ?) < ?
+      AND NOT EXISTS (SELECT 1 FROM homes t WHERE t.map_id = ? AND NOT (${LAYOUT_MATCH_SQL}))`)
+  .bind(mapId, buildingKey, player.id, character, displayName(player), region, HOME_ENTRY_DEFAULT, price, nowS, paid, mapId, mapId, layout, player.id, character, HOME_CAP, mapId, ...layoutMatchBinds(layout));
 
 /**
  * REALM P2.2b: A REALM CHARACTER'S CLAIM - the house and the record's payment in ONE batch, the price off the record by
@@ -81,7 +89,10 @@ async function realmClaim(ctx, player, at, claim) {
     await dropIfUnnamed(db, bucket, player.id, at.id, prep.key);   // AUDIT REALM2 S3: a batch that landed and lost its answer keeps its save
     const now = await recordMovedOf(db, player.id, at);
     if (now) return now;
-    return (await db.prepare('SELECT 1 AS one FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first()) ? { error: 'home-taken' } : { error: 'home-cap' };
+    if (await db.prepare('SELECT 1 AS one FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first()) return { error: 'home-taken' };
+    const town = await db.prepare('SELECT layout FROM homes WHERE map_id = ? ORDER BY bought_at, building_key LIMIT 1').bind(claim.mapId).first();
+    if (town && !homeLayoutsMatch(town.layout, claim.layout)) return { error: 'home-layout', layout: homeLayoutOk(town.layout) ? town.layout ?? null : null };   // AUDIT WD3 R5: a first claim in another layout landed first
+    return { error: 'home-cap' };
   }
   await dropObjects(bucket, [prep.prev]);
   const row = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first();

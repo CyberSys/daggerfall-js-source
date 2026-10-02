@@ -60,16 +60,21 @@ export async function loadModWorldData() {
     // flipped mid-game moves no town under the player's feet (the Features row: "Takes effect when the game next loads");
     // the layout pins stamp a save's records with what is loaded (systems/layoutPins.js)
     configureLayoutPins({ vendorOn: (v) => modLatchedOn(v) === true, vendorVersion: (v) => _packs.get(v)?.mod?.version ?? '' });
-    for (const [path, url] of Object.entries(globPacks())) {
+    // the packs fetched side by side (AUDIT WD3 B4); a mod is latched loaded only once its pack is on the door - one
+    // that did not load (the network, an old browser with no DecompressionStream) is a mod not loaded, its towns
+    // Daggerfall's and stamped so (AUDIT WD3 B1), and said (`worldDataPacksMissing`)
+    const counts = await Promise.all(Object.entries(globPacks()).map(async ([path, url]) => {
       const vendor = vendorOf(path);
       let on = false;
       try { on = modSetting(vendor, 'Enabled') === true; } catch { on = false; }
       // a closed door serves none of its towns: the mod is not loaded (no 26 MB fetched for nothing), and a house
       // bought under it is stamped with the Daggerfall town it stands in (AUDIT WD3 P2)
-      latchModLoaded(vendor, on && door);
-      if (on && door) n += await loadPackFrom(vendor, url, () => true);
-    }
-    return n;
+      const got = on && door ? await loadPackFrom(vendor, url, () => true) : 0;
+      latchModLoaded(vendor, got > 0);
+      if (on && door && !got) _missing.add(vendor);
+      return got;
+    }));
+    return n + counts.reduce((a, b) => a + b, 0);
   })();
   return _loaded;
 }
@@ -91,14 +96,21 @@ const _pending = new Map();   // vendor -> the pack's load in flight
 /** WD3: whether a town pack serves any town - loaded for the game, or let in by a save's pin. */
 const townPacksLive = () => { const pinned = vendorsPinnedIn(); return [..._packs.keys()].some((v) => modLatchedOn(v) === true || pinned.has(v)); };
 
+const _missing = new Set();   // vendors switched on whose pack did not load
+/** WD3 (AUDIT WD3 B1): the packed mods switched on for this game whose packs did not load - online, the room's towns
+ *  this client cannot stand (a home bought here would be keyed in another layout than the room's). */
+export const worldDataPacksMissing = () => [..._missing];
+
 /** The packs on the door, by vendor. */
 export const loadedWorldDataPacks = () => new Map(_packs);
 
+/** AUDIT WD3 B4: how long a pack's fetch may take before its towns stand as Daggerfall's (2.6 MB at its largest). */
+export const PACK_FETCH_TIMEOUT_MS = 120000;
 async function loadPackFrom(vendor, url, isOn) {
   const blocks = boundWorldDataBlocks();
   if (!blocks) { console.warn(`[worlddata] ${vendor}: no BLOCKS.BSA bound - pack not opened`); return 0; }
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, typeof AbortSignal?.timeout === 'function' ? { signal: AbortSignal.timeout(PACK_FETCH_TIMEOUT_MS) } : undefined);   // AUDIT WD3 B4: a stalled fetch never holds the boot
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await readPackText(new Uint8Array(await res.arrayBuffer()));
     const pack = openWorldDataPack(JSON.parse(text), { blocks, onRebuilt: spotCheck(vendor) });
@@ -117,13 +129,13 @@ async function loadPackFrom(vendor, url, isOn) {
 
 /**
  * WD3: the rebuild checked against the author's file, in the background - WD1's check at load, for a pack of
- * thousands: every block the first time it is served and one location in every 64, hashed off the frame, and one
+ * thousands: one block in every 8 the first time it is served and one location in every 64, hashed off the frame, and one
  * line said for the pack however many differ (a BLOCKS.BSA or MAPS.BSA that is not the one the mod was made
  * against: the author's edit on the player's own data is still what the mod does, and is served).
  */
 function spotCheck(vendor) {
   const queue = [];
-  let differ = 0, checked = 0, running = false, locations = 0;
+  let differ = 0, checked = 0, running = false, locations = 0, blocks = 0;
   const pump = async () => {
     running = true;
     while (queue.length) {
@@ -137,6 +149,7 @@ function spotCheck(vendor) {
   };
   return (name, json, want) => {
     if (name.startsWith('location-') && (locations++ % 64) !== 0) return;
+    if (!name.startsWith('location-') && (blocks++ % 8) !== 0) return;   // AUDIT WD3 B4: one block in eight - each hash a hitch on a phone
     queue.push([name, json, want]);
     if (!running) pump();
   };

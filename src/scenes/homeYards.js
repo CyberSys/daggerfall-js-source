@@ -252,6 +252,7 @@ export function createHomeYards(deps) {
   const writes = new Map();
 
   function ensure(mapId) {
+    if (deps.heard?.() === false) return;   // WD3 (AUDIT WD3 R6): a yard is laid out on its town's layout - none asked before it is heard
     const had = towns.get(mapId);
     if (had && now() - had.at < YARD_TOWN_TTL_MS) return;
     if (asking.has(mapId) || now() - (failed.get(mapId) ?? -Infinity) < YARD_RETRY_MS) return;
@@ -321,7 +322,7 @@ export function createHomeYards(deps) {
   /** THE OWNER'S YARD the player stands on (or near), in this frame - or null. */
   function ownYardHere() {
     const feet = deps.feet?.();
-    if (!feet || !deps.outside?.()) return null;
+    if (!feet || !deps.outside?.() || deps.heard?.() === false) return null;   // AUDIT WD3 R6: nor furnished
     for (const y of yards.values()) {
       if (!deps.homes?.homeAt?.(y.mapId, y.bk)?.own) continue;
       const o = originOf(y);

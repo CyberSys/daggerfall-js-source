@@ -75,7 +75,14 @@ export function createSceneCache() {
  *  it. */
 export const addPermanentScene = (cache, sceneName) => { cache.permanent.add(sceneName); };
 export const containsPermanentScene = (cache, sceneName) => cache.permanent.has(sceneName);
-export const removePermanentScene = (cache, sceneName) => { cache.permanent.delete(sceneName); };
+export const removePermanentScene = (cache, sceneName) => {
+  cache.permanent.delete(sceneName);
+  for (const n of [...cache.permanent]) if (n.startsWith(`${sceneName}|`)) cache.permanent.delete(n);   // WD3: and its other layouts' visits
+};
+/** WD3 (AUDIT WD3 R1): A PERMANENT SCENE'S VISIT IN ANOTHER LAYOUT of its town (a house's town pinned out, its pack
+ *  not loaded) - kept beside the scene, never over it, and given back when the town next stands in that layout; it
+ *  goes with the scene when the house is sold or the room expires. */
+export const layoutSceneName = (sceneName, layout) => `${sceneName}|${layout || 'classic'}`;
 
 /** The player's own dropped piles, deep-copied. They are the third
  *  thing a scene holds in this port because the port keeps a pile's
@@ -245,10 +252,10 @@ export function restoreSceneCache(cache, snap) {
 // EVERY CALLER OF THIS CACHE IS WIRED. The last one to land was the
 // HOUSE deed's AddPermanentScene, which needed the building directory
 // to know which building was bought: H1/H2 shipped both halves -
-// banking.js:205 calls the hook inside allocateHouseToPlayer with the
-// bought building's own mapId and key, and worldModes.js:2954 supplies
+// banking.js:217 calls the hook inside allocateHouseToPlayer with the
+// bought building's own mapId and key, and worldModes.js:2955 supplies
 // it as addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
 // reached from the bank's buy arm (:2144-2148), the knightly gift
 // (:2752) and :4933, with sellHouse dropping the scene again (:2184). The
 // tavern's rented room (tavern.js:151) and the ship's two scenes
-// (banking.js:316-318) name themselves and were wired before it.
+// (banking.js:328-330) name themselves and were wired before it.

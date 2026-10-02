@@ -80,7 +80,16 @@ DFU itself lets them wake in the wrong building. The port does not
    answer (`world.js` `applyLayoutPins`, after the save's player and quests
    are restored and before its place is built - the world load and a dungeon's
    own same-dungeon load both).
-5. **A town is released** once nothing holds it - the house sold, the room
+5. **A deed sleeps where it cannot be honoured.** Where a deed's town stands in
+   another layout all the same (offline, a pack that could not be loaded for
+   it - Replace Game Artwork off, the network; online, a deed that came through
+   customs from before the mods, which no home of the service's pins) its key
+   names a stranger's house, a shop, a temple or nothing - measured over the
+   real data, 58% a stranger's house, 31% nothing, 11% a shop or hall - so no
+   building is the player's by it: no door opened, no cupboard theirs, no bed,
+   no furniture taken out, no sale at the bank (`banking.js` `deedStands`, in
+   `isHouseOwned`). It wakes when its town stands in its layout again.
+6. **A town is released** once nothing holds it - the house sold, the room
    expired, the quest ended. The pins are set at a load, so the town stands
    as it is until the next load, which stands it as the mods would have it.
 
@@ -91,7 +100,10 @@ Two stores that are not records get the same law:
   ordinary one cached in another layout goes, a permanent one (a house, a
   rented room) is kept unrestored for the layout it belongs to
   (`worldModes.js` `restoreInteriorScene`), and leaving the visit never writes
-  the other layout's room over it;
+  the other layout's room over it: what the visit left (its chests, its floor)
+  is kept BESIDE the house's scene for that layout (`layoutSceneName`) and given
+  back on a visit in it, and the room is not its owner's to furnish there. A
+  visit is stamped with the layout it began in, whatever lands while it lasts;
 - **a town's discovered buildings** carry the layout they were found in, and a
   town whose layout moved forgets them at the load (the town itself stays
   found; `systems/discovery.js` `pruneDiscoveryLayouts`).
@@ -116,9 +128,17 @@ house. The client hears the layouts again and builds the town as the room's. Eve
 `/v1/homes/layouts` - each town holding a home and its layout - at its online
 boot, before the first town is built, and pins those towns; online, a save's
 own records pin nothing (one player's save would stand one town apart from the
-room's). Until the service has answered, no home is bought and no home's room
-is furnished (its pieces neither stood nor written), no discovery is forgotten,
-and the asking goes on behind the play (`homeLayoutsHeard`). The decor placed,
+room's). Until the service has answered AND its pins stand (the packs they let
+in fetched, the towns rebuilt), no home is bought and no home's room or yard is
+furnished (its pieces neither stood nor written), no discovery is forgotten, and
+the asking goes on behind the play (`homeLayoutsHeard`); a room the player stands
+in is furnished the moment they land. Of two answers in flight the later one's
+pins stand (`applyLayoutPins`' generation). A client whose pack of a room's town
+mod did not load (the network; a browser without DecompressionStream) stands
+Daggerfall's towns, stamps nothing with a mod it does not show, and buys no home
+(`worldDataPacksMissing`, "Reload the game to buy a home"). The service keeps a
+town in one layout in the claim's own write, so two first claims at once in two
+layouts seat one. The decor placed,
 the look painted, the yard and the rooms let stay in the building they were
 made for. A deed that crosses back through customs carries its town's layout
 with it (`systems/realmCustoms.js`).
@@ -126,6 +146,15 @@ with it (`systems/realmCustoms.js`).
 Deploy the account service (migration `0046`) before the client: an older
 service drops the claim's layout and answers no `/v1/homes/layouts`, and the
 client would ask on until it does.
+
+Known limits online, recorded: a realm character's OWN building-keyed records
+made before WD3 (a quest site, a questor met indoors, a rented room, an item at
+a smith, an anchor set indoors) pin nothing online - only homes do - so in a
+town the mods changed they may name another building; a tab or desktop build
+from before WD3 still claims homes with no layout, which the service cannot tell
+from a classic claim (a relay version gate is the fix); the relay's interior
+memories (doors, containers) from before the deploy are keyed by building and
+may land on another building of the same key until they expire.
 
 Online the world-data door is open whatever Replace Game Artwork says
 (`worldDataDoorOpen`): the ground is the room's, and a player with the switch off
@@ -165,7 +194,8 @@ elsewhere.
   houses), so every price is DFU's own `GetHousePrice` over the ARCH3D radius.
   Beautiful Cities' 224 `House5` records whose one model is a wall piece
   (`53210`) and two `House2` with none have no exterior door and are no
-  residence: nothing sells them.
+  residence: nothing sells them - the bank's market skips a house with no model
+  of its own (`housesForSale` `stands`), as no door could open it.
 
 ## The pieces the mods borrow - the port's own stand-ins
 

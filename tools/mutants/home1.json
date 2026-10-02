@@ -11,8 +11,8 @@
   {
     "name": "HOME1-claim-cap-unread",
     "file": "server-account/src/homes.js",
-    "old": "paid, mapId, mapId, layout, player.id, character, HOME_CAP);",
-    "new": "paid, mapId, mapId, layout, player.id, character, HOME_CAP + 1);",
+    "old": "paid, mapId, mapId, layout, player.id, character, HOME_CAP, mapId, ...layoutMatchBinds(layout));",
+    "new": "paid, mapId, mapId, layout, player.id, character, HOME_CAP + 1, mapId, ...layoutMatchBinds(layout));",
     "tests": [
       "test/home1.test.js"
     ]

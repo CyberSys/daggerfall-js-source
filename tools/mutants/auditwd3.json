@@ -1,44 +1,185 @@
 [
-  { "name": "AWD3-DUNGEON-RECORD-DROPPED", "file": "src/formats/worldDataReplacement.js",
+  {
+    "name": "AWD3-DUNGEON-RECORD-DROPPED",
+    "file": "src/formats/worldDataReplacement.js",
     "old": "    recordElement: { doorCount: 0, doors: [], header: recordHeaderFromJson(d.RecordElement?.Header ?? {}, name) },",
-    "new": "    recordElement: null,", "tests": ["test/wd3_door.test.js"] },
-  { "name": "AWD3-DOOR-UNLATCHED", "file": "src/formats/worldDataReplacement.js",
+    "new": "    recordElement: null,",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-DOOR-UNLATCHED",
+    "file": "src/formats/worldDataReplacement.js",
     "old": "export const worldDataDoorOpen = () => _doorLatched ?? (assetInjectionOn() || isOnlinePage());",
-    "new": "export const worldDataDoorOpen = () => assetInjectionOn() || isOnlinePage();", "tests": ["test/wd3_door.test.js"] },
-  { "name": "AWD3-PACK-BEHIND-CLOSED-DOOR", "file": "src/scenes/modWorldData.js",
-    "old": "      latchModLoaded(vendor, on && door);",
-    "new": "      latchModLoaded(vendor, on);", "tests": ["test/wd3_door.test.js"] },
-  { "name": "AWD3-PIN-BEHIND-CLOSED-DOOR", "file": "src/scenes/modWorldData.js",
+    "new": "export const worldDataDoorOpen = () => assetInjectionOn() || isOnlinePage();",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-PACK-BEHIND-CLOSED-DOOR",
+    "file": "src/scenes/modWorldData.js",
+    "old": "      const got = on && door ? await loadPackFrom(vendor, url, () => true) : 0;",
+    "new": "      const got = on ? await loadPackFrom(vendor, url, () => true) : 0;",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-PIN-BEHIND-CLOSED-DOOR",
+    "file": "src/scenes/modWorldData.js",
     "old": "  if (!worldDataDoorOpen()) return false;",
-    "new": "", "tests": ["test/wd3_door.test.js"] },
-  { "name": "AWD3-HELD-SCENE-OVERWRITTEN", "file": "src/scenes/worldModes.js",
-    "old": "    if (_sceneHeldForLayout === name) return;",
-    "new": "", "tests": ["test/wd3_layoutPins.test.js"] },
-  { "name": "AWD3-CUSTOMS-LAYOUT-LOST", "file": "src/systems/realmCustoms.js",
+    "new": "",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-HELD-SCENE-OVERWRITTEN",
+    "file": "src/scenes/worldModes.js",
+    "old": "    if (_sceneHeldForLayout === name) {\n      const alt = layoutSceneName(name, _visitLayout);",
+    "new": "    if (false) {\n      const alt = layoutSceneName(name, _visitLayout);",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-CUSTOMS-LAYOUT-LOST",
+    "file": "src/systems/realmCustoms.js",
     "old": "    if (typeof slot.layout === 'string' && slot.layout) houses[region].layout = slot.layout;",
-    "new": "", "tests": ["test/wd3_layoutPins.test.js"] },
-  { "name": "AWD3-QUESTOR-UNPINNED", "file": "src/systems/layoutPins.js",
+    "new": "",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-QUESTOR-UNPINNED",
+    "file": "src/systems/layoutPins.js",
     "old": "  for (const q of questors ?? []) if (q && q.buildingKey > 0 && q.mapID) out.push",
-    "new": "  for (const q of []) if (q && q.buildingKey > 0 && q.mapID) out.push", "tests": ["test/wd3_layoutPins.test.js"] },
-  { "name": "AWD3-QUESTOR-UNSTAMPED", "file": "src/systems/quest/person.js",
+    "new": "  for (const q of []) if (q && q.buildingKey > 0 && q.mapID) out.push",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-QUESTOR-UNSTAMPED",
+    "file": "src/systems/quest/person.js",
     "old": "    this.questorData = stampLayout({ ...clicked }, clicked.buildingKey > 0 ? layoutStampOfMapId(clicked.mapID) : '');",
-    "new": "    this.questorData = clicked;", "tests": ["test/wd3_layoutPins.test.js"] },
-  { "name": "AWD3-CLAIM-OVER-LAYOUT", "file": "server-account/src/homes.js",
-    "old": "  if (town && !homeLayoutsMatch(town.layout, claim.layout)) return",
-    "new": "  if (false) return", "tests": ["test/wd3_online.test.js"] },
-  { "name": "AWD3-CLASSIC-NOT-A-LAYOUT", "file": "src/net/homeLaw.js",
+    "new": "    this.questorData = clicked;",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-CLAIM-OVER-LAYOUT",
+    "file": "server-account/src/homes.js",
+    "old": "  const town = await db.prepare('SELECT layout FROM homes WHERE map_id = ? ORDER BY bought_at, building_key LIMIT 1').bind(claim.mapId).first();\n  if (town && !homeLayoutsMatch(town.layout, claim.layout)) return",
+    "new": "  const town = null;\n  if (town && !homeLayoutsMatch(town.layout, claim.layout)) return",
+    "tests": [
+      "test/wd3_online.test.js"
+    ],
+    "equivalent": true,
+    "why": "AUDIT WD3 R5 made the claim's own write refuse a town's other layout, and its catch answers home-layout naming the town's - the check before the batch is the fast refusal (no record prepared), the write the law; removing the check changes no answer"
+  },
+  {
+    "name": "AWD3-CLASSIC-NOT-A-LAYOUT",
+    "file": "src/net/homeLaw.js",
     "old": "  return x.size === y.size && [...x].every((m) => y.has(m));",
-    "new": "  return !x.size || !y.size || (x.size === y.size && [...x].every((m) => y.has(m)));", "tests": ["test/wd3_online.test.js"] },
-  { "name": "AWD3-BUY-UNHEARD", "file": "src/scenes/worldModes.js",
+    "new": "  return !x.size || !y.size || (x.size === y.size && [...x].every((m) => y.has(m)));",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-BUY-UNHEARD",
+    "file": "src/scenes/worldModes.js",
     "old": "    if (host.homeLayoutsHeard?.() === false) { townTalk?.say?.(accountRefusalText('home-layout')); host.hearHomeLayouts?.(); return; }",
-    "new": "", "tests": ["test/wd3_online.test.js"] },
-  { "name": "AWD3-PRUNE-UNHEARD", "file": "src/scenes/world.js",
+    "new": "",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-PRUNE-UNHEARD",
+    "file": "src/scenes/world.js",
     "old": "    const forgotten = homeLayoutsOnline && _serverLayoutRecords === null ? 0 : pruneDiscoveryLayouts();",
-    "new": "    const forgotten = pruneDiscoveryLayouts();", "tests": ["test/wd3_online.test.js", "test/wd3_layoutPins.test.js"] },
-  { "name": "AWD3-FOUNDATION-CENTRED", "file": "src/world/townStandIns.js",
+    "new": "    const forgotten = pruneDiscoveryLayouts();",
+    "tests": [
+      "test/wd3_online.test.js",
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-FOUNDATION-CENTRED",
+    "file": "src/world/townStandIns.js",
     "old": "m.box([317, 0], [0, -2.4, 0], [16, 8, 16], 0.5);",
-    "new": "m.box([317, 0], [0, 0, 0], [16, 8, 16], 0.5);", "tests": ["test/wd3_standins.test.js"] },
-  { "name": "AWD3-STANDINS-ALWAYS-ON", "file": "src/scenes/modWorldData.js",
+    "new": "m.box([317, 0], [0, 0, 0], [16, 8, 16], 0.5);",
+    "tests": [
+      "test/wd3_standins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-STANDINS-ALWAYS-ON",
+    "file": "src/scenes/modWorldData.js",
     "old": "    installTownStandIns(townPacksLive);",
-    "new": "    installTownStandIns();", "tests": ["test/wd3_door.test.js"] }
+    "new": "    installTownStandIns();",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-CLAIM-WRITE-UNGUARDED",
+    "file": "server-account/src/homes.js",
+    "old": "      AND NOT EXISTS (SELECT 1 FROM homes t WHERE t.map_id = ? AND NOT (${LAYOUT_MATCH_SQL}))`)",
+    "new": "      AND NOT EXISTS (SELECT 1 FROM homes t WHERE t.map_id = ? AND 0 AND NOT (${LAYOUT_MATCH_SQL}))`)",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-PINS-OVERTAKEN-SET",
+    "file": "src/scenes/world.js",
+    "old": "    if (gen !== _pinsGen) return false;   // AUDIT WD3 R3",
+    "new": "    if (false) return false;   // AUDIT WD3 R3",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-HEARD-BEFORE-APPLIED",
+    "file": "src/scenes/world.js",
+    "old": "    homeLayoutsHeard: () => !homeLayoutsOnline || (_homeLayoutsApplied && !worldDataPacksMissing().length),",
+    "new": "    homeLayoutsHeard: () => !homeLayoutsOnline || _serverLayoutRecords !== null,",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-DEED-NEVER-SLEEPS",
+    "file": "src/systems/banking.js",
+    "old": "  return ownedHouseKey(houses, regionIndex) === buildingKey && deedStands(houses?.[regionIndex]);",
+    "new": "  return ownedHouseKey(houses, regionIndex) === buildingKey;",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-SALE-KEEPS-VISITS",
+    "file": "src/systems/sceneCache.js",
+    "old": "  for (const n of [...cache.permanent]) if (n.startsWith(`${sceneName}|`)) cache.permanent.delete(n);",
+    "new": "",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-DOORLESS-HOUSE-SOLD",
+    "file": "src/systems/banking.js",
+    "old": "    if (stands && !stands(b)) continue;",
+    "new": "",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  }
 ]
