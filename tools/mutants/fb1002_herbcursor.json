@@ -2,8 +2,8 @@
   {
     "name": "HERB-CURSOR-basket-unlisted",
     "file": "src/scenes/gatherHost.js",
-    "old": "export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look' });",
-    "new": "export const ACT_POINTER = Object.freeze({ mine: 'look', trace: 'look' });",
+    "old": "export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look', fish: 'look' });",
+    "new": "export const ACT_POINTER = Object.freeze({ mine: 'look', trace: 'look', fish: 'look' });",
     "tests": [
       "test/fb1002_herbcursor.test.js"
     ]
@@ -11,8 +11,8 @@
   {
     "name": "HERB-CURSOR-vein-unlisted",
     "file": "src/scenes/gatherHost.js",
-    "old": "export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look' });",
-    "new": "export const ACT_POINTER = Object.freeze({ basket: 'cursor', trace: 'look' });",
+    "old": "export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look', fish: 'look' });",
+    "new": "export const ACT_POINTER = Object.freeze({ basket: 'cursor', trace: 'look', fish: 'look' });",
     "tests": [
       "test/fb1002_herbcursor.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "HERB-CURSOR-every-act-frees",
     "file": "src/scenes/gatherHost.js",
-    "old": "    const want = act ? ACT_POINTER[act.act?.state?.kind] ?? null : null;",
-    "new": "    const want = act ? ACT_POINTER[act.act?.state?.kind] ?? 'cursor' : null;",
+    "old": "export const actPointer = (st) => (st?.gentle === true && st.kind !== 'fish' ? null : ACT_POINTER[st?.kind] ?? null);",
+    "new": "export const actPointer = (st) => (st?.gentle === true && st.kind !== 'fish' ? null : ACT_POINTER[st?.kind] ?? 'cursor');",
     "tests": [
       "test/fb1002_herbcursor.test.js"
     ]
@@ -29,7 +29,7 @@
   {
     "name": "HERB-CURSOR-start-unsynced",
     "file": "src/scenes/gatherHost.js",
-    "old": "    syncPointer();   // HERB-CURSOR: in the press's own frame - the gesture a lock asks for\n",
+    "old": "    syncPointer();   // HERB-CURSOR: in the press's frame, while its activation stands (a lock a browser asks one for)\n",
     "new": "",
     "tests": [
       "test/fb1002_herbcursor.test.js"
@@ -137,8 +137,17 @@
   {
     "name": "HERB-CURSOR-relock-under-travel-view",
     "file": "src/scenes/world.js",
-    "old": "!overlayOpen() && !travelView?.active) requestLook(canvas); }; },",
-    "new": "!overlayOpen()) requestLook(canvas); }; },",
+    "old": "!overlayOpen() && !travelView?.active) requestLook(canvas); }; if (want === 'look')",
+    "new": "!overlayOpen()) requestLook(canvas); }; if (want === 'look')",
+    "tests": [
+      "test/fb1002_herbcursor.test.js"
+    ]
+  },
+  {
+    "name": "HERB-CURSOR-let-go-before-the-end",
+    "file": "src/scenes/gatherHost.js",
+    "old": "    if (act === pointerAct) return;\n",
+    "new": "",
     "tests": [
       "test/fb1002_herbcursor.test.js"
     ]

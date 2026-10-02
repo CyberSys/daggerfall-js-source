@@ -240,7 +240,7 @@ function basketMarks(k, rc, under) {
       }
       flash.frame();
     },
-    hint: (st, label) => label || 'tap the glint',
+    hint: (st, label) => (st.gentle ? 'searching...' : label || 'click the glint'),   // AUDIT HERB-CURSOR C3: the cursor is free to click it; a gentle search has nothing to press
   };
 }
 

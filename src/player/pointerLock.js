@@ -187,6 +187,9 @@ export function bindCursorToggle(canvas, isWindowUp = () => false, actionsOf = n
     const acts = Array.isArray(got) ? got : got ? [got] : [];   // UXB1-S (AUDIT UXB1 F9: named for what the hosts hand in)
     if (!acts.includes(FREE_MOUSE_ACTION) && !(acts.includes('ActivateCursor') && !cursorKeyClaimed(e))) return;   // KB1: online, ActivateCursor's key is the chat's - when the chat takes this press
     e.preventDefault();
+    // AUDIT HERB-CURSOR A2: never while an act holds the cursor free - the press changed nothing a player could see,
+    // latched the flag, and the look never came back after the act (requestLook's precedence line refused every click).
+    if (_cursorHolds.size) return;
     // PL1: "Don't allow activate cursor for 0.3 seconds after closing
     // an input message box" (PlayerMouseLook.cs:192-196).
     if (cursorToggleRefused()) return;
@@ -313,8 +316,9 @@ export const RELOCK_GRACE_MS = 150;
 
 export function requestLook(canvas) {
   // The precedence above: a cursor the player activated is not taken
-  // back by the next gesture, only by the toggle. HERB-CURSOR: nor
-  // one an act holds free, until it lets go.
+  // back by the next gesture, only by the toggle (or, HERB-CURSOR, an
+  // act aimed by the look, which clears the flag). Nor a cursor an act
+  // holds free, until it lets go.
   if (_cursorActive || _cursorHolds.size) return;
   _lastRequestAt = nowMs();
   if (!_errBound && typeof document !== 'undefined') {

@@ -105,12 +105,11 @@ async function stage() {
   return S;
 }
 
-test('HERB-CURSOR the law: the Basket holds the cursor free; the acts aimed by the look (a vein, a body) take the look; the ring, the hold and the net leave the mouse alone (mutants: the Basket unlisted; a look act unlisted)', () => {
-  assert.deepEqual({ ...ACT_POINTER }, { basket: 'cursor', mine: 'look', trace: 'look' });
-  for (const kind of ['chop', 'hand', 'steady', 'fish']) assert.equal(ACT_POINTER[kind], undefined, `${kind}: the crosshair is enough`);
+test('HERB-CURSOR the law: the Basket holds the cursor free; the acts aimed by the look (a vein, a body, the net\'s throw - AUDIT C1) take the look; the ring, the hand and the steady hold leave the mouse alone (mutants: the Basket unlisted; a look act unlisted)', () => {
+  assert.deepEqual({ ...ACT_POINTER }, { basket: 'cursor', mine: 'look', trace: 'look', fish: 'look' });
 });
 
-test('HERB-CURSOR the hold: held, no request takes the lock - the release says whether it was the last, once; a host\'s boot clears a hold its last host never let go (mutants: requestLook unguarded; the release twice; the boot not clearing)', () => withLockDom((canvas, doc) => {
+test('HERB-CURSOR the hold: held, no request takes the lock - the release says whether it was the last, once; a host\'s boot clears a hold its last host never let go (mutants: requestLook unguarded; the hold keeping the lock; the late lock kept; the release twice; the boot not clearing)', () => withLockDom((canvas, doc) => {
   const off = holdCursor();
   assert.deepEqual([doc.exits, doc.pointerLockElement, cursorHeld()], [1, null, true], 'the lock let go as the hold is taken: the cursor shows');
   requestLook(canvas);
@@ -161,7 +160,7 @@ test('HERB-CURSOR the report, answered: the Basket\'s search frees the cursor as
   } finally { s.done(); }
 });
 
-test('HERB-CURSOR every end gives the mouse back: Escape, walking off, a window over it, the page gone (mutants: one end path unsynced)', async () => {
+test('HERB-CURSOR every end gives the mouse back: Escape, walking off, a window over it, the professions shut, `dispose` (no host calls it yet: a new host\'s boot clears a hold left over, above) (mutants: one end path unsynced)', async () => {
   const ends = {
     escape: (s) => { assert.equal(s.host.cancel(), true); },
     walk: (s) => { s.away(); },
@@ -181,7 +180,7 @@ test('HERB-CURSOR every end gives the mouse back: Escape, walking off, a window 
   }
 });
 
-test('HERB-CURSOR the other acts: a vein asks the look (its points are aimed by it); the Sickle\'s steady hand asks nothing (mutants: the vein\'s ask lost; every act frees the cursor)', async () => {
+test('HERB-CURSOR the other acts: a vein asks the look (its points are aimed by it); a common herb\'s hand and the Sickle\'s steady hold ask nothing (mutants: the vein\'s ask lost; every act frees the cursor)', async () => {
   const s = await stage();
   try {
     const vein = s.nodes('mine')[0];
@@ -193,20 +192,30 @@ test('HERB-CURSOR the other acts: a vein asks the look (its points are aimed by 
     assert.deepEqual(s.pointer, ['look'], 'the look taken back from a freed mouse');
     s.host.cancel();
     s.pointer.length = 0;
-    const patch = s.nodes('herb').find((n) => n.tier === 1) ?? s.nodes('herb')[0];
-    s.face(patch);
-    s.lit = 'herbs';
-    assert.equal(s.host.press(), true);
-    s.host.tick(0.016);
-    assert.ok(['hand', 'steady'].includes(s.meter), s.meter);
-    assert.deepEqual(s.pointer, [], 'the hold is the crosshair\'s - the mouse as it was');
+    // a common herb, by hand; then a patch stood again at tier 2 (the host's own list, test/fb0930b_toolsaid's retier): the Sickle
+    const [common, other] = s.nodes('herb');
+    const list = s.host.nodesOf(PX, PY);
+    const sickled = { ...other, tier: 2 };
+    list.splice(list.indexOf(other), 1, sickled);
+    for (const [patch, kind] of [[common, 'hand'], [sickled, 'steady']]) {
+      s.face(patch);
+      s.lit = 'herbs';
+      assert.equal(s.host.press(), true, kind);
+      s.input = { ...NONE, held: true };   // E held, as the steady hold asks
+      s.host.tick(0.016);
+      s.input = NONE;
+      assert.equal(s.meter, kind);
+      assert.deepEqual(s.pointer, [], `${kind}: the crosshair's - the mouse as it was`);
+      s.host.cancel();
+    }
   } finally { s.done(); }
 });
 
-test('HERB-CURSOR the world\'s seam, by source: the Basket\'s hold, and the look taken back at its release only where nothing else holds the mouse - the player\'s own freed cursor, a window, a surface, an overlay, the travel view; a look act takes back a cursor the player freed (mutants: the seam unpassed; the relock ungated)', () => {
+test('HERB-CURSOR the world\'s seam, by source: the Basket\'s hold, and the look asked back at its release only where nothing else holds the mouse - the player\'s own freed cursor, a window, a surface, an overlay, the travel view; a look act takes back a cursor the player freed under the same gates (its behaviour, and the Escape\'s keyup, are test/fb1002_herbcursor_audit.test.js\'s) (mutants: the seam unpassed; the relock ungated)', () => {
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   const seam = w.match(/ pointer: \(want\) => \{[^\n]*?\}; \},/)?.[0] ?? '';
   assert.ok(seam, 'createGatherHost is handed the pointer');
-  assert.match(seam, /if \(want === 'look'\) \{ if \(cursorActive\(\)\) \{ setCursorActive\(false\); requestLook\(canvas\); \} return null; \}/);
-  assert.match(seam, /const off = holdCursor\(\); return \(\) => \{ if \(off\(\) && !cursorActive\(\) && !gamePaused\(\) && !pointerSurfaces\.size && !\(modes\?\.modalWindowUp\?\.\(\) \?\? false\) && !overlayOpen\(\) && !travelView\?\.active\) requestLook\(canvas\); \};/);
+  assert.match(seam, /const relock = \(\) => \{ if \(!cursorActive\(\) && !gamePaused\(\) && !pointerSurfaces\.size && !\(modes\?\.modalWindowUp\?\.\(\) \?\? false\) && !overlayOpen\(\) && !travelView\?\.active\) requestLook\(canvas\); \};/);
+  assert.match(seam, /if \(want === 'look'\) \{ if \(cursorActive\(\)\) \{ setCursorActive\(false\); relock\(\); \} return null; \}/);
+  assert.match(seam, /const off = holdCursor\(\); return \(\) => \{ if \(!off\(\)\) return;/);
 });

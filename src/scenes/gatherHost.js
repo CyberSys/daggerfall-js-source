@@ -93,9 +93,15 @@ export const groupLabel = (profession, n) => `${professionName(profession)} \u00
 /** HERB-CURSOR (FIELD BUGS 2026-10-02 part three, "Doesn't make mouse appear when the minigame starts, so cant click on
  *  the targets"): WHAT AN ACT NEEDS OF THE MOUSE, by its machine's kind. The Basket's glints stand about the crosshair,
  *  where no look reaches them (the look turns the view, and they turn with it): its act holds the cursor free. A vein's
- *  points and a body's line are aimed by the look itself: a cursor the player freed is taken back for them. The rest -
- *  the ring, the hold, the net - need neither, and leave the mouse as it is. */
-export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look' });
+ *  points, a body's line and the net's throw (the school its release lands in - AUDIT C1) are aimed by the look itself:
+ *  a cursor the player freed is taken back for them. The rest - the ring, the hand and the steady hold - need neither,
+ *  and leave the mouse as it is. */
+export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look', fish: 'look' });
+/** AUDIT HERB-CURSOR C2: what an act's state needs (ACT_POINTER), or null. An act played gently (the Gentle acts
+ *  setting) has no moment - its Basket finds nothing to click, its vein's glint and its body's line are not read - so it
+ *  needs nothing; the net's gentle throw still lands where the look sends it (its state carries no `gentle`, and is
+ *  named here so it never will by accident). */
+export const actPointer = (st) => (st?.gentle === true && st.kind !== 'fish' ? null : ACT_POINTER[st?.kind] ?? null);
 /** NODE-MARKS: the stood pixels walked for the marks - those within this many metres, past any kind's reach. */
 const MARK_WALK_M = 256;
 /** AUDIT NODE-MARKS (the independent pass): a place is any three numbers - the player's feet are the motor's
@@ -515,21 +521,22 @@ export function createGatherHost(deps) {
     if (!a) return false;
     if (a.refused) { hud.toast(a.refused); return false; }
     act = { ...a, node: t.node, px: t.px, py: t.py, dungeon: t.dungeon, loose: !!t.loose, info: t.info, world: t.world };
-    syncPointer();   // HERB-CURSOR: in the press's own frame - the gesture a lock asks for
+    syncPointer();   // HERB-CURSOR: in the press's frame, while its activation stands (a lock a browser asks one for)
     chipProfession = a.profession;
     chipLeft = CHIP_S;
     return true;
   }
-  /** HERB-CURSOR: the mouse as the act playing needs it (ACT_POINTER) - asked as an act starts, let go as it ends,
-   *  however it ends (its end, Escape, walking off, a window over it, the dungeon left, the professions shut, the page
-   *  gone). */
+  /** HERB-CURSOR: the mouse as the act playing needs it (actPointer) - asked as an act starts, let go as it ends,
+   *  however it ends (its end, Escape, walking off, a window over it, the dungeon left, the professions shut, `dispose`):
+   *  at the change itself where the host makes it, and at every frame's start and end (AUDIT A3/B1: a frame that throws
+   *  after the act ended - world.js swallows it - no longer keeps the cursor free). */
   function syncPointer() {
     if (act === pointerAct) return;
     pointerAct = act;
     const off = pointerOff;
     pointerOff = null;
     off?.();
-    const want = act ? ACT_POINTER[act.act?.state?.kind] ?? null : null;
+    const want = act ? actPointer(act.act?.state) : null;
     if (want) pointerOff = deps.pointer?.(want) ?? null;
   }
   function finish(a) {
@@ -779,6 +786,7 @@ export function createGatherHost(deps) {
     cancel() { if (!act) return false; act.act.cancel(); act = null; syncPointer(); hud.setMeter(null); return true; },   // HERB-CURSOR: the mouse given back
     /** Every frame the host is in the streaming world. */
     tick(dt) {
+      syncPointer();   // AUDIT HERB-CURSOR A3/B1: before anything of the frame can throw
       const now = deps.nowMs();
       // the state: read on arrival, at a new character and at the UTC day's turn; kept withdrawals settled on every good
       // read (AUDIT 29 C4: once a session, a withdrawal kept mid-session waited for a reload)
