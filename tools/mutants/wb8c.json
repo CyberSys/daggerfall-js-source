@@ -147,13 +147,15 @@
     ]
   },
   {
-    "name": "WB8c-the-turn-in-fire-s-words",
+    "name": "WB8c-the-turn-s-card-the-first-turn-s",
     "file": "src/scenes/gateCourt.js",
-    "old": "const line = courtPhaseText(s.phase, P.aspect); if (line) say(line);",
-    "new": "const line = COURT_PHASE_TEXT[s.phase]; if (line) say(line);",
+    "old": "const c = courtPhaseCard(s.phase); if (c) beat = { kind: 'phase'",
+    "new": "const c = courtPhaseCard(2); if (c) beat = { kind: 'phase'",
     "tests": [
-      "test/wb8c_gate_detail.test.js"
-    ]
+      "test/wb8c_gate_detail.test.js",
+      "test/wb13e_beats.test.js"
+    ],
+    "note": "WB13e: the turn's words became its card (its numeral, its name, its one order) - the aspect's words went with the second order"
   },
   {
     "name": "WB8c-my-blows-meet-the-old-body",

@@ -21,7 +21,7 @@ import {
 import { telegraphShape, markShape, BOSS_MARK_R } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar } from '../src/ui/gateBossBar.js';
 import { aspectCss } from '../src/ui/gateMarksView.js';   // WB13c: his epithet's colour on the bar
-import { createGateCourt, COURT_STRIKE_TEXT, COURT_PHASE_TEXT, COURT_MARKS_TEXT, courtPhaseText, MARK_COLOR, FED_LATE_MS } from '../src/scenes/gateCourt.js';
+import { createGateCourt, COURT_STRIKE_TEXT, COURT_MARKS_TEXT, courtPhaseCard, MARK_COLOR, FED_LATE_MS } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { gateTip } from '../src/systems/gateOmen.js';
 import { omenPost } from '../src/net/gateHerald.js';
@@ -155,14 +155,12 @@ test('WB8c the court\'s words: his marks said as I step through (his aspect\'s o
   await tick(hidden, 62000, state({ md, fed: { ns: ['Bob'], at: 12000 } }));
   assert.ok(!hidden.said.some((s) => s.includes('Bob')), 'a feeding 50 s old said as news');
   assert.ok(FED_LATE_MS >= 1000 && FED_LATE_MS <= 5000);
-  // the turns
-  assert.equal(courtPhaseText(2, gateAspectOf('burning')), COURT_PHASE_TEXT[2]);
-  assert.equal(courtPhaseText(3, gateAspectOf('burning')), COURT_PHASE_TEXT[3]);
-  // WB9b/c: each turn crosses to the next court, and the last brings the Reckoning
-  assert.equal(courtPhaseText(2, gateAspectOf('rime')), 'The Burning Court. Follow him over the walkway. Keep out of the rime.', 'WB13b: its name and two orders');
-  assert.equal(courtPhaseText(3, gateAspectOf('storm')), 'Dagon\'s Champion. Follow him to the last court. Stand between the spokes of lightning.');
+  // the turns - WB13e: a card, its one order the same under every aspect (WB9b/c: each turn crosses to the next court)
+  assert.deepEqual(courtPhaseCard(2), { kicker: 'II', main: 'The Burning Court', sub: 'Follow him over the walkway.' });
+  assert.deepEqual(courtPhaseCard(3), { kicker: 'III', main: 'Dagon\'s Champion', sub: 'Follow him to the last court.' });
   await tick(h, 3000, state({ md, phase: 2 }));
-  assert.ok(h.said.includes(courtPhaseText(2, gateAspectOf('rime'))));
+  assert.equal(h.c.state().beat.main, 'The Burning Court', 'shown as it comes');
+  assert.ok(!h.said.some((s) => s.includes('Burning Court')), 'nothing said beside it');
   destroyGateBossBar();
 });
 

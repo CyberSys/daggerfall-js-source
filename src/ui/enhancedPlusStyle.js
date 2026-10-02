@@ -1572,6 +1572,13 @@ body .wb-boss-wrath { color: #ff9a7a; border-color: #8a2820; }
 body .wb-boss-wrath.near { color: #fff6e4; }
 @media (max-width: 640px) { body .wb-boss-chip-head, body .wb-boss-chip-name { font-size: 9px; letter-spacing: 0.06em; } }
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* WB13e: the fight's beats in the HUD's face, outlined - the name large, the rule a brass line */
+body .wb-title-card { ${PIXEL_FONT_CSS} font-weight: 400; color: #efe8d6; text-shadow: ${OUTLINED}; }
+body .wb-title-kicker { font-size: 12px; letter-spacing: 0.3em; color: ${FRAME_TONES.brassHi}; }
+body .wb-title-main { font-size: 34px; letter-spacing: 0.12em; color: #fff6e4; text-shadow: ${OUTLINED}, 0 0 14px rgba(255,90,30,0.45); }
+body .wb-title-rule { height: 2px; background: linear-gradient(90deg, transparent, ${FRAME_TONES.brass}, transparent); box-shadow: 0 1px 0 #050608; }
+body .wb-title-sub { font-size: 14px; letter-spacing: 0.06em; color: #d8cfae; }
+@media (max-width: 640px), (max-height: 480px) { body .wb-title-main { font-size: 24px; } body .wb-title-sub { font-size: 12px; } }
 /* WB13c: the ground's warning in the HUD's face, outlined on a dark band (it stood in the serif among pixel words, orange
    on the orange rim); the way out's arrow in a hard black edge */
 body .wb-ground-warn { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 16px; letter-spacing: 0.1em; text-shadow: ${OUTLINED};

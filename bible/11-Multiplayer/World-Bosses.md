@@ -1960,6 +1960,38 @@ What changes beyond the wording:
 - **Aimed at you:** a Meteor or a Leap aimed where you stand says so with a sting.
 - **Lines that stay readable:** a line on the middle of the screen stays for its length (WB13b keeps them short).
 
+**As built:**
+- The card is `ui/gateTitleCard.js`. It sits over the middle of the screen, above the crosshair and clear of his bar,
+  and hides with the HUD and under the step-through fire.
+- His wake:
+  - The relay's state says when the opening ends (`op`).
+  - 1.2 s before then: his roar, his ember flaring over 1.5 s, and the card (his title, his name, his epithet).
+  - A screen that arrives later, or an older relay, gets no wake.
+- A phase turn:
+  - The card shows the numeral, the phase's name and its one order ("Follow him over the walkway.", "Follow him to the
+    last court.") until the bound lands.
+  - Nothing is said beside it.
+  - His roar comes 600 ms after the bound's bark.
+- His fall:
+  - At the kill: a burst of Dagon's size, the court's light white for 400 ms, and a shake of 4.
+  - His hurt frames play until his body meets the floor at 1.5 s.
+  - Then three ember bursts rise 250 ms apart as he sinks 1.5 m into the stone.
+  - His corpse stays where he fell, at three times its size.
+  - The spoils come at 1.7 s instead of 0.5 s, under a 3 s card: his name over *Felled*.
+  - A screen that arrives later sees his body, and nothing is replayed.
+- The Wrath:
+  - A minute out (only while that is news): "Dagon's Wrath in 1:00. Bring him down!"
+  - As it gathers: "Dagon's Wrath!"
+  - His court's light reddens over the wind-up and turns white as it lands.
+- Under 10% health his ember sputters in 90 ms steps and sheds a spark every 500 ms, and the bar pulses.
+- A Meteor or a Leap called on the ground you stand on plays a sting at its word: the parry's ring, high, at your feet.
+- The court's lines in the middle of the screen stay up for their length: 3.5 words a second, 1.5 to 6 s.
+- Not done: marking the nearest teammate for everyone else when a blow is aimed at them, and a white screen flash
+  (the court's light does it instead).
+- The relay is world141, re-hashed in place for `op`. The brain's law stays 5.
+- Pinned in `test/wb13e_beats.test.js` (8), with WB3, WB4, WB7, WB8c, WBX, GATE-UX and WB13b re-pinned.
+- Mutants in `tools/mutants/wb13e.json` (26), with four older records re-aimed.
+
 ### WB13f. The rhythm
 
 - **No attack more than twice running.** With the fighters spread out, phase one was the Charge in 36 of 50 attacks,
@@ -2426,4 +2458,17 @@ developed"*):
 - No relay or account change.
 - Pins `test/wb13d_blows.test.js` (10), with WB4 and WB9e re-pinned; mutants `tools/mutants/wb13d.json` (28), with
   three older records re-aimed.
+
+**WB13e (2026-10-01) - the beats.** Section 20 above:
+- His wake: a roar, a flare and his name as the opening ends.
+- A phase turn is a card held until he lands, with his roar after the bark.
+- His fall is an event: a burst, a white light and a shake; he sinks and leaves his body; the spoils come after, under
+  a card.
+- The Wrath is said a minute out and as it gathers, and the court reddens.
+- Under 10% his ember sputters and the bar pulses.
+- A Meteor or a Leap aimed at you stings.
+- The court's lines stay up for their length.
+- world141 re-hashed in place for the state's opening end. The brain's law stays 5.
+- Pins `test/wb13e_beats.test.js` (8), with seven older files re-pinned; mutants `tools/mutants/wb13e.json` (26), with
+  four older records re-aimed.
 

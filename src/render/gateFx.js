@@ -75,6 +75,9 @@ export const FX_KINDS = Object.freeze({
   meteor: Object.freeze({ share: 1, power: 1.6, grit: false, light: Object.freeze([3.0, 16]) }),
   nova: Object.freeze({ share: 1, power: 1.3, grit: false }),
   dagon: Object.freeze({ share: 1, power: 2, grit: false }),
+  // WB13e: his fall's column of embers as his body meets the floor, and the sparks his sputtering ember sheds
+  embers: Object.freeze({ share: 0.7, power: 1.2, grit: false }),
+  sputter: Object.freeze({ share: 0.12, power: 0.3, grit: false }),
   // WB9f: his spoils - the gold out of his chest, and each piece's landing (a Rare-or-better's brighter)
   spoils: Object.freeze({ share: 1, power: 0.9, grit: false }),
   spoilRest: Object.freeze({ share: 0.3, power: 0.45, grit: false }),

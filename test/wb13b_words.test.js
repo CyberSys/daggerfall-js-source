@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { omenLine, riseLine, openLine, sealLine, wrathLine, marksLine } from '../src/net/gateLaw.js';
 import { GATE_ASPECTS, GATE_TRIALS } from '../src/net/gateMods.js';
 import { MARK_TIPS, MARKS_CARD_TEXT, marksCardModel } from '../src/ui/gateMarksView.js';
-import { COURT_STRIKE_TEXT, COURT_RECKON_TEXT, COURT_MARKS_TEXT, courtPhaseText, COURT_PHASE_TEXT } from '../src/scenes/gateCourt.js';
+import { COURT_STRIKE_TEXT, COURT_RECKON_TEXT, COURT_MARKS_TEXT, courtPhaseOrder, courtPhaseCard, COURT_WRATH_TEXT } from '../src/scenes/gateCourt.js';
 import { COURT_HOST_TEXT } from '../src/scenes/gateHost.js';
 import { COURT_TEXT } from '../src/world/gateArena.js';
 import { GATE_TEXT } from '../src/scenes/gatePool.js';
@@ -39,7 +39,8 @@ function lines() {
   for (const [k, v] of Object.entries(MARK_TIPS)) add(`tip:${k}`, v);
   add('strike.resisted', COURT_STRIKE_TEXT.resisted('Frost Nova')); add('strike.noSpoils', COURT_STRIKE_TEXT.noSpoils()); add('strike.spilled', COURT_STRIKE_TEXT.spilled());
   add('reckon.call', COURT_RECKON_TEXT.call(4)); add('reckon.shattered', COURT_RECKON_TEXT.shattered('Ann', 2)); add('reckon.broken', COURT_RECKON_TEXT.broken());
-  for (const a of GATE_ASPECTS) for (const n of [2, 3]) add(`phase${n}:${a.id}`, courtPhaseText(n, a));
+  for (const n of [2, 3]) add(`phase${n}`, courtPhaseOrder(n));   // WB13e: the card's one order
+  for (const [k, v] of Object.entries(COURT_WRATH_TEXT)) add(`wrath.${k}`, v);   // WB13e
   for (const [k, v] of Object.entries(COURT_HOST_TEXT)) add(`host.${k}`, typeof v === 'function' ? v(P.boss, 'Imps', 2) : v);
   add('host.felled', COURT_HOST_TEXT.felled('Ann', 2));
   for (const [k, v] of Object.entries(COURT_TEXT)) add(`court.${k}`, v);
@@ -93,12 +94,10 @@ test('WB13b nothing said on stepping into the court - the marks\' card stands at
   assert.match(gc, /if \(!marksSaid\) \{ marksSaid = true; if \(P\.md && !s\.fell && s\.wrath == null\) marksAt = t; \}/);
 });
 
-test('WB13b a phase\'s turn is its name and two orders; the Reckoning\'s call, its count and its break one line each (the bar counts it down) (mutants: the old turn)', () => {
-  assert.equal(COURT_PHASE_TEXT[2], courtPhaseText(2, GATE_ASPECTS[0]));
-  assert.equal(COURT_PHASE_TEXT[3], courtPhaseText(3, GATE_ASPECTS[0]));
-  assert.equal(COURT_PHASE_TEXT[2], 'The Burning Court. Follow him over the walkway. Keep out of the fire.');
-  assert.equal(COURT_PHASE_TEXT[3], 'Dagon\'s Champion. Follow him to the last court. Stand between the spokes of fire.');
-  for (const n of [2, 3]) for (const a of GATE_ASPECTS) assert.ok(courtPhaseText(n, a).split(' ').length <= 14, `${n} ${a.id}: short enough to read in the label's time`);
+test('WB13b a phase\'s turn is its name and (WB13e) its one order on its card; the Reckoning\'s call, its count and its break one line each (the bar counts it down) (mutants: the old turn)', () => {
+  assert.deepEqual([courtPhaseCard(2).main, courtPhaseCard(2).sub], ['The Burning Court', 'Follow him over the walkway.']);
+  assert.deepEqual([courtPhaseCard(3).main, courtPhaseCard(3).sub], ['Dagon\'s Champion', 'Follow him to the last court.']);
+  for (const n of [2, 3]) assert.ok(courtPhaseOrder(n).split(' ').length <= 6, `${n}: one order, read at a glance`);
   assert.equal(COURT_RECKON_TEXT.call(4), 'Dagon\'s Reckoning! Shatter all 4 crystals!');
   assert.equal(COURT_RECKON_TEXT.broken(), 'The Reckoning breaks! Strike now!');
 });

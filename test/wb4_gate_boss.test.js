@@ -24,7 +24,7 @@ import {
   TELEGRAPH_FADE_IN_MS, TELEGRAPH_FLASH_MS, TELEGRAPH_MARGIN,
 } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar, BOSS_BAR_TEXT, WRATH_WARN_MS } from '../src/ui/gateBossBar.js';
-import { createGateCourt, bossOf, COURT_STRIKE_TEXT } from '../src/scenes/gateCourt.js';
+import { createGateCourt, bossOf, COURT_STRIKE_TEXT, ROAR_AFTER_MS } from '../src/scenes/gateCourt.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { gateBossOf } from '../src/net/gateLaw.js';
@@ -406,6 +406,7 @@ test('WB4 the court\'s driver, the voice and the body: the wind-up cued at the w
   await tick(h, 10100);
   assert.equal(h.sounds.length, 3, 'the landing once');
   await tick(h, 11000, state({ atk: null, x: 4, z: -2, phase: 3, shieldUntil: 14000 }));
+  await tick(h, 11000 + ROAR_AFTER_MS);   // WB13e: a moment after the bound's bark
   assert.equal(h.sounds.at(-1)[1], BOSS_CUES.roar.clip, 'the roar of a phase crossed');
   const hf = W('hellfire', { i: 8, at: 21000, tg: [[1, 1], [-5, 6]] });
   await tick(h, 20000, state({ atk: hf, phase: 3 }));

@@ -272,8 +272,8 @@
   {
     "name": "WB4-the-roar-on-first-sight",
     "file": "src/scenes/gateCourt.js",
-    "old": "if (phaseHeard > 0) { sound(BOSS_CUES.roar, s, t, null);",
-    "new": "{ sound(BOSS_CUES.roar, s, t, null);",
+    "old": "if (phaseHeard > 0) { roarAt = t + ROAR_AFTER_MS;",
+    "new": "{ roarAt = t + ROAR_AFTER_MS;",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]

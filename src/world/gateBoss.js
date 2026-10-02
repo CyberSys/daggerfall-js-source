@@ -125,6 +125,16 @@ export const GATE_FLASH_SHARE = 0.003;
 export const gateHitFlash = (mineAt, courtAt, now) => Math.max(hitFlashStrength((now - mineAt) / 1000), GATE_FLASH_COURT * hitFlashStrength((now - courtAt) / 1000));
 /** WB13d: a landing's light stands this high over the floor it lands on. */
 export const LANDING_LIGHT_Y = 0.6;
+/** WB13e (2026-10-01, Mac: "AAA grade polish"): HIS FALL, AN EVENT - his body meets the floor THUD_AT_MS into it, then
+ *  sinks FALL_SINK_M into the stone over the rest of FALL_MS, in a column of embers, and leaves his corpse there at
+ *  CORPSE_SCALE (his mobile's own, characters/enemyBasics.js corpseTexture). */
+export const FALL_SINK_M = 1.5;
+export const CORPSE_SCALE = 3;
+/** WB13e: HIS WAKE - this long before the opening ends (the relay's `op`), his roar, his flare and his name. */
+export const WAKE_LEAD_MS = 1200;
+export const WAKE_FLARE_MS = 1500;
+/** WB13e: under this share of his health his ember sputters (and the bar pulses - ui/gateBossBar.js). */
+export const LOW_HEALTH = 0.1;
 
 /** The attacks' colours - the telegraph's on the ground and the glow on him - display-encoded (a foreign pass draws into
  *  an 8-bit display-encoded frame, render/duelWall.js). The ward's gold, and the ember he always carries. */
@@ -217,7 +227,9 @@ export function bossAct(s, now, hurtAt = -Infinity) {
   if (s.fell) {
     const since = now - s.fell.at;
     if (since >= FALL_MS) return { act: 'gone', anims: HURT_ANIMS, frame: 0, loop: false, atk: null, t: 1 };
-    return { act: 'fall', anims: HURT_ANIMS, frame: Math.max(0, Math.floor((since / FALL_MS) * 5)), loop: false, atk: null, t: since / FALL_MS };
+    // WB13e: his hurt frames until his body meets the floor, then he sinks into the stone
+    const sink = since > THUD_AT_MS ? FALL_SINK_M * Math.min(1, (since - THUD_AT_MS) / (FALL_MS - THUD_AT_MS)) : 0;
+    return { act: 'fall', anims: HURT_ANIMS, frame: Math.max(0, Math.min(4, Math.floor((since / THUD_AT_MS) * 5))), loop: false, atk: null, t: since / FALL_MS, sink };
   }
   // WB9c: STUNNED - his Reckoning broken, he reels on his hurt frames, slowly, until it passes (a blow still flinches him)
   if (now < (s.stunUntil ?? 0) && now >= (s.stunAt ?? 0)) return { act: 'stunned', anims: HURT_ANIMS, frame: Math.floor(((now - (s.stunAt ?? now)) / 1000) * STUN_ANIM_SPEED), loop: true, atk: null, t: 0 };
@@ -289,8 +301,16 @@ export function bossGlow(s, now) {
   }
   if (now < s.shieldUntil) return lit(WARD_COLOR, 0.9 + 0.3 * Math.sin(now / 90), GLOW_RANGE.windup);
   if (now < (s.stunUntil ?? 0)) return lit(STUN_COLOR, 0.55 + 0.25 * Math.sin(now / 160), GLOW_RANGE.windup);   // WB9c: dazed
+  // WB13e: HIS WAKE - his ember flares as the opening ends (the relay's `op`)
+  const wake = (s.openUntil ?? 0) > 0 ? now - (s.openUntil - WAKE_LEAD_MS) : -1;
+  if (wake >= 0 && wake < WAKE_FLARE_MS) return lit(ember, 0.45 + 2.2 * Math.sin((Math.PI * wake) / WAKE_FLARE_MS), GLOW_RANGE.landing);
+  // WB13e: under LOW_HEALTH his ember sputters - a step of light every SPUTTER_STEP_MS, never steady
+  if (s.max > 0 && s.hp / s.max < LOW_HEALTH) return lit(ember, 0.45 * sputter(now), GLOW_RANGE.ember);
   return lit(ember, 0.45, GLOW_RANGE.ember);
 }
+/** WB13e: the sputter's step (ms) and its share of the ember's light at a moment - a hash of the step, 0.2 to 1. Pure. */
+export const SPUTTER_STEP_MS = 90;
+export const sputter = (now) => { const x = Math.sin(Math.floor(now / SPUTTER_STEP_MS) * 12.9898) * 43758.5453; return 0.2 + 0.8 * (x - Math.floor(x)); };
 
 /** HIS VOICE - DAGGER.SND records by index (`clip`: his own mobile's bark and attack, enemyBasics.js, pitched down for
  *  his size) or sound IDs (`id`: the fire's cast, played through audio.play3dId - systems/enemySpells.js's law), with
@@ -379,6 +399,8 @@ export const BOSS_CUES = Object.freeze({
   stunned: Object.freeze({ clip: B.barkSound, pitch: 0.7, volume: 1.8, reach: 120, at: 'him' }),
   // WB9d: a step into his burning ground - the fire's hiss under my own feet, at once (the bite is a tick off)
   groundStep: Object.freeze({ clip: BURNING, pitch: 1.35, volume: 0.9, reach: 14, at: 'point' }),
+  // WB13e: a Meteor or a Leap aimed where I stand, at its word - the parry's ring, high and sharp, at my feet
+  sting: Object.freeze({ clip: CRYSTAL_CLIPS.hit, pitch: 2.2, volume: 1.3, reach: 20, at: 'point' }),
 });
 /**
  * WB8b: HIS ASPECT, HEARD - his elemental blows' wind-ups and landings under each aspect but his burning one: the

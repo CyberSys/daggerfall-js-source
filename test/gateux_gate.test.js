@@ -81,7 +81,7 @@ test('GATE-UX 2 under his health no phase is said - the foot says the court\'s f
   drawGateBossBar(late, { doc });
   assert.deepEqual(said(), [BOSS_BAR_TEXT.fighters(3), BOSS_BAR_TEXT.reckonIn('0:42'), BOSS_BAR_TEXT.wrathIn('1:01')], 'the countdowns kept');
   destroyGateBossBar();
-  assert.match(read('src/scenes/gateCourt.js'), /const line = courtPhaseText\(s\.phase, P\.aspect\); if \(line\) say\(line\);/, 'the turn is said as it comes');
+  assert.match(read('src/scenes/gateCourt.js'), /const c = courtPhaseCard\(s\.phase\); if \(c\) beat = \{ kind: 'phase', at: t, until: t \+ TITLE_HOLD_MS, \.\.\.c \};/, 'the turn shown as it comes (WB13e: its card)');
   assert.equal(BOSS_BAR_TOP, '58px');
   assert.match(BOSS_BAR_CSS, /\.wb-boss-foot \{/);
 });

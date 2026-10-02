@@ -34,7 +34,7 @@ import {
 import { inAttack, spokeLanes, landingPools, poolUnder, strikeDamage, blowOf, strikeVerdict } from '../src/net/gateStrike.js';
 import { telegraphShape, telegraphField, markShape, poolShapes, TELEGRAPH_KIND, TELEGRAPH_FS, BOSS_MARK_R, BOSS_MARK_CHEVRON_LEN, BOSS_MARK_CHEVRON_HALF_W } from '../src/render/gateTelegraph.js';
 import { bossPlace, bossHop, bossAct, bossStandIn, bossLookOf, LEAP_AIR_MS, LEAP_HEIGHT, ATTACK_COLORS, POOL_COLOR, WARD_COLOR, BOSS_CUES, QUAKE_ON } from '../src/world/gateBoss.js';
-import { createGateCourt, COURT_PHASE_TEXT, COURT_STRIKE_TEXT, MARK_COLOR, COURT_ROUND_MS } from '../src/scenes/gateCourt.js';
+import { createGateCourt, courtPhaseCard, COURT_STRIKE_TEXT, MARK_COLOR, COURT_ROUND_MS } from '../src/scenes/gateCourt.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { bossBarModel, BOSS_BAR_TEXT } from '../src/ui/gateBossBar.js';
 import { createSpoilsPool, iconSize, SPOILS_ICON_ARCHIVE, SPOILS_ICON_MAX_M, SPOILS_ICON_M_PER_PX } from '../src/scenes/spoilsPool.js';
@@ -411,8 +411,9 @@ test('WBX5 the leap on the screen: he stands through its wind-up, crosses the ai
   const h = court();
   at(h, 1000, state({ phase: 1 }));
   at(h, 2000, state({ phase: 2 }));
-  assert.ok(h.said.includes(COURT_PHASE_TEXT[2]), 'the turn said');
-  assert.match(COURT_PHASE_TEXT[3], /Dagon's Champion/);
+  const turn = h.c.state().beat;
+  assert.deepEqual([turn?.kind, turn?.kicker, turn?.main, turn?.sub], ['phase', 'II', courtPhaseCard(2).main, courtPhaseCard(2).sub], 'the turn shown (WB13e: its card)');
+  assert.match(courtPhaseCard(3).main, /Dagon's Champion/);
   // GATE-UX: the bar no longer says the phase under his health (test/gateux_gate.test.js) - the turn is still said
   const bar = bossBarModel(state({ phase: 2 }), 5000, { name: 'Valkynaz Ruhn', title: 'Warden' });
   assert.equal(bar.phaseName, undefined);

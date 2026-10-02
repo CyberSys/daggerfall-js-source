@@ -27,6 +27,7 @@ import { attackColor, crystalColor, STUN_COLOR, WARD_COLOR } from '../world/gate
 import { GATE_RING_CSS } from './gateMapMark.js';
 import { marksViewOf, markIconSvg } from './gateMarksView.js';   // WB9a: the night's marks under his health, each its sign and name
 import { stepGhost } from './barLoss.js';   // WB13c: the trailing damage segment, the vitals' own
+import { LOW_HEALTH } from '../world/gateBoss.js';   // WB13e: the bar pulses under his low health
 import { injectEnhancedFonts } from './enhancedStyle.js';   // WB13c: the classic face, loaded by the gate's own screens
 
 /** Where it stands: under the compass strip, centred (the gate banner's place - the two never show together: the
@@ -54,7 +55,7 @@ export const BOSS_BAR_TEXT = Object.freeze({
   fighters: (n) => (n === 1 ? '1 in the court' : `${n} in the court`),
   // GATE-UX (2026-10-01, Mac: "Remove the text below each boss health bar that shows phase details"): WBX5's phase line
   // ("II - The Burning Court") is gone from the foot - the marks cut in his health say where the phases turn, and a
-  // turn is still said over the screen as it comes (scenes/gateCourt.js courtPhaseText)
+  // turn is still shown over the screen as it comes (scenes/gateCourt.js courtPhaseCard - WB13e: its card)
   // WB9c: DAGON'S RECKONING on the bar - its name, the crystals still standing and the seconds to its landing; the stun
   // a broken one leaves him in, and its seconds; and the next one's coming, in the foot
   reckon: (name, left, n, secs) => `${name} - ${left} of ${n} ${n === 1 ? 'crystal' : 'crystals'} - ${secs}s`,
@@ -120,6 +121,8 @@ export const BOSS_BAR_CSS = `
 .wb-boss-wrath.near { color: #fff0e8; background: rgba(150,14,8,0.85); animation: wb-wrath-near 500ms ease-in-out infinite alternate; }
 @keyframes wb-wrath-near { from { background: rgba(110,8,6,0.8); } to { background: rgba(190,20,12,0.95); } }
 .wb-boss-bar.intro .wb-boss-fill { animation: wb-fill-in 700ms cubic-bezier(.2,.7,.3,1); }
+.wb-boss-bar.low .wb-boss-fill { animation: wb-low 650ms ease-in-out infinite alternate; }
+@keyframes wb-low { to { filter: brightness(1.55) saturate(1.2); } }
 .wb-boss-bar.intro .wb-boss-name { animation: wb-name-in 250ms ease-out; }
 @keyframes wb-fill-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes wb-name-in { from { opacity: 0; letter-spacing: 0.3em; } }
@@ -184,6 +187,7 @@ export function bossBarModel(s, now, boss, aimed = null) {
     reckonIn: toReckon !== null ? BOSS_BAR_TEXT.reckonIn(countdownText(toReckon)) : null,   // WB9c
     host: !s.fell && s.wrath == null && others > 0 ? BOSS_BAR_TEXT.host(others) : null,   // WB11c: the rest of his host standing
     alpha: Math.round(alpha * 20) / 20, now,
+    low: !s.fell && frac > 0 && frac < LOW_HEALTH,   // WB13e: the bar pulses
   };
 }
 
@@ -311,7 +315,7 @@ export function drawGateBossBar(model, { hidden = false, doc = globalThis.docume
     if (shown.warded && !model.warded && !model.fallen) shown.breakAt = now;
     shown.warded = model.warded;
   }
-  const cls = `wb-boss-bar${model.warded ? ' warded' : ''}${flashing(shown.breakAt, now, FLASH_MS.wardBreak) ? ' wbreak' : ''}${flashing(shown.introAt, now, INTRO_MS) ? ' intro' : ''}`;
+  const cls = `wb-boss-bar${model.warded ? ' warded' : ''}${flashing(shown.breakAt, now, FLASH_MS.wardBreak) ? ' wbreak' : ''}${flashing(shown.introAt, now, INTRO_MS) ? ' intro' : ''}${model.low ? ' low' : ''}`;
   if (cls !== shown.rootCls) { shown.rootCls = cls; root.className = cls; }
   const alpha = model.alpha ?? 1;
   if (alpha !== shown.alpha) { shown.alpha = alpha; root.style.opacity = alpha < 1 ? String(alpha) : ''; }
