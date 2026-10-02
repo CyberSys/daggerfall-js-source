@@ -342,8 +342,8 @@
  {
   "name": "SEAT2a2-law-frame-floor",
   "file": "src/net/siegeRef.js",
-  "old": "th: Math.floor(b.throne), s: b.startMs,",
-  "new": "th: Math.round(b.throne), s: b.startMs,",
+  "old": "th: Math.min(Math.floor(b.throne), (SIEGE_THRONE[b.tier]",
+  "new": "th: Math.min(Math.round(b.throne), (SIEGE_THRONE[b.tier]",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

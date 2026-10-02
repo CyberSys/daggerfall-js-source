@@ -3546,7 +3546,7 @@ export function createWorldModes(host) {
     if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS
     if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall
     if (!piece?.storage) return;
-    if ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards; SEAT-HALL: a palace's too
+    if ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member) { openHallChest(); return; } else if (interiorSeatHall && !interiorHome) { say(CROWN_HALL_TEXT.chestShut(interiorSeatHall.name)); return; }   // AUDIT SEATS-2 C6: a visitor told whose it is   // GUILD1d: the guild's chest, as its cupboards; SEAT-HALL: a palace's too
     if (!decorOwnerHere()) {
       if (interiorHome) say(homeBelongsLine(interiorHome));
       return;
@@ -3645,6 +3645,24 @@ export function createWorldModes(host) {
    *  (systems/crownHall.js) - `{ loc, banners, pieces }`, each piece `{ key, gpu, matrix, aabb }` - or null: no crown
    *  here, none held, no ruler stands in it, or the seats shut. The holder, its banner and membership are read live. */
   let crownHall = null;
+  /** AUDIT SEATS-2 C1: the dungeon whose throne room was stood (or found none), and when the seat halls were last read. */
+  let _crownTried = null;
+  let _hallsReadAt = -Infinity;
+  /** AUDIT SEATS-2 C1: THE HALLS, KNOWN LATE - a visit begun before the seats' list or the guild was read (a load in the
+   *  palace or the castle) finds them once they are: a palace's hall latched (and its Charter Room read) where it was none,
+   *  its membership read again each second; a crown castle's throne room stood once its crown is known. */
+  function seatHallsFrame(nowMs) {
+    if (nowMs - _hallsReadAt < 1000) return;
+    _hallsReadAt = nowMs;
+    if (mode === 'interior' && interiorBuilding?.buildingType === BUILDING_TYPES.Palace && !interiorHome) {
+      const h = host.seatHall?.here?.(homeTownOf(interiorBuilding)) ?? null;
+      const was = interiorSeatHall;
+      interiorSeatHall = h;
+      if (h && !was) loadHomeDecor();
+    } else if (mode === 'dungeon' && dungeonCtx && dungeonLoc && _crownTried !== dungeonCtx && crownHere()) {
+      standCrownHall(dungeonCtx, dungeonLoc).catch(() => {});
+    }
+  }
   /** CROWN-HALL: the crown seat this dungeon is the castle of, as the host dresses it, or null. */
   const crownHere = () => (mode === 'dungeon' && dungeonLoc ? host.seatHall?.crown?.((dungeonLoc.mapTableData?.mapId ?? 0) >>> 0) ?? null : null);
   /** CROWN-HALL: STAND THE THRONE ROOM - at the dungeon's mount; the models asked of the pipeline, kept only while the same
@@ -3652,6 +3670,7 @@ export function createWorldModes(host) {
   async function standCrownHall(ctx, loc) {
     crownHall = null;
     if (!crownHere()) return;
+    _crownTried = ctx;   // AUDIT SEATS-2 C1: this castle's throne room asked once the crown is known
     const ruler = crownRulerHere(ctx.people, crownRulerFactionId(townTalk?.factionDict, loc?.regionIndex));
     const plan = ruler ? crownHallPlan(ruler, (o, d, m) => ctx.collider?.raycast?.(o, d, m) ?? Infinity) : null;
     if (!plan) return;
@@ -8168,6 +8187,7 @@ export function createWorldModes(host) {
     // window - except, offline, under a quest box on top (the host's own read, world.js _questBoxHoldsFoes).
     const foeDt = host.questBoxHoldsFoes?.() ? 0 : dt;
     if (mode === 'interior') interiorLootSettle();   // WORLD6a: a container's window gone (the stack reconciled above) is the close's word
+    seatHallsFrame(performance.now());   // AUDIT SEATS-2 C1: the seat halls, known late
     decorTool.frame({ dt, cam, overlayUp: overlayHeld, interior: mode === 'interior' });   // DECOR1d: the button, the panel's scan, the free camera
     // Q4-v: the quest layer's modal frame. Behaviours update every
     // frame (Unity Update runs whatever Time.timeScale is); the

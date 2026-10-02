@@ -8619,7 +8619,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2766 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6833
+  // that context through modes.dungeonCtx - so worldModes.js:6852
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13877,7 +13877,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10363-10427 -
+  // worldModes answers it in BOTH modes (worldModes.js:10383-10447 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18643,8 +18643,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** AUDIT-SEATS (Seats-Arc 9.2): A SEAT'S HALL OF RECORDS FROM ITS BOARD - its Chronicle read as a book, in place of the
    *  board; false where it cannot be read. */
   const openRecordsFromBoard = async (st) => {
+    const board = townTalk.overlay;   // AUDIT SEATS-2 C5: the board that asked - a book read after it closed is shown over nothing else
     const r = st && seatBook ? await seatBook.records(st.key) : null;
     if (!r?.data) return false;
+    if (townTalk.overlay !== board) return false;
     townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero));
     return true;
   };
@@ -19656,10 +19658,13 @@ export async function bootWorld(canvas, renderer, params, status) {
         chatNotice(SEAT_NOTICE);
         setMidScreenText(SEAT_MID_TEXT);
       }
-      peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;
+      peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt);
+      siegeHud?.hide(); siegeNpcs?.leave();   // AUDIT SEATS-2 C4: and no battle drawn - its HUD and the relay's own fighters out with the room
+      return;
     }
     // AUDIT ONLINE D12: the dead broadcast nothing and see no one
     if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.()) {
+      siegeHud?.hide(); siegeNpcs?.leave();   // AUDIT SEATS-2 C4: the dead see no battle - nor its HUD frozen on its last word
       if (_deathWasOnline == null) _deathWasOnline = _onlineWorldSession();   // D-ONLINE1: the modal hosts' deaths (a dungeon's, a building's) are captured here, BEFORE the leave below clears online.room
       if (online.room) {
         // PCORPSE1: the body is left where it fell - one last pose, flagged, before the leave below takes the living figure

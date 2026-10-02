@@ -60,7 +60,7 @@ The first part of guild town control is in. It is open to the developers first, 
   | **Market Day** | A tenth off at the town's shops, for everyone | - |
   | **Open Gates** | Every home in town is open to all | Standing +3 |
   | **Curfew** | Guards are much tougher at night, and crimes there cost double reputation | Standing -2 |
-  | **Festival** | Everyone who comes to town gets **+5 to every attribute for a day** | Standing +10; 2,500 Drakes (a crown 10,000) |
+  | **Festival** | Everyone who comes to town gets **+5 to every attribute for a game day** (two real hours) | Standing +10; 2,500 Drakes (a crown 10,000) |
   | **Levy** | A tenth of what's gathered near the town goes to its stockpile | Standing -2 |
   | **Bounty** | World of Daggerfall camps near the town drop double loot, and the treasury pays **20 Drakes** for each camp you clear, up to 5 a day, from what you set aside | the set-aside |
 
@@ -94,7 +94,7 @@ The first part of guild town control is in. It is open to the developers first, 
 
 ## The Royal Tourney (online)
 - **A crown's Edict.** A crown's guild can proclaim a **Royal Tourney** for the coming week. It costs **5,000 Drakes**, set aside as the week's prize.
-- **The ring.** All that week a duel ring stands at the castle's square in the crown's city. Open the town's Notice Board, go to its Seat tab and choose **Enter the Royal Tourney** (or **Watch**).
+- **The ring.** All that week a duel ring stands in the crown city's palace square, before the palace door. It moves to the castle's entrance in a later update. Open the town's Notice Board, go to its Seat tab and choose **Enter the Royal Tourney** (or **Watch**).
 - **Bouts.** To challenge a contender, open their card and press **Challenge**. To accept a challenge made to you, press **Challenge** on the challenger's card within 30 seconds. One bout fights at a time: both fighters start whole on their marks, and after a three-second countdown only the two of them can strike each other.
   - The server referees every blow, and you can't leave the ring during a bout.
   - A fall ends the bout. Five minutes with no fall is a draw, and a fighter who leaves the room loses.
@@ -125,7 +125,7 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The world moves under the war.** Each week, each kingdom, the Marches and the Free Lands have a **Tide**. The Seat tab shows this week's and next week's for the seat's land, so you can plan for the next Turning. Tides run only while a Season is counted.
 - **The Tides that touch the seats:**
   - **Plague**: the Watch counts half, and Festivals cost double.
-  - **Daedric Incursion**: gate kills give double influence.
+  - **Daedric Incursion**: gate kills give double influence and double Drakes.
   - **Royal Wedding**: Festivals cost half, and every held seat gains 3 Standing.
   - **Tax Revolt**: a Tithe above 5% costs 3 more Standing.
 - **The Tides that touch the economy:**
@@ -156,7 +156,7 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The Ram Kit.** Carpenters can make the **Ram Kit** at Carpentry 60 from 40 Oak Planks, 20 Iron Ingots and 4 Bear Hides. It goes to your Stores and never to your pack. A guild pledged to a seat posts a writ for Ram Kits to fill its **Siege Camp**; each kit counts as 108 Drakes of materials. A seat's own stockpile and the guild Stores don't take them.
 
 ## Fortifications in battle (online)
-- **The Gatehouse.** A crown's castle has a **Gatehouse**, and a palace gains one once its holder raises it. It stands at the Throne with **20,000** health, half again for each tier. While it stands, the attackers cannot take the Throne, however many banners they hold. Attackers break it with their weapons, each blow dealing a tenth of its damage, and with **Rams**. When it falls, it is **breached** and the Throne is open.
+- **The Gatehouse.** A crown always has a **Gatehouse**, and a palace gains one once its holder raises it. It stands at the Throne, the palace door, with **20,000** health, half again for each tier. While it stands, the attackers cannot take the Throne, however many banners they hold. Attackers break it with their weapons, each blow dealing a tenth of its damage, and with **Rams**. When it falls, it is **breached** and the Throne is open. At a crown, the Gatehouse and the Throne move to the castle's entrance in a later update.
 - **The Rams.** The Ram Kits a guild's Siege Camp sent become **Rams** at the gate, one at a time. A Ram has **3,000** health (**4,500** if a Siegewright fights for the attackers). While two attackers stand within 3 m of it, it strikes the Gatehouse for **500** every ten seconds. Defenders can hack it apart with their weapons. When one is destroyed, the next arrives with the attackers' next wave.
 - **The Walls.** Each tier of the Walls brings the defenders back **3 seconds sooner** after they fall.
 - **On your screen.** The siege bar shows the Gatehouse's and the Ram's health, the Ram's next stroke, the Rams still in the camp and the Walls' tier. A swing near the gate strikes the Gatehouse (attackers) or the Ram (defenders) when no enemy is in reach.
@@ -187,10 +187,16 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The Chronicle** now says how long a captured seat's siege lasted, and what Conscription and fealty actually paid.
 - **The Hall of Records** can be read from every seat's board, and from the shelves in the three crown castles.
 - **A battle nobody finished** is void at the Turning: the Sellswords' fees go home, and the challenger keeps its Right for next week.
-- **A seat struck from the registry** returns its holder's claim fee.
+- **A seat struck from the registry** returns its holder's claim fee, if the Charter was won this Season and the guild's treasury has room for it.
 - **Season 1's Keepers.** A Charter won at Season 1's first Turning now counts as held for the whole Season.
 - **The Tithe on a split sale** is now taken on the whole sale, as the market tax is.
 - **The Seat tab** reloads after every act, and the Relinquish button resets itself after four seconds.
+- **The Market Hall's Tithe.** The extra Tithe points a Market Hall gives can now be set at the board.
+- **Revolts.** A revolt's defenders no longer need to have contributed to the guild the week before.
+- **A crown's Gatehouse** stands from the start, and the Seat tab now shows it.
+- **The Bounty** Edict's words now say "near the town".
+- **The Apothecary** can't be raised until the professions it serves are in.
+- **The Daedric Incursion's** words now say gate kills give double Drakes too.
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.
@@ -199,7 +205,7 @@ The first part of guild town control is in. It is open to the developers first, 
 ---
 
 ### For the team
-- Apply migrations **`0048_town_seats.sql`**, **`0049_seat_influence.sql`**, **`0050_seat_turning.sql`**, **`0051_seat_holding.sql`**, **`0052_seat_battles.sql`**, **`0053_seat_siege_results.sql`**, **`0054_crown_edicts.sql`**, **`0055_royal_tourney.sql`**, **`0056_fealty_pacts.sql`**, **`0057_orc_raids.sql`** **`0058_season_ribbons.sql`**, **`0059_audit_seats.sql`**, **`0060_masonry.sql`**, **`0061_seat_forts.sql`**, **`0062_seat_works_peace.sql`**, **`0063_seat_works_battle.sql`** and **`0064_seat_revolts.sql`** (with the guild halls' 0046 and 0047, after main's 0044 and 0045) to production D1 and deploy the account service (**`acct61`**).
+- Apply migrations **`0048_town_seats.sql`**, **`0049_seat_influence.sql`**, **`0050_seat_turning.sql`**, **`0051_seat_holding.sql`**, **`0052_seat_battles.sql`**, **`0053_seat_siege_results.sql`**, **`0054_crown_edicts.sql`**, **`0055_royal_tourney.sql`**, **`0056_fealty_pacts.sql`**, **`0057_orc_raids.sql`**, **`0058_season_ribbons.sql`**, **`0059_audit_seats.sql`**, **`0060_masonry.sql`**, **`0061_seat_forts.sql`**, **`0062_seat_works_peace.sql`**, **`0063_seat_works_battle.sql`**, **`0064_seat_revolts.sql`** and **`0065_seat_hall.sql`** (with the guild halls' 0046 and 0047, after main's 0044 and 0045) to production D1 and deploy the account service (**`acct61`**).
 - **The siege blackout.** The relay's deploy now waits while a siege is live or starts within 30 minutes (it asks the account service's public `/v1/seats/sieges/live`). Dispatch it with **force** to deploy at once - a forced deploy during a siege voids it. The account deploy now waits up to five and a half hours for the relay.
 - **The economy model**: `node tools/seatEconomy.mjs` re-runs the guild-week table from the live law files (`--runs`, `--seed`, `--json`).
 - **Deploy the relay (`world149`).** It sends the Watch's ticks (world143), carries the seats' titles (world144), referees a siege's room (world145), fights its battle by the service's pass (world146), keeps a Royal Tourney's room (world147), carries a Season's banner ribbon, with a wider token bound (world148), and fights a siege behind its works - the Gatehouse, the Rams and the Walls - with the Barracks' guards and a revolt's rising (world149). Deploy it before the account service: an older relay refuses a token with a seat title in it.

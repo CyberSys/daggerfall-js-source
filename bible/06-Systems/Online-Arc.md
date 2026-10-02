@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7543` read, on one physical line:
+`src/scenes/worldModes.js:7562` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -10443,7 +10443,8 @@ market twice, NOTICE1's cache aimed at the town read alone).
 ### SEAT1a - every palace a seat: the derivation, the witnessed registry, the rings, the arrival lines, the banners
 
 Rides the undeployed `acct47` (migration 0048 - `acct45` and 0047 until main's PATREON-LINK, `acct44` and 0046 until main's MARKET-ANY); no relay change. Behind `SEATS_OPEN`, shipped at `dev` (Seats-Arc 18:
-the developers see the seats first).
+the developers see the seats first). The arc's slice labels `acct47`-`acct60` are the branch's history: the arc deploys
+as `acct61`, and main's own `acct47` (BOULDERS) and `acct48` (MORE-NODES) are different releases.
 
 - **The derivation** (`src/systems/townSeats.js`, Seats-Arc 3.1): in the boot pass, over the rows `pickRegionHubs`
   reads - MAPS.BSA's own, a world-data mod's never - a crown seat is a location named for Daggerfall, Wayrest or
@@ -11601,8 +11602,10 @@ service's own unbumped - one deploy with part (a)).
   pass. A Tourney carries none (no holder's works to fight behind).
 - **The Gatehouse** (6.2): vitality 20,000, half again a tier (7.5); it stands at the Throne's point - DECIDED: 6.2's
   crown Gatehouse "at the castle's entrance" and its Throne "the castle entrance" are one place, and a palace's own gate
-  stands at its palace door, its Throne - a body 3 m about the point. An attacker's melee blow takes a tenth of its
-  clipped damage into it (at least 1); at nought it is BREACHED. While a Gatehouse stands unbreached the Throne is barred
+  stands at its palace door, its Throne - a body 3 m about the point. NOT YET (the audit of the arc, 2026-10-02): the
+  castle's entrance itself - `siegeField.js` siegeFieldOf's `castle` is never passed by its one caller
+  (`scenes/world.js`), so a crown's Throne, and with it its Gatehouse, stand at the PALACE door (Seats-Arc 6.2). An
+  attacker's melee blow takes a tenth of its clipped damage into it (at least 1); at nought it is BREACHED. While a Gatehouse stands unbreached the Throne is barred
   - a crown's opens on 3 of 4 banners AND the breach, a palace's with a gate of its own on 2 of 3 and the breach
   (SEAT2a's DECIDED - the banners alone, until the Gatehouse was raised - moved).
 - **The Rams** (6.2): the camp's first stands at the Gatehouse from the start (DECIDED: brought to the gate - nobody

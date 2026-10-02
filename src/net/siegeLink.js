@@ -73,8 +73,13 @@ export function foldSiege(s, g, now) {
       return { ...s, roll: { ...s.roll, [g.id]: { hp: was?.max ?? 0, max: was?.max ?? 0, down: false, side: was?.side ?? null } }, heardAt: now };
     }
     case 'f': return { ...s, banners: g.b, throne: g.th, startMs: g.s, endMs: g.e, counts: g.n, gate: g.g ?? null, ram: g.r ?? null, walls: g.w ?? 0, heardAt: now,   // SEAT2b part two (b): the works
-      npcs: (g.np ?? []).map(([id, code, hp, max, x, z, tx, tz, down, atk]) => ({ id, kind: SIEGE_NPC_KINDS[code] ?? '', hp, max, x, z, tx, tz, at: now, down: down === 1, atk,
-        hurtAt: s.npcs.find((n) => n.id === id)?.hurtAt ?? -Infinity })),   // SEAT2b part two (c): the relay's own fighters
+      npcs: (g.np ?? []).map(([id, code, hp, max, x, z, tx, tz, down, atk]) => {
+        const was = s.npcs.find((n) => n.id === id) ?? null;
+        // AUDIT SEATS-2 C2: one already down and still down keeps when it fell (and where) - every second's frame carries the
+        // fallen too, and a fall begun again each second would replay it for as long as the body lies
+        if (was?.down && down === 1) return { ...was, hp, max };
+        return { id, kind: SIEGE_NPC_KINDS[code] ?? '', hp, max, x, z, tx, tz, at: now, down: down === 1, atk, hurtAt: was?.hurtAt ?? -Infinity };
+      }),   // SEAT2b part two (c): the relay's own fighters
       revolt: g.v === 1 };
     case 'end': return { ...s, end: { r: g.r, a: g.a }, receipt: g.rc ?? s.receipt, heardAt: now };
     case 'no': return { ...s, no: g.m, heardAt: now };

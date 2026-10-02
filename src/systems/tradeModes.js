@@ -499,7 +499,7 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    (:161) feeds worldModes.js:2375-2395, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9883), the entry point the magic arc owed.
+//    (worldModes.js:9903), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:249,
 //    spent letters-before-coins by deductGold at court.js:291, and

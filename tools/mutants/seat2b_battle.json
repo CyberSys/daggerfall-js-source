@@ -375,7 +375,7 @@
   {
     "name": "SEAT2b2b-relay-break-unsaid",
     "file": "server/src/index.js",
-    "old": "      if (gate) siegeBreach(b); else siegeRamDown(b, now);\n      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);",
+    "old": "      if (gate) siegeBreach(b); else siegeRamDown(b, now);\n      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s), now)]);",
     "new": "      if (gate) siegeBreach(b); else siegeRamDown(b, now);",
     "tests": [
       "test/seat2b_battle_relay.test.js"

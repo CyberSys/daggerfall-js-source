@@ -622,6 +622,17 @@ export function siegeNpcFell(b, n, now) {
   n.hp = 0; n.down = true; n.atk = null; n.tg = null;
   n.upAt = n.kind === 'guard' ? siegeNextWave(now, siegeWaveMs(b, 'defend')) : 0;
 }
+/** AUDIT SEATS-2 R1: WHERE A BLOW ON ONE OF THEM MAY COME FROM - a striker standing within its leash of its post and a
+ *  blow's reach beyond (`from` a pose in the room's units): ground it could come to and answer. A shaft or a spell from
+ *  farther lands on none of them, so none is felled from where it can never strike back. */
+export const siegeNpcInReach = (n, from) => !!n && !!from && Array.isArray(n.post)
+  && metresFlat(from.x, from.z, n.post[0], n.post[1]) <= (SIEGE_NPC[n.kind]?.leashM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0);
+/** AUDIT SEATS-2 R1: ONE OF THEM STRUCK MARKS ITS STRIKER (`sub`) at `now` - it comes for whoever struck it, the gate
+ *  host's own answer to a blow. */
+export function siegeNpcProvoked(n, sub, now) {
+  if (!n || n.down || !sub) return;
+  n.tg = sub; n.tgAt = now;
+}
 /** Whether `side`'s fighter may strike one of them - a foe of its own side's (SEAT2a's sides kept: a defender strikes no
  *  guard, an attacker no rebel). A heal reaches none (DECIDED: they are the relay's, never a side-mate's to mend). */
 export const siegeNpcFoe = (n, side) => !!n && (side === 'attack' || side === 'defend') && SIEGE_NPC[n.kind]?.side !== side;
@@ -841,7 +852,7 @@ const sideCode = (s) => (s === 'attack' ? 1 : s === 'defend' ? 2 : 0);
  * walks, in the room's units, whole.
  */
 export const siegeFieldFrame = (b, n, now = b.at) => ({
-  k: 'f', b: b.banners.map((bn) => [sideCode(bn.side), Math.floor(bn.raise), sideCode(bn.by)]), th: Math.floor(b.throne), s: b.startMs, e: b.endMs, n,
+  k: 'f', b: b.banners.map((bn) => [sideCode(bn.side), Math.floor(bn.raise), sideCode(bn.by)]), th: Math.min(Math.floor(b.throne), (SIEGE_THRONE[b.tier] ?? SIEGE_THRONE.palace).holdS), s: b.startMs, e: b.endMs, n,   // AUDIT SEATS-2 R3: the Throne's seconds held to its hold - a late beat past it never outruns the wire's bound
   ...(b.gate ? { g: [b.gate.hp, b.gate.max] } : {}),
   ...(b.gate && (b.ram || b.ramsLeft > 0) ? { r: b.ram ? [b.ram.hp, b.ram.max, Math.floor(b.ram.charge), b.ramsLeft] : [0, 0, 0, b.ramsLeft] } : {}),
   ...(b.works?.walls > 0 ? { w: b.works.walls } : {}),
