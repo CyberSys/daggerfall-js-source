@@ -503,7 +503,16 @@ step, the steps over the quad's two triangles (GetInterpolatedHeight, the
 drawn ground's own cut), the height a step times size.y over kMaxHeight.
 Declared: the port rounds a height to its step (Unity's own rounding is in
 no source the port has; the sea is step 579 either way).
-`01-Overview/Field-Bugs-2026-09-29c.md`. The Terrain form reads the player's
+`01-Overview/Field-Bugs-2026-09-29c.md`. SEA-SHOAL (FIELD BUGS 2026-10-02,
+Mac: "your ship can get stuck at sea in place"; a departure): a CARVED cell's
+ground is its seafloor - `csaTerrainOf` answers the carve's floor there
+(DW-B's law, the host's `heightAt`'s), the heightmap elsewhere. World of
+Daggerfall levels a site's ground after the tiles are read, lerping every
+sample of its tile toward the site's mean (WOD's "The flatten"): a site a
+few metres over the sea lifted its whole pixel's sea over the line, under
+a sea Deep Waters carves and draws, and every node there read land. A sea
+the mod has not carved reads its heightmap still.
+`01-Overview/Field-Bugs-2026-10-02.md`. The Terrain form reads the player's
 terrain unless one is given; the pixel form reads its own pixel's, and
 nothing where none is built. UpdateAllBoatsNodes is kept as the C# has
 it: nothing calls it, and its `MapPixel == CurrentMapPixel` compares two
@@ -652,6 +661,25 @@ TurnCurrent set to it at once. The nodes (CSA-C) decide the beach: more
 than three off water is beached - stopped dead, no move - and CanSail
 wants all five (the sails' arm, CSA-E's).
 
+FIELD BUGS 2026-10-02 (Mac: "ships get stuck in the world of daggerfall
+ocean rocks"; `01-Overview/Field-Bugs-2026-10-02.md`):
+- ROCK-FREE: the world host answers the sweep collider by collider
+  (`player/collider.js` `hullSweepAll`) - a bucket's parts, each `addMesh`
+  a MeshCollider, as World of Daggerfall's objects are. A part the sphere
+  overlaps at the start answers once, where it touches (the port's point,
+  not the zero point - a departure); a part holding the sphere's centre
+  answers nothing (Unity's sweep reads no back face); the rest are swept.
+  A ledge under her had answered the zero point for its whole pixel and
+  hidden the rock ahead; a rock round her had held her in for good.
+- ROCK-AWAY (a departure): the response takes her way INTO what she met
+  and no more - under way away from it she keeps her way, at rest or into
+  it the C#'s push; the current is taken only carrying her onto it. A rock
+  astern of a ship under sail had held her to a metre a second.
+- BEACH-READ (a departure): a beached boat lying still has her nodes read
+  again each frame (none where the player stands on no built terrain),
+  her collision with them the frame she comes off - the C# reads them
+  only when she moves, and a beached boat never moves.
+
 ### The cargo
 
 UpdateBoatCargoMod weighs the cargo, and (by the Cargo switches) the
@@ -727,11 +755,14 @@ Carrack's prefab has no Cargo modifier, so its threshold is nought - any
 weight clamps its mod to 0 (it can neither row nor turn, and says it
 needs a bigger boat) and no weight at all makes it NaN, which Unity's
 transform refuses with its own complaint; the oars ask the node one
-along - forward the centre's, back the bow's, the right strafe the
-stern's, the left the starboard's, the port node never; a right turn
-costs fatigue and a left one never; with no key held the oars coast at
-the sails' 0.2; the first sweep keeps a start overlap's zero point, a
-direction from the scene's origin; the borrowed ship is the small one
+along - forward the centre's, back the bow's (the STERN's since ASTERN,
+FIELD BUGS 2026-10-02, a departure: a bow on a shore could not back off
+it), the right strafe the stern's, the left the starboard's, the port node
+never; a right turn costs fatigue and a left one never; with no key held
+the oars coast at the sails' 0.2; the first sweep keeps a start overlap's
+zero point, a direction from the scene's origin (the world host answers
+an overlap where it touches since ROCK-FREE; the arm stands for any sweep
+that answers zero); the borrowed ship is the small one
 and the scenes taken back are the large one's (5, 5 and a building key
 16777216); StopSailingDelayed's Update runs on after it, so the oars
 pull again that frame and the vector is left behind until the next

@@ -96,6 +96,59 @@ export const CREW_SAY_RANGE = 32;
 export const CREW_SAY_FADE_FROM = 12;
 export const CREW_SAY_MAX = 6;
 export const CREW_SAY_W = 190;
+/** FIELD BUGS 2026-10-02 CREW-SAY (Mac: "your crew mates speaking sometimes seems like gibberish"): THE WORDS NEVER OVER
+ *  EACH OTHER. Every bubble stood on its own head with nothing between them, at 0.62 of an opaque ground, the farther
+ *  painted OVER the nearer: the chorus - every hand at once, each copy behind its own name, so each wrapped at its own
+ *  words - stood up to six deep; a talk's two lines stood side by side over two hands side by side; and a bubble's foot,
+ *  6 px over the head point a hand's bar stands on, covered a mate's name and health over his bar. Read through each
+ *  other, they read as gibberish. `layoutCrewLines` now lays them: a line said by two or more at once once, over the
+ *  nearest of them and by no name (it is theirs together); each foot CREW_SAY_LIFT px over the head, clear of the bar and
+ *  the name over it; each farther bubble lifted over every nearer one it would cover, CREW_SAY_GAP apart; the nearest
+ *  drawn over the rest. A bubble's box is read off its words (`crewSayBox`: the 11px face's widest-case advance, its
+ *  lines at the width it wraps to) - no page layout read in a frame. */
+export const CREW_SAY_LIFT = 26;   // a mate's bar (5) + its gap (2) + his name (10, its outline 2) + the bubble's tail (5) + 2
+export const CREW_SAY_GAP = 3;
+export const CREW_SAY_CHAR_W = 6.2;
+export const CREW_SAY_LINE_H = 11 * 1.3;
+export const CREW_SAY_PAD_W = 14, CREW_SAY_PAD_H = 5, CREW_SAY_RING = 1;   // the sheet's padding (2px 7px 3px) and ring (0 0 0 1px)
+const CREW_SAY_WRAP_SLACK = 0.85;
+/** A bubble's box in CSS px at the HUD's `scale`, off its words: wider than it can be, as many lines as it can need -
+ *  its words to the sheet's max-width (a content box's: the padding and the ring stand outside it), its padding, its
+ *  ring. */
+export function crewSayBox(text, scale = 1) {
+  const run = String(text ?? '').length * CREW_SAY_CHAR_W;
+  const lines = Math.max(1, Math.ceil(run / (CREW_SAY_W * CREW_SAY_WRAP_SLACK)));
+  return { w: (Math.min(CREW_SAY_W, run) + CREW_SAY_PAD_W + 2 * CREW_SAY_RING) * scale, h: (lines * CREW_SAY_LINE_H + CREW_SAY_PAD_H + 2 * CREW_SAY_RING) * scale };
+}
+/**
+ * The lines laid out: `points` `[{ x, y, text, name?, kind, distance }]` (each head's screen point; `name` a hand's own,
+ * said before his line). Answers the CREW_SAY_MAX nearest lines to draw, nearest first, each `{ x, y, text, kind,
+ * distance, lift }` - `text` with its speaker's name when he says it alone, `lift` the px it stands over its own place.
+ */
+export function layoutCrewLines(points, { scale = 1 } = {}) {
+  const said = new Map();
+  for (const p of [...(points ?? [])].filter(Boolean).sort((a, b) => a.distance - b.distance)) {
+    const g = said.get(p.text);
+    if (g) g.n++; else said.set(p.text, { p, n: 1 });   // nearest first: a chorus stands over its nearest singer
+  }
+  const out = [], placed = [];
+  for (const { p, n } of said.values()) {
+    if (out.length >= CREW_SAY_MAX) break;
+    const text = n === 1 && p.name ? `${p.name}: ${p.text}` : p.text;
+    const { w, h } = crewSayBox(text, scale);
+    const foot = p.y - CREW_SAY_LIFT * scale;
+    let bottom = foot;
+    for (let k = 0; k <= placed.length; k++) {
+      const under = placed.find((q) => Math.abs(q.x - p.x) < (q.w + w) / 2 && bottom > q.top && bottom - h < q.bottom);
+      if (!under) break;
+      bottom = under.top - CREW_SAY_GAP * scale;   // over the nearer one it would cover
+    }
+    const lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));   // whole pixels (the face's crispness), rounded UP: the gap whole
+    placed.push({ x: p.x, w, top: foot - lift - h, bottom: foot - lift });   // the box as it is drawn
+    out.push({ x: p.x, y: p.y, text, kind: p.kind, distance: p.distance, lift });
+  }
+  return out;
+}
 export const TAG_FADE_FROM = 150;
 export const TAG_FADE_TO = 0.55;
 /**
@@ -917,7 +970,7 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
  */
 let saySlots = [];
 export function drawCrewLines(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
-  const want = covered ? [] : [...(points ?? [])].sort((a, b) => a.distance - b.distance).slice(0, CREW_SAY_MAX);
+  const want = covered ? [] : layoutCrewLines(points, { scale });   // CREW-SAY: laid out, never over each other
   if (!tagRoot) {
     if (!want.length || !doc?.createElement) return;
     injectSheets(doc);
@@ -938,8 +991,9 @@ export function drawCrewLines(points, { covered = false, doc = globalThis.docume
     const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
     set('text', p.text, (v) => { slot.n.textContent = v; });
     set('kind', p.kind === 'sing' || p.kind === 'shout' ? `dfnaval-say ${p.kind}` : 'dfnaval-say', (v) => { slot.n.className = v; });
-    set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) scale(${scale}) translate(-50%, calc(-100% - 6px))`, (v) => { slot.n.style.transform = v; });
+    set('at', `translate(${Math.round(p.x)}px, ${Math.round(p.y - p.lift)}px) scale(${scale}) translate(-50%, calc(-100% - ${CREW_SAY_LIFT}px))`, (v) => { slot.n.style.transform = v; });
     set('a', String(Math.round(tagAlpha(p.distance, CREW_SAY_RANGE, CREW_SAY_FADE_FROM) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+    set('z', String(CREW_SAY_MAX - i), (v) => { slot.n.style.zIndex = v; });   // CREW-SAY: the nearest over the rest
   });
 }
 

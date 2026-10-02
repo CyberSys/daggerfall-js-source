@@ -218,7 +218,7 @@ test('CSA-D: rowing forward - Update pins the player and freezes the motor, Move
   assert.equal(s.rt.properties.moveAccel(), f(0.2));
 });
 
-test('CSA-D: the turns - right is TurnTarget 1 at turnSpeedOar 20 by turnAccelOar 10, the boat and the player\'s yaw turning together; backwards reverses the helm; Run strafes at half; the nodes the C# asks are one along (kept)', () => {
+test('CSA-D: the turns - right is TurnTarget 1 at turnSpeedOar 20 by turnAccelOar 10, the boat and the player\'s yaw turning together; backwards reverses the helm; Run strafes at half; the nodes the C# asks are one along (kept, but astern - FIELD BUGS 2026-10-02 ASTERN)', () => {
   const s = scene({ held: ['MoveRight'] });
   const boat = s.place(1, 0);
   s.rt.StartSailing(boat);
@@ -242,7 +242,8 @@ test('CSA-D: the turns - right is TurnTarget 1 at turnSpeedOar 20 by turnAccelOa
   s.frame();
   assert.equal(s.rt.state.TurnTarget, 0);
   assert.deepEqual(s.rt.state.MoveVectorTarget, [0.5, 0, 0]);
-  // the node the C# asks for each: forward - the CENTRE (0); back - the bow (1); right strafe - the stern (2); left - the starboard (3)
+  // the node the C# asks for each: forward - the CENTRE (0); back - the bow (1), the port's the STERN (2: FIELD BUGS
+  // 2026-10-02 ASTERN, fb1002_seaheld); right strafe - the stern (2); left - the starboard (3)
   const n = boat.NodeTileMapIndices;
   s.terrains[0].tileMap.fill(0);
   s.held.clear(); s.held.add('MoveForwards');
@@ -250,7 +251,8 @@ test('CSA-D: the turns - right is TurnTarget 1 at turnSpeedOar 20 by turnAccelOa
   const target = (nodes, keys) => { s.held.clear(); for (const k of keys) s.held.add(k); s.rt.state.lastBoatPosition = boat.GameObject.position; s.rt.state.lastBoatDirection = forwardOf(boat.GameObject); n.splice(0, 5, ...nodes); s.rt.update(); return [...s.rt.state.MoveVectorTarget]; };
   assert.deepEqual(target([1, 0, 0, 0, 0], ['MoveForwards']), [0, 0, 0], 'the centre off water refuses forward');
   assert.deepEqual(target([0, 1, 0, 0, 0], ['MoveForwards']), [0, 0, 1], '...the bow does not');
-  assert.deepEqual(target([0, 1, 0, 0, 0], ['MoveBackwards']), [0, 0, 0], 'the bow off water refuses backward');
+  assert.deepEqual(target([0, 1, 0, 0, 0], ['MoveBackwards']), [0, 0, -1], 'ASTERN: the bow off water backs off it');
+  assert.deepEqual(target([0, 0, 1, 0, 0], ['MoveBackwards']), [0, 0, 0], 'ASTERN: the stern off water refuses backward');
   assert.deepEqual(target([0, 0, 1, 0, 0], ['Run', 'MoveRight']), [0, 0, 0], 'the stern refuses the right strafe');
   assert.deepEqual(target([0, 0, 0, 1, 0], ['Run', 'MoveLeft']), [0, 0, 0], 'the starboard node refuses the left one');
   assert.deepEqual(target([0, 0, 0, 0, 1], ['Run', 'MoveLeft']), [-0.5, 0, 0], 'the port node is asked by nothing');

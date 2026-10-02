@@ -106,6 +106,12 @@ closed. The C# is `float` throughout and the port runs every step
 through `Math.fround`, so the samples it writes are the ones DFU's
 `SetHeights` received.
 
+The lerp reaches EVERY sample of the tile, so a site a few metres over the
+sea lifts its whole pixel's sea over Come Sail Away's 34 m line (the sea is
+0.4 of a heightmap step from reading land) while the tiles stay water: with
+Deep Waters on, every boat there read beached. SEA-SHOAL (FIELD BUGS
+2026-10-02) has the boat read a carved cell's seafloor; the flatten stands.
+
 Because the flatten runs after texturing and before nature, three
 things follow and all three are the reference's: the ground's TILES are
 the unflattened terrain's (a levelled site keeps the grass and rock

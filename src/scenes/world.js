@@ -5568,7 +5568,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         mapPixelX: p.px, mapPixelY: p.py,
         get position() { return state.pixelTranslation(p.px, p.py, [0, 0, 0]); },   // the terrain's transform: the pixel's corner, the vertical compensation
         get tileMap() { return p.tilemapBytes ?? null; },   // DaggerfallTerrain.TileMap's `.r`, converted as UpdateTileMapData writes it (terrainGen.js)
-        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return terrainSampleHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight over the terrain's own y - FIELD-CSA2: at Unity's heightmap precision, the flat sea 33.994 under the mod's 34 (the drawn ground's floats read 34.000001: every node on the sea land, no boat sailed)
+        // FIELD BUGS 2026-10-02 SEA-SHOAL: a carved cell's ground is its seafloor (DW-B's law, heightAt's) - World of
+        // Daggerfall's flatten lifts a coastal site's samples toward its average AFTER the tiles are read, so a sea the
+        // mod carved read land under the heightmap (the sea is 6 mm under the line): a boat beached there, at sea
+        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); const lx = c(q[0] - o[0]), lz = c(q[2] - o[2]); const fl = p.deepWaters ? deepWaters?.floorLocalY(p, lx, lz) : null; return fl ?? terrainSampleHeightAt(p.samples, lx, lz, p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight over the terrain's own y - FIELD-CSA2: at Unity's heightmap precision, the flat sea 33.994 under the mod's 34 (the drawn ground's floats read 34.000001: every node on the sea land, no boat sailed)
       };
       _csaTerrains.set(p, t);
     }
@@ -5741,7 +5744,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   function csaSphereCastAll(o, r, d, dist) {
     const out = [];
     const col = csaModeCollider();
-    for (const h of col?.sphereCastAll?.(o, r, d, dist) ?? []) {
+    // FIELD BUGS 2026-10-02 ROCK-FREE: the hull's own sweep (player/collider.js hullSweepAll), collider by collider as
+    // Unity's - a rock holding her holds her no more, a ledge she overlaps hides no other rock of its pixel - and an
+    // overlap answered where it touches, never the zero point; one deeper under her sphere's centre than it is off it
+    // (a ledge beneath her) has no side to push her from (flattened, it is any way at all), and is dropped
+    for (const h of col?.hullSweepAll?.(o, r, d, dist) ?? []) {
+      if (h.start && o[1] - h.point[1] > Math.hypot(h.point[0] - o[0], h.point[2] - o[2])) continue;
       const b = _csaBuckets.get(h.key);
       out.push({ point: h.point, distance: h.dist, name: b ? String(h.key) : String(h.key ?? 'StaticGeometry'), root: b ? b.boat.GameObject : null, terrain: false, entity: false });
     }
@@ -7234,9 +7242,11 @@ export async function bootWorld(canvas, renderer, params, status) {
         let key = _sayKeys.get(l.member);
         if (key == null) { key = `say:${++_sayKey}`; _sayKeys.set(l.member, key); }
         if (crewSight.blocked(player.collider, eye, key, l.head)) continue;
-        // SHIP-CREW: a hand of mine speaks by his name (his first) - the sea's crews and another player's by none
+        // SHIP-CREW: a hand of mine speaks by his name (his first) - the sea's crews and another player's by none.
+        // FIELD BUGS 2026-10-02 CREW-SAY: the name rides beside the line, so a line many say at once (the chorus) is laid
+        // once and by no name - six copies each behind its own name stood over each other (ui/navalHud.js layoutCrewLines)
         const name = csa.boats.includes(l.key) ? naval?.crewName?.(l.key, l.member.i) : null;
-        points.push({ x: at.x, y: at.y, text: name ? `${name.split(' ')[0]}: ${l.text}` : l.text, kind: l.kind, distance: d });
+        points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, kind: l.kind, distance: d });
       }
     }
     drawCrewLines(points, { covered, scale: enhancedHudScale() });

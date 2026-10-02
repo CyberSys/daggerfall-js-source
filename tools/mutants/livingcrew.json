@@ -326,8 +326,8 @@
   {
     "name": "SAY-every-line",
     "file": "src/ui/navalHud.js",
-    "old": "[...(points ?? [])].sort((a, b) => a.distance - b.distance).slice(0, CREW_SAY_MAX);",
-    "new": "[...(points ?? [])].sort((a, b) => a.distance - b.distance);",
+    "old": "    if (out.length >= CREW_SAY_MAX) break;",
+    "new": "    if (false) break;",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -344,8 +344,8 @@
   {
     "name": "SAY-never-hidden",
     "file": "src/ui/navalHud.js",
-    "old": "  const want = covered ? [] : [...(points ?? [])]",
-    "new": "  const want = [...(points ?? [])]",
+    "old": "  const want = covered ? [] : layoutCrewLines(points, { scale });",
+    "new": "  const want = layoutCrewLines(points, { scale });",
     "tests": [
       "test/livingcrew.test.js"
     ]

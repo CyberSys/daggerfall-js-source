@@ -1108,7 +1108,11 @@ with crew naturally getting into position and fighting enemies".
   the mod's people flats on and above her deck stand down in their places (their renderer off - the pool's flats pass
   skips them; a galley's rowers below never touched); past it they stand again. The lines over their heads go to the
   naval HUD (`ui/navalHud.js drawCrewLines`: the CREW_SAY_MAX nearest, a song's in brass, a shout's in red, fading to
-  CREW_SAY_RANGE, behind the land by the crew's own sight cache). AUDIT NAV2: a re-keyed ship keeps her crew and a hold
+  CREW_SAY_RANGE, behind the land by the crew's own sight cache). CREW-SAY (FIELD BUGS 2026-10-02, Mac: "your crew
+  mates speaking sometimes seems like gibberish"): laid by `layoutCrewLines` - a line two or more say at once once,
+  over the nearest and by no name; a line said alone by its speaker's first name; each foot clear of a mate's bar and
+  name; each farther bubble lifted over every nearer one it would cover, the nearest drawn over the rest. They had
+  stood over each other in 56% of the frames with two lines up, the chorus up to six deep. AUDIT NAV2: a re-keyed ship keeps her crew and a hold
   let go stands her again whole (F6: a room's hand-over stood a second crew beside the flats the first switched back
   on, down for good once she left); a ship going down keeps her living crew to the end, her flats down (F45: dropped
   at the sinking, the mod's static flats in their place); with the arc off no living crew stands - Come Sail Away as

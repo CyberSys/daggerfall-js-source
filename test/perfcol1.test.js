@@ -175,6 +175,9 @@ test('PERF-COL1: the walks keep their laws - the live local point per triangle, 
   assert.match(overlaps, /if \(!sphereTouchesBox\(lx, ly, lz, radius, bucket\.min, bucket\.max\)\) continue;/, 'the overlap test at its bare radius (its narrow phase is < r2, no skin)');
   assert.match(overlaps, /const marks = rayMarks\(bucket\), stamp = RAY_STAMP;/);
   // FB0930-FOE-RAYS: the ray's set is a per-triangle stamp now (rayMarks), and FB0930-FRAME's sphere walks share it, so
-  // the module scratch is the one Set left (sphereCastAll's, Come Sail Away's hull sweep)
-  assert.equal((src.match(/new Set\(\)/g) || []).length, 1, 'the module scratch alone - the sphere walks and the ray stamp');
+  // the module scratch is the one Set left (sphereCastAll's, Come Sail Away's hull sweep) - and FIELD BUGS 2026-10-02
+  // ROCK-FREE's two beside it, hullSweepAll's own (the parts holding the hull's centre, the parts its spokes pass
+  // through), module scratch as it is: made once, cleared a bucket at a time, never a Set a walk
+  assert.equal((src.match(/new Set\(\)/g) || []).length, 3, 'the module scratch alone - the sphere walks and the ray stamp, and the hull sweep\'s two');
+  assert.deepEqual(src.match(/^const \w+ = new Set\(\);/gm), ['const VISITED = new Set();', 'const SWEEP_HELD = new Set();', 'const SWEEP_PASS = new Set();'], 'each at the module\'s top level');
 });

@@ -27,7 +27,7 @@ import { boxColliderTriangles } from '../src/world/prefabColliders.js';
 import { musterOf, MOBILE, CREW_PER_HAND, GRAPPLE_S, HAND } from '../src/systems/naval/navalBoarding.js';
 import { classById } from '../src/systems/naval/navalShips.js';
 import { Boat, spawnBoat } from '../src/systems/comeSailAwayBoat.js';
-import { drawCrewLines, destroyNavalHud, tagAlpha, CREW_SAY_RANGE, CREW_SAY_FADE_FROM, CREW_SAY_MAX } from '../src/ui/navalHud.js';
+import { drawCrewLines, destroyNavalHud, tagAlpha, CREW_SAY_RANGE, CREW_SAY_FADE_FROM, CREW_SAY_MAX, CREW_SAY_LIFT } from '../src/ui/navalHud.js';   // FIELD BUGS 2026-10-02 CREW-SAY: the foot's lift
 import { MODELS, ctxFor } from './csaScene.mjs';
 import { sea, readyPool } from './navalSea.mjs';
 
@@ -376,7 +376,7 @@ test('LIVING CREW THE WORDS: a bubble a line over his head at the HUD\'s scale -
   assert.equal(says.length, CREW_SAY_MAX, 'the nearest six');
   assert.deepEqual(says.map((n) => n.textContent), pts.slice(0, CREW_SAY_MAX).map((p) => p.text));
   assert.deepEqual(says.slice(0, 3).map((n) => n.className), ['dfnaval-say sing', 'dfnaval-say shout', 'dfnaval-say']);
-  assert.equal(says[0].style.transform, 'translate(100px, 50px) scale(1.5) translate(-50%, calc(-100% - 6px))');
+  assert.equal(says[0].style.transform, `translate(100px, 50px) scale(1.5) translate(-50%, calc(-100% - ${CREW_SAY_LIFT}px))`);   // CREW-SAY: the nearest at its own place, its foot clear of a bar and a mate's name
   assert.equal(says[5].style.opacity, String(Math.round(tagAlpha(20, CREW_SAY_RANGE, CREW_SAY_FADE_FROM) * 100) / 100));
   assert.equal(says[0].style.opacity, '1');
   drawCrewLines([{ ...pts[0], text: 'again', x: 120 }], { scale: 1.5 });

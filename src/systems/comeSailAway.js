@@ -1314,9 +1314,11 @@ export function createComeSailAwayRuntime(deps) {
         } else state.oarModeTimer = f(state.oarModeTimer + dt());
       }
       let num3 = 0, num4 = 0, num5 = 0;
-      // the nodes the C# asks: forward the CENTRE's, back the bow's, right the stern's, left the starboard's (kept)
+      // the nodes the C# asks: forward the CENTRE's, back the bow's, right the stern's, left the starboard's (kept, but
+      // for one). FIELD BUGS 2026-10-02 ASTERN (a departure): back asks the STERN's, the water she backs into - asking the
+      // bow's, a bow run onto a shoal or a rock's foot refused the one way off it, and the centre's water let her row on in
       if ((has('MoveForwards') || deps.input?.toggleAutorun) && IsNodeOnWater(boat, 0)) num3 = 1;
-      else if (has('MoveBackwards') && IsNodeOnWater(boat, 1)) num3 = -1;
+      else if (has('MoveBackwards') && IsNodeOnWater(boat, 2)) num3 = -1;
       if (has('Run')) {
         if (has('MoveRight') && IsNodeOnWater(boat, 2)) num4 = 0.5;
         else if (has('MoveLeft') && IsNodeOnWater(boat, 3)) num4 = -0.5;
@@ -1366,7 +1368,10 @@ export function createComeSailAwayRuntime(deps) {
     if (deps.input.started(BOAT_ACTIONS.timeScaleReset)) ResetTimeScale();
   }
 
-  /** LateUpdate's sailing arm (4936-4956): the nodes and the collision when the boat moved, then the move. */
+  /** LateUpdate's sailing arm (4936-4956): the nodes and the collision when the boat moved, then the move.
+   *  FIELD BUGS 2026-10-02 BEACH-READ (a departure): a beached boat's nodes are read again every frame she lies still, and
+   *  the collision with them once she comes off. The C# reads them only when she moved, and a beached boat never moves -
+   *  so a reading the ground has since put right (a pixel's carve come after it, a terrain built again) held her for good. */
   function lateUpdateSailing() {
     const boat = state.CurrentBoat;
     const t = boat.GameObject;
@@ -1375,12 +1380,19 @@ export function createComeSailAwayRuntime(deps) {
       state.lastBoatPosition = t.position.map(f);
       state.lastBoatDirection = fwd.map(f);
       UpdateCurrentBoatNodes();
+    } else if (IsBeached(boat) && deps.playerTerrain() != null) {   // never the C#'s throw on a terrain not built, each frame
+      UpdateBoatNodes(boat);
+      if (!IsBeached(boat)) CheckCollision(boat);
     }
     if (!IsBeached(boat)) {
       let val = inverseTransformDirection(t, state.currentVector);
       if (!vEquals(state.CollisionVector, [0, 0, 0])) {
-        state.MoveVectorCurrent = vAdd(vProjectOnPlane(state.MoveVectorCurrent, state.CollisionVector), state.CollisionVector);
-        val = vProjectOnPlane(val, state.CollisionVector);
+        // FIELD BUGS 2026-10-02 ROCK-AWAY (a departure): the response takes the way INTO what she met, as the C# does
+        // - and her way off it, and the current's, the C# took too: a rock astern of a ship sailing away (or ahead of
+        // one backing off) held her to the push's one metre a second for as long as it lay in her sweep's reach, a
+        // hull's length and more. Under way away from it, she keeps her way; at rest, or into it, the C#'s push.
+        if (vDot(state.MoveVectorCurrent, state.CollisionVector) <= 0) state.MoveVectorCurrent = vAdd(vProjectOnPlane(state.MoveVectorCurrent, state.CollisionVector), state.CollisionVector);
+        if (vDot(val, state.CollisionVector) < 0) val = vProjectOnPlane(val, state.CollisionVector);
       }
       state.velocityCurrent = vAdd(state.MoveVectorCurrent, val);
       const before = t.worldMatrix();
