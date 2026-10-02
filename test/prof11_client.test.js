@@ -215,7 +215,7 @@ test('PROF11 pages: the Mason\'s Bench at a General Store - the cut and the mix 
   const { calls } = stubPages();
   const page = pageOf();
   try {
-    assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason']);
+    assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason', 'jeweller']);   // PIN MOVED (PROF10): the jeweller's bench
     assert.equal(stationColdLine('mason'), MASON_COLD_LINE);
     assert.match(MASON_COLD_LINE, /Masonry is done online, from your Stores page/);
     assert.match(page.text(), /The mason's bench - 50 gold a cut, a mix or a carving\. Masonry 0 \(Novice\)\./);

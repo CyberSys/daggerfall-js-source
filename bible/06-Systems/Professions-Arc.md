@@ -999,7 +999,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** - BUILT 2026-10-02 (section 35) | Cooking | A Hunter's Stew cooked with a clean pan at a fire from the Stores' Raw Meat, Mushroom and Root Bulb, into the pack, eaten for Endurance +5 two hours; a Chef's Feast of the Hearth shared with the party at the table; a Provisioner's dish that never spoils. Needs PROF7 (Raw Meat), PROF8 (Raw Fish), PROF1 (the herbs and the Basket's foods) and C&C's fires |
-| **PROF10** | Jewelcrafting | - |
+| **PROF10** - BUILT 2026-10-02 (section 36) | Jewelcrafting | A Gold Ruby Ring cut with a clean facet at a Gem Store's bench from the Stores' Gold and Ruby, into the pack as DFU's own Ring carrying Gold's and the gem's points (2,160) to the item maker; a Gemcutter's ring at +30%, listed and minted again from the market with its hand; a Lapidary's Siege-cracked Gem set as a Diamond. Needs PROF2 (the metals and gems), PROF8 (the Pearl), PROF7 (Cured Leather), PROF4 (the Wand's planks) and the Seats' Spoils of War |
 | **PROF11** - BUILT 2026-10-01 (section 34) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
 | **PROF12** | Alchemy and Enchanting layers; Disenchanting | - |
 
@@ -2811,6 +2811,84 @@ three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED he
 - **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
   `test/prof9_client.test.js` (9). Mutants: `tools/mutants/prof9.json` (126, all dead). Patch notes:
   `PATCH-NOTES-Cooking.md`.
+
+## 36. PROF10 - Jewelcrafting, as built (BUILT 2026-10-02)
+
+Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jewelcrafting; Cooking stood first, section
+35). What sections 3.3, 4.1, 4.6, 9.2, 9.3 and 9.4 left open for PROF10, DECIDED here, and what was found (FACT):
+
+- **What PROF10 is.** 15's row - Jewelcrafting - whole: the jeweller's bench and its eight pieces (9.3), the facet (9.4),
+  the pieces as DFU's own jewellery carrying the points their metal and gem add to DFU's item maker, quality, Masterwork
+  and provenance; the Jewelcrafting track and its four specialisations practised.
+- **The bench** (9.3: "a jeweller's bench, or any Pawn Shop or Gem store for 50 gold"; `professionLaw.js` JEWEL_FEE). A
+  Pawn Shop's or a Gem Store's, open for trade (its `insideOpenShop` latch, AUDIT 29 D4's law), **50 gold a piece**, paid
+  as the piece is minted (AUDIT 30 C4's law) - or a home's **`jeweller` station** (HOME-STATIONS' eighth, `decorLaw.js`,
+  its licence the workbench's 50,000), a hall member's as the others'. `scenes/worldModes.js` jewellerHere. The service
+  cannot see the bench (as it cannot see the forge, 23). The Stores page's **The Jeweller's Bench**.
+- **The eight pieces** (9.3; `recipeLaw.js` JEWEL_PIECES). DFU's own Jewellery templates, **imported, never re-typed**: each
+  read by its place in DFU's Jewellery enum (`systems/itemTemplatesData.js` GROUP_TEMPLATE_INDICES - Amulet 133, Bracer 134,
+  Ring 135, Bracelet 136, Mark 137, Torc 138, Cloth Amulet 139, Wand 140), its word 9.3's and DFU's template name, pinned
+  equal (the service's bundle carries the enum and no item table - FOUND: the account deploy's path filter now lists
+  `itemTemplatesData.js`, which the Worker bundles since). Inputs as 9.3 writes them: Ring 1 metal (and a gem, if wanted),
+  Mark 1 metal + 1 gem, Bracelet 2, Bracer 2 + 1 Cured Leather, Amulet 2 + 1 gem, Torc 3, Cloth Amulet 1 Linen + 1 gem,
+  Wand 2 Ironwood or Ghostwood Planks + 1 gem.
+- **The metals.** DECIDED: Silver, Gold and Platinum are **DFU's own raw metals as the Stores keep them** (73-75) - never
+  the smith's Silver Ingot: a jeweller works the precious metal itself.
+- **The gems** (4.6). DECIDED: **a recipe a gem** - DFU's eight and the sea's Pearl (`JEWEL_GEMS`), the piece named for it
+  ("Gold Ruby Ring"); 120 recipes in all (`JEWELCRAFTING_RECIPES`, after every other). A gem is **set, not worked**: it
+  gates no rank. The Siege-cracked Gem is no recipe's own - a Lapidary's stands in for any (below).
+- **THE JEWELLER'S LADDER** - DECIDED, FLAGGED to Mac: a piece's tier is its metal's place on the jeweller's own track,
+  not the Mining tier its vein is struck at (4.1's 3, 4, 5) - at 4.1's tiers a Novice jeweller had nothing to make (the
+  Cloth Amulet asks a gem, and the least is tier 2). **Silver at 0** (tier 1), **Gold at 25** (tier 3), **Platinum at 55**
+  (tier 5, its own 4.1 tier); the **Cloth Amulet at 0** (Linen's tier 1); the **Wand at 70** (Ironwood's and Ghostwood's
+  tier 6) - the jeweller's crown piece. XP is 3.2's own (20 x the tier, +500 the first, a recipe two tiers below the
+  rank's quartered): the ladder spans 0 to 70, so it needed no "XP follows the rank".
+- **The points** (9.3: "Silver +0%, Gold +10%, Platinum +20%, a set gem +10% (Gemcutter +10% more)"; `jewelPointsPct`,
+  `jewelPoints`). DECIDED: the piece carries **its own `enchantmentPoints`** (DFU's item field, `itemFields.js`) - its
+  template's (the Ring's 1,800) and the share, floored - and **DFU's item maker reads it** for a crafted piece of jewellery
+  (`systems/enchanting.js` itemEnchantmentPower, `craftedJewelPoints`: the Jewellery group, a provenance id); every other
+  item reads its template's as ever - the maker's law untouched. A Wand and a Cloth Amulet add nothing for their wood or
+  cloth (9.3 names the metals'). Shown on the bench and the card ("2,160 enchantment points").
+- **The piece** (`systems/smithItems.js` jewelItem, setJewel). DFU's jewellery as DFU's loot mints one (the template in
+  its group, no material), its **quality the armour's** (9.2: condition and weight; a Superior's Magic roll and a
+  Masterwork's Rare one - Loot Rarity's words kept about its name, "Porter's Gold Pearl Amulet"; a Masterwork's mark before
+  it, "Silverthorn's Platinum Torc"). DECIDED: its **worth** is its template's by its points' share **and its gem's own DFU
+  price** - a Ruby set is a Ruby's worth carried, never lost to the setting. A **Wand takes a Heartwood** for a plank (4.2:
+  "worth one quality step in any recipe"); no family step (no jeweller's choice is a quality step).
+- **The specialisations** (3.3), all four chosen now. **Gemcutter** (50) - a set gem +20%, not +10%. **Goldsmith** (50) -
+  DECIDED: "Silver counts as Gold" is the **piece's** - a Goldsmith's Silver piece holds Gold's +10% and so its worth; its
+  rank stays Silver's, the metal it was made of. **THE JEWELLER'S HAND** (`jewelHand`): what of the choice at 50 a piece
+  carries wherever it goes - 1 a Goldsmith's Silver piece, 2 a Gemcutter's gemmed piece - signed into its record (`f`,
+  `net/productRecord.js`, `jewelHandOk`) and kept on it in **0069's `products.hand`** (the cook's column - its `CHECK (1,
+  2)` holds both: **no migration**); so a Gemcutter's ring bought at the market holds its points in the buyer's hands.
+  **Master Jeweller** (100) - Masterwork +5 points, the Masterwright's (`masterworkSpec`). **Lapidary** (100) - DECIDED: a
+  Siege-cracked Gem (678, the Seats' Spoils of War) **stands in for the piece's gem** at the craft (`cracked`;
+  `recipeInputs`), the piece the recipe's - its gem the one the Lapidary chose ("a gem of the roller's choice", 4.7); asked
+  by any other, or of a piece that sets no gem, it is refused (`prof-lapidary`, 403) before anything is spent.
+- **The facet** (9.4: "a slow turn stopped where the gem catches the light (a 10-degree window)"; `systems/facetAct.js`,
+  `recipeLaw.js` FACET_ACT). DECIDED: a piece is cut in **three facets, a gemmed piece five** (the gem's crown); each a
+  slow turn of the stone from 0 at **60 degrees a second** (six seconds round) toward the light, at a bearing the bench draws
+  each facet (**60-300 degrees** - never where the turn begins); stopped within the **10-degree window** (x the band, half
+  again by Master) about the light it is caught; let go round twice, lost, and the next begun. **Every facet caught is a
+  clean act** - a quality step, 5.1's bound. Jewelcrafting's attribute pair: **(WIL + LUC) / 2** - the patience to let the
+  stone turn and the fortune of where it breaks (no other act reads Luck). The dial a bar of the whole turn, the light's
+  window an edged band on it, the stone turning beside it (still under reduced motion). Space, Enter or **Stop the turn**;
+  **Quick craft**, **Gentle acts**, **one act a page**, **Escape sets the stone down** (nothing spent) and the page shut
+  under it, as every station's act.
+- **The market and the writs.** A piece lists in the Crafted view's **Jewellery** family (`marketLaw.js` CRAFTED_FAMILIES),
+  its hand answered with it; a Masterwork goes to auction (27); a commission names one at a quality (28). Court writs ask
+  witnessed materials, not pieces - unchanged.
+- **The four hosts** (17.1): **building interiors** (`worldModes.js` jewellerHere) - the bench; **the streaming world**
+  (`world.js`) - the craft through Jewelcrafting's station, its fee, the facet's band and a Lapidary's gem; **the fixed
+  city** and **dungeons** - no bench, as no station stands there (22's law).
+- **The service** is **acct68**. No migration; no route added (`/v1/prof/craft`'s `cracked`); `prof-lapidary` (403). No
+  relay change.
+- **Not built, named**: the Apothecary's quality steps still wait on Alchemy (`fortLaw.js` APOTHECARY_OPEN); 4.1's mining
+  tiers of the precious metals stand as Mining's alone (the ladder above); 4.8 names no jeweller's template - the pieces
+  are DFU's own, their pictures DFU's.
+- **Pinned**: `test/prof10_law.test.js` (10), `test/prof10_service.test.js` (6, through the real Worker),
+  `test/prof10_client.test.js` (8). Mutants: `tools/mutants/prof10.json` (136, all dead). Patch notes:
+  `PATCH-NOTES-Jewelcrafting.md`.
 
 ## Appendix A - a day of a gatherer
 

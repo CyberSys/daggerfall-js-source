@@ -12,7 +12,9 @@
 //         u PROF7: a garment's dye, DFU's DyeColors (0-9, recipeLaw GARMENT_DYES) - the colour the crafter chose, so a
 //           garment bought at the market is the colour it was sewn in; absent for an undyed garment and every other piece
 //         f PROF9: a dish's cook's hand (recipeLaw dishHand) - 1 a Chef's feast (it lasts half again), 2 a Provisioner's
-//           dish (it never spoils) - so a dish bought at the market keeps what its cook gave it; absent for every other
+//           dish (it never spoils) - so a dish bought at the market keeps what its cook gave it; absent for every other.
+//           PROF10: or a piece of jewellery's jeweller's hand (recipeLaw jewelHand) - 1 a Goldsmith's Silver (its points
+//           Gold's), 2 a Gemcutter's gem (+20%, not +10%)
 //
 // ONE KEY, SEVERAL THINGS, NEVER CONFUSED: the identity key signs tokens (`v1`) and orders; this is `p1`, the version
 // inside the signed bytes and read before a byte of the body is, and the claim shapes are disjoint besides - a record
@@ -24,7 +26,7 @@
 //
 // PURE; the account service mints, the client reads. Not a DFU member. Ledger A (the professions' row).
 import { _b64url, SIG_BYTES, ID_RE } from './identityToken.js';
-import { PROVENANCE_RE, MAKER_MAX, recipeById, MASTERWORK, takesQuality, dyeOk, HAND_CHEF, HAND_PROVISIONER, dishOf } from './recipeLaw.js';
+import { PROVENANCE_RE, MAKER_MAX, recipeById, MASTERWORK, takesQuality, dyeOk, HAND_CHEF, HAND_PROVISIONER, dishOf, jewelHandOk } from './recipeLaw.js';
 
 /** The only version this file reads or writes. */
 export const PRODUCT_RECORD_V = 'p1';
@@ -51,11 +53,13 @@ export function productRecordValid(c) {
   if (!Number.isSafeInteger(c.i) || c.i < 0) return false;
   if (c.a !== undefined && (c.a !== 1 || c.m === null || !(c.q === MASTERWORK || r.family === 'furniture'))) return false;
   if (c.u !== undefined && (c.u === null || !dyeOk(r, c.u))) return false;   // PROF7: a garment's dye, of its ten
-  if (c.f !== undefined && !handOk(r, c.f)) return false;   // PROF9: a dish's cook's hand
+  if (c.f !== undefined && !handOk(r, c.f)) return false;   // PROF9: a dish's cook's hand; PROF10: a jeweller's
   return true;
 }
-/** PROF9: whether `f` is a hand recipe `r`'s piece may carry - a Provisioner's on any dish, a Chef's on a feast alone. */
+/** PROF9: whether `f` is a hand recipe `r`'s piece may carry - a Provisioner's on any dish, a Chef's on a feast alone.
+ *  PROF10: or a jeweller's - a Goldsmith's on a Silver piece, a Gemcutter's on a gemmed one (recipeLaw jewelHandOk). */
 function handOk(r, f) {
+  if (r.kind === 'jewel') return jewelHandOk(r, f);
   if (r.kind !== 'dish') return false;
   return f === HAND_PROVISIONER || (f === HAND_CHEF && dishOf(r.id)?.effect.party === true);
 }

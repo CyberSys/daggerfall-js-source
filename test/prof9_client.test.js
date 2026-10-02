@@ -470,7 +470,7 @@ test('PROF9 wiring: the fire is any lit one (the street\'s camps and braziers, a
   assert.match(src('src/ui/enhancedPlusStyle.js'), /\.prof-heatbar\.prof-panbar \{ background: linear-gradient/);
   const svc = src('server-account/src/professions.js');
   assert.match(svc, /const xp = r\.kind === 'dish' \? cookXp\(rank, \{ clean: clean === true \}\) : craftXp\(r\.tier, rank, false\);/);
-  assert.match(svc, /const hand = dishHand\(r, specs\[100\]\);/);
+  assert.match(svc, /const hand = dishHand\(r, specs\[100\]\) \?\? jewelHand\(r, specs\[50\]\);/);   // PIN MOVED (PROF10): or a jeweller's hand
   assert.match(src('server-account/migrations/0069_cooking.sql'), /ALTER TABLE products ADD COLUMN hand INTEGER CHECK \(hand IS NULL OR hand IN \(1, 2\)\);/);
   assert.equal(recipeById('feast:hearth').profession, 'cooking');
 });

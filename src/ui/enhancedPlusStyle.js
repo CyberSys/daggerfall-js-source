@@ -1136,6 +1136,10 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 /* PROF9: the pan on the fire - its bar runs raw to burnt (a pale dough, a browned crust, the char), the heat's window
    and marker over it; the window a shape as well as a colour (its edged band) */
 .prof-heatbar.prof-panbar { background: linear-gradient(90deg, #d9c9a0, #c79a58 40%, #9a5a24 62%, #5a2a14 82%, #1a0e08); }
+/* PROF10: the facet - the dial runs the stone's whole turn (dark stone, the light's window an edged band on it, the
+   bearing's marker), the stone itself turning beside it; under reduced motion it stands still */
+.prof-heatbar.prof-facetbar { background: linear-gradient(90deg, #2a3040, #4a5a78 50%, #2a3040); }
+.prof-gem { display: inline-block; min-width: 1.6em; text-align: center; color: #cfe3ff; font-weight: bold; }
 @media (pointer: coarse) { .prof-recipe { min-height: 40px; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }

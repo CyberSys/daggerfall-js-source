@@ -11,6 +11,10 @@
 // MASON_RECIPES).
 // PROF9 (Professions-Arc 3.3, 9.3, 9.4; section 35): Cooking's - the four dishes of 9.3 at any fire, into the pack, the
 // pan they are taken off the fire with, their effects (the feast's to the whole table), and Cooking's XP.
+// PROF10 (Professions-Arc 3.3, 4.6, 9.3, 9.4; section 36): Jewelcrafting's - DFU's eight pieces of jewellery in Silver,
+// Gold and Platinum (a Cloth Amulet in Linen, a Wand in Ironwood or Ghostwood), a gem set in the pieces that take one,
+// the enchantment points the metal and the gem add, the jeweller's hand (a Goldsmith's Silver, a Gemcutter's gem), a
+// Lapidary's Siege-cracked Gem, and the facet they are cut with.
 //
 // PURE, and both ends import it: the account service decides a craft by it (server-account/src/professions.js
 // craftAtAnvil), the client draws the anvil by it (ui/profPages.js) and mints the piece by it (systems/smithItems.js).
@@ -21,7 +25,9 @@
 import {
   INGOTS, TIER_RANKS, topTierOf, actBand, minedMaterial, WOODS, PINE_PLANK, RESIN, HEARTWOOD, LINEN, WOOL, BEAR_HIDE, CLOTHS, HIDES,
   CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE, COUNTER_ONLY, CUT_STONE, MORTAR, PROF_RANK_MAX,   // PROF11: the mason's stone
+  GEMS, PEARL, SIEGE_GEM,   // PROF10: the gems a jeweller sets, and a Lapidary's Siege-cracked one
 } from './professionLaw.js';
+import { GROUP_TEMPLATE_INDICES } from '../systems/itemTemplatesData.js';   // PROF10: DFU's Jewellery enum, one home
 import { CLOTHING_DYES } from '../characters/dyes.js';   // DFU's ten clothing dyes (DyeColors 0-9), one home
 
 // ─── THE METALS (PROF0 4.1) ──────────────────────────────────────────
@@ -108,11 +114,12 @@ const KIT_INGOTS = Object.freeze(SMITH_INGOTS.filter((k) => k !== WARFORGED));
 
 /**
  * @typedef {{ id: string, product: string, name: string, kind: string, family: string,
- *   profession: 'smithing'|'carpentry'|'outfitting'|'masonry'|'cooking', templateIndex: number, metal: string|null, wood?: string|null,
+ *   profession: 'smithing'|'carpentry'|'outfitting'|'masonry'|'cooking'|'jewelcrafting', templateIndex: number, metal: string|null, wood?: string|null,
  *   material: number, tier: number, rank: number, stack?: number, later?: string, group?: string, cloth?: string,
- *   leather?: string, dyes?: boolean, spec?: string, inputs: readonly { key: string, n: number }[] }} Recipe
+ *   leather?: string, dyes?: boolean, spec?: string, gem?: string|null, inputs: readonly { key: string, n: number }[] }} Recipe
  *   PROF11: `spec` the specialisation at 100 a recipe asks besides its rank (the Sculptor's stone decor)
  *   PROF9: a dish's `kind` is 'dish' and its `family` 'dishes'
+ *   PROF10: a piece of jewellery's `kind` is 'jewel', its `family` 'jewellery', its `gem` the gem it sets (or null)
  */
 const FAMILY = Object.freeze({ weapon: 'weapons', plate: 'armour', shield: 'armour', chain: 'armour', tool: 'tools', kit: 'kits' });
 /** @returns {Recipe} */
@@ -431,9 +438,133 @@ export function dishEffectText(d, hand = null) {
   return `${list} +${Object.values(d.effect.stats)[0]} for ${span}${d.effect.party ? ', for the whole party at your table' : ''}`;
 }
 
+// ─── PROF10: JEWELCRAFTING (PROF0 3.3, 4.6, 9.3, 9.4; section 36) ────
+
+/**
+ * THE JEWELLER'S METALS (4.1: "Gold, Platinum (Jewelcrafting)"; 9.3: "1 Silver, Gold or Platinum"): DFU's own three, as
+ * the Stores keep them (professionLaw METALS - the raw metal a vein gives, never the smith's Silver Ingot: a jeweller works
+ * the precious metal itself), each the enchantment points it adds to the piece (9.3: "Silver +0%, Gold +10%, Platinum
+ * +20%"). DECIDED - THE JEWELLER'S LADDER: a piece's tier is its metal's place on the jeweller's own track, not the
+ * Mining tier the vein is struck at (4.1's 3, 4 and 5) - the three precious metals are Jewelcrafting's whole ladder, as
+ * Iron to Daedric are the smith's, and at 4.1's tiers a Novice jeweller had nothing to make: Silver at the Novice's door
+ * (tier 1, rank 0), Gold at the Apprentice's (tier 3, rank 25), Platinum at its own 4.1 tier (5, rank 55).
+ */
+export const JEWEL_METALS = Object.freeze([
+  Object.freeze({ id: 'silver', key: 'metal:silver', word: 'Silver', tier: 1, points: 0 }),
+  Object.freeze({ id: 'gold', key: 'metal:gold', word: 'Gold', tier: 3, points: 10 }),
+  Object.freeze({ id: 'platinum', key: 'metal:platinum', word: 'Platinum', tier: 5, points: 20 }),
+]);
+/** The Cloth Amulet's cloth (9.3: "1 Linen"), Linen's own tier (1, rank 0); the Wand's woods (9.3: "Ironwood or
+ *  Ghostwood Planks"), their own tier (6, rank 70) - the jeweller's crown piece. Neither adds points: 9.3 names the metals'. */
+const JEWEL_CLOTH = Object.freeze({ id: 'linen', key: LINEN.key, word: '', tier: LINEN.tier, points: 0 });
+const JEWEL_WOODS = Object.freeze(['ironwood', 'ghostwood'].map((w) => Object.freeze({ id: w, key: `plank:${w}`, word: woodName(w), tier: woodTier(w), points: 0 })));
+/** THE GEMS A JEWELLER SETS (4.6): DFU's eight (professionLaw GEMS - the veins') and the sea's Pearl (DFU 77, Fishing's).
+ *  The Siege-cracked Gem is none of them - a Lapidary's stands in for any (LAPIDARY, recipeInputs). */
+export const JEWEL_GEMS = Object.freeze([...GEMS.map((g) => g.key), PEARL.key]);
+/** A gem's word, DFU's template's name ('gem:ruby' Ruby - pinned equal to the rows, test/prof10_law.test.js). */
+export const gemWord = (key) => (typeof key === 'string' && key.startsWith('gem:') ? key[4].toUpperCase() + key.slice(5) : '');
+/**
+ * THE EIGHT PIECES (9.3: "Ring - 1 Silver, Gold or Platinum (+ a gem); Mark - 1 metal + 1 gem; Bracelet - 2 metal; Bracer
+ * - 2 metal + 1 Cured Leather; Amulet - 2 metal + 1 gem; Torc - 3 metal; Cloth Amulet - 1 Linen + 1 gem; Wand - 2 Ironwood
+ * or Ghostwood Planks + 1 gem"), in 9.3's order: each DFU's own Jewellery template, read by its place in DFU's Jewellery
+ * enum (itemTemplatesData.js GROUP_TEMPLATE_INDICES, IMPORTED - ItemEnums.cs: Amulet, Bracer, Ring, Bracelet, Mark, Torc,
+ * Cloth_amulet, Wand), `word` its name (9.3's, DFU's template name - pinned equal: the service's bundle carries no item
+ * table), `n` the units of its metal (or cloth, or planks), `gem` whether it takes one ('may' the Ring's "(+ a gem)",
+ * 'yes', or none), `also` the rest.
+ */
+const jewelPiece = (id, word, enumAt, n, gem = null, also = []) => Object.freeze({ id, word, templateIndex: GROUP_TEMPLATE_INDICES.Jewellery[enumAt], n, gem, also: Object.freeze(also.map((a) => Object.freeze(a))) });
+export const JEWEL_PIECES = Object.freeze([
+  jewelPiece('ring', 'Ring', 2, 1, 'may'),
+  jewelPiece('mark', 'Mark', 4, 1, 'yes'),
+  jewelPiece('bracelet', 'Bracelet', 3, 2),
+  jewelPiece('bracer', 'Bracer', 1, 2, null, [[CURED_LEATHER.key, 1]]),
+  jewelPiece('amulet', 'Amulet', 0, 2, 'yes'),
+  jewelPiece('torc', 'Torc', 5, 3),
+  jewelPiece('clothamulet', 'Cloth Amulet', 6, 1, 'yes'),
+  jewelPiece('wand', 'Wand', 7, 2, 'yes'),
+]);
+/** The bases a piece is made of: the Cloth Amulet its Linen, the Wand its two woods, every other piece the three metals. */
+export const jewelBases = (pieceId) => (pieceId === 'clothamulet' ? [JEWEL_CLOTH] : pieceId === 'wand' ? [...JEWEL_WOODS] : [...JEWEL_METALS]);
+/** @returns {Recipe} */
+function jewelRecipe(p, base, gem) {
+  return Object.freeze({
+    id: `${p.id}:${base.id}${gem ? `:${gem.slice('gem:'.length)}` : ''}`, product: p.id, name: [base.word, gemWord(gem), p.word].filter(Boolean).join(' '),
+    kind: 'jewel', family: 'jewellery', profession: 'jewelcrafting', templateIndex: p.templateIndex,
+    metal: base.key.startsWith('metal:') ? base.key : null, wood: base.key.startsWith('plank:') ? base.key : null,
+    cloth: base.key.startsWith('cloth:') ? base.key : null, gem: gem ?? null, material: 0, tier: base.tier, rank: TIER_RANKS[base.tier - 1],
+    inputs: Object.freeze([[base.key, p.n], ...p.also, ...(gem ? [[gem, 1]] : [])].map(([key, n]) => Object.freeze({ key: String(key), n: Number(n) }))),
+  });
+}
+/** EVERY RECIPE THE JEWELLER'S BENCH KNOWS, in its window's order: each piece in 9.3's order, each of its bases, the plain
+ *  piece where it may go without a gem (the Ring), then a recipe a gem - DFU's eight and the Pearl. */
+/** @type {readonly Recipe[]} */
+export const JEWELCRAFTING_RECIPES = Object.freeze(JEWEL_PIECES.flatMap((p) => jewelBases(p.id).flatMap((base) => [
+  ...(p.gem === 'yes' ? [] : [jewelRecipe(p, base, null)]),
+  ...(p.gem ? JEWEL_GEMS.map((g) => jewelRecipe(p, base, g)) : []),
+])));
+/** Jewelcrafting's four (3.3): the Gemcutter and the Goldsmith at 50, the Master Jeweller and the Lapidary at 100. */
+export const GEMCUTTER = 'gemcutter', GOLDSMITH = 'goldsmith', MASTER_JEWELLER = 'master-jeweller', LAPIDARY = 'lapidary';
+/** A set gem's points (9.3: "a set gem +10%"), and a Gemcutter's more (3.3: "a set gem adds +10% enchantment points"). */
+export const GEM_POINTS = 10;
+export const GEMCUTTER_POINTS = 10;
+/**
+ * THE JEWELLER'S HAND (the record's `f`, the service's `products.hand` - the cook's column, PROF9): what of the jeweller's
+ * choice at 50 a piece carries wherever it goes - 1 a GOLDSMITH's Silver piece (3.3: "Silver counts as Gold" - DECIDED: the
+ * piece's points, and so its worth, are Gold's +10%; its rank stays Silver's, the metal it was made of), 2 a GEMCUTTER's
+ * gemmed piece (its gem +20%, not +10%); none for a Goldsmith's Gold or Platinum, a Gemcutter's piece with no gem, and
+ * every other piece. A choice at 50 is one of the two, so a piece carries one hand at most. DECIDED: the piece's, never
+ * its wearer's - a Gemcutter's ring bought at the market holds its points in the buyer's hands.
+ */
+export const JEWEL_HAND_GOLDSMITH = 1, JEWEL_HAND_GEMCUTTER = 2;
+export function jewelHand(r, spec50) {
+  if (!r || r.kind !== 'jewel') return null;
+  if (spec50 === GOLDSMITH && r.metal === JEWEL_METALS[0].key) return JEWEL_HAND_GOLDSMITH;
+  if (spec50 === GEMCUTTER && r.gem) return JEWEL_HAND_GEMCUTTER;
+  return null;
+}
+/** Whether hand `f` is one a recipe's piece may carry: a Goldsmith's on a Silver piece, a Gemcutter's on a gemmed one. */
+export const jewelHandOk = (r, f) => r?.kind === 'jewel' && ((f === JEWEL_HAND_GOLDSMITH && r.metal === JEWEL_METALS[0].key) || (f === JEWEL_HAND_GEMCUTTER && !!r.gem));
+/** THE POINTS A PIECE ADDS (9.3: "The piece's enchantment points: Silver +0%, Gold +10%, Platinum +20%, a set gem +10%
+ *  (Gemcutter +10% more)"), percent over its DFU template's: its metal's (a Goldsmith's Silver Gold's), and its gem's. */
+export function jewelPointsPct(r, hand = null) {
+  if (!r || r.kind !== 'jewel') return 0;
+  const metal = hand === JEWEL_HAND_GOLDSMITH && r.metal === JEWEL_METALS[0].key ? JEWEL_METALS[1].points : JEWEL_METALS.find((m) => m.key === r.metal)?.points ?? 0;
+  return metal + (r.gem ? GEM_POINTS + (hand === JEWEL_HAND_GEMCUTTER ? GEMCUTTER_POINTS : 0) : 0);
+}
+/** A piece's enchantment points - its DFU template's (`templatePoints`, the Ring's 1,800) and the share it adds, floored:
+ *  the budget DFU's item maker reads off the piece (systems/enchanting.js itemEnchantmentPower). */
+export const jewelPoints = (r, templatePoints, hand = null) => Math.floor((Math.max(0, Number(templatePoints) || 0) * (100 + jewelPointsPct(r, hand))) / 100);
+/** Whether a recipe takes a Lapidary's Siege-cracked Gem (3.3: "Siege-cracked Gems set as any gem"): a piece that sets a
+ *  gem - the cracked one stands in for the recipe's, and the piece is the recipe's (its gem the one chosen). */
+export const takesCracked = (r) => !!r && r.kind === 'jewel' && !!r.gem;
+/** The specialisations at 100 that add Masterwork points (MASTERWRIGHT_POINTS): Smithing's Masterwright (3.3) and - PROF10
+ *  - Jewelcrafting's Master Jeweller ("jewellery Masterwork chance +5%"). A track stands under its own profession's alone. */
+export const masterworkSpec = (spec100) => spec100 === 'masterwright' || spec100 === MASTER_JEWELLER;
+
+// ─── PROF10: THE FACET (PROF0 9.4) ───────────────────────────────────
+
+/**
+ * "The facet: a slow turn stopped where the gem catches the light (a 10-degree window)". DECIDED: a piece is cut in
+ * `facets` facets (a gemmed piece `gemFacets` - the gem's crown its own), each a slow turn of the stone from 0 at
+ * `degPerS` (a turn in six seconds) toward the light, which stands at a bearing the bench draws each facet (`lightLo` to
+ * `lightHi` - never where the turn begins); the turn STOPPED while the stone stands within the window about the light -
+ * `windowDeg` wide x the attribute band, widening by `masterWiden` at Master - catches it. Let pass `turns` times round
+ * and the facet is lost. Every facet caught is a clean act. Each stop at least `gapS` after the last.
+ */
+export const FACET_ACT = Object.freeze({ facets: 3, gemFacets: 5, degPerS: 60, windowDeg: 10, masterWiden: 0.5, turns: 2, lightLo: 60, lightHi: 300, gapS: 0.3 });
+/** Jewelcrafting's attribute pair - DECIDED: (WIL + LUC) / 2, the patience to let the stone turn and the fortune of where
+ *  it breaks (no other act reads Luck), on Foraging's four bands. */
+export const facetBand = ({ willpower, luck }) => actBand(Math.trunc((willpower + luck) / 2));
+/** The facets a recipe's piece takes: a gemmed piece's five, every other piece's three. */
+export const facetCount = (r) => (r?.gem ? FACET_ACT.gemFacets : FACET_ACT.facets);
+/** The facet's window at a rank, x the band: degrees wide, centred on the light - 10 at Novice to 15 at Master. */
+export const facetWindow = (rank, band = 1) => FACET_ACT.windowDeg * band * (1 + (FACET_ACT.masterWiden * Math.max(0, Math.min(PROF_RANK_MAX, rank))) / PROF_RANK_MAX);
+/** The angle between two bearings, degrees: 0 to 180. */
+export const bearingGap = (a, b) => { const d = Math.abs((((a - b) % 360) + 360) % 360); return Math.min(d, 360 - d); };
+
 /** Every recipe, the anvil's, the workbench's and (PROF7) the loom's - PROF11: and the mason's bench's carvings; PROF9:
- *  and the fire's dishes. */
-export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES, ...MASONRY_RECIPES, ...COOKING_RECIPES]);
+ *  and the fire's dishes; PROF10: and the jeweller's bench's pieces. */
+export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES, ...MASONRY_RECIPES, ...COOKING_RECIPES, ...JEWELCRAFTING_RECIPES]);
 const BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 /** A recipe by its id (`longsword:mithril`, `chain-cuirass:steel`, `kit:iron`, `table-small:oak`), or null. */
 export const recipeById = (id) => (typeof id === 'string' ? BY_ID.get(id) ?? null : null);
@@ -445,16 +576,20 @@ export const recipeOpen = (r, rank, specs = null) => !!r && !r.later && rank >= 
 export const takesHeartwood = (r) => !!r && takesQuality(r) && r.inputs.some((i) => i.key.startsWith('plank:'));
 /**
  * WHAT A CRAFT SPENDS (PROF0 25): the recipe's inputs - a Joiner's furniture at half the planks, rounded up; a Heartwood
- * standing in for one plank where the recipe takes one. Both ends spend and show by this.
- * @param {Recipe} r @param {{ heartwood?: boolean, joiner?: boolean }} [opts]
+ * standing in for one plank where the recipe takes one; PROF10: a Siege-cracked Gem for the gem (`cracked`, a Lapidary's).
+ * Both ends spend and show by this.
+ * @param {Recipe} r @param {{ heartwood?: boolean, joiner?: boolean, cracked?: boolean }} [opts]
  */
-export function recipeInputs(r, { heartwood = false, joiner = false } = {}) {
+export function recipeInputs(r, { heartwood = false, joiner = false, cracked = false } = {}) {
   let inputs = r.inputs.map((i) => ({ key: i.key, n: joiner && r.family === 'furniture' && i.key.startsWith('plank:') ? Math.ceil(i.n / 2) : i.n }));
   if (heartwood && takesHeartwood(r)) {
     const p = /** @type {{ key: string, n: number }} */ (inputs.find((i) => i.key.startsWith('plank:')));
     p.n -= 1;
     inputs = [...inputs.filter((i) => i.n > 0), { key: HEARTWOOD.key, n: 1 }];
   }
+  // PROF10: a Lapidary's Siege-cracked Gem stands in for the piece's gem (3.3: "set as any gem") - the asker's door to it
+  // is the Lapidary's choice, which the service asks first (professions.js craftAtAnvil, `prof-lapidary`)
+  if (cracked && takesCracked(r)) inputs = inputs.map((i) => (i.key === r.gem ? { key: SIEGE_GEM.key, n: i.n } : i));
   return inputs;
 }
 
@@ -707,5 +842,7 @@ export function pieceLines(item) {
   const out = [];
   if (Number.isInteger(item.quality) && item.quality >= 0 && item.quality <= MASTERWORK) out.push(QUALITY_NAMES[item.quality]);
   if (typeof item.maker === 'string' && item.maker) out.push(`Made by ${item.maker}`);
+  // PROF10: a piece of jewellery says the points its metal and its gem gave it - the budget the item maker reads
+  if (recipeById(item.recipe)?.kind === 'jewel' && Number.isSafeInteger(item.enchantmentPoints)) out.push(`${item.enchantmentPoints.toLocaleString('en-US')} enchantment points`);
   return out;
 }

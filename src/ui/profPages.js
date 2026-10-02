@@ -32,7 +32,9 @@
 //   Sculptor's stone decor - at a General Store (its fee a cut, a mix
 //   or a carving) or a home's mason's bench. PROF9: THE FIRE - Cooking's
 //   dishes with the pan, at any lit fire (a campfire, a hearth, a
-//   brazier), no fee.
+//   brazier), no fee. PROF10: THE JEWELLER'S BENCH - Jewelcrafting's
+//   pieces by piece, metal and gem, with the facet, at a Pawn Shop or a
+//   Gem Store (its fee a piece) or a home's jeweller's bench.
 //
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
@@ -43,15 +45,20 @@ import {
   withdrawable, stockOf, STOCK_MAX, BURN_RECIPES, SAW_RECIPES, WORKBENCH_FEE, WOODS, workPer, workSpecRank, CURE_RECIPES,
   WEAVE_RECIPES, LOOM_FEE, CLOTHS, WEAVERS_STOCK, STANDARD_SILK,
   MASON_RECIPES, MASON_FEE, workOpen,   // PROF11: the mason's bench
+  JEWEL_FEE,   // PROF10: the jeweller's bench
 } from '../net/professionLaw.js';
 import {
   RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT, STITCH_ACT,
   GARMENT_DYES, MASONRY_RECIPES, CHISEL_ACT, chiselStrikes, chiselMarkS, SCULPTOR,   // PROF11: the Sculptor's stone and the chisel
   COOKING_RECIPES, dishOf, dishEffectText, dishHand, craftCount, cookXp, panCount, panWindow, HAND_PROVISIONER,   // PROF9: the fire's dishes and the pan
+  JEWELCRAFTING_RECIPES, JEWEL_PIECES, jewelBases, jewelHand, jewelPointsPct, jewelPoints, takesCracked, masterworkSpec, facetCount,
+  facetWindow, LAPIDARY, JEWEL_HAND_GOLDSMITH, JEWEL_HAND_GEMCUTTER, craftXp, gemWord,   // PROF10: the jeweller's pieces and the facet
 } from '../net/recipeLaw.js';
 import { createStitchAct } from '../systems/stitchAct.js';
 import { createChiselAct } from '../systems/chiselAct.js';   // PROF11
 import { createPanAct } from '../systems/panAct.js';   // PROF9
+import { createFacetAct } from '../systems/facetAct.js';   // PROF10
+import { templateByIndex } from '../systems/itemTemplates.js';   // PROF10: a piece's DFU template - its enchantment points
 import { DYE_NAMES } from '../characters/dyes.js';
 import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 30 A9: a field's keys and a button's are their own
 import { createHeatAct } from '../systems/heatAct.js';
@@ -70,9 +77,9 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {(recipe: string, count: number, opts?: { clean?: boolean }) => Promise<{ ok: boolean, text: string }>} [smelt]   PROF2: a
  *   smelt, its fee paid; PROF11: or a mason's work, `clean` the chisel's report
  * @property {() => Promise<any>} [settle]   AUDIT 29 C4: the kept withdrawals asked again (the Stores page opened)
- * @property {(recipe: string, opts: { clean: boolean, heartwood?: boolean, dye?: number|null }) => Promise<{ ok: boolean, text: string }>} [craft]
+ * @property {(recipe: string, opts: { clean: boolean, heartwood?: boolean, dye?: number|null, cracked?: boolean }) => Promise<{ ok: boolean, text: string }>} [craft]
  *   PROF3: a craft at the anvil (PROF4: or the workbench, by the recipe's profession; PROF7: or the loom, a garment's
- *   `dye`), its pieces made and its fee paid
+ *   `dye`; PROF10: or the jeweller's bench, a Lapidary's `cracked` gem), its pieces made and its fee paid
  * @property {(material: string, qty: number, counter?: string) => Promise<{ ok: boolean, text: string }>} [stock]   PROF3: the
  *   smith's stock (PROF4: and the furnisher's; PROF7: the Weavers' at the tailor's loom - `counter`)
  * @property {() => number} [heatBand]   PROF3: the heat's attribute band (recipeLaw heatBand)
@@ -93,6 +100,8 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  *   brazier - within C&C's reach of its flame), or null
  * @property {() => number} [panBand]   PROF9: the pan's attribute band (recipeLaw panBand)
  * @property {() => boolean} [skillet]   PROF9: whether the pack holds C&C's Skillet (the pan's window half again)
+ * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [jeweller]   PROF10: the jeweller's bench the player stands at
+ * @property {() => number} [facetBand]   PROF10: the facet's attribute band (recipeLaw facetBand)
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -114,12 +123,13 @@ export const forgeOffered = () => profPagesShown();
 export const FORGE_COLD_LINE = 'The forge is cold. Smelting is done online, from your Stores page.';
 /** PROF4 (bible/06-Systems/Professions-Arc.md 25): the home stations the Stores page works - the forge and the workbench -
  *  offered, sold and worked only where it is (forgeOffered's gate, AUDIT 29 B2). */
-export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'mason']);   // PROF7: the loom; PROF11: the mason's bench
+export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'mason', 'jeweller']);   // PROF7: the loom; PROF11: the mason's bench; PROF10: the jeweller's
 export const WORKBENCH_COLD_LINE = 'The workbench is bare. Carpentry is done online, from your Stores page.';
 export const LOOM_COLD_LINE = 'The loom is still. Outfitting is done online, from your Stores page.';
 export const MASON_COLD_LINE = 'The mason\'s bench is idle. Masonry is done online, from your Stores page.';   // PROF11
+export const JEWEL_COLD_LINE = 'The jeweller\'s bench is bare. Jewelcrafting is done online, from your Stores page.';   // PROF10
 export const stationColdLine = (station) => (station === 'workbench' ? WORKBENCH_COLD_LINE : station === 'loom' ? LOOM_COLD_LINE
-  : station === 'mason' ? MASON_COLD_LINE : FORGE_COLD_LINE);
+  : station === 'mason' ? MASON_COLD_LINE : station === 'jeweller' ? JEWEL_COLD_LINE : FORGE_COLD_LINE);
 /** The rail's rows the pages add. */
 export const PROF_PAGE_SECTIONS = Object.freeze([Object.freeze(['professions', 'Professions']), Object.freeze(['stores', 'Stores'])]);
 
@@ -170,6 +180,15 @@ const _cook = {
   els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null), take: /** @type {((e?: any) => void)|null} */ (null),
   actRecipe: /** @type {string|null} */ (null),
 };
+/** PROF10: the jeweller's bench - the piece and its base shown, the recipe chosen, a Heartwood for a Wand's plank and a
+ *  Lapidary's Siege-cracked Gem for the gem, the facet being cut and what it cuts (`actRecipe`, its stand-ins), a piece
+ *  in flight, its word. */
+const _jewel = {
+  piece: 'ring', base: 'silver', picked: /** @type {string|null} */ (null), heartwood: false, cracked: false,
+  act: /** @type {any} */ (null), crafting: false, word: /** @type {string|null} */ (null), els: /** @type {any} */ (null),
+  off: /** @type {(() => void)|null} */ (null), stop: /** @type {((e?: any) => void)|null} */ (null),
+  actRecipe: /** @type {string|null} */ (null), actWood: false, actCracked: false,
+};
 /** AUDIT 30 U20: the one row a smelt, burn or saw is under way on - its button alone says so. */
 let _workingOn = /** @type {string|null} */ (null);
 /**
@@ -179,7 +198,8 @@ let _workingOn = /** @type {string|null} */ (null);
  * @param {object} me
  */
 const handsAt = (me) => (me !== _anvil && _anvil.act ? 'the anvil' : me !== _bench && _bench.act ? 'the workbench' : me !== _loom && _loom.act ? 'the loom'
-  : me !== _mason && _mason.act ? 'the mason\'s bench' : me !== _cook && _cook.act ? 'the fire' : null);   // PROF11; PROF9: the fire
+  : me !== _mason && _mason.act ? 'the mason\'s bench' : me !== _cook && _cook.act ? 'the fire'
+    : me !== _jewel && _jewel.act ? 'the jeweller\'s bench' : null);   // PROF11; PROF9: the fire; PROF10: the jeweller's bench
 /**
  * AUDIT 32 P1: AN ACT'S PRESS BUTTON (the heat's Strike, the stitch's Stitch) - pressed on the pointer's DOWN, the focus
  * left where it was (the click comes on the release: a tap on the beat was scored 90-150 ms late, and a phone has no
@@ -227,10 +247,11 @@ export function setDownProfAct() {
   if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; return true; }
   if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; return true; }   // PROF11
   if (_cook.act) { _cook.act.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; return true; }   // PROF9
+  if (_jewel.act) { _jewel.act.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; return true; }   // PROF10
   return false;
 }
 /** Whether an act is under way on the Stores page (the back stack's question). */
-export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act || _mason.act || _cook.act);   // PROF11: the chisel; PROF9: the pan
+export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act || _mason.act || _cook.act || _jewel.act);   // PROF11: the chisel; PROF9: the pan; PROF10: the facet
 /** A fresh visit starts plain (the menu calls it with its own reset). */
 export function resetProfPages() {
   _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
@@ -239,6 +260,7 @@ export function resetProfPages() {
   endStitch(); _loom.word = null; _loom.picked = null; _loom.counts = {}; _loom.dye = null;   // PROF7
   endChisel(); _mason.word = null; _mason.picked = null; _mason.counts = {};   // PROF11
   endPan(); _cook.word = null; _cook.picked = null; _cook.crafting = false;   // PROF9
+  endFacet(); _jewel.word = null; _jewel.piece = 'ring'; _jewel.base = 'silver'; _jewel.picked = null; _jewel.crafting = false; _jewel.heartwood = false; _jewel.cracked = false;   // PROF10
 }
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
@@ -269,10 +291,13 @@ const UNLOCKS = Object.freeze({
   masonry: Object.freeze([['Cut Stone, from Rough Stone', 1], ['Mortar, from Sulphur, Lead and Rough Stone', 2]]),
   // PROF9: the four dishes by their ranks (9.3; recipeLaw DISHES) - a dish's XP follows the rank, not the dish
   cooking: Object.freeze([['Hunter\'s Stew, Fisherman\'s Supper', 1], ['Orchard Tart', 2], ['Feast of the Hearth', 6]]),
+  // PROF10: the jeweller's ladder (recipeLaw JEWEL_METALS) - Silver and the Cloth Amulet at 0, Gold at 25, Platinum at 55,
+  // the Wand (its Ironwood or Ghostwood) at 70
+  jewelcrafting: Object.freeze([['Silver pieces; the Cloth Amulet', 1], ['Gold pieces', 3], ['Platinum pieces', 5], ['The Wand, in Ironwood or Ghostwood', 6]]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
-const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking
+const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking; PROF10: Jewelcrafting
 /** PROF8: how a haul is made, as the page says it. */
 export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, at any hour. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
@@ -500,6 +525,7 @@ export function drawStoresPage(detail, rerender, kit) {
   drawLoom(detail, rerender, kit);   // PROF7
   drawMasonBench(detail, rerender, kit);   // PROF11
   drawCookFire(detail, rerender, kit);   // PROF9
+  drawJewellerBench(detail, rerender, kit);   // PROF10
 }
 
 /** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */
@@ -1672,4 +1698,242 @@ function drawCookFire(detail, rerender, { el, divider }) {
   detail.append(el('p', 'px-note', 'Raw Meat comes from a body you skin, Raw Fish from the net, the Mushroom, the Egg, the Apple and the Orange from the Basket, and the herbs from their patches - into your Stores. A Raw Fish cooked over the flame from your pack stays a plain meal, and teaches no Cooking.'));
   if (elsewhere && !_cook.act) detail.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
   if (_cook.word) detail.append(el('p', 'prof-word', _cook.word));
+}
+
+// ─── PROF10: THE JEWELLER'S BENCH (bible/06-Systems/Professions-Arc.md 9.3, 9.4, 36) ─────
+
+/** What setting the stone down says. */
+export const FACET_DOWN_LINE = 'You set the stone down; nothing is spent.';
+/** Tests: the bench's state - its facet ticked by hand, as a frame would. */
+export const _jewelForTests = () => _jewel;
+/** The recipes the bench lists for a piece in a base (its metal, its Linen, its wood): the plain piece, then a gem each. */
+export const jewelRecipes = (piece, base) => JEWELCRAFTING_RECIPES.filter((r) => r.product === piece && r.id.split(':')[1] === base);
+/** What the bench says a piece's points are: "1,980 enchantment points (+10%)", its DFU template's and the share added. */
+export function jewelPointsLine(r, hand = null) {
+  const pct = jewelPointsPct(r, hand);
+  const pts = jewelPoints(r, templateByIndex(r.templateIndex)?.enchantmentPoints ?? 0, hand);
+  return `${pts.toLocaleString('en-US')} enchantment points${pct ? ` (+${pct}%)` : ''}`;
+}
+/** The facet let go: its loop, its keys and what it was cutting. */
+function endFacet() {
+  _jewel.off?.();
+  _jewel.off = null;
+  _jewel.stop = null;
+  _jewel.act = null;
+  _jewel.els = null;
+  _jewel.actRecipe = null; _jewel.actWood = false; _jewel.actCracked = false;
+}
+/** The facet's dial redrawn from the act: the stone's bearing along the turn, the window lit while it stands in the light,
+ *  the facets so far. */
+function paintFacet(reduced = false) {
+  const a = _jewel.act, els = _jewel.els;
+  if (!a || !els?.bar) return;
+  els.marker.style.left = `${((a.bearing / 360) * 100).toFixed(1)}%`;
+  if (!reduced) els.gem?.style?.setProperty?.('transform', `rotate(${a.bearing.toFixed(1)}deg)`);
+  els.band.style.left = `${(((a.state.light - a.state.half) / 360) * 100).toFixed(1)}%`;
+  els.bar.classList.toggle('prof-inband', a.inWindow);
+  const n = a.state.cuts.length;
+  for (let i = 0; i < (els.marks?.length ?? 0); i++) {
+    els.marks[i].classList.toggle('hit', i < n && a.state.cuts[i] === true);
+    els.marks[i].classList.toggle('miss', i < n && a.state.cuts[i] === false);
+  }
+}
+/** The facet's frame: the stone turned and drawn, the act ended when the page is gone; the piece asked when the last
+ *  facet ends - stopped, or let go round (the pan's loop, a stone for a pan). */
+function facetLoop(finish) {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis) ?? ((fn) => setTimeout(() => fn(Date.now()), 16));
+  const caf = globalThis.cancelAnimationFrame?.bind(globalThis) ?? clearTimeout;
+  let last = null, id = 0, live = true, inStep = false;
+  const reduced = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const clock = () => globalThis.performance?.now?.() ?? Date.now();
+  const next = () => { id = raf(() => { if (inStep) setTimeout(step, 16); else step(); }); };
+  const ended = () => { const clean = _jewel.act?.report().clean === true; endFacet(); finish(clean); };
+  const step = () => {
+    if (!live || !_jewel.act) return;
+    inStep = true;
+    try {
+      const els = _jewel.els;
+      if (!els?.bar || els.bar.isConnected === false) { _jewel.act.cancel(); endFacet(); return; }   // the page shut under the act: nothing spent
+      const t = clock();
+      const dt = last == null ? 0 : Math.min(0.1, (t - last) / 1000);
+      last = t;
+      _jewel.act.tick(dt);
+      if (_jewel.act.state.done) { ended(); return; }   // the last facet let go round
+      paintFacet(reduced);
+      next();
+    } finally { inStep = false; }
+  };
+  const stop = (e) => {
+    const a = _jewel.act;
+    if (!a) return;
+    const ok = a.stop(pressLead(e, last));   // AUDIT 32 P1: at the press's own moment
+    if (ok == null) return;
+    if (a.state.done) ended(); else paintFacet(reduced);
+  };
+  const key = (e) => actKey(e, _jewel.els?.hit, stop);
+  globalThis.document?.addEventListener?.('keydown', key, true);
+  Promise.resolve().then(() => { if (live) next(); });
+  _jewel.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
+  return stop;
+}
+
+/**
+ * PROF10: THE JEWELLER'S BENCH - Jewelcrafting's pieces (9.3) by piece (DFU's eight) and base (Silver, Gold or Platinum;
+ * the Cloth Amulet's Linen; the Wand's Ironwood or Ghostwood), each recipe a gem (the Ring's plain one first), its inputs as
+ * the Stores hold them, the rank it asks, the odds (a Master Jeweller's Masterwork points), the piece's enchantment points
+ * (the metal's, the gem's and the jeweller's hand - a Goldsmith's Silver, a Gemcutter's gem); a Heartwood for a Wand's
+ * plank; a Lapidary's Siege-cracked Gem for the gem; Craft (the facet, 9.4) and Quick craft. THE FACET: the stone turns
+ * slowly along the dial toward the light, its window drawn about it - wider at a higher rank and a better (WIL + LUC) / 2;
+ * Space, Enter or "Stop the turn" stops it, every facet caught a clean act (a quality step). Only at a jeweller's bench: a
+ * Pawn Shop's or a Gem Store's, its fee a piece, or the player's own home's.
+ * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
+ */
+function drawJewellerBench(detail, rerender, { el, divider }) {
+  const p = _provider;
+  if (!p?.jeweller || !p.craft) return;
+  const book = p.book;
+  const bench = p.jeweller();
+  detail.append(divider('The Jeweller\'s Bench'));
+  if (!bench) {
+    endFacet();
+    detail.append(el('p', 'px-note', `Jewelcrafting is done at a jeweller's bench: a Pawn Shop's or a Gem Store's (${JEWEL_FEE} gold a piece), or your own home's.`));
+    return;
+  }
+  const track = book.track('jewelcrafting');
+  const rank = track?.rank ?? 0;
+  const specs = track?.specs ?? {};
+  detail.append(el('p', 'px-note', `${bench.kind === 'shop' ? `The jeweller's bench - ${bench.fee} gold a piece.` : 'Your jeweller\'s bench.'} Jewelcrafting ${rank} (${rankName(rank)}).`));
+  const short = purseShort(bench, 'jeweller', 'a piece');
+  if (short) detail.append(el('p', 'px-note prof-short', short));
+  // AUDIT 30 A2's law: Gentle acts switched on under the facet sets the stone down - nothing spent, the piece a plain one
+  if (_jewel.act && getPref('gentleActs') === true) { _jewel.act.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; }
+  const cutting = !!_jewel.act;
+  const gentle = getPref('gentleActs') === true;
+  const elsewhere = handsAt(_jewel);   // AUDIT 32 P2: one act a page
+  const held = (k) => book.held(k);
+  // THE PIECES, then the piece's bases
+  const pieces = el('div', 'prof-families');
+  for (const pc of JEWEL_PIECES) {
+    const b = el('button', `prof-family${_jewel.piece === pc.id ? ' on' : ''}`, pc.word);
+    b.type = 'button';
+    b.disabled = cutting;
+    b.onclick = () => { _jewel.piece = pc.id; _jewel.picked = null; rerender(); };   // its base kept where the piece is made of it (a Ring's Gold an Amulet's)
+    pieces.append(b);
+  }
+  detail.append(pieces);
+  const bases = jewelBases(_jewel.piece);
+  if (!bases.some((b) => b.id === _jewel.base)) _jewel.base = bases[0].id;
+  if (bases.length > 1) {
+    const row = el('div', 'prof-families prof-metals');
+    for (const base of bases) {
+      const b = el('button', `prof-family${_jewel.base === base.id ? ' on' : ''}`, base.word);
+      b.type = 'button';
+      b.disabled = cutting;
+      b.onclick = () => { _jewel.base = base.id; _jewel.picked = null; rerender(); };
+      row.append(b);
+    }
+    detail.append(row);
+  }
+  const crackedHeld = held('gem:siege');
+  const lapidary = specs[100] === LAPIDARY;
+  /** What the piece spends as this jeweller would: a Heartwood for a plank, a Siege-cracked Gem for the gem. */
+  const spendsFor = (r, wood, cracked) => recipeInputs(r, { heartwood: wood && takesHeartwood(r), cracked: cracked && lapidary && takesCracked(r) });
+  const list = jewelRecipes(_jewel.piece, _jewel.base);
+  for (const r of list) {
+    const open = recipeOpen(r, rank);
+    const can = open && (craftable(r, held) || (lapidary && takesCracked(r) && craftable(r, held, spendsFor(r, false, true))));
+    const row = el('button', `prof-recipe${_jewel.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
+    row.type = 'button';
+    row.disabled = cutting;
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can make now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.onclick = () => { _jewel.picked = r.id; rerender(); };
+    detail.append(row);
+  }
+  // WHAT THE FACET'S END ASKS (AUDIT 30 A3's law: the piece, the Heartwood and the cracked gem it began with)
+  const finishFor = (id, wood, cracked) => async (clean) => {
+    _jewel.crafting = true; rerender();
+    const res = await p.craft(id, { clean: clean === true && getPref('gentleActs') !== true, heartwood: wood, cracked });
+    _jewel.crafting = false; _jewel.word = res?.text ?? null; rerender();
+  };
+  const r = list.find((x) => x.id === _jewel.picked);
+  if (r) {
+    const box = el('div', 'prof-craft');
+    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    if (!(lapidary && takesCracked(r) && crackedHeld > 0)) _jewel.cracked = false;
+    const spends = spendsFor(r, _jewel.heartwood, _jewel.cracked);
+    for (const inp of spends) {
+      const have = held(inp.key);
+      const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
+      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      box.append(line);
+    }
+    const hand = jewelHand(r, specs[50]);
+    box.append(el('p', 'px-note', `${jewelPointsLine(r, hand)}${hand === JEWEL_HAND_GOLDSMITH ? ' - a Goldsmith\'s Silver, counted as Gold' : hand === JEWEL_HAND_GEMCUTTER ? ' - a Gemcutter\'s gem' : ''}. The item maker spends them.`));
+    if (recipeOpen(r, rank)) {
+      const odds = qualityOdds(rank - r.rank, { masterwright: masterworkSpec(specs[100]) });
+      box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean facet is a step better; ${craftXp(r.tier, rank, false)} Jewelcrafting XP.`));
+    }
+    heartwoodToggle(box, el, r, book, _jewel, rerender, cutting);   // a Wand's plank (4.2: Heartwood "worth one quality step in any recipe")
+    if (lapidary && takesCracked(r) && crackedHeld > 0) {
+      // A LAPIDARY'S SIEGE-CRACKED GEM (3.3: "set as any gem") - the piece is the recipe's, its gem the one chosen
+      const lab = el('label', 'prof-gentle');
+      const cb = el('input');
+      cb.type = 'checkbox';
+      cb.checked = _jewel.cracked === true;
+      cb.disabled = cutting;
+      cb.onchange = () => { _jewel.cracked = !!cb.checked; rerender(); };
+      lab.append(cb, globalThis.document.createTextNode(` Set a Siege-cracked Gem as the ${gemWord(r.gem)} (${crackedHeld} stored)`));
+      box.append(lab);
+    }
+    const ready = recipeOpen(r, rank) && craftable(r, held, spends) && !_jewel.crafting && !_jewel.act && !elsewhere && !short;
+    if (elsewhere && !_jewel.act) box.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+    const wood = _jewel.heartwood && takesHeartwood(r), crack = _jewel.cracked === true && lapidary && takesCracked(r);
+    if (_jewel.act && _jewel.actRecipe) {
+      // THE FACET: the dial, the light's window on it, the stone's bearing, the facets so far
+      const panel = el('div', 'prof-heat prof-facet');
+      panel.append(el('span', 'prof-heatword', `The facet (${r.name}) - stop the turn where the stone catches the light (Space): ${_jewel.act.state.need} facets`));
+      const bar = el('div', 'prof-heatbar prof-facetbar');
+      const band = el('div', 'prof-heatband');
+      band.style.left = `${(((_jewel.act.state.light - _jewel.act.state.half) / 360) * 100).toFixed(1)}%`;
+      band.style.width = `${(((2 * _jewel.act.state.half) / 360) * 100).toFixed(1)}%`;
+      const marker = el('div', 'prof-heatmark');
+      bar.append(band, marker);
+      const gem = el('span', 'prof-gem', '<>');
+      const marks = el('div', 'prof-strikes');
+      const dots = [];
+      for (let i = 0; i < _jewel.act.state.need; i++) {
+        const c = _jewel.act.state.cuts[i];
+        const d = el('span', `prof-strike${c === true ? ' hit' : c === false ? ' miss' : ''}`, 'o');
+        dots.push(d);
+        marks.append(d);
+      }
+      const hit = actButton(el, 'Stop the turn', (e) => _jewel.stop?.(e));
+      const cancel = el('button', 'act', 'Set the stone down');
+      cancel.type = 'button';
+      cancel.onclick = () => { _jewel.act?.cancel(); endFacet(); _jewel.word = FACET_DOWN_LINE; rerender(); };
+      panel.append(gem, bar, marks, hit, cancel);
+      box.append(panel);
+      _jewel.els = { bar, band, marker, gem, marks: dots, hit };
+      if (!_jewel.off) _jewel.stop = facetLoop(finishFor(_jewel.actRecipe, _jewel.actWood, _jewel.actCracked));
+    } else {
+      const go = el('button', 'act primary', _jewel.crafting ? 'At the bench...' : 'Craft');
+      go.type = 'button';
+      go.disabled = !ready;
+      go.onclick = () => {
+        if (go.disabled) return;
+        if (gentle) { void finishFor(r.id, wood, crack)(false); return; }   // Gentle acts: a plain piece, no facet
+        _jewel.act = createFacetAct({ facets: facetCount(r), windowDeg: facetWindow(rank, p.facetBand?.() ?? 1) });
+        _jewel.actRecipe = r.id; _jewel.actWood = wood; _jewel.actCracked = crack;
+        rerender();
+      };
+      const quick = el('button', 'act', 'Quick craft');
+      quick.type = 'button';
+      quick.disabled = !ready;
+      quick.onclick = () => { if (!quick.disabled) void finishFor(r.id, wood, crack)(false); };
+      box.append(go, quick);
+    }
+    detail.append(box);
+  }
+  detail.append(el('p', 'px-note', 'Silver, Gold and Platinum come from the veins (Mining), the gems from a clean strike on a vein\'s glint, the Pearl from the sea\'s nets; Linen from the Weavers. Your pieces go to your pack.'));
+  if (_jewel.word) detail.append(el('p', 'prof-word', _jewel.word));
 }

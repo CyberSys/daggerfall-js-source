@@ -454,8 +454,8 @@
   {
     "name": "SEAT2b2-book-seat-unkept",
     "file": "src/net/profBook.js",
-    "old": "...(Number.isSafeInteger(seat) && seat >= 0 ? { seat } : {}) };",
-    "new": "};",
+    "old": "...(Number.isSafeInteger(seat) && seat >= 0 ? { seat } : {}),   // SEAT2b part two",
+    "new": "// SEAT2b part two",
     "tests": [
       "test/seat2b_peace_client.test.js"
     ]
@@ -472,8 +472,8 @@
   {
     "name": "SEAT2b2-door-seat-unposted",
     "file": "src/net/accountClient.js",
-    "old": ", ...(seat == null ? {} : { seat }) }),",
-    "new": " }),",
+    "old": ", ...(seat == null ? {} : { seat }), ...(cracked === true",
+    "new": ", ...(cracked === true",
     "tests": [
       "test/seat2b_peace_client.test.js"
     ]

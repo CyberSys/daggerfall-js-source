@@ -481,8 +481,8 @@
   {
     "name": "PROF11-decor-unlisted",
     "file": "src/net/recipeLaw.js",
-    "old": "...OUTFITTING_RECIPES, ...MASONRY_RECIPES, ...COOKING_RECIPES]",
-    "new": "...OUTFITTING_RECIPES, ...COOKING_RECIPES]",
+    "old": "...OUTFITTING_RECIPES, ...MASONRY_RECIPES, ...COOKING_RECIPES, ...JEWELCRAFTING_RECIPES]",
+    "new": "...OUTFITTING_RECIPES, ...COOKING_RECIPES, ...JEWELCRAFTING_RECIPES]",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_service.test.js",
@@ -587,8 +587,8 @@
   {
     "name": "PROF11-no-mason-station",
     "file": "src/net/decorLaw.js",
-    "old": "'workbench', 'loom', 'mason']);",
-    "new": "'workbench', 'loom']);",
+    "old": "'workbench', 'loom', 'mason', 'jeweller']);",
+    "new": "'workbench', 'loom', 'jeweller']);",
     "tests": [
       "test/prof11_law.test.js",
       "test/homestations.test.js",
@@ -598,8 +598,8 @@
   {
     "name": "PROF11-mason-licence-cheap",
     "file": "src/net/decorLaw.js",
-    "old": "loom: 50_000, mason: 50_000 });",
-    "new": "loom: 50_000, mason: 5_000 });",
+    "old": "loom: 50_000, mason: 50_000, jeweller: 50_000 });",
+    "new": "loom: 50_000, mason: 5_000, jeweller: 50_000 });",
     "tests": [
       "test/prof11_law.test.js",
       "test/homestations.test.js"
@@ -608,8 +608,8 @@
   {
     "name": "PROF11-mason-station-unnamed",
     "file": "src/net/decorLaw.js",
-    "old": "mason: 'Mason\\'s bench' });",
-    "new": "mason: 'Bench' });",
+    "old": "mason: 'Mason\\'s bench', jeweller:",
+    "new": "mason: 'Bench', jeweller:",
     "tests": [
       "test/prof11_law.test.js"
     ]
@@ -877,8 +877,8 @@
   {
     "name": "PROF11-pages-no-mason-station",
     "file": "src/ui/profPages.js",
-    "old": "export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'mason']);",
-    "new": "export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom']);",
+    "old": "export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'mason', 'jeweller']);",
+    "new": "export const PROF_STATIONS = Object.freeze(['forge', 'workbench', 'loom', 'jeweller']);",
     "tests": [
       "test/prof11_client.test.js",
       "test/prof7_client.test.js"
@@ -887,8 +887,8 @@
   {
     "name": "PROF11-pages-mason-cold-as-a-forge",
     "file": "src/ui/profPages.js",
-    "old": "station === 'mason' ? MASON_COLD_LINE : FORGE_COLD_LINE);",
-    "new": "FORGE_COLD_LINE);",
+    "old": "station === 'mason' ? MASON_COLD_LINE : station === 'jeweller'",
+    "new": "station === 'jeweller'",
     "tests": [
       "test/prof11_client.test.js"
     ]
@@ -896,8 +896,8 @@
   {
     "name": "PROF11-pages-masonry-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry",
-    "new": "'carpentry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry",
+    "old": "'carpentry', 'masonry', 'cooking', 'jewelcrafting']);   // PROF8: Fishing; PROF11: Masonry",
+    "new": "'carpentry', 'cooking', 'jewelcrafting']);   // PROF8: Fishing; PROF11: Masonry",
     "tests": [
       "test/prof11_client.test.js"
     ],
@@ -943,8 +943,8 @@
   {
     "name": "PROF11-pages-chisel-no-act",
     "file": "src/ui/profPages.js",
-    "old": "!!(_anvil.act || _bench.act || _loom.act || _mason.act || _cook.act)",
-    "new": "!!(_anvil.act || _bench.act || _loom.act || _cook.act)",
+    "old": "!!(_anvil.act || _bench.act || _loom.act || _mason.act || _cook.act || _jewel.act)",
+    "new": "!!(_anvil.act || _bench.act || _loom.act || _cook.act || _jewel.act)",
     "tests": [
       "test/prof11_client.test.js"
     ],

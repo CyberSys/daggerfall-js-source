@@ -751,6 +751,15 @@ export const MASON_FEE = 50;
  */
 export const COOK_FIRE = Object.freeze({ kind: 'fire', fee: 0 });
 /**
+ * PROF10 (PROF0 9.3: "Jewelcrafting (a jeweller's bench, or any Pawn Shop or Gem store for 50 gold)"): WHERE THE
+ * JEWELLER'S BENCH STANDS - a Pawn Shop's or a Gem Store's, open for trade (its insideOpenShop latch, AUDIT 29 D4's law),
+ * at 9.3's own fee - 50 gold a piece, the purse's - or a home's `jeweller` station (HOME-STATIONS' eighth, its licence
+ * the workbench's 50,000 - net/decorLaw.js), as the loom and the mason's bench stand. The service cannot see the bench (as
+ * it cannot see the forge, PROF0 23): the inputs are the Stores' and their units the bound; the client asks only where it
+ * stands.
+ */
+export const JEWEL_FEE = 50;
+/**
  * A forge's or a workbench's work, no act (PROF0 4.1, 4.2, 25): `out` made from `inputs`, `per` a unit - or `more.per`
  * for a character standing under `more.spec`, their `more.profession`'s choice at `more.rank` (100 unless it says: a
  * Quartermaster's ingots, a Charcoal Burner's charcoal, a Timberwright's planks; PROF7 a Tanner's leather, a choice at

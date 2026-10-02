@@ -1004,8 +1004,8 @@
   {
     "name": "PROF7-pages-hunting-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting']);",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting']);",
     "tests": [
       "test/prof7_client.test.js"
     ],
@@ -1061,8 +1061,8 @@
   {
     "name": "PROF7-no-loom-station",
     "file": "src/net/decorLaw.js",
-    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason']);",
-    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'mason']);",
+    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason', 'jeweller']);",
+    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'mason', 'jeweller']);",
     "tests": [
       "test/prof7_law.test.js",
       "test/homestations.test.js"
@@ -1071,8 +1071,8 @@
   {
     "name": "PROF7-loom-licence-cheap",
     "file": "src/net/decorLaw.js",
-    "old": "workbench: 50_000, loom: 50_000, mason: 50_000 });",
-    "new": "workbench: 50_000, loom: 5_000, mason: 50_000 });",
+    "old": "workbench: 50_000, loom: 50_000, mason: 50_000, jeweller: 50_000 });",
+    "new": "workbench: 50_000, loom: 5_000, mason: 50_000, jeweller: 50_000 });",
     "tests": [
       "test/prof7_law.test.js",
       "test/homestations.test.js"

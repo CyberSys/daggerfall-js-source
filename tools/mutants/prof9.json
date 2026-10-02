@@ -159,8 +159,8 @@
   {
     "name": "PROF9-recipes-no-dishes",
     "file": "src/net/recipeLaw.js",
-    "old": "...MASONRY_RECIPES, ...COOKING_RECIPES]",
-    "new": "...MASONRY_RECIPES]",
+    "old": "...MASONRY_RECIPES, ...COOKING_RECIPES, ...JEWELCRAFTING_RECIPES]",
+    "new": "...MASONRY_RECIPES, ...JEWELCRAFTING_RECIPES]",
     "tests": [
       "test/prof9_law.test.js",
       "test/prof9_service.test.js",
@@ -443,7 +443,7 @@
   {
     "name": "PROF9-record-reads-any-hand",
     "file": "src/net/productRecord.js",
-    "old": "  if (c.f !== undefined && !handOk(r, c.f)) return false;   // PROF9: a dish's cook's hand\n",
+    "old": "  if (c.f !== undefined && !handOk(r, c.f)) return false;   // PROF9: a dish's cook's hand; PROF10: a jeweller's\n",
     "new": "",
     "tests": [
       "test/prof9_law.test.js"
@@ -518,8 +518,8 @@
   {
     "name": "PROF9-svc-no-hand",
     "file": "server-account/src/professions.js",
-    "old": "  const hand = dishHand(r, specs[100]);",
-    "new": "  const hand = null;",
+    "old": "  const hand = dishHand(r, specs[100]) ?? jewelHand(r, specs[50]);",
+    "new": "  const hand = null ?? jewelHand(r, specs[50]);",
     "tests": [
       "test/prof9_service.test.js",
       "test/prof9_client.test.js"
@@ -546,8 +546,8 @@
   {
     "name": "PROF9-svc-hand-unanswered",
     "file": "server-account/src/professions.js",
-    "old": "...(r?.kind === 'dish' ? { hand:",
-    "new": "...(r?.kind === 'never' ? { hand:",
+    "old": "...(r?.kind === 'dish' || r?.kind === 'jewel' ? { hand:",
+    "new": "...(r?.kind === 'never' || r?.kind === 'jewel' ? { hand:",
     "tests": [
       "test/prof9_service.test.js",
       "test/prof9_client.test.js"
@@ -998,8 +998,8 @@
   {
     "name": "PROF9-pages-cooking-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "'carpentry', 'masonry', 'cooking']);",
-    "new": "'carpentry', 'masonry']);",
+    "old": "'carpentry', 'masonry', 'cooking', 'jewelcrafting']);",
+    "new": "'carpentry', 'masonry', 'jewelcrafting']);",
     "tests": [
       "test/prof9_client.test.js"
     ]
@@ -1043,8 +1043,8 @@
   {
     "name": "PROF9-pages-hands-not-at-the-fire",
     "file": "src/ui/profPages.js",
-    "old": ": me !== _cook && _cook.act ? 'the fire' : null);",
-    "new": ": null);",
+    "old": ": me !== _cook && _cook.act ? 'the fire'\n",
+    "new": "\n",
     "tests": [
       "test/prof9_client.test.js"
     ]

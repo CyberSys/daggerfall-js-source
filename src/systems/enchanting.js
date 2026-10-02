@@ -106,10 +106,17 @@ export const armorEnchantmentMultiplier = (material) =>
 /** GetItemEnchantmentPower (:2660-2678). The material multiplies only
  *  for WEAPONS and ARMOR; everything else (a ring, a robe) takes its
  *  template's base points untouched, because the multiplier stays 0.
- *  The FloorToInt is the quirk - see the header. */
+ *  The FloorToInt is the quirk - see the header.
+ *  PROF10 (bible/06-Systems/Professions-Arc.md 9.3, 36): a CRAFTED
+ *  piece of jewellery carries its own base - the item's own
+ *  `enchantmentPoints` (DFU's item field, itemFields.js), its template's
+ *  and the share its metal and its gem add (net/recipeLaw.js
+ *  jewelPoints, written at its mint). Every other item reads its
+ *  template's, as before; the maker's law is untouched. */
+export const craftedJewelPoints = (item) => (item?.group === 'Jewellery' && /^[0-9a-f]{16}$/.test(item.provenance ?? '') && Number.isSafeInteger(item.enchantmentPoints) && item.enchantmentPoints >= 0 ? item.enchantmentPoints : null);
 export function itemEnchantmentPower(item) {
   if (!item) throw new Error('itemEnchantmentPower: item is null');
-  const basePower = templateByIndex(item.templateIndex)?.enchantmentPoints ?? 0;
+  const basePower = craftedJewelPoints(item) ?? templateByIndex(item.templateIndex)?.enchantmentPoints ?? 0;
   const cls = customItemClass(item.templateIndex);
   if (cls?.enchantmentPower) return cls.enchantmentPower(item, { enchantmentPoints: basePower, armorEnchantmentMultiplier });
   let multiplier = 0;

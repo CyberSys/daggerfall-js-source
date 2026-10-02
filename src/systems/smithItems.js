@@ -64,10 +64,22 @@
 // name, no quality, its cook's hand (a Chef's feast, a Provisioner's
 // dish) the record's; a dish spoiled since it was cooked is no longer
 // as minted, and lists nowhere.
+//
+// PROF10 (Professions-Arc.md 9.3, 36): AND THE JEWELLER'S. A piece of
+// jewellery is DFU's own Jewellery template as DFU's loot mints one
+// (loot.js createRandomOfGroup: the template in its group, no material),
+// its quality the armour's (condition, weight, a Superior's Magic roll,
+// a Masterwork's Rare one and its mark), named for its metal and its gem
+// ("Gold Ruby Ring" - the rarity's words kept about it), its enchantment
+// points its template's and the share its metal and gem add (recipeLaw
+// jewelPoints, the jeweller's hand the record's) - the budget DFU's item
+// maker reads off it - and its worth its template's by that share, the
+// set gem's own price with it.
 // ═══════════════════════════════════════════════════════════════════
 import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, KIT_CEILING, INGOT_MATERIAL, ARMOR_PLATE,
   ARMOR_CHAIN, PROVENANCE_RE, makerName, QUALITY_NAMES,
+  jewelPoints, jewelPointsPct,   // PROF10: a piece of jewellery's points and its worth
 } from '../net/recipeLaw.js';
 import { minedMaterial } from '../net/professionLaw.js';
 import { weaponOfMaterial, armorOfMaterial, createWeapon } from '../combat/enemyEquipment.js';
@@ -100,6 +112,30 @@ export function garmentItem(r, seed, dye = null) {
   const item = mintCondition(setItemFields({ group: r.group, templateIndex: r.templateIndex, material: 0, flags: 0, variant: (seed >>> 0) % variants, message: 0, stackCount: 1 }));
   if (r.dyes === true && Number.isInteger(dye)) item.dye = dye;
   return item;
+}
+
+/**
+ * PROF10: A PIECE OF JEWELLERY as DFU's loot mints one (loot.js createRandomOfGroup - the Jewellery template in its group,
+ * no material), conditioned as every mint is.
+ * @param {import('../net/recipeLaw.js').Recipe} r
+ */
+export function jewelItem(r) {
+  return mintCondition(setItemFields({ group: 'Jewellery', templateIndex: r.templateIndex, material: 0, flags: 0, variant: 0, message: 0, stackCount: 1 }));
+}
+/**
+ * PROF10: what a piece of jewellery's metal and gem make of it once its quality is laid on - its name the recipe's ("Gold
+ * Ruby Ring"; a Magic or Rare roll's words kept about it, a Masterwork's mark before it - itemNameParts), its enchantment
+ * points (jewelPoints: the template's, and the share the metal, the gem and the jeweller's hand add), and its worth: the
+ * template's price by that share, and the set gem's own (a Ruby set is a Ruby's worth carried).
+ * @param {any} item @param {import('../net/recipeLaw.js').Recipe} r @param {number|null} hand
+ */
+function setJewel(item, r, hand) {
+  const base = templateByIndex(r.templateIndex);
+  const word = base?.name ?? '';
+  item.name = word && typeof item.name === 'string' && item.name.includes(word) ? item.name.replace(word, r.name) : r.name;
+  item.enchantmentPoints = jewelPoints(r, base?.enchantmentPoints ?? 0, hand);
+  const gem = r.gem ? templateByIndex(minedMaterial(r.gem)?.templateIndex ?? -1)?.basePrice ?? 0 : 0;
+  item.value = Math.max(1, Math.round((Number.isFinite(item.value) ? item.value : base?.basePrice ?? 0) + ((base?.basePrice ?? 0) * jewelPointsPct(r, hand)) / 100) + gem);
 }
 
 /**
@@ -154,12 +190,14 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false,
   } else {
     item = r.kind === 'weapon' || r.kind === 'staff' || r.kind === 'bow' ? weaponOfMaterial(r.templateIndex, r.material)   // PROF4: a staff's or a bow's material its wood's
       : r.kind === 'garment' ? garmentItem(r, seed, dye)   // PROF7: DFU's clothing, its variant and dye the record's
-        : armorOfMaterial(r.templateIndex, r.material);   // PROF7: leather armour at Leather (0)
+        : r.kind === 'jewel' ? jewelItem(r)   // PROF10: DFU's jewellery
+          : armorOfMaterial(r.templateIndex, r.material);   // PROF7: leather armour at Leather (0)
     const eff = QUALITY_EFFECTS[q];
     if (eff.rarity && rarityEligible(item)) { applyRarity(item, eff.rarity, seededRng(seed >>> 0)); item.isIdentified = true; }
     item.maxCondition = item.currentCondition = Math.max(1, Math.round(item.maxCondition * eff.condition));
     if (eff.weight !== 1) item.weightInKg = Math.round(unitWeightInKg({ ...item, weightInKg: undefined }) * eff.weight * 100) / 100;
     if (q === MASTERWORK && mark) item.name = templateByIndex(r.templateIndex)?.name ?? item.name;   // the mark is its name (itemNameParts)
+    if (r.kind === 'jewel') setJewel(item, r, hand);   // PROF10: its metal's and its gem's name, points and worth
   }
   item.quality = q;
   item.recipe = r.id;   // AUDIT 31 H3: an Ebony and a Warforged piece mint the same template and material
@@ -364,3 +402,5 @@ export const LOOM_KEPT_TEXT = 'The last stitch was pulled, but no word came back
 export const MASON_KEPT_TEXT = 'The last chip fell, but no word came back - the work is kept, and made when the word comes.';
 /** PROF9: the fire's own. */
 export const COOK_KEPT_TEXT = 'The last pan came off the fire, but no word came back - the dish is kept, and made when the word comes.';
+/** PROF10: the jeweller's bench's own. */
+export const JEWEL_KEPT_TEXT = 'The last facet caught the light, but no word came back - the piece is kept, and made when the word comes.';

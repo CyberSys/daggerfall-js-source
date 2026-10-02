@@ -35,7 +35,7 @@ test('PROF5 law: the bounds (10.2, 10.3, section 20) - a listing 72 hours, thirt
   assert.deepEqual(MARKET_VIEWS.map(([v]) => v), ['materials', 'crafted', 'auctions', 'goods', 'mine', 'orders', 'history']);   // PROF5b: Auctions beside Crafted
   assert.deepEqual(MARKET_VIEWS.map(([, l]) => l), ['Materials', 'Crafted', 'Auctions', 'Goods', 'My listings', 'Orders', 'History'], 'the wireframe\'s row, PROF5b\'s Auctions and MARKET-ANY\'s Goods');
   // PIN MOVED (PROF11): the mason's bench's stonework lists, as the loom's three
-  assert.deepEqual(CRAFTED_FAMILIES.map(([f]) => f), ['weapons', 'armour', 'staves', 'bows', 'tools', 'kits', 'furniture', 'leather', 'clothing', 'furnishings', 'stonework', 'dishes'], 'arrows and the siege works never list (PROF7 moved it: the loom\'s three list; PIN MOVED (PROF9): the fire\'s dishes)');
+  assert.deepEqual(CRAFTED_FAMILIES.map(([f]) => f), ['weapons', 'armour', 'staves', 'bows', 'tools', 'kits', 'furniture', 'leather', 'clothing', 'furnishings', 'stonework', 'dishes', 'jewellery'], 'arrows and the siege works never list (PROF7 moved it: the loom\'s three list; PIN MOVED (PROF9): the fire\'s dishes; PIN MOVED (PROF10): the jeweller\'s pieces)');
   assert.deepEqual([marketOpen(true, true, true), marketOpen(true, true, false), marketOpen(false, true, true), marketOpen(true, false, true)], [true, false, false, false]);
   assert.deepEqual([MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_REPORT_MEDIANS], [7, 90, 20]);
 });

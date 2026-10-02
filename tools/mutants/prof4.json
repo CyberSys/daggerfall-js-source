@@ -479,8 +479,8 @@
   {
     "name": "PROF4-joiner-unread",
     "file": "server-account/src/professions.js",
-    "old": "  const inputs = recipeInputs(r, { heartwood: wood, joiner: specs[50] === 'joiner' });",
-    "new": "  const inputs = recipeInputs(r, { heartwood: wood, joiner: false });",
+    "old": "  const inputs = recipeInputs(r, { heartwood: wood, joiner: specs[50] === 'joiner', cracked: crack });",
+    "new": "  const inputs = recipeInputs(r, { heartwood: wood, joiner: false, cracked: crack });",
     "tests": [
       "test/prof4_service.test.js"
     ]
@@ -733,8 +733,8 @@
   {
     "name": "PROF4-smithing-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking",
-    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'outfitting', 'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking",
+    "old": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting']);",
+    "new": "const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'outfitting', 'carpentry', 'masonry', 'cooking', 'jewelcrafting']);",
     "tests": [
       "test/prof4_client.test.js"
     ],
@@ -806,8 +806,8 @@
   {
     "name": "PROF4-no-workbench-station",
     "file": "src/net/decorLaw.js",
-    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason']);",
-    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'loom', 'mason']);",
+    "old": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason', 'jeweller']);",
+    "new": "export const DECOR_STATIONS = Object.freeze(['alchemy', 'spells', 'enchant', 'forge', 'loom', 'mason', 'jeweller']);",
     "tests": [
       "test/homestations.test.js",
       "test/prof2_client.test.js",
