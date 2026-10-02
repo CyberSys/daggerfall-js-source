@@ -1,7 +1,7 @@
 // ELITE-FLOOR + FOE-TITLE (2026-10-02, Mac: "Do it" - the two cheap wins of the elites-and-champions review).
 //   - ELITE-FLOOR: an elite is never a foe under ELITE_FOE_MIN_LEVEL (LOOT7's floor), the city watch, or an ally; a
 //     refused promotion leaves the foe as it was built, and the dungeon's build arm falls through to its plain path.
-//   - FOE-TITLE: one home names a special foe on every surface - a nemesis by its own name, a champion by its trait,
+//   - FOE-TITLE: one home names a special foe on every surface - a revenant by its own name, a champion by its trait,
 //     an elite as "Elite" - the target bar, the hover, the death line and the body's title alike.
 //   - ELITE-RARITY (Mac: "ensure elite spawns arent over abundant. I think theyre common right now"): one foe in fifty
 //     in the open world, past a gate - none while one stands near, none within three hours of the last of mine, never
@@ -50,11 +50,11 @@ test('ELITE-FLOOR: the dungeon\'s build arm promotes only when the promotion sta
   assert.match(dc, /if \(e\?\.eliteFoe && entity && promoteEliteFoe\(entity, \{ eliteDungeon: !!e\.elite, checkLevel: false \}\)\) \{ if \(e\.elite\) entity\.elite = true; return; \}\s*(?:\/\/[^\n]*)?\n\s*if \(!e\?\.elite \|\| !entity\) return void applyChampion\(entity, e\?\.champion\);/);
 });
 
-test('FOE-TITLE: a nemesis by its name, a champion by its trait, an elite as Elite, anyone else as it was - on the target bar, the hover, the death line and the body alike (mutants: the elite unnamed off the target bar; the nemesis named by its kind)', () => {
+test('FOE-TITLE: a revenant by its name, a champion by its trait, an elite as Elite, anyone else as it was - on the target bar, the hover, the death line and the body alike (mutants: the elite unnamed off the target bar; the revenant named by its kind)', () => {
   assert.equal(foeTitle({}, 'Orc'), 'Orc');
   assert.equal(foeTitle({ champion: 'mighty' }, 'Orc'), 'Mighty Orc');
   assert.equal(foeTitle({ eliteFoe: true }, 'Orc'), 'Elite Orc');
-  assert.equal(foeTitle({ nemesis: { name: 'Grushnak the Butcher' }, eliteFoe: true }, 'Orc'), 'Grushnak the Butcher', 'a nemesis is its own name');
+  assert.equal(foeTitle({ revenant: { name: 'Grushnak the Butcher' }, eliteFoe: true }, 'Orc'), 'Grushnak the Butcher', 'a revenant is its own name');
   assert.equal(foeTitle({ eliteFoe: true }, null), null, 'no name, nothing to dress');
   // every surface asks the one home
   const elite = foe({ eliteFoe: true });
@@ -96,7 +96,7 @@ test('ELITE-RARITY: the dungeons - a normal one holds one about one time in ten,
   }
 });
 
-test('ELITE-RARITY: the open world\'s pool, online - a camp that wins every roll stands ONE elite, the next within the gap none, the next past it one; a loose stand never; a returning elite nemesis outside the gate (mutants: the gap unset at the promotion; the loose stand promoted; the nemesis gated)', async () => {
+test('ELITE-RARITY: the open world\'s pool, online - a camp that wins every roll stands ONE elite, the next within the gap none, the next past it one; a loose stand never; a returning elite revenant outside the gate (mutants: the gap unset at the promotion; the loose stand promoted; the revenant gated)', async () => {
   const careers = (() => {
     const b = new Uint8Array(74); const v = new DataView(b.buffer);
     b[10] = 0x08; v.setUint16(52, 4, true);
@@ -136,7 +136,7 @@ test('ELITE-RARITY: the open world\'s pool, online - a camp that wins every roll
     loose.dead = true;
     const later = await pool.spawnFoe(2, [0, 0, 40], { feetGiven: true, level: 5 });
     assert.equal(later.entity.eliteFoe, true, 'past the gap: one again');
-    const nem = await pool.spawnFoe(2, [0, 0, 50], { feetGiven: true, level: 5, nemesis: { id: 'n1', name: 'Grushnak the Butcher', rank: 1, elite: true, trait: null, returns: 0, history: [] } });
-    assert.equal(nem.entity.eliteFoe, true, 'an elite nemesis stands as one, the gate and an elite standing notwithstanding');
+    const nem = await pool.spawnFoe(2, [0, 0, 50], { feetGiven: true, level: 5, revenant: { id: 'n1', name: 'Grushnak the Butcher', rank: 1, elite: true, trait: null, returns: 0, history: [] } });
+    assert.equal(nem.entity.eliteFoe, true, 'an elite revenant stands as one, the gate and an elite standing notwithstanding');
   } finally { Math.random = real; pool.destroy?.(); }
 });

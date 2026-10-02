@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { nemesisToReturn, nemesisSpawnOptions, nemesisPresence, takeNemesisNotice, nemesisSay, releaseNemesisStand } from '../systems/nemesis.js';   // NEMESIS: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2)
@@ -8007,10 +8007,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // rest session's local counter standing in for `now` while the world's clock stood.]
     const now = Math.floor(playerTicker.ownMinutes);
     if (_lastEncMinutes == null) _lastEncMinutes = now;
-    // NEMESIS (systems/nemesis.js): a nemesis out in the world and no longer there comes again later; a kill of one
+    // REVENANT (systems/revenant.js): a revenant out in the world and no longer there comes again later; a kill of one
     // the player has not yet heard of is said once they stand alive again
-    nemesisPresence(exteriorFoes.foes, { now });
-    nemesisSay(takeNemesisNotice(playerEntity), (l) => townTalk.say(l));   // NEMESIS-CARD: the card, or the line
+    revenantPresence(exteriorFoes.foes, { now });
+    revenantSay(takeRevenantNotice(playerEntity), (l) => townTalk.say(l));   // REVENANT-CARD: the card, or the line
     // THE FLAG, AT LAST WITH A READER. PlayerEntity.Update wraps this
     // whole loop - the spawn roll AND the passive guard rolls inside
     // it - in `if (!preventEnemySpawns)` (:479-482), and clears the
@@ -8063,9 +8063,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),
         playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
       });
-      // NEMESIS: a due nemesis may take an open-world roll instead - the player's own, whoever rolls the group's wanderers
-      const _nemesis = hit && _m === 'exterior' ? nemesisToReturn(playerEntity, { now }) : null;
-      if (_nemesis) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet)).then((f) => { if (!f) releaseNemesisStand(_nemesis); }); break; }   // claimed by the roll; a stand that stood nobody frees it
+      // REVENANT: a due revenant may take an open-world roll instead - the player's own, whoever rolls the group's wanderers
+      const _revenant = hit && _m === 'exterior' ? revenantToReturn(playerEntity, { now }) : null;
+      if (_revenant) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _revenant.mobileType, revenant: _revenant }, playerFeet)).then((f) => { if (!f) releaseRevenantStand(_revenant); }); break; }   // claimed by the roll; a stand that stood nobody frees it
       if (hit && _rollsForGroup) {   // PSCALE1: a roll that is not the group's stands nothing - the group's roller stands it for everyone
         // RE1: DFU's own placement. This used to walk eight compass
         // points at minDistance and take the first with ground under
@@ -8868,7 +8868,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
-      ...(hit.nemesis ? nemesisSpawnOptions(hit.nemesis, effectiveLevel(playerEntity)) : {}),   // NEMESIS: a returning one - its record, its gender, a class foe's level
+      ...(hit.revenant ? revenantSpawnOptions(hit.revenant, effectiveLevel(playerEntity)) : {}),   // REVENANT: a returning one - its record, its gender, a class foe's level
     }).catch(() => null);
     journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
     return stood;

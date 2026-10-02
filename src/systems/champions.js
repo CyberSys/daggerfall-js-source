@@ -52,7 +52,7 @@ export const championIndex = (id) => CHAMPION_TRAITS.findIndex((t) => t.id === i
 /** A foe's trait, when it stands as a champion, else null. */
 export const championOf = (entity) => (entity?.champion ? championTrait(entity.champion) : null);
 /** What a champion is called - its trait before its own name ("Mighty Orc Warlord"); FOE-TITLE: an elite's "Elite Orc
- *  Warlord" and a nemesis's own name too (systems/foeTitle.js, the one home); anyone else's name as it was. */
+ *  Warlord" and a revenant's own name too (systems/foeTitle.js, the one home); anyone else's name as it was. */
 export function championName(entity, base) {
   return foeTitle(entity, base);
 }

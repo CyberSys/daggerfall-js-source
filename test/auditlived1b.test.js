@@ -459,7 +459,7 @@ test('AUDIT LIVED1b P1: a party mirror\'s night walks the follower\'s own watch 
       'intermittentEnemySpawn', 'sharedClockOn', 'worldMinutes', 'skyMinutes', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES',   // TIME1: the roll's sky
       'partyExtraFoes', 'partySize', '_standEncounterFoe', '_questRegionIndex', 'passiveGuardSpawns', 'legalRepOf', 'setCrimeCommitted', 'CRIMES',
       '_witnessResponse', 'cityGuards', '_guardPool', 'cam', 'effectiveLevel',
-      'nemesisPresence', 'takeNemesisNotice', 'nemesisToReturn', 'exteriorFoes', 'townTalk', 'nemesisSay'];   // NEMESIS: none here   // SOFTCAP2: the mentor's level the loop's roll reads
+      'revenantPresence', 'takeRevenantNotice', 'revenantToReturn', 'exteriorFoes', 'townTalk', 'revenantSay'];   // REVENANT: none here   // SOFTCAP2: the mentor's level the loop's roll reads
     const body = `let _lastEncMinutes = null;\n${fnText}\nconst mirrorHook = { ${MIRROR} };\nconst soloHook = { ${SOLO} };\n`
       + 'return { run: runEncounterTick, mirror: mirrorHook.advanceMinutes, solo: soloHook.advanceMinutes };';
     const h = new Function(...names, body)(ticker, e, () => true, { id: 'me' }, { pos: [0, 0, 0], feetAt: () => [0, 0, 0], isPlayerSwimming: false }, () => [], { mode: 'exterior' }, true, true,

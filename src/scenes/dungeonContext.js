@@ -215,8 +215,8 @@ import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online
 import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, eliteCorpseSize } from '../systems/eliteFoes.js';   // ELITE FOES: 3-4 champions in an Elite Dungeon
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
-import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a nemesis, a champion or an elite is named on the hover even while hostile
-import { nemesisFleeStep, nemesisFleeHealth, nemesisDeed, nemesisSlain, nemesisSay, nemesisFleeEvent, nemesisCorneredEvent, nemesisEscapeEvent, nemesisSlainEvent } from '../systems/nemesis.js';   // NEMESIS-DUNGEON: a special foe of mine alone may run, and get away
+import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
+import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent } from '../systems/revenant.js';   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: HARD1 - the ring is this context's to own and to end
 import { createHitEffects, bloodCentre } from './hitEffects.js';
@@ -1467,15 +1467,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
   /** B1: the quest behaviour's pool surface (the questFoeHost
    *  contract) - the dungeon twin of exteriorFoes' questPoolOps. */
-  /** NEMESIS-DUNGEON: a fleeing foe out of reach - retired through the quest pool's own door (no corpse, no kill; a
-   *  layout foe due back as any it retires), made a nemesis (or a stronger one), and said. */
+  /** REVENANT-DUNGEON: a fleeing foe out of reach - retired through the quest pool's own door (no corpse, no kill; a
+   *  layout foe due back as any it retires), made a revenant (or a stronger one), and said. */
   function escapeDungeonFoe(f) {
     questPoolOps.removeFoe(f);
     f.fleeing = false;
     f.escaped = true;
     if (f.ai?.detected) setEnemyAlert(playerEntity, false);
-    const r = nemesisDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive });
-    if (r) nemesisSay(nemesisEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));
+    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive });
+    if (r) revenantSay(revenantEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));
   }
   const questPoolOps = {
     removeFoe: (f) => {
@@ -5708,7 +5708,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // WORLD6b B2): a PEER's killing blow applied here speaks no notice of mine - the striker's own rings at the
       // striker, below in applyFoeRecord, when this host's record names it
       if (!peer) sayEnemyDied((l) => hudText.add(l), foe.mobileType, foe.entity);
-      if (foe.entity?.nemesis) { const nr = nemesisSlain(playerEntity, foe.entity); if (nr && !peer) nemesisSay(nemesisSlainEvent(nr, playerEntity?.name, { archive: foe.mobileArchive }), (l) => hudText.add(l)); }   // NEMESIS-DUNGEON: one that killed me here and stood, slain at last
+      if (foe.entity?.revenant) { const nr = revenantSlain(playerEntity, foe.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: foe.mobileArchive }), (l) => hudText.add(l)); }   // REVENANT-DUNGEON: one that killed me here and stood, slain at last
       spawnCorpse(foe);
       playRareDrop(audio, foe.ai.feet, foe.entity.items);   // LR3: the chime for a Rare or better on the body
       stampWonWeapons(foe.entity.items, _sharedFoe(foe) ? fightN(foe) : 1);   // SIGIL1: the body's Magic+ weapons won online may carry a sigil; a bigger fight, better odds
@@ -6465,14 +6465,14 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applyEnemyMotorEffectFlags(f.ai, f.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
       f.ai.update(foeFrameDt(dt), _pf, _armed(f, _senses, _roomFoe), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
       _tgt = _targetFeet(f);   // MT-iv: whatever it SELECTED
-      // NEMESIS-DUNGEON (systems/nemesis.js nemesisFleeStep - the open world's own law): a special foe MINE ALONE (offline,
+      // REVENANT-DUNGEON (systems/revenant.js revenantFleeStep - the open world's own law): a special foe MINE ALONE (offline,
       // or past the room's shared run - a room's layout foe vanishing on one client would leave it standing on the rest)
       // may run; running it aims at nothing (no blow, no cast; the walk below still draws it); out of reach it has
-      // ESCAPED - retired through the quest pool's door, no corpse, a nemesis made; run down, it is CORNERED and fights on
-      const _flee = f.fleeing || (!f._fleeRolled && nemesisFleeHealth(f.entity)) ? nemesisFleeStep(f, _pf, { mayRun: !onlineRoom() || !_roomFoe, onMe: () => !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target) }) : null;   // asked only of a foe running or under the line
+      // ESCAPED - retired through the quest pool's door, no corpse, a revenant made; run down, it is CORNERED and fights on
+      const _flee = f.fleeing || (!f._fleeRolled && revenantFleeHealth(f.entity)) ? revenantFleeStep(f, _pf, { mayRun: !onlineRoom() || !_roomFoe, onMe: () => !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target) }) : null;   // asked only of a foe running or under the line
       if (_flee === 'escape') { escapeDungeonFoe(f); continue; }
-      if (_flee === 'start') nemesisSay(nemesisFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
-      else if (_flee === 'cornered') nemesisSay(nemesisCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
+      if (_flee === 'start') revenantSay(revenantFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
+      else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
       if (_flee === 'start' || _flee === 'run') _tgt = null;
       // CH3 (characters-8): a past-threshold landing bills the
       // player's fall formula - trunc(5 x (drop - 5)) - through the

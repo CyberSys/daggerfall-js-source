@@ -56,8 +56,8 @@
   {
     "name": "ELITE-RARITY-the-gap-unset-at-the-promotion",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "&& promoteEliteFoe(entity) && !nemesis) _lastEliteAt = _eliteMinute();",
-    "new": "&& promoteEliteFoe(entity) && !nemesis) void 0;",
+    "old": "&& promoteEliteFoe(entity) && !revenant) _lastEliteAt = _eliteMinute();",
+    "new": "&& promoteEliteFoe(entity) && !revenant) void 0;",
     "tests": [
       "test/elitefloor_foetitle.test.js"
     ]
@@ -72,10 +72,10 @@
     ]
   },
   {
-    "name": "ELITE-RARITY-the-nemesis-gated",
+    "name": "ELITE-RARITY-the-revenant-gated",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "(nemesis ? nemesis.elite : (overworldEliteAllowed(",
-    "new": "(nemesis ? nemesis.elite && overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) : (overworldEliteAllowed(",
+    "old": "(revenant ? revenant.elite : (overworldEliteAllowed(",
+    "new": "(revenant ? revenant.elite && overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) : (overworldEliteAllowed(",
     "tests": [
       "test/elitefloor_foetitle.test.js"
     ]

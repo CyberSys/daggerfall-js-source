@@ -930,8 +930,8 @@ export const SHARED_EFFECTS_MAX = 64;
 export const FOE_LEVEL_MAX = 100;
 /** LOOT7: the highest champion trait index a foe record may name (systems/champions.js has five; room to grow). */
 export const CHAMPION_TRAIT_MAX = 15;
-/** NEMESIS-WIRE: the longest name a foe record may carry for its nemesis (systems/nemesis.js: a given name and an epithet). */
-export const NEMESIS_NAME_MAX = 64;
+/** REVENANT-WIRE: the longest name a foe record may carry for its revenant (systems/revenant.js: a given name and an epithet). */
+export const REVENANT_NAME_MAX = 64;
 /** One streamed foe record projected: `i` a whole number in [0, FOE_SEQ_MAX]; `t` a whole number in [0, 255] or
  *  absent; `x`, `d`, `m` 0 or 1 or absent; `f` three finite numbers inside the pose's bounds or absent; `y` finite
  *  or absent; `h` finite in [0, FOE_HEALTH_MAX] or absent; `a` a whole number in [0, 2^31) or absent. Null when
@@ -974,9 +974,9 @@ export function validFoeRecord(r) {
   // LOOT7 (the Loot arc): `cp` a CHAMPION's trait - its index in systems/champions.js CHAMPION_TRAITS (this file names
   // none of them: the relay reads it), absent for a foe that is none; the reader stands its puppet as the same champion
   if (r.cp !== undefined) { if (!Number.isInteger(r.cp) || r.cp < 0 || r.cp > CHAMPION_TRAIT_MAX) return null; out.cp = r.cp; }
-  // NEMESIS-WIRE: `nm` its NEMESIS's name, the owner's own (systems/nemesis.js) - so every puppet is called what its owner
+  // REVENANT-WIRE: `nm` its REVENANT's name, the owner's own (systems/revenant.js) - so every puppet is called what its owner
   // calls it; printable, bounded, absent for a foe that is none
-  if (r.nm !== undefined) { if (typeof r.nm !== 'string' || !r.nm.length || r.nm.length > NEMESIS_NAME_MAX || /[\u0000-\u001f\u007f]/.test(r.nm)) return null; out.nm = r.nm; }
+  if (r.nm !== undefined) { if (typeof r.nm !== 'string' || !r.nm.length || r.nm.length > REVENANT_NAME_MAX || /[\u0000-\u001f\u007f]/.test(r.nm)) return null; out.nm = r.nm; }
   // AUDIT PSCALE1: `n` how many players fight the foe (systems/partyScale.js foeFighters) - 2..PARTY_MAX, absent for one
   if (r.n !== undefined) { if (!Number.isInteger(r.n) || r.n < 2 || r.n > PARTY_MAX) return null; out.n = r.n; }
   // AUDIT CONTRIB P1: `e` the HEIR - on a dying owner's last frame, the survivor that owner names to take this foe over

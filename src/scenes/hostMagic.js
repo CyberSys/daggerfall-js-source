@@ -59,7 +59,7 @@ import { CAPSULE_HEIGHT } from '../player/motor.js';   // PlayerController.heigh
 import { setPlayerDoor } from '../systems/playerDoor.js';   // SET2: this host publishes itself as the scene a set's power reaches into
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
-import { markPlayerHarm } from '../systems/harmMark.js';   // NEMESIS-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
+import { markPlayerHarm } from '../systems/harmMark.js';   // REVENANT-HARM: a foe's spell on the player leaves its mark (a death no blow names is its)
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
 
 /**
@@ -514,7 +514,7 @@ export function createPlayerMagic({
     // Lycanthropy cast in any host reaches the racial override.
     base.morphSelf = () => morphSelf(playerEntity, { nowMinutes: now ? Math.floor(now()) : 0, say });
     const ctx = { ...(lastCastCost > 0 ? { ...base, selfCastCost: lastCastCost } : base), ...(extraCtx ?? {}) };
-    if (caster?.entity && caster.entity !== playerEntity && !caster.entity.isPlayer) markPlayerHarm(caster.entity);   // NEMESIS-HARM: before it lands - its burn may be the death
+    if (caster?.entity && caster.entity !== playerEntity && !caster.entity.isPlayer) markPlayerHarm(caster.entity);   // REVENANT-HARM: before it lands - its burn may be the death
     const r = applySpell(spell, casterLevel, playerEntity, playerSinks, rolls, caster, ctx);
     if (r.paralyzed) say('You are paralyzed.');
     // S19c: AssignBundle's failure messages, player hosts only -

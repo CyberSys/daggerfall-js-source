@@ -54,7 +54,7 @@
 // which is strictly stronger: it also sees a container's contents
 // change under a constant key, which the mod cannot.
 import { modSetting } from './modSettings.js';
-import { foeTitle } from './foeTitle.js';   // FOE-TITLE: a champion, an elite, a nemesis - what each is called
+import { foeTitle } from './foeTitle.js';   // FOE-TITLE: a champion, an elite, a revenant - what each is called
 import { itemLongName } from './itemInfo.js';   // RF6: ResolveItemLongName, the port's one resolver
 import { buildingClosedText, buildingLockValue } from './buildingLocks.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -349,10 +349,10 @@ export function mobileEntityName(entityName, { hostile = false, champion = false
  * takes. The fallback is the port's limit, not a second reading of the
  * mod.
  */
-/** LOOT7 (the Loot arc): a CHAMPION's trait before its name; ELITE FOES: "Elite" before it; NEMESIS: its own name -
+/** LOOT7 (the Loot arc): a CHAMPION's trait before its name; ELITE FOES: "Elite" before it; REVENANT: its own name -
  *  systems/foeTitle.js, the one home every surface asks. */
 const championed = (e, name) => foeTitle(e, name);
-export const liveEntityName = (rec, enemyName = null) => championed(rec?.entity, rec?.entity?.name ?? enemyName ?? null);   // LOOT7: a champion by its name; ELITE FOES and NEMESIS too
+export const liveEntityName = (rec, enemyName = null) => championed(rec?.entity, rec?.entity?.name ?? enemyName ?? null);   // LOOT7: a champion by its name; ELITE FOES and REVENANT too
 
 // ── THE TOTEM (.cs:491-505) ─────────────────────────────────────
 //

@@ -120,7 +120,7 @@ import { exhaustionOutcome } from '../systems/rest.js';   // AUDIT 23 (C5); SWIM
 import { preloadRestArt } from '../ui/restWindow.js';   // S40: rest above ground   // D3: REST00I0/01I0/02I0
 import { createRestWindow } from '../ui/restDoor.js';   // RESTDOOR1: the enhanced/native fork, same law as ui/tradeDoor.js
 import { setEnemyAlert, areEnemiesNearby, intermittentEnemySpawn } from '../systems/encounters.js';
-import { nemesisToReturn, nemesisSpawnOptions, nemesisPresence, takeNemesisNotice, nemesisSay, releaseNemesisStand } from '../systems/nemesis.js';   // NEMESIS: the world host's twin - who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand } from '../systems/revenant.js';   // REVENANT: the world host's twin - who comes back, and what the player is told
 import { createStandingWatch, installLegalNotices } from './standingHost.js';   // REP1: the watch's stop; REP5: the law's notices
 import { setForagingHost } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's reaches into the world, this host's answers
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions
@@ -1867,10 +1867,10 @@ export async function bootExterior(canvas, renderer, params, status) {
     // rest session's local counter standing in for `now` while the world's clock stood.]
     const now = Math.floor(playerTicker.ownMinutes);
     if (_lastEncMinutes == null) _lastEncMinutes = now;
-    // NEMESIS (systems/nemesis.js): the world host's twin - a nemesis out and gone comes again later; a kill not yet
+    // REVENANT (systems/revenant.js): the world host's twin - a revenant out and gone comes again later; a kill not yet
     // told is said (the card, or the line) once the player stands alive
-    nemesisPresence(exteriorFoes.foes, { now });
-    nemesisSay(takeNemesisNotice(playerEntity), (l) => townTalk.say(l));
+    revenantPresence(exteriorFoes.foes, { now });
+    revenantSay(takeRevenantNotice(playerEntity), (l) => townTalk.say(l));
     const span = playerEntity.preventEnemySpawns ? 0 : Math.min(now - _lastEncMinutes, 1440);
     let _updatedGuards = false;   // :484 - declared OUTSIDE the loop, inside the guard
     for (let l = 0; l < span; l++) {
@@ -1885,9 +1885,9 @@ export async function bootExterior(canvas, renderer, params, status) {
         climateIndex: locClimateIndex,
         playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
       });
-      // NEMESIS: a due nemesis may take the roll instead (the world host's twin)
-      const _nemesis = hit && _m === 'exterior' ? nemesisToReturn(playerEntity, { now }) : null;
-      if (_nemesis) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet)).then((f) => { if (!f) releaseNemesisStand(_nemesis); }); break; }   // claimed by the roll; a stand that stood nobody frees it
+      // REVENANT: a due revenant may take the roll instead (the world host's twin)
+      const _revenant = hit && _m === 'exterior' ? revenantToReturn(playerEntity, { now }) : null;
+      if (_revenant) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _revenant.mobileType, revenant: _revenant }, playerFeet)).then((f) => { if (!f) releaseRevenantStand(_revenant); }); break; }   // claimed by the roll; a stand that stood nobody frees it
       if (hit) { _standEncounterFoe(hit, playerFeet); break; }
       // CAMP1 - GROUP ENCOUNTERS (camps and packs, systems/campEncounters.js):
       // only reached when the single-encounter roll above was empty.
@@ -1958,7 +1958,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
     return exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {   // FinalizeFoe (CreateFoe.cs:341-359): a FLYING foe lifts 1.5
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
-      ...(hit.nemesis ? nemesisSpawnOptions(hit.nemesis, effectiveLevel(playerEntity)) : {}),   // NEMESIS: a returning one
+      ...(hit.revenant ? revenantSpawnOptions(hit.revenant, effectiveLevel(playerEntity)) : {}),   // REVENANT: a returning one
     }).catch(() => null);
   };
   /** CAMP1 - GROUP ENCOUNTERS: the world host's twin, verbatim over this
