@@ -629,7 +629,7 @@
   {
     "name": "HOME-YARD-a-full-yard-a-room",
     "file": "src/ui/decorPanel.js",
-    "old": "  if (count >= cap) return `${yard ? 'Your yard' : 'This room'} already holds ${cap} pieces.`;",
+    "old": "  if (count >= cap) return `${yard ? (hall ? \"The hall's yard\" : 'Your yard') : 'This room'} already holds ${cap} pieces.`;",
     "new": "  if (count >= cap) return `This room already holds ${cap} pieces.`;",
     "tests": [
       "test/homeyard.test.js"

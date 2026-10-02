@@ -10445,6 +10445,18 @@ Pinned: `test/guild_yard.test.js` (9); re-aimed `test/guild1d_service.test.js` (
 ACCOUNT_VERSION pins (`acct65`). `tools/mutants/guild_yard.json` (17, all dead); `guild1d.json`'s hall-yard record now
 a palace's (equivalent, as before), `housing.json`'s and `fb1001_yard.json`'s re-aimed by content.
 
+- **Audited** (2026-10-02, AUDIT GUILD-YARD; `acct66`, no migration): the town names a hall's `keeper` as OWNS keeps it -
+  of the rank AND a realm character (`homesInTown`'s `me_realm`; a local character of an Officer's rank had a decorator
+  every write of which was refused) (Y1); between two kept lots (a home's owner who keeps the hall beside it) the
+  decorator opens the lot under the feet before one only near, then the one whose house stands nearest - never the
+  first the town stood (`ownYardHere`, C1); the painted word is read before the write, a hall's failure "The hall could
+  not be painted." (`paintAct`, C2); a rank moved (the guild book's refresh, `guildHall.info` - not an online frame's
+  arm) reads the town again forced, as `onHall` does (C3); a hall's yard says "inside the hall" and "The hall's yard
+  already holds..." (`YARD_IN_HALL`, `decorWhyNot`'s `hall`). `test/guild_yard.test.js` (15, six new); the
+  `guild_yard.json` mutants 29, all dead (the audit's three survivors - the tool's `where`, OWNS's home without its
+  character, the hall's word for every yard refusal - among them); `guild1d.json`'s palace record renamed
+  (`GUILD1d-the-palace-yard-refused-only-in-the-write`, equivalent as before).
+
 ### GUILD1e - a guild's own board
 
 (2026-09-30, Mac: "Finish the seats" - the Seats arc's slices in order, sieges

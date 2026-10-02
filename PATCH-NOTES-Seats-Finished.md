@@ -33,3 +33,8 @@
 - **A guild that gave up its seat before the siege no longer gets it back from a void.** The capturer loses the seat, and it stands unheld, as it did before the battle.
 - **Voiding a held siege fought before this update leaves the holder's Standing alone** instead of taking off more than the battle gave.
 - **A void can no longer land after the Turning.** Once a battle's week has been reckoned, `/siege void` says so: "That battle's week is settled - its Turning has reckoned it, and it can no longer be voided."
+- **Your home beside your guild's hall opens the right yard.** If you own a home and keep the guild hall next door, Decorate now opens the yard you are standing in - the one whose building is nearest - instead of whichever the town happened to list first.
+- **"Your guild's hall is painted."** Painting the hall and walking off before the answer came back no longer says "Your house"; and if the paint fails, it says the hall could not be painted.
+- **A promotion or demotion reaches the hall sooner.** Made an Officer (or no longer one), the hall's decorator follows as soon as the game next reads your guild, instead of up to a minute after that.
+- **Only characters who can decorate the hall get its decorator.** An Officer playing a local (offline) character is no longer shown a hall's yard decorator whose every piece would be refused.
+- **The hall's yard speaks of the hall.** A piece placed inside the building now says "That is inside the hall", and a full yard says "The hall's yard already holds 60 pieces." - not "your house" or "your yard".

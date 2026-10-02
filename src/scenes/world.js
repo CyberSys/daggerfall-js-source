@@ -20899,7 +20899,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         // AUDIT GUILD1d A5: a look that moves what a door may offer (the hall's buy) reads the doors again - the plaque's
         // text is kept by the registry's version, and the first hover after boot asked before the guild was known
         const sig = (v) => (v ? `${v.id}|${v.rank}|${v.hall ? 1 : 0}` : '');
-        if (g.stale()) { const was = sig(g.guild); g.refresh().then(() => { if (sig(g.guild) !== was) onlineHomes?.bump?.(); }).catch(() => {}); }
+        // AUDIT GUILD-YARD C3: a rank moved (a keeper made or unmade) reads the town again, as onHall does - its halls'
+        // `keeper` was the town's answer's, believed a minute
+        if (g.stale()) { const was = sig(g.guild); g.refresh().then(() => { if (sig(g.guild) !== was) { onlineHomes?.bump?.(); onlineHomes?.ensure?.(_musicLoc?.mapTableData?.mapId, { force: true })?.catch?.(() => {}); } }).catch(() => {}); }
         const v = g.guild;
         return v ? { name: v.name, rank: v.rank, hall: !!v.hall, treasury: v.treasury } : null;
       },
