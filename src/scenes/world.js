@@ -176,7 +176,7 @@ import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/mast
 import { isOnlinePage } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only
 // SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
-import { createHunting } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
+import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
 import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
 import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
@@ -3095,7 +3095,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:2985) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:3106) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -7483,20 +7483,30 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
   const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
     || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
+  /** HUNT-FOES (FIELD BUGS 2026-10-02): a foe that sees me, or one still loading within HUNT_PENDING_NEAR_M of my feet
+   *  (spawnFoe is async - the frame's encounter roll runs before the hunt's, and a foe on its way is in no pool yet), is
+   *  near: no hunt opens over it, and one open is closed. A stand loading far off (a site's garrison as its block
+   *  streams in) is no foe near. */
+  const huntFoesNear = () => {
+    if (duelEnemyNear() || areEnemiesNearby(exteriorFoePool())) return true;   // AUDIT: a duel's foe is a peer, in no pool - every other gate here asks it
+    const f = walkMode && playerSpawned ? player.pos : cam.pos;
+    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);
+  };
   const hunting = createHunting({
     entity: playerEntity,
     env: () => ({
       minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
       luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(skyMinutes())) === SEASONS.Winter,   // TIME1: the sky's winter
       outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
-      enemiesNear: areEnemiesNearby(exteriorFoePool()), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
+      enemiesNear: huntFoesNear(), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
       hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
       skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
     }),
     showOverlay: (w) => townTalk.showOverlay(w), overlayActive: () => townTalk.overlayActive,
-    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay
+    advanceMinutes: (n, { quiet = false } = {}) => { playerTicker.advance(n); if (!quiet) runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay; AUDIT HUNT-FOES: none at all when the box was taken away
     spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
     inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
+    enemiesNear: () => huntFoesNear(),   // HUNT-FOES: a foe come near closes the ask or the search
   });
   // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the hunt's busy page, in
   // the same slot - opened only when the slot is free (the tool's box and the pack closed first), the quest's boxes
@@ -8139,6 +8149,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             storm: () => currentWeather() === 'thunder',
             climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
             day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
+            busy: () => !!csaRuntime?.isSailing?.() || !!naval?.aiming || !!naval?.boarding,   // HELM-NET: no cast at the helm, over the laid guns or in a boarding
             // the tug's buzz (5.2: "the pad and phone buzz") - the touch layer's own pulse, under its own pref (TI2)
             tug: () => { if (!getPref('touchHaptics')) return; try { navigator.vibrate?.(120); } catch { /* a platform without it */ } },
             trophy: (species) => {
@@ -11185,6 +11196,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // before the save is read over the entity it was building for.
       modes?.abortTransition?.();
       await modes?.transitionSettled?.();
+      if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: a hunt's box over the load is the replaced game's - closed before the save is read (its minutes quiet, no beast), never closed later over the loaded one
       if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad());   // CSA-D: ComeSailAway.OnStartLoad - the riders dropped, the helm left; CSA-J (the audit): AHEAD of the save's player (SaveLoadManager.cs:1378, the restore at :1497) - its StopSailing hands a lent ship back, and after restorePlayer it took the loaded character's own
       const extras = restorePlayer(playerEntity, snap, spellsByIndex);
       if (!extras) { townTalk.say('Save version mismatch.'); return; }
@@ -11471,6 +11483,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       townTalk.say('Could not import the classic save.');
       return false;
     }
+    if (hunting.window) townTalk.closeOverlay(hunting.window);   // AUDIT HUNT-FOES: as the quickload's
     const extras = restorePlayer(playerEntity, bundle.snap, spellsByIndex);
     if (!extras) return false;
     autoBuildArms(playerEntity);   // MWA1: the classic save's character too

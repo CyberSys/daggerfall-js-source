@@ -216,8 +216,8 @@
   {
     "name": "PROF8-kind-dry-land",
     "file": "src/scenes/fishHost.js",
-    "old": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
-    "new": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet)) return [];",
+    "old": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "new": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet)) return [];",
     "tests": [
       "test/prof8_client.test.js"
     ]

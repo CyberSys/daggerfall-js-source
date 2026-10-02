@@ -179,7 +179,8 @@ export function standSchools({ px, py, day, samples, tilemap }) {
  *   pixel: () => ({ x: number, y: number }|null), ground: () => ({ climate: number, region: number }|null),
  *   eye: () => ({ pos: number[], dir: number[] }), feet: () => number[], hour: () => number, storm: () => boolean,
  *   climateAt: (x: number, y: number) => number|null, trophy: (species: any) => boolean,
- *   day: () => number, rand?: () => number, tug?: () => void } }} deps `tug` - the floats dip (the touch layer's buzz)
+ *   day: () => number, rand?: () => number, tug?: () => void, busy?: () => boolean } }} deps `tug` - the floats dip (the
+ *   touch layer's buzz); `busy` - the hands are the ship's (HELM-NET: at a helm, the guns laid, a boarding): no cast
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function fishKind({ book, host }) {
@@ -252,7 +253,10 @@ export function fishKind({ book, host }) {
     }] : []),
     /** The cast: one, just ahead of the look, while the pack holds a net and the player stands in the net's water. */
     looseNodesOf: ({ entity, dungeon }) => {
-      if (dungeon || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];
+      // HELM-NET (FIELD BUGS 2026-10-02, "New fishing context pop up clashes with come sail away!"): at sea the net's
+      // water is everywhere, so the cast stood under the crosshair at the helm and over the guns' aim; while the hands
+      // are the ship's (the helm, the guns laid, a boarding) there is no cast - a deck stood on still fishes
+      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];
       const c = castNow();
       if (!c) return [];
       // CAST-LOOK: on the look at its distance ahead, at any pitch to CAST_RISE_M - and the look itself, so a node in the
