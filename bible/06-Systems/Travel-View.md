@@ -1126,7 +1126,7 @@ Proof: `test/tv8_party_walk.test.js`, `tools/mutants/tv8.json` (17 records, all 
   once it STOOD (BAND_STAND_RETRY_MS 1500, BAND_STAND_TRIES 5); every chase is stepped on its own band (a life's
   turn no longer strands it); a chase gives up BAND_GIVE_UP_MS after its last metre gained (`gainAt`), not two minutes
   in; the make rolls from `bandMakeSeed` (its own stream - the birth's first draw is under the spawn chance, so
-  Daggerfall's roll over 80 never came) by the night its life began in (read once a life); a wander leg's way is
+  Daggerfall's roll over 80 never came) by the night its life began in (read once a life) [AUDIT TIME: the night at the life's middle, online on the sky]; a wander leg's way is
   chosen by its whole end (no mid-leg jumps); water, a door or a town's rect ends a chase SPENT; a peer's word is kept
   only for a band that can be about me (`bandNearMe`) and the tables are pruned each life.
 - *Group travel (P):* every halt stops through the panel, and "journeying" is the panel with an autopilot under it. A

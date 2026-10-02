@@ -54,6 +54,7 @@
 
 import { CLIMATES, MAX_MAP_PIXEL_X, MAX_MAP_PIXEL_Y } from '../formats/mapsFile.js';
 import { SEASONS, seasonValue, dateFromClassicMinutes } from './gameDate.js';
+import { skyMinuteOfEvent, skyCalendarOn } from './skyCalendar.js';   // TIME1: a system lives on the event clock; it is born to the sky's season and hour
 import { WEATHER_TABLE, weatherTableFor } from './weatherTable.js';
 import { pixelOfField } from './weatherField.js';
 import { seededRng, seededFirst, VIOLENCE } from './wind.js';
@@ -516,6 +517,9 @@ export function cellsOf(front, climateAt) {
   return memoised(`cells:${front.id}`, climateAt, () => drawCells(front, climateAt));
 }
 function memoised(key, climateAt, draw) {
+  // TIME1: a node's births are drawn to the season and hour of the calendar that stood when they were drawn, so the
+  // key carries which one - births drawn on the sky's are never served under the event clock's, or the reverse
+  key = `${skyCalendarOn() ? 'sky' : 'one'}|${key}`;
   let memo = _births.get(climateAt);
   if (!memo) _births.set(climateAt, memo = new Map());
   let out = memo.get(key);
@@ -545,9 +549,10 @@ function drawBirths(type, gx, gz, gt, climateAt) {
     // candidate's fate never moves another's
     const bornX = (gx + r()) * nodeM, bornZ = (gz + r()) * nodeM, bornAt = (gt + r()) * nodeMinutes;
     const keep = r(), rc = r(), rl = r(), u1 = r(), u2 = r(), u3 = r(), u4 = r(), u5 = r(), u6 = r();
-    const season = seasonValue(dateFromClassicMinutes(bornAt));
+    const skyBorn = skyMinuteOfEvent(bornAt);   // TIME1: the sky's season and hour at the birth
+    const season = seasonValue(dateFromClassicMinutes(skyBorn));
     const law = birthLaw(climateOfField(climateAt, bornX, bornZ), season);
-    const hour = (((bornAt % 1440) + 1440) % 1440) / 60;
+    const hour = (((skyBorn % 1440) + 1440) % 1440) / 60;
     if (!law || keep * ceiling >= law.weight[type] * diurnal(type, hour, season)) continue;
     const shape = shapeOf(type, u1, u2, u3, u4, u5, u6);
     out.push(Object.freeze({
@@ -590,9 +595,10 @@ function drawCells(front, climateAt) {
     const ox = rad * Math.cos(ang), oz = rad * Math.sin(ang);
     const [px, pz] = pathWith(fh, front.bornAt, bornAt);   // FLOW2: the front's own headings, read once for all its cells
     const bornX = front.bornX + px * fspec.speed + ox, bornZ = front.bornZ + pz * fspec.speed + oz;
-    const season = seasonValue(dateFromClassicMinutes(bornAt));
+    const skyBorn = skyMinuteOfEvent(bornAt);   // TIME1: the sky's season and hour at the birth
+    const season = seasonValue(dateFromClassicMinutes(skyBorn));
     const law = birthLaw(climateOfField(climateAt, bornX, bornZ), season);
-    const hour = (((bornAt % 1440) + 1440) % 1440) / 60;
+    const hour = (((skyBorn % 1440) + 1440) % 1440) / 60;
     if (!law || keep * ceiling >= law.weight[type] * diurnal(type, hour, season)) continue;
     const shape = shapeOf(type, u1, u2, u3, u4, u5, u6);
     out.push(Object.freeze({

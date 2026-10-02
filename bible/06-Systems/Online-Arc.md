@@ -1879,6 +1879,12 @@ pins restamped where the law moved. Relay change: yes - REDEPLOY.
 
 ## WORLD5 (2026-09-13): the shared clock and weather, the quest clocks stood down
 
+[TIME1-TIME3, 2026-10-01 (`Online-Time-Arc.md`): the clock below is the EVENT clock now - the world's business
+(gates, raids, prices, shelves, terms, every stamp) keeps it, unchanged, and the relay with it. The SKY a player
+sees - the hour, the date, the moons, the seasons - runs at its own rate (`net/skyLaw.js`), a day every thirty real
+minutes from 2026-10-03T16:22:30Z; the weather keeps this clock's pace and wears the sky's season. A quest's
+countdowns run on the character's own clock (LIVED1), its hours and dates on the sky.]
+
 **Mac: "Let's tackle slice 5 first."** Slice 5 of the persistent shared
 world, the last of WORLD1's plan: THE SHARED CLOCK AND WEATHER, and the
 quest clocks stood down online (Mac, WORLD1: "When it comes to time
@@ -4180,6 +4186,11 @@ during the deploys should be rotated.
 
 ## WORLD7 (2026-09-14): the quest clocks run online, charging played time
 
+[TIME3, 2026-10-01 (`Online-Time-Arc.md` 6.3a): the quest's clock is the CHARACTER's own now. The time they live
+with the world is charged as below - one played step at most, the rest forgiven - and the time they raise (a rest,
+a loiter, a journey) is charged whole, as DFU charges a RaiseTime; the rest ticks the quests online too. The step
+below stands; what it bounds is the lived part.]
+
 **Mac: "quests dont seem to work in online. I brought a newly created
 and saved character over and the journal is empty."** Then, on the
 suggestion: **"Go."** The save was never the fault - the Online door
@@ -4775,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7562` read, on one physical line:
+`src/scenes/worldModes.js:7563` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4917,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8514` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8517` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.

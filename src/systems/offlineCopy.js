@@ -18,7 +18,15 @@
 // clock the copy will play on). A snap with no `worldMinutes` (an offline save, or one from before LIVED1, whose two
 // clocks were one) is returned as a plain copy.
 //
+// TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): a quest's COUNTDOWNS left the world's clock for the character's -
+// a Clock's sample, a sound's and a wave's last, a guard's arrival, a tombstone (quest/questStamps.js) - so a quest
+// envelope taken since then carries `ownSecondsAt` and its countdowns cross a door unmoved: the character's clock is
+// the one clock offline. The journal's dates stay the world's and move as before; an envelope taken before TIME3 moves
+// whole, as LIVED1 moved it. Each door marks what it hands on as standing on the character's clock.
+//
 // Pure JSON in, JSON out - no module state read.
+
+import { QUEST_OWN_SECOND_KEYS, QUEST_WORLD_SECOND_KEYS, shiftQuestStamps, markOwnClock } from './quest/questStamps.js';
 
 /** AUDIT LIVED1b F3 (S4): a save's clock - classic minutes, an unsigned count below 2^31 (4,000 years of the calendar;
  *  DFU's is a uint) - or null for anything else. The doors and the load (save.js restorePlayer) read the envelope's
@@ -27,24 +35,10 @@
 export const SAVE_CLOCK_MAX = 2 ** 31;
 export const saneSaveClock = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < SAVE_CLOCK_MAX ? v : null);
 
-/** The quest system's WORLD-clock stamps, in SECONDS (quest/clock.js, quest/actions.js saveShape, quest/quest.js,
- *  quest/onlineGuard.js). Zero is each one's "never" and stays zero. */
-export const QUEST_WORLD_SECOND_KEYS = Object.freeze(['lastWorldTimeSample', 'lastTimePlayed', 'lastSpawnTime', 'guardAnchor', 'questStartTime', 'questTombstoneTime']);
-
-const shiftQuestSeconds = (node, deltaSeconds) => {
-  if (Array.isArray(node)) { for (const v of node) shiftQuestSeconds(v, deltaSeconds); return; }
-  if (!node || typeof node !== 'object') return;
-  for (const [k, v] of Object.entries(node)) {
-    if (QUEST_WORLD_SECOND_KEYS.includes(k)) { if (Number.isFinite(v) && v !== 0) node[k] = v + deltaSeconds; }
-    else if (k === 'activeLogMessages' && Array.isArray(v)) {
-      // AUDIT LIVED1b R3 (O2): a journal step's `time` is the world's second it was logged (quest.js, from nowSeconds -
-      // DFU's Quest.cs LogEntry.dateTime, WorldTime.Now), on the clock questStartTime is on: %qdt dated every step on
-      // the other lane's calendar - 150 days after its quest began on a copy's journal. Moved with it; never `time`
-      // bare (too common a name to walk the whole quest tree by)
-      for (const m of v) if (m && Number.isFinite(m.time) && m.time !== 0) m.time += deltaSeconds;
-    } else if (v && typeof v === 'object') shiftQuestSeconds(v, deltaSeconds);
-  }
-};
+// The quest system's stamps by clock, in SECONDS - the character's (TIME3: the countdowns) and the world's (the
+// journal's dates; AUDIT LIVED1b R3 (O2): each logged step's `time` with them, DFU's LogEntry.dateTime, which %qdt reads)
+// - and the walk that moves them (quest/questStamps.js). Zero is each one's "never" and stays zero.
+export { QUEST_OWN_SECOND_KEYS, QUEST_WORLD_SECOND_KEYS };
 
 /** AUDIT LIVED1b D2 (R2, O4, S3): a cached building's stock days are the WORLD's online (worldModes stockedToday reads
  *  the world's calendar) - DFU's `year * 1000 + dayOfYear` (shopStock createStockedDate), 360 days a year. Moved by
@@ -56,10 +50,12 @@ const stockDateOf = (i) => Math.floor(i / STOCK_DAYS_PER_YEAR) * 1000 + (i % STO
 const shiftStockDate = (d, days) => (Number.isFinite(d) && d > 1 ? stockDateOf(stockDayIndex(Math.floor(d)) + days) : d);
 
 /** Every WORLD-clock stamp in the envelope moved by `delta` classic minutes (in place); `days` is the distance between
- *  the two clocks' calendar days, for the stamps that are days. */
-function rebaseWorldStamps(copy, delta, days) {
+ *  the two clocks' calendar days, for the stamps that are days. `questOwn` says which quest countdowns stood on the
+ *  world's clock: 'legacy' (a copy leaving the world - those of envelopes taken before TIME3) or none (a copy joining
+ *  it - offline every countdown is on the one clock, which is the character's). */
+function rebaseWorldStamps(copy, delta, days, { questOwn = false } = {}) {
   if (!delta) return copy;
-  if (copy.quest) shiftQuestSeconds(copy.quest, delta * 60);
+  if (copy.quest) shiftQuestStamps(copy.quest, delta * 60, { own: questOwn, world: true });
   for (const r of copy.talk?.listRumorMill ?? []) if (r && Number.isFinite(r.timeLimit) && r.timeLimit > 0) r.timeLimit += delta;   // a quest rumour's 0 is "no limit"
   if (Array.isArray(copy.spawns)) {
     copy.spawns = copy.spawns.map((row) => (Array.isArray(row) ? row.map((v, i) => (i > 0 && Number.isFinite(v) ? v + delta : v)) : row));   // [key, seen, cleared?]
@@ -98,7 +94,9 @@ export function offlineCopyOf(snap) {
   delete copy.realmHeld;   // AUDIT RESCUE-SAVE A1: the realm's spoils records (systems/realmSaves.js REALM_HELD_FIELD) - a new character holds none
   if (own === null || world === null) return copy;
   if (copy.modData && typeof copy.modData === 'object') delete copy.modData[RAID_RECORD_VENDOR];   // AUDIT LIVED1b R1
-  return rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world));   // classic minutes: the character's clock less the world's
+  rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world), { questOwn: 'legacy' });   // classic minutes: the character's clock less the world's
+  if (copy.quest) markOwnClock(copy.quest, Math.floor(own) * 60);   // TIME3: every countdown is on the character's clock now
+  return copy;
 }
 
 /** AUDIT LIVED1 G (R6, and the mirror of E): BRING ONLINE is the other door between the lanes. An offline envelope's
@@ -118,5 +116,7 @@ export function onlineCopyOf(snap, worldNow) {
   // (save.js), whatever the stamp, and the next save the realm keeps is composed without the flag.
   copy.joinFresh = true;
   if (own === null) return copy;
-  return rebaseWorldStamps(copy, Math.floor(worldNow) - Math.floor(own), daysBetween(worldNow, own));
+  rebaseWorldStamps(copy, Math.floor(worldNow) - Math.floor(own), daysBetween(worldNow, own));   // TIME3: the countdowns stay - the one clock is the character's
+  if (copy.quest) markOwnClock(copy.quest, Math.floor(own) * 60);
+  return copy;
 }

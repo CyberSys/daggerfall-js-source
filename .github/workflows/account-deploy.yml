@@ -63,6 +63,7 @@ on:
       - "src/net/boardLaw.js"
       - "src/net/professionLaw.js"
       - "src/net/nodeLaw.js"
+      - "src/net/skyLaw.js"
       - "src/net/kingdomLaw.js"
       - "src/net/recipeLaw.js"
       - "src/net/productRecord.js"

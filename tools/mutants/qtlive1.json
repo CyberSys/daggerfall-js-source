@@ -20,22 +20,24 @@
   {
     "name": "QT-LIVE1-charge-ignores-the-played-step",
     "file": "src/systems/quest/clock.js",
-    "old": "    const difference = Number.isFinite(step) ? Math.min(Math.max(raw, 0), step) : raw;\n    return Math.trunc(difference);",
+    "old": "    const difference = Number.isFinite(step) ? Math.min(Math.max(raw - raised, 0), step) + raised : raw;\n    return Math.trunc(difference);",
     "new": "    const difference = raw;\n    return Math.trunc(difference);",
     "tests": [
       "test/qtlive1.test.js",
       "test/auditworld78.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the charge splits the lived part from the raised; re-aimed by content."
   },
   {
     "name": "QT-LIVE1-charge-lets-a-backward-sample-add",
     "file": "src/systems/quest/clock.js",
-    "old": "    const difference = Number.isFinite(step) ? Math.min(Math.max(raw, 0), step) : raw;\n    return Math.trunc(difference);",
-    "new": "    const difference = Number.isFinite(step) ? Math.min(raw, step) : raw;\n    return Math.trunc(difference);",
+    "old": "    const difference = Number.isFinite(step) ? Math.min(Math.max(raw - raised, 0), step) + raised : raw;\n    return Math.trunc(difference);",
+    "new": "    const difference = Number.isFinite(step) ? Math.min(raw - raised, step) + raised : raw;\n    return Math.trunc(difference);",
     "tests": [
       "test/qtlive1.test.js",
       "test/auditworld78.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the charge splits the lived part from the raised; re-aimed by content."
   },
   {
     "name": "QT-LIVE1-tick-grows-its-own-arithmetic-back",

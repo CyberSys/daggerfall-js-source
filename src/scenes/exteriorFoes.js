@@ -169,6 +169,9 @@ export const CAMP_CULL_DISTANCE = 200;
 
 export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame,
   playerEntity, audio, onPlayerHurt, currentMinute, say = null, rolls = Math.random,
+  // TIME1: the SKY's minute - the wilds' night (SOFTCAP5's share) is the sky's; `currentMinute` is the character's own
+  // (the poison's anchor, the alert, the disease day). A host that hands none reads the one clock, as offline.
+  skyMinute = null,
   // SOFTCAP5: is the player on a location's ground (a town, a city, a dungeon's or a graveyard's own rect)? Only the
   // WILDERNESS scales its foes, so a host that cannot say keeps them all as they were (an interior's pool, the
   // one-location exterior host).
@@ -361,7 +364,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
       if (!puppet && !allied && !inLocation()) {
         let night = false;
-        try { night = isNight(currentMinute()); } catch { /* no clock: day */ }
+        try { night = isNight((skyMinute ?? currentMinute)()); } catch { /* no clock: day */ }   // TIME1: the sky's night
         applyProgressionScaling(entity, progressionScaling(combatStanding(playerEntity), wildernessShare(night), foeShare(basics?.level ?? entity.level, isClass)));
       }
       // DW-E4: SetEnemyTeam - Entity.Team alone (the treasure guards' Undead), the MobileEnemy copy kept

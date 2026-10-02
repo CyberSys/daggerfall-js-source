@@ -51,7 +51,7 @@ import {
   LYCANTHROPY_TYPES, INFECTION,
 } from './infection.js';
 import {
-  MINUTES_PER_DAY, DAYS_PER_MONTH, isFullMoonFromMinutes,
+  MINUTES_PER_DAY, DAYS_PER_MONTH, isFullMoonFromMinutes, isFullMoonNightFromMinutes,
 } from './gameDate.js';
 import { EQUIP_SLOTS, equipTableOf, unequipSlot } from './equip.js';
 import { spellRecordOfIndex } from './loot.js';
@@ -244,7 +244,7 @@ export function consumeRacialOverridePending(entity, { now = 0 } = {}) {
  * the HUD line seam; `refreshHead` the portrait's (both optional -
  * the headless charter).
  */
-export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, skyMinutes = clockMinutes, say = null, refreshHead = null } = {}) {
+export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, skyMinutes = clockMinutes, moonNight = false, say = null, refreshHead = null } = {}) {
   const entry = liveLycanthropy(entity);
   if (!entry) return;
   // DISC10-E V1: `clockMinutes` is WorldTime.Now, the clock every catch-up
@@ -268,7 +268,13 @@ export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = n
   // a forced change already reads the beast; the port's fold is
   // per-round, so the order inside the round is what keeps silver
   // from lagging the change by a round.
-  if (!entry.wearingHircineRing && isFullMoonFromMinutes(skyMinutes) && !entry.isTransformed) {
+  // TIME2 (Mac, 2026-10-01: "werewolf forms last insanely long"; bible/06-Systems/Online-Time-Arc.md 6.1): ONLINE THE
+  // FULL MOON IS A NIGHT. The change is forced while the full moon is UP - from the dusk of a full-moon date to the next
+  // dawn, on the sky (`moonNight`, which the round runner raises when a host hands the sky: the online lane) - fifteen
+  // real minutes at the sky's TimeScale 48, not a whole day no rest can shorten. At dawn the lock ends; changing back
+  // is the power, ungated, as DFU has it. Offline DFU's rule stands: the whole calendar day of either moon's full phase.
+  const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(skyMinutes);
+  if (!entry.wearingHircineRing && moonForces && !entry.isTransformed) {
     say?.(YOU_DREAM_OF_THE_MOON);
     morphSelf(entity, { force: true, nowMinutes: clockMinutes, refreshHead });
   }

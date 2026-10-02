@@ -162,8 +162,8 @@
   {
     "name": "OW3-T7-8-night-each-pixel",
     "file": "src/scenes/world.js",
-    "old": "      const night = tvBandSeen.life === life ? tvBandSeen.night : bandNight(life * BAND_LIFE_MS);",
-    "new": "      const night = bandNight(life * BAND_LIFE_MS);",
+    "old": "      const night = tvBandSeen.life === life ? tvBandSeen.night : bandNight(life * BAND_LIFE_MS + BAND_LIFE_MS / 2);",
+    "new": "      const night = bandNight(life * BAND_LIFE_MS + BAND_LIFE_MS / 2);",
     "tests": [
       "test/tv7_bands.test.js"
     ],
