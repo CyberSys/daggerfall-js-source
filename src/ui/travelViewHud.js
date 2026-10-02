@@ -868,12 +868,13 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
  * my own mark wear their badge (the title, the Renown, the guild's tag, the glyphs) - the rest, and every arrow at the
  * edge (AUDIT OW-CROWD), their name alone. The badges are made after (drawMarks), for the marks still wearing one. My
  * party is never folded nor stripped (it is not a traveller's mark), nor is anything else. Pure over the placements:
- * `{ m, x, y, held, look, side, bk, sp }`, the travellers' order nearest first, after the rest.
+ * `{ m, x, y, held, look, side, bk, sp }`, in their own order (a crowd where its first member stood - AUDIT OW-CROWD).
  * @param {Array<any>} placed @param {{ x: number, y: number }} feet my mark on the screen
  */
 export function declutterTravellers(placed, feet) {
   const isTraveller = (q) => (q.m.kind ?? '').split(' ')[0] === 'traveller';
   const near = (q) => Math.hypot(q.x - feet.x, q.y - feet.y);
+  const order = new Map(placed.map((q, i) => [q, i]));   // AUDIT OW-CROWD: the marks' own order kept - my party over a crowd
   const out = [], trav = [];
   for (const q of placed) (isTraveller(q) ? trav : out).push(q);
   trav.sort((a, b) => near(a) - near(b) || (a.m.key < b.m.key ? -1 : a.m.key > b.m.key ? 1 : 0));
@@ -902,10 +903,12 @@ export function declutterTravellers(placed, feet) {
     const x = g.held ? lead.x : Math.round(g.members.reduce((a, q) => a + q.x, 0) / n);
     const y = g.held ? lead.y : Math.round(g.members.reduce((a, q) => a + q.y, 0) / n);
     const ship = g.members.every((q) => isShipKind(q.m));
-    out.push({ ...lead, x, y, bk: '', sp: null,
-      m: { key: `crowd:${lead.m.key}`, label: crowdLabel(n), kind: `traveller crowd${ship ? ' ship' : ''}`, edge: lead.m.edge, front: true, x: lead.m.x, y: lead.m.y } });
+    const crowd = { ...lead, x, y, bk: '', sp: null,
+      m: { key: `crowd:${lead.m.key}`, label: crowdLabel(n), kind: `traveller crowd${ship ? ' ship' : ''}`, edge: lead.m.edge, front: true, x: lead.m.x, y: lead.m.y } };
+    order.set(crowd, Math.min(...g.members.map((q) => order.get(q))));   // drawn where its first member was
+    out.push(crowd);
   }
-  return out;
+  return out.sort((a, b) => order.get(a) - order.get(b));
 }
 /** OW-CROWD: travellers drawn this near one another (px) are one mark; arrows at the edge this near, one arrow; the
  *  travellers alone in the picture who wear their badge, the nearest my mark. */

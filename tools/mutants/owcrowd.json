@@ -116,5 +116,14 @@
     "tests": [
       "test/owcrowd.test.js"
     ]
+  },
+  {
+    "name": "OW-CROWD-the-order-lost",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  return out.sort((a, b) => order.get(a) - order.get(b));",
+    "new": "  return out;",
+    "tests": [
+      "test/owcrowd.test.js"
+    ]
   }
 ]

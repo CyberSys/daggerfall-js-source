@@ -1813,3 +1813,11 @@ crowd's arrow laid out by its lead's badge rather than its own words; they are m
 wearing one. And a lone arrow at the edge wore its whole badge, uncapped, round the screen - it wears the name alone now
 (my party's keeps its badge). PIN MOVED: `tv5_far_places` N1-8 feeds the cache six a frame, N1-5 and N1-6 ask the held
 badge's box of my party's arrows.
+
+AUDIT GATHER-OW and OW-CROWD, second pass (Mac: "Audit thid"): the groups were kept in scene coordinates for half a
+second, so a recentre of the floating origin threw every diamond off by the shift until the next read - they are kept
+by their pixel now and placed through its translation each call, and a pixel torn down (or stood again) since the read
+drops its group. The diamond stood at the nodes' mean, which in a scattered pixel is open ground or inside a rock - it
+stands on the node nearest that mean now. `scenes/travelView.js` copied every mark but its colour, so every diamond was
+brass in play - the colour is carried. And the decluttered travellers went last in the draw order, a crowd's dot over
+my party's - every mark keeps its order now, a crowd where its first member stood.

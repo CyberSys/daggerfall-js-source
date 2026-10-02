@@ -14,4 +14,4 @@
   - Your party is always shown in full.
 
 ## Server
-- Needs the account service update that ships with it.
+- Needs the account service update that ships with it (acct48). Deploy the account service with or before the game: the new game against the old service refuses the new nodes' harvests. On deploy day, a signature region's veins move to new slots, so one already mined that day may stand again.

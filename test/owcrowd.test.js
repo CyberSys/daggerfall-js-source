@@ -38,12 +38,12 @@ test('OW-CROWD declutterTravellers: travellers drawn close are one mark at their
   assert.deepEqual(two.map((q) => q.m.key).sort(), ['trav:a', 'trav:b']);
 });
 
-test('OW-CROWD: my party, the places, the bands and the rest are never folded nor stripped, and are kept ahead of the travellers in their order; a crowd of ships is a ship (mutant: the party folded)', () => {
-  const placed = [at('place:1', 700, 300, { kind: 'place', badge: null }), at('peer:p', 702, 302, { kind: 'party' }), at('band:1', 701, 301, { kind: 'band', badge: null }),
-    at('trav:a', 700, 301), at('trav:b', 704, 303)];
+test('OW-CROWD: my party, the places, the bands and the rest are never folded nor stripped, and every mark keeps its order (AUDIT: the travellers went last, a crowd\'s dot over my party\'s); a crowd of ships is a ship (mutants: the party folded; the order lost)', () => {
+  const placed = [at('place:1', 700, 300, { kind: 'place', badge: null }), at('trav:a', 700, 301), at('band:1', 701, 301, { kind: 'band', badge: null }),
+    at('trav:b', 704, 303), at('peer:p', 702, 302, { kind: 'party' })];
   const out = declutterTravellers(placed, FEET);
-  assert.deepEqual(out.map((q) => q.m.key), ['place:1', 'peer:p', 'band:1', 'crowd:trav:a']);
-  assert.ok(out[1].m.badge, 'my party keeps its badge');
+  assert.deepEqual(out.map((q) => q.m.key), ['place:1', 'crowd:trav:a', 'band:1', 'peer:p'], 'AUDIT: in their own order - the crowd where its first member stood, my party drawn over it');
+  assert.ok(out.find((q) => q.m.key === 'peer:p').m.badge, 'my party keeps its badge');
   const ships = declutterTravellers([at('trav:s1', 300, 300, { kind: 'traveller ship' }), at('trav:s2', 305, 300, { kind: 'traveller ship journey' })], FEET);
   assert.equal(ships[0].m.kind, 'traveller crowd ship', 'drawn as a ship');
   const mixed = declutterTravellers([at('trav:s1', 300, 300, { kind: 'traveller ship' }), at('trav:w', 305, 300)], FEET);

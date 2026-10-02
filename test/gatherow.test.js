@@ -48,7 +48,7 @@ function pixelEntry(px, py) {
 
 /** The gathering host over `pixels` (each [px, py], laid out east of the first), its clock the test's. */
 async function stage(pixels = [[405, 150]]) {
-  const S = { now: NOON_MS, taken: new Set(), open: true };
+  const S = { now: NOON_MS, taken: new Set(), open: true, shift: [0, 0, 0] };
   const book = {
     state: { open: true, today: {}, caps: { harvests: 60, stores: 5000 } },
     stale: () => false, refresh: async () => ({ ok: true }), pixel: () => ({ state: 'none' }), askPixels: async () => [], pump: () => {},
@@ -63,13 +63,14 @@ async function stage(pixels = [[405, 150]]) {
     book, kinds: [herbKind({ book }), mineKind({ book }), treeKind({ book, renderer })],
     hud: { setPrompt: () => {}, setMeter: () => {}, toast: () => {}, banner: () => {}, setChip: () => {}, frame: () => {}, dispose: () => {} },
     renderer, getTexture: async () => ({ recordCount: 999 }), uploadRecord: () => {}, billboardSize: () => ({ w: 0.3, h: 0.3 }), flatBatchAabb: () => [0, 0, 0, 0, 0, 0],
-    built: () => built, pixelTranslation: (x, y, out) => { out[0] = (x - x0) * TERRAIN_SIZE; out[1] = 0; out[2] = (y0 - y) * TERRAIN_SIZE; return out; },
+    built: () => built, pixelTranslation: (x, y, out) => { out[0] = (x - x0) * TERRAIN_SIZE + S.shift[0]; out[1] = S.shift[1]; out[2] = (y0 - y) * TERRAIN_SIZE + S.shift[2]; return out; },   // `shift`: the floating origin's
     pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs: () => S.now,
     eye: () => ({ pos: [0, 1.6, 0], dir: [0, 0, 1] }), view: () => ({ yaw: 0, pitch: 0 }), feet: () => [0, 0, 0], entity: () => ({ items: [] }),
     keyLabel: () => 'E', input: () => ({ held: false, attack: false, choice: false }), active: () => true, activeDungeon: () => false,
   });
   setForagingHost({ world: () => WILD, monthValue: () => 5, entity: () => null, startQuest: () => true, professionsOpen: () => true, keyLabel: () => 'E', professionUse: () => false });
   for (const e of built.values()) S.host.onBuilt(e);
+  S.built = built;
   await tick(); await tick();
   S.nodes = (px, py, kind) => S.host.nodesOf(px, py).filter((n) => n.kind === kind);
   S.later = () => { S.now += GROUP_REFRESH_MS + 1; };
@@ -77,7 +78,7 @@ async function stage(pixels = [[405, 150]]) {
   return S;
 }
 
-test('GATHER-OW groups: one mark a profession a stood pixel at its nodes\' middle, in its colour, with its count - a node worked today leaves it; read again after GROUP_REFRESH_MS, not before (mutants: the worked node counted; the list never read again; the middle the first node)', async () => {
+test('GATHER-OW groups: one mark a profession a stood pixel on the node nearest their middle (AUDIT: the middle itself was dry land between two schools, open ground in a forest), in its colour, with its count - a node worked today leaves it; read again after GROUP_REFRESH_MS, not before (mutants: the worked node counted; the list never read again; the middle the first node)', async () => {
   const s = await stage();
   try {
     const mid = [TERRAIN_SIZE / 2, 0, TERRAIN_SIZE / 2];
@@ -90,15 +91,18 @@ test('GATHER-OW groups: one mark a profession a stood pixel at its nodes\' middl
       assert.equal(m.label, groupLabel(p, nodes.length));
       assert.equal(m.color, nodeMarkCss(p));
       assert.equal(m.key, `gather:405,150:${p}`);
-      const c = [0, 1, 2].map((i) => nodes.reduce((a, n) => a + n.local[i], 0) / nodes.length);
-      assert.ok(Math.abs(m.at[0] - c[0]) < 1e-6 && Math.abs(m.at[2] - c[2]) < 1e-6 && Math.abs(m.at[1] - (c[1] + GROUP_LIFT_M)) < 1e-6, `${p}: at its nodes' middle`);
+      const c = [0, 2].map((i) => nodes.reduce((a, n) => a + n.local[i], 0) / nodes.length);
+      const off = (n) => Math.hypot(n.local[0] - c[0], n.local[2] - c[1]);
+      const nearest = nodes.reduce((b, n) => (off(n) < off(b) ? n : b));
+      assert.deepEqual(m.at, [nearest.local[0], nearest.local[1] + GROUP_LIFT_M, nearest.local[2]], `${p}: on the node nearest its nodes' middle`);
       assert.equal(m.pick, undefined, 'no click of its own - a click there walks to the ground under it');
     }
     assert.equal(groupLabel('mining', 6), 'Mining ×6');
     // a vein worked today: the same list until the refresh, then one fewer
     const vein = want.mining.find((n) => n.what === 'vein');
     s.taken.add(vein.key);
-    assert.equal(s.host.overworldGroups(mid), g, 'within GROUP_REFRESH_MS, the list as read');
+    const labels = (l) => l.map((m) => m.label);
+    assert.deepEqual(labels(s.host.overworldGroups(mid)), labels(g), 'within GROUP_REFRESH_MS, the list as read');
     s.later();
     const after = s.host.overworldGroups(mid).find((m) => m.kind === 'gather mining');
     assert.equal(after.label, groupLabel('mining', want.mining.length - 1), 'the worked vein left the count');
@@ -145,6 +149,45 @@ test('GATHER-OW groups: within GROUP_M alone, the nearest GROUP_MAX; none with t
     assert.ok(g.length === 3 && g.every((m) => m.key.startsWith('gather:405,150')), `the near pixel's alone (${g.map((m) => m.key)})`);
     assert.equal(two.nodes(409, 150, 'tree').length > 0, true, 'the far pixel stands its nodes');
   } finally { two.done(); }
+});
+
+test('GATHER-OW (AUDIT): a group stands where its land stands NOW - a recentre of the floating origin moves it at once, never after the next read; a pixel torn down takes its groups with it at once (mutants: placed from the read; a torn-down pixel\'s kept)', async () => {
+  const s = await stage();
+  try {
+    const mid = [TERRAIN_SIZE / 2, 0, TERRAIN_SIZE / 2];
+    const before = s.host.overworldGroups(mid).map((m) => [...m.at]);
+    s.shift = [-TERRAIN_SIZE, 0, 0];   // the player crossed east: the scene recentred under the cache
+    const after = s.host.overworldGroups(mid).map((m) => [...m.at]);
+    assert.ok(before.length >= 3);
+    assert.equal(after.length, before.length);
+    after.forEach((a, i) => assert.deepEqual(a, [before[i][0] - TERRAIN_SIZE, before[i][1], before[i][2]], 'moved with its land, in the same read'));
+    s.host.onDestroyed(s.built.get('405,150'));
+    assert.deepEqual(s.host.overworldGroups(mid), [], 'its pixel gone: none, before the next read');
+  } finally { s.done(); }
+});
+
+test('GATHER-OW (AUDIT) the colour reaches the readout through the travel view\'s own copy of the marks - every diamond was brass (mutant: the colour dropped)', async () => {
+  const { createTravelView } = await import('../src/scenes/travelView.js');
+  const { forwardOf } = await import('../src/player/travelCamera.js');
+  const log = {};
+  const tv = createTravelView({
+    canvas: { contains: () => false }, win: { addEventListener() {}, removeEventListener() {} },
+    feet: () => [0, 0, 0], headView: () => ({ eye: [0, 1.7, 0], fwd: forwardOf(0.3, 0) }),
+    yaw: () => 0.3, setYaw: () => {}, heightAt: () => 0, cloudBase: () => null,
+    allowed: () => ({ ok: true }), windowUp: () => false, danger: () => false,
+    actionsOf: () => [], movementHeld: () => false, autopilot: () => false,
+    holdBody: () => true, freeCursor: () => {}, where: () => '',
+    project: (p) => ({ x: 400 + p[0], y: 300 - p[2], front: true }),
+    hud: { show() {}, hide() {}, update: (f) => { log.last = f; } }, say() {}, alive: () => true,
+    schedule: () => ({}), cancel() {},
+    marks: () => [{ key: 'gather:1,1:mining', at: [10, 2, 10], label: groupLabel('mining', 6), kind: 'gather mining', color: nodeMarkCss('mining') }, { key: 'place:1', at: [0, 0, 0], label: 'Ripwych', kind: 'place', pick: true }],
+  });
+  tv.enter();
+  for (let i = 0; i < 200; i++) tv.frame(1 / 60);
+  tv.drawHud();
+  const [g, place] = log.last.marks;
+  assert.equal(g.color, nodeMarkCss('mining'), 'the group\'s copper');
+  assert.equal('color' in place, false, 'a mark with none, none');
 });
 
 test('GATHER-OW the filter: a switch of its own, Gathering - its marks counted under it and hidden when it is off (mutant: the gathering marks never filtered)', () => {

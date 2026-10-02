@@ -232,7 +232,7 @@ export function createGatherHost(deps) {
   const specs = (profession) => book.track(profession).specs ?? { 50: null, 100: null };
   /** NODE-MARKS: the marks' one list and the records it is refilled from; what a kind's mark is asked with */
   const _marks = [], _markPool = [];
-  let groupsAt = /** @type {number|null} */ (null), groupsList = /** @type {any[]} */ ([]);   // GATHER-OW: the Overworld's groups, as last read
+  let groupsAt = /** @type {number|null} */ (null), groupsKept = /** @type {any[]} */ ([]);   // GATHER-OW: the Overworld's groups, as last read - each its pixel and its node's place
   const markCtx = { specs };
 
   // ─── THE NODES ─────────────────────────────────────────────────────
@@ -795,35 +795,49 @@ export function createGatherHost(deps) {
      */
     overworldGroups(pos) {
       const now = deps.nowMs();
-      if (groupsAt !== null && now - groupsAt < GROUP_REFRESH_MS && now >= groupsAt) return groupsList;
-      groupsAt = now;
-      groupsList = [];
-      if (book.state.open !== true || !isVec3(pos) || dungeon) return groupsList;
-      /** `${pixel}:${profession}` -> { profession, n, x, y, z } */
-      const byKey = new Map();
-      for (const s of nearPixels(pos, GROUP_M)) {
-        const tr = deps.pixelTranslation(s.entry.px, s.entry.py, _t);
-        const tx = tr[0], ty = tr[1], tz = tr[2];
-        for (const n of s.nodes) {
-          const k = kindOf(n);
-          if (!k || !(k.mark ? k.mark(n, markCtx) : !k.gone(n))) continue;
-          const profession = k.professions[0];
-          const key = `${pixelKey(s.entry.px, s.entry.py)}:${profession}`;
-          let g = byKey.get(key);
-          if (!g) byKey.set(key, g = { profession, n: 0, x: 0, y: 0, z: 0 });
-          g.n++; g.x += n.local[0] + tx; g.y += n.local[1] + ty; g.z += n.local[2] + tz;
+      if (!(groupsAt !== null && now - groupsAt < GROUP_REFRESH_MS && now >= groupsAt)) {
+        groupsAt = now;
+        groupsKept = [];
+        if (book.state.open === true && isVec3(pos) && !dungeon) {
+          /** `${pixel}:${profession}` -> { s, profession, nodes, x, z } (x, z the sum of the nodes' pixel-local places) */
+          const byKey = new Map();
+          for (const s of nearPixels(pos, GROUP_M)) {
+            for (const n of s.nodes) {
+              const k = kindOf(n);
+              if (!k || !(k.mark ? k.mark(n, markCtx) : !k.gone(n))) continue;
+              const profession = k.professions[0];
+              const key = `${pixelKey(s.entry.px, s.entry.py)}:${profession}`;
+              let g = byKey.get(key);
+              if (!g) byKey.set(key, g = { s, profession, nodes: [], x: 0, z: 0 });
+              g.nodes.push(n); g.x += n.local[0]; g.z += n.local[2];
+            }
+          }
+          const all = [];
+          for (const [key, g] of byKey) {
+            // AUDIT GATHER-OW: at the node nearest their middle, never the middle itself - two schools' middle was dry land,
+            // a forest's on the pixel's open ground, and a hill's in the air or under it
+            const cx = g.x / g.nodes.length, cz = g.z / g.nodes.length;
+            let at = g.nodes[0], best = Infinity;
+            for (const n of g.nodes) { const e = Math.hypot(n.local[0] - cx, n.local[2] - cz); if (e < best) { best = e; at = n; } }
+            const tr = deps.pixelTranslation(g.s.entry.px, g.s.entry.py, _t);
+            const d = Math.hypot(at.local[0] + tr[0] - pos[0], at.local[2] + tr[2] - pos[2]);
+            if (!(d <= GROUP_M)) continue;
+            all.push({ d, s: g.s, local: at.local, mark: { key: `gather:${key}`, at: [0, 0, 0], label: groupLabel(g.profession, g.nodes.length), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession) } });
+          }
+          all.sort((a, b) => a.d - b.d || (a.mark.key < b.mark.key ? -1 : 1));
+          groupsKept = all.slice(0, GROUP_MAX);
         }
       }
-      const all = [];
-      for (const [key, g] of byKey) {
-        const x = g.x / g.n, y = g.y / g.n, z = g.z / g.n;
-        const d = Math.hypot(x - pos[0], z - pos[2]);
-        if (!(d <= GROUP_M)) continue;
-        all.push({ d, mark: { key: `gather:${key}`, at: [x, y + GROUP_LIFT_M, z], label: groupLabel(g.profession, g.n), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession) } });
+      // AUDIT GATHER-OW: placed on every call from its pixel's translation NOW - the floating origin moves the scene under
+      // the cache (a recentre: 819 m), and the diamonds stood where the land had been until the next read
+      const out = [];
+      for (const g of groupsKept) {
+        if (stood.get(pixelKey(g.s.entry.px, g.s.entry.py)) !== g.s) continue;   // its pixel torn down or stood again since
+        const tr = deps.pixelTranslation(g.s.entry.px, g.s.entry.py, _t);
+        g.mark.at[0] = g.local[0] + tr[0]; g.mark.at[1] = g.local[1] + tr[1] + GROUP_LIFT_M; g.mark.at[2] = g.local[2] + tr[2];
+        out.push(g.mark);
       }
-      all.sort((a, b) => a.d - b.d || (a.mark.key < b.mark.key ? -1 : 1));
-      groupsList = all.slice(0, GROUP_MAX).map((a) => a.mark);
-      return groupsList;
+      return out;
     },
     /** The page's teardown. */
     dispose() { this.leaveDungeon(); for (const s of stood.values()) unstand(s.entry); stood.clear(); act = null; hud.dispose(); },
