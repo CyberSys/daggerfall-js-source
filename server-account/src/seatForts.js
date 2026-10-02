@@ -273,6 +273,22 @@ export function fortsLapsedStatements(db, key, nowS) {
   ];
 }
 /**
+ * VOID (Seats-Arc 18, `/siege void`): A VOIDED CAPTURE'S PROJECTS - every building project at `key` that `guild` (the
+ * capturer, whose Charter the void takes back) began falls, what it held back to the seat's stockpile, its Marks spent - as
+ * fortsLapsedStatements' fall, but asked of that guild's projects alone, since the seat is held again (by the guild it
+ * was taken from) in the same batch.
+ */
+export function fortsGuildFallStatements(db, key, guild) {
+  const theirs = 'key = ?1 AND guild_id = ?2 AND building IS NOT NULL';
+  return [
+    db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT key, material, qty FROM town_seat_fort_held
+      WHERE key = ?1 AND qty > 0 AND work IN (SELECT work FROM town_seat_forts WHERE ${theirs})
+      ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`).bind(key, guild),
+    db.prepare(`DELETE FROM town_seat_fort_held WHERE key = ?1 AND work IN (SELECT work FROM town_seat_forts WHERE ${theirs})`).bind(key, guild),
+    db.prepare(`UPDATE town_seat_forts SET building = NULL, stands_at = NULL, builder = 0, siegewright = 0, guild_id = NULL WHERE ${theirs}`).bind(key, guild),
+  ];
+}
+/**
  * THE FORTIFIER'S SAVE AT A CAPTURE (Masonry 100, Professions-Arc 3.3: "once a Season a seat's Walls skip their drop on
  * capture") - DECIDED: a Fortifier who stood on the losing side's roster of that siege (the fortifications are the seat's,
  * so the save is a defender's craft at the walls it defended), once a Season a seat (`town_seat_fortifier`, keyed by the

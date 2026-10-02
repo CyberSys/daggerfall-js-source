@@ -191,6 +191,8 @@ export const ROUTES = new Set([
   '/v1/seats/window', '/v1/seats/siege/sign', '/v1/seats/siege/unsign', '/v1/seats/siege/hire', '/v1/seats/siege/withdraw',
   // SEAT2a part three (seatSiege.js): a battle's pass, a fighter's receipt claimed; the deploy blackout's public question
   '/v1/seats/siege/pass', '/v1/seats/siege/claim', '/v1/seats/sieges/live',
+  // VOID (Seats-Arc 18; seatSiege.js voidSiege): a moderator's `/siege void <key>` - the seat's battle this week void
+  '/v1/seats/siege/void',
   // CROWN1 part two (seatRoyal.js): a Royal Tourney's pass, a bout's receipt claimed
   '/v1/seats/royal/pass', '/v1/seats/royal/claim',
   // CROWN2 (seatPolitics.js): fealty and Pacts
