@@ -17,8 +17,8 @@ import { isNight, daylightScale } from '../world/worldClock.js';
  *  dynamicMoonState the world's moonlight already takes), and ITS fog
  *  colour as the horizon the clouds fade into (RenderSettings.fogColor,
  *  what the mod's own horizon blends to). Pure; the lab calls it too. */
-export function cloudsStateUnderMod(st, moons, { minuteOfDay, weather, classicMinutes = 0, seconds = 0, drift = null, row = null }) {
-  const base = skyState({ minuteOfDay, weather, classicMinutes, seconds, drift, row });
+export function cloudsStateUnderMod(st, moons, { minuteOfDay, weather, classicMinutes = 0, skyMinutes = classicMinutes, seconds = 0, drift = null, row = null }) {   // TIME1: the moons' date beside the clouds' clock
+  const base = skyState({ minuteOfDay, weather, classicMinutes, skyMinutes, seconds, drift, row });
   return {
     ...base,
     sunDir: st.sunDir,

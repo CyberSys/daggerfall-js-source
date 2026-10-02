@@ -1427,10 +1427,10 @@ triage: 25 kills at fails=5+ (one at fails=7 - the `| 0` int32 rail
 broke three pins at once), 2 survivors at the baseline 4, both
 PROVEN equivalents:
 
-- questBridge.js:67 `rawZ ?? 0 -> ?? 1`: the hash's only read of
+- questBridge.js:76 `rawZ ?? 0 -> ?? 1`: the hash's only read of
   rawZ is `z >> 2`, and `1 >> 2 === 0 === 0 >> 2` - for any record
   LACKING rawZ the mutated default is arithmetically invisible.
-- questBridge.js:76 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
+- questBridge.js:85 `(pn.flags ?? 0) -> (?? 1)` in the gender arm:
   gender reads bit 5 alone, and `1 & 32 === 0 === 0 & 32` - Male
   either way, every path.
 
@@ -2899,7 +2899,7 @@ correct than the game it is a port of, which is the one thing this arc
 has never allowed. Expanding in place now. (The caller-side
 `if (quest)` went too - C# calls `ExpandQuestMessage` whether or not
 `GetQuest` found anything, and the null-parent bail is a forum-bug fix
-*inside* the helper, which `questMacros.js:545` already carries.)
+*inside* the helper, which `questMacros.js:548` already carries.)
 
 **Three nits with teeth.**
 
@@ -5480,7 +5480,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:7640-7739) — and
+spawns and the NPC-guard conversion with it (world.js:7695-7795) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5501,15 +5501,15 @@ instance* for the interior mode, so it covers the shops entered from
 `?exterior` too. It passed neither of `EntityEffectManager`'s two
 ready-spell events (`hostMagic.js:94-95`), and those two doors are the
 *only* route into the machine's `CastSpellDo` / `CastEffectDo` latches
-(`machine.js:900`/`:883`; C# subscribes them in the action's
+(`machine.js:935`/`:918`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:8028-8029`,
-`dungeonContext.js:2536-2537`) is wired here now, and with it
+other two engine-owning hosts wire (`world.js:8084-8085`,
+`dungeonContext.js:2546-2547`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:13717-13720`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:13784-13787`),
 absent which the action self-completes at *parse*
-(`actions.js:2781`/`:2788`) and the task can never arm at all.
+(`actions.js:2791`/`:2798`) and the task can never arm at all.
 
 Pins: 5 in `test/qx1_exterior_host.test.js` (the placement law RUN over
 the real `placeFoeFreely` with a stubbed world — the FOV cone bounded on
@@ -5808,7 +5808,7 @@ MAP - and the three findings it produced, all paid in the same commit.
 
 ### F1 - "LOUDLY" was written over an operation that is silent
 
-`machine.js:61` stated the headless charter: *"absent = headless, every
+`machine.js:78` stated the headless charter: *"absent = headless, every
 Place pends its site **LOUDLY** and the corpus gate stands."* The same
 word sat in `place.js` three times, in `person.js`, and twice in
 `foe.js`, and the bridge's header compressed it to *"absent members idle
@@ -6413,3 +6413,29 @@ Not changed, and Mac's to decide: a PARTNER's kill of a shared quest's foe is cr
 same credit is what carries an ordinary summon-and-kill quest forward for the whole party.
 `test/disc29_questinfo.test.js` (3); `test/dungeonquestclick.test.js`'s one-home pin re-aimed to the shared builder;
 `tools/mutants/disc29.json` (DISC29-H, 3). `01-Overview/Field-Bugs-2026-09-28f.md` DISC29-H.
+
+## TIME3 - QUESTS ON TWO CLOCKS (2026-10-01, Mac: "people have to wait insanely long" / "This needs to be perfect")
+
+Design and law: `bible/06-Systems/Online-Time-Arc.md` 6.3 and 6.3a. The machine reads three clocks online where DFU
+reads one, all of them DFU's one clock offline:
+
+- **`nowSeconds`, the CHARACTER's clock** (LIVED1's own): the Clock resource, CreateFoe's and PlaySound's
+  intervals, GUARD-ONLINE's watch, the tombstone's week. A rest, a loiter or a journey spends them, as in DFU: the
+  time RAISED since a sample is charged whole (the session's count, `worldTick.js raisedMinutes`), the time lived
+  with the world one played step at most (WORLD7's bound, on the lived part alone). The rest ticks the quests
+  online too (`restSession.js`; RESTX2's stand-down retired).
+- **`skySeconds`, the SKY**: DailyFrom's window, GivePc's daytime, the season trigger, QAE's "until", the
+  date/time macros.
+- **`worldSeconds`, the EVENT clock**: a quest's start and each logged step - the journal's dates - which `%qdt`
+  reads on the sky's calendar (`skyCalendar.js skySecondsOfEvent`).
+
+The machine hands all four seams at every door a live quest is born through (`_questClocks`). A quest envelope
+carries `ownSecondsAt`, the clock its countdowns stood on when it was taken (`quest/questStamps.js`): a party
+member's copy moves onto the receiver's clock on every share and resync, a resync keeps each holder's running
+clocks (and a clock this copy ran out stays run out, its task's edge kept; a wave's interval and count stay the
+holder's - AUDIT TIME), and an online save from before TIME3 moves onto the character's clock once at the load.
+
+**Found on the way, a fidelity fix offline too:** the Clock sampled the fractional clock and cut each tick's GAP to
+whole seconds, where DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction - so
+every tick dropped its fraction: at ten ticks a real second a countdown ran a fifth to a third slow. It samples
+whole seconds now (`clock.js wholeSeconds`). Pins: `test/time3_quests.test.js`; mutants: `tools/mutants/time3.json`.

@@ -67,7 +67,7 @@ import { collectHearths } from '../systems/survival/hearth.js';   // AUDIT HEART
 import { lanternColor, dungeonAmbient, dungeonTrilight, dungeonFog } from '../render/enhancedLighting.js';   // EL1: the world host installed the lane; this reads it; EL4: the dark; AUDIT-EL F6: the fog with it
 import { INTERIOR_AMBIENT, INTERIOR_NIGHT_AMBIENT, INTERIOR_LIGHT_DIR } from '../world/interiorLights.js';
 import { isNight } from '../world/worldClock.js';   // AUDIT 23 (C12)
-import { worldMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText, ownTimeLeftShort, sharedClockOn, trustedWorldMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time; AUDIT LIVED1b K1: the collapse box's guard is online's
+import { worldMinutes, skyMinutes, setWorldMinutes, ownMinutes, ownTimeLeftText, ownTimeLeftShort, sharedClockOn, trustedWorldMinutes } from '../systems/worldTick.js';   // AUDIT 23 (C12): the one clock; G4's probe moves it; LIVED1: the character's own clock, and its deadlines said in their time; AUDIT LIVED1b K1: the collapse box's guard is online's
 import { exhaustionOutcome, EXHAUSTED_IN_WATER } from '../systems/rest.js';   // AUDIT 23 (C5)
 import { ActionTextBox } from '../ui/actionText.js';   // AUDIT 23 (C5)
 import { registerPresenter, hudText } from '../systems/notify.js';   // ENH-NOTICE3: the modal modes' slot, offered to the one door every message goes through
@@ -147,7 +147,7 @@ import { dungeonStartDoorFor } from '../systems/save.js';   // CASTLE1: the load
 import { composeNamer, composeContents } from '../systems/worldHover.js';   // INTERIOR-BODIES: the interior stands itemised bodies now, so its contents reader is a LADDER like the other three hosts' rather than one prefix
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the race's WINNER, so the plaque names what the press would open
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
-import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door
+import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideInteractTooltip,
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
@@ -513,7 +513,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3844 hands
+   * record these hosts mint spells it `name` (exterior.js:3848 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1289,8 +1289,8 @@ export function createWorldModes(host) {
    *
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
-   *  (worldTick.js:392-393), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1138-1142 and
+   *  (worldTick.js:393-394), and no killIfAnyLiveStatZero. Both pools
+   *  READ the effect list every frame (exteriorFoes.js:1150-1154 and
    *  cityGuards.js:1039-1049 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -1477,7 +1477,7 @@ export function createWorldModes(host) {
   // The dungeon branch's own dungeonContext re-registers on build and
   // restores this one on destroy.
   setPassiveSpecialsHost({
-    now: () => Math.floor(interiorTicker.classicMinutes),   // a VIEW on the one world clock
+    now: () => Math.floor(skyMinutes()),   // a VIEW on the one world clock; TIME1: the SKY's - this seam asks whether the sun is up
     isInside: () => mode !== 'exterior',
     inDungeon: () => mode === 'dungeon',
     // PlayerEnterExit.cs:371 - `IsDay && !IsPlayerInside &&
@@ -1639,10 +1639,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2065 states), so the same visual
+   *  the C11 law dungeonContext.js:2075 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1950, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1960, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2333,7 +2333,7 @@ export function createWorldModes(host) {
     const fresh = needsRestock(shelf, today);   // AUDIT WORLD6a A5: said at the window's mount, whichever window
     if (fresh) {
       shelf.stockedDate = today;
-      shelf.items = shelfLootSpawned(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity), b);   // PlayerActivate.OnLootSpawned (:885): RRI2's three shelf hooks, then the other mods' in load order (Foraging's FORAGE3, Come Sail Away's CSA-H)
+      shelf.items = shelfLootSpawned(stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity, { shelfIndex: i }), b);   // PlayerActivate.OnLootSpawned (:885): RRI2's three shelf hooks, then the other mods' in load order (Foraging's FORAGE3, Come Sail Away's CSA-H)
     }
     // AUDIT 26 F066: DFU NEVER opens a paying trade window in a
     // closed shop. PlayerActivate gates shelf activation on
@@ -2493,7 +2493,7 @@ export function createWorldModes(host) {
         priceAdjustment: regionPriceAdjustment(playerEntity, b.regionIndex ?? 0),
         // UNLIKE the tavern's meal, this one reads the player's REAL
         // region (:437), so a regional holiday actually lands.
-        holidayId: getHolidayId(Math.floor(worldMinutes()), b.regionIndex ?? 0),
+        holidayId: getHolidayId(Math.floor(skyMinutes()), b.regionIndex ?? 0),   // TIME1: the sky's calendar
         // G4 SHIPPED THE GUILD STORE ARM. It had stood null since U40,
         // which meant buyHolidayHalvesPrice's Mages Guild clause -
         // Tales and Tallow halving the price of anything bought AT the
@@ -3954,7 +3954,7 @@ export function createWorldModes(host) {
       rows: (id, pick) => townTalk?.lines?.(id, pick) ?? [],
       now: () => Math.floor(ownMinutes()),
       ownTimeOf: (m) => ownTimeLeftText(m),   // OL3/LIVED1: online the offer says how long the room is theirs, in their own time and in play; null offline
-      worldNow: () => Math.floor(worldMinutes()),   // LIVED1: the calendar (Heart's Day, a meal's holiday) and the kitchen's hours are the world's
+      worldNow: () => Math.floor(skyMinutes()),   // LIVED1: the calendar (Heart's Day, a meal's holiday) and the kitchen's hours are the world's; TIME1: the sky's
       mapId: () => questSceneCtx?.()?.mapId ?? 0,
       buildingKey: () => b?.buildingKey ?? 0,
       buildingName: () => b?.name ?? '',
@@ -4543,7 +4543,8 @@ export function createWorldModes(host) {
       const daedra = daedraForSummoner({
         factionId: summonerId,
         factionType: summoner?.type ?? null,
-        dayOfYear: dayOfYearFromMinutes(Math.floor(worldMinutes())),
+        dayOfYear: dayOfYearFromMinutes(Math.floor(skyMinutes())),   // TIME1: a prince's day is the sky's calendar
+        rerollDay: dayOfYearFromMinutes(Math.floor(worldMinutes())),   // TIME1: the coven's re-roll is a stamp - the event clock's day
         // The coven's remembered roll lives on the player, as DFU's
         // PlayerEntity.DaedraSummonIndex/Day do.
         state: playerEntity,
@@ -4827,7 +4828,7 @@ export function createWorldModes(host) {
           mercantile: skillValue(playerEntity, SKILLS.Mercantile),
           personality: playerEntity.stats?.personality == null ? 50 : liveStat(playerEntity, 'personality'),
         }),
-        classicMinutes: () => Math.floor(worldMinutes()),
+        classicMinutes: () => Math.floor(skyMinutes()),   // TIME1: the spellbook reads the calendar (the Witches Festival) - the sky's
         rows,
         onClose: () => closeSpellWindow(bookWin),
       }, { buyMode: true });
@@ -4905,7 +4906,7 @@ export function createWorldModes(host) {
         // AUDIT LIVED1 C (R4/P4): the cure's one clock read is the HOLIDAY (GetHolidayId - the free and the half-price
         // cure days), and holidays are the WORLD's calendar - on the character's clock a player rested onto South Winds
         // Prayer for a free cure while the temple charged on the world's announced one
-        rows, now: () => interiorTicker.classicMinutes, onClose: () => closeSelf(), godName,
+        rows, now: () => skyMinutes(), onClose: () => closeSelf(), godName,   // TIME1: the cure days are the sky's calendar
         // MAC-BUG2: the cure offer speaks a TRADE record, and those
         // quote the SHOP and the TOWN back at the player - see the
         // `identity` note in ui/guildServiceWindows.js.
@@ -5660,7 +5661,7 @@ export function createWorldModes(host) {
    *  once here rather than copied - a thinner second copy is exactly
    *  the "constant restated where DFU reads a live value" shape. */
   function resolveBuildingUnlocked(bd) {
-    const minutes = Math.floor(worldMinutes());
+    const minutes = Math.floor(skyMinutes());   // TIME1: the hour and the holiday a door answers to are the sky's
     const dict = townTalk?.factionDict ?? null;
     return buildingIsUnlocked(bd, {
       hour: Math.floor((minutes % 1440) / 60),
@@ -6349,7 +6350,7 @@ export function createWorldModes(host) {
       // player in the street with every latch naming a building they
       // never entered, which the party-rest vote, the talk layer and
       // the static-NPC routing all read outdoors.
-      const _hour = Math.floor((Math.floor(worldMinutes()) % 1440) / 60);
+      const _hour = Math.floor((Math.floor(skyMinutes()) % 1440) / 60);   // TIME1: the sky's hour
       let insideOpenShop;
       let building;
       if (restore) {
@@ -6748,7 +6749,7 @@ export function createWorldModes(host) {
         // (world.js openBodyLoot's law: quick loot takes on a press only).
         const openBodyLoot = (lootKey, pileKeys = null) => {
           bodyPool(lootKey)?.takeLoot(lootKey, (l) => say(l), (loot) => {
-            if (!pileKeys && quickLootTake(lootKey, loot, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) return;   // AUDIT QL-WEIGHT1: the window's own resolver
+            if (!pileKeys && quickLootTake(lootKey, loot, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null, took: showPickups })) return;   // AUDIT QL-WEIGHT1: the window's own resolver; PICKUP-FEED: the cards
             const pile = lootPile(lootKey, { keys: pileKeys, describe: (k) => bodyPool(k)?.pileBody(k) ?? null, open: openBodyLoot });
             mountInterior(interiorInventory({ loot: pile ? { ...loot, pile } : loot }));
           });
@@ -6777,7 +6778,7 @@ export function createWorldModes(host) {
         if (pile) {
           const _hooks = droppedLootHooks(pile);   // G5
           // QUICK-LOOT B4: the same door, on the player's own pile.
-          if (!quickLootTake(key, _hooks, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) mountInterior(interiorInventory({ loot: _hooks }));   // AUDIT QL-WEIGHT1
+          if (!quickLootTake(key, _hooks, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null, took: showPickups })) mountInterior(interiorInventory({ loot: _hooks }));   // AUDIT QL-WEIGHT1; PICKUP-FEED: the cards
           else interiorDropped.releaseEmptied();   // AUDIT 68 S20-frame-return-kills-loop: the take is its own window close (the world hosts' law)
         }
         return true;
@@ -7168,6 +7169,8 @@ export function createWorldModes(host) {
           shareQuest: (uid, questName, displayName) => host.shareQuest?.(uid, questName, displayName),
           // PEER-PLAQUE1: the plaque's peer pick, delegated the same way - the dungeon's own eye, the outer host's peers
           peerHoverPick: () => host.peerHoverPick?.() ?? null,   // AUDIT DROPS E3: the F key's own ray, not the dungeon's eye
+          profHoverPick: (ray) => host.profHoverPick?.(ray) ?? null,   // PROF-MENU: a dungeon vein or body as the plaque's pick, over the race's winner
+          profHoverName: (key) => host.profHoverName?.(key) ?? null,   // ...and its acts as the plaque's rows
           pageShare: () => host.pageShare?.() ?? null,   // JOURNAL1: a note's Share, the outer host's word, delegated the same way
           // GUIDE2: the journal's two world questions, the outer host's, delegated the same way - the dungeon's journal
           // says where a quest points (the dungeon owns no map, so it offers no way there)
@@ -7318,11 +7321,12 @@ export function createWorldModes(host) {
           // off its own pools, which is what makes the premise true for
           // both routes rather than for one.
           enchantCtx: false,
+          outerCastEngine: () => magic,   // CAST-USE (AUDIT part five CU1): where a ready held at the way out goes (dungeonContext destroy)
           // wave 22: PopupText.AddText files into the notebook ring
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7805), so the OUTER host's one rides in.
+          // (dungeonContext.js:7820), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7493,6 +7497,7 @@ export function createWorldModes(host) {
       mwViewTransition('Interior');   // EOTB-IL: OnTransitionInterior is registered on PlayerEnterExit.OnTransitionDungeonInterior too (Start, IL_06bf)
       setWeaponPose(dungeonCtx?.weaponRig?.()?.playerWeapon ?? null, host.weaponPose?.() ?? null);   // JAN1: the dungeon rig takes the pair the exterior rig held
       immersiveFootsteps.onTransitionDungeonInterior();   // IF1: UpdateFootsteps_OnTransitionDungeonInterior
+      magic?.handReadyTo?.(ctx.castEngine);   // CAST-USE (AUDIT part five CU1): a ready taken down the stairs fires there - the dungeon drives its own engine
       betterAmbience.onTransition({ dungeon: { regionName: dfLocation.regionName, name: dfLocation.name, inCastle: () => !!ctx.insideDungeonCastle?.(), exitPos: ctx.enterMarker ? [ctx.enterMarker.x, ctx.enterMarker.y, ctx.enterMarker.z] : null } });   // BA1: OnTransitionDungeonInterior - the fog seeded by the dungeon's name, the rain source at "DungeonExit"
       _insideTavern = false;   // ROAD-B B4: PlayerEnterExit.cs:1112 - the dungeon transition clears the tavern latch too (and, verbatim, not the residence one)
       _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same transition as the tavern latch above
@@ -7585,6 +7590,9 @@ export function createWorldModes(host) {
     // alone, as on the street (C2/H3: a click or a finger's tap started an act a swipe could not play, and every swing
     // was held off until the player walked away); and first, so one press never clicks a quest foe AND starts an act (D3)
     if (interact && !pressCast && host.profPress?.()) return true;
+    // PROF-MENU: and the click on a node's lit row (the plaque's) is the node's, as a loot row's click takes it - never
+    // mid-act (that click is the act's, below)
+    if (!interact && !pressCast && !actClick && !host.profActing?.() && host.profClick?.()) return true;
     // AUDIT 32 H5: and a click mid-act is the act's (D3's law for E) - it opened the body's loot under the knife.
     // CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck a dungeon vein's last blow lifts
     // after the act has ended, onto the door, the chest, the body or the lever under the look
@@ -7757,7 +7765,7 @@ export function createWorldModes(host) {
     destroyWorldPlaque();   // WORLD-HOVER: a DOM overlay stays painted unless it is told otherwise (AUDIT 64 F37) - and the exterior arm is not the plaque's host, so it has no frame in which to hide it
     host.applyWeaponPose?.(pose);   // JAN1: the exterior rig takes the pair the dungeon rig held
     {   // RR1: OnTransitionToDungeonExterior_ExtinguishLight (RoleplayRealism.cs:633-640) - by day, the lit light is doused with its own box
-      const doused = rrDouseOnDungeonExit(playerEntity, { isDay: isDayFromMinutes(Math.floor(worldMinutes())) });
+      const doused = rrDouseOnDungeonExit(playerEntity, { isDay: isDayFromMinutes(Math.floor(skyMinutes())) });   // TIME1: the sky's day
       if (doused) townTalk?.showOverlay?.(new ActionTextBox([expandItemMacro(USE_TEXT.lightDouse, doused)]));
     }
     mwViewTransition('Exterior');   // EOTB-IL: OnTransitionExterior is registered on PlayerEnterExit.OnTransitionDungeonExterior too (Start, IL_06e1)
@@ -8438,7 +8446,7 @@ export function createWorldModes(host) {
     if (pendingInteriorExit) { pendingInteriorExit = false; exitInteriorNow(); return true; }
     // AUDIT 23 (C12: cross-6 = wts-3) - PlayerAmbientLight.cs:75-80: a
     // night interior takes the darker purple-tinted ambient.
-    renderer.setLighting(new Float32Array(isNight(worldMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);
+    renderer.setLighting(new Float32Array(isNight(skyMinutes() % 1440) ? INTERIOR_NIGHT_AMBIENT : INTERIOR_AMBIENT), 0);   // TIME1: the sky's night
     // AUDIT EV F-R1: no moonlight and no stale exterior indirect
     // through the walls - see the dungeon arm's note above.
     renderer.setMoonlight(null);
@@ -8532,7 +8540,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14611's own wave-46 note); the interior
+          // a blow (world.js:14678's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9341,7 +9349,7 @@ export function createWorldModes(host) {
       buildingType: interiorBuilding?.buildingType ?? null,
       factionId: interiorBuilding?.factionId ?? null,
       buildingKey: interiorBuilding?.buildingKey ?? null,
-      hour: Math.floor((Math.floor(worldMinutes()) % 1440) / 60),
+      hour: Math.floor((Math.floor(skyMinutes()) % 1440) / 60),   // TIME1: the sky's hour
     }) : null);
     window.__peopleList = () => interiorCtx ? JSON.stringify(interiorCtx.people.map((pn) => ({ a: pn.textureArchive, r: pn.textureRecord, x: +pn.x.toFixed(1), y: +pn.y.toFixed(1), z: +pn.z.toFixed(1) }))) : null;
     // U23: the static-NPC seam, probe-side. __staticNpcs surfaces the
@@ -9464,7 +9472,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3906`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3910`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -9658,7 +9666,7 @@ export function createWorldModes(host) {
     // a quest individual, in DFU exactly as here.
     updateNpcPresence: () => {
       if (!interiorBuilding || !interiorCtx) return;
-      const hour = Math.floor((Math.floor(worldMinutes()) % 1440) / 60);
+      const hour = Math.floor((Math.floor(skyMinutes()) % 1440) / 60);   // TIME1: who is in is the sky's hour
       if (!updateNpcPresence(interiorBuilding?.buildingType ?? BUILDING_TYPES.None, {
         hour, insideOpenShop: !!interiorBuilding.insideOpenShop,
       })) return;
@@ -11171,9 +11179,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3477-3499), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3478-3500), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11002). So an F9 pressed in a shop
+     *  unconditionally (world.js:11067). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11212,7 +11220,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11117)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11182)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11222,8 +11230,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9995`
-     *  and `dungeonContext.js:7816` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10060`
+     *  and `dungeonContext.js:7831` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

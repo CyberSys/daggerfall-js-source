@@ -1879,6 +1879,12 @@ pins restamped where the law moved. Relay change: yes - REDEPLOY.
 
 ## WORLD5 (2026-09-13): the shared clock and weather, the quest clocks stood down
 
+[TIME1-TIME3, 2026-10-01 (`Online-Time-Arc.md`): the clock below is the EVENT clock now - the world's business
+(gates, raids, prices, shelves, terms, every stamp) keeps it, unchanged, and the relay with it. The SKY a player
+sees - the hour, the date, the moons, the seasons - runs at its own rate (`net/skyLaw.js`), a day every real
+hour from 2026-10-03T17:07:30Z (SKY-SLOW; designed at thirty minutes); the weather keeps this clock's pace and wears the sky's season. A quest's
+countdowns run on the character's own clock (LIVED1), its hours and dates on the sky.]
+
 **Mac: "Let's tackle slice 5 first."** Slice 5 of the persistent shared
 world, the last of WORLD1's plan: THE SHARED CLOCK AND WEATHER, and the
 quest clocks stood down online (Mac, WORLD1: "When it comes to time
@@ -4180,6 +4186,11 @@ during the deploys should be rotated.
 
 ## WORLD7 (2026-09-14): the quest clocks run online, charging played time
 
+[TIME3, 2026-10-01 (`Online-Time-Arc.md` 6.3a): the quest's clock is the CHARACTER's own now. The time they live
+with the world is charged as below - one played step at most, the rest forgiven - and the time they raise (a rest,
+a loiter, a journey) is charged whole, as DFU charges a RaiseTime; the rest ticks the quests online too. The step
+below stands; what it bounds is the lived part.]
+
 **Mac: "quests dont seem to work in online. I brought a newly created
 and saved character over and the journal is empty."** Then, on the
 suggestion: **"Go."** The save was never the fault - the Online door
@@ -4406,7 +4417,7 @@ room exists.
 
 **The boundary that makes that safe is `_layoutFoes`** - the dungeon
 host's index of where the layout's own run ends. Every foe past it "is
-this player's own" (`dungeonContext.js:1351`, AUDIT WORLD B2): a quest
+this player's own" (`dungeonContext.js:1361`, AUDIT WORLD B2): a quest
 foe is minted above it, never streamed, never puppet-ised by the room's
 authority switch, and never touched by a joiner's stream. So a joiner's
 quest foe really does spawn and really can be killed by the player whose
@@ -4775,7 +4786,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7317` read, on one physical line:
+`src/scenes/worldModes.js:7320` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4790,7 +4801,7 @@ appended its own note to the end of the line that already carried
 **Why that is an invulnerable enemy.** Online, a joiner applies no local
 damage to a layout foe - `damageFoe`'s non-authority arm hands the blow
 to the room's host through `opts.onFoeHit?.(...)` and RETURNS
-(`dungeonContext.js:5438`). With the property missing that call is a
+(`dungeonContext.js:5449`). With the property missing that call is a
 no-op on `undefined`: no damage, no frame, no warning, nothing on the
 console. Every layout foe in every online dungeon absorbed every blow
 from everyone but the room's authority, for eight slices, in silence.
@@ -4917,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8314` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8378` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:452`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9009,6 +9020,27 @@ member pacing the radius under *Setting out* rebuilt the tab at every crossing (
 `status()` carries them with no round alone. Records: `test/partytravel.test.js` 37 -> 41,
 `test/soc3_socialpanel.test.js` 32 -> 33; `tools/mutants/auditpartyui2.json` (14, 14 dead); five
 `auditpartyui.json` records and the `mappov.json` one re-aimed.
+
+**PARTY-READY (2026-10-01, Mac: "when party readying up, the ui element is hidden"; `01-Overview/Field-Bugs-2026-10-01c.md`).**
+The ready-up took its own controls off the screen. The leader's Travel map opens the travel map, a window over the HUD,
+and the Social panel closes under any such cover (SOC3) - so the round's count and Call off stood nowhere for the whole
+round, and the HUD's "Waiting for the party to ready up" stood PARTY_REST_FAR_SECONDS (4) of a round that runs
+PARTY_READY_TIMEOUT_MS (60). A member with the Party tab open was asked by the Yes/No box anyway, whose pause took the
+tab, the chat and the party's HUD out of the page as the ready-up began. Now:
+- the Party tab a cover took mid-journey comes back when it lifts - after the travel map its own Travel map opened, or
+  after any window over an open round (`socialPanel.js` `resumeParty`); a cover still closes the panel, and one over a
+  round that has set out, over another tab or over no journey of the tab's keeps it closed;
+- the leader's wait stands the round: set for what is left of it, again only as the count moves (each label is a
+  notebook line), and the set-out, a call-off or a lapse says its own line over it (`partyTravel.js` `waitLabel`; the
+  host's `mid` takes the seconds);
+- a member with the Party tab open answers there - no box over it, no line to type what it offers - and one who closes
+  it unanswered is asked by the box (`tabOpen`, the host's `socialPanel` on its Party tab). `busy()` is left alone: it
+  gates the tab's own Travel to <leader>.
+Not changed: the party HUD still hides under a pausing window (the box a member without the tab open is asked by), as
+the whole enhanced HUD does. Records: `test/partytravel.test.js` 41 -> 44 (it did not parse since the merge before
+this one - an unescaped `'` in the RELAY_VERSION history; fixed - so every list naming it had killed nothing),
+`test/soc3_socialpanel.test.js` 33 -> 34; `tools/mutants/partyready.json` (14, 14 dead); one `auditpartyui.json` and
+one `party-travel.json` record re-aimed.
 
 ## EVENT1 (2026-09-25, Mac: "I wanna do a fun live event for the server. Wanna setup the infastructure for this without breaking anything. We have a lot of major updates today, but I want to turn the skies of Daggerfall into a detailed oblivion styled dread in prep for the world bosses. Red lightning and such") - a live event, staged for everyone online: the dread, world110
 

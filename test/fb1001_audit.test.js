@@ -170,8 +170,8 @@ function streetLadder() {
   const cond = WORLD.match(/\n\s*if \((\(\(_act\.activate && [^\n]*?\) \|\| \(useEdge && !nodeTook\)\)) && !modes\.transitioning && !_holdFire\) \{/);
   assert.ok(ask && cond, 'the street ladder\'s act click and condition');
   const askFn = new Function('gatherHost', '_activateDown', `return ${ask[1]};`);
-  const condFn = new Function('_act', 'gatherHost', 'useEdge', 'nodeTook', '_actClick', `return ${cond[1]};`);
-  return { cond: cond[1], frame: (gate, host, down, now) => { const a = activateFrame(gate, { down, now }); const c = askFn(host, down); return condFn(a, host, false, false, c); } };
+  const condFn = new Function('_act', 'gatherHost', 'useEdge', 'nodeTook', '_actClick', 'nodeClicked', `return ${cond[1]};`);   // PROF-MENU: a node's lit row's click, none here
+  return { cond: cond[1], frame: (gate, host, down, now) => { const a = activateFrame(gate, { down, now }); const c = askFn(host, down); return condFn(a, host, false, false, c, false); } };
 }
 
 test('CLICK-LIFT: a vein mined by left clicks to its end - no click of the act reaches the street\'s ladder, the last one\'s release included; a click after it, with no act, does (mutants: the latch never held; the latch never let go; the ladder never asks it)', async () => {

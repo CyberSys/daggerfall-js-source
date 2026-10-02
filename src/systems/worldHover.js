@@ -261,7 +261,9 @@ export function resolveHover(hit, { name = null, contents = null } = {}) {
   const renowned = (f) => { if (Number.isSafeInteger(named.renown) && named.renown > 0) f.renown = named.renown; return f; };
   if (acts.length) {
     const f = frame(key, 'actions', named.title, named.subs ?? [], acts.map((a) => ({
-      name: a.disabled ? `${a.label} (${a.why || 'not now'})` : a.label, id: a.id, disabled: !!a.disabled, stack: 0, rarity: null, item: null,
+      // PROF-MENU: a refusal whose label already says it ('Red Rose - gathered today') carries an EMPTY reason - no
+      // "(not now)" after it; an absent one still says that
+      name: a.disabled ? (a.why === '' ? a.label : `${a.label} (${a.why || 'not now'})`) : a.label, id: a.id, disabled: !!a.disabled, stack: 0, rarity: null, item: null,
     })));
     if (named.actionsUnlit) f.startUnlit = true;
     // BOAT-MENU: a namer may light a row other than the top first (a boat's: the box under the crosshair's own verb)

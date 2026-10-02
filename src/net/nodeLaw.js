@@ -25,7 +25,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { gateHash } from './gateLaw.js';   // the one mix every clock-law in the world rolls with
-import { sharedClassicMinutes } from './wire.js';
+import { skyClassicMinutes } from './skyLaw.js';   // TIME1: a UTC day's season and month are the SKY's (bible/06-Systems/Online-Time-Arc.md section 4)
 import { CLIMATES, REGION_NAMES, MAX_MAP_PIXEL_X, MAX_MAP_PIXEL_Y } from '../formats/mapsTables.js';
 import { SEASONS, seasonValue, dateFromClassicMinutes } from '../systems/gameDate.js';
 import { basketBlock, BASKET_BLOCKS } from '../systems/foragingCore.js';   // the Basket's blocks and foods - the IL's, one home
@@ -48,17 +48,20 @@ export const NODE_KINDS = Object.freeze({ tree: 1, herb: 2, vein: 3, boulder: 4,
 // ─── HOW MANY (PROF0 6) ──────────────────────────────────────────────
 
 const counts = (tree, herb, vein, boulder) => Object.freeze({ tree, herb, vein, boulder });
-/** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). */
+/** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). BOULDERS (FIELD BUGS 2026-10-01, the
+ *  service's acct47): the boulders 3 / 4 / 5 where they were 1 / 2 / 3 - a field's pieces hold one on each side now.
+ *  MORE-NODES (2026-10-02, Mac: "increase all profession nodes", "Double"; acct48): the trees, the herb patches and the
+ *  veins twice what they were - a day's sixty a profession is the bound, so it is the walk between nodes that halves. */
 export const NODE_COUNTS = Object.freeze({
-  [CLIMATES.Woodlands]: counts(6, 4, 2, 1),
-  [CLIMATES.MountainWoods]: counts(5, 3, 3, 2),
-  [CLIMATES.Mountain]: counts(2, 2, 6, 3),
-  [CLIMATES.HauntedWoodlands]: counts(4, 4, 2, 1),
-  [CLIMATES.Swamp]: counts(3, 5, 1, 0),
-  [CLIMATES.Rainforest]: counts(6, 5, 1, 0),
-  [CLIMATES.Subtropical]: counts(4, 4, 2, 1),
-  [CLIMATES.Desert]: counts(0, 3, 5, 3),
-  [CLIMATES.Desert2]: counts(0, 3, 5, 3),
+  [CLIMATES.Woodlands]: counts(12, 8, 4, 3),
+  [CLIMATES.MountainWoods]: counts(10, 6, 6, 4),
+  [CLIMATES.Mountain]: counts(4, 4, 12, 5),
+  [CLIMATES.HauntedWoodlands]: counts(8, 8, 4, 3),
+  [CLIMATES.Swamp]: counts(6, 10, 2, 0),
+  [CLIMATES.Rainforest]: counts(12, 10, 2, 0),
+  [CLIMATES.Subtropical]: counts(8, 8, 4, 3),
+  [CLIMATES.Desert]: counts(0, 6, 10, 5),
+  [CLIMATES.Desert2]: counts(0, 6, 10, 5),
 });
 /** How many nodes of `kind` a pixel of `climate` holds a day. */
 export const nodeCount = (climate, kind) => NODE_COUNTS[climate]?.[kind] ?? 0;
@@ -118,8 +121,10 @@ export const herbSeasonMult = (templateIndex, season) =>
 /** The UTC day an instant (ms) falls in. */
 export const utcDayOfMs = (ms) => Math.floor(ms / 86_400_000);
 /** A UTC day's first instant on the shared clock, as DFU's date - a day's patches, the Basket's block and a writ's
- *  table read the season and month of it, so nothing under a player changes before the day does. */
-export const dayDate = (day) => dateFromClassicMinutes(Math.floor(sharedClassicMinutes(day * 86_400_000)));
+ *  table read the season and month of it, so nothing under a player changes before the day does. TIME1: the SKY's date
+ *  at that instant, so a herb blooms in the spring the player sees - it holds the whole UTC day, and can trail the
+ *  sky's season by up to a day (the event clock's, before the sky's first switch: one law, both ends). */
+export const dayDate = (day) => dateFromClassicMinutes(Math.floor(skyClassicMinutes(day * 86_400_000)));
 export const daySeason = (day) => seasonValue(dayDate(day));
 export const dayMonth = (day) => dayDate(day).month;
 

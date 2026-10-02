@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createPlayerTicker } from '../src/scenes/shared.js';
 import {
-  setSharedClock, setWorldMinutes, worldMinutes, ownMinutes, setOwnMinutes, advanceOwnMinutes, sharedClockOn,
+  setSharedClock, setWorldMinutes, worldMinutes, skyMinutes, ownMinutes, setOwnMinutes, advanceOwnMinutes, sharedClockOn,
   alignEntityClocks, skipDeadMinutes, resetMagicRoundMarker, ownTimeLeftText, MINUTES_PER_DAY, tickInFlight,
   worldArmsPieces, hearSharedClock, sharedClockHeard, payAbsenceWhenHeard, worldMinutesToSave, ownWalkWaiting,
   normalizeAcross, NORMALIZE_ACROSS_MAX,
@@ -456,13 +456,13 @@ test('AUDIT LIVED1b P1: a party mirror\'s night walks the follower\'s own watch 
     const { ticker } = online({ own: 90 * D + 20 * H, world: 800 * D + 13 * H, entity: e });
     const counts = { spawnAsks: 0, watch: 0 };
     const names = ['playerTicker', 'playerEntity', 'amGroupRollOwner', 'online', 'player', 'partyNear', 'modes', 'walkMode', 'playerSpawned',
-      'intermittentEnemySpawn', 'sharedClockOn', 'worldMinutes', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES',
+      'intermittentEnemySpawn', 'sharedClockOn', 'worldMinutes', 'skyMinutes', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES',   // TIME1: the roll's sky
       'partyExtraFoes', 'partySize', '_standEncounterFoe', '_questRegionIndex', 'passiveGuardSpawns', 'legalRepOf', 'setCrimeCommitted', 'CRIMES',
       '_witnessResponse', 'cityGuards', '_guardPool', 'cam', 'effectiveLevel'];   // SOFTCAP2: the mentor's level the loop's roll reads
     const body = `let _lastEncMinutes = null;\n${fnText}\nconst mirrorHook = { ${MIRROR} };\nconst soloHook = { ${SOLO} };\n`
       + 'return { run: runEncounterTick, mirror: mirrorHook.advanceMinutes, solo: soloHook.advanceMinutes };';
     const h = new Function(...names, body)(ticker, e, () => true, { id: 'me' }, { pos: [0, 0, 0], feetAt: () => [0, 0, 0], isPlayerSwimming: false }, () => [], { mode: 'exterior' }, true, true,
-      (a) => { counts.spawnAsks++; return intermittentEnemySpawn(a); }, sharedClockOn, worldMinutes, () => true, { getClimateIndex: () => 231 }, () => ({ x: 100, y: 100 }), SOLITARY_TYPES,
+      (a) => { counts.spawnAsks++; return intermittentEnemySpawn(a); }, sharedClockOn, worldMinutes, skyMinutes, () => true, { getClimateIndex: () => 231 }, () => ({ x: 100, y: 100 }), SOLITARY_TYPES,
       partyExtraFoes, () => 2, () => {}, () => 17, passiveGuardSpawns, legalRepOf, setCrimeCommitted, CRIMES,
       () => { counts.watch++; }, { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], { pos: [0, 0, 0] }, (x) => x?.level ?? 1);
     h.run([0, 0, 0]);

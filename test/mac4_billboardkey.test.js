@@ -84,7 +84,7 @@ test('MAC4: a batch that animates by its RECORD binds the new record\'s texture 
 
 test('MAC4: the five mobile producers write the record as `record#frame` and never the frame, and the key is minted from all three fields (the shape that a frame-only cache broke)', () => {
   const producers = [
-    ['src/scenes/exteriorFoes.js', /const rkey = `\$\{o\.record\}#\$\{o\.frame\}`;[\s\S]{0,400}?f\.batch\.record = rkey;/],
+    ['src/scenes/exteriorFoes.js', /const rkey = `\$\{o\.record\}#\$\{o\.frame\}`;[\s\S]{0,700}?f\.batch\.record = rkey;/],   // ELITE FOES: the elite's size between them
     ['src/scenes/dungeonContext.js', /const rkey = `\$\{out\.record\}#\$\{out\.frame\}`;[\s\S]{0,600}?f\.batch\.record = rkey;/],
     ['src/scenes/cityGuards.js', /const rkey = `\$\{o\.record\}#\$\{o\.frame\}`;[\s\S]{0,400}?g\.batch\.record = rkey;/],
     ['src/scenes/world.js', /const rkey = `\$\{out\.record\}#\$\{out\.frame\}`;[\s\S]{0,400}?batch\.record = rkey;/],

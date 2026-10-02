@@ -361,6 +361,8 @@ uniform vec4 uFlatWind;   // WIND3: the wind's rate x, z (m/s, the lab's rate fr
 uniform float uSway;      // WIND3: this batch's share of the lean (0 = stands still)
 uniform vec3 uTip;        // PROF4: a felled tree's fall - x, z the way it falls, the angle it has leaned (0 = stands)
 uniform vec4 uFacePoint;  // DISC29-E: a lamp's position (w = 1) - each flat turns to face it; w = 0 in every other pass
+uniform vec4 uElitePad;   // ELITE FOES: the quad widened past the sprite (left, bottom, right, top, as fractions of it) - 0 in every other pass
+uniform sampler2D uTex;   // ELITE FOES: the sprite's own size, for the pad's floor in texels (the fragment shader's same sampler)
 out vec2 vUV;
 out vec3 vBBWorld;
 out vec3 vBBBase;   // EL2: the flat's placement base, where the lane's shadow is read for the whole sprite (the classic FS declares it not, which GLSL allows)
@@ -378,9 +380,15 @@ void main() {
     float lampDist = length(toLamp);
     if (lampDist > 1e-4) right = vec3(toLamp.y, 0.0, -toLamp.x) / lampDist;
   }
+  // ELITE FOES: an elite's quad reaches past its sprite on every side (room for the outline and the embers); the UVs run
+  // past 0..1 with it and the fragment shader reads that margin as empty. Zero pad is the plain quad, exactly.
+  // A small sprite (a rat, a bat) still gets room: at least 2 texels round it and 20 above for the embers to climb.
+  vec4 ep = uElitePad;
+  if (ep.x > 0.0) { vec2 ts = vec2(textureSize(uTex, 0)); ep = max(ep, vec4(2.0, 2.0, 2.0, ep.w > 0.1 ? 20.0 : 2.0) / vec4(ts, ts)); }   // a corpse's pad (top 0.03) needs no room for embers   // a corpse's pad (top 0.03) needs no room for embers
+  vec2 cn = vec2(mix(-0.5 - ep.x, 0.5 + ep.z, aCorner.x + 0.5), mix(-0.5 - ep.y, 0.5 + ep.w, aCorner.y + 0.5));
   vec3 world = aCenter + uOrigin
-    + right * (aCorner.x * uSize.x)
-    + uUp * ((aCorner.y + 0.5) * uSize.y);
+    + right * (cn.x * uSize.x)
+    + uUp * ((cn.y + 0.5) * uSize.y);
   // WIND3: THE FLATS LEAN WITH THE WIND. The lab's grass law (labGrass.js:
   // a steady push plus a gust that travels ACROSS the field as a wave, the
   // phase carrying the position along the wind), on the crown: the offset
@@ -412,7 +420,7 @@ void main() {
   // Textures are bottom-up (v=0 = image bottom), so the quad top
   // (aCorner.y = +0.5) samples v = 1 - matching the mesh path's negated-V
   // convention. The previous 0.5 - aCorner.y flipped every billboard.
-  vUV = vec2(aCorner.x + 0.5, aCorner.y + 0.5);
+  vUV = vec2(cn.x + 0.5, cn.y + 0.5);
   gl_Position = uProj * uView * vec4(world, 1.0);
 }`;
 
@@ -509,7 +517,7 @@ import { decalIndices, DECAL_FLOATS_PER_VERTEX } from '../combat/bloodDecals.js'
 import { BLOOD_ABSORB_ENCODED, INK_DEPTH } from '../combat/bloodArt.js';
 import { glslFloat } from './airPass.js';   // AUDIT BLOOD3 F9: a dial at a whole number is an INT literal in GLSL, and vec3 * int does not compile   // BLOOD3: the film's absorption - the classic mark takes the depth, the lane takes the sheen too
 import { SHADE_DARK } from '../systems/concealDraw.js';   // ECV1 / AUDIT 65 PN-3: the shade's pull toward black, interpolated into BB_FS below - the shader restated 0.12 as a second literal. The LEAF, not systems/combatVisuals.js, which re-exports it: that module's graph would take this file's closure from 13 modules to 69
-import { HIT_FLASH_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, shared with the lane's billboard shader and the sprite quad (a LEAF, no imports)
+import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, shared with the lane's billboard shader and the sprite quad (a LEAF, no imports)
 
 const BB_FS = `#version 300 es
 precision highp float;
@@ -520,6 +528,8 @@ uniform sampler2D uEmissionTex;
 uniform int uSpectral;
 uniform vec4 uConceal;  // ECV1: x mode (0 plain, 1 chameleon, 2 shade, 3 hit reveal), y opacity, z seconds, w phase
 uniform float uHitFlash;  // HITFLASH1: a body struck, 0..1 (batch.hitFlash)
+uniform float uEliteGlow;  // ELITE FOES: the glow's pulse, 0 off (batch.eliteGlow)
+uniform float uEliteTime;  // ELITE FOES: seconds, for the embers
 uniform vec3 uTint; // time-of-day: ambient (+ the moon's half); VC4: the sun's half rides uBBSun so a cloud's shadow can take it
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -537,6 +547,7 @@ out vec4 outColor;
 ${FOG_GLSL}
 ${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
+${ELITE_GLOW_GLSL}
 void main() {
   // ECV1: a chameleoned foe ripples - a slow horizontal wobble across
   // the sprite, phased per foe - so it reads as blending in, not as a
@@ -546,11 +557,20 @@ void main() {
     uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
     if (uv.x < 0.0 || uv.x > 1.0) discard;   // the texture wraps REPEAT: never pull the far edge onto this one
   }
-  vec4 tex = texture(uTex, uv);
+  // ELITE FOES: an elite's widened quad reaches past its sprite - the margin is empty, never a wrapped texel
+  vec4 tex = (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) ? vec4(0.0) : texture(uTex, uv);
   // Spectral flats keep their 180-alpha translucency (blended pass);
   // opaque flats keep the classic 0.5 cutout. ECV1's concealed pass is
   // blended too and takes the spectral threshold.
-  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) discard;
+  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
+    // ELITE FOES: the rim - a cut-out texel beside the silhouette is the halo's - and the embers rising off it
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0) {   // negative: an elite's corpse - the rim alone
+      if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), fogFactorAt(vBBWorld)), 1.0); return; }
+      float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
+      if (em > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), fogFactorAt(vBBWorld)), 1.0); return; }
+    }
+    discard;
+  }
   // Point lights on flats: billboards have no normal, so the term is
   // attenuation-only (squared linear falloff) - documented equivalence
   // to Unity's vertex-lit billboards.
@@ -581,6 +601,7 @@ void main() {
   // multiply a vec3 by an int literal).
   if (uConceal.x == 2.0) lit *= ${SHADE_DARK};
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3: a player struck flashes red for a moment (z the strength, fading)
+  lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES: the sprite warmed toward gold (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: over any concealment, never instead of it
   if (uConceal.x == 4.0) lit = vec3(0.0);   // EOTB-IL: Eye Of The Beholder's shade - Color.black at the batch's alpha (UpdateMaterial, IL_4f69)
   float alpha = uSpectral == 1 ? tex.a : 1.0;
@@ -1926,6 +1947,9 @@ export class Renderer {
     this.bbUSpectral = gl.getUniformLocation(this.bbProgram, 'uSpectral');
     this.bbUConceal = gl.getUniformLocation(this.bbProgram, 'uConceal');   // ECV1
     this.bbUHitFlash = gl.getUniformLocation(this.bbProgram, 'uHitFlash');   // HITFLASH1
+    this.bbUEliteGlow = gl.getUniformLocation(this.bbProgram, 'uEliteGlow');   // ELITE FOES
+    this.bbUEliteTime = gl.getUniformLocation(this.bbProgram, 'uEliteTime');   // ELITE FOES: the embers' clock
+    this.bbUElitePad = gl.getUniformLocation(this.bbProgram, 'uElitePad');   // ELITE FOES: the widened quad
     this.bbUTint = gl.getUniformLocation(this.bbProgram, 'uTint');
     this.bbUSun = gl.getUniformLocation(this.bbProgram, 'uBBSun');   // VC4
     this.bbUPointCount = gl.getUniformLocation(this.bbProgram, 'uPointCount');
@@ -4965,7 +4989,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
@@ -5736,6 +5760,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     let lastDark = false;   // CSA-B: the last flat's emissionOff
     let lastSway = null;   // WIND3
     let lastFlash = null;   // HITFLASH1
+    let lastGlow = null;   // ELITE FOES
     // PERF-EXT11 (2026-09-25, the players' "fps issues in the exterior but
     // fine in the interior"): THE SIZE AND THE ORIGIN GO UP WHEN THEY
     // CHANGE, as the sway and the key's textures already did. Both were
@@ -5780,6 +5805,11 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       if (col !== this._bbColumnOn) { gl.uniform1f(bc.uColumnOn, col); this._bbColumnOn = col; }   // LA-COST1: the program's switch, sent when a flat changes it
       const hf = b.hitFlash || 0;   // HITFLASH1: a struck body's red, uploaded when it changes between batches
       if (hf !== lastFlash) { gl.uniform1f(this.bbUHitFlash, hf); lastFlash = hf; }
+      const eg = b.eliteGlow || 0;   // ELITE FOES: the glow's pulse, uploaded when it changes between batches
+      if (eg !== lastGlow) { gl.uniform1f(this.bbUEliteGlow, eg); lastGlow = eg; }
+      const ep = eg !== 0 ? b.elitePad : null;   // ELITE FOES: the widened quad (an elite's, or its corpse's) and the embers' clock
+      if (ep || this._bbPadOn) { gl.uniform4f(this.bbUElitePad, ep ? ep[0] : 0, ep ? ep[1] : 0, ep ? ep[2] : 0, ep ? ep[3] : 0); this._bbPadOn = !!ep; }
+      if (eg !== 0) gl.uniform1f(this.bbUEliteTime, (performance.now() / 1000) % 3600);   // the embers' and the corpses' pulse clock (one clock, every elite batch)
       this._bindVao(b.vao);
       gl.drawElements(gl.TRIANGLES, b.indexCount, gl.UNSIGNED_INT, 0);
       this.stats.draws++;

@@ -48,7 +48,8 @@ test('OL3 (1): the shared clock has an inverse at the wire, and the ticker carri
     assert.equal(sharedWallMs(NaN), null);
   } finally { setSharedClock(null); }
   assert.equal(sharedWallMs(5000), null, 'uninstalled with the clock');
-  assert.match(rd('src/scenes/world.js'), /setSharedClock\(\(\) => sharedClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), \(m\) => wallMsForClassicMinutes\(m\) - _sharedOffsetMs\);/, 'the host installs the inverse through the relay\'s offset');
+  // TIME1: and the sky's own source and inverse beside them, through the same offset
+  assert.match(rd('src/scenes/world.js'), /setSharedClock\(\(\) => sharedClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), \(m\) => wallMsForClassicMinutes\(m\) - _sharedOffsetMs, \{ sky: \(\) => skyClassicMinutes\(Date\.now\(\) \+ _sharedOffsetMs\), skyWall: \(m\) => wallMsForSkyMinutes\(m\) - _sharedOffsetMs \}\);/, 'the host installs the inverse through the relay\'s offset');
 });
 
 test('OL3 (1) + LIVED1: the tavern\'s offer says how long the room is theirs in the character\'s own time and in play - a fresh rental from now, a renewal from the standing expiry - and offline the offer is DFU\'s', () => {

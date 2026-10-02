@@ -1355,7 +1355,22 @@ followers; all of this is the port's own, over CREW-COMPANIONS.
   fallen from her roster, the host empties it; and the host stows it (`stowPack`): his boat's hold first (the board's
   `giveItems`), what will not go in into my pack - past its weight if it must, said ("more than you can carry") - his
   gold to my purse. Never thrown away. Realm customs and the account service's first save count his pack as the hold
-  (`net/realmGoldLaw.js stashedItemLists`). No weight cap - a storage window has none, the hold's neither.
+  (`net/realmGoldLaw.js stashedItemLists`). **COMPANION-WEIGHT (2026-10-01, the field: "make the crew companions
+  have a balanced inventory weight")**: it carries what a person of his strength can - DFU's MaxEncumbrance over his
+  body's live strength (`systems/naval/crewCompanions.js packCapacityKg`: 1.5 kg a point and any weight allowance -
+  67-97 kg by his class's strength, a Bard's 45 67 and a Warrior's 60 90, more under a Fortify of mine). The storage
+  target hands it in (`capacity`, read at every store from his LIVE body, looked up by his key - AUDIT ECON C5), both
+  windows' store and gold doors take what fits and refuse the rest in his name (`itemTransfer.js` `packFullText`,
+  `packFullGoldText`; `inventorySession.js storeCapacityOf`) - above the quest arm, so a refused letter is never
+  marked dropped (C1) - and both windows show his load against it (the enhanced header; the classic remote panel,
+  C2). A pack filled past it before the limit keeps everything and takes nothing more; a companion gone from the party
+  under his open window (a quickload that left him aboard) takes nothing at all (`packGoneText`, C5 - it had taken into
+  a list nothing kept); taking out is never gated, and stowing it in the hold or my pack is untouched. THE FOUR HOSTS: the
+  limit lives in the one door every host opens his pack by (`scenes/world.js openCompanionPack`) - the street's
+  activation (`world.js`), a building's and the dungeon's (`scenes/worldModes.js`, through `host.openCompanionPack`;
+  the dungeon's companion bodies are `scenes/dungeonContext.js`'s own records, found by that activation);
+  `scenes/exterior.js` stands no crew companion and has no pack door - FLAGGED, CREW-COMPANIONS' own.
+  `test/companion_weight.test.js`.
 - **The bar** (`ui/navalHud.js drawCrewBars`): a companion's is wider (`MATE_BAR_W`), his name and health in digits
   over it and his live effects' icons under it (`MATE_FX_MAX`, the party card's own row: `composePartyFx`; fitted by
   `iconFit.js`'s law, a harmful one ringed as the card rings it); a deck hand's stays bare. Another player's companion:

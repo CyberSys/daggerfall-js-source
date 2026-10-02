@@ -79,7 +79,7 @@ export const ARROW_TEMPLATE_INDEX = 131;
  */
 export async function mintCorpseMarker({
   renderer, getTexture, uploadRecordFrame, collider = null,
-  corpseTexture, feet, fallbackSize = null, stillDead = () => true,
+  corpseTexture, feet, fallbackSize = null, stillDead = () => true, sizeScale = 1,   // ELITE FOES: an elite's body lies larger
 }) {
   if (!corpseTexture) return null;
   const { archive, record } = corpseTexture;
@@ -103,7 +103,8 @@ export async function mintCorpseMarker({
     ? floorLanding(collider, [feet[0], feet[1] + 0.1, feet[2]])
     : [feet[0], feet[1], feet[2]];
   uploadRecordFrame(archive, record, 0);
-  const size = billboardSize(t, record) ?? fallbackSize;
+  const size0 = billboardSize(t, record) ?? fallbackSize;
+  const size = sizeScale !== 1 && size0 ? { ...size0, w: size0.w * sizeScale, h: size0.h * sizeScale } : size0;   // ELITE FOES
   const batch = renderer.createBillboardBatch(archive, record, size, [[pos[0], pos[1], pos[2]]]);
   // FA1 slice 3: a BARE record plus a frame FIELD - the draw builds
   // `record#frame`, so the record must not carry one already.

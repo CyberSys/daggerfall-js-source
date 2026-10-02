@@ -115,6 +115,11 @@ skeptics, all taken (CLK4). What they found:
    already; the presentation had quietly kept a second clock. It reads
    the host's carrier now, so a pause, a rest, a travel and a
    `?timescale` all reach the sky by construction.
+   [TIME1, 2026-10-01 (`bible/06-Systems/Online-Time-Arc.md` section 5.1): online the
+   carrier is TWO minutes - the event clock's still walks the clouds,
+   the wind and the weather's ease (this decision's clock), and the
+   SKY's, which runs at its own rate, dates the moons and the season
+   (`shared.js`'s sky feed, `dynamicSkies.js`). Offline they are one.]
 2. **The row's units do not change.** The wind vectors were tuned per
    real second at the default scale (WIND1's slider calibration); one
    constant converts, so nothing downstream is retuned and the default

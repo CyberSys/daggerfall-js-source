@@ -283,7 +283,7 @@ test('PROF1 faces: a patch stands where DFU\'s nature would - on grass, not wate
   const cliff = new Float32Array(hDim * hDim).map((_, i) => ((Math.floor(i / hDim) % 2) ? 1 : 0));
   assert.equal(natureStandsAt(cliff, grass, null, 10, 10), null, 'too steep');
   const stood = standPatches({ px: 400, py: 200, day: 20000, climate: 231, samples: flat, tilemap: grass });
-  assert.equal(stood.length, 4, 'Woodlands: four');
+  assert.equal(stood.length, 8, 'Woodlands: eight (PIN MOVED, MORE-NODES)');
   assert.equal(patchFlats(stood[0]).length, PATCH_FLATS);
   assert.deepEqual(standPatches({ px: 400, py: 200, day: 20000, climate: 223, samples: flat, tilemap: grass }), [], 'the sea stands none');
 });
@@ -379,10 +379,10 @@ test('PROF1 keys and hosts: the act choice is KB1\'s, on ;, in a Professions gro
   assert.match(w, /gatherHost\?\.onDestroyed\(p\);[^\n]*\n\s*for \(const b of p\.batches\) renderer\.destroyBatch\(b\);/, 'forgotten before the pixel frees its batches');
   // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the act's click asked before the ladder, and held to its release;
   // NAVAL-E: the sea's E asked before a node's
-  assert.match(w, /const nodeTook = useEdge && (?:!_holdFire && )?!modes\.transitioning && (?:!naval\?\.takesActivate\?\.\(\) && )?\(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*const _actClick = gatherHost\?\.clickTaken\(_activateDown\) \?\? false;\n\s*if \(\(\(_act\.activate && !gatherHost\?\.acting\(\) && !_actClick\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/, 'AUDIT 32 H5: nor a click through an act');   // PIN MOVED (AUDIT NAV2 F31): E that held fire is spent - no patch takes it
+  assert.match(w, /const nodeTook = useEdge && (?:!_holdFire && )?!modes\.transitioning && (?:!naval\?\.takesActivate\?\.\(\) && )?\(gatherHost\?\.press\(\) \?\? false\);[^\n]*\n(?:\s*\/\/[^\n]*\n|\s*const nodeClicked = [^\n]*\n)*\s*const _actClick = gatherHost\?\.clickTaken\(_activateDown\) \?\? false;\n\s*if \(\(\(_act\.activate && !gatherHost\?\.acting\(\) && !_actClick(?: && !nodeClicked)?\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/, 'AUDIT 32 H5: nor a click through an act');   // PROF-MENU: a node's lit row's click between   // PIN MOVED (AUDIT NAV2 F31): E that held fire is spent - no patch takes it
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/);
   assert.match(w, /actTool: \(\) => gatherHost\?\.handTool\(\) \?\? null,/);
-  assert.equal((w.match(/gatherHost\?\.acting\(\)/g) ?? []).length, 8, 'the mouse, the drag, the key and the finger never swing through an act - the dungeon\'s swing asks it (PROF2), the street\'s readied spell (AUDIT 29 D2), a click never activates through one (AUDIT 32 H5), and a tap mid-act is its strike (ACT-TOUCH, FIELD BUGS 2026-10-01)');   // PIN MOVED (ACT-TOUCH): the tap's
+  assert.equal((w.match(/gatherHost\?\.acting\(\)/g) ?? []).length, 9, 'the mouse, the drag, the key and the finger never swing through an act - the dungeon\'s swing asks it (PROF2), the street\'s readied spell (AUDIT 29 D2), a click never activates through one (AUDIT 32 H5), and a tap mid-act is its strike (ACT-TOUCH, FIELD BUGS 2026-10-01)');   // PIN MOVED (ACT-TOUCH): the tap's   // PROF-MENU: 9 - and a node's lit row's click, never mid-act
   assert.equal((w.match(/gatherHost\?\.tick\(dt\)/g) ?? []).length, 2, 'the street\'s frame and the modal one');
   assert.doesNotMatch(src('src/scenes/exterior.js'), /gatherHost|herbHost|createProfBook/, 'the fixed city: no wilderness, no nodes (PROF0 17.1)');
   assert.doesNotMatch(src('src/scenes/dungeonContext.js'), /herbHost|herbKind/, 'the dungeons: no herbs (their veins are PROF2\'s)');

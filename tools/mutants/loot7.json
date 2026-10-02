@@ -281,8 +281,8 @@
   {
     "name": "LOOT7-hud-unnamed",
     "file": "src/ui/hudFoeTarget.js",
-    "old": "    name: String(titled(e, e.name ?? e.career?.name ?? 'Foe')),",
-    "new": "    name: String(e.name ?? e.career?.name ?? 'Foe'),",
+    "old": "    name: `${e.eliteFoe ? 'Elite ' : ''}${String(titled(e, e.name ?? e.career?.name ?? 'Foe'))}`,",
+    "new": "    name: `${e.eliteFoe ? 'Elite ' : ''}${String(e.name ?? e.career?.name ?? 'Foe')}`,",
     "tests": [
       "test/loot7_champions.test.js"
     ]

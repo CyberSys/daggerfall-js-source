@@ -101,7 +101,7 @@ test('AUDIT OW5 J2: a jump stops a ROUTE\'s walk through the panel (the destinat
   const m = /\n\s*(if \(modEvent !== 'load' && travelOptions\?\.route && travelOptions\.isTravelActive\) travelOptions\.messages\.pauseTravel\(\);)\n/.exec(WORLD);
   assert.ok(m, 'the jump\'s stop');
   const tp = WORLD.indexOf('  async function _teleportToPixel(');
-  assert.ok(tp >= 0 && WORLD.indexOf(m[1]) > tp && WORLD.indexOf(m[1]) < WORLD.indexOf('refreshSeason(arriveMinutes ?? worldMinutes());', tp), 'first thing in the one teleport every jump takes');
+  assert.ok(tp >= 0 && WORLD.indexOf(m[1]) > tp && WORLD.indexOf(m[1]) < WORLD.indexOf('refreshSeason(arriveMinutes ?? skyMinutes());', tp), 'first thing in the one teleport every jump takes');
   const run = (modEvent, route) => {
     let paused = 0;
     const travelOptions = { route, isTravelActive: true, messages: { pauseTravel: () => { paused++; } } };

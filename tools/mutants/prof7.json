@@ -918,9 +918,9 @@
   },
   {
     "name": "PROF7-hud-trace-unlit",
-    "file": "src/ui/profHud.js",
-    "old": "          const passed = st.tracing && i <= st.reached;",
-    "new": "          const passed = false;",
+    "file": "src/ui/profReticle.js",
+    "old": "setClass(n, st.tracing && i <= st.reached ? `prof-glint",
+    "new": "setClass(n, false ? `prof-glint",
     "tests": [
       "test/prof7_client.test.js"
     ]

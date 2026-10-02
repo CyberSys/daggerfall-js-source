@@ -149,7 +149,7 @@ and `standFoe` are consumed by `systems/quest/actions.js` (CreateFoe,
 :2024-2101) and `systems/quest/sceneMount.js:182`, and **no host
 supplies any of them**. Every hit in `src/` is a consumer or a
 documented absence - `worldModes.js:355` "standFoe is absent",
-`machine.js:175` "ABSENT createFoeGameObjects = the spawn law idles".
+`machine.js:192` "ABSENT createFoeGameObjects = the spawn law idles".
 Consequence: no quest that requires killing or meeting a Foe resource
 can be completed, and every `killed`/`injured` trigger is unreachable.
 (~250 LOC for the host adapter + ~220 for the CreateFoe wave spawner.)

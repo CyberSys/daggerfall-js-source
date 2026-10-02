@@ -396,15 +396,21 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
 
 | Climate | Trees | Herb patches | Veins | Boulders (quarry) |
 |---|---|---|---|---|
-| Woodlands | 6 | 4 | 2 | 1 |
-| MountainWoods | 5 | 3 | 3 | 2 |
-| Mountain | 2 | 2 | 6 | 3 |
-| HauntedWoodlands | 4 | 4 | 2 | 1 |
-| Swamp | 3 | 5 | 1 | 0 |
-| Rainforest | 6 | 5 | 1 | 0 |
-| Subtropical | 4 | 4 | 2 | 1 |
-| Desert, Desert2 | 0 | 3 | 5 | 3 |
+| Woodlands | 12 | 8 | 4 | 3 |
+| MountainWoods | 10 | 6 | 6 | 4 |
+| Mountain | 4 | 4 | 12 | 5 |
+| HauntedWoodlands | 8 | 8 | 4 | 3 |
+| Swamp | 6 | 10 | 2 | 0 |
+| Rainforest | 12 | 10 | 2 | 0 |
+| Subtropical | 8 | 8 | 4 | 3 |
+| Desert, Desert2 | 0 | 6 | 10 | 5 |
 | Ocean | - | - | - | - (fishing only) |
+
+BOULDERS (FIELD BUGS 2026-10-01, Mac: "Fix the rest"; the service's acct47): the boulders were 1 / 2 / 3 / 1 / 0 / 0 / 1 / 3 - a rock field stood one or two a day in the woods. The fields' pieces now hold a node on each side (ROCK-SHARE, section 23), so the counts are raised; the Swamp and the Rainforest keep none (their Court writs ask no stone).
+
+MORE-NODES (2026-10-02, Mac: "increase all profession nodes", asked: "Double"; the service's acct48): the trees, the herb patches and the veins twice what they were, every climate (the table above). The day's sixty a profession (and the account's bound) are unchanged, so what doubles is how close the next node stands, not what a day yields. A signature region's veins stand in the slots after the climate's (a Mountain's thirteenth, Daggerfall's fifth and sixth in the woods).
+
+GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being overwhelming, maybe a glyph marker showing where a group of them are"; asked: "Groups nearby"): on the Overworld each profession's group on a stood pixel - its nodes not yet worked today, as NODE-MARKS would mark them - is one diamond in its compass colour at their middle, its count beside it ("Mining ×6"), the nearest twelve within 3 km (the land streams three pixels out), read again twice a second; the view's filters have a Gathering switch. Not a click of its own: a click there walks to the ground under it. None with the professions shut, nor underground; Hunting's bodies are no group. `scenes/gatherHost.js` overworldGroups, `systems/travelViewFilters.js`, `ui/travelViewHud.js`, `scenes/world.js` travelViewMarks.
 
 - **A node's tier** rolls on the climate's table, higher tiers rarer (tier 1: 40%, 2: 25%, 3: 15%, 4: 10%, 5: 6%,
   6: 4%); a region's signature (4.7) replaces one vein a pixel with its signature ore.
@@ -1305,7 +1311,11 @@ instruction), and what was found (FACT):
   that point) where the pixel has one; else on the terrain's stone tile (tile 3, `terrainNature.js`) nearest its point
   within 24 tiles where nature could stand; else where nature stands at its point; else nowhere. A **boulder** is a
   rock-field piece itself - Quarrying works "a rock field's boulders" (5.2) - so a pixel with no rock field, or with
-  fewer pieces than its boulder slots, stands fewer. A piece holds one node. The node's picture is its material's own
+  no clear side left, stands fewer. ROCK-FOOT (FIELD BUGS 2026-10-01): a piece is carried as it stands out of the
+  ground (`terrainNature.js` rockFootprint), never its whole mesh's box; a node takes the nearest piece with a foot clear
+  of every piece, the side facing its point first, then its others; the boulders claim before the veins. ROCK-SHARE: a
+  piece holds a node on each of its sides, every node at the field NODE_SPACING_M (6 m) from the next (it held one
+  node, and a field's few open sides ran out at two or three). The node's picture is its material's own
   item flat (TEXTURE.254, the metal's own, a new ore Lodestone's; a boulder's loose stone Lodestone's), a small
   cluster at the piece's foot, as PROF1's patches are the herb's own flat (law 6).
 - **The dungeon veins** (section 6): `1 + hash % 4` a dungeon a UTC day, a dungeon named by DFU's own identity
@@ -1529,10 +1539,12 @@ As built:
   are classic-window art (`ui/targetIconPanel.js`), so the section is named, not pictured.
 - **The Repair Kit** (692) is registered with the ores and ingots (`systems/profTemplates.js`), DFU's Warhammer's world
   picture dyed by its metal. DECIDED: **used from the pack, it mends the most-worn weapon or armour of its metal** (the
-  lowest share of its condition left, an equipped piece first on a tie) by a quarter of its condition, never past whole,
-  and is spent; with nothing of its metal to mend it is kept and says so ("Nothing of Mithril here wants mending"). A
-  Steel kit mends the chain too. No picker: DFU's use is one press, and the most-worn piece is the one a smith would take
-  up first. Offline as online - a kit is the pack's (`scenes/shared.js` installs its use in every host).
+  lowest share of its condition left, an equipped piece first on a tie) by a quarter of its condition, never past three
+  quarters (KIT-CEILING, 2026-10-01 - whole until then; `06-Systems/Economy-Arc.md`), and is spent; with nothing of its
+  metal to mend it is kept and says so ("Nothing of Mithril here wants mending"). A Steel kit mends the chain too. No
+  picker was the decision here (DFU's use is one press); MEND-AIM put one over it - the worn pieces first, and "Mend
+  which?" when there is a choice. Offline as online - a kit is the pack's (`scenes/shared.js` installs its use in every
+  host).
 - **Pinned**: `test/prof3_law.test.js` (6), `test/prof3_service.test.js` (5), `test/prof3_client.test.js` (7);
   `tools/mutants/prof3.json`, 59 mutants, every one dead (AUDIT 32 R6: 57 dead and two recorded equivalent since PROF7 -
   the stock's "never withdrawn" gate, law and service, has nothing left to refuse). The done-when is `prof3_client`'s DONE WHEN: a Mithril
@@ -1768,9 +1780,13 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   the lock's line, which the form never shows).
 - **What the listing carries of the piece.** FOUND: `products` has no condition or enchantments (section 14's line
   deferred them to PROF5). DECIDED: the listing carries the piece's **wear** - its condition as a share of its most, in
-  thousandths - and the buyer's piece is minted from its record with that share of its condition; a lie about wear is
-  a Repair Kit's work bought for the listing fee (the piece listed "whole" and cancelled comes back whole), and the
-  buyer reads the wear on the card before buying ("worn to N%", 99 at most - AUDIT 30). **No enchantments are
+  thousandths - and the buyer's piece is minted from its record with that share of its condition; a lie about wear (a
+  modified client's - the game sends the piece's own, `net/marketLaw.js` wearOf) buys the lie for the listing fee (the
+  piece listed "whole" and cancelled comes back whole): a Repair Kit's work when this was decided, and since KIT-CEILING
+  (2026-10-01) a smith's repair past three quarters too - gold a client that can write its own purse never needs to buy
+  (the realm's gold is the client's word after its first save, `06-Systems/Economy-Arc.md` "Where the economy stands"),
+  so the wear stays the client's word until the Phase 1 ledger reads it; and the buyer reads the wear on the card
+  before buying ("worn to N%", 99 at most - AUDIT 30). **No enchantments are
   carried**: the buyer's piece rolls its record's seed again (a Superior's Magic roll and a Masterwork's Rare, the same
   on every mint). FOUND (AUDIT 30, correcting this line's "nothing enchants a crafted piece but its seed"): DFU's item
   maker can enchant a crafted piece, and that work would be lost on the way - so **only a piece still as minted lists**,
@@ -2460,7 +2476,9 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   never nothing. Gentle acts: a plain net after the wait. DECIDED: E, not attack, is the act's key throughout - the
   gathering host hands an act E's level and attack's edge alone, and every other act's hold is E's.
 - **Where** (5.1): the cast stands just ahead of the look while the pack holds an unbroken Fishing-Net and the player
-  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground. Its prompt
+  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground, and never
+  while the hands are the ship's (HELM-NET, FIELD BUGS 2026-10-02, Cruor: "Gets in the way especially when trying to aim
+  bow guns" - the kind's host `busy`: a helm, laid guns, a boarding; a deck stood on still fishes). Its prompt
   says the ground's refusal first (in here, a settlement, the dark), the account's forty, the Stores' room; the start asks
   Foraging's full checks for the net, with its own lines ("You cannot fish with enemies nearby!").
 - **The service**: **acct41**, migration `0042_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The
@@ -2608,6 +2626,31 @@ four (its last section). What the arc's laws now say, by section:
   Skinning Knife's Use from the hotbar or a quick slot is E at a body and holds the knife - the line drawn by the look
   alone (5's acts, as the Sickle's Use holds the steady hand). **HERB-XP** - Mac: "XP follows your rank": a herb is
   picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct46 (past main's PATREON-LINK, acct45).
+
+## 33. PROF-MENU, PROF-RETICLE, PROF-STATIONS - the acts on the loot list and on the crosshair (BUILT 2026-10-01)
+
+Mac: "They should use the same menu the loot menu uses and not an interaction button" (asked, "One loot-style list");
+then, of the illustrated panels PROF-SCENES built, "move away from the overcomplicated minigame visuals and instead use
+the mechanics on something that doesnt cover the screen" (asked, "Around the crosshair"; the stations, "keep them
+simple"). The record is `01-Overview/Field-Bugs-2026-10-01d.md`; every act's rules, timings and report are 5's and 8's,
+unmoved.
+
+- **The list (PROF-MENU).** A node under the look is the world plaque's list, the loot pile's own: its name, its
+  profession's word, its acts as verb rows - a refused act with its reason, the first pressable lit first
+  (`scenes/gatherHost.js` `hoverHit`/`hoverName`, worldHover's 'actions' frame). A row is pressed as a loot row - the
+  click, the activate key, a tap - and a hold-act so started is held by the press, as a tool's Use holds it. ActChoice
+  walks the rows. Without the plaque (classic, touch) a list window asks. 21's prompt stays the fallback's line.
+- **The act (PROF-RETICLE, replacing PROF-SCENES).** No box and no title: each act's mechanic on and about the reticle
+  (`ui/profReticle.js`, `ui/profActStyle.js`) through the frame's own lens (`ui/worldPlaque.js` `reticleAnchor`) -
+  the mine's points and the knife's line where they stand on the node, the glint's double reach and the trace's
+  tolerance at their true size; the chop's ring, the hold's arc, the Basket's glint, the float and the haul's bar about
+  the crosshair; the count's pips and one hint under it that fades after 2.5 s unchanged. Still forms under reduced
+  motion; every cue a sound (`systems/profSounds.js`).
+- **The stations (PROF-STATIONS).** The heat, the stitch's beat and the plane keep their bars and rules, dressed in the
+  plaque's frame and the kit's tones (`ui/profStationStyle.js`); no pictures.
+
+`test/profreticle.test.js` (10), `test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profreticle.json` (57),
+`profmenu.json`; `tools/profReticleProbe.mjs`.
 
 ## Appendix A - a day of a gatherer
 

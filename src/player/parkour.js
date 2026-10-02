@@ -85,6 +85,12 @@ export const PARKOUR_SCAN_STEP = 0.1;
  *  (a face leaning back up to ~38 degrees); farther, or nothing, and the face
  *  has ended under that rung - a 45-degree roof's rise is 0.1 a rung. */
 export const PARKOUR_FACE_LEAN = 0.08;
+/** CRACK-LIP (FIELD BUGS 2026-10-02): Daggerfall's stacked wall pieces stand a unit apart (2.5 cm) - a slot a level ray
+ *  passes through, over the lower piece's own top. An opening no taller than this, the face going on above it at the
+ *  depth it had below, is a crack: no lip, and the scan goes on up the wall. */
+export const PARKOUR_CRACK = 0.03;
+/** ...the slot's top and foot found to this (AUDIT): a measured slot reads up to two steps taller than it is. */
+export const PARKOUR_CRACK_STEP = 0.0025;
 /** The lip is the top just past the face: the down ray that finds it lands
  *  this far in. AUDIT CLIMB1 G1/G3: it was 0.2 in, which read a pitched
  *  roof's lip 0.2 up its slope and missed a fence thinner than 0.2 outright. */
@@ -139,6 +145,25 @@ export const PARKOUR_BAND_SLACK = 0.02;
  *  go of, then these far out from the face: the nearest that clears, within
  *  the wall's contact (PARKOUR_CONTACT). */
 export const PARKOUR_LEAN = [0, 0.02, 0.05, 0.1];
+/** SEAM-STEP (FIELD BUGS 2026-10-02): a free climber stuck going straight up moves along the wall to the nearest
+ *  place within this that the body rises PARKOUR_SIDESTEP_RISE again (asked every PARKOUR_SIDESTEP_PROBE, both ways)
+ *  - a hand's width past the corner of the 3.2 m dungeon unit above, never across the wall. */
+export const PARKOUR_SIDESTEP_MAX = 0.45;
+export const PARKOUR_SIDESTEP_PROBE = 0.05;
+export const PARKOUR_SIDESTEP_RISE = 0.1;
+/** ...and the way it went is kept until the body has risen this far past where it stuck. */
+export const PARKOUR_SIDESTEP_CLEAR = 0.3;
+/** HUG-TOUCH (FIELD BUGS 2026-10-02): the free climb presses the body to the face and this far in each step. */
+export const PARKOUR_HUG_PRESS = 0.01;
+/** STEP-BACK (FIELD BUGS 2026-10-02): the free climb finds the top of the face it held, stepping back over it, by level
+ *  rays this far apart up the body. */
+export const PARKOUR_STEP_SCAN = 0.02;
+/** CORNER-TOP (FIELD BUGS 2026-10-02): the look turned this far along the held wall (sin 20 degrees) asks the top of
+ *  the corner's other wall on that side. */
+export const PARKOUR_CORNER_LOOK = Math.sin((20 * Math.PI) / 180);
+/** AUDIT (FIELD BUGS 2026-10-02): the free climb's hold turned more than this (the dot of the normals, about 2.5
+ *  degrees) onto a new face is asked along that face before it is followed. */
+export const PARKOUR_TURN_HOLDS = 0.999;
 /** The path is proven at least this often - under a quarter of the radius. */
 export const PARKOUR_PATH_STEP = 0.08;
 /** After a lip is found and every way onto or over it refused, the air catch
@@ -388,10 +413,30 @@ function scanFace(collider, feet, dir, low, high, reach) {
       continue;
     }
     const d = collider.raycast([feet[0], y, feet[2]], dir, faceDist + PARKOUR_FACE_LEAN);
-    if (!Number.isFinite(d)) return { ...wall, openY: y, faceDist };
+    if (!Number.isFinite(d)) {
+      if (!faceGoesOn(collider, feet[0], y, feet[2], dir, faceDist, PARKOUR_SCAN_STEP)) return { ...wall, openY: y, faceDist };
+      continue;   // CRACK-LIP: a crack between two of the wall's pieces, the face going on over it
+    }
     faceDist = d;
   }
   return wall ? { ...wall, openY: null, faceDist } : null;
+}
+
+/** CRACK-LIP: is the opening a level ray at `y` passed through (the face met at `dist`, `below` under it) a crack - the
+ *  face going on over it at that depth, the slot no taller than PARKOUR_CRACK? AUDIT: the slot itself is measured,
+ *  its top and its foot each to PARKOUR_CRACK_STEP - the first cut asked one ray 4 cm over the open one, and an open
+ *  ray anywhere up a slot read slots to 9 cm as cracks. */
+function faceGoesOn(collider, x, y, z, dir, dist, below) {
+  const meets = (yy) => {
+    const d = collider.raycast([x, yy, z], dir, dist + PARKOUR_FACE_LEAN);
+    return Number.isFinite(d) && Math.abs(d - dist) <= PARKOUR_FACE_LEAN;
+  };
+  let top = null;
+  for (let h = PARKOUR_CRACK_STEP; h <= PARKOUR_CRACK + 1e-9 && top == null; h += PARKOUR_CRACK_STEP) if (meets(y + h)) top = y + h;
+  if (top == null) return false;
+  let foot = y - below;
+  for (let h = PARKOUR_CRACK_STEP; h < below - 1e-9; h += PARKOUR_CRACK_STEP) if (meets(y - h)) { foot = y - h; break; }
+  return top - foot <= PARKOUR_CRACK + 2 * PARKOUR_CRACK_STEP;
 }
 
 /** THE WALL, by its top (AUDIT CLIMB1 G4): a slab whose edge is thinner than a
@@ -808,9 +853,15 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true, eave =
   const g = plainGrip(collider, face, normal, lipY, opts, fit, seen);
   if (g || !eave) return g;
   // AUDIT CLIMB-FIELD E1: no lip on the face - is there an eave over it? Not over a plain wall (every rung cast met the
-  // face where it was expected), which is every step of a free climb up the middle of one
+  // face where it was expected), which is every step of a free climb up the middle of one - CRACK-LIP: a rung through a
+  // crack between the wall's pieces, the face going on over it, is the plain wall's too
   const back = opts.radius + PARKOUR_HANG_GAP;
-  for (const d of seen.values()) if (Math.abs(d - back) > PARKOUR_EDGE_INSET) return senseEave(collider, face, normal, lipY, opts, fit);
+  const dir = [-normal[0], 0, -normal[2]], ox = face[0] + normal[0] * back, oz = face[2] + normal[2] * back;
+  for (const [i, d] of seen) {
+    if (Math.abs(d - back) <= PARKOUR_EDGE_INSET) continue;
+    if (!Number.isFinite(d) && faceGoesOn(collider, ox, lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG, oz, dir, back, PARKOUR_GRIP_RUNG)) continue;
+    return senseEave(collider, face, normal, lipY, opts, fit);
+  }
   return null;
 }
 
@@ -835,6 +886,9 @@ function plainGrip(collider, face, normal, lipY, opts, fit, seen) {
     // rung 3 cm up stands 2.9 cm back, and with no rung higher in the window the eave was no hold
     if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist <= PARKOUR_RAY_SCATTER) continue;
     if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;   // a rung on a top rising away from the edge, not on the face
+    // CRACK-LIP (FIELD BUGS 2026-10-02): an open rung with the face going on a crack's height over it is the slot
+    // between two of the wall's pieces - a free climb took it for a lip, hung from it, found nothing there and let go
+    if (!Number.isFinite(at(i - 1)) && faceGoesOn(collider, ox, rungY(i - 1), oz, dir, dist, PARKOUR_GRIP_RUNG)) continue;
     // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than the top's limit rises through (each its
     // run back - PARKOUR_TOP_RUN rungs, a rung at 45 degrees, AUDIT CLIMB-FIELD R1 - less the rays' scatter: a wall
     // standing up again, or set back a few centimetres a rung, is no such top); a level top or a set-back wall is the

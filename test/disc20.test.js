@@ -108,7 +108,7 @@ test('DISC20-E: Diverse Weapons\' Weapon Widget Preset ships off, and a value sa
     assert.equal(modSetting(V, P), false);
     assert.deepEqual(Object.keys(JSON.parse(store.get(K))), ['pcaao']);
     // the one entry, beside the value migrations
-    assert.deepEqual(SWITCH_RESETS.map((r) => `${r.vendor}/${r.key}`), [`${V}/${P}`]);
+    assert.deepEqual(SWITCH_RESETS.map((r) => `${r.vendor}/${r.key}`), [`${V}/${P}`, 'pcaao/equipmentDamageEnhanced', 'pcaao/fadingEnchantedItems', 'roleplay-realism/equipDamage'], 'DISC20\'s, then WEAR-VANILLA\'s three (wear_vanilla.test.js)');
     assert.equal(KEY_MIGRATIONS.length, 3, 'the value migrations are untouched');
   } finally {
     _resetModSettings();
