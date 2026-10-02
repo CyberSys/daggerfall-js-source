@@ -20,7 +20,7 @@
 // 10, 20, 40, then every 60 s), so the service's hourly bound on passes is never reached. C7 - every settling answer to
 // this fighter's receipt reaches the card (a refusal in words), so it never stands on "claim it".
 import { siegeRoomKey, fieldOf, SIEGE_WORK_IDS, SIEGE_NPC, isSiegeNpcId } from './siegeRef.js';   // SEAT2b part two (b): the works' point and ids; part two (c): the relay's own fighters
-import { foldSiege, siegeHudModel, siegeClaimRefusal, SIEGE_STATE_EMPTY } from './siegeLink.js';
+import { foldSiege, siegeHudModel, siegeClaimRefusal, SIEGE_STATE_EMPTY, fightArmed } from './siegeLink.js';   // HERALDRY-SHOWN: fightArmed, the HUD's two sides' heraldry
 import { readSiegeReceipt } from './siegeReceipt.js';
 
 /** How long an unsettled field waits before the pass is asked again, ms - the first wait. */
@@ -94,7 +94,7 @@ export function createSiegeSession({ online, pass, claims = null, hud = null, no
       if (!relayOk()) { say(SIEGE_SESSION_TEXT.old); return false; }
       if (!field) { say(SIEGE_SESSION_TEXT.notHere(seat?.name ?? 'the town')); return false; }
       if (s?.mint && online.mintSiegePass === s.mint) online.mintSiegePass = null;   // AUDIT-SEATS C2: entered afresh - the old pass's mint goes
-      s = { seat, battle, field, room: '', side: 'watch', window: 0, sentIn: false, state: SIEGE_STATE_EMPTY, retryAt: 0, joined: false, honours: undefined, tries: 0, mint: null, awayAt: null };
+      s = { seat, battle: fightArmed(battle, seat), field, room: '', side: 'watch', window: 0, sentIn: false, state: SIEGE_STATE_EMPTY, retryAt: 0, joined: false, honours: undefined, tries: 0, mint: null, awayAt: null };
       ask();
       return true;
     },

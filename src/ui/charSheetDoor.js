@@ -37,6 +37,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { isEnhanced } from '../systems/uiSkin.js';
+import { PIXEL_FAMILIES } from './pixelifyFive.js';   // FONT3: the wait card names the enhanced face first
 import { eventActions } from './input.js';   // MAC-C: the REGISTRY's answer for the two window keys
 import { mountEnhancedChunk, paintChunkNotice } from './enhancedChunk.js';   // MENU1: the one lazy-chunk door, and the notice it paints when a chunk is gone
 import { registerOverlay } from './enhancedOverlays.js';   // PX28: Tab puts it away
@@ -459,7 +460,9 @@ export const LEVELUP_WAIT_MS = 120;
  * THE WAIT, painted into the door's own host with INLINE STYLE ONLY -
  * no chunk, no font, no stylesheet, nothing that could be the thing
  * that is still loading. Exactly `paintChunkNotice`'s doctrine, for
- * exactly its reason.
+ * exactly its reason. FONT3: the enhanced face is NAMED first and
+ * loads nothing - the skin's request has long since landed by a
+ * level-up, and if it never did the system face stands, as before.
  */
 export function paintLevelUpWait(host, { oghma = false } = {}) {
   if (!host?.ownerDocument) return null;
@@ -467,7 +470,7 @@ export function paintLevelUpWait(host, { oghma = false } = {}) {
   const el = doc.createElement('div');
   el.id = 'levelup-wait';
   el.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;'
-    + 'background:#0a0c11;color:#d8cfae;font:20px/1.6 system-ui,sans-serif;letter-spacing:0.18em;'
+    + `background:#0a0c11;color:#d8cfae;font:500 20px/1.6 ${PIXEL_FAMILIES},system-ui,sans-serif;letter-spacing:0.18em;`
     + 'text-transform:uppercase;text-align:center;padding:24px';
   el.textContent = oghma ? OGHMA_WAIT_TEXT : RISEN_WAIT_TEXT;
   host.append(el);

@@ -382,7 +382,7 @@
   {
     "name": "PL-unlink-patches",
     "file": "src/ui/accountFlow.js",
-    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };   // the service's word whole: a tier's title gone with the link",
+    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };   // the service's word whole: a tier's title gone with the link",
     "new": "      self.wardrobe = { ...(self.wardrobe ?? {}) };",
     "tests": [
       "test/patreon_link.test.js"

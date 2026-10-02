@@ -338,7 +338,13 @@ export class Quest {
     // tombstone later scrubs the "rumor mill" rumors and info topics.
     this.hooks?.removeProgressRumors?.(this.uid);
     this.hooks?.removeQuestorPostMessage?.(this.uid);
-    if (this.factionId > 0) {
+    // QFAIL-FREE (2026-10-02, Mac: "Soften failure cost"): online a quest
+    // that ends unfinished costs the faction nothing. TIME3 put the
+    // countdowns on the character's clock, so a journey or a rest spends
+    // them, and DFU's -2 (propagated through the tree) bled every
+    // standing a player held. Offline DFU's -2 stands. Port-Ledger A.
+    const failureFree = !this.questSuccess && !!this.hooks?.sharedClock?.();
+    if (this.factionId > 0 && !failureFree) {
       const repChange = this.questSuccess ? QUEST_SUCCESS_REP : QUEST_FAILURE_REP;
       // Quest.cs:385 passes propagate=TRUE - the ally/enemy/tree
       // spread, not the flat write (Q2b-VERIFY: the flag was dropped).

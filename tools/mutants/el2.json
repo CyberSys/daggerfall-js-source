@@ -283,8 +283,8 @@
  {
   "name": "renderer-wire-casts",
   "file": "src/render/renderer.js",
-  "old": "    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap);   // EL2",
-  "new": "    if (this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap);   // EL2",
+  "old": "    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));",
+  "new": "    if (this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));",
   "tests": [
    "test/el2_shadows.test.js"
   ]

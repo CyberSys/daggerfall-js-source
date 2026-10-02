@@ -131,7 +131,7 @@ test('AUDIT-SEATS THE RIBBON ON THE TRAVEL VIEW: a traveller frame keeps the rib
   const hud = readFileSync(new URL('../src/ui/travelViewHud.js', import.meta.url), 'utf8');
   assert.match(hud, /const ribbonH = P\.rb \? TRAVEL_VIEW_RIBBON\.gap \+ TRAVEL_VIEW_RIBBON\.band \+ TRAVEL_VIEW_RIBBON\.edge : 0;/, 'the sprite grown to hold it');
   assert.match(hud, /h = Math\.ceil\(titleH \+ rowH \+ 2 \+ ribbonH\)/);
-  assert.match(hud, /glyphs: glyphBadges\(b\), rb: ribbonColours\(b\?\.rb\) \};/);
+  assert.match(hud, /glyphs: glyphBadges\(b\), rb: ribbonColours\(b\?\.rb\), arms: badgeArms\(b\) \};/);   // AUDIT HERALDRY H4: and the tag's arms
   assert.match(hud, /\$\{b\.gt \?\? ''\}\|\$\{\(Array\.isArray\(b\.rb\) \? b\.rb : \[\]\)\.join\('\/'\)\}/, 'the sprite keyed by it');
   assert.match(hud, /x\.fillStyle = P\.rb\.field; x\.fillRect\(cx, by, rowW, R\.band\);\n\s+x\.fillStyle = P\.rb\.border; x\.fillRect\(cx, by \+ R\.band, rowW, R\.edge\);/);
   const world = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -161,7 +161,7 @@ test('AUDIT-SEATS THE HALL OF RECORDS FROM THE BOARD AND IN THE CASTLES: the Sea
   assert.ok(host.textContent.includes(HALL_OF_RECORDS_SHUT), 'said where it cannot be read');
   const world = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(world, /seatRecords: \(st\) => openRecordsFromBoard\(st\),/);
-  assert.match(world, /if \(!r\?\.data\) return false;\n\s+townTalk\.showOverlay\(hallOfRecordsWindow\(st, r\.data\.rows, r\.data\.zero\)\);/);
+  assert.match(world, /if \(!r\?\.data\) return false;\n\s+townTalk\.showOverlay\(hallOfRecordsWindow\(st, r\.data\.rows, r\.data\.zero, seatArmsOf\)\);/);
   assert.match(readFileSync(new URL('../src/ui/noticeWindow.js', import.meta.url), 'utf8'), /\.\.\.\(deps\.seatRecords \? \{ readRecords: deps\.seatRecords \} : \{\}\)/);
   // the castles
   const dc = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');

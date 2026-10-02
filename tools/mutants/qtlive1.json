@@ -107,8 +107,8 @@
   {
     "name": "QT-LIVE1-rebuild-leaks-the-interval",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  if (questTimer) { clearInterval(questTimer); questTimer = null; }\n  app.innerHTML = '';",
-    "new": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  app.innerHTML = '';",
+    "old": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  if (questTimer) { clearInterval(questTimer); questTimer = null; }\n  stopTimers();",
+    "new": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  stopTimers();",
     "tests": [
       "test/qtlive1.test.js"
     ]
@@ -116,8 +116,8 @@
   {
     "name": "QT-LIVE1-unmount-leaks-the-interval",
     "file": "src/ui/enhancedMenu.js",
-    "old": "      if (questTimer) { clearInterval(questTimer); questTimer = null; }\n      // FIX-F:",
-    "new": "      // FIX-F:",
+    "old": "      if (questTimer) { clearInterval(questTimer); questTimer = null; }\n      stopTimers();   // TIMERS1",
+    "new": "      stopTimers();   // TIMERS1",
     "tests": [
       "test/qtlive1.test.js"
     ]

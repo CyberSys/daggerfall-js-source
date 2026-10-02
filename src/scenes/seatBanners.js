@@ -14,17 +14,19 @@
 //   3. one pennant above each Notice Board - a town's RUMOUR boards, every
 //      board BOUNTY1 did not take (systems/bountyBoard.js
 //      questBoardIndices).
-// A crown seat's two at its castle's entrance in the city wait (the
-// castle is a dungeon's door the city block stands; SEAT1a records it as
-// a limit). A town that is no seat, or whose seats are not open to this
-// account, hangs none.
+// and CASTLE-GATE (2026-10-02): a crown seat's two more flanking its
+// castle's entrance in the city - the lowest of the pixel's dungeon-
+// entrance doors (systems/siegeField.js castleEntranceOf), after the
+// palace's two. A town that is no seat, or whose seats are not open to
+// this account, hangs none.
 //
 // THE BANNER: while a seat is unheld, the kingdom's plain banner - the
 // crown's metal, no device; a March's its two claimants' metals; a Free
 // Land's nothing (net/townSeatLaw.js seatPlainBanner). SEAT1c: a held
 // seat hangs its holder's own heraldry in its place (seatBannerOf). The
 // cloth is GUILD1d's own pass
-// (render/bannerPass.js).
+// (render/bannerPass.js). FESTIVAL-STAGE (2026-10-02): while a Festival
+// rules, its own more after them (scenes/seatFestival.js).
 //
 // Online alone. Four hosts: world.js WIRED (the streets); worldModes.js
 // and dungeonContext.js stand no street; exterior.js (the bench) FLAGGED -
@@ -33,7 +35,7 @@
 import { BANNER_W_M, BANNERS_MAX } from '../render/bannerPass.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
 import { hallBannerAnchors, bannerKeyOf, BANNER_REFRESH_MS } from './hallBanners.js';
-import { SEAT_BANNERS_MAX, seatBannerOf } from '../net/townSeatLaw.js';
+import { SEAT_BANNERS_MAX, seatBannerOf, festivalRules } from '../net/townSeatLaw.js';
 
 /** A gate banner's top below the gate model's own top, and a board's pennant's top above the board's - metres. */
 export const GATE_BANNER_DROP_M = 0.6;
@@ -98,17 +100,17 @@ export function townCentreOf(frames) {
 
 /**
  * A SEAT TOWN'S ANCHORS, in the record's order, at most SEAT_BANNERS_MAX: the palace door's two (each palace, while room
- * remains), a banner at each city gate, a pennant over each rumour board (`bounty` the boards' indices BOUNTY1 took).
- * `frames` the pixel's building frames (`homeFrames`), `palaceKeys` its palaces' building keys, `gates` and `boards`
- * `{ local, box }`, `centre` the town's middle [x, z]. Pure.
+ * remains), CASTLE-GATE's two at a crown's castle entrance (`castle`, its `{ door, box }` frame, or null), a banner at
+ * each city gate, a pennant over each rumour board (`bounty` the boards' indices BOUNTY1 took). `frames` the pixel's
+ * building frames (`homeFrames`), `palaceKeys` its palaces' building keys, `gates` and `boards` `{ local, box }`,
+ * `centre` the town's middle [x, z]. Pure.
  */
-export function seatBannerAnchors({ frames = null, palaceKeys = [], gates = [], boards = [], bounty = new Set(), centre = [0, 0] } = {}) {
+export function seatBannerAnchors({ frames = null, palaceKeys = [], castle = null, gates = [], boards = [], bounty = new Set(), centre = [0, 0] } = {}) {
   const out = [];
   const add = (a) => { if (a && out.length < SEAT_BANNERS_MAX) out.push(a); };
-  for (const k of palaceKeys) {
-    const two = hallBannerAnchors(frames?.get?.(k));
-    if (two && out.length + 2 <= SEAT_BANNERS_MAX) two.forEach(add);
-  }
+  const pair = (frame) => { const two = hallBannerAnchors(frame); if (two && out.length + 2 <= SEAT_BANNERS_MAX) two.forEach(add); };
+  for (const k of palaceKeys) pair(frames?.get?.(k));
+  pair(castle);   // CASTLE-GATE: a crown's two at its castle's entrance
   for (const g of gates) add(gateBannerAnchor(g, centre));
   boards.forEach((b, i) => { if (!bounty.has(i)) add(boardPennantAnchor(b)); });
   return out;
@@ -142,6 +144,8 @@ export function createSeatBanners({ built, seatAt, translation, eye = () => null
       const h = seat ? seatBannerOf(seat) : null;   // SEAT1c: a held seat's in its holder's own colours
       if (!h) continue;
       p.seatAnchors.forEach((a, i) => out.push({ px: p.px, py: p.py, a, key: bannerKeyOf(h), heraldry: h, phase: ((p.homeTown % 11) * 0.9) + i * 1.7 }));
+      // FESTIVAL-STAGE (7.6): a Festival's more, after the seat's own (scenes/seatFestival.js festivalBannerAnchors)
+      if (festivalRules(seat)) (p.festivalAnchors ?? []).forEach((a, i) => out.push({ px: p.px, py: p.py, a, key: bannerKeyOf(h), heraldry: h, phase: ((p.homeTown % 11) * 0.9) + (p.seatAnchors.length + i) * 1.7 }));
     }
     held = out;
     outs = held.map((b) => ({ key: b.key, heraldry: b.heraldry, phase: b.phase, top: [0, 0, 0], right: b.a.right, out: b.a.out }));

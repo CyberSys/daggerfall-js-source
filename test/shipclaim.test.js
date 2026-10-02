@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { sea } from './navalSea.mjs';
 import { room } from './navalRoom.mjs';
 import { scene, terrain } from './csaScene.mjs';
-import { HARBOUR_LEAVE } from '../src/scenes/navalHost.js';
+import { HARBOUR_LEAVE, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { PRIZE_DEED_SHARE, prizeDeedValue } from '../src/systems/naval/navalPlunder.js';
 import { mintDeed, mintBoatItem, BOAT_DEED_TEMPLATE, BOAT_PARTS_TEMPLATE } from '../src/systems/comeSailAwayItems.js';
 import { HULL_PRICES } from '../src/systems/comeSailAwayBoat.js';
@@ -203,7 +203,7 @@ test('SHIP-CLAIM offered only for a prize I stand, where Come Sail Away can plac
   const nothing = (why) => {
     assert.deepEqual(h.pack, [], `${why}: nothing packed`);
     assert.ok(h.rt.state.AllBoats.length === 1 && h.rt.state.AllBoats[0] === h.boat, `${why}: nothing placed`);
-    assert.ok(h.host._sea.has(e.id) && e.prize.fate === null, `${why}: she lies a prize`);
+    assert.ok(h.host._sea.has(e.id) && !e.retiring && e.prize.fate === null, `${why}: she lies a prize`);   // AUDIT BAY A15: never fading
   };
   assert.ok(m.claimOffer(), 'mine, the mod here');
   e.owner = 'zed';
@@ -386,7 +386,7 @@ test('SHIP-CLAIM a harbour\'s ship claimed is not stood at her berth again today
   assert.equal(h.log.plunder.at(-1).fate('claim'), true);
   const seed = e.ship.seed;
   h.view.feet = [0, 0, 300 + HARBOUR_LEAVE + 800];
-  h.run(1);
+  h.run(1 + SHIP_FADE_S);   // SHIP-FADE (2026-10-02) PIN MOVED: they fade as they go
   h.view.feet = [0, 0, 300];
   h.run(1);
   assert.ok(moored().length >= 1, 'the harbour stood again');

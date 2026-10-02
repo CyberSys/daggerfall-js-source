@@ -273,6 +273,55 @@ export function fortsLapsedStatements(db, key, nowS) {
   ];
 }
 /**
+ * VOID (Seats-Arc 18, `/siege void`): A VOIDED CAPTURE'S PROJECTS - every building project at `key` that `guild` (the
+ * capturer, whose Charter the void takes back) began falls, what it held back to the seat's stockpile, its Marks spent - as
+ * fortsLapsedStatements' fall, but asked of that guild's projects alone, since the seat is held again (by the guild it
+ * was taken from) in the same batch.
+ */
+export function fortsGuildFallStatements(db, key, guild) {
+  const theirs = 'key = ?1 AND guild_id = ?2 AND building IS NOT NULL';
+  return [
+    db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT key, material, qty FROM town_seat_fort_held
+      WHERE key = ?1 AND qty > 0 AND work IN (SELECT work FROM town_seat_forts WHERE ${theirs})
+      ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`).bind(key, guild),
+    db.prepare(`DELETE FROM town_seat_fort_held WHERE key = ?1 AND work IN (SELECT work FROM town_seat_forts WHERE ${theirs})`).bind(key, guild),
+    db.prepare(`UPDATE town_seat_forts SET building = NULL, stands_at = NULL, builder = 0, siegewright = 0, guild_id = NULL WHERE ${theirs}`).bind(key, guild),
+  ];
+}
+/**
+ * AUDIT 529 V2 (Seats-Arc 18, `/siege void`): A VOIDED RESULT'S FALLEN PROJECTS BEGUN AGAIN - each building project
+ * `guild` had at `key` when a capture or a revolt that stood made it fall (`projects`: `[work, building, builder,
+ * siegewright, standsAt, at]`; `held`: `[work, material, qty]` - the result's `prior`, seatSiege.js), for the void's own
+ * batch AFTER the works' tiers are given back: the project again at the tier it was raising, its starter's marks and its
+ * clock as they were, where its work stands where it stood (no project there, the tier one below) - and what it held
+ * taken back out of the seat's stockpile, as much of each as is still there (it went there when the project fell). Its
+ * day kept only where everything it held came back; short, it waits on the stockpile as any project does (supplyForts).
+ * Before, a void gave the works' tiers back but not the defender's projects - the Marks it burnt funding them lost.
+ */
+export function fortsRestoredStatements(db, key, guild, projects, held) {
+  const out = [];
+  for (const [work, building, builder, siegewright, standsAt, at] of projects) {
+    const back = held.filter((h) => h[0] === work).map(([, m, n]) => [m, n]);
+    const again = 'EXISTS (SELECT 1 FROM town_seat_forts WHERE key = ?1 AND work = ?2 AND building = ?3 AND guild_id = ?4 AND stands_at IS NULL)';
+    out.push(db.prepare(`UPDATE town_seat_forts SET building = ?3, guild_id = ?4, builder = ?5, siegewright = ?6, stands_at = NULL, at = ?7
+      WHERE key = ?1 AND work = ?2 AND building IS NULL AND tier = ?3 - 1`).bind(key, work, building, guild, builder ? 1 : 0, siegewright ? 1 : 0, at));
+    for (const [material, n] of back) {
+      // the stockpile's units read before either statement moves them: the same MIN in both
+      out.push(
+        db.prepare(`INSERT INTO town_seat_fort_held (key, work, material, qty) SELECT ?1, ?2, ?5, MIN(?6, qty) FROM town_seat_stockpile
+          WHERE key = ?1 AND material = ?5 AND qty > 0 AND ${again}
+          ON CONFLICT (key, work, material) DO UPDATE SET qty = town_seat_fort_held.qty + excluded.qty`).bind(key, work, building, guild, material, n),
+        db.prepare(`UPDATE town_seat_stockpile SET qty = qty - MIN(?6, qty) WHERE key = ?1 AND material = ?5 AND ${again}`).bind(key, work, building, guild, material, n),
+      );
+    }
+    out.push(db.prepare(`UPDATE town_seat_forts SET stands_at = ?5 WHERE key = ?1 AND work = ?2 AND building = ?3 AND guild_id = ?4 AND stands_at IS NULL AND ?5 IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM json_each(?6) j WHERE COALESCE((SELECT h.qty FROM town_seat_fort_held h
+        WHERE h.key = ?1 AND h.work = ?2 AND h.material = json_extract(j.value, '$[0]')), 0) < json_extract(j.value, '$[1]'))`)
+      .bind(key, work, building, guild, standsAt, JSON.stringify(back)));
+  }
+  return out;
+}
+/**
  * THE FORTIFIER'S SAVE AT A CAPTURE (Masonry 100, Professions-Arc 3.3: "once a Season a seat's Walls skip their drop on
  * capture") - DECIDED: a Fortifier who stood on the losing side's roster of that siege (the fortifications are the seat's,
  * so the save is a defender's craft at the walls it defended), once a Season a seat (`town_seat_fortifier`, keyed by the

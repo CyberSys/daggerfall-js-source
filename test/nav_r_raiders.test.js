@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { raiderClassOf, raiderPlan, RAIDER_STAND_M, RAIDER_DROP_M, RAIDER_SHIPS_MAX, RAIDER_LEAD_S } from '../src/systems/naval/navalRaiders.js';
-import { createNavalHost, RAIDER_SHEER_M, HOSTILE_NEAR_M } from '../src/scenes/navalHost.js';
+import { createNavalHost, RAIDER_SHEER_M, HOSTILE_NEAR_M, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
 import { Boat } from '../src/systems/comeSailAwayBoat.js';
 import { SHIP_CLASSES } from '../src/systems/naval/navalShips.js';
@@ -167,6 +167,7 @@ test('NAV-R a raider is SPENT for its life - said once to the world host - when 
   assert.deepEqual(log.spent, [RAIDER.id], 'said once');
   // the world host marks her spent; the next refresh never stands her again, and lets her go out of sight
   host.raiders([RAIDER], { sight: RAIDER_SIGHT_M, spent: new Set([RAIDER.id]) });
+  run(host, SHIP_FADE_S + 0.5);   // SHIP-FADE (2026-10-02) PIN MOVED: she fades as she goes
   assert.equal(raiderShips(host).length, 0, 'out of sight, gone - and not stood again');
   // another: sunk
   const other = { ...RAIDER, id: 'r17.16.100', seed: 0x51f00e, pos: [-6000 + 600, 0, 0], ahead: [-6000 + 600, 0, 200] };
@@ -187,7 +188,9 @@ test('NAV-R the director stands a raider outside its despawns (the raider\'s own
   run(host, 3);
   assert.equal(raiderShips(host).length, 1, 'the director never takes her');
   host.raiders([{ ...RAIDER, pos: raiderShips(host)[0].ship.pos }], { sight: RAIDER_SIGHT_NIGHT_M, spent: new Set() });
-  assert.equal(raiderShips(host).length, 0, 'her own plan lets her go past RAIDER_DROP_M');
+  assert.equal(raiderShips(host)[0]?.retiring, true, 'her own plan lets her go past RAIDER_DROP_M (SHIP-FADE: fading)');   // SHIP-FADE PIN MOVED
+  run(host, SHIP_FADE_S + 0.5);
+  assert.equal(raiderShips(host).length, 0, 'and gone');
   // online: a peer with the lower id already stands her seed
   const peerPlay = await harness({ settings: { ShipsAtSea: 'off' }, online: { id: () => 'm-me', peers: () => [{ id: 'a-peer', feet: [0, 0, 0] }], sendHit: () => true } });
   const rec = navalWireRecord({ ships: [{ n: 4, classId: raiderClassOf(RAIDER.seed, 5).id, variant: 0, pos: [900, 0, 0], yaw: 0, speed: 0, sails: 1, hull: 1, sail: 1, crew: 1, state: 'afloat', heel: 0, seed: RAIDER.seed, fire: false }], volleys: [], barrels: [] }, (p) => p);

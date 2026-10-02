@@ -76,7 +76,7 @@ mode = "smart"
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct62"
+ACCOUNT_VERSION = "acct64"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -117,7 +117,10 @@ DEVELOPER_HANDLES = "Lattymoy,trashBattery,LostMyLeg,Tabby"
 # listed here. Asynian is the first (Mac, 2026-09-22: "Username is
 # Asynian"). Taking a handle off revokes the shield on the next token
 # and the commands on the next call.
-MODERATOR_HANDLES = "Asynian"
+# MOD2 (2026-10-02, Mac: "give tabbyvish the moderator title/glyph for
+# ingame"): the second, with the same shield and commands. MOD3 (same
+# day, Mac: "Also add Starempire42 as a moderator"): the third.
+MODERATOR_HANDLES = "Asynian,tabbyvish,Starempire42"
 # TITLE-N (2026-09-24, Mac): the Dungeon Master - the orange title, the
 # die beside the name, and /dm's orange line (the relay reads the right
 # off the `dm` glyph in the signed token, as /red reads `dev`). "This

@@ -609,6 +609,9 @@ export function chronicleLine(row, seat, zero = null) {
       : d.carried
         ? `${when}, no result of the siege of ${seat.name} came; it is void, ${guildWords(d.holder)} keeps it for now, and ${guildWords(d.guild)}'s Right of Siege carries to the next week.`
         : `${when}, no result of the siege of ${seat.name} came; it is void, and ${guildWords(d.holder)} keeps it.`;
+    // VOID (18: "Moderators (MOD1) may void a siege (`/siege void`) - a history row"): a battle of the week the Moderators
+    // voided (server-account/src/seatSiege.js voidSiege) - and where a Charter it had moved went back, to whom
+    case 'siege-voided': return `${when}, ${d.battle === 'tourney' ? `the Tourney for ${seat.name}` : d.battle === 'revolt' ? `the revolt at ${seat.name}` : `the siege of ${seat.name}`} was voided by the Moderators${d.restored ? `, and ${c} went back to ${guildWords(d.holder)}` : ''}.`;
     // CROWN1: Conscription paid (7.6) - at the crown, and at each seat that paid it
     // AUDIT-SEATS L7: in Drakes, the word every player-read sum says (DRAKES; marksLaw.js marksText)
     case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${marksText(Number(d.marks ?? 0))} of its kingdom's Tithe.`;
@@ -679,9 +682,21 @@ export function hallOfRecordsChapters(rows, seat, zero = null) {
   return out;
 }
 
-/** The Seat tab's holder line: "Held by the Silver Hand <SH> since week 3. Standing 55." */
+/** STANDING-TREND (7.9: "Standing and its trend"): which way the holder's Standing moved since the last Turning began -
+ *  its Standing now less the `was` the standings read names (seatInfluence.js standingWas) - or null where none is named. */
+export function standingTrend(holder) {
+  const now = Number(holder?.standing), was = holder?.was;
+  return typeof was === 'number' && Number.isFinite(was) && Number.isFinite(now) ? now - was : null;
+}
+/** The trend in words, after the Standing: ", up 7 since the last Turning", ", down 3 ...", ", steady ..."; '' for none. */
+export function standingTrendWords(trend) {
+  if (trend == null) return '';
+  return `, ${trend > 0 ? `up ${trend}` : trend < 0 ? `down ${0 - trend}` : 'steady'} since the last Turning`;
+}
+/** The Seat tab's holder line: "Held by the Silver Hand <SH> since week 3. Standing 55." - STANDING-TREND: and its trend
+ *  where the read names one ("Standing 55, up 7 since the last Turning."). */
 export const seatHolderLine = (holder) => (holder
-  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`
+  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}${standingTrendWords(standingTrend(holder))}.`
   : 'No guild holds this Charter.');
 /** This week's battle at a seat, in words - a Contested seat's Tourney, or a Right of Siege - or null. */
 export function seatBattleLine(battle) {
@@ -869,6 +884,9 @@ export const BOUNTY_MARKS = 20;
 export const BOUNTY_CAMPS_DAY = 5;
 /** The Festive buff (SEAT0 7.6): +5 to every attribute for a game day, in the town while the Festival is proclaimed. */
 export const FESTIVE = Object.freeze({ attributes: 5, gameDays: 1 });
+/** FESTIVAL-STAGE (7.6: "music, banners, lanterns"): whether a Festival rules at a seat this week - its holder's Edict
+ *  as the seats' book dresses it (net/townSeatBook.js dressed). */
+export const festivalRules = (seat) => seat?.holder?.edict === 'festival';
 /** Edicts and Tithe changes an account may ask an hour (Appendix B: edicts 5). */
 export const SEAT_EDICTS_HOUR = 5;
 /** Who may set the Tithe and proclaim an Edict: the Guildmaster and the Officers (SEAT0 7.9: "for the holder's
@@ -1209,8 +1227,11 @@ export const SIEGE_WHY = Object.freeze({
   'field-unsettled': 'Waiting for the other side\'s scouts to agree on the field - try again in a moment.',
   'honours-character': 'Honours go to the character who signed for this battle - play them to claim it.',   // AUDIT SEATS-3 A3
   'honours-twice': 'Your Honours from this battle are claimed already.',
-  // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle
-  'battle-void': 'That battle was void at the Turning - its result came too late to count.',
+  // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle;
+  // VOID (18): or after the Moderators voided it (`/siege void`)
+  'battle-void': 'That battle is void - at its Turning, or by the Moderators - and its result does not count.',   // VOID: a moderator's too
+  // AUDIT 529 V5: a moderator's `/siege void` that reached the service after the battle's week was reckoned
+  'battle-settled': 'That battle\'s week is settled - its Turning has reckoned it, and it can no longer be voided.',
   // AUDIT-SEATS S10 (8.1: "changing either ... is refused in a siege week")
   'heraldry-siege': 'Your guild fights a battle for a seat this week. Its heraldry may change after the Turning.',
 });

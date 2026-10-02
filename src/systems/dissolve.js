@@ -31,7 +31,7 @@ export function setBatchDissolve(batch, share, colour = DISSOLVE_EMBER) {
 
 /** The GLSL: `dissolveCut(uv)` the grain's threshold test (discard where gone), `dissolveEdge(uv)` how much of the edge
  *  glow a surviving texel takes. `uDissolve` is the batch's field (the shader's uniform). */
-export const DISSOLVE_GLSL = `
+export const FLAT_DISSOLVE_GLSL = `
 // uDissolve (x the share gone, 0 whole and 1 gone; yzw the edge's colour) is declared by each program that composes
 // this block, beside its other per-batch uniforms (AUDIT 47: a unit declares what it uses, where the sweep reads it)
 float dissolveGrain(vec2 uv) {

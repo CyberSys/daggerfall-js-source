@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sea } from './navalSea.mjs';
 import { room } from './navalRoom.mjs';
-import { OWNER_SWEEP_S, HARBOUR_RETRY_S, HARBOUR_LEAVE } from '../src/scenes/navalHost.js';
+import { OWNER_SWEEP_S, HARBOUR_RETRY_S, HARBOUR_LEAVE, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 
 const coast = (x, z) => !(z > 200 || (x > 300 && x < 400 && z > -300));
 const PORT = { key: 'port:1', rect: { minX: -100, maxX: 100, minZ: 220, maxZ: 420 } };
@@ -40,7 +40,7 @@ test('AUDIT SHIP-LIFE B2: A HARBOUR\'S MOORED SHIPS ARE THE HARBOUR\'S TO DROP -
   at([0, 0, -2150]); w.run(1);
   at([0, 0, -150]); w.run(2);
   assert.equal(moored(w).length, n, 'there still');
-  at([0, 0, -150 - HARBOUR_LEAVE - 600]); w.run(1);
+  at([0, 0, -150 - HARBOUR_LEAVE - 600]); w.run(1 + SHIP_FADE_S);   // SHIP-FADE (2026-10-02) PIN MOVED: they fade as they go
   assert.equal(moored(w).length, 0, 'gone past HARBOUR_LEAVE');
   at([0, 0, -150]); w.run(1);
   assert.equal(moored(w).length, n, 'and stood again');

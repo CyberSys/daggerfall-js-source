@@ -31,7 +31,7 @@
    drift this file exists to prevent. scripts/landingHtml.mjs injects
    this block into that page at build; the rest of the skin stays a
    string the game pays for only when a screen is mounted. */
-import { PIXELIFY_FIVE_FACE, PIXEL_STACK } from './pixelifyFive.js';   // FIX-D: Silkscreen's five ahead of Pixelify Sans
+import { PIXELIFY_FIVE_FACE, PIXEL_STACK, PIXEL_FONT_CSS } from './pixelifyFive.js';   // FIX-D: Silkscreen's five ahead of Pixelify Sans
 import { badgeCss } from './playerBadge.js';   // ACC3c: one rule per title and per glyph, walked out of the vocabulary - the card writes a class and the skin carries the colour
 import { PLUS_CSS, PLUS_STYLE_ID, applyPlusTheme } from './enhancedPlusStyle.js';   // PLUS1: the Enhanced Plus sheet, laid over this one
 import { installPlusCursor } from './plusCursor.js';   // PLUS7: the gauntlet cursor
@@ -61,7 +61,7 @@ export const ENHANCED_TOKENS = `:root {
   --slate: #171b21;
   --iron: #2b323b;
   --bone: #e9e4d9;
-  --dim: #8b8578;
+  --dim: #9a9486;
   --brass: #c08a3e;
   --blood: #8c3a32;
   --ruby: #b91309;
@@ -124,17 +124,31 @@ ${PIXELIFY_FIVE_FACE}
 /* ── TOKENS ── see ENHANCED_TOKENS above */
 ${ENHANCED_TOKENS}
 
+/* ── FONT3: THE GAME SPEAKS ONE FACE (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font").
+   The page's own face was --data, Barlow Semi Condensed - the LAUNCHER's - and --display, Cormorant, the menu's
+   face before PX1 made the menu pixel. PX1 and FONT1 set the pixel stack on each surface's root, so every surface
+   whose root they did not reach, and every rule under a root that named --data or --display again (the Features
+   and Overhauls panes, the About credits, the chargen skills and questions, the picked item's tier lines, the
+   death screen's words), still drew in one of the two. Root by root is the leak's own shape, so the leak is closed
+   where it starts: the body wears the whole trio and the reading pair (ui/pixelifyFive.js PIXEL_FONT_CSS), and the
+   two menu-era tokens name the pixel stack on every page this sheet is laid on. ENHANCED_TOKENS keeps its values
+   for the one page that reads them without this sheet - the site's landing page (scripts/landingHtml.mjs). --brand
+   was Grenze Gotisch, which no request has ever loaded; the skin's pixel wordmark face stands in for it. */
+:root { --data: ${PIXEL_STACK}; --display: ${PIXEL_STACK}; --brand: 'Jacquard 12', ${PIXEL_STACK}; }
+
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--ink);
   color: var(--bone);
-  font-family: var(--data);
+  ${PIXEL_FONT_CSS}
   font-size: 15px;
-  -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
 button { font: inherit; background: none; border: 0; color: inherit; cursor: pointer; text-align: left; }
+/* FONT3: a form control takes the browser's own face unless told (DROPS-FONT's law) - the Test Room's select was the
+   one still in it. The font shorthand only: a control keeps the UA's letter-spacing, as buttons always have. */
+select, input, textarea { font: inherit; }
 #app { height: 100dvh; }
 
 /* ── SHELL ─────────────────────────────────────────────────
@@ -172,7 +186,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
    card's "Until you choose one..."). It was the door switch's "switch
    anytime" first; MENU-TOGGLE retired that switch - the interface is
    chosen on the Overhauls page - and the line stays for its readers. */
-.skinhint { flex-basis: 100%; color: var(--dim); font-size: 10px; letter-spacing: 0.12em; margin-top: 5px; }
+.skinhint { flex-basis: 100%; color: var(--dim); font-size: 11px; letter-spacing: 0.12em; margin-top: 5px; }
 
 /* ── RAIL ──────────────────────────────────────────────────
    Six destinations, one press each. Classic makes you leave the
@@ -191,7 +205,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 
 .foot {
   padding: 14px 22px max(18px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--iron); color: #5f5b53; font-size: 11px;
+  border-top: 1px solid var(--iron); color: #8b8578; font-size: 11px;
   letter-spacing: 0.08em;
 }
 .foot span { color: var(--dim); }
@@ -395,7 +409,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 .empty p { color: var(--dim); margin: 0 0 10px; max-width: 58ch; font-size: 14px; }
 .empty p:last-child { margin-bottom: 0; }
 .tag {
-  display: inline-block; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  display: inline-block; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--brass); border: 1px solid #3a3226; padding: 3px 8px; margin-bottom: 12px;
 }
 .tag.grey { color: var(--dim); border-color: var(--iron); }
@@ -418,7 +432,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 .chip.mod.on { color: var(--verdigris); border-color: var(--verdigris); }
 .chip.classic.on { color: var(--bone); border-color: var(--bone); }
 .kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-.kind { font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; padding: 2px 6px; border: 1px solid; }
+.kind { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; padding: 2px 6px; border: 1px solid; }
 .kind.enhanced { color: var(--brass); border-color: var(--brass); }
 .kind.mod { color: var(--verdigris); border-color: var(--verdigris); }
 .kind.classic { color: var(--bone); border-color: var(--dim); }
@@ -438,7 +452,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 }
 .subbtn:hover { color: var(--bone); }
 .subbtn.on { color: var(--brass); border-left-color: var(--brass); background: #12161b; }
-.subbtn .count { float: right; font-size: 11px; color: #5f5b53; font-variant-numeric: tabular-nums; }
+.subbtn .count { float: right; font-size: 11px; color: #8b8578; font-variant-numeric: tabular-nums; }
 /* The affordance for "tap me again to read about this group and reset
    it" - the only way to the category card on a phone (AUDIT F8). It
    shows on the ACTIVE tab only, because that is the only tab the
@@ -485,7 +499,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   min-width: 76px; text-align: right; font-variant-numeric: tabular-nums;
   color: var(--brass); font-size: 14px;
 }
-.row.blocked .val { color: #5f5b53; }
+.row.blocked .val { color: #8b8578; }
 .step {
   width: 34px; height: 34px; display: grid; place-items: center;
   border: 1px solid var(--iron); color: var(--dim); margin-left: 6px;
@@ -540,7 +554,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
   letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; text-align: left;
 }
 .group-head:hover { color: var(--bone); }
-.group-head .count { color: #5f5b53; font-variant-numeric: tabular-nums; }
+.group-head .count { color: #8b8578; font-variant-numeric: tabular-nums; }
 .group-head .group-chev { margin-left: auto; color: var(--brass); font-size: 16px; line-height: 1; }
 .group.open .group-head { color: var(--bone); }
 
@@ -550,7 +564,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 .dcard .status { color: var(--bone); font-size: 13px; }
 .dcard code {
   display: inline-block; font-family: ui-monospace, monospace; font-size: 11px;
-  color: #5f5b53; letter-spacing: 0.04em; margin-top: 18px;
+  color: #8b8578; letter-spacing: 0.04em; margin-top: 18px;
 }
 .sheet-close { display: none; }
 
@@ -713,7 +727,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
    is brighter than a miscellaneous one because that difference IS the
    character - it is what the three groups mean. */
 .skillgroup {
-  font-family: var(--data); font-weight: 500; font-size: 10px; letter-spacing: 0.18em;
+  font-family: var(--data); font-weight: 500; font-size: 11px; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--brass); margin: 18px 0 8px;
 }
 .skillgroup:first-of-type { margin-top: 0; }
@@ -809,7 +823,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 /* THE SLOT IS THE CONSTANT and the item is the news, so the label is
    the quiet half and sits in a fixed gutter the eye can run down. */
 .wornslot {
-  flex: 0 0 88px; color: var(--dim); font-size: 10.5px; letter-spacing: 0.08em;
+  flex: 0 0 88px; color: var(--dim); font-size: 11px; letter-spacing: 0.08em;
   text-transform: uppercase; line-height: 1.35;
 }
 .wornname { flex: 1 1 auto; min-width: 0; font-size: 13.5px; }
@@ -821,7 +835,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 .wornrow.wornempty {
   min-height: 0; padding: 3px 8px; border-bottom-color: #14181d;
 }
-.wornrow.wornempty .wornslot { font-size: 9.5px; color: #333c47; }
+.wornrow.wornempty .wornslot { font-size: 11px; color: #333c47; }
 
 
 /* THE SLOT MAP. The figure is a schematic in --iron so it reads as
@@ -850,7 +864,7 @@ button { font: inherit; background: none; border: 0; color: inherit; cursor: poi
 }
 .packtab.on { color: var(--brass); border-bottom-color: var(--brass); }
 .packtab.empty { opacity: 0.45; }   /* PX31: an empty page keeps its place, dimmed */
-.packtab .count { display: block; font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.packtab .count { display: block; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
 
 .itemrow {
   display: flex; align-items: center; gap: 11px; width: 100%;
@@ -939,7 +953,7 @@ body.draglock .wornrow, body.draglock .wornmap { touch-action: none; }
 }
 .dragghost .tile img { max-width: 40px; max-height: 40px; }
 .ghostact {
-  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--slate); background: var(--brass); padding: 2px 6px;
   white-space: nowrap; opacity: 0;
 }
@@ -979,7 +993,7 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
 .itemrow[data-rarity="aetheric"] .itemname > span:first-child, .packdetail .card[data-rarity="aetheric"] h3, .wplaque-row[data-rarity="aetheric"] > span:first-child { color: #bfe8ff; }
 .itemrow[data-rarity="artifact"] .itemname > span:first-child, .packdetail .card[data-rarity="artifact"] h3, .wplaque-row[data-rarity="artifact"] > span:first-child { color: #b57bee; }
 .packdetail ul.rarity { list-style: none; margin: 4px 0 10px; padding: 0; font-family: var(--data); font-size: 13px; line-height: 1.5; }
-.packdetail ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: var(--dim); }
+.packdetail ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 11px; color: var(--dim); }
 .packdetail ul.rarity li.lore { color: var(--dim); font-style: italic; }   /* CARD-FIT: by its own class - the card's list carries no lore now, and its last AFFIX wore the lore's dim italic */
 .itemwt { flex: 0 0 auto; color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
 /* QS2: THE ROW'S CHIP - '1', '2' or SWAP at the row's right end, on the rows
@@ -987,7 +1001,7 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
    is the face it borrows, because it is the same fact in the same words one
    surface over: 10px, letter-spaced, uppercase, brass, in a 2px frame. */
 .qs-mark { flex: 0 0 auto; border: 2px solid rgba(125, 116, 96, 0.5); color: var(--brass);
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
   padding: 1px 5px; line-height: 1.5; font-variant-numeric: tabular-nums; }
 .packempty { color: var(--dim); font-size: 14px; margin: 10px 2px; }
 .packdetail .sheet-close { display: none; }
@@ -1145,6 +1159,14 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
   font-size: 12.5px; color: var(--dim);
 }
 .card .acctglyphart { width: 15px; height: 15px; display: block; }
+/* GLYPH-WEAR: a glyph is pressed off and on - a bare chip, faded while hidden, full strength while shown */
+.card button.acctglyph {
+  background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 6px;
+  font: inherit; font-size: 12.5px; color: var(--dim); cursor: pointer; opacity: 0.45;
+}
+.card button.acctglyph.worn { opacity: 1; }
+.card button.acctglyph:hover:not(:disabled) { border-color: rgba(255, 255, 255, 0.18); }
+.card button.acctglyph:disabled { cursor: default; }
 /* PATREON-LINK - THE PATRON'S ROW. Link Patreon is a LINK (the account read carries it, so the press opens it at once,
    as TERMS1's document links do), worn as an .act so it reads as the button it is; what the pledge holds is a fact
    beside it, drawn as the glyphs' facts are - quiet, not pressable. */
@@ -1167,7 +1189,7 @@ ${badgeCss()}
 }
 .card ul.acctfacts li:last-child { border-bottom: 0; }
 .card ul.acctfacts .acctkey {
-  flex: 0 0 96px; font-size: 10.5px; letter-spacing: 0.16em;
+  flex: 0 0 96px; font-size: 11px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--dim);
 }
 .card ul.acctfacts .acctval { flex: 1 1 auto; min-width: 0; color: var(--bone); font-size: 15px; overflow-wrap: anywhere; }
@@ -1196,7 +1218,11 @@ ${badgeCss()}
   text-align: center;
 }
 .card .acctcode code {
-  font-family: var(--data); font-size: clamp(17px, 4.6vw, 23px); font-weight: 600;
+  /* FONT3: THE ONE WORD NOT IN THE PIXEL FACE, on purpose. The code's alphabet is Crockford's (server-account
+     password.js CODE_ALPHABET) and keeps B and 8, G and 6, S and 5, O and 0 apart as different symbols - pairs
+     Pixelify Sans draws alike at this size. A code mistyped from paper is an account lost, so the plaque names the
+     launcher face outright rather than the --data token (which is the pixel stack in this sheet now). */
+  font-family: 'Barlow Semi Condensed', system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-size: clamp(17px, 4.6vw, 23px); font-weight: 600;
   letter-spacing: 0.22em; color: var(--brass);
   word-break: break-all; user-select: all; -webkit-user-select: all;
 }
@@ -1663,7 +1689,7 @@ ${badgeCss()}
 .act.hmghost { color: var(--dim); border-color: var(--iron); }
 .hmpair { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .hmpair-k {
-  flex: 0 0 64px; color: var(--dim); font-size: 10.5px;
+  flex: 0 0 64px; color: var(--dim); font-size: 11px;
   letter-spacing: 0.12em; text-transform: uppercase;
 }
 .hmpick {
@@ -1781,20 +1807,20 @@ ${badgeCss()}
 .px-statshead { display: flex; flex-direction: column; align-items: center; gap: 4px;
   margin: 6px 0 16px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-statshead strong { font-size: 26px; font-weight: 400; letter-spacing: 0.1em; }
-.px-statshead span { color: #7d7460; font-size: 16px; letter-spacing: 0.12em; text-transform: uppercase; }
+.px-statshead span { color: #9c937d; font-size: 16px; letter-spacing: 0.12em; text-transform: uppercase; }
 .px-statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 6px 18px; margin-bottom: 14px; }
 .px-stat { display: flex; justify-content: space-between; gap: 10px;
   border-bottom: 2px solid rgba(125,116,96,0.3); padding: 6px 2px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.px-stat .k { color: #7d7460; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; align-self: center; }
+.px-stat .k { color: #9c937d; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase; align-self: center; }
 .px-stat .v { font-size: 19px; white-space: nowrap; }
 .px-attrs { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
 /* Quests */
 .px-quest { margin: 0 0 16px; padding: 10px 14px; border-left: 2px solid var(--brass);
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-quest p { margin: 0 0 4px; font-size: 17px; line-height: 1.45; }
-.px-note { color: #7d7460; text-align: center; margin-top: 24px; font-size: 17px;
+.px-note { color: #9c937d; text-align: center; margin-top: 24px; font-size: 17px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 /* ── PX4: THE JOURNAL ── the reference's shape: names on a left rail
    (the archive beneath a small heading), the chosen quest on the
@@ -1814,9 +1840,9 @@ ${badgeCss()}
   text-shadow: 2px 2px 0 rgb(93,77,12); }
 .px-qrow.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .px-qrow.on .px-c, .px-qrow:hover .px-c, .px-qrow:focus-visible .px-c { visibility: visible; }
-.px-qrow.done { color: #7d7460; }
+.px-qrow.done { color: #9c937d; }
 .px-qrow.done.on { color: rgb(243,239,44); }
-.px-qarch { color: #7d7460; font-size: 13px; letter-spacing: 0.3em; text-indent: 0.3em;
+.px-qarch { color: #9c937d; font-size: 13px; letter-spacing: 0.3em; text-indent: 0.3em;
   text-transform: uppercase; text-align: center; margin: 14px 0 4px;
   border-top: 2px solid rgba(125,116,96,0.3); padding-top: 10px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
@@ -1827,7 +1853,7 @@ ${badgeCss()}
 /* PX5: the kind tag and the timer under the quest name. */
 .px-qmeta { display: flex; align-items: center; justify-content: center; gap: 18px;
   margin: -8px 0 12px; }
-.px-qkind { color: #7d7460; font-size: 13px; letter-spacing: 0.24em; text-indent: 0.24em;
+.px-qkind { color: #9c937d; font-size: 13px; letter-spacing: 0.24em; text-indent: 0.24em;
   text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-qtimer { color: #c5bda2; font-size: 14px; letter-spacing: 0.1em;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
@@ -1852,11 +1878,11 @@ ${badgeCss()}
   display: flex; flex-direction: column; gap: 2px;
   color: #c5bda2; font-size: 15px; letter-spacing: 0.1em;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.px-clocktime { color: #7d7460; font-size: 13px; letter-spacing: 0.14em; }
+.px-clocktime { color: #9c937d; font-size: 13px; letter-spacing: 0.14em; }
 /* ── PX6: THE STATS PAGE ── meters and rows in whole pixels. */
 .px-mrow { margin: 0 0 14px; }
 .px-mtop { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 5px; }
-.px-mtop .k { color: #7d7460; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
+.px-mtop .k { color: #9c937d; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-mtop .v { font-size: 18px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); white-space: nowrap; }
 .px-meter { height: 10px; border: 2px solid rgba(125,116,96,0.55); background: rgba(0,0,0,0.4); }
@@ -1886,14 +1912,14 @@ ${badgeCss()}
 .px-mname { color: #d8cfae; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; }
 .px-pips { display: inline-flex; gap: 4px; color: var(--brass); font-size: 13px; }
 .px-pip.on { color: #f0d77a; text-shadow: 0 0 6px rgba(240,215,122,0.35); }
-.px-mcount { margin-left: auto; color: #7d7460; font-size: 13px; letter-spacing: 0.08em; }
+.px-mcount { margin-left: auto; color: #9c937d; font-size: 13px; letter-spacing: 0.08em; }
 .px-mrow2 { display: flex; align-items: center; gap: 16px; margin: 0 0 10px; }
 .px-mrow2 .px-mbody { flex: 1 1 auto; min-width: 0; }
 .px-mrow2 .px-mtop { margin-bottom: 3px; }
 .px-mrow2 .px-meter { height: 6px; border-width: 2px; }
 .px-mrow2.is-mastered .px-mtop .k { color: #f0d77a; }
 .px-mside { flex: 0 0 132px; display: flex; justify-content: flex-end; }
-.px-mtag { color: #7d7460; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.px-mtag { color: #9c937d; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
 .px-mtag.gold { color: #f0d77a; }
 .px-mbtn { min-height: 34px; min-width: 104px; }
 .px-master-foot { margin-top: 6px; }
@@ -1909,7 +1935,7 @@ ${badgeCss()}
 /* MAC-G: a special's SOURCE rides the row as a quiet tag - the label
    is the fact, the class or race name is only where it came from, so
    it must not compete with it at the value's 19px. */
-.px-stat .v.px-src { font-size: 13px; color: #7d7460; letter-spacing: 0.12em;
+.px-stat .v.px-src { font-size: 13px; color: #9c937d; letter-spacing: 0.12em;
   text-transform: uppercase; align-self: center; }
 .px-stat .v.won { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .px-stat .v.bad { color: var(--blood); }
@@ -1934,7 +1960,7 @@ ${badgeCss()}
   letter-spacing: 0.24em; text-indent: 0.24em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgb(93,77,12); margin: 0 0 4px; }
 .px-sys .stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 18px; margin: 8px 0 10px; }
-.px-sys .stats dt { color: #7d7460; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase;
+.px-sys .stats dt { color: #9c937d; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-sys .stats dd { margin: 0; font-size: 16px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-sys .acts { display: flex; gap: 12px; margin-top: 10px; }
@@ -1950,7 +1976,7 @@ ${badgeCss()}
   cursor: default; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-sys .empty { text-align: center; margin: 14px 0; }
 .px-sys .empty h3 { font-size: 17px; color: #c5bda2; }
-.px-sys .empty p { color: #7d7460; font-size: 15px; }
+.px-sys .empty p { color: #9c937d; font-size: 15px; }
 /* Mods' DFU-switch rows keep their shell markup; here they read as
    quiet key/value rows. */
 .px-sys .row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1959,7 +1985,7 @@ ${badgeCss()}
   cursor: default; padding: 6px 0; }
 .px-sys .row-name { font-size: 15px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-sys .ctl { display: flex; align-items: center; gap: 8px; }
-.px-sys .ctl .val { color: #7d7460; font-size: 14px; letter-spacing: 0.1em;
+.px-sys .ctl .val { color: #9c937d; font-size: 14px; letter-spacing: 0.1em;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 /* ── FIX-F: THE CONTROLS PANE ── the rebinding grid the enhanced skin
    never had. Paint only: the markup is the shell's own
@@ -2025,7 +2051,7 @@ ${badgeCss()}
   text-shadow: 2px 2px 0 rgb(93,77,12); }
 .px-sys .ctl-clear { font-size: 15px; letter-spacing: 0; text-indent: 0;
   padding: 6px 10px; min-width: 44px; }
-.px-sys .ctl-notice { font-size: 15px; color: #7d7460;
+.px-sys .ctl-notice { font-size: 15px; color: #9c937d;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-sys .ctl-notice.bad { color: var(--blood); }
 .px-sys .ctl-head .acts { flex-wrap: wrap; }
@@ -2051,14 +2077,14 @@ ${badgeCss()}
 .px-divider { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 16px 0 12px; }
 .px-divider::before, .px-divider::after { content: ''; flex: 1; height: 2px; max-width: 140px;
   background: rgba(125,116,96,0.55); }
-.px-divword { color: #7d7460; font-size: 13px; letter-spacing: 0.3em; text-indent: 0.3em;
+.px-divword { color: #9c937d; font-size: 13px; letter-spacing: 0.3em; text-indent: 0.3em;
   text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-qentry { display: flex; gap: 12px; margin: 0 0 12px; }
 .px-qmark { color: var(--brass); font-size: 14px; line-height: 1.6;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .px-qentry p { margin: 0 0 4px; font-size: 16px; line-height: 1.45; color: #c5bda2;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.px-qverdict { text-align: center; color: #7d7460; font-size: 14px; letter-spacing: 0.2em;
+.px-qverdict { text-align: center; color: #9c937d; font-size: 14px; letter-spacing: 0.2em;
   text-transform: uppercase; margin: -6px 0 12px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-qverdict.won { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 @media (max-width: 480px) {
@@ -2103,7 +2129,7 @@ ${badgeCss()}
 }
 .px-wordmark small { display: block; font-family: ${PIXEL_STACK};
   font-size: 16px; letter-spacing: 0.5em; text-indent: 0.5em;
-  text-transform: uppercase; color: #7d7460; margin-top: 8px;
+  text-transform: uppercase; color: #9c937d; margin-top: 8px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-rule { display: flex; align-items: center; gap: 16px;
   width: min(420px, 70vw); margin: 28px 0 30px; }
@@ -2133,7 +2159,7 @@ ${badgeCss()}
 .px-foot { position: absolute; left: 0; right: 0; bottom: 0;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: end;
   padding: 12px 16px; font-size: 15px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: #7d7460;
+  text-transform: uppercase; color: #9c937d;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .px-build { justify-self: start; }
 /* MENU-TOGGLE: the skin switch that stood centred is retired; the centre is left open and About keeps the right. */
@@ -2323,6 +2349,50 @@ ${badgeCss()}
 .px-over .px-profile { top: 10px; right: 12px; }
 .px-over .px-portrait { width: 48px; height: 48px; }
 .px-over .px-acctstage { padding: 24px 16px; grid-template-rows: 1fr; align-items: center; }
+/* TIMERS1 (Mac: "a new unique UI element for reset times ... an enhanced plus button on the pause menu next to the
+   profile icon"): THE HOURGLASS, beside the profile mark (ui/enhancedTimers.js placeBeside measures the mark - its
+   width is its caption's; 300px off the edge stands in until it has), and its window in the pause window's frame. */
+.px-timersmark { position: absolute; top: 12px; right: 300px; z-index: 4; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 6px; background: none; border: 0; cursor: pointer; color: #d8cfae;
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.px-timersmark:hover, .px-timersmark:focus-visible { color: #f3cf86; outline: none; }
+.px-hourglass { display: block; width: 27px; height: 36px; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.8));
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 12' shape-rendering='crispEdges'><rect x='0' y='0' width='9' height='1' fill='%23c08a3e'/><rect x='0' y='11' width='9' height='1' fill='%23c08a3e'/><rect x='1' y='1' width='1' height='2' fill='%23d8cfae'/><rect x='7' y='1' width='1' height='2' fill='%23d8cfae'/><rect x='2' y='1' width='5' height='1' fill='%23f3cf86'/><rect x='3' y='2' width='3' height='1' fill='%23f3cf86'/><rect x='2' y='3' width='1' height='1' fill='%23d8cfae'/><rect x='6' y='3' width='1' height='1' fill='%23d8cfae'/><rect x='3' y='4' width='1' height='1' fill='%23d8cfae'/><rect x='5' y='4' width='1' height='1' fill='%23d8cfae'/><rect x='4' y='3' width='1' height='4' fill='%23f3cf86'/><rect x='3' y='6' width='1' height='1' fill='%23d8cfae'/><rect x='5' y='6' width='1' height='1' fill='%23d8cfae'/><rect x='2' y='7' width='1' height='1' fill='%23d8cfae'/><rect x='6' y='7' width='1' height='1' fill='%23d8cfae'/><rect x='1' y='8' width='1' height='3' fill='%23d8cfae'/><rect x='7' y='8' width='1' height='3' fill='%23d8cfae'/><rect x='3' y='9' width='3' height='1' fill='%23f3cf86'/><rect x='2' y='10' width='5' height='1' fill='%23f3cf86'/></svg>") center / contain no-repeat; }
+.px-timersmark:hover .px-hourglass, .px-timersmark:focus-visible .px-hourglass { transform: rotate(180deg); transition: transform 240ms steps(4); }
+.px-timersstage { position: absolute; inset: 0; z-index: 5; display: grid; justify-items: center; align-items: center;
+  padding: 24px 16px; background: rgba(8,10,15,0.6); }
+.px-win.px-timerswin { height: auto; max-height: min(680px, 86dvh); width: min(560px, 94vw); background: #0a0c11; }
+.px-win.px-timerswin .px-body { padding: 20px 24px 22px; overflow-y: auto; }
+.px-timerswin .tm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.px-timerswin .tm-title { margin: 0; font-size: 22px; letter-spacing: 0.18em; text-transform: uppercase; color: #efe8d6; }
+.px-timerswin .tm-lead { margin: 6px 0 4px; font-size: 12px; color: var(--dim); }
+.px-timerswin .tm-section { margin: 16px 0 6px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--brass); }
+.px-timerswin .tm-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; position: relative;
+  border-bottom: 1px solid rgba(125,116,96,0.25); }
+.px-timerswin .tm-row::before { content: '\\25c6'; position: absolute; left: 0; top: 12px; font-size: 9px; color: var(--tm-kind, #9c937d); }
+.px-timerswin .tm-gate { --tm-kind: #e2554c; } .px-timerswin .tm-raid { --tm-kind: #f2c46b; } .px-timerswin .tm-battle { --tm-kind: #d98074; }
+.px-timerswin .tm-seat { --tm-kind: #c08a3e; } .px-timerswin .tm-reset { --tm-kind: #85a8a1; }
+.px-timerswin .tm-row.live { background: rgba(192,138,62,0.08); }
+.px-timerswin .tm-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.px-timerswin .tm-name { font-size: 15px; color: #efe8d6; }
+.px-timerswin .tm-where { font-size: 12px; color: #a89f88; overflow-wrap: anywhere; }
+.px-timerswin .tm-detail { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+.px-timerswin .tm-clock { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.px-timerswin .tm-count { font-size: 18px; color: #f3cf86; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.px-timerswin .tm-row.live .tm-count { color: #9fe8b4; }
+.px-timerswin .tm-when { font-size: 11px; color: var(--dim); white-space: nowrap; }
+.px-timerswin .tm-empty { color: var(--dim); font-size: 13px; }
+/* AUDIT TIMERS1 UI-4: STONE'S LIGHT GROUND (AUDIT MERGE-PLUS D3's law) - the window takes the theme's panel, and Stone's
+   light grey left the dim words at 2.6:1 and the where line at 3.0; lifted past 4.5:1 over a hard black drop. */
+:root[data-plus-theme="stone"] .px-timerswin { --dim: #e2dccd; --brass: #ffd98a; text-shadow: 1px 1px 0 rgba(5,6,8,0.85); }
+:root[data-plus-theme="stone"] .px-timerswin .tm-where { color: #fbf8f0; }
+:root[data-plus-theme="stone"] .px-timerswin .tm-count { color: #ffe3a6; }
+:root[data-plus-theme="stone"] .px-timerswin .tm-row.live .tm-count { color: #c8ffd6; }
+@media (max-width: 560px) {
+  .px-timersword { display: none; }
+  .px-win.px-timerswin .px-body { padding: 16px 14px 18px; }
+  .px-timerswin .tm-count { font-size: 16px; }
+}
 .px-over .px-win.px-acctwin { align-self: center; max-height: min(640px, 86dvh); }
 @media (max-width: 480px) {
   /* On a phone the wordmark owns the top, so the mark loses its caption
@@ -2352,6 +2422,18 @@ ${badgeCss()}
    foot stacks two rows only where width also runs out. */
 @media (max-height: 560px), (max-width: 480px) {
   .px-stage { justify-content: flex-start; padding: 7dvh 24px 132px; overflow-y: auto; }
+}
+/* AUDIT TIMERS1 UI-1: the timers window's stage is not the pause stage - two classes, so the rule above (one class,
+   later) cannot take its padding and pin the window to the left; centred, its own padding, its list the one scroll.
+   UI-2: and over the game on a short screen the pause window stands clear of the corner marks (the profile and the
+   hourglass, 56px tall) - it had its tabs under them, a tap on SYSTEM's top half opening the timers. */
+.px-stage.px-timersstage { display: grid; justify-content: center; align-content: center; justify-items: center; align-items: center;
+  padding: 24px 16px; overflow: hidden; }   /* the content's own centring too - the pause stage's short-screen flex-start packed the track left */
+@media (max-height: 560px) {
+  .px-stage.px-timersstage { padding: 10px 12px; }
+  .px-win.px-timerswin { max-height: calc(100dvh - 20px); }
+  .px-timersword { display: none; }
+  .px-over .px-stage:not(.px-acctstage):not(.px-timersstage) { padding-top: max(7dvh, 64px); }
 }
 
 /* ── PX8: THE SHELL WEARS THE PIXELS (Mac: "Settings next") ─────
@@ -2442,7 +2524,7 @@ ${badgeCss()}
 .sb-shell .sb-who h2, .cr-shell .sb-who h2 { font-family: inherit; font-weight: 400; font-size: 20px; margin: 0;
   letter-spacing: 0.18em; text-indent: 0.18em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.sb-shell .sb-magicka, .cr-shell .sb-magicka { margin: 6px 0 0; color: #7d7460;
+.sb-shell .sb-magicka, .cr-shell .sb-magicka { margin: 6px 0 0; color: #9c937d;
   font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .sb-shell .sb-top .act, .cr-shell .sb-top .act { justify-self: end; }
@@ -2453,7 +2535,7 @@ ${badgeCss()}
 .sb-shell .sb-effects { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 0; }
 .sb-shell .sb-effect { display: flex; align-items: baseline; gap: 10px; font-size: 15px;
   color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.sb-shell .sb-sub { color: #7d7460; font-size: 13px; letter-spacing: 0.12em;
+.sb-shell .sb-sub { color: #9c937d; font-size: 13px; letter-spacing: 0.12em;
   text-transform: uppercase; }
 /* ── ET1: THE TALK PANEL ─────────────────────────────────────────
    Mac's reference is Fallout/Skyrim: a rectangle across the bottom of
@@ -2478,7 +2560,7 @@ ${badgeCss()}
 .talk-tone button, .talk-mode, .talk-cat, .talk-row, .talk-back { font: inherit; background: none; border: 0;
   color: #d8cfae; cursor: pointer; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); transition: none; }
 .talk-tone button { font-size: 15px; letter-spacing: 0.14em; text-indent: 0.14em; text-transform: uppercase;
-  min-height: 40px; padding: 4px 12px; color: #7d7460; }
+  min-height: 40px; padding: 4px 12px; color: #9c937d; }
 .talk-tone button:hover, .talk-tone button[aria-pressed="true"] { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .talk-head .act, .talk-say .act { font: inherit; font-size: 15px; letter-spacing: 0.12em; text-indent: 0.12em;
   text-transform: uppercase; min-height: 40px; padding: 6px 16px; }
@@ -2493,28 +2575,28 @@ ${badgeCss()}
 .talk-topics { border-left: 2px solid rgba(125,116,96,0.45); display: flex; flex-direction: column; min-height: 0; }
 .talk-modes, .talk-cats { display: flex; border-bottom: 2px solid rgba(125,116,96,0.35); }
 .talk-mode { flex: 1; font-size: 15px; letter-spacing: 0.12em; text-indent: 0.12em; text-transform: uppercase;
-  min-height: 40px; color: #7d7460; }
+  min-height: 40px; color: #9c937d; }
 .talk-mode:hover, .talk-mode.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .talk-cat { flex: 1; font-size: 13px; letter-spacing: 0.1em; text-indent: 0.1em; text-transform: uppercase;
-  min-height: 36px; color: #7d7460; }
+  min-height: 36px; color: #9c937d; }
 .talk-cat:hover, .talk-cat.on { color: #d8cfae; }
 .talk-cat[disabled] { opacity: 0.35; cursor: default; }   /* TALK02I0's greyed strip */
-.talk-cat[disabled]:hover { color: #7d7460; }
+.talk-cat[disabled]:hover { color: #9c937d; }
 .talk-list { flex: 1; overflow-y: auto; padding: 6px 0; min-height: 0; }
 .talk-row { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; font-size: 16px;
   min-height: 36px; padding: 4px 14px; }
 .talk-row .px-c { font-size: 13px; color: rgb(243,239,44); visibility: hidden; text-shadow: 2px 2px 0 rgb(93,77,12); flex: 0 0 auto; }
 .talk-row:hover, .talk-row.on { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .talk-row:hover .px-c, .talk-row.on .px-c { visibility: visible; }
-.talk-row.group::after { content: '\\203a'; margin-left: auto; color: #7d7460; }
+.talk-row.group::after { content: '\\203a'; margin-left: auto; color: #9c937d; }
 .talk-back { display: block; width: 100%; text-align: left; font-size: 13px; letter-spacing: 0.1em; text-indent: 0.1em;
-  text-transform: uppercase; color: #7d7460; padding: 6px 14px; min-height: 32px; }
+  text-transform: uppercase; color: #9c937d; padding: 6px 14px; min-height: 32px; }
 .talk-back:hover { color: #d8cfae; }
-.talk-hint { color: #7d7460; font-size: 14px; padding: 14px; margin: 0; }
+.talk-hint { color: #9c937d; font-size: 14px; padding: 14px; margin: 0; }
 .talk-say { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
   padding: 8px 14px; border-top: 2px solid rgba(125,116,96,0.55); }
 .talk-q { color: #b2cfff; font-size: 16px; min-height: 22px; line-height: 1.3; }
-.talk-q.none { color: #7d7460; }
+.talk-q.none { color: #9c937d; }
 @media (max-width: 720px) {
   .talk-shell .talk-panel { width: 100vw; height: min(600px, 70dvh); bottom: 0; }
   .talk-head { grid-template-columns: 1fr auto; padding: 6px 10px; }
@@ -2572,7 +2654,7 @@ ${badgeCss()}
 .travelpanel-bar.hidden { display: none; }
 .travelpanel-dest { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center;
   padding: 7px 14px; min-width: 0; }
-.travelpanel-label { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
+.travelpanel-label { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
 .travelpanel-name { font-family: var(--display); font-size: 20px; line-height: 1.1; color: var(--bone);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .travelpanel-sub { font-size: 11px; color: var(--dim); letter-spacing: 0.04em; }
@@ -2634,7 +2716,7 @@ ${badgeCss()}
 .tview-needle::after { content: ''; position: absolute; left: 50%; top: 12px; width: 2px; height: 10px;
   margin-left: -1px; background: linear-gradient(180deg, var(--brass), rgba(192,138,62,0)); }
 .tview-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.tview-title, .tview-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+.tview-title, .tview-label { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
 .tview-where { font-size: 12.5px; color: var(--bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tview-hint { display: none; }   /* OW-BLOCK: the hints are the head's tooltip */
 /* the journey, or none */
@@ -2810,7 +2892,7 @@ ${badgeCss()}
 .hud-breath.short .hud-fill { background: #8a1f1f; }
 .hud-grip .hud-fill { background: #c9b98a; }   /* CLIMB2: the grip - stone and chalk, not the breath's yellow */
 .hud-breathlabel { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-  color: #7d7460; }
+  color: #9c937d; }
 
 /* ── QS3: THE QUICKSLOT DIAMOND ──────────────────────────────────
    Mac's reference is the Demon's Souls remake's bottom-left diamond:
@@ -2876,8 +2958,8 @@ ${badgeCss()}
 .hud-readied { display: none; align-items: baseline; gap: 8px; padding: 3px 10px;
   background: rgba(10,12,17,0.6); border: 2px solid var(--brass); }
 .hud-readied.on { display: flex; }
-.hud-readykind { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: #7d7460; }
+.hud-readykind { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #9c937d; }
 .hud-readyname { font-size: 13px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 
 /* QS6 - THE SPELL CHIP. The diamond's four corners are the two hands
@@ -2892,7 +2974,7 @@ ${badgeCss()}
 .hud-qspell.on { display: flex; }
 .hud-qspell.empty { display: flex; opacity: 0.55; }   /* HOTSLOT: the empty socket, dim, wearing its key */
 .hud-qspell .hud-qstag { position: static; transform: none; background: none; border: 0;
-  min-width: 0; height: auto; padding: 0; color: #7d7460; }
+  min-width: 0; height: auto; padding: 0; color: #9c937d; }
 .hud-qspname { font-size: 13px; color: #d8cfae; text-shadow: 2px 2px 0 rgba(10,12,17,0.9);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hud-qspicon { flex: 0 0 auto; filter: drop-shadow(1px 1px 0 rgba(0,0,0,0.85)); }   /* UI2: the spell's own icon, before its name */
@@ -2969,7 +3051,7 @@ ${badgeCss()}
 .hud-qstag { display: none; position: absolute; align-items: center; justify-content: center;
   min-width: 14px; height: 16px; padding: 0 4px;
   background: rgba(10,12,17,0.75); border: 2px solid rgba(125,116,96,0.55);
-  font-size: 10px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #d8cfae; }
+  font-size: 11px; line-height: 1; letter-spacing: 0.14em; text-transform: uppercase; color: #d8cfae; }
 .hud-qstag.on { display: flex; }
 .hud-qsglyph { display: block; width: 12px; height: 12px; image-rendering: pixelated; }
 .hud-qstop { left: 50%; top: 0; transform: translate(-50%, calc(-100% - 4px)); }
@@ -3059,7 +3141,7 @@ ${badgeCss()}
 .hst-cell.item .hst-tile { border-style: dashed; }
 .hst-cell.recovering .hst-tile { border-style: dashed; box-shadow: 0 0 0 1px #050608; opacity: 0.72; }
 .hst-foot { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); padding: 1px 3px;   /* inside a short screen's 6px gap too */
-  font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; color: #fffaf0;
+  font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; color: #fffaf0;
   background: rgba(5,6,8,0.9); text-shadow: 1px 1px 0 #050608; }
 .hst-name { font-size: 12px; letter-spacing: 0.06em; white-space: nowrap; max-width: 120px; overflow: hidden;
   text-overflow: ellipsis; color: #d8cfae; }
@@ -3106,6 +3188,11 @@ ${badgeCss()}
   font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
   font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
   color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* AUDIT FONT3 F4: THE PRISON'S LINE is the prison screen's, not the HUD's - it rides the native panel (its size is the
+   panel's 7-row cell at the panel's scale, ui/prisonScreen.js), never the HUD scale (which takes it to 7.5px at 0.5),
+   in DaggerfallCourtWindow's own colour and shadow (DAYS_LABEL_COLOR / DAYS_LABEL_SHADOW). */
+.hudmid.hudprison { transform: translateX(-50%); font-size: var(--prison-px, 22px); letter-spacing: 0.06em;
+  color: rgb(232,196,76); text-shadow: 2px 2px 0 rgb(48,36,20); }
 
 /* FONT1: THE ONLINE STATUS LINE - the socket's own word (connecting,
    reconnecting, refused), top-left where the classic drew it and clear
@@ -3183,7 +3270,7 @@ ${badgeCss()}
 .sb-shell .sb-num { color: var(--brass); font-size: 12px; letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .sb-shell .sb-rename { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; }
-.sb-shell .sb-renamelabel { color: #7d7460; font-size: 12px; letter-spacing: 0.14em;
+.sb-shell .sb-renamelabel { color: #9c937d; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; }
 .sb-shell .sb-rename input { flex: 1; min-width: 160px; min-height: 44px; padding: 8px 12px;
   background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
@@ -3309,8 +3396,8 @@ ${badgeCss()}
 .rest-shell .hours-field { display: block; width: 140px; margin: 4px auto 22px; font-family: inherit;
   font-size: 34px; text-align: center; background: #0e1013; color: var(--bone, #e9e4d9);
   border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 6px 8px; }
-.rest-shell .vitals-line { margin: 10px 0 0; font-size: 14px; color: var(--dim, #8b8578); font-variant-numeric: tabular-nums; }
-.rest-shell .clock-line { margin: 8px 0 0; font-size: 13px; color: var(--dim, #8b8578); text-align: center; }   /* AUDIT LIVED1b U7 */
+.rest-shell .vitals-line { margin: 10px 0 0; font-size: 14px; color: var(--dim, #9a9486); font-variant-numeric: tabular-nums; }
+.rest-shell .clock-line { margin: 8px 0 0; font-size: 13px; color: var(--dim, #9a9486); text-align: center; }   /* AUDIT LIVED1b U7 */
 .rest-shell .clock-line:empty { display: none; }
 .tavern-shell .px-body { flex: 0 1 auto; overflow-y: auto; padding: 18px 22px 22px; }
 .tavern-shell .sb-top { display: grid; grid-template-columns: 1fr auto 1fr;
@@ -3345,7 +3432,7 @@ ${badgeCss()}
   gap: 12px; width: 100%; text-align: left; }
 .tavern-shell .tavern-price { color: var(--brass); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
 .tavern-shell .tavern-menu-header { margin: 10px 0 2px; font-size: 11px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: #7d7460; }
+  text-transform: uppercase; color: #9c937d; }
 .tavern-shell .tavern-menu-header:first-child { margin-top: 0; }
 /* THE CONFIRM/REFUSAL BOX - the room offer's Yes/No, the not-hungry and
    not-enough-gold notices, a meal or a drink's own line. */
@@ -3392,7 +3479,7 @@ ${badgeCss()}
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .cr-shell .cr-rm { flex: 0 0 auto; min-width: 28px; min-height: 28px; padding: 0 8px;
-  background: none; border: 2px solid rgba(125,116,96,0.35); color: #7d7460;
+  background: none; border: 2px solid rgba(125,116,96,0.35); color: #9c937d;
   font: inherit; font-size: 14px; cursor: pointer; }
 .cr-shell .cr-rm:hover, .cr-shell .cr-rm:focus-visible { outline: none;
   color: rgb(243,239,44); border-color: var(--brass); text-shadow: 2px 2px 0 rgb(93,77,12); }
@@ -3413,7 +3500,7 @@ ${badgeCss()}
 .cr-shell .cr-fold { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px;
   padding: 0; background: none; border: 0; font: inherit; color: inherit;
   text-align: left; cursor: pointer; }
-.cr-shell .cr-fold .cr-caret { flex: 0 0 auto; color: #7d7460; font-size: 11px; }
+.cr-shell .cr-fold .cr-caret { flex: 0 0 auto; color: #9c937d; font-size: 11px; }
 .cr-shell .cr-fold:hover .cr-when, .cr-shell .cr-fold:focus-visible .cr-when,
 .cr-shell .cr-fold:hover .cr-caret, .cr-shell .cr-fold:focus-visible .cr-caret {
   color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
@@ -3457,9 +3544,9 @@ ${badgeCss()}
   background: rgba(10,12,17,0.6); border: 2px solid rgba(125,116,96,0.35);
   color: #d8cfae; font: inherit; font-size: 15px; }
 .cr-shell .cr-compose input:focus { outline: none; border-color: var(--brass); }
-.cr-shell .cr-compose input::placeholder { color: #7d7460; }
+.cr-shell .cr-compose input::placeholder { color: #9c937d; }
 @media (pointer: coarse) { .cr-shell .cr-rm { min-width: 44px; min-height: 44px; } }
-.cr-shell .cr-row .sb-cost { color: #7d7460; }
+.cr-shell .cr-row .sb-cost { color: #9c937d; }
 .cr-shell .cr-row.on .sb-cost { color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 
 /* AUDIT UI: the settings row's own controls, sized for a thumb wherever
@@ -3591,15 +3678,15 @@ ${badgeCss()}
 .wizard { background: transparent; }
 .wizard .railbtn .rk::before { content: '\\25c7  '; color: rgba(125,116,96,0.55);
   font-size: 12px; }
-.wizard .railbtn.done .rk::before { content: '\\25c6  '; color: #7d7460; }
+.wizard .railbtn.done .rk::before { content: '\\25c6  '; color: #9c937d; }
 .wizard .railbtn.on .rk::before { content: '\\25c6  '; color: rgb(243,239,44);
   text-shadow: 2px 2px 0 rgb(93,77,12); }
 .wizard .railbtn.done { border-left-color: transparent; }
-.wizard .railbtn.done .rk { color: #7d7460; }
+.wizard .railbtn.done .rk { color: #9c937d; }
 .wizard .railbtn.todo .rk { color: rgba(125,116,96,0.5); }
 .wizard .stepstrip .seg { border-radius: 0; background: rgba(125,116,96,0.3); }
 .wizard .stepstrip .seg.on { background: var(--brass); }
-.wizard .steptext { letter-spacing: 0.14em; text-transform: uppercase; color: #7d7460;
+.wizard .steptext { letter-spacing: 0.14em; text-transform: uppercase; color: #9c937d;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 /* The stage questions take the window's wing rules - every screen
    asks its one question between the same ornaments. */
@@ -3642,7 +3729,7 @@ ${badgeCss()}
 .wizard .facegrid button:hover, .wizard .facegrid button:focus-visible { outline: none; border-color: var(--brass); }
 .wizard .facegrid button.on { border-color: var(--brass);
   outline: 2px solid rgba(192,138,62,0.5); outline-offset: 2px; }
-.wizard .facenum { font-family: inherit; color: #7d7460; font-size: 18px;
+.wizard .facenum { font-family: inherit; color: #9c937d; font-size: 18px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 /* Reflexes: the five bands as plaques, the chosen one gold. */
 .wizard .reflexbtn { border: 2px solid rgba(125,116,96,0.55); border-radius: 0;
@@ -3654,7 +3741,7 @@ ${badgeCss()}
 .wizard .reflexbtn.on { color: rgb(243,239,44); border-color: var(--brass);
   text-shadow: 2px 2px 0 rgb(93,77,12); }
 /* The map's caption and the pending-stage words sit in pixel dim. */
-.wizard .mapnote { color: #7d7460; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
+.wizard .mapnote { color: #9c937d; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 /* PX17a: the description reads as prose - a size a person reads at,
    air between the lines, air between the paragraphs. */
 .wizard .dcard p { font-size: 15px; line-height: 1.6; margin: 0 0 12px;
@@ -3699,7 +3786,7 @@ ${badgeCss()}
 .dagger-grip { fill: #7d5a2e; }
 .dagger.red .dagger-blade { fill: var(--blood); }
 .dagger-ends { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.14em;
-  text-transform: uppercase; color: #7d7460; margin: 0 6px; }
+  text-transform: uppercase; color: #9c937d; margin: 0 6px; }
 .dagger-note { margin-top: 4px; }
 .dagger.red .dagger-note { color: var(--blood); }
 .skillpane > .dagger { padding-left: 0; padding-right: 0; margin-bottom: 10px; }
@@ -3850,7 +3937,7 @@ ${badgeCss()}
 .px-w::before { left: 100%; top: 50%; height: 2px; width: 62px; transform: translateY(-50%); }
 .px-w::after { left: calc(100% + 31px); top: 50%; transform: translate(-50%,-50%); }
 /* THE HINT: the keys, taught where they are used. */
-.px-dialhint { color: #7d7460; font-size: 13px; letter-spacing: 0.2em; text-indent: 0.2em;
+.px-dialhint { color: #9c937d; font-size: 13px; letter-spacing: 0.2em; text-indent: 0.2em;
   text-transform: uppercase; margin: 0 0 18px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 @media (max-width: 480px) {
   .px-arm { font-size: 17px; }
@@ -3980,7 +4067,7 @@ ${badgeCss()}
   min-height: 44px; padding: 8px 6px; border: 0; background: none; cursor: pointer;
   color: #a89f88; font-family: inherit; font-size: 12px; letter-spacing: 0.06em;
   text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); white-space: nowrap; text-overflow: ellipsis; }
-.pack-shell .packtab .count { font-family: inherit; font-size: 11px; color: #7d7460;
+.pack-shell .packtab .count { font-family: inherit; font-size: 11px; color: #9c937d;
   background: none; border: 0; margin-left: auto; }
 .pack-shell .packtab:hover, .pack-shell .packtab:focus-visible { outline: none; color: #d8cfae; }
 .pack-shell .packtab.on { color: rgb(243,239,44);
@@ -4023,19 +4110,19 @@ ${badgeCss()}
    with the tile's own shadowed pixel text and no frame of its own (the tile is
    already framed). */
 .pack-shell .itemrow .qs-mark { position: absolute; left: 2px; top: 1px; border: 0;
-  padding: 0; font-size: 9px; letter-spacing: 0.12em; color: var(--brass);
+  padding: 0; font-size: 11px; letter-spacing: 0.12em; color: var(--brass);
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .itemrow .rowcount, .pack-shell .itemrow .count { position: absolute;
-  right: 2px; bottom: 1px; font-size: 9px; color: var(--brass);
+  right: 2px; bottom: 1px; font-size: 11px; color: var(--brass);
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .itemrow:hover, .pack-shell .itemrow:focus-visible { outline: none;
   border-color: var(--brass); color: #d8cfae; }
 .pack-shell .itemrow.on { border-color: var(--brass); color: rgb(243,239,44);
   outline: 2px solid rgba(192,138,62,0.5); outline-offset: 2px; box-shadow: none;
   text-shadow: 2px 2px 0 rgb(93,77,12); }
-.pack-shell .packempty { color: #7d7460; padding: 12px 16px; font-size: 14px;
+.pack-shell .packempty { color: #9c937d; padding: 12px 16px; font-size: 14px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
-.pack-shell .remotehead, .pack-shell .equippedhead { font-family: inherit; color: #7d7460;
+.pack-shell .remotehead, .pack-shell .equippedhead { font-family: inherit; color: #9c937d;
   font-size: 11px; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase;
   text-align: center; background: none; border-top: 2px solid rgba(125,116,96,0.3);
   border-bottom: 0; padding: 10px 0 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
@@ -4044,7 +4131,7 @@ ${badgeCss()}
   font-weight: 400; letter-spacing: 0.24em; text-indent: 0.24em; text-transform: uppercase; }
 .pack-shell .equippedhead h3 { font-size: 17px; color: #d8cfae; margin: 0;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.pack-shell .equippedhead .meta { font-size: 10px; color: #7d7460; margin: 2px 0 0; }
+.pack-shell .equippedhead .meta { font-size: 11px; color: #9c937d; margin: 2px 0 0; }
 .pack-shell .remoteacts { padding: 0 10px; }
 /* The showcase column: the figure over the plaque, both scrolling
    together, the game glass behind them through the window. */
@@ -4245,7 +4332,7 @@ ${badgeCss()}
 .pack-shell .packtip.packdetail .card .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px;
   margin: 8px 0 0; }
 .pack-shell .packtip.packdetail .card .stats .pair { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
-.pack-shell .packtip.packdetail .card .stats dt { font-size: 10px; letter-spacing: 0.12em; }
+.pack-shell .packtip.packdetail .card .stats dt { font-size: 11px; letter-spacing: 0.12em; }
 .pack-shell .packtip.packdetail .card .stats dd { font-size: 13px; white-space: normal; }
 .pack-shell .packtip.packdetail .card > .acts { gap: 6px; }
 .pack-shell .packtip.packdetail .card > .acts .act { flex: 1 1 auto; min-width: 64px; min-height: 36px; padding: 5px 8px;
@@ -4275,7 +4362,7 @@ ${badgeCss()}
 .pack-shell .equipped .wornmap { flex: 1; min-height: 0; }
 /* PX20c: the name in the title bar, after PACK, in the dim - the bar
    already names the window, so the character is the second word. */
-.pack-shell .pack-id .pack-who { color: #7d7460; margin-left: 4px; }
+.pack-shell .pack-id .pack-who { color: #9c937d; margin-left: 4px; }
 .pack-shell .pack-id .pack-who::before { content: '\\00b7'; margin-right: 14px; }
 /* PX19g: the region FITS ITS SPACE - 5 rows of 52 + gaps + the WORN
    head ~= 310, inside the main area's ~380 - so the character sheet
@@ -4362,7 +4449,7 @@ ${badgeCss()}
 .pack-shell .wornrow .worntile { font-size: 26px; color: rgba(125,116,96,0.6); }
 .pack-shell .wornslot { flex: 0 0 auto;   /* the base rule's 88px was a column WIDTH; on a vertical tile it becomes 88px of HEIGHT */
   font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-  color: #7d7460; max-width: 100%; line-height: 1.1; white-space: nowrap; }
+  color: #9c937d; max-width: 100%; line-height: 1.1; white-space: nowrap; }
 .pack-shell .wornrow .itemwt { display: none; }
 .pack-shell button.wornrow { cursor: pointer; }
 .pack-shell button.wornrow:hover, .pack-shell button.wornrow:focus-visible { outline: none;
@@ -4384,13 +4471,13 @@ ${badgeCss()}
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .card .stats { display: grid; grid-template-columns: auto auto;
   justify-content: center; align-items: baseline; gap: 6px 14px; margin: 10px 0; }
-.pack-shell .card .stats dt { color: #7d7460; font-size: 11px; letter-spacing: 0.22em;
+.pack-shell .card .stats dt { color: #9c937d; font-size: 11px; letter-spacing: 0.22em;
   text-transform: uppercase; text-align: right; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .card .stats dd { margin: 0; font-size: 19px; overflow-wrap: anywhere;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .pack-shell .card .meta, .pack-shell .card p { color: #c5bda2; text-align: center; font-size: 14px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
-.pack-shell .card .tag { float: right; color: #c5bda2; font-size: 10px; letter-spacing: 0.2em;
+.pack-shell .card .tag { float: right; color: #c5bda2; font-size: 11px; letter-spacing: 0.2em;
   text-transform: uppercase; border: 0; background: none;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .acts { display: flex; justify-content: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -4403,16 +4490,16 @@ ${badgeCss()}
 .pack-shell .act.primary { color: rgb(243,239,44); border-color: var(--brass); background: none;
   text-shadow: 2px 2px 0 rgb(93,77,12); }
 .pack-shell .act:disabled { color: rgba(125,116,96,0.45); border-color: rgba(125,116,96,0.3); }
-.pack-shell .sheet-close { color: #7d7460; background: none; border: 0;
+.pack-shell .sheet-close { color: #9c937d; background: none; border: 0;
   letter-spacing: 0.2em; text-transform: uppercase; min-height: 44px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .packbar { display: flex; align-items: center; gap: 22px;
   border-top: 2px solid rgba(125,116,96,0.35); background: rgba(0,0,0,0.3);
   padding: 8px 16px; }
-.pack-shell .packbar .k { color: #7d7460; font-size: 11px; letter-spacing: 0.22em;
+.pack-shell .packbar .k { color: #9c937d; font-size: 11px; letter-spacing: 0.22em;
   text-transform: uppercase; margin-right: 8px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .packbar .v { font-size: 16px; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.pack-shell .packitems { color: #7d7460; font-size: 12px; letter-spacing: 0.14em;
+.pack-shell .packitems { color: #9c937d; font-size: 12px; letter-spacing: 0.14em;
   text-transform: uppercase; margin-right: auto; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .pack-shell .packcarry { display: flex; align-items: center; gap: 10px; }
 /* AUDIT2 GOLD-DROP 1: the meter gives way first, and no word breaks - with the button the row can ask more than a
@@ -4520,7 +4607,7 @@ ${badgeCss()}
 .loot-win .remotewho { display: flex; flex-direction: column; align-items: center; }
 .loot-win .remoteacts { justify-content: center; padding: 0; }
 .loot-win .remotewho h3 { font-size: 16px; color: #d8cfae; }
-.loot-win .remotewho .meta { font-size: 12px; letter-spacing: 0.14em; color: #7d7460;
+.loot-win .remotewho .meta { font-size: 12px; letter-spacing: 0.14em; color: #9c937d;
   text-transform: uppercase; margin-top: 6px; }
 .loot-win .packlists, .loot-win .packcol { display: block; padding: 0; }
 /* The column is a flex box so the head stays put and the list takes
@@ -4538,7 +4625,7 @@ ${badgeCss()}
   padding: 12px 12px 0; }
 .piletab { font: inherit; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   min-height: 32px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 6px;
-  color: #7d7460; background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.45);
+  color: #9c937d; background: rgba(0,0,0,0.35); border: 1px solid rgba(125,116,96,0.45);
   cursor: pointer; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); max-width: 100%; }
 .piletab:hover, .piletab:focus-visible { outline: none; color: #d8cfae; border-color: var(--brass); }
 .piletab.on { color: rgb(243,239,44); border-color: var(--brass); cursor: default; }
@@ -4565,9 +4652,9 @@ ${badgeCss()}
 .loot-win .itemrow .itemname > span { overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; }
 .loot-win .itemrow .itemname small { font-size: 11px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: #7d7460; }
+  text-transform: uppercase; color: #9c937d; }
 .loot-win .itemrow .itemwt { display: block; flex: 0 0 auto; font-size: 12px;
-  color: #7d7460; font-variant-numeric: tabular-nums; }
+  color: #9c937d; font-variant-numeric: tabular-nums; }
 .loot-win .itemrow .rowcount, .loot-win .itemrow .count { position: static;
   font-size: 12px; margin-left: 4px; }
 .loot-win .itemrow:hover, .loot-win .itemrow:focus-visible { background: rgba(125,116,96,0.12); }
@@ -4603,7 +4690,7 @@ ${badgeCss()}
 .wplaque-renown { display: inline-block; margin-right: 0.4em; padding: 0 0.3em; min-width: 1.2em; text-align: center;
   font-size: 0.85em; line-height: 1.3; vertical-align: 1px; font-variant-numeric: tabular-nums;
   color: #f2c46b; background: rgba(14, 16, 19, 0.6); border: 1px solid rgba(242, 196, 107, 0.8); border-radius: 2px; }
-.wplaque-sub { font-size: 12px; line-height: 1.4; text-align: center; color: #7d7460; }
+.wplaque-sub { font-size: 12px; line-height: 1.4; text-align: center; color: #9c937d; }
 /* UXB1-N (2026-09-25, the UX backlog): somebody else's container - its
    title in the ember a warning wears, its "Private property" line under
    it in a quieter ember - so it never reads as the shop's own stock. */
@@ -4646,8 +4733,8 @@ ${badgeCss()}
 .wplaque-row.off { font-style: italic; color: #c8c2b4; }
 /* ...and the line that says what the keys do, under the list. */
 .wplaque-keys { margin-top: 8px; padding-top: 6px; border-top: 1px solid rgba(125,116,96,0.35);
-  color: #7d7460; font-size: 11px; text-align: center; }
-.wplaque-empty, .wplaque-more { color: #7d7460; font-size: 12px; }
+  color: #9c937d; font-size: 11px; text-align: center; }
+.wplaque-empty, .wplaque-more { color: #9c937d; font-size: 12px; }
 /* QUICK-LOOT-STATS: the lit row's numbers, beside the list. Same box as
    the plaque itself - a player should read them as one surface, not as
    a tooltip about a tooltip. Absolutely positioned against the plaque's
@@ -4667,7 +4754,7 @@ ${badgeCss()}
   border: 0; border-top: 1px solid rgba(125,116,96,0.35); padding: 6px 0 0; background: none; }
 .wplaque-statrow { display: flex; align-items: baseline; gap: 10px; font-size: 12px;
   line-height: 1.5; color: #d8cfae; }
-.wplaque-statkey { color: #7d7460; }
+.wplaque-statkey { color: #9c937d; }
 /* The value is RIGHT-ALIGNED, not merely pushed right. A condition
    reads "Slightly Used (75%)" and the panel is deliberately narrow, so
    that row wraps - and a wrapped value that is only pushed by an auto
@@ -4779,7 +4866,7 @@ ${badgeCss()}
   transform: translateY(101%); transition: transform 0.18s steps(4); }
 .px-setwrap .detail.open { transform: translateY(0); }
 .px-setwrap .sheet-close { display: block; width: 100%; min-height: 44px;
-  color: #7d7460; letter-spacing: 0.2em; text-transform: uppercase;
+  color: #9c937d; letter-spacing: 0.2em; text-transform: uppercase;
   border-bottom: 2px solid rgba(125,116,96,0.4);
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 @media (prefers-reduced-motion: reduce) { .px-setwrap .detail { transition: none; } }
@@ -4837,7 +4924,7 @@ ${badgeCss()}
   background: rgba(10,12,17,0.72); color: #c5bda2; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
 .hmresult:hover, .hmresult:focus-visible { outline: none; color: rgb(243,239,44);
   background: rgba(0,0,0,0.5); text-shadow: 2px 2px 0 rgb(93,77,12); }
-.hmresult-region { color: #7d7460; }
+.hmresult-region { color: #9c937d; }
 .hmcard { position: absolute; border: 2px solid rgba(216,207,174,0.7);
   outline: 2px solid rgba(125,116,96,0.35); outline-offset: 4px; border-radius: 0;
   background: rgba(10,12,17,0.72); font-family: inherit;
@@ -4846,13 +4933,13 @@ ${badgeCss()}
   text-indent: 0.14em; text-transform: uppercase; text-align: center;
   border-bottom: 2px solid rgba(125,116,96,0.5); padding-bottom: 8px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
-.hmmeta { color: #7d7460; font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
+.hmmeta { color: #9c937d; font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase;
   text-align: center; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .hmprompt { color: #c5bda2; text-align: center; font-size: 15px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .hmpair { display: flex; justify-content: space-between; gap: 14px;
   border-bottom: 2px solid rgba(125,116,96,0.3); min-height: 32px; align-items: baseline; }
-.hmpair-k { color: #7d7460; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
+.hmpair-k { color: #9c937d; font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .hmacts { display: flex; justify-content: center; gap: 10px; }
 .hmroot .act { border: 2px solid var(--brass); border-radius: 0; background: none;
@@ -4862,7 +4949,7 @@ ${badgeCss()}
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .hmroot .act:hover, .hmroot .act:focus-visible { outline: none; color: rgb(243,239,44);
   border-color: var(--brass); background: rgba(0,0,0,0.35); text-shadow: 2px 2px 0 rgb(93,77,12); }
-.hmhint, .hmband, .hmlegend { color: #7d7460; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+.hmhint, .hmband, .hmlegend { color: #9c937d; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .hmbox { border: 2px solid rgba(216,207,174,0.7); outline: 2px solid rgba(125,116,96,0.35); outline-offset: 4px;
   border-radius: 0; background: rgba(10,12,17,0.86); font-family: inherit; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
@@ -4892,7 +4979,7 @@ ${badgeCss()}
 .hmkeyrow { display: contents; }
 .hmkeyflt { pointer-events: auto; text-align: left; }
 .hmroot .act.hmkeyflt { min-height: 24px; padding: 2px 10px; font-size: 12px; }
-.hmroot .act.hmkeyflt:not(.on) { border-color: rgba(125,116,96,0.55); color: #7d7460; text-decoration: line-through;
+.hmroot .act.hmkeyflt:not(.on) { border-color: rgba(125,116,96,0.55); color: #9c937d; text-decoration: line-through;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .hmroot .act.hmkeyflt:not(.on):hover { color: #d8cfae; border-color: var(--brass); }
 .hmkeykinds { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
@@ -4966,9 +5053,9 @@ ${badgeCss()}
 .ft-tile:hover, .ft-tile.sel { border-color: var(--dim); }
 .ft-tile.sel { background: var(--iron); }
 .ft-tile:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
-.ft-tile-name { font-family: var(--data); font-size: 14.5px; color: var(--bone); line-height: 1.2; }
+.ft-tile-name { font-family: var(--data); font-size: 14.5px; color: var(--bone); line-height: 1.2; letter-spacing: 0; }   /* AUDIT FONT3 L4: a mod's "X by Author" on one line where it fits - the tiles' rows stay even */
 .ft-tile-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.ft-tile-lock { font-family: var(--data); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); }
+.ft-tile-lock { font-family: var(--data); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); }
 
 /* the bar */
 .ft-seg { display: flex; flex-wrap: wrap; background: var(--ink); border: 1px solid var(--iron); padding: 2px; gap: 2px; }
@@ -4989,7 +5076,7 @@ ${badgeCss()}
 .ft-tile-car { display: inline-block; }
 .ft-tile-car.open { transform: rotate(90deg); }
 .ft-tile-drawer { border-top: 1px solid var(--iron); padding-top: 7px; display: flex; flex-direction: column; gap: 6px; }
-.ft-drawer-label { font-family: var(--data); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.ft-drawer-label { font-family: var(--data); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
 .ft-chipset { display: flex; flex-wrap: wrap; gap: 4px; }
 .ft-mchip { font-family: var(--data); font-size: 11px; background: var(--ink); color: var(--dim);
   border: 1px solid var(--iron); padding: 2px 6px; cursor: pointer; }
@@ -5006,14 +5093,14 @@ ${badgeCss()}
 /* the reading rail */
 .ft-rail { position: sticky; top: 8px; background: var(--slate); border: 1px solid var(--iron);
   padding: 12px 13px; display: flex; flex-direction: column; gap: 9px; }
-.ft-rail-k { font-family: var(--data); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
+.ft-rail-k { font-family: var(--data); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
 .ft-rail h3 { font-family: var(--display); font-size: 19px; color: var(--bone); margin: 0; line-height: 1.15; }
 .ft-rail-note { font-size: 12.5px; line-height: 1.5; color: var(--bone); margin: 0; opacity: 0.85; }
 .ft-rail-effect { font-size: 12px; line-height: 1.45; color: var(--dim); margin: 0;
   border-left: 2px solid var(--brass); padding-left: 8px; }
 .ft-rail-kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0;
   border-top: 1px solid var(--iron); padding-top: 8px; }
-.ft-rail-kv dt { font-family: var(--data); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase;
+.ft-rail-kv dt { font-family: var(--data); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--dim); padding-top: 2px; }
 .ft-rail-kv dd { margin: 0; font-size: 12px; color: var(--bone); opacity: 0.85; }
 
@@ -5078,10 +5165,10 @@ ${badgeCss()}
 .look-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .look-emblem { font-family: var(--brand); font-size: clamp(34px, 4.2vw, 56px); color: var(--bone); opacity: 0.9;
   line-height: 1; text-align: center; padding: 0 10px; }
-.look-emblem small { display: block; font-family: var(--data); font-size: 10px; letter-spacing: 0.22em;
+.look-emblem small { display: block; font-family: var(--data); font-size: 11px; letter-spacing: 0.22em;
   text-transform: uppercase; color: var(--dim); margin-top: 10px; }
 .look-pic[data-look="enhanced"] .look-emblem, .look-pic[data-look="enhanced-plus"] .look-emblem { color: var(--verdigris); }   /* AUDIT MERGE-PLUS D8: the UI panel's card is enhanced-plus now (PLUS-ONLY); the sound panel's stays enhanced */
-.look-badge { position: absolute; top: 8px; left: 8px; font-family: var(--data); font-size: 9.5px; letter-spacing: 0.16em;
+.look-badge { position: absolute; top: 8px; left: 8px; font-family: var(--data); font-size: 11px; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink); background: var(--verdigris); padding: 2px 6px; }
 .look-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }
 .look-arrow { font-family: var(--display); font-size: 28px; line-height: 1; color: var(--bone); background: var(--ink);
@@ -5145,7 +5232,7 @@ ${badgeCss()}
   padding: 5px 14px; color: #d8cfae;
   background: rgba(10,12,17,0.55); border: 2px solid rgba(125,116,96,0.55);
 }
-.lv-note-gem { font-size: 15px; line-height: 1; color: #7d7460; }
+.lv-note-gem { font-size: 15px; line-height: 1; color: #9c937d; }
 .lv-note-body { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .lv-note-title { font-size: 15px; letter-spacing: 0.16em; text-indent: 0.16em; text-transform: uppercase; }
 .lv-note-sub { font-size: 17px; color: #d8cfae; }
@@ -5154,7 +5241,7 @@ ${badgeCss()}
    reads it here without being told. */
 .lv-note-key {
   font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
-  color: #7d7460; border: 2px solid rgba(125,116,96,0.45); padding: 1px 7px;
+  color: #9c937d; border: 2px solid rgba(125,116,96,0.45); padding: 1px 7px;
 }
 /* THE LEVEL'S ROW WEARS THE CLASSIC GOLD PAIR, because it is the one
    row that is asking for something. A skill line reports; this one
@@ -5281,7 +5368,7 @@ button.lv-note.lv-clickable:hover, button.lv-note.lv-clickable:focus-visible {
 .notice-cell:first-child { min-width: 7em; }
 .notice-hint {
   margin-top: 10px; padding-top: 6px; border-top: 1px solid rgba(125,116,96,0.35);
-  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7d7460;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #9c937d;
   text-align: right;
 }
 /* ENH-NOTICE3: A TOAST - one PopupText row (DaggerfallUI.AddHUDText:
@@ -5474,7 +5561,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
    Skyrim's own rail carries. Rules above and below, nothing boxed. */
 .lv-crown { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
   gap: 18px; padding: 14px 26px 12px; border-bottom: 2px solid rgba(125,116,96,0.45); }
-.lv-crown .k { color: #7d7460; font-size: 13px; letter-spacing: 0.22em; text-indent: 0.22em;
+.lv-crown .k { color: #9c937d; font-size: 13px; letter-spacing: 0.22em; text-indent: 0.22em;
   text-transform: uppercase; display: block; margin-bottom: 2px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .lv-crown .v { font-size: 22px; letter-spacing: 0.06em; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
@@ -5483,7 +5570,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
 .lv-level .lv-jump { font-size: 26px; letter-spacing: 0.1em; white-space: nowrap;
   color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .lv-level .px-meter { margin-top: 6px; }
-.lv-level .lv-barnote { color: #7d7460; font-size: 12px; letter-spacing: 0.12em;
+.lv-level .lv-barnote { color: #9c937d; font-size: 12px; letter-spacing: 0.12em;
   text-transform: uppercase; margin-top: 4px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 
 /* THE PLATE: what is left to spend. Skyrim's "Perks to increase: 12"
@@ -5492,7 +5579,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
 .lv-plate { text-align: center; padding: 12px 20px 6px; }
 .lv-plate .lv-count { font-size: 40px; line-height: 1; letter-spacing: 0.06em;
   color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
-.lv-plate .lv-countk { display: block; color: #7d7460; font-size: 13px; letter-spacing: 0.22em;
+.lv-plate .lv-countk { display: block; color: #9c937d; font-size: 13px; letter-spacing: 0.22em;
   text-indent: 0.22em; text-transform: uppercase; margin-top: 4px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .lv-plate.spent .lv-count { color: #d8cfae; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
@@ -5523,7 +5610,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
   font: inherit; color: #d8cfae; background: none; border: 0; cursor: pointer;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); transition: none; }
 .lv-star .lv-gem { font-size: 20px; line-height: 1; color: #d8cfae; }
-.lv-star .lv-name { font-size: 12px; letter-spacing: 0.16em; text-indent: 0.16em; text-transform: uppercase; color: #7d7460; }
+.lv-star .lv-name { font-size: 12px; letter-spacing: 0.16em; text-indent: 0.16em; text-transform: uppercase; color: #9c937d; }
 .lv-star .lv-val { font-size: 19px; letter-spacing: 0.04em; }
 .lv-star .lv-delta { font-size: 13px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .lv-star:hover, .lv-star:focus-visible { outline: none; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
@@ -5534,7 +5621,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
 /* A RAISED star wears a ring of its own, so the figure still says what
    was spent when the focus has moved on. */
 .lv-star.raised { color: rgb(243,239,44); }
-.lv-star.full .lv-val { color: #7d7460; }
+.lv-star.full .lv-val { color: #9c937d; }
 
 /* THE CHOICE: the focused star, spelled out, with the two presses.
    The mod's HIDE-DO-NOT-GREY rule is the STARS' business (a star with
@@ -5544,7 +5631,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
    own words for its own pair. */
 .lv-choice { display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 4px 20px 10px; }
-.lv-ask { color: #7d7460; font-size: 14px; letter-spacing: 0.2em; text-indent: 0.2em;
+.lv-ask { color: #9c937d; font-size: 14px; letter-spacing: 0.2em; text-indent: 0.2em;
   text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .lv-pick { display: flex; align-items: center; gap: 10px; }
 .lv-pick .lv-arrow, .lv-pick .lv-press { font: inherit; font-size: 22px; line-height: 1;
@@ -5560,7 +5647,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
 .lv-pickname .n { display: block; font-size: 26px; letter-spacing: 0.12em; text-indent: 0.12em;
   text-transform: uppercase; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
 .lv-pickname .f { display: block; font-size: 17px; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
-.lv-pickname .c { display: block; font-size: 12px; color: #7d7460; letter-spacing: 0.14em;
+.lv-pickname .c { display: block; font-size: 12px; color: #9c937d; letter-spacing: 0.14em;
   text-transform: uppercase; margin-top: 2px; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 /* ASCEND-LIVE: a star wears what the character HAS, in the two colours the
    classic sheet gives a live value above or below its permanent one
@@ -5613,7 +5700,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
 .lv-ribbon { display: flex; gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; min-width: 0;
   padding: 0 20px; scroll-snap-type: x proximity; }
 .lv-ribbon::-webkit-scrollbar { display: none; }
-.lv-sk { flex: 0 0 auto; scroll-snap-align: center; font: inherit; color: #7d7460;
+.lv-sk { flex: 0 0 auto; scroll-snap-align: center; font: inherit; color: #9c937d;
   background: none; border: 0; cursor: pointer; min-height: 44px; padding: 4px 14px;
   display: flex; align-items: baseline; gap: 8px;
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); transition: none; }
@@ -5627,7 +5714,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
    uint[2] mask the classic sheet highlights (PlayerEntity.
    SetSkillRecentlyIncreased). */
 .lv-sk .lv-up { font-size: 12px; color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
-.lv-skrole { text-align: center; color: #7d7460; font-size: 14px; margin: 2px 0 0;
+.lv-skrole { text-align: center; color: #9c937d; font-size: 14px; margin: 2px 0 0;
   letter-spacing: 0.04em; text-shadow: 2px 2px 0 rgba(0,0,0,0.7); }
 .lv-skrole .g { color: #c5bda2; letter-spacing: 0.16em; text-transform: uppercase; font-size: 12px; }
 
@@ -5646,7 +5733,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
    disabled. The refusal has to be REACHABLE (see the window's own note
    beside its classList toggle), so this is a look and an aria state,
    never the attribute. */
-.lv-ok.notyet { color: #7d7460; border-color: rgba(125,116,96,0.5);
+.lv-ok.notyet { color: #9c937d; border-color: rgba(125,116,96,0.5);
   text-shadow: 2px 2px 0 rgba(0,0,0,0.8); background: none; }
 .lv-ok.notyet:hover, .lv-ok.notyet:focus-visible { color: #d8cfae; background: rgba(0,0,0,0.3); }
 
@@ -5685,7 +5772,7 @@ body:has(.travelpanel-junction.show) .qtrack { visibility: hidden; }
      health went up. The row stays three columns (the comparison is the
      point); it is each meter's HEAD that goes vertical. */
   .lv-vitals .px-mtop { flex-direction: column; align-items: flex-start; gap: 1px; margin-bottom: 3px; }
-  .lv-vitals .px-mtop .k { font-size: 10px; letter-spacing: 0.1em; }
+  .lv-vitals .px-mtop .k { font-size: 11px; letter-spacing: 0.1em; }
   .lv-vitals .px-mtop .v { font-size: 14px; }
 }
 /* SHORT AND WIDE - a laptop in a hotel room, the aspect ratio the
@@ -5746,9 +5833,10 @@ export function injectEnhancedStyle(doc = document) {
  *
  *  It is separate from the stylesheet because a font is a NETWORK
  *  request and the sheet is not: blocked, offline or opted out, the
- *  screens still lay out in the stack's fallbacks (Georgia and the
- *  system sans), which is the same never-traps law the title screen
- *  follows when its art is missing.
+ *  screens still lay out in the stack's fallback (monospace - since
+ *  FONT3 the whole skin is the pixel stack, whose last word it is),
+ *  which is the same never-traps law the title screen follows when
+ *  its art is missing.
  *
  *  And it is SKIPPABLE. `?nofonts` is the escape hatch for anyone who
  *  does not want the request at all - a probe, an offline build, or a

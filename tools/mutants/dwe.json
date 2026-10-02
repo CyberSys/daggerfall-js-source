@@ -1484,8 +1484,8 @@
   {
     "name": "DW-E4-transient-saved",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "foes.filter((f) => !f.dead && !f.puppet && !f.transient && !f.yielded",
-    "new": "foes.filter((f) => !f.dead && !f.puppet && !f.yielded",
+    "old": "foes.filter((f) => !f.dead && !f.puppet && !f.transient && !f.entity?.revenant",
+    "new": "foes.filter((f) => !f.dead && !f.puppet && !f.entity?.revenant",
     "tests": [
       "test/dwe_enemies.test.js"
     ]
