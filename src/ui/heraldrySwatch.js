@@ -11,8 +11,9 @@
 // frame wears the same picture as its background (`heraldrySwatchSrc`);
 // the HUD and the Chronicle an <img> (`heraldrySwatch`, `paintSwatch`).
 //
-// Where a face finds the heraldry: net/heraldryIndex.js heraldryByTag, by
-// the guild's tag, off what the client already holds (the seats' list,
+// Where a face finds the heraldry: net/heraldryIndex.js heraldryIndex, by
+// the guild's tag (a Chronicle row's guild by its name too), off what the
+// client already holds (the seats' list,
 // a seat's standings, the reader's own guild) - `heraldryLookup` keeps
 // that index for a face asked every frame. And which guild a Chronicle
 // row is about: `chronicleGuildOf`.
@@ -21,7 +22,7 @@
 // (ONLINE).
 // ═══════════════════════════════════════════════════════════════════
 import { heraldryOf, heraldryText } from '../net/heraldryLaw.js';
-import { heraldryByTag } from '../net/heraldryIndex.js';
+import { heraldryIndex, armsNamed } from '../net/heraldryIndex.js';
 import { shieldSvg } from './heraldryArt.js';
 
 /** The swatch's class. */
@@ -72,18 +73,20 @@ export function heraldrySwatch(doc, heraldry, { size = HERALDRY_SWATCH_PX, class
 }
 
 /**
- * A LOOKUP BY TAG for a face asked every frame: `sources()` names what the client holds (heraldryByTag's), and the index
- * is built again only when one of them is another object than the last time. `(tag) => heraldry`, or null.
+ * A LOOKUP BY TAG for a face asked every frame: `sources()` names what the client holds (heraldryIndex's), and the index
+ * is built again only when one of them is another object than the last time. `(tag, name?) => heraldry`, or null - with
+ * `name` (a Chronicle row's guild as it was that day), only where the guild holding the tag now bears that name too
+ * (AUDIT HERALDRY H3: a disbanded guild's tag taken by a new one is not its arms); a name tag's live guild asks by tag.
  * @param {() => any[]} sources
  */
 export function heraldryLookup(sources) {
   /** @type {any[]} */ let seen = [];
   let index = new Map();
-  return (tag) => {
+  return (tag, name = undefined) => {
     if (typeof tag !== 'string' || !tag) return null;
     const now = sources() ?? [];
-    if (now.length !== seen.length || now.some((x, i) => x !== seen[i])) { seen = [...now]; index = heraldryByTag(...now); }
-    return index.get(tag) ?? null;
+    if (now.length !== seen.length || now.some((x, i) => x !== seen[i])) { seen = [...now]; index = heraldryIndex(...now); }
+    return armsNamed(index, tag, name);
   };
 }
 
@@ -94,11 +97,13 @@ const CHRONICLE_FIRST = Object.freeze({
 });
 /**
  * THE GUILD A CHRONICLE ROW IS ABOUT - the one its line names first, `{ name, tag }` as it was that day - or null for a row
- * that names none (a Royal Tourney's, a work's raising, a battle moved, a void Tourney's).
+ * that names none (a Royal Tourney's, a work's raising, a battle moved, a void Tourney's, a voided battle that restored
+ * no holder).
  */
 export function chronicleGuildOf(row) {
   const d = row?.data ?? {};
   if (row?.kind === 'siege-void' && d.battle === 'tourney') return null;   // its line names neither guild
-  const g = d[CHRONICLE_FIRST[row?.kind] ?? 'guild'];
+  // AUDIT HERALDRY H1: a battle the Moderators voided names the holder it went back to, if any - never its attacker (`guild`)
+  const g = row?.kind === 'siege-voided' ? (d.restored ? d.holder : null) : d[CHRONICLE_FIRST[row?.kind] ?? 'guild'];
   return g && typeof g === 'object' && typeof g.tag === 'string' && g.tag ? g : null;
 }

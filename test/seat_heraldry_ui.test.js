@@ -11,8 +11,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { byClass } from './chargenDom.mjs';
 import { heraldryText } from '../src/net/heraldryLaw.js';
-import { heraldryByTag } from '../src/net/heraldryIndex.js';
-import { shieldSvg, SHIELD_CLOTH, SHIELD_DEVICE, DEVICE_ART } from '../src/ui/heraldryArt.js';
+import { heraldryByTag, heraldryIndex, armsNamed } from '../src/net/heraldryIndex.js';
+import { shieldSvg, drawShield, SHIELD_CLOTH, SHIELD_DEVICE, DEVICE_ART } from '../src/ui/heraldryArt.js';
+import { chronicleLine } from '../src/net/townSeatLaw.js';   // AUDIT HERALDRY H1-H2: what each row's line names
+import * as tvHud from '../src/ui/travelViewHud.js';   // AUDIT HERALDRY H4: the Overworld's name face
 import { heraldrySwatchSrc, heraldrySwatch, paintSwatch, heraldryLookup, chronicleGuildOf, HERALDRY_SWATCH_CLASS, HERALDRY_SWATCH_PX } from '../src/ui/heraldrySwatch.js';
 import { createNameLayer, NAME_CSS } from '../src/ui/nameLayer.js';
 import { foldSiege, siegeHudModel, fightArmed, SIEGE_STATE_EMPTY } from '../src/net/siegeLink.js';
@@ -269,4 +271,133 @@ test('HERALDRY-SHOWN THE HALL OF RECORDS\' ROLL OF ARMS: the book reader draws t
   assert.match(w, /townTalk\.showOverlay\(hallOfRecordsWindow\(st, r\.data\.rows, r\.data\.zero, seatArmsOf\)\);/);
   assert.match(w, /return r\.data \? hallOfRecordsWindow\(seat, r\.data\.rows, r\.data\.zero, seatArmsOf\) : null;/);
   assert.match(rd('src/ui/hallOfRecords.js'), /export const hallOfRecordsWindow = \(seat, rows, zero = null, armsOf = null\) => createBookReaderWindow\(hallOfRecordsBook\(seat, rows, zero, armsOf\)\);/);
+});
+
+// ─── AUDIT HERALDRY H1-H4 ────────────────────────────────────────────
+const NAMED = (g) => ({ name: g.name, tag: g.tag });
+
+test('AUDIT HERALDRY H1 a battle the Moderators voided (`siege-voided`, written { guild: attacker, holder, restored }) is about the holder it went back to, whose words its line ends on - never the attacker, whom its line never names; a void that restored no holder, a Tourney\'s included, is about none (mutants: the row unmapped; restored unread; the holder unchecked)', () => {
+  const base = { kind: 'siege-voided', week: 5, data: { battle: 'siege', result: null, guild: NAMED(EO), holder: NAMED(SH), restored: false, by: 'mod' } };
+  const restored = { ...base, data: { ...base.data, restored: true, result: 'attack' } };
+  const tourney = { ...base, data: { ...base.data, battle: 'tourney' } };
+  assert.equal(chronicleLine(base, ANTICLERE).includes('<EO>'), false, 'the line names no attacker');
+  assert.ok(chronicleLine(restored, ANTICLERE).endsWith('went back to the Silver Hand <SH>.'));
+  assert.equal(chronicleGuildOf(base), null, 'unrestored: about none');
+  assert.equal(chronicleGuildOf(tourney), null, 'a Tourney voided: about none');
+  assert.equal(chronicleGuildOf(restored)?.tag, 'SH', 'restored: the holder it went back to');
+  assert.equal(chronicleGuildOf({ ...restored, data: { ...restored.data, holder: null } }), null, 'restored to none named: none');
+  assert.equal(chronicleGuildOf({ ...restored, data: { ...restored.data, holder: { name: 'X', tag: '' } } }), null, 'a holder with no tag: none');
+  assert.equal(chronicleGuildOf({ kind: 'siege-void', week: 5, data: { battle: 'siege', guild: NAMED(EO), holder: NAMED(SH), carried: false } })?.tag, 'SH', 'a plain void unchanged');
+});
+
+test('AUDIT HERALDRY H2 the Roll of Arms names only the guilds a row\'s LINE names - a void Tourney\'s two and an uncarried void\'s attacker left out - each row\'s in the order its line names them, not its data\'s key order (mutants: every guild in the row; the key order)', () => {
+  const arms = new Map([['SH', SH_ARMS], ['EO', EO_ARMS], ['IC', IC.heraldry]]);
+  const armsOf = (t) => arms.get(t) ?? null;
+  const roll = (rows) => hallOfRecordsRoll(rows, ANTICLERE, armsOf);
+  assert.deepEqual(roll([{ kind: 'siege-void', week: 4, data: { battle: 'tourney', guild: NAMED(EO), holder: NAMED(SH), carried: false } }]), [], 'a void Tourney names neither');
+  assert.deepEqual(roll([{ kind: 'siege-void', week: 4, data: { battle: 'siege', guild: NAMED(EO), holder: NAMED(SH), carried: false } }]), ['The Silver Hand <SH>: Azure bordered Gold, a Tower.'], 'an uncarried void names the holder alone');
+  assert.deepEqual(roll([{ kind: 'siege-void', week: 4, data: { battle: 'siege', guild: NAMED(EO), holder: NAMED(SH), carried: true } }]), [
+    'The Silver Hand <SH>: Azure bordered Gold, a Tower.', 'Ebon Oath <EO>: Crimson bordered Argent, a Wolf.',
+  ], 'a carried void: the holder its line names first, then the attacker');
+  assert.deepEqual(roll([{ kind: 'fealty-broken', week: 6, data: { vassal: NAMED(IC), liege: NAMED(SH), breaker: NAMED(SH) } }]), [
+    'The Silver Hand <SH>: Azure bordered Gold, a Tower.', 'Iron Circle <IC>: Vert bordered Sable, an Axe.',
+  ], 'the breaker first, as the line says it');
+  assert.deepEqual(roll([{ kind: 'siege-voided', week: 7, data: { battle: 'siege', guild: NAMED(EO), holder: NAMED(SH), restored: false } }]), [], 'a voided battle restored to none names no guild');
+});
+
+test('AUDIT HERALDRY H3 the index keeps each tag\'s guild name beside its heraldry; a Chronicle row\'s guild - the Roll\'s and the Seat tab\'s - is shown arms only where the guild holding its tag now bears its name too (a disbanded guild\'s tag taken by a new one shows none of the new arms); a name tag asks by tag alone, as before (mutants: the name unkept; the name unchecked; the tag path checked)', async () => {
+  const idx = heraldryIndex({ seats: [{ holder: { guild: SH } }] }, IC);
+  assert.deepEqual([...idx], [['SH', { name: SH.name, heraldry: SH_ARMS }], ['IC', { name: IC.name, heraldry: IC.heraldry }]]);
+  assert.deepEqual(heraldryByTag({ seats: [{ holder: { guild: SH } }] }, IC).get('SH'), SH_ARMS, 'the tag alone: the heraldry, as before');
+  assert.deepEqual(heraldryIndex({ tag: 'NN', heraldry: EO_ARMS }).get('NN'), { name: null, heraldry: EO_ARMS }, 'a source with no name');
+  assert.deepEqual([armsNamed(idx, 'SH'), armsNamed(idx, 'SH', SH.name), armsNamed(idx, 'SH', 'Old Shield'), armsNamed(idx, 'XX')], [SH_ARMS, SH_ARMS, null, null]);
+  // the lookup: by tag for a name tag, by tag and name for a row
+  const look = heraldryLookup(() => [SH]);
+  assert.deepEqual([look('SH'), look('SH', SH.name), look('SH', 'Old Shield')], [SH_ARMS, SH_ARMS, null]);
+  // the Roll
+  const rows = [{ kind: 'claim', week: 2, data: { guild: { name: 'Old Shield', tag: 'SH' }, total: 5000 } }, { kind: 'held', week: 9, data: { guild: NAMED(SH) } }];
+  assert.deepEqual(hallOfRecordsRoll(rows.slice(0, 1), ANTICLERE, look), [], 'the old guild\'s row: the new arms not shown');
+  assert.deepEqual(hallOfRecordsRoll(rows.slice(1), ANTICLERE, look), ['The Silver Hand <SH>: Azure bordered Gold, a Tower.']);
+  // the Seat tab's Chronicle
+  const noticeBook = { seenAt: () => null, read: async () => ({ board: { notes: [], notices: [], me: {} } }), markSeen: () => {}, cached: () => null, draft: () => ({ subject: '', body: '', days: 7, button: '' }), noticeDraft: () => ({ subject: '', body: '', days: 3 }), readGuild: async () => ({ data: null, error: 'no-guild' }) };
+  const data = {
+    seat: ANTICLERE, week: 16, phase: 'muster', reckoningAt: 1_800_003_600, turningAt: 1_800_086_400, defence: 4500,
+    holder: { guild: SH, since: 3, standing: 55 }, battle: null, standings: [], mine: null,
+    chronicle: [rows[1], rows[0]],
+  };
+  const seatBook = { open: true, data: { seats: [] }, standings: async () => ({ data, error: null }), forts: async () => ({ data: null, error: 'x' }) };
+  const host = document.createElement('div');
+  mountNoticeBoard(host, { town: { name: 'Anticlere', mapId: 3021 }, book: noticeBook, nowS: () => 1_800_000_000, seat: { seat: ANTICLERE, book: seatBook } });
+  byClass(host, 'notice-tab')[1].onclick();
+  await tick();
+  const lis = byClass(host, 'notice-chronicle')[0].querySelectorAll('li');
+  assert.deepEqual(lis.map((li) => li.querySelectorAll('img')[0]?.src ?? null), [heraldrySwatchSrc(SH_ARMS), null], 'the Silver Hand\'s line under its shield; Old Shield\'s under none');
+});
+
+test('AUDIT HERALDRY H4 the Overworld\'s name face frames a guild\'s <TAG> as the name over a head does - a dark plate edged in the guild\'s border colour, its shield drawn on the canvas (field, border, device) before the tag - off the host\'s one lookup; its sprite is kept by the heraldry too (made once, again only when the arms change); a tag unknown, or no lookup, the plain tag (mutants: the shield; the border colour; the key; the host\'s hand-off)', () => {
+  const Path2DWas = globalThis.Path2D;
+  globalThis.Path2D = class { constructor(d) { this.d = d; } };
+  const calls = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k in t ? t[k] : k === 'measureText' ? (s) => ({ width: String(s).length * 7 }) : (...a) => { calls.push([k, ...a]); }),
+    set: (t, k, v) => { t[k] = v; calls.push(['=' + String(k), v]); return true; },
+  });
+  const win = { devicePixelRatio: 1, innerWidth: 1280, innerHeight: 720, addEventListener() {}, removeEventListener() {} };
+  const doc = { defaultView: win, fonts: null };
+  let canvases = 0;
+  const mk = (tag) => {
+    const n = { tagName: tag.toUpperCase(), className: '', children: [], style: { setProperty() {} }, ownerDocument: doc, attrs: {}, dataset: {}, setAttribute(k, v) { this.attrs[k] = v; }, append(...c) { this.children.push(...c); }, remove() {}, addEventListener() {}, isConnected: true, width: 0, height: 0, getBoundingClientRect() { return { width: 0, height: 0 }; } };
+    if (tag === 'canvas') { canvases++; n.getContext = () => ctx; }
+    return n;
+  };
+  Object.assign(doc, { createElement: mk, createElementNS: (_, tag) => mk(tag), getElementById: () => null, querySelectorAll: () => [], head: mk('head'), body: mk('body') });
+  const arms = new Map([['SH', SH_ARMS]]);
+  tvHud.setTravelViewArmsOf((t) => arms.get(t) ?? null);
+  tvHud.showTravelViewHud({}, doc);
+  const frame = (gt, label = 'Mack') => tvHud.updateTravelViewHud({ feet: { x: 640, y: 360, front: true }, heading: 0, yaw: 0, where: '', marks: [{ key: 'trav:m', x: 400, y: 300, front: true, label, kind: 'traveller', badge: { lv: 3, gt } }] });
+  const shieldFills = () => calls.filter((c) => c[0] === 'fill' && c[1]?.d === SHIELD_CLOTH);
+  const setBefore = (i, k) => { for (let j = i - 1; j >= 0; j--) if (calls[j][0] === `=${k}`) return calls[j][1]; return null; };
+  try {
+    frame('SH');
+    const f = calls.findIndex((c) => c[0] === 'fill' && c[1]?.d === SHIELD_CLOTH);
+    assert.ok(f >= 0, 'the shield drawn');
+    assert.equal(setBefore(f, 'fillStyle'), '#3b6fd8', 'its field, Azure');
+    const edge = calls.findLastIndex((c, i) => i < f && c[0] === 'strokeRect');   // the Renown's box is the first
+    assert.ok(edge >= 0 && calls.filter((c) => c[0] === 'strokeRect').length === 2, 'the plate edged before the shield');
+    assert.equal(setBefore(edge, 'strokeStyle'), '#d4a017', 'the plate edged in the border colour, Gold');
+    const dev = calls.findIndex((c, i) => i > f && c[0] === 'fill' && c[1]?.d === DEVICE_ART.tower[0].d);
+    assert.equal(setBefore(dev, 'fillStyle'), '#d4a017', 'the device in the border colour');
+    const hole = calls.findIndex((c, i) => i > dev && c[0] === 'fill' && c[1]?.d === DEVICE_ART.tower[1].d);
+    assert.equal(setBefore(hole, 'fillStyle'), '#3b6fd8', 'its holes the field');
+    assert.ok(calls.some((c, i) => i > f && c[0] === 'stroke' && c[1]?.d === SHIELD_CLOTH && setBefore(i, 'strokeStyle') === '#d4a017'), 'the border, Gold');
+    const tagAt = calls.findIndex((c) => c[0] === 'fillText' && c[1] === '<SH>');
+    assert.ok(tagAt > dev, 'the tag after its shield');
+    assert.ok(calls[tagAt][2] > calls.find((c, i) => i > edge && c[0] === 'translate')[1], 'the tag right of the shield');
+    // kept: the same frame again makes no sprite; new arms make one
+    const made = canvases;
+    calls.length = 0;
+    frame('SH');
+    assert.equal(canvases, made, 'the sprite kept - no canvas, no shield drawn a frame');
+    assert.equal(shieldFills().length, 0);
+    arms.set('SH', EO_ARMS);
+    frame('SH');
+    assert.equal(canvases, made + 1, 'the arms changed: made again');
+    const f2 = calls.findIndex((c) => c[0] === 'fill' && c[1]?.d === SHIELD_CLOTH);
+    assert.equal(setBefore(f2, 'fillStyle'), '#b3262e', 'the new field, Crimson');
+    // a tag unknown, or no lookup: the plain tag
+    calls.length = 0;
+    frame('IC', 'Bran');
+    assert.ok(calls.some((c) => c[0] === 'fillText' && c[1] === '<IC>'));
+    assert.deepEqual([shieldFills().length, calls.filter((c) => c[0] === 'strokeRect').length], [0, 1], 'unknown: no frame (the Renown\'s box alone)');
+    tvHud.setTravelViewArmsOf('no');
+    calls.length = 0;
+    frame('SH', 'Cass');
+    assert.equal(shieldFills().length, 0, 'no lookup: none');
+    // the canvas door alone
+    assert.equal(drawShield(ctx, null, 0, 0, 10), false);
+    globalThis.Path2D = undefined;
+    assert.equal(drawShield(ctx, SH_ARMS, 0, 0, 10), false, 'no Path2D: none');
+  } finally { tvHud.disposeTravelViewHud(); tvHud.setTravelViewArmsOf(null); globalThis.Path2D = Path2DWas; }
+  // the host: the one lookup the name tags use
+  assert.match(rd('src/scenes/world.js'), /\n  const seatArmsOf = heraldryLookup\(\(\) => \[guildBook\?\.guild, seatBook\?\.data\]\);\n  setTravelViewArmsOf\(seatArmsOf\);/);
 });

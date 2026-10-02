@@ -241,8 +241,8 @@
   {
     "name": "SEAT1a-book-no-cache",
     "file": "src/net/townSeatBook.js",
-    "old": "if (!force && nowMs() - at < SEAT_LIST_CACHE_MS)",
-    "new": "if (false && nowMs() - at < SEAT_LIST_CACHE_MS)",
+    "old": "if (!force && nowMs() - at < SEAT_LIST_CACHE_MS &&",
+    "new": "if (false && nowMs() - at < SEAT_LIST_CACHE_MS &&",
     "tests": [
       "test/seat1a_client.test.js"
     ]
