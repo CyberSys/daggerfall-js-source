@@ -263,7 +263,12 @@ Mines' N0000033, CORNER-TOP in the reporter's pit, and no fall at B1's three yaw
   (those three, `surv6`, `csa_time`, `forage4`, `climbfield`, `climb3`) were run again on the final code: 208 dead,
   3 equivalent as recorded, none stale; the records the audit moved re-aimed by content (fb1002_climb's SEAM-STEP
   three, CRACK-LIP two and CORNER-TOP two, HUNT-FOES-the-minutes-lost-with-the-slot, CLIMB3-sill-pass-held-short and
-  the two free-climb-jump records back to their text on the base, SURV6-the-minutes-never-pass).
+  the two free-climb-jump records back to their text on the base, SURV6-the-minutes-never-pass). Then every record in
+  any list aimed within 30 lines of a line the audit changed (99, from 17 more lists): 95 dead, one equivalent as
+  recorded, two survivors that survive on the base too (below), and one record stale since the batch:
+  AUDITCLIMB2-G1-climb-steps, recorded equivalent, now dies. HUG-TOUCH's press stops at the face, the resolve no
+  longer holds the body off a plinth, and without the climb's `noStep` a climb across beside a 0.8 m plinth steps up
+  7 cm in a step. The flag is now that plinth's one guard; the record is a law (Parkour-Arc's AUDIT CLIMB2 row says so).
 - PIN MOVED: `climb2.test.js` (HUG-TOUCH, above); `surv6_hunting.test.js`'s composed hunt (the minutes at the close)
   and its source pin (`huntFoesNear`). Mutant records re-aimed by content on the moved source: `climb3.json`
   (CLIMB3-sill-pressed-into, CLIMB3-sill-pass-held-short), `climbfield.json` (E1-no-eave, E1-eave-up-every-wall),
@@ -274,6 +279,10 @@ Mines' N0000033, CORNER-TOP in the reporter's pit, and no fall at B1's three yaw
   this change's.
 
 ## Found on the way, not changed
+
+- CLIMBDOWN-45-degree-eave-refused and CLIMBDOWN-45-degree-slab-refused (`tools/mutants/climbdown.json`) survive, on
+  the base as here: the rays' scatter margin under the 50-degree top limit (`PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER`)
+  is pinned by no test. Not this batch's.
 
 - Using the Fishing-Net from the hotbar at the helm finds no cast and says Foraging's general line about where nets
   work, which tells a player already at sea to stand at sea. A helm-specific line would be polish.
