@@ -102,6 +102,7 @@ test('TIME1 the tool: tools/skyCutover.mjs lists the aligned instants, and says 
   const before = cutoverLines(['--after', new Date(SWITCH.fromMs - 3_600_000).toISOString()]);
   assert.match(before[0], /^TimeScale 48 \(a sky day every 30 real minutes\)/);
   assert.ok(before.some((l) => l.includes(new Date(SWITCH.fromMs).toISOString())), before.join('\n'));
+  assert.deepEqual(alignedSkySwitches(RATE, SWITCH.fromMs + 1000), [], 'laid on the sky as it stands, a switch to the rate it already runs at is no switch');
   // AUDIT TIME: a merge that lands a day after the switch - the tool lists where the last row may MOVE, laid on the sky
   // without it, and a row moved there is seamless with midnight on the hour and the half hour
   const late = cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString()]);

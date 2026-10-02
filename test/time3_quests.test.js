@@ -110,6 +110,11 @@ test('TIME3 the Clock online: the time RAISED since its sample is charged whole 
   const both = new Clock(q, 'Clock _b_ 3.00:00'); both.startTimer();
   c.own += 8 * HOUR_S + HOUR_S; c.raised += 8 * HOUR_S; both.tick(q);
   assert.equal(both.remainingTimeInSeconds, days3 - 8 * HOUR_S - PLAYED_STEP_MAX_SECONDS, 'an eight-hour rest and an hour away in one gap: the rest whole, the hour one step');
+  // a rest, then a gap lived away: the rest is charged once, the gap one step - the tick re-samples the count
+  const then = new Clock(q, 'Clock _t_ 3.00:00'); then.startTimer();
+  c.own += 2 * HOUR_S; c.raised += 2 * HOUR_S; then.tick(q);
+  c.own += 5 * DAY_S; then.tick(q);
+  assert.equal(then.remainingTimeInSeconds, days3 - 2 * HOUR_S - PLAYED_STEP_MAX_SECONDS, 'the rest\'s two hours are not charged again with the time away');
   const over = new Clock(q, 'Clock _x_ 3.00:00'); over.startTimer();
   c.own += 100; c.raised += 5000; over.tick(q);
   assert.equal(over.remainingTimeInSeconds, days3 - 100, 'a raise is charged no further than the clock moved');
