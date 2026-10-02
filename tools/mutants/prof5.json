@@ -332,8 +332,8 @@
   {
     "name": "PROF5-law-wool-held-back",
     "file": "src/net/professionLaw.js",
-    "old": "export const NO_PACK_FORM = Object.freeze([]);",
-    "new": "export const NO_PACK_FORM = Object.freeze(['cloth:wool']);",
+    "old": "export const NO_PACK_FORM = Object.freeze(['work:ram']);",
+    "new": "export const NO_PACK_FORM = Object.freeze(['work:ram', 'cloth:wool']);",
     "tests": [
       "test/prof5_law.test.js",
       "test/prof5_service.test.js"
@@ -563,8 +563,8 @@
   {
     "name": "PROF5-svc-courier-free",
     "file": "server-account/src/market.js",
-    "old": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier > 0`).bind(me, rid, nonce),",
-    "new": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier < 0`).bind(me, rid, nonce),",
+    "old": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier - ?4 > 0`).bind(me, rid, nonce, courierTithe),",
+    "new": "      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier - ?4 < 0`).bind(me, rid, nonce, courierTithe),",
     "tests": [
       "test/prof5_service.test.js",
       "test/prof5_client.test.js"
@@ -863,8 +863,8 @@
   {
     "name": "PROF5-tab-max-price-only",
     "file": "src/ui/marketTab.js",
-    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
-    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
+    "old": "listing: row.id, units, max: units * row.price + (courier ?? 0), hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
+    "new": "listing: row.id, units, max: units * row.price, hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint),",
     "tests": [
       "test/prof5_client.test.js"
     ]
@@ -926,11 +926,12 @@
   {
     "name": "PROF5-window-market-hidden",
     "file": "src/ui/noticeWindow.js",
-    "old": "    const shown = [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : [])];",
-    "new": "    const shown = [['notices', 'Notices'], ...(workShown() ? [['work', 'Work']] : [])];",
+    "old": "...(workShown() ? [['work', 'Work']] : []), ...(marketShown() ? [['market', 'Market']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
+    "new": "...(workShown() ? [['work', 'Work']] : []), ...(guildsShown() ? [['guilds', 'Guilds']] : []), ...(seatShown() ? [['seat', 'Seat']] : [])];",
     "tests": [
       "test/prof5_client.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the board's tabs gained the Seat tab after Guilds."
   },
   {
     "name": "PROF5-host-wear-unminted",
@@ -953,8 +954,8 @@
   {
     "name": "PROF5-host-no-market",
     "file": "src/scenes/world.js",
-    "old": "      character: () => characterIdOf(playerEntity), work, market,\n",
-    "new": "      character: () => characterIdOf(playerEntity), work,\n",
+    "old": "      gate: () => noticeGateCard(), answer: (note) => answerNote(note), work, market,\n",
+    "new": "      gate: () => noticeGateCard(), answer: (note) => answerNote(note), work,\n",
     "tests": [
       "test/prof5_client.test.js"
     ]

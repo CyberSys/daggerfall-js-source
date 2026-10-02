@@ -36,8 +36,9 @@ function choose(rig, id) {
 const PLACE = Object.freeze({ pos: [1, 0, 2], rot: [90, 0, 0], scale: 1, light: null, storage: false, paid: 120 });
 
 test('HOME-STATIONS the law: a piece serves one of three crafts, carried only when it serves one; a craft it does not know, a piece that holds things, and one\'s own item serve none (mutants: any word taken; storage and a station together; the key always written)', () => {
-  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom']);   // PROF2: the forge, a fourth (Professions-Arc 23); PROF4: the workbench, a fifth (25); PROF7: the loom, a sixth (29)
-  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000, forge: 50000, workbench: 50000, loom: 50000 });   // STATION-FEES: ten times the first pass; PROF2: a forge as the alchemy station; PROF4: a workbench as the forge; PROF7: a loom as the workbench
+  // PIN MOVED (PROF11): the mason's bench a seventh station, at the loom's licence
+  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason']);   // PROF2: the forge, a fourth (Professions-Arc 23); PROF4: the workbench, a fifth (25); PROF7: the loom, a sixth (29); PROF11: the mason's bench, a seventh
+  assert.deepEqual({ ...DECOR_STATION_FEES }, { alchemy: 50000, spells: 100000, enchant: 200000, forge: 50000, workbench: 50000, loom: 50000, mason: 50000 });   // STATION-FEES: ten times the first pass; PROF2: a forge as the alchemy station; PROF4: a workbench as the forge; PROF7: a loom as the workbench; PROF11: a mason's bench as the loom
   assert.deepEqual({ ...DECOR_STATION_SERVICES }, { alchemy: 'guildServicePotionMaker', spells: 'guildServiceSpellMaker', enchant: 'guildServiceItemMaker' }, 'the forge is no guild\'s service - it opens the Stores\' forge');
   assert.deepEqual(decorStationWords(null, 'forge'), { pick: 'Station: Forge >', act: 'Make station - 50,000 gold', what: 'station:forge' });
   assert.equal(DECOR_STATION_NAMES.spells, 'Spellmaking station');
@@ -134,7 +135,7 @@ test('HOME-STATIONS an online home: the account service first - a station it kee
 test('HOME-STATIONS the room and the service: a station pressed opens its craft\'s maker for its owner alone, through the guild service\'s own door; the account service writes the craft with the place (mutants: the station never pressed; any visitor served; the craft never stored)', () => {
   const M = src('src/scenes/worldModes.js');
   assert.match(M, /if \(piece\?\.station\) \{ useDecorStation\(piece\); return; \}/);
-  const use = M.slice(M.indexOf('  function useDecorStation(piece) {'), M.indexOf('  function useDecorStation(piece) {') + 900);
+  const use = M.slice(M.indexOf('  function useDecorStation(piece) {'), M.indexOf('  function useDecorStation(piece) {') + 1100);   // GUILD1d (re-aimed by content): the hall's members' rung inside the owner's check
   assert.match(use, /if \(!decorOwnerHere\(\)\) \{/, 'the owner\'s alone');
   assert.match(use, /openServiceFlow\(DECOR_STATION_SERVICES\[piece\.station\], \{ guild: null, memberships: null, store: null, rows, route: null \}\)/);
   assert.match(src('server-account/src/decor.js'), /const placeJson = \(\{ pos, rot, scale, light, storage, paid, station \}\) => JSON\.stringify\(\{ pos, rot, scale, light, storage, paid, \.\.\.\(station \? \{ station \} : \{\}\) \}\);/);

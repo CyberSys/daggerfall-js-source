@@ -339,12 +339,12 @@
   {
     "name": "S38-version-not-bumped",
     "file": "src/net/wire.js",
-    "old": "export const RELAY_VERSION = 'world142';",
+    "old": "export const RELAY_VERSION = 'world150';",
     "new": "export const RELAY_VERSION = 'world131';",
     "tests": [
       "test/soc1_hub.test.js",
       "test/relayversion.test.js"
     ],
-    "note": "HERALD (PIN MOVED): world138. FRIENDS-SYNC (re-aimed by content): world141 - CLIMB5/CLIMB6 moved it on without this record; then world142, FRIENDS-SYNC's own."
+    "note": "HERALD (PIN MOVED): world138. FRIENDS-SYNC (re-aimed by content): world141 - CLIMB5/CLIMB6 moved it on without this record; then world142, FRIENDS-SYNC's own. ELITE FOES (re-aimed by content): world143, the foe record's `z`. The Seats arc (re-aimed at its merges): world149, then world150 past main's ELITE FOES at the merge of #519-#523."
   }
 ]

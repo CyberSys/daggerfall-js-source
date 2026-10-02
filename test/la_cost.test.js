@@ -210,7 +210,7 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   const pairs = [
     // merged beside main's HITFLASH1 and WEAPON-MOUNT: a batch's hit flash is its own (uHitFlash), and a decal call
     // says whether it hangs a picture or lays a film (uPicture) - both the call's, beside the atlas
-    ['billboards', () => r.drawBillboards(bbs, R, UP), ['uRight', 'uUp', 'uFlatWind', 'uSpectral', 'uConceal', 'uHitFlash', 'uSize', 'uOrigin', 'uSway']],
+    ['billboards', () => r.drawBillboards(bbs, R, UP), ['uRight', 'uUp', 'uFlatWind', 'uSpectral', 'uConceal', 'uHitFlash', 'uEliteGlow', 'uSize', 'uOrigin', 'uSway']],   // ELITE FOES: a batch's glow is its own too, as the flash is
     ['decals', () => r.drawDecals(decal, { id: 'atlas' }), ['uPicture']],
     ['a character', () => r.drawCharacter(rig, I), ['uModel', 'uTex', 'uUseTex', 'uAlphaCut']],
   ];
@@ -230,7 +230,8 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   // upload, and the cascades' origin (uSunOrigin, render/shadowPass.js) the shadow block's
   // merged beside DW-F: the billboard block carries the water column's switch and sampler (two more)
   // PROF4 (bible/06-Systems/Professions-Arc.md 25): and the felled tree's tip, set standing (one more)
-  assert.deepEqual(counts, ['billboards 100 -> 28', 'decals 85 -> 12', 'a character 86 -> 13']);
+  // ELITE FOES: and a batch's glow (uEliteGlow, one more on the billboards' every call)
+  assert.deepEqual(counts, ['billboards 101 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);

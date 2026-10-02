@@ -50,7 +50,7 @@ import {
 } from './travelPaths.js';
 import { TravelAutopilot, rectOf, rectMinMax, rectContains } from './travelAutopilot.js';
 import { TRAVEL_OPTIONS_TEXT as T, TRAVEL_NAV_TEXT, format, localize } from './travelOptionsText.js';
-import { hasPort } from './travelPorts.js';
+import { hasPortFor } from './travelPorts.js';   // SEAT2b part two: HasPort, or a members' Harbour at a seat
 import { FATIGUE_MULTIPLIER } from './statMods.js';
 import { LOCATION_TYPES, CLIMATES, worldCoordToMapPixel } from '../formats/mapsFile.js';
 import { joinPoint, dryLine as dryLineOf } from './travelRoute.js';   // AUDIT OW3 J3: a resume rejoins the road where the start's join did; AUDIT DEEP T2-1's law, one home (OWS2)
@@ -1005,7 +1005,7 @@ export function createTravelOptions(deps = {}) {
     isPathFollowing: () => !!ui?.isShowing && st.destinationName == null,
     isFollowingRoad: () => st.road,
     showMessage: (msg) => { if (msg) ui?.showMessage(msg); },
-    hasPort: (mapId) => hasPort(mapId),
+    hasPort: (mapId) => hasPortFor(mapId),   // SEAT2b part two: or a members' Harbour at a seat - "a Travel Options port for members" (travelPorts.js)
   };
 
   /** :1325-1365, Update - THE ORDER IS THE MOD'S, step for step.

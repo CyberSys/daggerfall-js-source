@@ -54,6 +54,9 @@
 // send a frame down every socket each time it looks again.
 // ═══════════════════════════════════════════════════════════════════
 import { GUILD_FOUND_GOLD, guildGoldOk } from './guildLaw.js';
+import { guildHallEntryOk } from './hallLaw.js';   // GUILD1d: who may walk into a hall
+import { heraldryOf } from './heraldryLaw.js';   // GUILD1d: a heraldry chosen, in the law's shape
+import { mintMarksRid } from './marksBook.js';   // GUILD1d: a heraldry changed burns Drakes - one request id a choice
 
 /** A look older than this is taken again when the tab opens. */
 export const GUILD_FRESH_MS = 30_000;
@@ -97,9 +100,12 @@ export class GuildBook {
    *        material's name for a count - or null
    * @param {{ act: (o: any) => Promise<any> } | null} [opts.realm]  REALM P2.2: a realm character's act on its record
    *        (systems/realmSaves.js realmGoldAct over the playing session), or null for any other character
+   * @param {((mapId: number) => void)|null} [opts.onHall]  GUILD1d: a hall's town changed (bought, sold, opened, its
+   *        heraldry) - the host reads that town's homes again, so its door and its banners say it now
    */
-  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null }) {
+  constructor({ door, character, wallet, now = () => Date.now(), onOrders = null, marks = null, profStores = null, realm = null, onHall = null }) {
     this.door = door;
+    this.onHall = onHall;
     this.realm = realm;
     /** MARKS1: the account's Marks book (net/marksBook.js) - the Marks treasury moves through it; null offline */
     this.marks = marks;
@@ -120,6 +126,7 @@ export class GuildBook {
     this.at = 0;
     this.busy = false;
     /** @type {Promise<any>|null} */ this._looking = null;
+    /** @type {{key: string, rid: string}|null} GUILD1d: the heraldry change asked, and its one request id */ this._heraldryAsk = null;
   }
 
   _changed() { this.version++; }
@@ -281,4 +288,48 @@ export class GuildBook {
   renameRanks(names) { return this._act((c) => this.door.ranks(c, names)); }
   handOver(member) { return this._act((c) => this.door.handOver(c, member)); }
   disband() { return this._act((c) => this.door.disband(c)); }
+
+  // ═══ GUILD1d (Seats-Arc 8) - THE HALL AND THE HERALDRY ═══════════════════════════════════════════════════════════
+  // No purse moves: the treasury pays for the hall and takes its sale, the Drake treasury pays for a change of heraldry
+  // - each on the service, in the act's own batch - so there is no order to keep here and nothing to give back.
+
+  /** BUY A HALL - the building at its door (the guildmaster's), its `price` the home's own; the treasury pays half again. */
+  async buyHall({ mapId, buildingKey, region, price }) {
+    return this._hallTold(mapId, await this._act((c) => this.door.hallBuy({ character: c, mapId, buildingKey, region, price })));
+  }
+  /** SELL THE HALL - the deed share and its pieces' half into the treasury. */
+  async sellHall() {
+    const mapId = this.guild?.hall?.mapId ?? null;
+    return this._hallTold(mapId, await this._act((c) => this.door.hallSell(c)));
+  }
+  /** WHO MAY WALK INTO THE HALL - its members or anyone. */
+  async setHallEntry(entry) {
+    if (!guildHallEntryOk(entry)) return { ok: false, error: 'bad-entry' };
+    return this._hallTold(this.guild?.hall?.mapId ?? null, await this._act((c) => this.door.hallEntry(c, entry)));
+  }
+  /** GUILD1d: a hall act that landed tells the host which town to read again; answers the act's answer. */
+  _hallTold(mapId, r) {
+    if (r?.ok && Number.isSafeInteger(mapId)) { try { this.onHall?.(mapId); } catch (e) { console.warn('[guild] telling the hall\'s town failed', e?.message ?? e); } }
+    return r;
+  }
+  /** THE HERALDRY - the first free, a change after it paid from the Drake treasury. A change carries ONE request id while
+   *  the same choice is asked (an answer lost and asked again is the line it made, never a second burn); a new choice, or
+   *  an answer, lets it go. */
+  setHeraldry(raw) {
+    const h = heraldryOf(raw);
+    if (!h) return Promise.resolve({ ok: false, error: 'bad-heraldry' });
+    const key = JSON.stringify(h);
+    if (this._heraldryAsk?.key !== key) this._heraldryAsk = { key, rid: mintMarksRid() };
+    const { rid } = this._heraldryAsk;
+    const mapId = this.guild?.hall?.mapId ?? null;
+    return this._act(async (c) => {
+      const r = await this.door.heraldry(c, h, rid);
+      // AUDIT GUILD1d R14: only this ask's own id - an older answer landing after a newer choice leaves the newer's
+      if ((r?.ok || guildRefused(r?.error) || HERALDRY_REFUSED.has(r?.error)) && this._heraldryAsk?.rid === rid) this._heraldryAsk = null;
+      return r;
+    }).then((r) => this._hallTold(mapId, r));   // the hall's door and banners wear it
+  }
 }
+
+/** GUILD1d: the heraldry's own refusal words - nothing was burnt, so the next ask is a new request. */
+const HERALDRY_REFUSED = new Set(['bad-heraldry', 'heraldry-same', 'heraldry-moved', 'heraldry-drakes', 'marks-closed', 'marks-rid']);

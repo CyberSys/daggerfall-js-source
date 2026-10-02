@@ -266,7 +266,10 @@ test('ACC1d: the wire checks the token\'s SHAPE and nothing else - kept, absent,
   assert.equal(none.t, 'hello', 'a hello with no token is still a hello');
   assert.equal('tok' in none, false, 'no token: the key is not invented');
   assert.equal(none.error, undefined);
-  for (const bad of ['', 'v1', 'v1.aaa', 'v1.aaa.bbb.ccc', 'v1.aa a.bbb', 'v1.aaa+bbb.ccc', `v1.${'a'.repeat(513)}.bbb`, `v1.aaa.${'b'.repeat(129)}`, `${'v'.repeat(9)}.aaa.bbb`]) {
+  // SEASON1 part two (world149, PIN MOVED): the body's bound is 640 - a body one past it is the malformed one, and the
+  // old bound's 513 now rides through
+  assert.equal(hello({ tok: `v1.${'a'.repeat(640)}.bbb` }).tok, `v1.${'a'.repeat(640)}.bbb`);
+  for (const bad of ['', 'v1', 'v1.aaa', 'v1.aaa.bbb.ccc', 'v1.aa a.bbb', 'v1.aaa+bbb.ccc', `v1.${'a'.repeat(641)}.bbb`, `v1.aaa.${'b'.repeat(129)}`, `${'v'.repeat(9)}.aaa.bbb`]) {
     assert.equal(hello({ tok: bad }).error, 'bad token', `a malformed token is an error: ${JSON.stringify(bad.slice(0, 20))}`);
   }
   for (const bad of [null, 0, 1, true, {}, [], ['v1.a.b']]) {

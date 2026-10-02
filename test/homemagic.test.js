@@ -107,8 +107,9 @@ test('HOME-MAGIC the host: a visitor in another\'s online home is barred - HOUSE
   const M = src('src/scenes/worldModes.js');
   assert.match(M, /const HOME_VISITOR_MAGIC_TEXT = 'You cannot cast spells in another\\'s home\.';/);
   // the visitor is HOUSE-DROP's own, asked through its refusal - one test of who is a visitor, not a copy of it
-  assert.match(M, /const visitorDropRefusal = \(\) => \(interiorHome && !interiorHome\.own && mode === 'interior' \? HOME_VISITOR_DROP_TEXT : null\);/);
-  assert.match(M, /const visitorMagicRefusal = \(\) => \(visitorDropRefusal\(\) \? HOME_VISITOR_MAGIC_TEXT : null\);/);
+  // AUDIT GUILD1d A7: a hall's floor refuses everyone (its own word), and its members cast in it as the owner casts at home
+  assert.match(M, /const visitorDropRefusal = \(\) => \(interiorHome && !interiorHome\.own && mode === 'interior' \? \(interiorHome\.hall \? HALL_DROP_TEXT : HOME_VISITOR_DROP_TEXT\) : null\);/);
+  assert.match(M, /const visitorMagicRefusal = \(\) => \(visitorDropRefusal\(\) && !hallMemberHere\(\) \? \(interiorHome\?\.hall \? HALL_VISITOR_MAGIC_TEXT : HOME_VISITOR_MAGIC_TEXT\) : null\);/);
   assert.match(M, /castRefusal: \(\) => visitorMagicRefusal\(\),/);
   assert.match(src('src/scenes/world.js'), /castRefusal: \(\) => modes\?\.castRefusal\?\.\(\) \?\? null,/);
   assert.match(src('src/scenes/hostEnchant.js'), /castBarred: \(\) => magic\.barCast\?\.\(\) === true,/);

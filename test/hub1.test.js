@@ -195,7 +195,8 @@ test('HUB1 the world host, by source: the boot collects the game\'s own rows as 
   assert.match(W, /const regionHubs = pickRegionHubs\(_hubRows, \{ regionNameOf: \(r\) => maps\.getRegionName\(r\) \}\);/);
   assert.match(W, /hubAt: params\.has\('online'\) \? \(summary\) => hubAtMapId\(regionHubs, summary\?\.mapID \?\? summary\?\.mapId\) : null,/, 'the map is handed hubs online alone');
   const edge = W.slice(W.indexOf('_inRect && !_wasInLocationRect'));
-  assert.match(edge.slice(0, 1500), /revealMemberGuildHalls\(\);\s*if \(onlineOn\) \{ const hub = hubAtMapId\(regionHubs, _musicLoc\?\.mapTableData\?\.mapId\); if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\); \}/, 'the arrival, at the location rect\'s entry, online');
+  // SEAT1a: a seat town says its Charter instead (test/seat1a_client.test.js); a hub that is no seat, its hub line
+  assert.match(edge.slice(0, 2000), /revealMemberGuildHalls\(\);[\s\S]{0,420}if \(onlineOn\) \{\n\s*const mapId = _musicLoc\?\.mapTableData\?\.mapId;[\s\S]{0,160}const hub = hubAtMapId\(regionHubs, mapId\);[\s\S]{0,120}else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/, 'the arrival, at the location rect\'s entry, online');
   // and the held map reads what it is handed
   const H = strip(read('src/ui/heldMap.js'));
   assert.match(H, /hubAt: \(s\) => this\.deps\.hubAt\?\.\(s\) \?\? null,/);

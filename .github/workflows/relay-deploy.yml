@@ -44,6 +44,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      # SEAT2a part three (Seats-Arc 17): an urgent deploy may be forced through a siege's blackout - and a forced deploy
+      # during a siege voids it (the room is lost; the holder keeps the seat, the Right carries to the next week)
+      force:
+        description: 'Deploy now even while a siege is live (voids it)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -167,6 +174,35 @@ jobs:
             exit 1
           fi
           echo "the relay's identity key matches the live account service"
+
+      # ═══ SEAT2a part three (Seats-Arc 17): THE SIEGE BLACKOUT ═══════
+      #
+      # A deploy drops every connected player, so it waits while any
+      # siege room is live or starts within thirty minutes - the account
+      # service's public question (`/v1/seats/sieges/live`, which names no
+      # guild) - polling five minutes apart until none is. A dispatch with
+      # `force` deploys at once. AN UNANSWERED QUESTION IS NOT A SIEGE:
+      # the account service being slow must not hold the relay (the
+      # coupling D1 and D2 refuse) - it is said, and the deploy goes on.
+      # GitHub's own six hours bound the job; a blackout past it fails the
+      # run, and the next push asks again.
+      - name: Wait out any live siege (the blackout)
+        if: steps.live.outputs.version != steps.ver.outputs.version && github.event.inputs.force != 'true'
+        run: |
+          url='https://daggerfall-accounts.mackcothran.workers.dev/v1/seats/sieges/live'
+          while :; do
+            got=$(curl -fsS --max-time 10 "$url" || true)
+            if [ -z "$got" ]; then
+              echo "::warning::/v1/seats/sieges/live did not answer - not waiting on it"
+              break
+            fi
+            if ! printf '%s' "$got" | grep -q '"live":true'; then
+              echo "no siege is live or starting within thirty minutes"
+              break
+            fi
+            echo "a siege is live or about to start (${got}) - waiting five minutes"
+            sleep 300
+          done
 
       - name: Deploy
         if: steps.live.outputs.version != steps.ver.outputs.version

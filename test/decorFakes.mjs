@@ -129,8 +129,9 @@ export const ACTIONS = new Map([['KeyW', 'MoveForwards'], ['KeyS', 'MoveBackward
  * model's box a door's own (a metre wide along x from its hinge, 2.1 high, 10 cm thick); `doorsHere` the host's doors,
  * `walls` its walls' filter - neither unless a pin hands one. HOME-RENT: `rent` the host's rooms door (none unless handed).
  * HOME-LOOK: `look` the painter's door; HOME-YARD: `placeOk`, `lot` and `yardCap` - the lot's law (each none unless handed).
+ * SEAT-HALL: `charterClear` the host's two metres from the court (none unless handed).
  */
-export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0, extraFlats = [], realm = null, doors = [], doorsHere = null, walls = null, rent = null, look = null, placeOk = null, lot = null, yardCap = null } = {}) {
+export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 1000, homeDecor = null, locked = true, touch = false, radius = () => 0.8, base = null, mwPicture = null, collider = null, iconUrl = async () => null, getGpuMesh = async (id) => ({ gpu: id }), now = () => 0, extraFlats = [], realm = null, doors = [], doorsHere = null, walls = null, rent = null, look = null, placeOk = null, lot = null, yardCap = null, charterClear = null } = {}) {
   const doc = fakeDoc();
   const win = fakeWin();
   const entries = decorCatalogue(collectDecor([rmb([41000, 41000, 41001, 41811], [[210, 3], [209, 0]]), rmb([41000], [[209, 0]], doors)]));
@@ -227,6 +228,7 @@ export function toolRig({ room = { kind: 'house', where: 'Your house' }, gold = 
     ...(doorsHere ? { doorsHere } : {}), ...(walls ? { walls } : {}),   // HOME-DOORS
     ...(rent ? { rent } : {}),   // HOME-RENT
     ...(look ? { look } : {}), ...(placeOk ? { placeOk } : {}), ...(lot ? { lot } : {}), ...(yardCap ? { yardCap } : {}),   // HOME-LOOK; HOME-YARD
+    ...(charterClear ? { charterClear } : {}),   // SEAT-HALL: the court's two metres
   });
   const cam = { pos: [10, 1.6, 10], yaw: 0, pitch: 0 };
   const frame = (over = {}) => tool.frame({ dt: 0.1, cam, overlayUp: false, interior: true, ...over });

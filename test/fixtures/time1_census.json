@@ -386,6 +386,12 @@
   },
   {
    "file": "src/scenes/world.js",
+   "has": "levelBonus: () => seatEdicts.guardLevelBonus(Math.floor(skyMinutes())),",
+   "clock": "sky",
+   "why": "a Curfew's night watch (SEAT1d; AUDIT SEATS-3 E1)"
+  },
+  {
+   "file": "src/scenes/world.js",
    "has": "skyMinute: () => Math.floor(skyMinutes()),",
    "clock": "sky",
    "why": "the wilds' night (SOFTCAP5)"
@@ -578,6 +584,12 @@
    "has": "? seasonValue(dateFromClassicMinutes(skyMinutes())) :",
    "clock": "sky",
    "why": "the classic sky's season panorama"
+  },
+  {
+   "file": "src/scenes/world.js",
+   "has": "minutes: () => worldMinutes(),",
+   "clock": "event",
+   "why": "SEAT1d: a Festival's game day, its buff's span (systems/seatEdicts.js)"
   },
   {
    "file": "src/scenes/world.js",

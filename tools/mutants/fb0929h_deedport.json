@@ -9,7 +9,7 @@
   {
     "name": "DEED-PORT-the-map's-harbours-not-asked",
     "file": "src/scenes/world.js",
-    "old": "    if (hasPort(summary.id)) return true;\n    const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);",
+    "old": "    if (hasPortFor(summary.id)) return true;   // SEAT2b part two: or a members' Harbour at a seat (\"ships dock at the seat\")\n    const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);",
     "new": "    const loc = maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex);",
     "tests": ["test/fb0929h_deedport.test.js"]
   },

@@ -55,9 +55,11 @@ test('EOTB2: the settings are the BUNDLE’s, sign flip and all - derived, never
   assert.equal(cfg.mirrorTime, shipped('Camera', 'SwitchResetTime'));
   assert.equal(cfg.mirrorAuto, shipped('Camera', 'Auto-Switch'));
   assert.equal(cfg.increment, shipped('CameraScrolling', 'ScrollIncrement'));
-  assert.equal(cfg.startInThird, shipped('Camera', 'StartInThirdPerson'));
+  // FP-START, a departure too: the bundle starts behind the shoulder, the port starts in the head (the player turns it on)
+  assert.equal(shipped('Camera', 'StartInThirdPerson'), true, 'the bundle ships it on');
+  assert.equal(cfg.startInThird, false, 'and the port ships it off - FP-START');
 
-  // THE ONE DEPARTURE IN THIS FILE, asserted as a departure: the bundle
+  // THE OTHER DEPARTURE IN THIS FILE, asserted as a departure: the bundle
   // ships the scrollable arm OFF and the port ships it ON (MODS-ON, and
   // Mac's own ask). Written this way round so it cannot be mistaken for
   // agreement with the bundle.

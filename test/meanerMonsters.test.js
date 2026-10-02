@@ -133,12 +133,12 @@ test('MM1: the seams - the archive on a parsed TEXTURE.###, every billboard size
   }
   // AUDIT MM1: the mobile units through the mobile door (DaggerfallMobileUnit / MobilePersonBillboard), everything else static
   assert.match(rd('src/characters/enemyAnchor.js'), /return mobileBillboardSize\(t, 0\)\.h;/, 'the idle height reads the scaled record');
-  assert.match(rd('src/scenes/exteriorFoes.js'), /const sz = mobileBillboardSize\(f\.tex, o\.record\);/);
+  assert.match(rd('src/scenes/exteriorFoes.js'), /const sz0? = mobileBillboardSize\(f\.tex, o\.record\);/);   // ELITE FOES: `sz0`, then an elite's quarter more
   assert.match(rd('src/scenes/dungeonContext.js'), /const sz = mobileBillboardSize\(f\.mobileTex, out\.record\);/);
   assert.match(rd('src/scenes/cityGuards.js'), /const sz = mobileBillboardSize\(g\.tex, o\.record\);/);
   assert.match(rd('src/scenes/world.js'), /const sz = mobileBillboardSize\(pt, out\.record\);/);
   assert.match(rd('src/scenes/exterior.js'), /const sz = mobileBillboardSize\(t, out\.record\);/);
-  assert.match(rd('src/scenes/corpseMarker.js'), /const size = billboardSize\(t, record\) \?\? fallbackSize;/, 'a corpse is a static billboard');
+  assert.match(rd('src/scenes/corpseMarker.js'), /const size0? = billboardSize\(t, record\) \?\? fallbackSize;/, 'a corpse is a static billboard');   // ELITE FOES: `size0`, then an elite's body a quarter larger
   assert.equal((rd('src/scenes/exteriorFoes.js').match(/mobileBillboardSize\(/g) || []).length, 1, 'the corpse fallback stays static');
   const wt = rd('src/systems/worldTick.js');
   assert.ok(wt.indexOf('installMeanerMonsters();') < wt.indexOf('installPcaao();'), 'the dependency Awakes first');

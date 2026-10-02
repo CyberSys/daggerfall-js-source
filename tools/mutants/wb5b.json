@@ -20,11 +20,12 @@
   {
     "name": "WB5b-counted-twice",
     "file": "server-account/src/accounts.js",
-    "old": "'INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)'",
-    "new": "'INSERT OR REPLACE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)'",
+    "old": "'INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, region) VALUES (?1, ?2, ?3, ?4, ?5, ?6)'",
+    "new": "'INSERT OR REPLACE INTO gate_kills (day, account, boss, earned, at, region) VALUES (?1, ?2, ?3, ?4, ?5, ?6)'",
     "tests": [
       "test/wb5b_gate_claim.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "WB5b-no-key-no-refusal",
@@ -155,11 +156,12 @@
   {
     "name": "WB5b-a-knock-with-no-session",
     "file": "src/net/accountClient.js",
-    "old": "    claim: async (receipt) => { const i = io(); return i ? claimGateReceipt(i, receipt) : { ok: false, error: 'no-session' }; },",
-    "new": "    claim: async (receipt) => claimGateReceipt({ fetch, base: serviceBase(storage), secret: null }, receipt),",
+    "old": "    claim: async (receipt, extra = null) => { const i = io(); return i ? claimGateReceipt(i, receipt, extra) : { ok: false, error: 'no-session' }; },",
+    "new": "    claim: async (receipt, extra = null) => claimGateReceipt({ fetch, base: serviceBase(storage), secret: null }, receipt, extra),",
     "tests": [
       "test/wb5b_gate_claim.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "WB5b-the-hook-never-called",

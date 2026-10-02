@@ -294,7 +294,7 @@ export class WodWorld {
     // instance's identity is read here, from the list the pick came from, never through its index into a newer one
     const session = this.session;
     return pickLocations(tile, session, (name) => this.prefabs.get(name) ?? null, pathsPoint, siteClear)
-      .map((pick) => ({ ...pick, locationID: session.locationID[pick.index], name: session.name[pick.index] }));   // PROF2: the instance's name - its Rocks and Mountains pieces anchor Mining's nodes
+      .map((pick) => ({ ...pick, locationID: session.locationID[pick.index], name: session.name[pick.index], prefabName: session.prefab[pick.index] }));   // FOREST1: and its prefab's name - a site or a rock field   // PROF2: the instance's name - its Rocks and Mountains pieces anchor Mining's nodes
   }
 
   /**

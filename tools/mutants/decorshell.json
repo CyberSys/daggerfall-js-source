@@ -74,7 +74,7 @@
   {
     "name": "DECOR-SHELL-the-gate-gone",
     "file": "src/scenes/worldModes.js",
-    "old": "    if (interiorHome && _decorListed !== _decorVisit) return null;\n",
+    "old": "    if ((interiorHome || interiorSeatHall) && _decorListed !== _decorVisit) return null;\n",
     "new": "",
     "tests": [
       "test/decorshell.test.js"

@@ -82,7 +82,7 @@ introduces peers and relays bytes; it runs no game.
 
 Why, and this is the constraint that decides everything: **lockstep is
 impossible here.** The frame loop is `requestAnimationFrame` with a
-variable `dt` (`scenes/world.js:14525`) and 110 source files call
+variable `dt` (`scenes/world.js:14828`) and 110 source files call
 `Math.random` unseeded. Two clients cannot simulate the same world in
 parallel and agree, and making them able to would mean a fixed-step
 deterministic rewrite of the simulation. So one authority owns the
@@ -152,6 +152,12 @@ Friends-only co-op. A client's damage claim is applied as sent. There
 is no anti-cheat in v1 and no plan for one; the room code is the access
 control. This is recorded so nobody later mistakes its absence for an
 oversight.
+
+PVP-REF (2026-10-01, `06-Systems/Online-Arc.md` PVP-REF): the one room
+where that stops being true is a SIEGE's (`siege:<seat>:<week>`), where a
+town's Charter changes hands - there the relay holds every fighter's
+vitality and judges every blow, cast and step (`src/net/siegeRef.js`,
+`11-Multiplayer/Seats-Arc.md` 6.1). Everywhere else this section stands.
 
 ### The state model is the save
 

@@ -316,7 +316,7 @@ test('EOTB-IL: the placement is UpdateBillboard’s - the feet on the ground, su
   // and the two conventions, pinned where they meet: the renderer's
   // shader anchors at the base, and place() converts the mod's centre.
   const vs = readFileSync(join(root, 'src/render/renderer.js'), 'utf8');
-  assert.match(vs, /\+ uUp \* \(\(aCorner\.y \+ 0\.5\) \* uSize\.y\);/, 'the billboard shader is bottom-anchored');
+  assert.match(vs, /\+ uUp \* \(\((?:aCorner|cn)\.y \+ 0\.5\) \* uSize\.y\);/, 'the billboard shader is bottom-anchored');   // ELITE FOES: `cn` is aCorner, widened only for an elite
   assert.match(readFileSync(join(root, 'src/player/eotbBody.js'), 'utf8'), /const base = y - size\.h \* 0\.5;\n\s+return \[origin\[0\] \+ right\[0\] \* x \+ fwd\[0\] \* z, origin\[1\] \+ base,/, 'and the body hands it the base');
   // the XML X: record 18 (x -0.2) is index 5 straight and index 3
   // mirrored, and UpdateBillboard negates X for the mirrored state

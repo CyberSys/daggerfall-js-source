@@ -56,8 +56,8 @@
   {
     "name": "GUILD1c-no-guildout-kind",
     "file": "src/net/identityToken.js",
-    "old": "export const ORDER_KINDS = Object.freeze(['mute', 'renown', 'guild', 'guildout']);",
-    "new": "export const ORDER_KINDS = Object.freeze(['mute', 'renown', 'guild']);",
+    "old": "export const ORDER_KINDS = Object.freeze(['mute', 'renown', 'guild', 'guildout', 'siege']);",
+    "new": "export const ORDER_KINDS = Object.freeze(['mute', 'renown', 'guild', 'siege']);",
     "tests": [
       "test/guild1c.test.js"
     ]
@@ -371,8 +371,8 @@
   {
     "name": "GUILD1c-a-guild-frame-ignored-for-a-peer",
     "file": "src/net/online.js",
-    "old": "      const p = this.peers.get(m.id);\n      if (p) p.gt = gt;",
-    "new": "      const p = this.peers.get(m.id);\n      if (p && gt) p.gt = gt;",
+    "old": "      const p = this.peers.get(m.id);\n      if (p) { if ((p.gt ?? null) !== gt) p.rb = null; p.gt = gt; }",
+    "new": "      const p = this.peers.get(m.id);\n      if (p && gt) { if ((p.gt ?? null) !== gt) p.rb = null; p.gt = gt; }",
     "tests": [
       "test/guild1c.test.js"
     ]

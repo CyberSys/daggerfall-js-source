@@ -155,8 +155,8 @@
   {
     "name": "NOTICE1-18-the-cache-a-moment-long",
     "file": "src/net/noticeBook.js",
-    "old": "nowMs() - e.at < BOARD_CACHE_MS)",
-    "new": "nowMs() - e.at <= BOARD_CACHE_MS)",
+    "old": "nowMs() - e.at < BOARD_CACHE_MS) return Promise.resolve({ board: e.board",
+    "new": "nowMs() - e.at <= BOARD_CACHE_MS) return Promise.resolve({ board: e.board",
     "tests": [
       "test/notice1.test.js"
     ]

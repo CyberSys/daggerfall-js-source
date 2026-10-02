@@ -1,8 +1,8 @@
 // TIME1 (2026-10-01, Mac: "people have to wait insanely long, werewolf forms last insanely long" / "I don't want a
 // band aid, I want a detailed way we can do this" / "Let's do it. This needs to be perfect"): THE SKY'S OWN CLOCK.
 // Design: bible/06-Systems/Online-Time-Arc.md. Online the hour, the date, the season and the moons a player sees read
-// the SKY - a function of the relay's clock like WORLD5's, at TimeScale 48 from an aligned switch (a day every thirty
-// real minutes, midnight on the hour and the half hour) - while the EVENT clock (WORLD5's, TimeScale 12) keeps the
+// the SKY - a function of the relay's clock like WORLD5's, at TimeScale 24 from an aligned switch (a day every real
+// hour, midnight on the hour - SKY-SLOW; it was 48) - while the EVENT clock (WORLD5's, TimeScale 12) keeps the
 // world's schedules, stock, prices, terms and stamps, and the character's own clock keeps combat and the body. THE LAW
 // EXECUTES: the sky's law and its inverse, the switch's continuity and alignment (and a second switch's), the tool, the
 // bundles (the relay never reaches the sky), the clock module online and offline, the nightfall words at the sky's
@@ -31,8 +31,9 @@ const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const SWITCH = SKY_SEGMENTS[0];
 const RATE = SWITCH.minutesPerMs;
 const HALF_HOUR = 30 * 60 * 1000;
-/** The first whole half hour (UTC) after an instant. */
-const nextHalfHour = (ms) => Math.ceil((ms + 1) / HALF_HOUR) * HALF_HOUR;
+const HOUR = 60 * 60 * 1000;
+/** The first whole hour (UTC) after an instant. */
+const nextHour = (ms) => Math.ceil((ms + 1) / HOUR) * HOUR;
 const minuteOfDay = (m) => ((m % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 /** The first instant from `t`, stepping `step` ms, at which `pred` holds - within `limit` steps, or the test fails:
@@ -46,15 +47,15 @@ const installAt = (at) => setSharedClock(() => sharedClassicMinutes(at.t), (m) =
 
 afterEach(() => { setSharedClock(null); resetWeatherSim(); setSharedWeather(false); setWorldMinutes(0); });
 
-test('TIME1 the law: the sky IS the event clock before its first switch, the switch is seamless, and after it the sky runs at TimeScale 48 - a day every thirty real minutes', () => {
+test('TIME1 the law: the sky IS the event clock before its first switch, the switch is seamless, and after it the sky runs at TimeScale 24 - a day every real hour', () => {
   assert.equal(SKY_SEGMENTS.length >= 1, true);
-  assert.equal(RATE, 48 / 60 / 1000, "Mac's call 1: TimeScale 48");
+  assert.equal(RATE, 24 / 60 / 1000, "SKY-SLOW: TimeScale 24");
   for (let t = SWITCH.fromMs - 7 * 86_400_000; t < SWITCH.fromMs; t += 3_600_007) assert.equal(skyClassicMinutes(t), sharedClassicMinutes(t), 'before the switch the sky is the event clock, to the bit');
   assert.equal(skyClassicMinutes(SWITCH.fromMs - 1), sharedClassicMinutes(SWITCH.fromMs - 1));
   assert.equal(skyClassicMinutes(SWITCH.fromMs), sharedClassicMinutes(SWITCH.fromMs), 'at the switch both read one minute: nothing skips');
   assert.ok(skyClassicMinutes(SWITCH.fromMs) - skyClassicMinutes(SWITCH.fromMs - 1000) < 0.21, 'the second before it the sky moved at the old rate');
-  assert.ok(near(skyClassicMinutes(SWITCH.fromMs + HALF_HOUR) - skyClassicMinutes(SWITCH.fromMs), MINUTES_PER_DAY), 'thirty real minutes after it, a whole day');
-  assert.ok(near(skyClassicMinutes(SWITCH.fromMs + 75_000) - skyClassicMinutes(SWITCH.fromMs), 60), 'an hour every seventy-five real seconds');
+  assert.ok(near(skyClassicMinutes(SWITCH.fromMs + HOUR) - skyClassicMinutes(SWITCH.fromMs), MINUTES_PER_DAY), 'a real hour after it, a whole day');
+  assert.ok(near(skyClassicMinutes(SWITCH.fromMs + 150_000) - skyClassicMinutes(SWITCH.fromMs), 60), 'an hour every two and a half real minutes');
   let last = -Infinity;
   for (let t = SWITCH.fromMs - 60_000; t < SWITCH.fromMs + 60_000; t += 997) { const m = skyClassicMinutes(t); assert.ok(m > last, 'never backwards'); last = m; }
   assert.equal(skyMinutesPerMsAt(SWITCH.fromMs - 1), ONLINE_MINUTES_PER_MS, "before it, the wire's rate");
@@ -82,51 +83,51 @@ test('TIME1 a second switch is as seamless as the first: each segment starts whe
   assert.equal(skyLawOf([]).minutesAt(SWITCH.fromMs + 1), sharedClassicMinutes(SWITCH.fromMs + 1), 'no segment: the event clock');
 });
 
-test('TIME1 aligned: the switch stands at an aligned instant - the sky\'s hour there is the old sky\'s - and after it every midnight falls on the hour and the half hour UTC, dawn at :07:30 and :37:30, noon at :15 and :45, dusk at :22:30 and :52:30', () => {
+test('TIME1 aligned: the switch stands at an aligned instant - the sky\'s hour there is the old sky\'s - and after it every midnight falls on the hour UTC, dawn at :15, noon at :30, dusk at :45', () => {
   assert.deepEqual(alignedSkySwitches(RATE, SWITCH.fromMs - 1, { count: 1, withinMs: 2000 }), [SWITCH.fromMs], 'the switch is one of the instants the tool lists');
   assert.equal(minuteOfDay(skyClassicMinutes(SWITCH.fromMs)), minuteOfDay(sharedClassicMinutes(SWITCH.fromMs)));
   assert.equal(SWITCH.fromMs % 1000, 0, 'a whole second');
-  let t = nextHalfHour(SWITCH.fromMs);
-  for (let k = 0; k < 96; k++, t += HALF_HOUR) {   // two days of half hours
+  let t = nextHour(SWITCH.fromMs);
+  for (let k = 0; k < 48; k++, t += HOUR) {   // two days of hours
     assert.ok(near(minuteOfDay(skyClassicMinutes(t)) % MINUTES_PER_DAY, 0, 1e-5) || near(minuteOfDay(skyClassicMinutes(t)), MINUTES_PER_DAY, 1e-5), `midnight at ${new Date(t).toISOString()}`);
-    assert.ok(near(minuteOfDay(skyClassicMinutes(t + 450_000)), 360, 1e-5), 'dawn seven and a half minutes on');
-    assert.ok(near(minuteOfDay(skyClassicMinutes(t + 900_000)), 720, 1e-5), 'noon a quarter hour on');
-    assert.ok(near(minuteOfDay(skyClassicMinutes(t + 1_350_000)), 1080, 1e-5), 'dusk twenty-two and a half minutes on');
+    assert.ok(near(minuteOfDay(skyClassicMinutes(t + 900_000)), 360, 1e-5), 'dawn a quarter hour on');
+    assert.ok(near(minuteOfDay(skyClassicMinutes(t + HALF_HOUR)), 720, 1e-5), 'noon half an hour on');
+    assert.ok(near(minuteOfDay(skyClassicMinutes(t + 2_700_000)), 1080, 1e-5), 'dusk three quarters of an hour on');
   }
-  // and the instants recur every forty minutes in the old sky (the design page lists 00:22:30, 01:02:30, 01:42:30 UTC)
+  // and the instants recur every two hours in the old sky (the design page lists 01:07:30, 03:07:30, 05:07:30 UTC)
   const day = Date.UTC(2026, 9, 2);
-  assert.deepEqual(alignedSkySwitches(RATE, day, { count: 3, withinMs: 2 * 3600 * 1000 }).map((x) => new Date(x).toISOString().slice(11, 19)), ['00:22:30', '01:02:30', '01:42:30']);
+  assert.deepEqual(alignedSkySwitches(RATE, day, { count: 3, withinMs: 6 * 3600 * 1000 }).map((x) => new Date(x).toISOString().slice(11, 19)), ['01:07:30', '03:07:30', '05:07:30']);
 });
 
 test('TIME1 the tool: tools/skyCutover.mjs lists the aligned instants, and says when the sky already runs at the rate asked', () => {
   const before = cutoverLines(['--after', new Date(SWITCH.fromMs - 3_600_000).toISOString()]);
-  assert.match(before[0], /^TimeScale 48 \(a sky day every 30 real minutes\)/);
+  assert.match(before[0], /^TimeScale 24 \(a sky day every 60 real minutes\)/);
   assert.ok(before.some((l) => l.includes(new Date(SWITCH.fromMs).toISOString())), before.join('\n'));
   assert.deepEqual(alignedSkySwitches(RATE, SWITCH.fromMs + 1000), [], 'laid on the sky as it stands, a switch to the rate it already runs at is no switch');
   // AUDIT TIME: a merge that lands a day after the switch - the tool lists where the last row may MOVE, laid on the sky
-  // without it, and a row moved there is seamless with midnight on the hour and the half hour
+  // without it, and a row moved there is seamless with midnight on the hour
   const late = cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString()]);
   assert.match(late[0], /aligned instants for the last row/, late.join('\n'));
   const moved = Date.parse(late[1].trim().split(/\s+/)[0]);
   assert.ok(moved >= SWITCH.fromMs + 86_400_000, late.join('\n'));
   const law = skyLawOf([{ fromMs: moved, minutesPerMs: RATE }]);
   assert.ok(near(law.minutesAt(moved), sharedClassicMinutes(moved)), 'no jump where it moves to');
-  assert.ok(near(minuteOfDay(law.minutesAt(nextHalfHour(moved))), 0) || near(minuteOfDay(law.minutesAt(nextHalfHour(moved))), 1440), 'midnight on the half hour after it');
+  assert.ok(near(minuteOfDay(law.minutesAt(nextHour(moved))), 0) || near(minuteOfDay(law.minutesAt(nextHour(moved))), 1440), 'midnight on the hour after it');
   assert.match(cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString(), '--scale', '60'])[1], /^ {2}\d{4}-/, 'another rate has instants of its own');
   assert.match(cutoverLines(['--after', 'never'])[0], /is not a date/);
   // AUDIT TIME (second round): at ANOTHER rate the last row is REPLACED while it is not live yet - the instants laid on the
   // sky without it, and one taken is seamless there - and only once it is live does a NEW row follow it, laid on the sky
   // with it; a rate the sky already runs at then says so
   assert.match(cutoverLines(['--after', new Date(SWITCH.fromMs - 2 * 86_400_000).toISOString(), '--scale', '12'])[1], /already runs at this rate/);
-  const RATE24 = 24 / 60 / 1000;
-  const early = cutoverLines(['--after', new Date(SWITCH.fromMs - 3_600_000).toISOString(), '--scale', '24']);
+  const RATE48 = 48 / 60 / 1000;
+  const early = cutoverLines(['--after', new Date(SWITCH.fromMs - 3_600_000).toISOString(), '--scale', '48']);
   assert.match(early[0], /to replace the last row/, early.join('\n'));
   const swap = Date.parse(early[1].trim().split(/\s+/)[0]);
-  assert.ok(near(skyLawOf([...SKY_SEGMENTS.slice(0, -1), { fromMs: swap, minutesPerMs: RATE24 }]).minutesAt(swap), sharedClassicMinutes(swap)), 'the replacing row: no jump where it starts');
-  const later = cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString(), '--scale', '24']);
+  assert.ok(near(skyLawOf([...SKY_SEGMENTS.slice(0, -1), { fromMs: swap, minutesPerMs: RATE48 }]).minutesAt(swap), sharedClassicMinutes(swap)), 'the replacing row: no jump where it starts');
+  const later = cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString(), '--scale', '48']);
   assert.match(later[0], /for a new row/, later.join('\n'));
   const next = Date.parse(later[1].trim().split(/\s+/)[0]);
-  assert.ok(next > SWITCH.fromMs && near(skyLawOf([...SKY_SEGMENTS, { fromMs: next, minutesPerMs: RATE24 }]).minutesAt(next), skyClassicMinutes(next)), 'the new row: after the last, no jump where it starts');
+  assert.ok(next > SWITCH.fromMs && near(skyLawOf([...SKY_SEGMENTS, { fromMs: next, minutesPerMs: RATE48 }]).minutesAt(next), skyClassicMinutes(next)), 'the new row: after the last, no jump where it starts');
 });
 
 test('TIME1 the bundles: the relay never reaches the sky (RELAY_VERSION is not moved by it); the account service does, through the professions\' day, and its deploy filter names it', () => {
@@ -161,15 +162,15 @@ test('TIME1 the clock module: offline the sky IS the one clock; online it reads 
   assert.ok(near(skyMinuteOfEvent(m), skyMinutes(), 1e-6));
 });
 
-test('TIME1 the nightfall words time the SKY\'s dusk at the sky\'s rate - eight real minutes from a sky noon, not the event clock\'s thirty - and say nothing at night or offline', () => {
-  const noon = nextHalfHour(SWITCH.fromMs) + 900_000;   // a sky noon: a quarter hour past a midnight
+test('TIME1 the nightfall words time the SKY\'s dusk at the sky\'s rate - fifteen real minutes from a sky noon, not the event clock\'s thirty - and say nothing at night or offline', () => {
+  const noon = nextHour(SWITCH.fromMs) + HALF_HOUR;   // a sky noon: half an hour past a midnight
   const at = { t: noon };
   installAt(at);
   assert.equal(minuteOfDay(Math.round(skyMinutes())), 720);
-  assert.equal(worldNightfallText(), "The sun is the world's - night falls in about 8 minutes.", 'six sky hours at TimeScale 48: seven and a half real minutes, said whole');
-  at.t = noon + 7.5 * 60_000 - 30_000;
+  assert.equal(worldNightfallText(), "The sun is the world's - night falls in about 15 minutes.", 'six sky hours at TimeScale 24: fifteen real minutes');
+  at.t = noon + 15 * 60_000 - 30_000;
   assert.equal(worldNightfallText(), "The sun is the world's - night falls in about 1 minute.");
-  at.t = noon + 7.5 * 60_000 + 1000;
+  at.t = noon + 15 * 60_000 + 1000;
   assert.equal(worldNightfallText(), null, 'night: nothing to wait for');
   // a bare source keeps WORLD5's rate (the words a pre-TIME1 install said)
   setSharedClock(() => 9 * MINUTES_PER_DAY + 720);

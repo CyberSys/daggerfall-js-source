@@ -188,14 +188,21 @@ export function renownRid(rand = (b) => globalThis.crypto.getRandomValues(b)) {
  * THE PAGE'S LAST WORD (GAME-8). `leave()` on pagehide sends what is held - or forms it, from what was earned since
  * the last report - through `keepalive`, so the browser finishes it after the page. It clears nothing: a page the
  * back-forward cache brings back sends the same report again under the same id, and the service answers a repeat.
- * @param {{ report: (c: string, xp: number, name: string|null, rid: string) => Promise<any>,
- *   leave?: ((c: string, xp: number, name: string|null, rid: string) => any)|null,
+ *
+ * SEAT1b (Seats-Arc 4.2): `region()` - the region the player stands in as XP is earned (0-61, or null) - rides each
+ * report as its `region`, which the account service keeps for the character's guild where it pledged a seat there.
+ * @param {{ report: (c: string, xp: number, name: string|null, rid: string, region?: number|null) => Promise<any>,
+ *   leave?: ((c: string, xp: number, name: string|null, rid: string, region?: number|null) => any)|null,
  *   character: () => string|null, name?: () => string|null, earning?: () => boolean, now?: () => number,
- *   onAnswer?: (data: any, sent: number) => void, onStop?: (error: string) => void, rid?: () => string }} o
+ *   onAnswer?: (data: any, sent: number) => void, onStop?: (error: string) => void, rid?: () => string,
+ *   region?: () => number|null }} o
  */
-export function createRenownTracker({ report, leave = null, character, name = () => null, earning = () => true, now = () => Date.now(), onAnswer = () => {}, onStop = () => {}, rid = () => renownRid() }) {
-  let pending = 0;          // earned, in no report yet
-  /** @type {{ character: string, xp: number, rid: string }|null} */
+export function createRenownTracker({ report, leave = null, character, name = () => null, earning = () => true, now = () => Date.now(), onAnswer = () => {}, onStop = () => {}, rid = () => renownRid(), region = () => null }) {
+  /** earned, in no report yet - by the region it was earned in (SEAT1b, Seats-Arc 4.2: "The Renown report grows
+   *  `region`"; null where none was known), so one report never names a region XP was not earned in */
+  const pend = new Map();
+  const pendingXp = () => { let n = 0; for (const v of pend.values()) n += v; return n; };
+  /** @type {{ character: string, xp: number, rid: string, region: number|null }|null} */
   let held = null;          // the report formed and not yet answered
   let inFlight = false;
   let lastAt = -Infinity;   // when a report last went
@@ -206,31 +213,38 @@ export function createRenownTracker({ report, leave = null, character, name = ()
   const earn = (xp) => {
     if (stopped || !earning()) return 0;
     const n = Number.isFinite(xp) ? Math.max(0, Math.trunc(xp)) : 0;
-    pending += n;
+    if (n > 0) {
+      let r = null;
+      try { r = region(); } catch { r = null; }
+      const k = Number.isSafeInteger(r) && r >= 0 && r <= 61 ? r : null;
+      pend.set(k, (pend.get(k) ?? 0) + n);
+    }
     return n;
   };
 
   /** The report to send: the one held, or one formed now from what is pending (up to a report's worth). */
   const form = () => {
     if (held) return held;
-    if (pending <= 0) return null;
+    const first = [...pend].find(([, v]) => v > 0);
+    if (!first) return null;
     let c = null;
     try { c = character(); } catch { c = null; }
     if (typeof c !== 'string' || !c) return null;
-    const xp = Math.min(pending, RENOWN_XP_REPORT_MAX);
+    const [k, v] = first;
+    const xp = Math.min(v, RENOWN_XP_REPORT_MAX);
     let id = null;
     try { id = rid(); } catch { id = null; }
     if (typeof id !== 'string' || !id) return null;
-    pending -= xp;
-    held = { character: c, xp, rid: id };
+    if (v - xp > 0) pend.set(k, v - xp); else pend.delete(k);
+    held = { character: c, xp, rid: id, region: k };
     return held;
   };
 
   /** How long since the last report before the next may go: a minute, doubling with each refusal in a row. */
   const waitMs = () => (refused ? Math.min(RENOWN_BACKOFF_MAX_MS, RENOWN_REPORT_MS * 2 ** (refused - 1)) : RENOWN_REPORT_MS);
 
-  const due = (t = now()) => !stopped && !inFlight && (held !== null || pending > 0)
-    && (t - lastAt >= waitMs() || (!refused && held === null && pending >= RENOWN_XP_REPORT_MAX));
+  const due = (t = now()) => !stopped && !inFlight && (held !== null || pendingXp() > 0)
+    && (t - lastAt >= waitMs() || (!refused && held === null && pendingXp() >= RENOWN_XP_REPORT_MAX));
 
   /** Send the held report, or form one and send it. Answers the service's data, or null. */
   const flush = async (t = now()) => {
@@ -240,15 +254,15 @@ export function createRenownTracker({ report, leave = null, character, name = ()
     inFlight = true;
     lastAt = t;
     let r;
-    try { r = await report(h.character, h.xp, name?.() ?? null, h.rid); } catch { r = { ok: false, error: 'offline' }; } finally { inFlight = false; }
+    try { r = await report(h.character, h.xp, name?.() ?? null, h.rid, h.region); } catch { r = { ok: false, error: 'offline' }; } finally { inFlight = false; }
     if (r?.ok) {
       if (held === h) held = null;
       refused = 0;
       try { onAnswer(r.data, h.xp); } catch (err) { console.error('[renown] the answer could not be shown:', err); }
       return r.data ?? null;
     }
-    if (PERMANENT.has(r?.error)) { stopped = true; held = null; pending = 0; try { onStop(r.error); } catch { /* the stop stands */ } }
-    else if (r?.error === 'auth' || r?.error === 'no-session') { held = null; pending = 0; }   // no account to earn for: nothing to keep
+    if (PERMANENT.has(r?.error)) { stopped = true; held = null; pend.clear(); try { onStop(r.error); } catch { /* the stop stands */ } }
+    else if (r?.error === 'auth' || r?.error === 'no-session') { held = null; pend.clear(); }   // no account to earn for: nothing to keep
     else refused++;   // anything else (offline, a busy service, a rate, a service without the route yet) holds the report and waits
     return null;
   };
@@ -264,9 +278,9 @@ export function createRenownTracker({ report, leave = null, character, name = ()
       if (stopped || typeof leave !== 'function') return false;
       const h = form();
       if (!h) return false;
-      try { leave(h.character, h.xp, name?.() ?? null, h.rid); return true; } catch { return false; }
+      try { leave(h.character, h.xp, name?.() ?? null, h.rid, h.region); return true; } catch { return false; }
     },
-    pending: () => pending + (held?.xp ?? 0),
+    pending: () => pendingXp() + (held?.xp ?? 0),
     stopped: () => stopped,
   };
 }

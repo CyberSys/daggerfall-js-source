@@ -239,7 +239,7 @@
   {
     "name": "PROF3-svc-rank-unchecked",
     "file": "server-account/src/professions.js",
-    "old": "  if (!recipeOpen(r, rank)) return { error: 'prof-rank' };\n",
+    "old": "  if (!recipeOpen(r, rank, specs)) return { error: 'prof-rank' };\n",
     "new": "",
     "tests": [
       "test/prof3_service.test.js"
