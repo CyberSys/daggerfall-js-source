@@ -101,8 +101,8 @@
   {
     "name": "AUDIT-GN-G3-word-without-my-lay",
     "file": "src/scenes/navalHost.js",
-    "old": "traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks, laid }, toWire);",
-    "new": "traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks }, toWire);",
+    "old": "casks, spent: spentSaid, laid }, toWire);",
+    "new": "casks, spent: spentSaid }, toWire);",
     "tests": [
       "test/auditgalleon_guns.test.js"
     ]

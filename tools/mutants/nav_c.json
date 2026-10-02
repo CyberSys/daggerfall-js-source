@@ -200,10 +200,11 @@
   {
     "name": "NAV-C-the-crown-ignored",
     "file": "src/systems/naval/navalShips.js",
-    "old": "  if (shipClass.faction === 'navy') { crown = crownIn ?? crownOf(0, 0, null, regionIndex); name = pick(crown.ships); }",
-    "new": "  if (shipClass.faction === 'navy') { crown = CROWNS[0]; name = pick(crown.ships); }",
+    "old": "  const crown = shipClass.faction === 'navy' ? crownIn ?? crownOf(0, 0, null, regionIndex) : null;",
+    "new": "  const crown = shipClass.faction === 'navy' ? CROWNS[0] : null;",
     "tests": [
-      "test/nav_c_ships.test.js"
+      "test/nav_c_ships.test.js",
+      "test/shipnames.test.js"
     ]
   },
   {

@@ -326,8 +326,8 @@
   {
     "name": "SAY-every-line",
     "file": "src/ui/navalHud.js",
-    "old": "[...(points ?? [])].sort((a, b) => a.distance - b.distance).slice(0, CREW_SAY_MAX);",
-    "new": "[...(points ?? [])].sort((a, b) => a.distance - b.distance);",
+    "old": "  const chosen = [...said.values()].slice(0, CREW_SAY_MAX);",
+    "new": "  const chosen = [...said.values()];",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -344,8 +344,8 @@
   {
     "name": "SAY-never-hidden",
     "file": "src/ui/navalHud.js",
-    "old": "  const want = covered ? [] : [...(points ?? [])]",
-    "new": "  const want = [...(points ?? [])]",
+    "old": "  const want = covered ? [] : layoutCrewLines(points, { scale, memory: sayMemory, dt, top: 0 });",
+    "new": "  const want = layoutCrewLines(points, { scale, memory: sayMemory, dt, top: 0 });",
     "tests": [
       "test/livingcrew.test.js"
     ]
@@ -389,7 +389,7 @@
   {
     "name": "WORLD-words-unwired",
     "file": "src/scenes/world.js",
-    "old": "      navalCrewLines(proj, view, mwv.eye);   // LIVING CREW: the lines over their heads\n",
+    "old": "      navalCrewLines(proj, view, mwv.eye, dt);   // LIVING CREW: the lines over their heads\n",
     "new": "",
     "tests": [
       "test/livingcrew.test.js"

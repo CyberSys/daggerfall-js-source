@@ -42,21 +42,23 @@
   {
     "name": "QT-LIVE1-tick-grows-its-own-arithmetic-back",
     "file": "src/systems/quest/clock.js",
-    "old": "    this.remainingTimeInSeconds -= this.chargeSeconds(caller);",
-    "new": "    this.remainingTimeInSeconds -= Math.trunc(now - this._lastWorldTimeSample);",
+    "old": "    if (!timeFree) this.remainingTimeInSeconds -= this.chargeSeconds(caller);",
+    "new": "    if (!timeFree) this.remainingTimeInSeconds -= Math.trunc(now - this._lastWorldTimeSample);",
     "tests": [
       "test/qtlive1.test.js",
       "test/auditworld78.test.js"
-    ]
+    ],
+    "note": "TIMEFREE (PIN MOVED): re-aimed by content - the offline arm of the charge, the line now guarded by questTimeFree. AUDIT TIMEFREE T7 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "QT-LIVE1-running-clock-answers-the-field-when-disabled-check-inverted",
     "file": "src/systems/quest/clock.js",
-    "old": "    if (!this.clockEnabled || this.clockFinished) return this.remainingTimeInSeconds;\n    return Math.max(0,",
-    "new": "    if (this.clockEnabled && !this.clockFinished) return this.remainingTimeInSeconds;\n    return Math.max(0,",
+    "old": "    if (!this.clockEnabled || this.clockFinished) return this.remainingTimeInSeconds;\n    if (questTimeFree(this.parentQuest)) {",
+    "new": "    if (this.clockEnabled && !this.clockFinished) return this.remainingTimeInSeconds;\n    if (questTimeFree(this.parentQuest)) {",
     "tests": [
       "test/qtlive1.test.js"
-    ]
+    ],
+    "note": "TIMEFREE (PIN MOVED): re-aimed by content - the TIMEFREE arm now stands between the check and the charge."
   },
   {
     "name": "QT-LIVE1-walk-reads-the-stale-field",
@@ -107,8 +109,8 @@
   {
     "name": "QT-LIVE1-rebuild-leaks-the-interval",
     "file": "src/ui/enhancedMenu.js",
-    "old": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  if (questTimer) { clearInterval(questTimer); questTimer = null; }\n  app.innerHTML = '';",
-    "new": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  app.innerHTML = '';",
+    "old": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  if (questTimer) { clearInterval(questTimer); questTimer = null; }\n  stopTimers();",
+    "new": "  if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }\n  stopTimers();",
     "tests": [
       "test/qtlive1.test.js"
     ]
@@ -116,8 +118,8 @@
   {
     "name": "QT-LIVE1-unmount-leaks-the-interval",
     "file": "src/ui/enhancedMenu.js",
-    "old": "      if (questTimer) { clearInterval(questTimer); questTimer = null; }\n      // FIX-F:",
-    "new": "      // FIX-F:",
+    "old": "      if (questTimer) { clearInterval(questTimer); questTimer = null; }\n      stopTimers();   // TIMERS1",
+    "new": "      stopTimers();   // TIMERS1",
     "tests": [
       "test/qtlive1.test.js"
     ]

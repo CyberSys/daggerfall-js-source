@@ -348,7 +348,7 @@ test('UI1 slots: the pack\'s slot shows a stack\'s count in its corner (a single
       // THE BOXES ASKED: the grid 48, the body's panel 48 (a desktop), each at the page's ratio (1)
       const nameOf = (it) => { const img = inventoryItemImage(it); return iconName(img.archive, img.record, img.dye, img.dyeTarget); };
       assert.ok(_fittedKeys().includes(`${nameOf(items[1])}@${SLOT_BOX.grid}x1c4`), 'the arrows at the grid\'s box');
-      assert.ok(_fittedKeys().includes(`${nameOf(sword)}@${SLOT_BOX.wornWide}x1c4`), 'the worn longsword at the desktop panel\'s');
+      assert.ok(_fittedKeys().includes(`${nameOf(sword)}@${SLOT_BOX.wornWide}x1c4nosnap`), 'the worn longsword at the desktop panel\'s');
       // THE GHOST: a carry off the dagger's slot draws at the grid's box - no second picture
       one(dom.doc, 'packtabs').querySelectorAll('.packtab')[PAGE_IDS.indexOf('weapons')].onclick({});
       const before = _fittedKeys().length;
@@ -418,13 +418,13 @@ test('UI1b sheet: THE SLOT IS THE FRAME - the tier on the slot\'s own border and
 
 test('UI1 wiring: every enhanced surface draws its item through the one fitted door, each at its box (mutants: a surface back on the unfitted door)', () => {
   const inv = read('src/ui/enhancedInventory.js');
-  assert.match(inv, /export function linePicture\(line, \{ box, onReady = null \} = \/\*\* @type \{any\} \*\/ \(\{\}\)\) \{\n {2}if \(!line\.image && line\.model == null\) return null;\n {2}\/\/ MERGE \(UI1 x DYE-ICON\)[^\n]*\n {2}const name = line\.image \? iconName\(line\.image\.archive, line\.image\.record, line\.image\.dye, line\.image\.dyeTarget\) : `model\$\{line\.model\}`;\n {2}return requestFittedPicture\(name, \(wake\) => linePictureUrl\(line, \{ scale: 1, onReady: wake \}\), \{ box, dpr: screenDpr\(\), onReady \}\);/);
-  assert.match(inv, /const pic = modelPicture\(line\.item, box\)\n {4}\|\| linePicture\(line, \{ box, onReady: ready \}\);/, 'the tile: the Morrowind icon, then the classic record');
+  assert.match(inv, /export function linePicture\(line, \{ box, onReady = null, snap = true \} = \/\*\* @type \{any\} \*\/ \(\{\}\)\) \{\n {2}if \(!line\.image && line\.model == null\) return null;\n {2}\/\/ MERGE \(UI1 x DYE-ICON\)[^\n]*\n {2}const name = line\.image \? iconName\(line\.image\.archive, line\.image\.record, line\.image\.dye, line\.image\.dyeTarget\) : `model\$\{line\.model\}`;\n {2}return requestFittedPicture\(name, \(wake\) => linePictureUrl\(line, \{ scale: 1, onReady: wake \}\), \{ box, dpr: screenDpr\(\), onReady, snap \}\);/);
+  assert.match(inv, /const pic = modelPicture\(line\.item, box\)\n {4}\|\| linePicture\(line, \{ box, onReady: ready, snap \}\);/, 'the tile: the Morrowind icon, then the classic record');
   assert.match(inv, /const big = modelPicture\(line\.item, SLOT_BOX\.card\)\n {4}\|\| linePicture\(line, \{ box: SLOT_BOX\.card, onReady: ready \}\);/, 'the card');
   assert.match(inv, /row\.append\(tileWithWear\(line, row, from === 'remote' \? SLOT_BOX\.loot : gridBox\(\)\)\);/);
-  assert.match(inv, /b\.append\(tileWithWear\(line, b, wornBox\(area == null\)\)\);/);
-  assert.match(inv, /b\.append\(tileWithWear\(line, b, SLOT_BOX\.socket\)\);/);
-  assert.match(inv, /node\.append\(line \? itemTile\(line, wornBox\(true\)\) :/);
+  assert.match(inv, /b\.append\(tileWithWear\(line, b, wornBox\(area == null\), false\)\);/);
+  assert.match(inv, /b\.append\(tileWithWear\(line, b, SLOT_BOX\.socket, false\)\);/);
+  assert.match(inv, /node\.append\(line \? itemTile\(line, wornBox\(true\), render, false\) :/);
   assert.match(inv, /const tile = \(\) => itemTile\(line, gridBox\(\), \(\) => \{ if \(ghost === g\) g\.querySelector\('\.tile'\)\?\.replaceWith\(tile\(\)\); \}\);/);
   for (const f of ['src/ui/enhancedTrade.js', 'src/ui/enhancedPlayerTrade.js']) {
     assert.match(read(f), /linePicture\(line, \{ box: SLOT_BOX\.row, onReady:/, f);

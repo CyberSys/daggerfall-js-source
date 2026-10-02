@@ -42,6 +42,7 @@ import { enemyGroupOf, NEARBY } from './nearbyObjects.js';   // X8: Pacify match
 // already speak to.
 import { breakNormalPowerConcealment, handleAttackFromSource } from './concealment.js';
 import { entityAbsorbsSpells, setEnchantmentEffectDoors } from './enchantments.js';   // E1: the AbsorbsSpells fold feeds the absorption gate
+import { markPlayerHarm } from './harmMark.js';   // REVENANT-HARM: a lingering effect's round on the player keeps its caster's mark
 import { regenBarred } from './courtRules.js';   // WBX6: the Burning Court keeps no regeneration
 
 export { breakNormalPowerConcealment, handleAttackFromSource, NORMAL_POWER_CONCEALMENTS } from './concealment.js';
@@ -680,6 +681,7 @@ function runEffectRound(a, target, sinks, rolls) {
     // AUDIT 68 S19-round-ticks-player-provenance: the tick is DamageHealthFromSource(caster) - the player's blow only
     // when the player cast it (no caster is the player, hostMagic's `!caster` law). A round sink bills nobody else.
     // DUEL1: and the entry's duel tag rides along - a duel's damage over time (bundleDuel) stops at the duel's floor
+    if (n > 0 && target?.isPlayer && a.caster && !a.caster.isPlayer) markPlayerHarm(a.caster);   // REVENANT-HARM: the round that may be the death is its caster's
     if (n > 0 && sinks.hurt) sinks.hurt(n, { fromPlayer: !a.caster || !!a.caster.isPlayer, bundleDuel: !!a.bundleDuel });
     handleAttackFromSource(a.caster);   // DamageHealthFromSource's tail, wave 31
   } else if (a.kind === 'continuousDamageSpellPoints') {
@@ -1509,7 +1511,7 @@ export function applySpell(spell, casterLevel, target, sinks, rolls = Math.rando
     //
     // The "until attacked" half already exists here - every foe damage
     // door re-hostiles a pacified target (MakeEnemyHostileToAttacker),
-    // which enemyMotor.js:446 has anticipated by name since the
+    // which enemyMotor.js:454 has anticipated by name since the
     // C-slice.
     //
     // Chance-only, no magnitude, TargetFlags_Other - so it takes the

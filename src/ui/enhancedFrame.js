@@ -83,7 +83,7 @@ export const FRAME_ROLES = {
     'body .notice-win'],
   // the talk panel is a .px-win whose own ground rule outweighs .px-win's
   windowGround: ['.talk-shell .talk-panel'],
-  panel: ['.port-host .port-card', '.pack-shell .statflip-back', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
+  panel: ['body .rvncard', '.pack-shell .fate-confirm', '.px-sys .rvn-row', '.px-sys .cmp-row',   // REVENANT-PAGE / COMPANION-ROSTER: a row is a card, never a press (the 2026-10-02 audit: the tile's hover and its sink) '.port-host .port-card', '.pack-shell .statflip-back', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
     '.shell .card', '.shell .dcard', '.notice', '.inputbox', '.lv-note', '.cr-shell .cr-entry',
     '.cr-shell .cr-sharebox', '.shell .ft-rail', '.shell .look-panel',
     // PLUS3: the trade counter's item-detail readout and the trade/tavern confirm boxes - the same
@@ -111,7 +111,7 @@ export const FRAME_ROLES = {
     'body .dfnaval-plate', 'body .dfnaval-card',
     'body .bounty-card'],   // BOUNTY1: the notice read whole, the reward box
   // panels that carry a brass edge on the left as their own mark
-  panelAccent: ['.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
+  panelAccent: ['body .rvncard', '.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
   button: ['.port-host .port-btn', '.pack-shell .statflip-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
     '.px-setwrap .step', '.shell .step', '.wizard .bigbtn', '.wizard .reflexbtn', '.lv-pick .lv-arrow',
     '.lv-pick .lv-press', '.shell .look-arrow', '.cr-shell .cr-rm', '.px-winclose', '.talk-head .act', '.talk-say .act',
@@ -149,7 +149,8 @@ export const FRAME_ROLES = {
   // PLUS-DRESS: a press that COSTS something - leave or disband a guild, remove a member, challenge a player - the
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
   warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',
-    'body .dfnaval-scuttle'],   // NAV-F: scuttling a prize - she and what is left in her go down
+    'body .dfnaval-scuttle',   // NAV-F: scuttling a prize - she and what is left in her go down
+    '.pack-shell .fate-confirm .act.warn', '.px-sys .cmp-acts .act.warn'],   // REVENANT-FATE: Execute; COMPANION-ROSTER: Release, confirmed
   tile: ['.port-host .port-tile', '.pack-shell .sf-chip', '.port-host .port-iconcell', '.pack-shell .itemrow', '.pack-shell .equipped .wornrow', '.pack-shell .wornsock', '.wizard .racegrid button',
     '.wizard .facegrid button', '.shell .ft-tile', '.shell .ft-seg', '.shell .ft-mchip', '.shell .ft-tile-more',   // FT18: a condensed tile's parts toggle
     '.sb-shell .sb-chip', '.cr-shell .sb-chip', '.piletab',
@@ -161,10 +162,10 @@ export const FRAME_ROLES = {
     '.hmpick',
     'body .dfdecor-chip',   // PLUS-DRESS: the decorator's filters and modes - pickable cells, the chosen one brass
     'body .dfnaval-choice'],   // NAV-F: the captor's three choices - the one taken brass
-  chip: ['.hud-qspell', '.pack-shell .sf-tile', '.pack-shell .sf-pill', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
+  chip: ['body .rvncard-rank', '.px-sys .rvn-rank', 'body .rvncard-mood', '.px-sys .rvn-mood', '.pack-shell .fate-mood', '.px-sys .cmp-rank', '.px-sys .cmp-mood', '.hud-qspell', '.pack-shell .sf-tile', '.pack-shell .sf-pill', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
     '.shell .subbtn .count', '.hb .hb-caption',
     'body .dfnaval-chip', 'body .dfnaval-gun'],   // NAV-F: the plate's fire/brace chips and the battery rose - readouts, never pressed
-  well: ['.trade-shell .packcol', '.pack-shell .sf-sec', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
+  well: ['body .rvncard-face', '.px-sys .rvn-face', '.pack-shell .fate-face', '.px-sys .cmp-face', '.px-sys .cmp-slot', '.trade-shell .packcol', '.pack-shell .sf-sec', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
     '.port-host .port-field', '.port-host .port-canvas', '.port-host .port-picture img', '.port-host .port-pictureword', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',
     '.talk-face', '.pack-shell .figure-doll', '.pack-shell .wornmap-doll.noart', '.shell .look-pic',
     '.shell .dcard code', '.px-setwrap .dcard code', '.px-meter', '.shell .swatch', '.px-setwrap .swatch',
@@ -188,7 +189,7 @@ export const FRAME_ROLES = {
     // remotehead already wears, just never scoped for the trade counter's own copy of that markup
     '.trade-shell .remotehead',
     'body .dfsocial-head', 'body .dfchat-tabs', 'body .dfsocial-tabs'],
-  headerRule: ['.shell .ft-drawer-label', '.pack-shell .sf-sec h4', '.pack-shell .card h3', '.hmcard h3', '.hmcard h2', '.lv-crown', '.talk-modes', '.talk-cats',
+  headerRule: ['body .rvncard-name', '.shell .ft-drawer-label', '.pack-shell .sf-sec h4', '.pack-shell .card h3', '.hmcard h3', '.hmcard h2', '.lv-crown', '.talk-modes', '.talk-cats',
     'body .dfsocial-sec', 'body .dfpeer-name', 'body .dfdecor-head',   // PLUS-DRESS: the Social panel's section heads (the Guild tab's), the F-menu's name
     'body .dfnaval-sechead'],   // NAV-F: the plunder window's three heads
   footer: ['.port-host .port-foot', '.dlg-shell .dlg-acts', '.trade-shell .trade-footer', '.pack-shell .pack-dock', '.pack-shell .packbar', '.talk-say'],

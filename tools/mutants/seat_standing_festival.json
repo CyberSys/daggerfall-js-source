@@ -205,5 +205,45 @@
   "tests": [
    "test/seat_standing_festival.test.js"
   ]
+ },
+ {
+  "name": "S1-read-week-unchecked",
+  "file": "src/net/townSeatBook.js",
+  "old": " && seatWeekOf(at) === seatWeekOf(nowMs())) return",
+  "new": ") return",
+  "tests": [
+   "test/seat_standing_festival.test.js"
+  ],
+  "note": "A list read before the Turning kept after it, inside its minutes."
+ },
+ {
+  "name": "S1-redtick-no-week-reread",
+  "file": "src/net/townSeatBook.js",
+  "old": "      else if (!pending && open === true && seatWeekOf(at) !== seatWeekOf(nowMs())) read({ force: true });\n",
+  "new": "",
+  "tests": [
+   "test/seat_standing_festival.test.js"
+  ],
+  "note": "The Turning passes unread while the player stays."
+ },
+ {
+  "name": "S1-redtick-every-frame",
+  "file": "src/net/townSeatBook.js",
+  "old": "seatWeekOf(at) !== seatWeekOf(nowMs())) read({ force: true });",
+  "new": "seatWeekOf(at) <= seatWeekOf(nowMs())) read({ force: true });",
+  "tests": [
+   "test/seat_standing_festival.test.js"
+  ],
+  "note": "The list read again every frame, not once a week."
+ },
+ {
+  "name": "S1-redtick-open-gate",
+  "file": "src/net/townSeatBook.js",
+  "old": "else if (!pending && open === true && seatWeekOf",
+  "new": "else if (!pending && seatWeekOf",
+  "tests": [
+   "test/seat_standing_festival.test.js"
+  ],
+  "note": "Seats shut to the account asked again at the Turning."
  }
 ]

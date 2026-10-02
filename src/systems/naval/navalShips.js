@@ -280,6 +280,113 @@ export const MERCHANT_NAMES = Object.freeze([
   'Menevian Rose', 'Kambria Barley', 'Satakalaam Silk', 'Fair Winds of Tulune',
 ]);
 
+// SHIP-NAMES (2026-10-02, Mac: "Enemy and Friendly vessels need a large assortment of generated names") - every
+// ship's name is drawn off her seed from a trade's own forms, word banks of the Iliac Bay's crowns, divines, princes,
+// ports and goods: a crown's ship by her crown's royals and martial words (Wayrest's are not Sentinel's), a merchantman
+// by her port, her cargo and her fortune, a pirate by her dark beasts, her Daedric patron and her deeds - thousands a
+// trade, where each list held sixteen or eighteen (and a crown's six). The lists above are among the forms still. On its
+// own stream (SHIP_NAME_SALT), so her captain - drawn after one draw of the ship's own - is the captain she always had, and
+// a peer's copy, named off the same seed and region, is the same ship.
+export const SHIP_NAME_SALT = 0x4e414d45;   // "NAME"
+/** Each crown's own words: its royals, past and present (a ship "Gothryd's Resolve"), and its waters' places. */
+export const CROWN_LORE = Object.freeze({
+  Daggerfall: Object.freeze({ royals: Object.freeze(['Gothryd', 'Lysandus', 'Mynisera', 'Aubk-i', 'Nulfaga', 'Joile']),
+    places: Object.freeze(['Daggerfall', 'Glenpoint', 'Kambria', 'Betony', 'Tulune', 'Glenumbra', 'Ilessan Hills', 'Daenia']) }),
+  Wayrest: Object.freeze({ royals: Object.freeze(['Eadwyre', 'Barenziah', 'Helseth', 'Elysana', 'Morgiah', 'Emeric']),
+    places: Object.freeze(['Wayrest', 'Menevia', 'Gavaudon', 'Anticlere', 'Northmoor', 'Evermor', 'Mournoth', 'Lainlyn']) }),
+  Sentinel: Object.freeze({ royals: Object.freeze(['Akorithi', 'Camaron', 'Lhotun', 'Greklith', 'Aubk-i', 'Hunding']),
+    places: Object.freeze(['Sentinel', 'Satakalaam', 'Abibon-Gora', 'Antiphyllos', 'Ayasofya', 'Cybiades', 'Bergama', 'Kozanset']) }),
+});
+export const NAME_WORDS = Object.freeze({
+  virtues: Object.freeze(['Resolve', 'Vigil', 'Grace', 'Justice', 'Valor', 'Honor', 'Constancy', 'Fortitude', 'Wrath', 'Shield', 'Lance', 'Sword',
+    'Herald', 'Pride', 'Triumph', 'Glory', 'Majesty', 'Defiance', 'Promise', 'Mercy', 'Faith', 'Oath', 'Banner', 'Bulwark', 'Gauntlet', 'Hammer',
+    'Torch', 'Sceptre', 'Courage', 'Fury', 'Answer', 'Will', 'Word', 'Reach', 'Watch', 'Ward', 'Claim', 'Right', 'Command', 'Victory']),
+  martial: Object.freeze(['Vigilant', 'Defiant', 'Intrepid', 'Invincible', 'Resolute', 'Indomitable', 'Dauntless', 'Valiant', 'Implacable', 'Steadfast',
+    'Triumphant', 'Victorious', 'Formidable', 'Relentless', 'Unyielding', 'Gallant', 'Swiftsure', 'Audacious', 'Fearless', 'Glorious', 'Illustrious',
+    'Magnificent', 'Majestic', 'Superb', 'Thunderer', 'Vengeance', 'Warden', 'Guardian', 'Avenger', 'Champion', 'Conqueror', 'Crusader', 'Defender',
+    'Enforcer', 'Harrier', 'Lancer', 'Protector', 'Ranger', 'Paladin', 'Sovereign']),
+  divines: Object.freeze(['Akatosh', 'Arkay', 'Dibella', 'Julianos', 'Kynareth', 'Mara', 'Stendarr', 'Zenithar']),
+  favours: Object.freeze(['Wing', 'Shield', 'Mercy', 'Blessing', 'Grace', 'Wisdom', 'Hand', 'Light', 'Truth', 'Breath', 'Gift', 'Promise', 'Justice',
+    'Peace', 'Ward', 'Flame', 'Eye', 'Favour', 'Hammer', 'Anvil', 'Lantern', 'Heart']),
+  emblems: Object.freeze(['Pride', 'Glory', 'Shield', 'Sword', 'Star', 'Lion', 'Eagle', 'Hawk', 'Rose', 'Lily', 'Crown', 'Heart', 'Hope', 'Rampart', 'Banner',
+    'Gryphon', 'Stag', 'Dragon']),
+  ports: Object.freeze(['Daggerfall', 'Wayrest', 'Sentinel', 'Camlorn', 'Anticlere', 'Glenpoint', 'Menevia', 'Northmoor', 'Kambria', 'Betony', 'Tulune',
+    'Gavaudon', 'Alcaire', 'Lainlyn', 'Daenia', 'Ykalon', 'Dwynnen', 'Urvaius', 'Satakalaam', 'Abibon-Gora', 'Antiphyllos', 'Ayasofya', 'Bergama',
+    'Kozanset', 'Myrkwasa', 'Totambu', 'Tigonus', 'Cybiades', 'Bhoriane', 'Phrygias', 'Mournoth', 'Shalgora', 'Ephesus', 'Santaki', 'Pothago',
+    'Kairou', 'Koegria', 'Evermor', 'Shornhelm', 'Jehanna', 'Farrun', 'Balfiera', 'Orsinium', 'Glenumbra']),
+  callings: Object.freeze(['Trader', 'Merchant', 'Packet', 'Venture', 'Fortune', 'Lass', 'Belle', 'Maid', 'Rose', 'Pride', 'Star', 'Dawn', 'Courier',
+    'Carrier', 'Gull', 'Swan', 'Heron', 'Wren', 'Queen', 'Duchess', 'Countess', 'Lady', 'Bride', 'Daughter', 'Promise', 'Bounty']),
+  fair: Object.freeze(['Gilded', 'Honest', 'Bountiful', 'Fair', 'Laden', 'Thrifty', 'Prosperous', 'Golden', 'Silver', 'Merry', 'Fortunate', 'Steady',
+    'Plump', 'Patient', 'Faithful', 'Wandering', 'Weathered', 'Lucky', 'Bonny', 'Sturdy', 'Swift', 'Gentle', 'Generous', 'Humble', 'Jolly', 'Kindly',
+    'Quiet', 'Rosy', 'Sunny', 'Tidy', 'Willing', 'Bright', 'Copper', 'Amber', 'Ivory', 'Velvet', 'Spiced', 'Salted', 'Homeward', 'Outward']),
+  wares: Object.freeze(['Cog', 'Scale', 'Purse', 'Ledger', 'Barrel', 'Cask', 'Bale', 'Bushel', 'Coin', 'Septim', 'Ingot', 'Wheel', 'Lantern', 'Compass',
+    'Anchor', 'Gull', 'Heron', 'Cormorant', 'Pelican', 'Swan', 'Dove', 'Wren', 'Lark', 'Swallow', 'Goose', 'Otter', 'Seal', 'Mare', 'Bell', 'Hearth',
+    'Harvest', 'Vintage', 'Venture', 'Bargain', 'Errand', 'Return', 'Welcome', 'Tidings', 'Penny', 'Fortune']),
+  goods: Object.freeze(['Wool', 'Iron', 'Barley', 'Silk', 'Spice', 'Wine', 'Salt', 'Timber', 'Amber', 'Copper', 'Linen', 'Pearl', 'Dyes', 'Glass',
+    'Honey', 'Cheese', 'Ale', 'Mead', 'Salmon', 'Olive', 'Pitch', 'Tallow', 'Leather', 'Fur', 'Grain', 'Oats', 'Hops', 'Rum', 'Saffron', 'Cinnamon',
+    'Indigo', 'Cotton', 'Marble', 'Silver', 'Tin', 'Cloth', 'Rope', 'Cider', 'Brandy', 'Figs']),
+  titles: Object.freeze(['Lady', 'Maid', 'Pride', 'Star', 'Rose', 'Lily', 'Pearl', 'Belle', 'Jewel', 'Daughter', 'Mother', 'Grace', 'Hope', 'Joy',
+    'Glory', 'Fortune', 'Promise', 'Spirit', 'Wonder', 'Light', 'Queen', 'Swan', 'Dove', 'Treasure', 'Bounty']),
+  dark: Object.freeze(['Black', 'Red', 'Bloody', 'Crimson', 'Grim', 'Cruel', 'Hungry', 'Drowned', 'Rotten', 'Salt', 'Storm', 'Night', 'Dread', 'Mad',
+    'Howling', 'Wicked', 'Savage', 'Ragged', 'Rusted', 'Scarlet', 'Ashen', 'Ghostly', 'Cursed', 'Damned', 'Shrieking', 'Laughing', 'Gutted', 'Hanged',
+    'Burning', 'Sunken', 'Blind', 'Broken', 'Bitter', 'Shadow', 'Iron', 'Bone', 'Grey', 'Wailing', 'Starving', 'Feral']),
+  beasts: Object.freeze(['Kraken', 'Wake', 'Gull', 'Tide', 'Gannet', 'Wraith', 'Hag', 'Reaver', 'Crow', 'Slaughterfish', 'Dreugh', 'Wolf', 'Serpent',
+    'Viper', 'Jackal', 'Hound', 'Raven', 'Harpy', 'Banshee', 'Skull', 'Cutlass', 'Blade', 'Hook', 'Fang', 'Claw', 'Maw', 'Grin', 'Noose', 'Gallows',
+    'Corsair', 'Reaper', 'Revenant', 'Lamia', 'Spriggan', 'Imp', 'Daedroth', 'Dremora', 'Wereboar', 'Shark', 'Eel', 'Squall', 'Gale', 'Tempest',
+    'Rogue', 'Marauder', 'Butcher', 'Widow', 'Orphan', 'Beggar', 'Jester']),
+  princes: Object.freeze(['Dagon', 'Hircine', 'Sheogorath', 'Molag Bal', 'Namira', 'Peryite', 'Boethiah', 'Clavicus', 'Malacath', 'Mephala', 'Nocturnal',
+    'Sanguine', 'Vaermina', 'Azura', 'Meridia', 'Hermaeus Mora']),
+  boons: Object.freeze(['Tooth', 'Grin', 'Maw', 'Kiss', 'Bargain', 'Due', 'Debt', 'Hunger', 'Laughter', 'Whisper', 'Shadow', 'Blade', 'Thorn', 'Wager',
+    'Revenge', 'Folly', 'Feast', 'Plague', 'Embrace', 'Gift', 'Jest', 'Bane', 'Claw', 'Curse', 'Dream', 'Eye', 'Hand', 'Mark', 'Price', 'Prize',
+    'Rage', 'Ruin', 'Sting', 'Tithe', 'Touch', 'Wrath']),
+  heads: Object.freeze(['Widow', 'Throat', 'Gold', 'Soul', 'Bone', 'Skull', 'Heart', 'Hull', 'Blood', 'Gut', 'Neck', 'Coin', 'Wreck', 'Grave', 'Corpse',
+    'Purse', 'Spine', 'Rib', 'Tongue', 'Wrist']),
+  deeds: Object.freeze(['maker', 'taker', 'breaker', 'cutter', 'eater', 'render', 'splitter', 'drinker', 'reaver', 'grinder', 'biter', 'ripper',
+    'snatcher', 'slicer', 'gnawer', 'crusher', 'stealer', 'burner', 'sinker', 'seeker']),
+  scourges: Object.freeze(['Scourge', 'Terror', 'Bane', 'Plague', 'Curse', 'Dread', 'Shame', 'Ruin', 'Doom', 'Nightmare', 'Butcher', 'Wolf', 'Reaper',
+    'Widowmaker']),
+});
+/**
+ * A ship's name off `r` (her name's own stream): the forms of her trade, each a weight - a crown's ship of her crown's
+ * (`crown`, CROWNS'), else Daggerfall's. Answers the name with its article ("The Black Kraken", "Dagon's Tooth": a
+ * name in the possessive takes none).
+ */
+export function shipNameOf(faction, r, crown = null) {
+  const W = NAME_WORDS;
+  const pick = (list) => list[Math.floor(r() * list.length) % list.length];
+  const the = (n) => `The ${n}`;
+  const c = crown ?? CROWNS[0], lore = CROWN_LORE[c.name] ?? CROWN_LORE.Daggerfall;   // a crown's ship's own words
+  /** @type {[number, () => string][]} */
+  const forms = faction === 'navy'
+    ? [
+      [3, () => the(pick(c.ships)).replace(/^The (\S+'s )/, '$1')],
+      [5, () => `${pick(lore.royals)}'s ${pick(W.virtues)}`],
+      [5, () => the(`${c.name} ${pick(W.martial)}`)],
+      [3, () => `${pick(W.divines)}'s ${pick(W.favours)}`],
+      [3, () => the(`${pick(W.emblems)} of ${pick(lore.places)}`)],
+      [3, () => the(pick(W.martial))],
+    ]
+    : faction === 'pirate'
+      ? [
+        [2, () => the(pick(PIRATE_NAMES)).replace(/^The (\S+'s )/, '$1')],
+        [6, () => the(`${pick(W.dark)} ${pick(W.beasts)}`)],
+        [4, () => `${pick(W.princes)}'s ${pick(W.boons)}`],
+        [3, () => { const h = pick(W.heads), d = pick(W.deeds); return the(h.slice(-1).toLowerCase() === d[0] ? `${h}-${d}` : `${h}${d}`); }],   // "Bone-eater", never "Boneeater"
+        [3, () => the(`${pick(W.scourges)} of ${pick(W.ports)}`)],
+      ]
+      : [
+        [2, () => the(pick(MERCHANT_NAMES))],
+        [5, () => the(`${pick(W.ports)} ${pick(W.callings)}`)],
+        [5, () => the(`${pick(W.fair)} ${pick(W.wares)}`)],
+        [4, () => the(`${pick(W.ports)} ${pick(W.goods)}`)],
+        [4, () => the(`${pick(W.titles)} of ${pick(W.ports)}`)],
+      ];
+  const total = forms.reduce((sum, [w]) => sum + w, 0);
+  let x = r() * total;
+  for (const [w, make] of forms) { if ((x -= w) < 0) return make(); }
+  return forms[forms.length - 1][1]();
+}
+
 /**
  * The crown whose waters these are: the nearest of the three capitals to the map pixel, where the host has found
  * them on the player's own map (`capitals`: `[{ region, x, y }]`, the three cities' pixels) - else the region's own
@@ -297,9 +404,10 @@ export function crownOf(px, py, capitals = null, regionIndex = -1) {
 }
 
 /**
- * A ship's name and its captain's, from its seed: `{ name, captain, crown }`. A navy ship names its crown; a pirate
- * or a merchant a line from its own list. The captain is NameHelper.FullName over the region's bank on the seed's
- * own DFRandom stream - the global stream put back as it stood.
+ * A ship's name and its captain's, from its seed: `{ name, captain, crown }`. Her name is SHIP-NAMES' (`shipNameOf`,
+ * on its own stream: a navy ship's her crown's forms, a pirate's and a merchant's their trade's). The captain is
+ * NameHelper.FullName over the region's bank on the seed's own DFRandom stream - the global stream put back as it
+ * stood.
  * @param {any} shipClass
  * @param {number} seed
  * @param {{ regionIndex?: number, crown?: any }} [where] - the waters' region (the captain's name bank) and the crown
@@ -307,10 +415,9 @@ export function crownOf(px, py, capitals = null, regionIndex = -1) {
  */
 export function shipNames(shipClass, seed, { regionIndex = 17, crown: crownIn = null } = {}) {
   const rng = mulberry32((seed ^ 0x5eaf00d) >>> 0);
-  const pick = (list) => list[Math.floor(rng() * list.length) % list.length];
-  let name, crown = null;
-  if (shipClass.faction === 'navy') { crown = crownIn ?? crownOf(0, 0, null, regionIndex); name = pick(crown.ships); }
-  else name = pick(shipClass.faction === 'pirate' ? PIRATE_NAMES : MERCHANT_NAMES);
+  rng();   // SHIP-NAMES: the draw the name took off this stream - her captain's draws are the ones they always were
+  const crown = shipClass.faction === 'navy' ? crownIn ?? crownOf(0, 0, null, regionIndex) : null;
+  const name = shipNameOf(shipClass.faction, mulberry32(((seed >>> 0) ^ SHIP_NAME_SALT) >>> 0), crown);
   const saved = getSeed();
   let captain;
   try {
@@ -318,7 +425,7 @@ export function shipNames(shipClass, seed, { regionIndex = 17, crown: crownIn = 
     const bank = getNameBankOfRegion(regionIndex >= 0 && regionIndex < REGION_NAMES.length ? regionIndex : 17);
     captain = fullName(bank, rng() < 0.5 ? GENDERS.Male : GENDERS.Female);
   } finally { setSeed(saved); }
-  return { name: `The ${name}`.replace(/^The The /, 'The '), captain, crown: crown?.name ?? null };
+  return { name, captain, crown: crown?.name ?? null };
 }
 
 /** The line the target card reads under a ship's name: "Pirate Brigantine" / "Wayrest War Galley". */

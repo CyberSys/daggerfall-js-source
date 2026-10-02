@@ -107,8 +107,8 @@ test('WB9g the token and the wire: a token may carry the aura worn (`au`), absen
   assert.equal(readAura(null), null);
   // the relay: the hello's verified identity carries it, and the attached row it is stamped from carries it on
   const relay = rd('server/src/index.js');
-  assert.match(relay, /return \{ name: c\.n, kind: c\.k, subject: c\.s, title: c\.t, ts: c\.ts, glyphs: c\.g, au: c\.au, rb: c\.rb, mu, lv: c\.lv, \.\.\.guild, gio: c\.i \};/, 'off the signature (SEASON1 part two, PIN MOVED: a Season\'s banner ribbon beside it)');
-  assert.match(relay, /this\._setAttach\(ws, \{ \.\.\.a, id: m\.id, name: who\.name, title: who\.title, \.\.\.\(who\.ts \? \{ ts: who\.ts \} : \{\}\), glyphs: who\.glyphs, au: who\.au, \.\.\.\(who\.rb \? \{ rb: who\.rb \} : \{\}\), lv: who\.lv,/, 'onto the socket\'s row (SEAT1c: a seat title\'s claim beside the title)');
+  assert.match(relay, /return \{ name: c\.n, kind: c\.k, subject: c\.s, title: c\.t, ts: c\.ts, glyphs: c\.g, gx: c\.gx, au: c\.au, rb: c\.rb, mu, lv: c\.lv, \.\.\.guild, gio: c\.i \};/, 'off the signature (SEASON1 part two, PIN MOVED: a Season\'s banner ribbon beside it)');
+  assert.match(relay, /this\._setAttach\(ws, \{ \.\.\.a, id: m\.id, name: who\.name, title: who\.title, \.\.\.\(who\.ts \? \{ ts: who\.ts \} : \{\}\), glyphs: who\.glyphs, gx: who\.gx, au: who\.au, \.\.\.\(who\.rb \? \{ rb: who\.rb \} : \{\}\), lv: who\.lv,/, 'onto the socket\'s row (SEAT1c: a seat title\'s claim beside the title)');
 });
 
 // ── THE SERVICE ─────────────────────────────────────────────────────
@@ -669,7 +669,7 @@ test('WB9g the world host, by source: the auras gathered with the peers each fra
   assert.match(wear, /offer\.kind === 'title' \? await equipTitle\(io, want\) : await equipAura\(io, want\)/);
   assert.match(wear, /insigniaSelf\(r\.data, io\.secret\);/);
   assert.match(w, /online\?\.adoptIdentity\?\.\(\{ title: _insignia\.title, glyphs: online\.glyphs, level: online\.lv, aura: _insignia\.aura \}\);/);
-  assert.match(w, /adoptSessionIdentity\(appStorage\(\), \{ glyphs: answer\?\.glyphs, aura: _insignia\.aura, secret \}\);/);
+  assert.match(w, /adoptSessionIdentity\(appStorage\(\), \{ glyphs: answer\?\.glyphs, glyphsOff: answer\?\.glyphsOff, aura: _insignia\.aura, secret \}\);/);
   assert.match(w, /insignia: insigniaRows, insigniaLoad, buyInsignia: insigniaBuy, wearInsignia: insigniaWear, insigniaBusy: \(\) => _insignia\.busy,/);
   // the service's side: the routes behind the door, the version moved, the deploy watching the law
   const svc = rd('server-account/src/service.js');

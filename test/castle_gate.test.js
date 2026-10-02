@@ -7,12 +7,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { castleEntranceOf, siegeFieldOf, royalRingWire, siegeWorldPoint, SIEGE_FIELD } from '../src/systems/siegeField.js';
+import { castleEntranceOf, doorFace, siegeFieldOf, royalRingWire, siegeWorldPoint, SIEGE_FIELD } from '../src/systems/siegeField.js';
+import { hallBannerAnchors, doorNormalOf } from '../src/scenes/hallBanners.js';
 import { seatBannerAnchors } from '../src/scenes/seatBanners.js';
 import { SEAT_BANNERS_MAX } from '../src/net/townSeatLaw.js';
 
 const door = (a, b, box) => ({ door: { a, b }, box });
 const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-9;
+const nearN = (p, q) => p.length === q.length && p.every((c, i) => Math.abs(c - q[i]) < 1e-9);
 
 test('CASTLE-GATE castleEntranceOf: the LOWEST of the dungeon-entrance doors, the first on a tie, a fresh box; a door with no corners or no box passed over; none, null (mutants: the highest; the last on a tie; the box shared)', () => {
   const box = [60, 0, -20, 100, 30, 20];
@@ -55,10 +57,65 @@ test('CASTLE-GATE the crown\'s two banners flank its castle\'s entrance, after t
   assert.deepEqual(seatBannerAnchors({ frames, palaceKeys: ['p'], castle: null, gates, centre: [0, 20] }), without);
 });
 
-test('CASTLE-GATE wired in the city\'s host: a town with a dungeon gathers its dungeon-entrance doors with their models\' boxes, and a crown hands the entrance to its banners and its field alike; a palace seat hands none (mutants: the doors ungathered; the tier\'s gate; one call unhanded)', () => {
+test('CASTLE-GATE wired in the city\'s host: a town with a dungeon gathers its dungeon-entrance doors with their models\' boxes and their outward normals, and a crown hands the entrance to its banners and its field alike; a palace seat hands none (mutants: the doors ungathered; the normal ungathered; the tier\'s gate; one call unhanded)', () => {
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  assert.match(w, /if \(dfLocation\.hasDungeon\) for \(const d of cpu\.doors\) if \(d\.type === DOOR_TYPE\.DUNGEON_ENTRANCE\) pixelDungeonDoors\.push\(\{ door: doorCornersOf\(d, local\), box \}\);/);
+  assert.match(w, /if \(dfLocation\.hasDungeon\) for \(const d of cpu\.doors\) if \(d\.type === DOOR_TYPE\.DUNGEON_ENTRANCE\) pixelDungeonDoors\.push\(\{ door: doorCornersOf\(d, local\), box, normal: doorNormalOf\(d, local\) \}\);/);
   assert.match(w, /const castleGate = seatTier === 'crown' \? castleEntranceOf\(pixelDungeonDoors\) : null;/);
   assert.match(w, /seatBannerAnchors\(\{\n\s*frames: pixelHomeFrames, palaceKeys: seatPalaceKeys, castle: castleGate,/);
   assert.match(w, /tier: seatTier, castle: castleGate,\n\s*\}\) : null;/);
+});
+
+test('CASTLE-GATE AUDIT G1: the castle\'s entrance faces along its door record\'s OUTWARD NORMAL - a U-shaped castle\'s forecourt or a recessed gate, whose box middle stands outside the door, faces out, not into the keep; a frame with no normal, or one that does not lean along the face, falls back to the box middle (mutants: the normal ignored; its sign reversed; any lean taken; the normal not carried; the banners\' face off the box alone)', () => {
+  const span = { a: [-2, 0, 0], b: [2, 5, 0] };
+  const uBox = [-20, 0, -10, 20, 25, 30];   // the keep behind z = 0, the forecourt's walls out to z = +30
+  const recessed = [-4, 0, -1, 4, 8, 3];      // the gate's frame stands 3 m proud of the door, its wall 1 m behind
+  for (const box of [uBox, recessed]) {
+    const f = doorFace({ door: span, box, normal: [0, 0, 1] });
+    assert.ok(nearN(f.out, [0, 1]), `out along the normal: ${f.out}`);
+    assert.ok(nearN(doorFace({ door: span, box }).out, [0, -1]), 'no normal: away from the box middle, as before');
+  }
+  assert.ok(nearN(doorFace({ door: span, box: [-20, 0, -30, 20, 25, 10], normal: [0, 0.2, -0.98] }).out, [0, -1]), 'a normal pointing -z faces -z, whatever the box says');
+  assert.ok(nearN(doorFace({ door: span, box: uBox, normal: [0, 1, 0] }).out, [0, -1]), 'a normal straight up says nothing of the face: the box middle');
+  assert.ok(nearN(doorFace({ door: span, box: uBox, normal: [0.9, 0, 0.3] }).out, [0, -1]), 'a normal leaning along the span, not the face: the box middle');
+  // the field and the banners stand out before the gate, the frame castleEntranceOf hands carrying the normal
+  const castle = castleEntranceOf([{ door: span, box: uBox, normal: [0, 0, 1] }]);
+  assert.deepEqual(castle.normal, [0, 0, 1]);
+  const field = siegeFieldOf({ tier: 'crown', castle, centre: [0, 200] });
+  assert.ok(near(field.throne, [0, SIEGE_FIELD.thronePaceM]) && near(field.camps.defend, [0, SIEGE_FIELD.defendCampM]) && near(field.banners[3], [0, SIEGE_FIELD.squareM]), `the Throne, the camp, the square out before the gate: ${field.throne}`);
+  const pair = hallBannerAnchors(castle);
+  for (const a of pair) assert.ok(a.out[2] > 0.99 && a.top[2] > 0, `a castle banner hangs out of the gate: ${a.out} ${a.top}`);
+  for (const a of hallBannerAnchors({ door: span, box: uBox })) assert.ok(a.out[2] < -0.99, 'a palace\'s or a hall\'s frame (no normal): the box middle, as it was');
+  const seat = seatBannerAnchors({ castle });
+  assert.ok(seat.length === 2 && seat.every((a) => a.out[2] > 0.99), 'the seat\'s castle pair hangs out of the gate');
+});
+
+test('CASTLE-GATE AUDIT G1: doorNormalOf - the door record\'s model-space normal through the model matrix\'s rotation alone (never its translation), unit length; none without a normal or a matrix (mutants: translated; unnormalised)', () => {
+  // a quarter turn about y (model +z to pixel +x), doubled in scale, stood 500 m off
+  const M = [0, 0, -2, 0, 0, 2, 0, 0, 2, 0, 0, 0, 500, 10, -300, 1];
+  assert.ok(nearN(doorNormalOf({ normal: { x: 0, y: 0, z: 1 } }, M), [1, 0, 0]), String(doorNormalOf({ normal: { x: 0, y: 0, z: 1 } }, M)));
+  assert.ok(nearN(doorNormalOf({ normal: { x: 0.6, y: 0, z: 0.8 } }, M), [0.8, 0, -0.6]));
+  assert.equal(doorNormalOf({}, M), null);
+  assert.equal(doorNormalOf({ normal: { x: 0, y: 0, z: 1 } }, null), null);
+  assert.equal(doorNormalOf({ normal: { x: 0, y: 0, z: 0 } }, M), null);
+});
+
+test('CASTLE-GATE AUDIT G2: the lowest entrance by its door\'s CENTRE, as DFU\'s landing measures it (enterExit.js doorWorldPosition) - a tall gate whose foot is lower loses to a postern whose middle is (mutant: the lower corner)', () => {
+  const box = [-20, 0, -10, 20, 25, 30];
+  const gate = { door: { a: [-3, 0, 0], b: [3, 6, 0] }, box, normal: [0, 0, 1] };        // foot 0, centre 3
+  const postern = { door: { a: [15, 0.2, 5], b: [16, 2.2, 5] }, box, normal: [0, 0, 1] };  // foot 0.2, centre 1.2
+  assert.deepEqual(castleEntranceOf([gate, postern]).door, postern.door);
+  assert.deepEqual(castleEntranceOf([postern, gate]).door, postern.door);
+});
+
+test('CASTLE-GATE AUDIT G3: a door no face can be taken from (narrower than a man) is passed over for the town\'s next - the crown\'s field and banners still stand at its castle; none faceable, none (mutant: the unfaceable door taken)', () => {
+  const box = [-20, 0, -10, 20, 25, 30];
+  const narrow = { door: { a: [5, 0, 0], b: [5.2, 2, 0] }, box, normal: [0, 0, 1] };   // 0.2 m: the lowest, but no face
+  const gate = { door: { a: [-3, 0.5, 0], b: [3, 6, 0] }, box, normal: [0, 0, 1] };
+  const castle = castleEntranceOf([narrow, gate]);
+  assert.deepEqual(castle.door, gate.door);
+  const frames = new Map([['p', { door: { a: [100, 0, 100], b: [102, 2, 100] }, box: [95, 0, 90, 105, 10, 100] }]]);
+  const field = siegeFieldOf({ frames, palaceKeys: ['p'], tier: 'crown', castle, centre: [0, 200] });
+  assert.ok(near(field.throne, [0, SIEGE_FIELD.thronePaceM]), `the Throne at the castle, not the palace: ${field.throne}`);
+  assert.equal(seatBannerAnchors({ castle }).length, 2);
+  assert.equal(castleEntranceOf([narrow]), null);
 });

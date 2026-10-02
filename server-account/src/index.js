@@ -135,7 +135,7 @@ import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
   devicesOf, accountView, displayName, accountKind,
   register, login, recover, changePassword, setEmail, overRate,
-  accountWardrobe, equipTitle, equipAura, buyInsignia, insigniaPurse, creditPlay, muteAccount, isMuted, mutedUntil,
+  accountWardrobe, equipTitle, equipAura, equipGlyph, buyInsignia, insigniaPurse, creditPlay, muteAccount, isMuted, mutedUntil,
   duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
@@ -143,7 +143,7 @@ import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrde
 import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, PATREON_OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
-import { titleWorn, glyphsOf, auraWorn } from './titles.js';
+import { titleWorn, glyphsOf, glyphsHidden, auraWorn } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
@@ -297,6 +297,7 @@ const SEAT_STATUS = Object.freeze({
   'pass-early': 409, 'pass-late': 409, 'field-unsettled': 409, 'honours-twice': 409, 'not-yours': 403,
   // AUDIT-SEATS: a battle its Turning voided (S3), a window moved in the Reckoning (S10) 409
   'battle-void': 409, 'window-reckoning': 409,
+  'battle-settled': 409,   // AUDIT 529 V5: a `/siege void` after the battle's week was settled
   // CROWN1 part two: no Royal Tourney here 404; its week's champion named, its ring unsettled 409
   'royal-none': 404, 'royal-over': 409, 'ring-unsettled': 409,
   // CROWN2: no such guild, offer or Pact 404; a pair that does not fit, one sworn or signed already, a pledge between them 409
@@ -645,6 +646,10 @@ const service = {
           au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
           ...(rb ? { rb } : {}),
         };
+        // GLYPH-WEAR: the glyphs taken off ride BESIDE `g`, never out of it - `g` is what is true and what the relay's
+        // rights read (/red, /dm); `gx` is paint, which every face that draws a badge leaves out. Absent for none.
+        const gx = glyphsHidden(who.player, env, nowS);
+        if (gx.length) wardrobe.gx = gx;
         // MOD1: A MUTE RIDES THE TOKEN, so a reconnect cannot shed one -
         // every room reads it off the signature at the hello. Only while
         // it runs: a mute that has ended is simply absent.
@@ -683,6 +688,7 @@ const service = {
           title: wardrobe.t ?? null,
           ...(wardrobe.ts ? { ts: wardrobe.ts } : {}),   // SEAT1c: a seat title's claim, the client's to word
           glyphs: wardrobe.g,
+          ...(wardrobe.gx ? { glyphsOff: wardrobe.gx } : {}),   // GLYPH-WEAR: the ones my own name leaves out, absent for none
           mutedUntil: mu ?? 0,
           level: lv ?? null,
           xp: track ? track.xp : null,
@@ -873,7 +879,7 @@ const service = {
           const status = RENT_STATUS[r.error] ?? 400;
           return no(r.error, status, origin);
         }
-        if (path === '/v1/homes/look') {   // HOME-LOOK: how a home looks outside - its owner's character's
+        if (path === '/v1/homes/look') {   // HOME-LOOK: how a home looks outside - its owner's character's (GUILD-YARD: a hall's, its keepers')
           const r = await setHomeLook(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
           return no(r.error, r.error === 'no-home' ? 404 : r.error === 'decor-rate' ? 429 : 400, origin);
@@ -1105,6 +1111,12 @@ const service = {
       if (path === '/v1/account/aura' && request.method === 'POST') {
         // WB9g: WEAR ONE AURA, OR NONE - the title's door at the feet. 403 for `not-held`, as the title's.
         const r = await equipAura(ctx, await withSeatTitles(ctx, who.player, env), env, body.aura ?? null);   // AUDIT SEATS-3 E2: the wardrobe it answers keeps a Charter's titles
+        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
+      }
+
+      if (path === '/v1/account/glyph' && request.method === 'POST') {
+        // GLYPH-WEAR: SHOW ONE GLYPH, OR HIDE IT - `{ glyph, on }`. 403 for `not-held`, as the title's.
+        const r = await equipGlyph(ctx, who.player, env, body.glyph, body.on !== false);
         return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
       }
 

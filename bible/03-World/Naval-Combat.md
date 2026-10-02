@@ -180,7 +180,8 @@ Nine classes in three trades (`SHIP_CLASSES`), each on one of Come Sail Away's h
 | navy cutter | navy | Small Ship | 1 | 14 | 2 | broadside |
 | navy galley | navy | Large Galley | 6 | 18 | 2 | bow |
 
-**Names**: a pirate or a merchantman a line from her trade's list, a navy ship her crown's own
+**Names**: ~~a pirate or a merchantman a line from her trade's list, a navy ship her crown's own~~ SHIP-NAMES (below):
+each drawn off her seed from her trade's forms over the Bay's word banks, a navy ship's of her crown
 (`CROWNS` - Daggerfall's under Gothryd, Wayrest's under Eadwyre, Sentinel's under Akorithi), and every captain
 DFU's `NameHelper.FullName` over the region's name bank on the ship's own seed (the global DFRandom stream put back as
 it stood). The crown of any water is the nearest of the three capitals (`crownOf`).
@@ -382,8 +383,11 @@ them, and no captain takes them for a contact.
   above; F3: her mode, so her crew is at battle on every screen; F5: her victor, kept through a handover, where the navy
   had sailed off and her prize lay struck for good) - and `m`, the owner's boat - her crew, her battle and her hull (F2:
   the stander sized a peer's boat at a full crew and the peer herself single-handed, 3,300 against 2,357, so a wary
-  pirate took on one screen what she left on the other; the living crew counts her men off it, F9). `validNavalRecord`
-  takes it whole or not at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO RELAY CHANGE: the relay passes the foes
+  pirate took on one screen what she left on the other; the living crew counts her men off it, F9). AUDIT BAY A18: and
+  `l`, a key of its own the same way - the lanes' packets the owner has seen spent, each her voyage's seed, the last
+  NAVAL_WIRE_SPENT (8), said on by every reader (a player who never saw her go stood her afresh where she went down).
+  `validNavalRecord` takes it whole or not at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO
+  RELAY CHANGE: the relay passes the foes
   frame through and routes a cell's hit by its `to`.
 - **The victim resolves**: a ball that strikes MY boat is mine to take, from any ship's volley flown here; a blow on a
   ship another player stands goes to them as a hit frame (`navalHitData`: `to`, the ship's number, the damage,
@@ -467,7 +471,8 @@ them, and no captain takes them for a contact.
 - **The ships' tags and the lookout** (AUDIT NAV1, the presentation, #14): a TAG over each ship within NAVAL_TAG_RANGE
   of the eye and past NAVAL_TAG_NEAR (nearer, she fills the view), NAVAL_TAG_MAX of them nearest first (the host's
   `tags`): her name in her trade's colour (a hostile ship's red), her hull's bar, her state in the card's words
-  (Colours struck, Taken, Boarded, Going down - none while she sails: her red says hostile), the card's ship ringed - TAG_LIFT over her highest spar as she stands, so it settles as she
+  (Colours struck, Taken, Boarded, Going down - none while she sails: her red says hostile; SHIP-STANCE, below: a
+  friendly ship's bar green, and SHIP-TAGS' second line within TAG_DETAIL_M), the card's ship ringed - TAG_LIFT over her highest spar as she stands, so it settles as she
   goes down. The world projects them through the frame's own matrices behind a sight cache of their own (the peers'
   names' law, NAME1) and hides them under every window, a pause, the HUD hidden and the travel view (`navalTags`);
   the readout's tag layer wears them (`drawNavalTags`: one node a slot, moved, never rebuilt, at the HUD's scale,
@@ -1120,7 +1125,16 @@ with crew naturally getting into position and fighting enemies".
   the mod's people flats on and above her deck stand down in their places (their renderer off - the pool's flats pass
   skips them; a galley's rowers below never touched); past it they stand again. The lines over their heads go to the
   naval HUD (`ui/navalHud.js drawCrewLines`: the CREW_SAY_MAX nearest, a song's in brass, a shout's in red, fading to
-  CREW_SAY_RANGE, behind the land by the crew's own sight cache). AUDIT NAV2: a re-keyed ship keeps her crew and a hold
+  CREW_SAY_RANGE, behind the land by the crew's own sight cache). CREW-SAY (FIELD BUGS 2026-10-02, Mac: "your crew
+  mates speaking sometimes seems like gibberish"): laid by `layoutCrewLines` - a line two or more say at once once,
+  over the nearest and by no name; a line said alone by its speaker's first name; each foot clear of a mate's bar and
+  name; each farther bubble lifted over every nearer one it would cover, the nearest drawn over the rest. They had
+  stood over each other in 56% of the frames with two lines up, the chorus up to six deep. Its audit (FIELD BUGS
+  2026-10-02b): only a line SUNG or SHOUTED by many is laid once - two hands' talk is each his own, by his name; a stack
+  stands in the order its lines were first said (`crewSayMemory`), so the eye's drift never turns it over (bubbles
+  swapped places, up to 247 px in a frame), and a bubble comes down to its place at CREW_SAY_EASE px a second, held
+  where it stands while its way down is barred, up at once - never over another; a lifted bubble that would stand over
+  the screen's top is not drawn. AUDIT NAV2: a re-keyed ship keeps her crew and a hold
   let go stands her again whole (F6: a room's hand-over stood a second crew beside the flats the first switched back
   on, down for good once she left); a ship going down keeps her living crew to the end, her flats down (F45: dropped
   at the sinking, the mod's static flats in their place); with the arc off no living crew stands - Come Sail Away as
@@ -1193,8 +1207,9 @@ cruise to random waypoints; a port had no ships at all. `systems/naval/shipLife.
   a transition forgets the harbours, found again where the world is next. **Online**: a ship taken over (`adopt`)
   draws her errand again where she lies.
 
-Not built: fishing boats (no fishing class exists), a harbour's own lights and quays, ships at anchor off a harbour with
-no berth, and a voyage's port-to-port route beyond the loaded terrain (the water is only known where the world is).
+Not built: fishing boats (no fishing class exists), a harbour's own lights and quays, ~~ships at anchor off a harbour
+with no berth, and a voyage's port-to-port route beyond the loaded terrain~~ (SEA-LANES, below: the Bay's packets sail
+the map's water between its ports, and lie off a port whose harbour no one has sounded).
 Pins: `test/shiplife.test.js` (11). Mutants: `tools/mutants/shiplife.json` (32).
 
 ## KEEP-PLUNDER and KEEP-BOATS (2026-09-30) - nothing of the player's goes with the sea
@@ -1590,6 +1605,158 @@ Pins: `test/shipclaim.test.js` (14 - the two SHIP-PACK ones: a claimed ship pick
 ship, her hurts and her empty crew kept by her number; a claimed Large Boat packs at her papers' worth).
 `tools/mutants/shipclaim.json`: 58 mutants, all dead; `tools/mutants/shippack.json` holds the pick-up's.
 
+## SHIPS OF THE BAY (2026-10-02) - SHIP-NAMES, SHIP-STANCE, SHIP-TAGS, SHIP-FADE, SEA-LANES - DECLARED
+
+Mac: *"2. Improve the enemy and friendly UI substationally. Ships should just disappear into the void. If theyre going
+out to open sea, they should fade away, ships should be more persistant and actively engage with multiple docks and
+multiple pathways around daggerfall 3. Friendly ships should have green Healthbars unless provoked 4. Enemy and
+Friendly vessels need a large assortment of generated names"*. All of it the port's own, over NAV-C's ships, NAV-F's
+tags and card, SHIP-LIFE's harbours and NAV-R's shared clock.
+
+- **SHIP-NAMES** (`systems/naval/navalShips.js shipNameOf`, `NAME_WORDS`, `CROWN_LORE`). A name was a line of her
+  trade's list - sixteen merchantmen's, eighteen pirates', six a crown's - and a possessive took an article ("The
+  Dagon's Tooth"). Now each is drawn off her seed from her trade's FORMS, each a weight: a crown's ship of her crown's
+  list, her royals' virtues ("Eadwyre's Fury"), her crown and a martial word ("The Daggerfall Resolute"), a divine's
+  favour ("Stendarr's Peace"), an emblem of her crown's places ("The Eagle of Cybiades") or a martial word alone
+  (3 : 5 : 5 : 3 : 3 : 3); a pirate of the old list, a dark beast ("The Blind Gale"), a Daedric prince's boon
+  ("Azura's Grin"), a deed of heads ("The Goldreaver"; "The Bone-eater", hyphened where a letter would double) or a
+  scourge of a port (2 : 6 : 4 : 3 : 3); a merchantman of the old list, her port and calling ("The Daenia Packet"), her
+  fortune and wares ("The Patient Wren"), her port's goods ("The Menevia Mead") or a lady of her port ("The Maid of
+  Phrygias") (2 : 5 : 5 : 4 : 4). Three thousand seeds name over 2,100 merchantmen, 1,800 pirates and 600 of each
+  crown's. A name in the possessive takes no article. On its own stream (`SHIP_NAME_SALT`): her captain, drawn after one
+  draw of the ship's stream as ever, is the captain she always had; a peer's copy - her seed and waters - bears her name.
+- **SHIP-STANCE** (`scenes/navalHost.js stanceOf`, the tags' and the card's one reading). A ship flying a lawful flag
+  (a merchantman, a crown's ship), afloat and not hostile to me (`navalAI.js hostile`: she would take me, a crown hunts
+  me by my notoriety, or a blow of mine within PROVOKED_S) is FRIENDLY: her tag's bar green (`CREW_GREEN`, the
+  party's), her card's hull green and its state "Friendly" in green. Provoked, hunting me or struck she is not - a
+  hostile ship's red as before, "Hostile" in red; a pirate not after me now is neither (her bar red still: no lawful
+  flag); a struck ship is neither (the card read a struck ship provoked once hostile, her tag never did). The blow
+  forgotten, she is friendly again.
+- **SHIP-TAGS** (`navalHost.js boundOf`, `ui/navalHud.js tagLine`). Within TAG_DETAIL_M (400 m) of the eye a tag reads
+  a second line under her name: her class (a crown's by her crown, "Wayrest War Galley") and where she is bound -
+  moored at, leaving, patrolling off or bound for a harbour by its town's name (the world hands the name with the
+  port's footprint, `navalHarbourNear`), a lane's packet bound for her next port or lying off it, a relief coming to
+  your aid, a voyage out of the harbours bound out to sea; nothing while she fights or runs, nor struck. Past
+  TAG_DETAIL_M none (the line hidden by its `:empty` rule). The card's state line says the same after her stance
+  ("Friendly - bound for Sentinel"), on one line cut at the card's edge (AUDIT BAY A10: the aside card's ran to a
+  second). AUDIT BAY: a crown's ship answering the guns says nothing of where she was bound - a relief still comes to
+  your aid (A11: she read "bound out to sea"); a packet leaving a harbour with no name reads her lane's next port
+  (A16); another player's packet, known by her seed, reads her lane along her own leg (A22, below), and another's ship
+  lying still at a berth of a harbour I know reads moored at it (A9: both read nothing).
+- **SHIP-FADE** (`navalHost.js retire`, `fadeStep`; `scenes/comeSailAwayPool.js`; `render/orderedDither.js
+  DISSOLVE_GLSL`, `render/renderer.js setDissolve`, `render/enhancedLighting.js EL_MESH_FS`). A
+  ship let go by her range was dropped where she sailed - the director's past DESPAWN_BEYOND, a raider past
+  RAIDER_DROP_M, a harbour's moored ships the moment the port was left, a peer's ship out of their word - and every ship
+  came into the world whole. Now she comes in over SHIP_FADE_S (4 s) and goes out over SHIP_FADE_S from the share she
+  has (one never seen goes at once): RETIRED, she sails on, dissolving, and is dropped when she has gone; back in range
+  as she fades (a raider, a packet, a harbour's ship, a peer's ship said again) she stays; one of mine fired on as she
+  fades - engaged, alongside or boarded - comes about and stays; a peer's fades whatever her word said. A ship sunk,
+  taken or yielded into a peer's copy of her (OW6) goes as she always went. Drawn: the pool sets the renderer's
+  dissolve to her share about her meshes and puts it back after her (`setDissolve`: clamped, uploaded at once on the
+  installed mesh program, nothing asked when unchanged - no pass uploads it, so the frame's cost is LA-COST1's as it
+  was); both mesh shaders - the classic and Enhanced Lighting's, the classic shadows' lane with it - cut her fragments
+  after their slice by the port's one `bayer4` (`dissolveCut`: a fragment kept where the screen's 4x4 threshold stands
+  under her share, exactly k of 16 at k/16 - no blending, no sorting, the depth written as any opaque's). The uniform
+  is the share CUT, so nought - every uniform's own start - is whole: no program needs a word to draw everything. Under
+  FADE_FLATS (a half) her flats (her crew, her lanterns) stand down; one faded away draws nothing; her tag's opacity is
+  its distance's times her share. Compiled in Chromium's WebGL2 (all three mesh shaders), and the cut measured there:
+  a sixteenth, a quarter, a half and three quarters of an 8x8 target kept, to the pixel. AUDIT BAY: everything of her
+  goes with her - her SHADOW by the same cut in the depth maps (A12: `render/shadowPass.js DEPTH_CUT_FS`, the lit
+  pass's own `dissolveCut` over the map's texels; a record carries the renderer's `cut`, is never a cache's, and is
+  drawn with the cutting program, its cut uploaded once a record a replay - a whole one's the plain program, nothing
+  uploaded); and under FADE_FLATS her lanterns' light and far lamps (A13), her deck fires (a flame is a flat:
+  `scenes/navalFlames.js show`), embers, smoke, founder and burning glow, and her wake, splashes and colours (A14).
+- **SEA-LANES** (`systems/naval/seaLanes.js`, pure; `navalHost.js liners`, `steerLiner`; `world.js laneShips`).
+  THE LANES: every port town of Travel Options' list with the ocean's water (never a lake's) within ROADSTEAD_PX (3)
+  of it - its ROADSTEAD, the nearest such pixel, ring by ring - runs lanes to its LANE_NEIGHBOURS (2) nearest such
+  ports within LANE_MAX_PX (30 pixels, some 25 km): each pair once, the lower id first, the same lanes on every client
+  whatever order the ports are read in - a coast a chain, every port two lanes at least. A lane's way is the water's:
+  an A* over the map's water pixels, eight neighbours with no corner cut past land, the shortest, no longer than
+  LANE_PATH_PX (60), straightened wherever a line holds to the water (LANE_STRAIGHT_STEPS a pixel). THE PACKETS: a
+  lane sails one every LANE_HEADWAY_S (30 min) each way, each a merchantman or on LANE_NAVY (a quarter) of them a
+  crown's ship, at LANE_LEVEL for every player and never a galley, her cruise LANE_CRUISE of her class's best; she sails
+  out, lies LANE_DWELL_S (10 min) at the far port, sails home and lies LANE_DWELL_S at hers, for ever, on the SHARED
+  CLOCK (`raidNowMs`, NAV-R's) - so where she is is the clock's alone: every player meets her in the same water, a port
+  left and come back to finds her further on, and the ship watched out of one port is the one that berths at the next.
+  Her VOYAGE is her cycle: her id names her lane, her place and her voyage, and the next voyage is another ship -
+  AUDIT BAY A17: unless she is on the water as it turns: her `seeds` are her place's last LANE_LINEAGE (24) voyages',
+  hers first, and any of them afloat is her place's packet - she sails the next voyage as herself (she faded out at her
+  berth in the port's sight, and another was stood at the roadstead). Her `region` her home port's (A8).
+  THE HOST: a packet under way within LINER_STAND_M (1,200 m) stands where her lane puts her, fading in - LINERS_MAX of
+  them by the Ships at sea (one, two, three; none with it off), the shared sea's traffic, every player their own (AUDIT
+  BAY A5: only the elected launcher stood any - a packet by another player was stood by nobody; two standers' twins
+  are the claim rule's), the nearest first, never twice, never one whose voyage's ship or place's packet is in my sea,
+  never off the water; one lying at a port whose harbour I know stands moored at its LAST open berth (A7: the
+  harbour's own are stood at its first; a berth another's ship lies at is none) - no galley moors - named by her home
+  port's region wherever she is met (A8). Each ship in my sea is known by her seeds (A3/A9/A17): mine, taken over or
+  sailing on into her next voyage, steered by her lane; another's read on her tag - followed along her own leg by where
+  she lies (A22: a peer's copy kept the leg she was first known on for good, and taken over sailed it again): first
+  known under way heading back along her clock's leg, on the leg before it (behind her clock by a leg, for the port it
+  left - fighting, lying at a berth or off her clock's port, her clock's); at her port (a berth of it, or her leg's
+  end) as her clock sails her on, on its next. A ship of mine her lane takes up - taken over, or met in it again -
+  keeps her lane's errand alone: lying at a berth or on her way out of a harbour she keeps to it, SHIP-LIFE's own
+  never (it sent one taken over mid-lane for the nearest harbour's berth, the port behind her). STEERED (A6, A22):
+  under way along
+  her OWN leg from where she is (`seaLanes.js pursue`, LINER_LOOKAHEAD_M (300 m) on - never for her place on the
+  clock, which took her across the land a lane goes round), out of any berth through its harbour's mouth first; within
+  LINER_PORT_M (500 m) of her leg's end (by its own remainder) she is at her port - into its last open berth, moored
+  till her clock sails her on (come early, she waits for it), else lying off her leg's end; her clock gone on (she
+  behind it) she sails at once for where it has her bound: the leg she sails is hers till she has sailed it (her clock
+  turned under one behind it, and she came about for home short of her port). At her port is by her errand there too
+  (into a berth of it, moored at one however far it lies from her leg's end, lying off it though a fight carried her
+  from it); fighting, her leg is hers till her fight is done. Past LINER_DROP_M (1,700 m) she sails on
+  and fades unless she fights (no lane steers a fight); back as she fades, she stays; held ORPHAN_S for a player
+  within LINER_DROP_M of her, who takes her over where she lies (A4: she faded out of their sea and was stood in it
+  anew - a raider likewise, and a harbour's own for the one who rolls the port, A20). Out of the list (her lineage
+  past) she is the sea's as any ship - moored, her own dwell; lying off a port, an errand of her own (A19). One no
+  longer afloat - sunk, struck, taken, boarded - is spent for her voyage by every player who sees her go, said in the
+  word (`l`, A18), and is her lane's no more: the sea's own law lets her hulk go out of sight (A2: the lane kept a
+  struck one for good). A packet counts in the sea's density and is never the director's to let go. THE WORLD: every
+  LANE_LIST_MS (2 s), outdoors and running, before the frame poses the sea's ships, the world hands the host EVERY
+  packet of every lane with a port within LANE_PATH_PX / 2 + LANE_NEAR_PX (34 pixels) of the player - a ship on a way
+  within reach has one there (A19: only those whose place on the clock lay within 1,600 m, and one fallen that far
+  behind was let go beside the player) - the lanes made once from the map's own ports, water and climate, a lane's way
+  sounded once and only near the player - each in the scene with her seeds, her leg, her ports by key and name and her
+  home port's region. Measured (AUDIT BAY): a packet makes 31-66% of her best way by her heading in a wind of 1 (the
+  game's runs 1 to 2, a tenth of it in fog), her schedule LANE_CRUISE (70%): she falls behind it - 1 km in 20 minutes -
+  and sails her own leg out; one that outsails it waits at her port.
+
+Said: the lanes are made from the real map's ports and water, which no test here reads (the game's data is not in the
+tree): a port with no ocean pixel within three of it has no lane, and a lane longer than sixty pixels of water none.
+Online: every player stands the packets near them and each rides its stander's word as any ship of theirs, twins
+settled by the claim rule; a packet another lets go of by their range within mine is taken over where she lies; a
+spent packet's voyage rides the word (`l`, a key of its own: an older build's door passes it and reads none); her
+place being the clock's, a new stander stands the same ship where she sails. Nothing under `server/src` or `src/net`.
+THE FOUR HOSTS RULE: the feed is world.js's alone (`navalFrame`); the other hosts stand no sea (NAV-H).
+Not seen in a browser.
+
+Pins, each red on 168bf2587: `test/shipnames.test.js` (5), `test/shipstance.test.js` (4), `test/shipfade.test.js` (8),
+`test/sealanes.test.js` (9). Mutants: `tools/mutants/shipnames.json` (36), `shipstance.json` (39), `shipfade.json` (34), `sealanes.json` (71) - 178
+dead, two equivalent as recorded (a roadstead ring's inner pixels asked again, found closed before; a tie of distances,
+which a stable sort over ports walked in id order keeps the lower id's). PINS MOVED, each by content: `nav_c_ships` (a navy ship's name is
+her crown's forms, never another crown's words; a pirate's possessive takes no article), `nav_f_ui` (the card's
+`friendly` and its hostile state's own kind), and the fade's (each waits SHIP_FADE_S, or reads `retiring`, where a
+ship was dropped at once): `auditnav2_captains` F23 (two), `auditshiplife_host` B2, `nav_r_raiders` (two),
+`navaudit_captains` B1, `navaudit_online` #2, `navaudit_presentation` (an afloat ship out of her stander's word),
+`shipclaim`, `shiplife` (the harbour roll). Records re-aimed by content, all dead: `nav_c.json` NAV-C-the-crown-ignored,
+`nav_r.json` NAV-R-the-director-takes-her, `navaudit_captains.json` NAV1-a-prize-engaged, `navaudit_helm.json`
+NAV1H-the-last-frames-hulls, `navaudit_presentation.json` NAVP-letgo-drops-at-once, NAVP-letgo-keeps-afloat and
+NAVP-tags-hostile-unread, `shiplife.json` SHIPLIFE-HOST-moored-kept-far; `survtiers3.json`'s two world.js cites, moved with the lanes' import. Judged again (the
+records on navalHost.js, navalHud.js, navalShips.js and comeSailAwayPool.js, and the moved pins' lists - 1,014): the
+first 491 as this commit lands - 483 dead, two equivalent as recorded, and six that survive on 168bf2587 alike, none
+of this change's (A0928-R5-flat-scale-walks-again, NAV-B-her-colours-struck, NAV-C-the-tactic-ignored,
+NAV1-the-tacks-carry-dropped, NAV1-no-pay-off, NAV1-never-warped); the rest are judged after it. AUDIT BAY judged the
+rest (`01-Overview/Audit-Ships-of-the-Bay.md`): of all 1,014, 1,004 dead, the two equivalent and the six, and two the
+change's own - SEAPEACE-the-prize-let-go-before-the-grapple surviving (pins the fade weakened, A15) and
+SHIPLIFE-AI-no-hold hanging its suite for good (A21) - each dead now.
+
+THE MERGE with main (2026-10-02, the branch's own, for its pull request): FONT3's floor met SHIP-TAGS' second line,
+which stands at 11px as every enhanced line now does (its 9px is under the floor); SILVER met SHIP-NAMES' wares, whose
+coin "Drake" - the old currency's name, gone from every word a player reads - is an Ingot now, at its own place in the
+bank (so every other name stands); main's FIELD BUGS 2026-10-02 met this branch's of the same name, both kept on one
+page as its convention keeps them (`01-Overview/Field-Bugs-2026-10-02.md`, part three); the cites each side moved were
+mapped by citeMerge, CD4's struck ones by hand.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's
@@ -1669,6 +1836,10 @@ once built, a stale owner masking the sink window, the sea off the player's shor
 AUDIT NAV2's own suites - `test/auditnav2_online.test.js`, `auditnav2_boarding`, `auditnav2_captains`,
 `auditnav2_helm`, `auditnav2_combat`, `auditnav2_deck` and `auditnav2_crew` - and their mutant lists
 (`tools/mutants/auditnav2_*.json`) are the audit's record's (`01-Overview/Audit-NAV2.md`).
+SHIPS OF THE BAY's (2026-10-02) - `test/shipnames.test.js`, `shipstance`, `shipfade`, `sealanes` - and their lists
+(`tools/mutants/shipnames.json`, `shipstance.json`, `shipfade.json`, `sealanes.json`) are recorded in its section above;
+AUDIT BAY's - `test/auditbay_lanes.test.js`, `auditbay_render` and `tools/mutants/auditbay.json` - are the audit's
+record's (`01-Overview/Audit-Ships-of-the-Bay.md`).
 
 ## GALLEON (2026-10-01) - Mac's galleon, her guns out of her ports - OURS
 

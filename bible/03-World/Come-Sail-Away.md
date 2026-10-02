@@ -503,7 +503,21 @@ step, the steps over the quad's two triangles (GetInterpolatedHeight, the
 drawn ground's own cut), the height a step times size.y over kMaxHeight.
 Declared: the port rounds a height to its step (Unity's own rounding is in
 no source the port has; the sea is step 579 either way).
-`01-Overview/Field-Bugs-2026-09-29c.md`. The Terrain form reads the player's
+`01-Overview/Field-Bugs-2026-09-29c.md`. SEA-SHOAL (FIELD BUGS 2026-10-02)
+had a carved cell's ground read as its seafloor; its audit struck it
+(FIELD BUGS 2026-10-02b, `01-Overview/Field-Bugs-2026-10-02b.md`): Deep
+Waters' real carve takes a cell only where its four corners stand at the
+ocean's height, so it carved none of a sea World of Daggerfall's flatten
+had lifted over the line, and every node there read land still - the ship
+beached at sea, her sails refused ("Unable to raise sail. Boat is
+obstructed."). The sea is kept at its source now (SEA-LEVEL,
+`03-World/World-Of-Daggerfall.md`), and `csaTerrainOf` reads the
+heightmap as it did. PLACE-AFLOAT (a departure): with Iliac Puddle No More
+on, PlaceBoatAtRayHit refuses a water tile whose ground stands over the
+line - a town's harbour basin at its ground's height - with a word
+(PLACE_RAISED_TEXT), where it placed her beached; the mod off, the tile
+alone decides, as the C#'s.
+`01-Overview/Field-Bugs-2026-10-02.md`. The Terrain form reads the player's
 terrain unless one is given; the pixel form reads its own pixel's, and
 nothing where none is built. UpdateAllBoatsNodes is kept as the C# has
 it: nothing calls it, and its `MapPixel == CurrentMapPixel` compares two
@@ -652,6 +666,37 @@ TurnCurrent set to it at once. The nodes (CSA-C) decide the beach: more
 than three off water is beached - stopped dead, no move - and CanSail
 wants all five (the sails' arm, CSA-E's).
 
+FIELD BUGS 2026-10-02 (Mac: "ships get stuck in the world of daggerfall
+ocean rocks"; `01-Overview/Field-Bugs-2026-10-02.md`), as its audit left it
+(FIELD BUGS 2026-10-02b, `01-Overview/Field-Bugs-2026-10-02b.md`):
+- ROCK-FREE: the world host answers the sweep collider by collider
+  (`player/collider.js` `hullSweepAll`) - a bucket's parts, each `addMesh`
+  a MeshCollider, as World of Daggerfall's objects are, each answering
+  once. The sphere itself is swept (`sweepSphereTriangle`: face, edges,
+  corners), its first contact the exact one - nine rays had passed a rock
+  smaller than their gaps. A part the sphere overlaps at the start answers
+  once, at its nearest point to her centre (not the zero point - a
+  departure), and the second sweep refuses it as it refuses the zero point;
+  a STATIC part holding the sphere's centre answers nothing (Unity's sweep
+  reads no back face) - a boat's collider never holds; nothing wholly under
+  her KEEL LINE is met - her collider's box's foot under its centre, as she
+  floats however the swell pitches her (the host had dropped an overlap
+  "beneath" her, a rock awash beside her with it); her own colliders are not
+  asked. An overlap straight under her sweep's centre has no side to push
+  her from, and pushes nothing.
+- ROCK-REACH (a departure): each sweep reaches her own end - the C#'s
+  reached the whole length again past it, so a rock half a hull clear
+  pushed her and refused her helm, and the push answered the sum: two
+  clear astern and one clear ahead, and she sailed onto the one ahead.
+- ROCK-AWAY (a departure): the response takes her way INTO what she met
+  and no more - under way away from it she keeps her way, at rest or into
+  it the C#'s push; the current is taken only carrying her onto it. A rock
+  astern of a ship under sail had held her to a metre a second.
+- BEACH-READ (a departure): a beached boat lying still has her nodes read
+  again each frame (none where the player stands on no built terrain),
+  her collision with them the frame she comes off - the C# reads them
+  only when she moves, and a beached boat never moves.
+
 ### The cargo
 
 UpdateBoatCargoMod weighs the cargo, and (by the Cargo switches) the
@@ -727,11 +772,15 @@ Carrack's prefab has no Cargo modifier, so its threshold is nought - any
 weight clamps its mod to 0 (it can neither row nor turn, and says it
 needs a bigger boat) and no weight at all makes it NaN, which Unity's
 transform refuses with its own complaint; the oars ask the node one
-along - forward the centre's, back the bow's, the right strafe the
-stern's, the left the starboard's, the port node never; a right turn
-costs fatigue and a left one never; with no key held the oars coast at
-the sails' 0.2; the first sweep keeps a start overlap's zero point, a
-direction from the scene's origin; the borrowed ship is the small one
+along - forward the centre's, back the bow's (the STERN's since ASTERN,
+FIELD BUGS 2026-10-02, a departure: a bow on a shore could not back off
+it), the right strafe the stern's, the left the starboard's, the port node
+never; a right turn costs fatigue and a left one never; with no key held
+the oars coast at the sails' 0.2; the first sweep keeps a start overlap's
+zero point, a direction from the scene's origin (the world host answers
+an overlap where it touches since ROCK-FREE, and each sweep reaches her own
+end since ROCK-REACH, the C#'s twice that; the arm stands for any sweep
+that answers zero); the borrowed ship is the small one
 and the scenes taken back are the large one's (5, 5 and a building key
 16777216); StopSailingDelayed's Update runs on after it, so the oars
 pull again that frame and the vector is left behind until the next

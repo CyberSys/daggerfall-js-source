@@ -294,8 +294,8 @@
   {
     "name": "HOME-LOOK-the-owner-unchecked",
     "file": "server-account/src/homes.js",
-    "old": "  const r = await db.prepare('UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ?')\n    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey, player.id, character).run();",
-    "new": "  const r = await db.prepare('UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ?')\n    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey).run();",
+    "old": "  const r = await db.prepare(`UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ? AND ${OWNS}`)\n    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey, mapId, buildingKey, player.id, character).run();",
+    "new": "  const r = await db.prepare(`UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ?`)\n    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey).run();",
     "tests": [
       "test/homelook.test.js"
     ]
@@ -647,7 +647,7 @@
   {
     "name": "HOME-LOOK-the-preview-rebuilding",
     "file": "src/scenes/world.js",
-    "old": "(row?.look || row?.mine)) merged = true;",
+    "old": "(row?.look || row?.mine || row?.keeper)) merged = true;",
     "new": "lookOfHome(p.homeTown, bk, row)) merged = true;",
     "tests": [
       "test/homelook.test.js"
@@ -656,7 +656,7 @@
   {
     "name": "HOME-LOOK-the-unpainted-unmerged",
     "file": "src/scenes/world.js",
-    "old": "          if (homeRow && (homeLook || homeRow.mine)) {",
+    "old": "          if (homeRow && (homeLook || homeRow.mine || homeRow.keeper)) {",
     "new": "          if (homeRow) {",
     "tests": [
       "test/homelook.test.js"

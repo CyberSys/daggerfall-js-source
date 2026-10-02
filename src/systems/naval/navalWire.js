@@ -53,7 +53,10 @@
 //   m - AUDIT NAV2 F2/F3: the owner's own boat beside `p` - [crew, battle, hull]: her hands by count and her hull by
 //       HULL_NAMES' row, so every client sizes her as her owner does, to the man (the stander sized a peer's boat at a
 //       full crew, the peer herself single-handed), and whether she fights (her crew at battle on every screen)
-//   `k` and `m` are keys of their own because an older build's door checks every field of `s` and `p` by count: it
+//   l - AUDIT BAY A18: the lanes' packets the owner has seen spent (sunk, struck, boarded, taken) - each her
+//       voyage's seed (systems/naval/seaLanes.js), the last NAVAL_WIRE_SPENT - so no player stands her again where she
+//       went down (a player who never saw her go stood her afresh, to every player's sight)
+//   `k`, `m` and `l` are keys of their own because an older build's door checks every field of `s` and `p` by count: it
 //   passes a word with them whole and reads none of them, and a newer door reads an older build's word as saying none.
 //   Nor are theirs counted: a newer build's longer entry reads as its first fields, never the whole word refused.
 // A word passes the door whole or not at all (`validNavalRecord`): a known class and variant, bounded places, a state
@@ -89,6 +92,8 @@ export const NAVAL_WIRE_VOLLEYS = 12;
 export const NAVAL_WIRE_BARRELS = 8;
 /** AUDIT NAV1 (online #15): the most casks one word says. */
 export const NAVAL_WIRE_CASKS = 12;
+/** AUDIT BAY A18: the most spent packets one word says (`l`). */
+export const NAVAL_WIRE_SPENT = 8;
 /** How long a volley stays in the word, so every receiver's frame catches it (ms). */
 export const NAVAL_VOLLEY_KEEP_MS = 1500;
 /** AUDIT NAV1 (online #15): the Ships at sea a word says nothing of - the Features row's own default (systems/features.js). */
@@ -117,7 +122,8 @@ const U32 = 0xffffffff;
  * point to the wire frame - and (AUDIT NAV1, online) my own boat at sea and my notoriety by crown. Null when there is
  * nothing to say (the reader drops mine).
  * @param {{ ships?: any[], volleys?: any[], barrels?: any[], me?: { hull: number, crippled: boolean, boarders: boolean, crew?: number, battle?: boolean, boatHull?: number } | null,
- *   law?: Record<string, number>, traffic?: string, casks?: { id: number, pos: number[], from: string, lot: string }[], laid?: string[] }} view
+ *   law?: Record<string, number>, traffic?: string, casks?: { id: number, pos: number[], from: string, lot: string }[], spent?: number[],
+ *   laid?: string[] }} view
  */
 export function navalWireRecord(view, toWire = (p) => p) {
   const s = [], v = [], b = [], k = [];
@@ -168,7 +174,9 @@ export function navalWireRecord(view, toWire = (p) => p) {
   if (law.length) out.n = law;
   const t = DENSITY_KEYS.indexOf(view?.traffic);
   if (t >= 0 && view?.traffic !== TRAFFIC_DEFAULT) out.t = t;
-  return s.length || v.length || b.length || out.p || out.n || out.t !== undefined || out.f || out.g ? out : null;
+  const l = (view?.spent ?? []).filter((x) => int(x, 0, U32)).slice(-NAVAL_WIRE_SPENT);   // AUDIT BAY A18
+  if (l.length) out.l = l;
+  return s.length || v.length || b.length || out.p || out.n || out.t !== undefined || out.f || out.l || out.g ? out : null;
 }
 
 /** AUDIT NAV2 F1/F3/F5: the captains' key through the door - a Map from a ship's number to her temper, her captain's
@@ -188,7 +196,7 @@ function validCaptains(raw) {
  * A peer's word through the door - whole or not at all.
  * @returns {{ ships: any[], volleys: any[], barrels: any[], me: { hull: number, crippled: boolean, boarders: boolean } | null,
  *   law: Record<string, number>, traffic: string, casks: { id: number, pos: number[], from: string, lot: string }[],
- *   captains: Map<number, { temper: string, mode: string, struckTo: number }>, boat: { crew: number, battle: boolean, hull: number } | null,
+ *   captains: Map<number, { temper: string, mode: string, struckTo: number }>, boat: { crew: number, battle: boolean, hull: number } | null, spent: number[],
  *   laid: string[] } | null}
  */
 export function validNavalRecord(raw) {
@@ -260,10 +268,13 @@ export function validNavalRecord(raw) {
     if (!Array.isArray(raw.m) || !int(raw.m[0], 0, 0xffff) || !int(raw.m[1], 0, 1) || !int(raw.m[2], 0, HULL_NAMES.length - 1)) return null;
     boat = { crew: raw.m[0], battle: raw.m[1] === 1, hull: raw.m[2] };
   }
+  // AUDIT BAY A18: the spent packets - an older build's word says none
+  const spent = raw.l ?? [];
+  if (!Array.isArray(spent) || spent.length > NAVAL_WIRE_SPENT || !spent.every((x) => int(x, 0, U32))) return null;
   // AUDIT GN-G3: the owner's laid broadsides (an older build's word says none)
   if (raw.g !== undefined && !int(raw.g, 0, 15)) return null;
   const laid = SIDE_CODES.filter((_, i) => ((raw.g ?? 0) & (1 << i)) !== 0);
-  return { ships, volleys, barrels, me, law, traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks, captains, boat, laid };
+  return { ships, volleys, barrels, me, law, traffic: raw.t === undefined ? TRAFFIC_DEFAULT : DENSITY_KEYS[raw.t], casks, captains, boat, spent: [...spent], laid };
 }
 
 /** A change key: the word rides a delta frame only when it moved (the full frame always carries it). */

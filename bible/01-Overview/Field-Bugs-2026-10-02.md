@@ -1,9 +1,12 @@
-# FIELD BUGS 2026-10-02 - the shards over Hadus; and the climb out of a dungeon's pit, the hunt under the foes, the net at the helm, the boat's loop; and the climb audited on Daggerfall's dungeons
+# FIELD BUGS 2026-10-02 - the shards over Hadus; and the climb out of a dungeon's pit, the hunt under the foes, the net at the helm, the boat's loop; and the climb audited on Daggerfall's dungeons; and the rocks that held a ship, the sea that read as land, the crew's words over each other; and the Basket's cursor
 
-*The same date, twice (the merge of main into `ccr-563257f1-ggcmg4`, 2026-10-02): ROCK-SUNK was written on main
-(PR #521) while part two - three #bug-reports threads, a relayed line and Mac's ask, then its audit - was written on
-`ccr-563257f1-ggcmg4`, each under the same name. The merge keeps both here, so every cite of this page stands; part
-one's number (1) and part two's (1-5), their tags and their pins' `fb1002_` are each their own.*
+*The same date, four times (the merges of main into `ccr-563257f1-ggcmg4`, into `ccr-a6a7383a-8i95b3` and into
+`ccr-a853eeda-b59kud`, 2026-10-02): ROCK-SUNK was written on main (PR #521) while part two - three #bug-reports
+threads, a relayed line and Mac's ask, then its audit - was written on `ccr-563257f1-ggcmg4`, part three - Mac's
+sailing, the rocks, the sea and the crew's words, audited the same day as `Field-Bugs-2026-10-02b.md` - on
+`ccr-a6a7383a-8i95b3`, and part four - the Basket's cursor, and its audit - on `ccr-a853eeda-b59kud`, each under the
+same name. The merges keep all four here, so every cite of this page stands; part one's number (1), part two's (1-5),
+part three's (1-3) and part four's (1, 2; its audit's A-D), their tags and their pins' `fb1002_` are each their own.*
 
 A #bug-reports thread through Mac (a screenshot, 2026-10-02): maya, *"Insane glitched geometry over at Hadus"* -
 *"yea.."* under a frame of dark, faceted slabs hanging in the sky over the desert east of the town - and Ashley:
@@ -351,3 +354,292 @@ Mines' N0000033, CORNER-TOP in the reporter's pit, and no fall at B1's three yaw
 
 - Using the Fishing-Net from the hotbar at the helm finds no cast and says Foraging's general line about where nets
   work, which tells a player already at sea to stand at sea. A helm-specific line would be polish.
+
+## Part three - the rocks that held a ship, the sea that read as land, the crew's words over each other
+
+Mac, testing sailing: *"I notice ships get stuck in the world of daggerfall ocean rocks, your ship can get stuck at sea
+in place, your crew mates speaking sometimes seems like gibberish"*. Each was reproduced on the real modules before it
+was fixed, pinned by tests that fail on the code as it stood, and mutation-proven.
+
+> **Audited** the same day (FIELD BUGS 2026-10-02b, Mac: "Audit this" - `01-Overview/Field-Bugs-2026-10-02b.md`).
+> SEA-SHOAL below is STRUCK: Deep Waters' real carve never took the lifted sea, so it changed nothing; the sea is kept
+> at the flatten now (SEA-LEVEL). ROCK-FREE's nine-ray sweep, its `pass`, and the host's "beneath" rule are gone - the
+> sphere is swept exactly, a keel line stands for the rule, an overlap counts once, and a boat never holds; each sweep
+> reaches her own end (ROCK-REACH). CREW-SAY merges only what is sung or shouted, keeps a stack's order and eases it
+> down, and draws no lifted bubble off the screen's top. The record below stands as it was written.
+
+| | Report | What it was | Done |
+|---|---|---|---|
+| 1 | "ships get stuck in the world of daggerfall ocean rocks" | the hull's sweep read a pixel's whole ground as ONE collider: a ledge under her answered the zero point and hid every other rock of the pixel, so she sailed into the rock ahead; inside it, both faces of its walls held her for good; and every rock in her sweep, ahead or astern, held her to a metre a second even as she sailed away from it | fixed (ROCK-FREE, ROCK-AWAY) |
+| 2 | "your ship can get stuck at sea in place" | World of Daggerfall levels a site's ground after the tiles are read, lifting its whole pixel's sea over Come Sail Away's 34 m line: with Deep Waters on, every node read land and she was beached at sea; a beached boat's nodes are never read again; and a bow run onto a shore could not back off it | fixed (SEA-SHOAL, BEACH-READ, ASTERN) |
+| 3 | "your crew mates speaking sometimes seems like gibberish" | the lines over the crew's heads stood over each other - the chorus up to six deep, each copy behind its own name; a talk's two lines side by side; a bubble's foot over a mate's name - translucent, the farther painted over the nearer | fixed (CREW-SAY) |
+
+## ROCK-FREE: a rock is met from outside, collider by collider (1)
+
+**Reproduced first** (`test/fb1002_rocks.test.js`: Come Sail Away's runtime over the vendored hulls, the real `Collider`,
+world.js's own `csaSphereCastAll` lifted from its source; a Small Ship under sail, the wind astern). A shelf 3 m under the
+sea's line, under her where she starts, and a rock standing out of the sea 80 m ahead, both of one pixel: in 90 s she
+sailed through the rock and on, 855 m, to (22.1, 1055.7); without the shelf the rock held her off at (99.3, 245.8). A hull
+standing inside a rock - a 120 m one or a 300 m one, closed or open beneath - was still inside it after 90 s, sailing on,
+turning or backing.
+
+**Why.** CheckCollision sweeps the hull collider's half-beam sphere along her length both ways (SphereCastAll). The host
+answered it off `Collider.sphereCastAll`, Unity's SphereCastAll over a BUCKET as one collider - and a static bucket is a
+pixel's whole ground, every World of Daggerfall rock of it in one. A collider the sphere overlaps where the sweep starts
+answers Unity's zero point and nothing more (CSA-D's kept bug: the push is a direction from the scene's origin), so a
+shelf under her made the whole pixel answer that one zero point: no ray was cast at the rock ahead. And the collider reads
+no winding (both faces of every triangle are met), so from inside a rock every ray met its inner walls and pushed her
+back in, where Unity's sweep reads no back face.
+
+**The fix.** `player/collider.js` `hullSweepAll`, which the host now asks (`scenes/world.js` `csaSphereCastAll`). A
+bucket's PARTS are its colliders - each `addMesh` one, as a World of Daggerfall object or a model is its own MeshCollider
+(CreateDaggerfallMeshGameObject) - and each answers once, as Unity's SphereCastAll answers a collider:
+- a part her sphere OVERLAPS where the sweep starts answers at its overlap, where it touches - the nearest point of its
+  faces her whole sphere reaches - never the zero point, and nothing more (so a shelf she rides over is never met again
+  as a rock ahead when the swell pitches her sweep onto it);
+- a part that holds her sphere's CENTRE answers nothing (`partsHolding`: a line straight up crosses a closed skin an odd
+  number of times from inside it, its crossings at one height once; a rock open beneath, as a model standing in the
+  ground is, holds what is under its crown) - she leaves as she likes;
+- every other part is met by the sweep: nine spokes over the sphere's cross-section, the centre's to the sphere's front
+  at the sweep's end and the rim's eight to the rim's own (the rim's had reached a radius past the swept sphere, so what
+  else stood in the bucket - its box the sweep's cull - decided whether they met anything there).
+A boat's collider is a mover and never holds a hull: its overlap answers. `raycastHit` takes `pass`, a bucket's parts to
+pass through (the sweep's alone; no other caller). The host drops an overlap deeper under her centre than it is off it -
+a shelf beneath her has no side to push her from (flattened, it is any way at all). After: over the shelf she is held off
+the rock ahead exactly where open water holds her, frame for frame; out of either rock she sails as over open water.
+
+**A departure** (the Port-Ledger row): an overlap's push is from where it touches, not from the scene's origin, for the
+world's ground and its boats alike. CheckCollision itself (its two sweeps, the zero-point arm it keeps for the first)
+is the C#'s still; the ground probe's own zero point at a carved floor (below) is untouched.
+
+## ROCK-AWAY: what she met takes only her way into it (1)
+
+**Reproduced first** (the same rig, ROCK-FREE in). Sailing off the shelf's far end, its face astern stood in her backward
+sweep: she crawled at a metre a second for 20 s (310 to 330 m) and ended 90 s at 927 m, where open water ran to 1,350 m.
+
+**Why.** LateUpdate's response (`systems/comeSailAway.js` `lateUpdateSailing`) projects her way off the CollisionVector
+and adds it back at one metre a second - taking her way OFF what she met as well as into it. In a World of Daggerfall rock
+field, with a sweep reaching a hull's length and more fore and aft, any rock astern of a ship under sail held her to a
+crawl (at the oars, whose pace astern is that metre, it set her to it at once).
+
+**The fix (a departure).** Under way away from what she met she keeps her way; at rest, or into it, the C#'s push. The
+current is taken only where it carries her onto what she met. After: off the shelf, and backing off the rock, she keeps
+open water's track frame for frame; rowing into a rock she is held off it as before.
+
+## SEA-SHOAL: a carved sea is water (2)
+
+**Reproduced first** (`test/fb1002_seaheld.test.js`: the sampler's own sea, World of Daggerfall's own flatten, Unity's
+SampleHeight, world.js's `csaTerrainOf` mounted, the carve's floor read and the runtime). The open sea reads 33.994 m,
+6 mm under the line (FIELD-CSA2). A headland standing 34 m over the sea in the pixel's far corner, with a site levelled on
+it (`wodLocationLoader.js` `flattenForLocation`), lifted every sea point probed - 100 to 990 m from the site - to
+34.229-34.523 m: land. A Small Ship there, Deep Waters on: all five nodes land, beached; the oars moved nothing. A site
+7 m over the sea lifted them to 34.053 m; one 1.7 m over left the far sea at 33.994.
+
+**Why.** LocationLoader.AddLocation runs after the tile's heights are pushed (WOD's "The flatten"): it lerps EVERY sample
+of the tile from row 1 to 127 toward the site's mean by 1 / (distance + 1), so the tile's far corner moves about a 180th
+of the way - and the sea is 0.4 of a heightmap step from reading land (579.105, held as 579; 580 is 34.053 m). Its tiles stay water (read before), so Deep Waters carves and
+draws a sea there; Come Sail Away's node law, with Iliac Puddle No More on, reads `Terrain.SampleHeight` - the heightmap
+under the hole - and read land.
+
+**The fix.** `scenes/world.js` `csaTerrainOf`'s `sampleHeight` answers a carved cell's seafloor (DW-B's law: the host's
+`heightAt` already stands every capsule, foe and probe on it), the heightmap elsewhere. The node law, the placing's and
+the Overworld's probes and the lost-boat check read it: a boat set down near such a site is no longer packed as lost
+under the ground. A sea Deep Waters has not carved reads its heightmap as before (the shore's law, FIELD-CSA2's).
+
+## BEACH-READ: a beached boat is read again (2)
+
+**Reproduced first** (the same rig, the carve not yet come - DW-A's bake read on its worker, the floor built after it):
+beached, and after the carve came she lay beached for good.
+
+**Why.** LateUpdate reads the nodes only when the boat moved or turned, and a beached boat never moves.
+
+**The fix (a departure).** A beached boat lying still has her nodes read again each frame, and her collision with them
+the frame she comes off. Not where the player stands on no built terrain: nothing is read (the C#'s throw is a moving
+boat's, kept). A beach stays a beach - on real ground every reading is land, every frame.
+
+## ASTERN: back asks the stern's node (2)
+
+**Reproduced first** (a straight shore north of her, her bow's node on it): back refused, forward allowed - the centre's
+water rowed her on in.
+
+**Why.** The oars ask the node one along (CSA-D's kept bug): back the BOW's.
+
+**The fix (a departure).** Back asks the STERN's, the water she backs into: she backs off the shore (18 m in 20 s), and a
+stern on a shore refuses back. Forward still asks the centre's; the strafes keep the C#'s nodes (below).
+
+## CREW-SAY: the words never over each other (3)
+
+**Reproduced first** (`test/fb1002_crewsay.test.js`: the real crew life, its tables' own lines, projected from the helm's
+eye; the HUD's own layout and DOM). Nothing scrambles a crewman's words - every line is crewLife.js's and shipCrew.js's
+English. Over ten minutes of two crews of sixty, two or more lines were up in 5,103 of 12,000 frames, and in 2,843 of
+them bubbles stood over each other: the chorus is every hand at once (sung by two or more in 1,225 frames, up to six
+deep), each copy behind its own name and so wrapped at its own words; a talk's two lines stood side by side over two
+hands side by side; a bubble's foot, 6 px over the head point, covered a mate's name and health bar. At 0.62 of an opaque
+ground, the farther painted over the nearer, they read through each other.
+
+**The fix.** `ui/navalHud.js` `layoutCrewLines`, which `drawCrewLines` lays: a line said by two or more at once is laid
+once, over the nearest of them and by no name (it is theirs together; world.js hands a speaker's first name beside his
+line, never in it); a line said alone keeps its speaker's name; each foot CREW_SAY_LIFT (26 px) over the head, clear of a
+mate's bar and the name over it by the sheet's own numbers; each farther bubble lifted over every nearer one it would
+cover, CREW_SAY_GAP apart, in whole pixels; the nearest drawn over the rest. A bubble's box is read off its words
+(`crewSayBox`): the sheet's content box - its words to max-width, its padding and ring outside them. After: none of the
+12,000 frames has two bubbles meet.
+
+## Said, not fixed
+
+- **The crew's names** are DFU's own (NameHelper's banks: a Redguard crew's read strange to an English eye) - the port's
+  names, unchanged.
+- **The strafes' nodes** stay the C#'s (the right strafe the stern's, the left the starboard's, the port node never):
+  a half-speed crawl sideways, held by none of the reports.
+- **A node over the next pixel** reads the player's pixel's edge (CSA-J's clamp, Unity's GetInterpolatedHeight).
+- **The ground probe at a carved floor** answers the zero point when the sweep starts under it (`DeepWaters_Seafloor` is
+  no Terrain, so CheckCollision keeps it): not reproduced in the field, kept as it stood.
+- **A turn beside what she met** is refused by the sign of the side it lies on (CanTurnLeft/Right), so one dead ahead or
+  astern refuses whichever side its rounding leans to: the C#'s, kept.
+- **In irons.** A ship turned head to wind under sail stops and her rudder with her (the mod's sail law; HELM-KEYS' tell
+  says how out): seen in the reproduction, not a trap.
+- **Cargo.** A ship's speed falls with her load (the Cargo modifier, its messages): the mod's law, and plunder is tens of
+  kilograms against a hull's threshold.
+
+## Found on the way, not changed
+
+Re-judging every record the change can move (the four moved pins' and every record on `player/collider.js`,
+`systems/comeSailAway.js` and `ui/navalHud.js`: 869 - 863 dead, 4 equivalent as recorded) left two survivors, and each
+survives on this tree's base (d96bdc123) alike - older than this work, in code it does not touch, reported for their own
+fix: `auditdisc28_motion.json` AUDIT-DISC28-MO2-rest-kills-PH1 (`player/collider.js` `lowOneWay`, PH1 at rest, against
+`test/disc28_swim.test.js`) and `fb0929h_lostboat.json` LOST-BOAT-a-crewed-hull-packed (`systems/comeSailAway.js`
+`recoverLostBoats`' crewed-hull exemption, against `test/fb0929h_lostboat.test.js`).
+
+## The pins and the mutants
+
+`test/fb1002_rocks.test.js` (6), `test/fb1002_seaheld.test.js` (3), `test/fb1002_crewsay.test.js` (3), each red on the
+code before. `tools/mutants/fb1002_rocks.json` (25), `fb1002_seaheld.json` (4), `fb1002_crewsay.json` (20) - all dead.
+PINS MOVED, each by content: `csa_sailing` (back asks the stern; the pin's title), `csa_close` (the sampler's clamp line),
+`colliderkeys` (four cell lookups: ROCK-FREE's two), `perfcol1` (three module scratch Sets: the hull sweep's two, made
+once), `livingcrew` (a bubble's transform). Records re-aimed by content, all
+dead: `csa_close.json` CSA-J-host-terrain-unclamped, `field_csa2.json` FIELD-CSA2-host-reads-the-drawn-ground,
+`csa_sailing.json` CSA-D-back-node-stern - now CSA-D-back-node-bow, the C#'s node ASTERN leaves -
+`navaudit_frame.json` NAVF-sweep-box-unturned (by the comment only sphereCastAll's cull has), and `livingcrew.json`'s
+SAY-every-line and SAY-never-hidden. Not seen in a browser.
+
+## Part four - the Basket's cursor
+
+A #bug-reports thread through Mac (a screenshot, 2026-10-02), and Mac's ask under it:
+
+> miö, "Herbalism minigame bugged": *"Doesn't make mouse appear when the minigame starts, so cant click on the
+> targets."*
+>
+> Mac: "Also check the other minigames"
+
+| | Report | Reporter | What it was | Done |
+|---|---|---|---|---|
+| 1 | "Doesn't make mouse appear when the minigame starts, so cant click on the targets" | miö | the Basket's glints stand about the crosshair (`ui/profReticle.js` `BASKET_SPREAD`, up to about 40 px off it at HUD scale 1), drawn as targets with "tap the glint" under them. The mouse stayed locked to the look, so moving it toward a glint turned the view and the glint turned with it: no glint could be put under the pointer. A press anywhere while a glint showed did find it (ACT-CLICK), but nothing on the screen said so, and a press during the gap spends the next glint (AUDIT 29 C9) | fixed (HERB-CURSOR) |
+| 2 | "Also check the other minigames" | Mac | every act read for what it needs of the mouse: the mine's points, the knife's line and the net's throw (the school its release lands in - the audit, C1) are aimed by the look itself, and a cursor the player had freed (FreeMouse; Enter only offline, or with the chat put away) left them unaimable by the mouse; the chop's ring, the hand and the steady hold need neither; the stations (the heat, the stitch, the plane, the chisel) are Stores-page sections, under the pause window's free cursor | fixed (HERB-CURSOR); the rest checked, unchanged |
+
+## HERB-CURSOR: the act says what it needs of the mouse (1, 2)
+
+**The law** (`scenes/gatherHost.js` `ACT_POINTER` and `actPointer`, by the act machine's kind): the Basket `cursor`,
+the mine, the trace and the net `look`, every other act nothing; an act played gently needs nothing, but for the net,
+whose gentle throw is still aimed (the audit, C2). The host asks its `pointer` seam as an act starts, in the press's
+frame, and calls the release the seam answered as the act ends, however it ends: its end, Escape, walking off, a window
+over it, the professions shut, `dispose` (which no host calls yet - a new host's boot clears a hold left over). It syncs
+at the change where the host makes it, and at every frame's start and end (`syncPointer`); leaving a dungeon is synced
+by the next frame (a dungeon's acts are the mine's and the trace's, which hold nothing).
+
+**The hold** (`player/pointerLock.js` `holdCursor`). Not the player's toggle (`cursorActive` - its freed mouse is the
+large HUD's, the hotbar's mouse mode and the pad's pointer mode, none of them the Basket's): a hold of its own. Taken,
+it lets the lock go; while any stands, `requestLook` refuses (a click's relock arm, a window's close, the look gate,
+PL3's net), a lock the browser grants late is let go (AUDIT OW5 V1's listener), and the FreeMouse toggle is refused
+(the audit, A2). The release is once-only and says whether it let go of the last. A host's boot clears any left over,
+as it resets the toggle (PL3).
+
+**The world's seam** (`scenes/world.js`, line-neutral). `cursor`: the hold - none with a pad in hand, whose trigger
+strikes (C8) - and at its release the look asked back unless something else holds the mouse: the player's own freed
+cursor, a paused window, a surface (the chat, the friends panel), a modal window, an enhanced overlay, the travel view.
+When an Escape ended the act, the look is asked on that Escape's keyup (A1). `look`: a cursor the player freed is
+taken back (`setCursorActive(false)`), the lock asked under the same gates (A4); no release - the look stays.
+
+**The relock.** Chromium and the desktop app grant it without a fresh gesture, the page having let the lock go itself.
+A browser that asks a recent gesture of every lock (Firefox: about five seconds) may refuse it at the end of a search
+whose last glints ran out unclicked; the cursor then stays until the next click, which relocks and activates nothing
+(the canvas arm's click delay).
+
+The Basket's rules are unchanged: any press while a glint shows finds it, and a press in the gap spends the next (5, 8;
+AUDIT 29 C9). A pad's trigger and a finger's tap strike as before (ACT-TOUCH). The cursor is now free to click the
+glint itself, and the hint says so: "click the glint" (C3).
+
+## Pins and mutants (part four)
+
+- `test/fb1002_herbcursor.test.js` (6): the law; the hold (refused requests, the last release, once-only, the late
+  lock, the boot's reset); the report, answered (the Basket's search through the real host and herbKind: the cursor
+  asked in the press's frame, held through the three glints, every clicked glint found, the look handed back once);
+  every end (Escape, walking off, a window, the professions shut, `dispose`); the other acts (a vein asks the look; a
+  common herb's hand and, stood again at tier 2, the Sickle's steady hold ask nothing); the world's seam, by source.
+- `tools/mutants/fb1002_herbcursor.json` (17, with the audit's let-go-before-the-end), all dead.
+- PIN MOVED: `test/chat1.test.js`'s source pin on world.js's `pointerLock.js` import (holdCursor joined it). Six
+  records re-aimed by content to the two lines of `pointerLock.js` the hold changed - one each in `menurelock1.json`
+  and `freemouse1.json`, three in `fb0929_overworld_mouse.json`, one in `ow5.json` - each killed by the tests its
+  original was (their four lists, 55, all dead). The cites the change moved were re-resolved (`tools/citeShift.mjs
+  --base 1d2e8ce8`, 4: the range into `pointerLock.js` from the toggle's flag to `bindCursorToggle`).
+- Every other list aimed at `scenes/gatherHost.js` or `player/pointerLock.js` (21) run on the final code: 779 dead,
+  7 equivalent as recorded, none stale; four survivors that survive on the base too (below).
+
+## The audit of part four (Mac: "Audit this")
+
+Four lenses over the batch as committed (8e5dcbe2), each against the base (1d2e8ce8), nothing changed while they read:
+A the mouse and the lock in a browser (a fake one with Chromium's and Firefox's lock rules - asynchronous grants, the
+page-released exception, the post-Escape cooldown, Escape's unlock on its keyup - over the real `pointerLock.js` and
+gathering host); B the host's acts and the click (every start and end, the real activation gate); C every other
+minigame and station, on both skins, with a mouse, FreeMouse, a pad and a finger; D the records. Every finding was
+reproduced red in `test/fb1002_herbcursor_audit.test.js` first - world.js's own lines (the seam, the Escape's keyup,
+the street ladder's two clicks) lifted out of the source and run over the real modules - then fixed and its mutant
+killed.
+
+| | Finding | Fix |
+|---|---|---|
+| A1 | Escape ending the Basket asked the lock back inside its own keydown. The lock landed before the key came up, and both browsers end a lock on Escape's keyup: the cursor came back free anyway, and with Escape held 300 ms or more ESC-LOCK read the loss as a second Escape and opened the pause (AUDIT 29 D1's "the pause waits for the next press" broken) | the relock is kept for that Escape's keyup (`escRelock`, under the same gates); the act's other ends ask at once |
+| A2 | FreeMouse pressed mid-Basket latched unseen (the cursor was already free); at the end the release saw the player's freed cursor and left it, and every click's relock was refused until FreeMouse was pressed again | the toggle is refused while a hold stands |
+| A3, B1 | The hold was let go only at the end of the host's frame. world.js swallows a frame's throw: a throw on the frame an act ended kept the cursor free a frame, and a throw every frame (the HUD's, a node's list) kept it free for the session, every relock refused | `syncPointer` at the frame's start too, before anything of it can throw |
+| A4, B4 | `look` asked the lock with no gate: a FreeMouse under the friends panel or the F-menu (both surfaces), then a Pick-Axe from the hotbar's mouse mode, took the lock from under the panel (AUDIT SOC B6's dead panel) | the flag cleared, the lock asked under the release's gates; the surface's close relocks |
+| A5 | Firefox (no page-released exception) cannot relock without a gesture in the last five seconds: a search nobody clicks ends with the cursor free until a click | recorded (above); C2's gentle search, the one that is never clicked, no longer holds |
+| B2 | Pre-existing, found here: the release of the click that found the Basket's last glint pressed the patch's lit "Pick" row - `nodeClicked` was asked before the act's click (CLICK-LIFT) and without it - and played a second act nobody asked for, a harvest and the Sickle's wear. The free cursor's 0.3 s click delay hid it for a quick click, not for one held 0.3 s | the street ladder asks the act's click first and the node's click is refused on it, as the dungeon's ladder already did |
+| C1 | The net's throw is aimed by the look (`fishAct` `schoolAt`, the school its release lands in: a school's catch is bigger), so "the net needs neither" was wrong and FreeMouse left the throw unaimable by the mouse | the net takes the look (`fish: 'look'`) |
+| C2 | Gentle acts unread: a gentle Basket (nothing to press, its finds plain) freed the cursor for its whole search under "tap the glint", and a gentle vein or body took a freed cursor for no aim | an act played gently needs nothing (`actPointer`; the herb act's state says `gentle`, as the mine's and the trace's did), but the net's throw, still aimed |
+| C3 | Pre-existing: "tap the glint" over a cursor now free to click it, and over a gentle search with nothing to press | "click the glint"; a gentle search says "searching..." |
+| C8 | A pad in hand had the lock let go too, and the OS pointer stood mid-screen through the search (Enhanced Plus hides it; the other skins did not) | no hold with a pad in hand (`controllerLook`); its trigger strikes |
+| D | The records: Enter named as freeing the mouse online (the chat takes it there), "778 dead" (779 - one ran under the full suite's load and survived; alone it dies three times in three), the six re-aimed records only in a commit message, the hand pinned and recorded as the steady hold, the "(mutants: ...)" titles against the list, the index and the page's title without this part, a cite-shaped record citeShift would move, `dispose` called "the page gone" (no host calls it), "after every change of the act" (the dungeon left is the next frame's), the precedence comment in `requestLook`, the patch notes' "Fishing doesn't use the mouse cursor" and their missing "the look stays" | each made true |
+
+**Checked and sound.** Every caller of `requestLook` (the street, the exterior, the dungeon, interiors, talk, books,
+the dial, the pause, the shell) is refused under a hold, so nothing takes the lock mid-search; a lock asked before the
+hold lands and is let go as the page's own release (no synthetic Escape); the travel view, the chat and the friends
+panel, a key-opened window and the classic list window all end the search and leave the relock to their own close; a
+click with the cursor free reaches the act once (the window's `mousedown`) and nothing else - no swing, cast,
+activation, hover or target change; the glints, meter and prompt ignore the pointer; touch has no lock; the pad's
+pointer mode keys on the player's toggle, not the hold. Every act's kind is in the law, and every station opens under
+the pause window's free cursor on both skins (a home's piece through `togglePause({ at: 'stores' })`, a shop's through
+the Professions key).
+
+**Not changed.** The steady hold reads the view's turn to bruise; with a cursor the player freed, the mouse cannot
+turn the view, so it cannot bruise (the turn keys and the feet still do) - pre-existing, and keeping still is the
+act. Taking the look for a mine, a trace or a net is one-way: the player frees the mouse again if they want it.
+
+Pinned: `test/fb1002_herbcursor_audit.test.js` (10). `tools/mutants/fb1002_herbcursor_audit.json` (14), all dead. On
+the final code, the two lists with every record any other list aims at the files the audit changed (`pointerLock.js`,
+`gatherHost.js`, `herbHost.js`, `herbAct.js` and `profReticle.js` whole, world.js within 30 lines of its changes: 242):
+272 dead; VEIN-NEED-press-keeps-nothing survives, on the base too (below).
+PIN MOVED: `test/prof1_client.test.js` (the ladder's order: the act's click before the node's),
+`test/fb0930b_toolsaid.test.js` (the node's click refused on the act's; the Basket's words); STEADY-SAID-the-key-never-named
+(`fb1001_nodes.json`) re-aimed to the new words (its list, 9, all dead). The audit's cites re-resolved (`tools/citeShift.mjs`
+against 8e5dcbe2, 4: the same range, grown by A2's refusal); world.js stayed line-neutral (the ladder's two lines
+traded places).
+
+## Found on the way, not changed (part four)
+
+- Four records survive on the base as here, none in this change's code: VEIN-NEED-press-keeps-nothing
+  (`fb0929h_veinneed.json`), TOOL-SAID-the-basket-names-no-choice-key (`fb0930b_toolsaid.json`), PROF4-ram-kit-made
+  and PROF4-ram-kit-asked (`prof4.json`). Not this batch's.
+- ESC-LOCK's twin of A1, on the base: a window the look gate let the lock go for, closed by a held Escape, relocks
+  inside the keydown and the keyup's unlock opens the pause (lens A's `windowEscClose`). Not this batch's - its fix is
+  ESC-LOCK's (a loss while the real Escape is still down is that press).
+- The first harvest's "where the Stores are" line names the Professions key's label, '?' when it is unbound
+  (`gatherHost.js` `storesWhereLine`); its fallback names the pause menu's Stores page, which the Classic pause has not.

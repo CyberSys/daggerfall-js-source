@@ -295,6 +295,7 @@ test('SEA-PEACE a prize her taker comes for is in a fight: though every player i
   s.view.feet = [0, 0, -5000];
   s.run(2);
   assert.ok(s.host._sea.has(p.id) && s.host._sea.has(n.id), 'both kept');
+  assert.ok(!p.retiring && !n.retiring, 'neither fading out of the world (AUDIT BAY A15: a ship let go stands in the sea while she fades)');
 });
 
 test('SEA-PEACE a victor struck casts off her prize to fight, and the prize is anyone\'s again; a prize I board is never hers (mutants: the lash kept under fire)', async () => {

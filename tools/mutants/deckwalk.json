@@ -344,8 +344,8 @@
   {
     "name": "SHIPMATES-swing-unspared",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    const live = foes.filter((f) => !f.dead && !isShipmate(f));",
-    "new": "    const live = foes.filter((f) => !f.dead);",
+    "old": "    const live = dropFateHeld(foes.filter((f) => !f.dead && !isShipmate(f)));",
+    "new": "    const live = dropFateHeld(foes.filter((f) => !f.dead));",
     "tests": [
       "test/deckwalk.test.js"
     ]

@@ -223,7 +223,7 @@ test('AUDIT PSCALE1 the dungeon, mounted: a layout foe is as tough as the player
   j.healFoe(lf, 20); assert.equal(lf.entity.health, 113, 'a joiner\'s copy is the host\'s to heal - unweighed until the record');
   // the blow and the arrow at me: weighed where the damage is declared, so the flash and the cry read what I took
   const S = strip(D);
-  assert.match(S, /const dmg = _weighHit\(f, foeDeps\.calculateAttackDamage\(f\.entity, foeDeps\.playerEntity, \{/, 'the blow');
+  assert.match(S, /const dmg = (?:blowScaled\(f\.ai, )?_weighHit\(f, foeDeps\.calculateAttackDamage\(f\.entity, foeDeps\.playerEntity, \{/, 'the blow');
   assert.match(S, /const dmg = foeDeps && shooter \? _weighHit\(shooter, foeDeps\.calculateAttackDamage\(shooter\.entity, playerEntity, \{/, 'the arrow');
   const melee = S.slice(S.indexOf('function resolveFoeMelee('), S.indexOf('function collisionTriggers('));
   assert.deepEqual(melee.match(/hurtPlayer\([^)]*\)/g), ['hurtPlayer(dmg)'], 'the blow lands the weighed number');
@@ -261,6 +261,7 @@ function stands(over = {}) {
     playerEntity: { isResting: false, level: 1 }, _musicInLocationRect: () => false, maps: { getClimateIndex: () => 0 }, playerTravelPixel: () => ({ x: 0, y: 0 }),
     SOLITARY_TYPES, partyExtraFoes, partySize: () => 1, effectiveLevel: (e) => e?.level ?? 1,   // SOFTCAP2: mentor mode's level, a leaf read
     _standEncounterFoe: (hit) => out.push(hit.mobileType), playerFeet: [0, 0, 0],
+    revenantToReturn: () => null, now: 0,   // REVENANT: none due here (the tick's minute, above this slice)
     sharedClockOn: () => false, worldMinutes: () => 0,   // LIVED1: the spawn roll's sky (the world's clock online)
     spawns: true,   // AUDIT LIVED1b P1: the loop's own parameter - a solo tick asks for its wanderers
     ...over,

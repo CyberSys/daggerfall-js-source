@@ -45,7 +45,9 @@ test('OT1 wiring: every scrimmed enhanced window closes on a tap outside, the fr
   const menu = read('src/ui/enhancedMenu.js');
   // PROFILE2: the pause face carries the profile mark and its window now - with the window open the tap is the
   // window's (it closes, the pause window stands), otherwise the scrim resumes and the mark is inside
-  assert.match(menu, /stage\.append\(pauseWindow\(\)\);\s*\n\s*home\.append\(stage\);[\s\S]{0,1400}?if \(accountOpen\) \{[\s\S]{0,300}?closeOnOutsideTap\(home, '\.px-acctwin', \(\) => \{ accountOpen = false; render\(\); \}\);\s*\n\s*\}\s*\n(\s*\/\/[^\n]*\n)*\s*else closeOnOutsideTap\(home, '\.px-win, \.px-clock, \.px-foot, \.px-profile', \(\) => onAction\('resume'\)\);/, 'the pause window resumes on the scrim, and keeps its clock, foot and profile mark - unless the profile window is open, whose tap closes it alone');
+  // TIMERS1: and the timers window the hourglass beside the mark opens - its own scrim, its tap closing it alone; the
+  // hourglass itself is inside the pause face (a press on it opens the window, never resumes the game)
+  assert.match(menu, /stage\.append\(pauseWindow\(\)\);\s*\n\s*home\.append\(stage\);[\s\S]{0,2200}?if \(accountOpen\) \{[\s\S]{0,300}?closeOnOutsideTap\(home, '\.px-acctwin', \(\) => \{ accountOpen = false; render\(\); \}\);\s*\n\s*\}\s*\n\s*else if \(timersOpen && hooks\.timers\?\.\(\)\) \{[\s\S]{0,600}?closeOnOutsideTap\(home, '\.px-timerswin', \(\) => \{ timersOpen = false; timersFocusBack = true; render\(\); \}\);[\s\S]{0,600}?\n\s*\}\s*\n(\s*\/\/[^\n]*\n)*\s*else closeOnOutsideTap\(home, '\.px-win, \.px-clock, \.px-foot, \.px-profile, \.px-timersmark', \(\) => onAction\('resume'\)\);/, 'the pause window resumes on the scrim, and keeps its clock, foot, profile mark and hourglass - unless the profile window or the timers window is open, whose tap closes it alone');
   // ACC1f: TWICE NOW, and the second one is why this line changed
   // rather than being relaxed. It used to read "once: the pause face
   // only - the front door has no scrim", which was true until the
@@ -59,9 +61,10 @@ test('OT1 wiring: every scrimmed enhanced window closes on a tap outside, the fr
   const taps = menu.match(/closeOnOutsideTap\(home, '([^']+)'/g) ?? [];
   assert.deepEqual(taps, [
     "closeOnOutsideTap(home, '.px-acctwin'",
-    "closeOnOutsideTap(home, '.px-win, .px-clock, .px-foot, .px-profile'",
+    "closeOnOutsideTap(home, '.px-timerswin'",
+    "closeOnOutsideTap(home, '.px-win, .px-clock, .px-foot, .px-profile, .px-timersmark'",
     "closeOnOutsideTap(home, '.px-win'",
-  ], 'the door wires exactly three scrims: the profile window over the pause face (PROFILE2), the pause face, and the account window on the door');
+  ], 'the door wires exactly four scrims: the profile window over the pause face (PROFILE2), the timers window over it (TIMERS1), the pause face, and the account window on the door');
   assert.equal((menu.match(/closeOnOutsideTap\(/g) ?? []).length, taps.length, 'a scrim was wired somewhere this pin is not looking');
   // ...and the account window's is guarded by the flag that opens it,
   // so the door with no window open wires nothing and a tap on the

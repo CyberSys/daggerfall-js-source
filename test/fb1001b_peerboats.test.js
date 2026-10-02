@@ -79,8 +79,8 @@ function liftWorld(s) {
           surfaceAt, csaPixelAt, state, deepWaters } = s;
     ${cutLine(WORLD, '  const _csaBuckets = new Map();')}${cutLine(WORLD, '  const csaBoatId = (boat) =>')}
     ${cut(WORLD, '  const csaShapeOf = (c) =>', ');\n')}${cutLine(WORLD, '  const CSA_RIGID_EPS =')}${cut(WORLD, '  function csaCarry(b, m) {')}
-    ${cut(WORLD, '  function csaSyncColliders() {')}${cutLine(WORLD, '  const _csaSlab = [0, 0, 0];')}
-    ${cut(WORLD, '  function csaSphereCastAll(o, r, d, dist) {')}
+    ${cut(WORLD, '  function csaSyncColliders() {')}${cutLine(WORLD, '  const _csaSlab = [0, 0, 0]')}
+    ${cut(WORLD, '  function csaSphereCastAll(')}
     ${cutLine(WORLD, '  let _csaPeersPosed = false;')}${cut(WORLD, '  function csaPeersFrame(dt) {')}
     return { sync: csaSyncColliders, sweep: csaSphereCastAll, peersFrame: csaPeersFrame, rearm: () => { _csaPeersPosed = false; }, buckets: _csaBuckets, boatId: csaBoatId };`;
   // eslint-disable-next-line no-new-func

@@ -41,7 +41,7 @@
 // import it.
 // ═══════════════════════════════════════════════════════════════════
 
-import { HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE } from './terrainSampler.js';
+import { HEIGHTMAP_DIMENSION, MAX_TERRAIN_HEIGHT, STREAMING_TERRAIN_SCALE, SCALED_OCEAN_ELEVATION } from './terrainSampler.js';
 
 /** LocationLoader.cs:14 - the tile's heightmap span in samples. */
 export const WOD_TERRAIN_SIZE = 128;
@@ -322,14 +322,30 @@ export function flattenForLocation(samples, rect, hDim = HEIGHTMAP_DIMENSION) {
     for (let y = 1; y <= 127; y++) {
       const i = x * hDim + y;
       const a = samples[i];
+      const d = distanceFromRect(rect, x, y);
+      if (a <= SEA_SAMPLE && avg > a && d > SEA_RAMP) continue;   // FIELD BUGS 2026-10-02b SEA-LEVEL (below)
       // Mathf.Lerp(a, b, t) = a + (b - a) * Clamp01(t)
-      let t = f32(1 / f32(distanceFromRect(rect, x, y) + 1));
+      let t = f32(1 / f32(d + 1));
       if (t > 1) t = 1; else if (t < 0) t = 0;
       samples[i] = f32(a + f32(f32(avg - a) * t));
     }
   }
   return avg;
 }
+
+/**
+ * FIELD BUGS 2026-10-02b SEA-LEVEL (a departure - Mac: "your ship can get stuck at sea in place"; "Controls for the
+ * player vessel are currently broken, including not being able to lower sails"): THE FLATTEN NEVER RAISES THE SEA
+ * past SEA_RAMP samples of the site's own ground. The arm lerps EVERY sample from row 1 to 127 toward the site's mean,
+ * and it runs after the tiles are read (OnPromoteTerrainData) - so a site a few metres over the sea lifted its whole
+ * pixel's sea, still drawn as water, over Come Sail Away's 34 m line (the sea is 0.4 of a heightmap step from reading
+ * land) and over Deep Waters' carve (its four corners at most 34.019 m): every node read land, no sea was carved, and
+ * a ship there was beached, her sails refused ("Boat is obstructed"), at sea. A sample of the sea - the sampler's own
+ * clamp, SEA_SAMPLE - stays the sea: inside the rect the site's ground as the mod has it, within SEA_RAMP of it the
+ * mod's lerp (a ramp, not a cliff, down to the water), and past it untouched.
+ */
+export const SEA_SAMPLE = f32(SCALED_OCEAN_ELEVATION / MAX_TERRAIN_HEIGHT);
+export const SEA_RAMP = 2;
 
 /**
  * Run a pick list's smoothing arms in order over the kernel's samples

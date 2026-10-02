@@ -46,7 +46,7 @@
 // PlayerActivate alone and appears in no save record, so it lives on
 // the live foe entity and dies with the pool, as DFU's does.
 
-import { PICKPOCKET_DISTANCE, TREASURE_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT, pickFoeHit } from './activate.js';   // AUDIT WK-P6: a companion's pack is storage, at storage's reach
+import { PICKPOCKET_DISTANCE, TREASURE_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT, pickFoeHit, DOOR_ACTIVATION_DISTANCE } from './activate.js';   // AUDIT WK-P6: a companion's pack is storage, at storage's reach
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: :834 is the HUD's centred label, not the popup queue
 import { PLAYER_TARGET, resetAllyTeamOnPlayerAttack } from '../characters/enemyTargets.js';   // AUDIT NAV2 F54: MakeEnemyHostileToAttacker's entity-side half
 import { enemyDisplayName } from '../characters/enemyBasics.js';
@@ -98,8 +98,17 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   // static funnel DaggerfallUI.cs:783-789 gives every caller.
   midScreen = setMidScreenText,
   openCompanion = null,
+  openFate = null,   // REVENANT-FATE: (foe) => the yielded revenant's choice (the host's loot-menu door)
 } = {}) {
   if (!foe || foe.dead) return false;
+  // REVENANT-FATE (2026-10-02, Mac: "Players should have the option to kill or spare"; "the choice popup should reuse
+  // the loot menu"): a beaten revenant on its knees is reached as a body is - at the treasure's reach, the HUD's one
+  // refusal past it - and opens its fate's window; a peer's (a puppet's) is its owner's choice
+  if (foe.yielded && !foe.puppet && openFate) {
+    if (!(distance <= TREASURE_ACTIVATION_DISTANCE)) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // the treasure's reach, as his pack's (WK-P6)
+    openFate(foe);
+    return true;
+  }
   const entity = foe.entity ?? null;
   // COMPANION-KIT (2026-10-01, Mac: companions "act as storage"): my companion activated opens his pack - Steal from him
   // is the shipmate's silent break below
@@ -192,6 +201,9 @@ export function activateMobileEnemy(foe, distance, mode, player, {
  * @param deps.nearerThan  the ladder's winning hit distance; the foe
  *   is dispatched only below it. Infinity when the ladder picked
  *   nothing at all.
+ * @param deps.doorBehind  TACT3d: the distance of the door (or other
+ *   activatable) the ladder would open behind the foe, Infinity for
+ *   none - see `yieldsToDoor`.
  */
 export function tryMobileEnemyActivate(eye, dir, foes, collider, reach, mode, player, deps = {}) {
   const hit = pickFoeHit(eye, dir, foes, collider, reach);
@@ -199,5 +211,31 @@ export function tryMobileEnemyActivate(eye, dir, foes, collider, reach, mode, pl
   // :419 is reached only for the ray's OWN hit - a nearer activatable
   // means the enemy was never the thing the ray struck.
   if (!(hit.distance < (deps.nearerThan ?? Infinity))) return false;
+  if (yieldsToDoor(hit.foe, deps.doorBehind, mode)) return false;   // TACT3d: the door behind takes the click
   return activateMobileEnemy(hit.foe, hit.distance, mode, player, deps);
+}
+
+/**
+ * TACT3d (Mac, 2026-10-02: "Players can grief others with guards by
+ * bringing them into interiors and blocking doorways" - fixed in every
+ * version, always on). A foe that is NOT hostile to the player - a
+ * watchman at peace, a companion, a quest's waiting NPC - standing
+ * between the crosshair and a door within the door's own reach no
+ * longer eats the click: the door opens. A hostile foe still takes it
+ * (DFU's one ray), and with no door in reach behind, nothing changes.
+ */
+export function yieldsToDoor(foe, doorBehind, mode = null) {
+  if (!foe || foe.companion != null || mode === 'steal') return false;   // AUDIT TACT C5: my companion's pack, a pickpocket - asked of HIM
+  return !hostileToMe(foe) && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;
+}
+
+/**
+ * AUDIT TACT C1: HOSTILE TO ME, not hostile at all. Another player's watch, streamed to me as puppets, is minted
+ * `isHostile` (this pool never pacifies a puppet) - so the door passed none of them, and a griefer's guards held every
+ * other player's door shut. A puppet is hostile to me only when it is on ME (`_pupMine`); my own foe by its own flag.
+ */
+export function hostileToMe(foe) {
+  if (!foe) return false;
+  if (foe.puppet) return !!foe._pupMine;
+  return !!foe.ai?.isHostile;
 }

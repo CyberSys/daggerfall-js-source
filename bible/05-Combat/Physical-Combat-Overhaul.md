@@ -132,6 +132,14 @@ per swing armour wears 1.4-1.7 times DFU's and a blade 2.3-2.5 times (the
 same seeded fights). With REPAIR-RATE's third, a Daedric longsword's repair
 is 3.3-6.4 gold a landed hit (`06-Systems/Economy-Arc.md`). The mods' own
 wear modules, turned on offline, keep their own amounts.
+
+**Back to DFU's amount (WEAR-ONE, 2026-10-02, Mac: "we need to buff gear
+durability because its really bad"; asked how much, "Daggerfall's rate
+(1x)").** At twice, every landed blow cost at least 2 (the doubling came
+after the floor roll's 1) and a 50-point dagger or bow broke in about 25
+blows. `DFU_WEAR_MULTIPLE` is 1 again; the seam stays for a later tuning.
+`PATCH-NOTES-Time-Free-Quests.md`. [SUPERSEDES WEAR-TWICE's 2.]
+
 A soft weapon still wears by what it deals: an iron blade on a Ghost does
 nothing in DFU and wears nothing, and does a little under the soft-material
 requirements and wears that little.

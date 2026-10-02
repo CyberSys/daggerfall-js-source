@@ -237,7 +237,7 @@ test('TOOL-USE: at an herb patch the Sickle picks the herbs and the Basket searc
     assert.equal(s.prompt?.rest, `Pick ${templateByIndex(other.herb).name} / Search with the Basket`);
     assert.equal(s.hotbar(FT.Basket).kind, 'used');
     s.host.tick(0.016);
-    assert.deepEqual([s.meter?.kind, s.meter?.label], ['basket', 'tap the glint']);
+    assert.deepEqual([s.meter?.kind, s.meter?.label], ['basket', 'click the glint']);   // PIN MOVED (AUDIT HERB-CURSOR C3): the cursor is free to click it
     s.host.cancel();
     s.host.tick(0.016);
     assert.equal(s.prompt?.rest, `Pick ${templateByIndex(other.herb).name} / Search with the Basket`, 'the choice still both');
@@ -586,7 +586,7 @@ test('PROF-MENU host by source: the street\'s plaque races the node over its own
   assert.match(w, /const _hoverNamers = \[\n\s*\(key\) => gatherHost\?\.hoverName\?\.\(key\) \?\? null,/);
   assert.match(w, /pick: \(\) => profHoverOver\(modes\.exteriorHoverPick\(cam\.pos, _hd, \{/);
   assert.match(w, /const profHoverOver = \(ray\) => gatherHost\?\.hoverHit\?\.\(ray\) \?\? ray;/);
-  assert.match(w, /const nodeClicked = !useEdge && _act\.activate && !_holdFire && !modes\.transitioning && !gatherHost\?\.acting\(\) && !naval\?\.takesActivate\?\.\(\) && profClickPress\(\);/);
+  assert.match(w, /const nodeClicked = !useEdge && _act\.activate && !_holdFire && !modes\.transitioning && !gatherHost\?\.acting\(\) && !_actClick && !naval\?\.takesActivate\?\.\(\) && profClickPress\(\);/);   // PIN MOVED (AUDIT HERB-CURSOR B2): nor an act's click lifting
   assert.match(w, /return typeof lit\?\.key === 'string' && lit\.key\.startsWith\('prof:'\) && lit\.id != null && \(gatherHost\?\.press\(\{ click: true \}\) \?\? false\);/);
   assert.match(w, /const win = new ListPickerWindow\(\{ backdrop: 'none', items: rows, onPick: \(i\) => \{ close\(\); pick\(i\); \}, onCancel: close \}\);/, 'the list closed before the act starts');
   assert.match(w, /profClick: \(\) => profClickPress\(\),/);

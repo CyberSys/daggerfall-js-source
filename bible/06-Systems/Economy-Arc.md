@@ -135,8 +135,10 @@ current design "does not work in an enjoyable manner"):
 
 ## Repairs, set from the intent
 
-- **Wear** is DFU's amount, twice (WEAR-VANILLA, then WEAR-TWICE on
-  2026-10-02: "I still want there to be some challenge"): the mods' wear
+- **Wear** is DFU's amount (WEAR-VANILLA; WEAR-TWICE doubled it on
+  2026-10-02 - "I still want there to be some challenge" - and WEAR-ONE put it
+  back the same day - Mac: "we need to buff gear durability because its really
+  bad"): the mods' wear
   modules are off, a monster's natural attack wears no armour, and a blow
   wears by the damage that got through the overhaul's armour (AUDIT ECON
   W1) - DFU's armour turns a blow aside and wears nothing, the overhaul's
@@ -175,8 +177,8 @@ current design "does not work in an enjoyable manner"):
 
 ## Open numbers
 
-The outing (one dungeon, one to two hours), the wear (twice DFU's amount,
-`src/systems/equip.js` `DFU_WEAR_MULTIPLE`), the kit ceiling (75%), the repair
+The outing (one dungeon, one to two hours), the wear (DFU's amount since WEAR-ONE,
+`src/systems/equip.js` `DFU_WEAR_MULTIPLE` = 1), the kit ceiling (75%), the repair
 scale (a third), the potions' rates and the companion's capacity are all
 tunable, and each is to be read again against the Phase 1 ledger before it is
 turned.

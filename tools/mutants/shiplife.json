@@ -202,8 +202,8 @@
   {
     "name": "SHIPLIFE-HOST-every-client-rolls",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (h.rolled || d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;",
-    "new": "      if (h.rolled || d > HARBOUR_STAND) continue;",
+    "old": "      if (d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;",
+    "new": "      if (d > HARBOUR_STAND) continue;",
     "tests": [
       "test/shiplife.test.js"
     ],
@@ -212,10 +212,11 @@
   {
     "name": "SHIPLIFE-HOST-moored-kept-far",
     "file": "src/scenes/navalHost.js",
-    "old": "        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') drop(e);",
-    "new": "        if (false) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') drop(e);",
+    "old": "        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
+    "new": "        if (false) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
     "tests": [
-      "test/shiplife.test.js"
+      "test/shiplife.test.js",
+      "test/shipfade.test.js"
     ]
   },
   {
@@ -249,12 +250,12 @@
   {
     "name": "SHIPLIFE-HOST-adopted-errandless",
     "file": "src/scenes/navalHost.js",
-    "old": "    e.ship.errand = errandHere(e.ship);\n    if (e.ship.errand?.kind === 'moored')",
+    "old": "    e.ship.errand = e.liner ? laneErrand(errandHere(e.ship)) : errandHere(e.ship);\n    if (e.ship.errand?.kind === 'moored')",
     "new": "    if (e.ship.errand?.kind === 'moored')",
     "tests": [
       "test/shiplife.test.js"
     ],
-    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line."
+    "note": "AUDIT PR478 (PIN MOVED): re-aimed at the audited line. AUDIT BAY re-aimed: the line draws a packet's errand her lane's (A4)."
   },
   {
     "name": "SHIPLIFE-HOST-harbour-left-behind",

@@ -166,23 +166,14 @@
     ]
   },
   {
-    "name": "WEAR-TWICE-the-multiple-at-one",
+    "name": "WEAR-ONE-the-multiple-back-at-two",
     "file": "src/systems/equip.js",
-    "old": "export const DFU_WEAR_MULTIPLE = 2;",
-    "new": "export const DFU_WEAR_MULTIPLE = 1;",
+    "old": "export const DFU_WEAR_MULTIPLE = 1;",
+    "new": "export const DFU_WEAR_MULTIPLE = 2;",
     "tests": [
       "test/wear_vanilla.test.js"
-    ]
-  },
-  {
-    "name": "WEAR-TWICE-the-multiple-never-applied",
-    "file": "src/systems/equip.js",
-    "old": "(amount > 0 ? blowWear(amount * _dfuMultiple, rolls) : amount);",
-    "new": "(amount > 0 ? blowWear(amount, rolls) : amount);",
-    "tests": [
-      "test/wear_vanilla.test.js",
-      "test/balance1.test.js"
-    ]
+    ],
+    "note": "WEAR-ONE (2026-10-02): the multiple is 1 again; WEAR-TWICE's two records that multiplied by it (never applied, the duel single) are retired - at 1 they are the source itself."
   },
   {
     "name": "WEAR-TWICE-the-mods-doubled-too",
@@ -191,15 +182,6 @@
     "new": "  lowerCondition(item, blowWear(amount * 2, rolls), owner, say, removeFrom);",
     "tests": [
       "test/wear_vanilla.test.js",
-      "test/balance1.test.js"
-    ]
-  },
-  {
-    "name": "WEAR-TWICE-the-duel-single",
-    "file": "src/scenes/world.js",
-    "old": "lowerCondition(sent.weapon, dfuBlowWear(amount), playerEntity,",
-    "new": "lowerCondition(sent.weapon, amount, playerEntity,",
-    "tests": [
       "test/balance1.test.js"
     ]
   }

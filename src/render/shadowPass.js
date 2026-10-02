@@ -60,6 +60,7 @@ import { spherePlanes, transformSphere, matrixScale, transformSphereScaled, reco
 import { billboardKey } from './billboardKey.js';   // AUDIT 68 S16-bbkey-stale-shadow-reach: re-keyed here, however the batch reached the records
 import { aabbOutside } from './frustum.js';   // SHADOW-REACH: a host's box against the cascades
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
+import { BAYER_GLSL, DISSOLVE_GLSL } from './orderedDither.js';   // AUDIT BAY A12: a fading ship's shadow dissolves with her
 
 /** The sun map: two cascades of this size, as a depth texture array. */
 export const SHADOW_SUN_SIZE = 2048;
@@ -816,6 +817,14 @@ float shadowOfLight(int i, vec4 L, vec3 wp, vec3 n) {
 export const DEPTH_FS = `#version 300 es
 precision highp float;
 void main() {}`;
+/** AUDIT BAY A12: a fading ship's depth (SHIP-FADE) - her share of it kept by the lit pass's own dissolve, over
+ *  the map's texels (the filter reads the kept share as the shadow's strength): she cast a whole shadow from a hull
+ *  half gone, and on as she was gone. Only a record with a cut is drawn with it (recordMesh's `cut`). */
+export const DEPTH_CUT_FS = `#version 300 es
+precision highp float;
+${BAYER_GLSL}
+${DISSOLVE_GLSL}
+void main() { dissolveCut(); }`;
 export const DEPTH_BB_FS = `#version 300 es
 precision highp float;
 in vec2 vUV;
@@ -842,8 +851,10 @@ export class ShadowPass {
     const terrain = opts.build(opts.vs.terrain, DEPTH_FS);
     const bb = opts.build(opts.vs.bb, DEPTH_BB_FS);
     const char = opts.vs.char ? opts.build(opts.vs.char, DEPTH_FS) : null;   // EL7: the rigs' own vertex layout
+    const meshCut = opts.build(opts.vs.mesh, DEPTH_CUT_FS);   // AUDIT BAY A12
     this.programs = {
       mesh: { p: mesh, proj: u(mesh, 'uProj'), view: u(mesh, 'uView'), model: u(mesh, 'uModel') },
+      meshCut: { p: meshCut, proj: u(meshCut, 'uProj'), view: u(meshCut, 'uView'), model: u(meshCut, 'uModel'), cut: u(meshCut, 'uDissolveCut') },
       char: char ? { p: char, proj: u(char, 'uProj'), view: u(char, 'uView'), model: u(char, 'uModel') } : null,
       terrain: { p: terrain, proj: u(terrain, 'uProj'), view: u(terrain, 'uView'), model: u(terrain, 'uModel') },
       bb: {
@@ -883,7 +894,7 @@ export class ShadowPass {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
     // the pool: records are minted once and reused by index
-    /** @type {Array<{kind:number, mesh:any, matrix:Float32Array, texRemap:any, surface:any, arrayTex:any, tilemapTex:any, tileSize:number, batches:any, flatWind:Float32Array, right:Float32Array, up:Float32Array, bounded:boolean, sphere:Float32Array, subSpheres:Float32Array, cellSpheres:Float32Array, dynamic:boolean}>} */
+    /** @type {Array<{kind:number, mesh:any, matrix:Float32Array, texRemap:any, surface:any, arrayTex:any, tilemapTex:any, tileSize:number, batches:any, flatWind:Float32Array, right:Float32Array, up:Float32Array, bounded:boolean, sphere:Float32Array, subSpheres:Float32Array, cellSpheres:Float32Array, dynamic:boolean, cut:number}>} */
     this.records = [];
     this.count = 0;
     this.recording = true;
@@ -1062,7 +1073,7 @@ export class ShadowPass {
     let r = this.records[this.count];
     if (!r) {
       r = { kind: 0, mesh: null, matrix: new Float32Array(16), texRemap: null, surface: null, arrayTex: null, tilemapTex: null, tileSize: 0, batches: null, flatWind: new Float32Array(4), right: new Float32Array(3), up: new Float32Array(3),
-        bounded: false, sphere: new Float32Array(4), subSpheres: new Float32Array(0), cellSpheres: new Float32Array(0), dynamic: false };   // EL5: the world-space spheres, the record's and its sub-meshes'; LA-AUDIT A1: and its shadow cells'; SC1: moved since last frame
+        bounded: false, sphere: new Float32Array(4), subSpheres: new Float32Array(0), cellSpheres: new Float32Array(0), dynamic: false, cut: 0 };   // EL5: the world-space spheres, the record's and its sub-meshes'; LA-AUDIT A1: and its shadow cells'; SC1: moved since last frame
       this.records[this.count] = r;
     }
     this.count++;
@@ -1212,11 +1223,14 @@ export class ShadowPass {
     if (mesh._vertSeen !== g) { mesh._vertSeen = g; mesh._vertMovedAt = this.frameNo; }
     return mesh._vertMovedAt !== undefined && this.frameNo - mesh._vertMovedAt < SHADOW_DYNAMIC_HOLD;
   }
-  recordMesh(mesh, matrix, texRemap) {
+  /** A solid's draw recorded for the maps - `cut` (AUDIT BAY A12) the share of it a fading ship's dissolve cuts
+   *  (renderer.js setDissolve; 0 whole): drawn with DEPTH_CUT_FS, and never a cache's (a fading thing is no still one). */
+  recordMesh(mesh, matrix, texRemap, cut = 0) {
     const r = this._rec(); if (!r) return;
     r.kind = REC_MESH; r.mesh = mesh; r.matrix.set(matrix); r.texRemap = texRemap;
+    r.cut = cut;
     const moved = this._moved(mesh, matrix), reshaped = this._reshaped(mesh);   // AUDIT PRE-MERGE 0928 R1: both asked every record - each keeps its own memory
-    r.dynamic = moved || reshaped;   // SC1
+    r.dynamic = moved || reshaped || r.cut > 0;   // SC1
     // EL5: the spheres, in the world, once per record (a mesh without bounds is drawn by every replay)
     r.bounded = !!mesh.bounds;
     if (r.bounded) {
@@ -1658,7 +1672,12 @@ export class ShadowPass {
         let runAt = -1, runEnd = -1;
         for (let k = 0; k < subs.length; k++) {
           if (cells ? !sphereInPlanes(planes, r.cellSpheres[k * 4], r.cellSpheres[k * 4 + 1], r.cellSpheres[k * 4 + 2], r.cellSpheres[k * 4 + 3]) : !subMeshVisible(planes, r, k)) { this.stats.culled++; continue; }
-          if (!vaoBound) { use(P.mesh); gl.uniformMatrix4fv(P.mesh.model, false, r.matrix); f.bindVao(vao); vaoBound = true; }
+          if (!vaoBound) {
+            const prog = r.cut > 0 ? P.meshCut : P.mesh;   // AUDIT BAY A12: a fading ship's share of her depth
+            use(prog); gl.uniformMatrix4fv(prog.model, false, r.matrix);
+            if (r.cut > 0) gl.uniform1f(prog.cut, r.cut);
+            f.bindVao(vao); vaoBound = true;
+          }
           const sm = subs[k], n = sm.primitiveCount * 3;
           if (sm.startIndex === runEnd) { runEnd += n; continue; }
           if (runAt >= 0) { gl.drawElements(gl.TRIANGLES, runEnd - runAt, gl.UNSIGNED_INT, runAt * 4); draws++; }
