@@ -648,6 +648,70 @@ directory by `test/audit18_bible_docs.test.js`:
   `__grassSpot` / `__grassTones` in shot mode): no dark tuft, no yellow
   band at the middle distance, a field lighter than its ground by a
   blade's sunlit tip.
+  **GRASS-LIT2 (2026-10-02, Mac: "Tackle the not done" - the five
+  things GRASS-LIT's report left unpaid): THE LANTERNS, THE SLOPE, THE
+  DRAWN TILE SET AND THE CLASSIC LANE.** (1) THE LANTERNS LIGHT THE
+  GRASS: the vertex stage walks the frame's own point lights
+  (`uPointLights` / `uPointColors`, the list and colours the ground
+  took - `renderer._pointLights`, display colours decoded under the
+  lane - up to `GRASS_MAX_LIGHTS`, the lane's cap of 48) at the root
+  with the ground's own falloff (TERRAIN_FS's (1 - d/r)^2 on the
+  classic lane, `elAttenuation` on its own - `EL_ATTEN_GLSL`, factored
+  out of EL_GLSL byte for byte) and each light's map where it has one
+  (`shadowOfLight`, the flats' reader, at the sun's lift), in the
+  provoking vertex alone, handed down `flat` as `vPoint`; the fragment
+  adds it beside R12 (the stage holds 210 uniform vectors at most,
+  counting every scalar whole, of the 256 WebGL2 promises - pinned). A
+  lantern at night: the blade beside it drew
+  0.21-0.51x the lit ground and draws 1.16-1.21x (`tools/
+  grassLightProbe.mjs`). (2) A BLADE IS LIT ABOUT THE GROUND'S NORMAL:
+  `normalize(lean + 1.2 * gN)`, where it stood about straight up (level
+  ground's gN is that up: 0.35 + 0.85 = 1.2). The normal is the drawn
+  surface's own - `world/terrainSurface.js surfaceNormalAt`, the near
+  grid's vertex normals (ghost rows and all, kept on a stride-1 pixel
+  as `groundNormals`) interpolated over the triangle the root stands
+  in, normalised as TERRAIN_FS normalises - asked by the placer once a
+  blade (`slope`) and PACKED INTO THE HEIGHT LANE: GRASS5 gave the
+  height a u16 and wrote it needed eight bits; it takes the high six
+  (`GRASS_HEIGHT_BITS`, 7 mm steps) and the normal's x and z five each
+  (`packHeightSlope`: codes 0..30 over +/-`GRASS_SLOPE_SPAN` 0.75, 15
+  the level, so level packs exactly level; dithered by the blade's
+  index on the R2 sequence, so a hillside's step lands as grain and
+  never a contour, and a patch's mean is the slope's own). No byte
+  more a blade. A 30-degree slope facing away from the 9:00 sun drew
+  1.34-1.40x its ground and draws 1.14-1.18x, as level ground does.
+  (3) THE COLOUR OFF THE TILE SET THAT IS DRAWN: the record means
+  (`groundMeanColour`) are taken off an attached texture mod's tile set
+  where one dresses the archive (GROUND1's `dfmodGroundLayers`, asked
+  before the three per-archive maps are learned so they land in one
+  step), the classic file's otherwise; which records are grass stays
+  the classic file's question. A big tile's mean reads at most
+  `GRASS_MEAN_SAMPLES` texels, on an odd step so no power-of-two
+  pattern is read on one phase. (4) THE CLASSIC LANE'S OWN TONES,
+  `GRASS_TONES_CLASSIC`, CALIBRATED BY PHOTOGRAPH against the default
+  lane at noon (four palettes from one boot; the near field's pixels
+  counted by how far they stand over the ground beside them): over
+  1.2x and over 1.3x, the default lane 6.4% and 4.9%, GRASS_TONES on
+  the classic lane 9.9% and 7.2% (the brighter, limer field), a
+  per-channel match of the lane's mean colours still 9.1% and 6.3% (the
+  lane's eye and curve press the middle tones harder than its mean
+  says), these 7.8% and 4.9%, a shade less green; the draw uploads
+  each lane its own. The classic frame stays brighter overall - its
+  ground is too.
+  `test/grasslit2.test.js` runs the compiled VERTEX stage through
+  `test/glsl.mjs` (the slope's decode and lambert, the lanterns against
+  the terrain's two formulas, the shadow, the provoking vertex), the
+  normal against the real mesh, the pack, the placer and the upload;
+  `tools/mutants/grasslit2.json` (25, all dead). (5) Seen on the real
+  game data: a lantern on a field at 23:30 (before, the ground in its
+  pool lit and the tufts standing dark in it; after, lit with it), the
+  classic lane at noon beside the default lane, and a real wood round a
+  hidden keep (The Citadel of Gaersley) from the air, Real forests on
+  and off. The hillside was not photographed: in shot mode a pose sets
+  the eye's look (and with `&fly` its height) but never its x and z,
+  which stay over the spawn corner - its proof is the compiled stage's
+  and the probe's numbers. New shot hooks: `__forestSpot` (the deepest
+  wood in the built pixels) and `__grassSpot`'s `steep`.
 - `grassPixelArt.js` - GRASS-PX THE TUFT SHEET: eight 8x16 tufts (GRASS-PX4; 16x32 until 2026-09-22, and the laws are written as fractions of the tuft so the old size still builds through `buildTuftSheet({ w, h })`) built at boot from a seed (one-texel stalks bending as height squared, four tones with one highlight texel, alpha 0 or 255), their coverage mip chain (max alpha per block, never an average, down to 1x1), the pixel style's numbers (8 Hz sway, 24 lean steps, 3x tuft width, 8-step ramp, 4 tint bands) and `pixelGrass()`, the row's word; the shader edits themselves are `GRASSPX_VS_EDITS` / `GRASSPX_FS_EDITS` in labGrass.js.
 - `spoilsGlow.js` - WB5: a fallen boss's spoils at rest, each in a BEAM of its tier's colour rising from a HALO on the floor (Loot Rarity's own colours - the first place a rarity is drawn in the world), a Legendary's and an Artifact's taller and pulsing. One foreign pass drawn beside the Burning Court's telegraph (the same seam), on the duel wall's law: fixed geometry placed by uniforms, added onto the frame, no depth written, fogged.
 - `deadlands.js` - WB6a: the Deadlands round the Burning Court - THE SKY, painted per pixel on one triangle at the far plane (a churning overcast lit from below; Oblivion's VORTEX over the great tower, turning whole and pouring inward; the BEAM up into its eye; black Daedric TOWERS with horns and a crown; three rings of JAGGED RIDGES hazier the further, with falls of fire; seeded LIGHTNING in the deck), and THE SEA, a disc of moving fire (crust plates on molten channels, glowing cracks, a slow pulse) whose rim becomes exactly the sky's horizon, so no edge is ever seen. One foreign pass in the dungeon arm after the court's solid geometry and before its flats (PERF2's law: the sea depth-tested, the sky tested at the far plane and never written); and the court's own light (`courtLighting` - a trilight red above and fire-orange below, the vortex's key light from behind the boss). WB6b: THE AIR'S LIFE (`drawLife`, after the telegraph in the court's pass - one vertex a mote: embers off the sea from past the court's edge and off its braziers, turning with the drift of the air, and ash falling through it; depth-tested and never written, the ash laid over premultiplied and the embers added; the world image's own height sizes the motes, RETRO1's `worldViewportPx` as the bolts read it); a strike LIGHTS THE COURT (`courtLighting(flash)`: the trilight's sky flares and the key swings toward it); `flashOfSlot`, the one answer the sky's flash and the thunder (scenes/deadlandsAir.js) read, on slots whole over the period; and the hosts hand the relay's clock (world.js `deadlandsSeconds`), so it is one moment on every screen. The land and the floor's shards round the court are court draws, not this pass (world/deadlandsLand.js, stood by worldModes' `standDeadlands`).

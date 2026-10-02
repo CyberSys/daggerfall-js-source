@@ -122,7 +122,7 @@
   {
     "name": "GRASSLIT-tones-uploaded",
     "file": "src/render/labGrass.js",
-    "old": "    gl.uniform3fv(u.uGrassTone, this.tones);\n",
+    "old": "    gl.uniform3fv(u.uGrassTone, lane ? this.tones : this.tonesClassic);   // GRASS-LIT2: each lane its own\n",
     "new": "",
     "tests": [
       "test/grasslit.test.js",
@@ -134,8 +134,8 @@
   {
     "name": "GRASSLIT-player-light",
     "file": "src/render/labGrass.js",
-    "old": "+ uMoonCol * (uMoonScale * vMoonLam) + vNear;   // GRASS-LIT",
-    "new": "+ uMoonCol * (uMoonScale * vMoonLam);   // GRASS-LIT",
+    "old": "+ vNear + vPoint;   // GRASS-LIT; GRASS-LIT2",
+    "new": "+ vPoint;   // GRASS-LIT; GRASS-LIT2",
     "tests": [
       "test/grasslit.test.js",
       "test/grasspx.test.js",
@@ -146,8 +146,8 @@
   {
     "name": "GRASSLIT-blade-normal",
     "file": "src/render/labGrass.js",
-    "old": "to: '  vec3 nrm = normalize(vec3(-lean.y, 0.35, lean.x) + vec3(0.0, 0.85, 0.0));   // GRASS-LIT',",
-    "new": "to: '  vec3 nrm = normalize(vec3(-lean.y, 0.35, lean.x) + vec3(0.0, 0.25, 0.0));   // GRASS-LIT',",
+    "old": "to: '  vec3 nrm = normalize(vec3(-lean.y, 0.0, lean.x) + 1.2 * gN);",
+    "new": "to: '  vec3 nrm = normalize(vec3(-lean.y, 0.0, lean.x) + 0.6 * gN);",
     "tests": [
       "test/grasslit.test.js",
       "test/grasspx.test.js",

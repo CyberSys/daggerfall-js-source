@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import {
-  LAB_GRASS_HEAD, GAME_GRASS_VS, GAME_GRASS_FS, GRASSLIT_VS_EDITS, GRASSLIT_FS_EDITS, GRASS_TONES, GRASS_PALETTE,
+  LAB_GRASS_HEAD, GAME_GRASS_VS, GAME_GRASS_FS, GRASSLIT_VS_EDITS, GRASSLIT_FS_EDITS, GRASS_TONES, GRASS_TONES_CLASSIC, GRASS_PALETTE,
   GRASS_SWARD, GRASS_SUN_LIFT, GRASS_FAR_BLEND, GRASS_TILE_MEANS, GRASS_ADAPT_UNIT, GRASS_CLOUD_UNIT, grassLit, LabGrassRenderer,
 } from '../src/render/labGrass.js';
 import { elDecode, elDecode3, elEncode, elTonemapRGB, EL_EXPOSURE, EL_GLSL, EL_CODEC_GLSL } from '../src/render/enhancedLighting.js';
@@ -29,12 +29,12 @@ const EYE_ONE = unpackAdapt(...packAdapt(1));
 
 /** The grass fragment's colour, run on the compiled stage's own text: the smooth style at a blade's height `t`, the
  *  patch tint at its mean, no snow or wet or fog. `lane` hands the light DECODED as the host does under the lane. */
-function fragment({ ground = WOOD, t = 0.5, light = NOON, lane = false, tones = GRASS_TONES, vSun = 1, vFar = 0, vNear = [0, 0, 0], adapt = 1 }) {
+function fragment({ ground = WOOD, t = 0.5, light = NOON, lane = false, tones = lane ? GRASS_TONES : GRASS_TONES_CLASSIC, vSun = 1, vFar = 0, vNear = [0, 0, 0], vPoint = [0, 0, 0], adapt = 1 }) {   // GRASS-LIT2: each lane's own tones, and the lanterns
   const dec = (c) => (lane ? c.map(elDecode) : c);
   const [hi, lo] = packAdapt(adapt);
   const f = glslFunctions(LAB_GRASS_HEAD + GAME_GRASS_FS, {
     vT: t, vTint: 0.5, vFade: 1, vLam: Math.max(light.sunDir[1], 0), vSnow: 0, vWet: 0, vGround: [...ground], vMoonLam: 0,
-    vUV: [0.5, 0.5], vVar: 0, vWorld: [0, 0, 10], vSun, vFar, vNear,
+    vUV: [0.5, 0.5], vVar: 0, vWorld: [0, 0, 10], vSun, vFar, vNear, vPoint,
     uAmb: dec(light.amb), uSunCol: dec(light.sunCol), uMoonCol: [0, 0, 0], uDim: 1, uSunScale: light.sunScale, uMoonScale: 0,
     uPixel: 0, uPxSteps: 8, uPxVariants: 8, uPxTintBands: 4, uLane: lane ? 1 : 0, uELExposure: EL_EXPOSURE,
     uGrassTone: tones.map((k) => [...k]),
@@ -127,9 +127,9 @@ test('GRASS-LIT: the vertex stage reads the root\'s sun once - the deck and the 
   assert.ok(GAME_GRASS_VS.includes('vec3 rootW = vec3(root.x, gRootY + snowSurf, root.y);'), 'the root stands on the snow\'s surface, where the blade is planted');
   assert.ok(GAME_GRASS_VS.includes(`vFar = smoothstep(uRange * ${GRASS_FAR_BLEND[0]}, uRange * ${GRASS_FAR_BLEND[1]}, d);`));
   assert.ok(GAME_GRASS_VS.includes('vNear = iAtt * iAtt * max(dot(nrm, iL / max(iD, 1e-4)), 0.0) * uIndirectColor;'), 'R12\'s falloff, the ground\'s own');
-  assert.ok(GAME_GRASS_VS.includes('vec3 nrm = normalize(vec3(-lean.y, 0.35, lean.x) + vec3(0.0, 0.85, 0.0));'));
+  assert.ok(GAME_GRASS_VS.includes('vec3 nrm = normalize(vec3(-lean.y, 0.0, lean.x) + 1.2 * gN);'), 'GRASS-LIT2: about the ground\'s own normal (test/grasslit2.test.js) - level ground\'s is the old up');
   for (const name of ['float cloudShadowAt(vec3 wp)', 'float sunShadowAt(vec3 wp, vec3 n)']) assert.ok(GAME_GRASS_VS.includes(name), `the terrain's own reader: ${name}`);
-  assert.equal(GRASSLIT_VS_EDITS.length, 3); assert.equal(GRASSLIT_FS_EDITS.length, 8);
+  assert.equal(GRASSLIT_VS_EDITS.length, 5, 'GRASS-LIT2: and the height lane\'s two'); assert.equal(GRASSLIT_FS_EDITS.length, 8);
   // the lane's codec is ONE text - EL_GLSL carries it, and so does the grass
   assert.ok(EL_GLSL.includes(EL_CODEC_GLSL) && GAME_GRASS_FS.includes(EL_CODEC_GLSL));
   // no weather dim from the host: the light is weathered already

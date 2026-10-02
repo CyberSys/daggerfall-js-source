@@ -88,15 +88,39 @@ mean; and the AO reads a copy of the depth taken just before the grass draws, so
 occlusion and still hides, and is hidden, by depth. Tones were chosen by photographing candidates on the real game
 (`__grassTones`): the ground's own palette alone made the tufts all but invisible; brighter tips past it read as grass.
 
+## GRASS-LIT2 (2026-10-02) - the not-done list, paid
+
+Mac: *"Tackle the not done."* GRASS-LIT's report left five things unpaid; four were code and one a photograph. The
+branch first took main in (`5f719712`), which fixed the nine suite failures it had inherited from its base - they
+failed identically on the base before FOREST1, and pass on main.
+
+| Was | Now | Evidence |
+|---|---|---|
+| **Lanterns and torches did not light the grass.** At night by a fire the ground glowed and the grass on it did not: 0.21-0.51x the lit ground beside a lantern. | The vertex stage walks the frame's own light list at the root - the ground's falloff on each lane (TERRAIN_FS's `(1 - d/r)^2`, the lane's `elAttenuation` as `EL_ATTEN_GLSL`), each light's shadow map where it has one, once a triangle (`vPoint`, flat). 1.16-1.21x the lit ground. | `test/grasslit2.test.js` runs the compiled vertex stage against both terrain formulas, with a map and without; `grassLightProbe` prints it; the real game at 23:30, a lantern put first in the frame's own list on a field: before, its pool lit the ground and the tufts stood dark in it; after, they are lit with it. |
+| **A blade stood straight up on any slope.** A 30-degree hillside facing away from the 9:00 sun: the ground darkened, the field on it did not (1.34-1.40x the ground). | A blade is lit about the ground's own normal - the drawn mesh's (`surfaceNormalAt`: the near grid's vertex normals over the triangle under the root) - packed into the height lane's spare bits (the height's six, the normal's x and z five each, dithered). No byte more a blade. 1.14-1.18x, as on the level. | The normal against the real mesh to 1e-6; the pack's dither unbiased to 0.002; the decode and lambert on the compiled stage; `grassLightProbe`'s hillside rows. Not photographed - see the correction below. |
+| **A texture mod's ground** drew colours the grass did not take. | The record means come off the tile set that is drawn - the mod's, where one dresses the archive; a big tile read on an odd step. | Pinned on the host's own text and on a 1024-square tile with a two-texel pattern. No texture mod is in the game data here, so this one is not photographed. |
+| **The classic lane** drew the field brighter and greener than the default lane: of the near field's pixels, 9.9% stood over 1.2x the ground beside them and 7.2% over 1.3x, against the default lane's 6.4% and 4.9%. | Its own tones, `GRASS_TONES_CLASSIC`, calibrated by photographing four palettes on the real game: 7.8% and 4.9% in the final build's shot, the tufts a shade less green than the default lane's. A per-channel match of the default lane's mean colours was tried first and left 9.1% and 6.3% - the lane's eye and curve press the middle tones harder than its mean says. | The tones pinned as literals and held no brighter and no greener than the default lane's per-channel picture; the classic lane at noon before and after, the default lane beside it. The classic frame stays brighter overall: its ground is too. |
+| **The aerial forest shot** showed the fields beside Daggerfall city, not a wood. | Photographed from the air round The Citadel of Gaersley - a keep whose whole map pixel is forest under the field (found by scanning MAPS.BSA's woodland dungeons) - with Real forests on and off: a closed wood against Daggerfall's even scatter. | The real game, `tools/grassLookProbe.mjs`; `__forestSpot` (new) names the deepest wood in the built pixels. |
+
+`tools/mutants/grasslit2.json`: 25 mutants, all dead; with `grasslit.json`'s 19 (three re-aimed at the lines this
+changed), 44 of 44.
+
+**A correction to GRASS-LIT's photographs.** `tools/grassLookProbe.mjs` stood the camera on a field with `__pose`,
+and in shot mode a pose does not move the eye across the ground: without `&fly` it sets only the look, and with
+`&fly` the look and the height - the eye's x and z stay over the spawn corner where the boot stands the player
+(FIX-C), read off the terrain program's `uView` and `renderer._camPos` (posed at (27.6, 4.4), the eye stood at
+(-1.0, -1.3)). GRASS-LIT's before/after pairs were taken from that corner (both halves of each pair from the same
+place, so the comparisons stand), not from the field `__grassSpot` named. Found when a lantern posed beside the field
+lit nothing - the eye was 48 m away. GRASS-LIT2's lantern was photographed from over the corner, looking at it; the
+probe's header says so. Why the pose cannot move the eye's x and z is not run down.
+
 ## Known and not paid
 
-- **Lanterns and torches do not light the grass.** The terrain's point-light loop runs per fragment through the
-  light clusters; the grass would need it per vertex or per fragment for a million blades. At night in a lit camp the
-  ground glows and the grass beside it does not. Towns carry little grass.
-- **The ground's slope is not the blade's.** A blade's normal stands near straight up; the terrain's own vertex
-  normal is not carried per blade (the packed lanes are full). On a slope facing away from a low sun the ground
-  darkens a little more than the field on it.
-- **A texture mod's ground.** The grass's per-record mean is taken off the classic tile set; a mod that replaces the
-  ground (Texture Mods) draws other colours under it.
 - **The far rings draw every Tree.** Forests carry 2.4x DFU's Trees on average; the Features row is the dial.
-- **SwiftShader's milliseconds are not a player's.** The probe's frames prove the picture, not the frame rate.
+- **SwiftShader's milliseconds are not a player's.** The probe's frames prove the picture, not the frame rate. The
+  lanterns' loop runs only in the provoking vertex and only for a light in range; its cost on a real GPU is
+  unmeasured.
+- **The grass's lanterns have no contact shadows and no glint.** The terrain's lantern without a map takes a
+  screen-space contact shadow (EL8) and a specular glint; the grass takes the diffuse and the map's shadow alone.
+- **A lantern is read at the root.** One value a blade, as the sun is; a torch held over a tall blade lights its tip
+  no more than its root.

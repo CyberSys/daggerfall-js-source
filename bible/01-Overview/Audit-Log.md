@@ -8,6 +8,14 @@
 
 Newest first.
 
+**2026-10-02 - GRASS-LIT2: THE NOT-DONE LIST.** Mac: *"Tackle the not done."* The five things
+GRASS-LIT's report left unpaid: the lanterns now light the grass (the ground's own falloff and
+light list, the maps' shadows), a blade is lit about the ground's own normal (packed into the
+height lane's spare bits - no byte more a blade), the grass's colour comes off the tile set that is
+drawn (a texture mod's), the classic lane has its own tones, and a real wood is photographed from
+the air. The branch took main first, which fixed the nine failures it inherited. 25 new mutants,
+44 with GRASS-LIT's, all dead. Record: `Audit-Forest1-Grass.md` (GRASS-LIT2).
+
 **2026-10-01 - AUDIT FOREST1 + GRASS-LIT.** Mac: *"audit this and ensure it's as
 detailed as possible. In addition to this, I want to drastically improve the grass texture that
 isn't super dark and blends well into the terrain."* A read-only second lens over Real forests,

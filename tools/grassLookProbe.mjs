@@ -16,7 +16,7 @@
 // Env: Q the page query (keep `shot&world`; `class=0` skips character creation, `season=summer` grows the grass);
 // PREFS a JSON of uiPrefs to boot with (`{"grassStyle":"smooth"}`, `{"enhancedLighting":false}`); EVAL; KEYS
 // (comma-separated, default `Enter,n,n`); VARIANTS a JSON array of `{ name, tones?, eval? }`; W/H the viewport;
-// PORT the dev server's (5201); DEBUG every console line.
+// PORT the dev server's (5201); DEBUG every console line. KEYS=',' presses none (an empty KEYS is the default's).
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 
@@ -24,6 +24,9 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ??= '/opt/pw-browsers';
 const out = process.argv[2];
 if (!out) { console.error('usage: node tools/grassLookProbe.mjs out.png'); process.exit(2); }
 const port = Number(process.env.PORT || 5201);
+// GRASS-LIT2: `__pose` DOES NOT MOVE THE EYE ACROSS THE GROUND. Without `&fly` it sets the look alone; with `&fly` the
+// look and the height. The eye's x and z stay over the pixel's origin corner, where the boot stands the player (FIX-C) -
+// read off the terrain program's uView and `__renderer._camPos`. Photograph what stands in view of that corner.
 const query = process.env.Q || 'shot&world&class=0&season=summer&tod=12:00&weather=sunny';
 const prefs = JSON.parse(process.env.PREFS || '{}');
 const server = await createServer({ root: process.cwd(), configFile: process.cwd() + '/vite.config.js', server: { port, strictPort: true }, logLevel: 'error' });

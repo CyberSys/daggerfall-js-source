@@ -340,10 +340,18 @@ test('AUDIT 68 S17-ground-mean-colour: a blade\'s root is the mean of the tile\'
   const groundTex = { recordCount: 2, getDFBitmap: (r) => (r === 0 ? bitmap : { width: 1, height: 1, data: new Uint8Array([9]) }), getColor32: (b, a) => t.getColor32(b, a) };
   const { markPuddleWater } = await import('../src/world/puddleMask.js');
   const groundPuddles = new Map();   // WATER-PUDDLE: the same block learns the pass's puddle mask for the blades
-  new Function('grassRecords', 'groundArchive', 'groundTex', 'grassRecordsOf', 'groundMeanColour', 'tileMeanColour', 'groundPuddles', 'markPuddleWater', block)(
-    new Map(), 302, groundTex, grassRecordsOf, groundMeanColour, tileMeanColour, groundPuddles, markPuddleWater);
+  // GRASS-LIT2: `drawnLayers` is a texture mod's tile set where one dresses the archive (null: none - the classic's)
+  const run = (drawnLayers) => new Function('grassRecords', 'groundArchive', 'groundTex', 'grassRecordsOf', 'groundMeanColour', 'tileMeanColour', 'groundPuddles', 'markPuddleWater', 'drawnLayers', block)(
+    new Map(), 302, groundTex, grassRecordsOf, groundMeanColour, tileMeanColour, groundPuddles, markPuddleWater, drawnLayers);
+  run(null);
   assert.equal(groundPuddles.get(302)?.length, 2, 'and the puddle mask with them, off the same layers');
   assert.ok(groundMeanColour.has(302), 'the scene learned the archive\'s colours though the tile array was the renderer\'s already');
   near(groundMeanColour.get(302)[0], [150 / 255, 125 / 255, 100 / 255]);
   near(groundMeanColour.get(302)[1], [100 / 255, 50 / 255, 0]);
+  // a mod's tile set: the colours are ITS (the ground drawn), the records and the puddles still the classic file's
+  const modTile = (r, g, b) => ({ width: 2, height: 2, colors: new Uint8Array([r, g, b, 255, r, g, b, 255, r, g, b, 255, r, g, b, 255]) });
+  run([modTile(30, 90, 20), modTile(60, 60, 60)]);
+  near(groundMeanColour.get(302)[0], [30 / 255, 90 / 255, 20 / 255]);
+  near(groundMeanColour.get(302)[1], [60 / 255, 60 / 255, 60 / 255]);
+  assert.equal(groundPuddles.get(302)?.length, 2);
 });
