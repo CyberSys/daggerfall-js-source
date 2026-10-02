@@ -5,10 +5,25 @@
 // load that stands the arena the deed is moved: to an unowned house of the same type elsewhere in Daggerfall (any
 // house when none of its type is free), never one another record holds or an active quest's, chosen by the house
 // market's own generator (systems/banking.js housesForSale: xorshift32) seeded by the city's map id and the old key
-// - one answer for one save, whatever order the city's buildings were read in. Its scene goes with it (the decor
-// placed in it, the furniture taken out, the chests, the floor - systems/sceneCache.js renameScene, its permanence
-// too), the old cell's discovered buildings are forgotten, the new house is discovered as the player's residence, and
-// the Daggerfall Bank says so in a letter (systems/arenaText.js) and the notebook.
+// - one answer for one save, whatever order the city's buildings were read in. The old cell's discovered buildings
+// are forgotten, the new house is discovered as the player's residence, and the Daggerfall Bank says so in a letter
+// (systems/arenaText.js) and the notebook.
+//
+// ARENA2 (the fix): WHAT WAS IN IT, MOVED - NOT ITS PLACES. ARENA1 renamed the old house's scene onto the new one, and
+// the old house's places do not fit the new one: a placed piece stood where the old room had floor, a container index
+// named another chest, the furniture taken out named pieces the new house never had. So the old scene is EMPTIED
+// into the new one by what it held (`emptyArenaScene`), the house-sale law's own doors (scenes/worldModes.js decorSold)
+// where they fit:
+//   - the owner's own things standing in it (DECOR2a's `decorOwn`) back where they live - a piece of furniture among
+//     "Your things" (DECOR2b's furnishings, the save's), anything else the pack (`hooks.giveOwn`);
+//   - the pieces bought from the catalogue and placed (DECOR1's `decor`) paid back WHOLE into the Daggerfall bank
+//     account (`hooks.refund`) - a sale gives half, but nobody sold this house;
+//   - the furniture taken out (BASE-HIDE's `hiddenBase`) forgotten - the new house stands as Daggerfall furnished it;
+//   - everything the chests held (`lootContainers`), the storage pieces held (`decorItems`) and the floor held
+//     (`droppedPiles`) carried into the NEW HOUSE'S FIRST CONTAINER (`container:0` of its cached scene, marked `crate`
+//     - and where the new house stands no container, a crate set down where the owner first walks in:
+//     scenes/worldModes.js restoreInteriorScene). Its other layouts' visits go the same way, into the same chest.
+// A torch left burning on the old floor has burnt out, and a camp is no house's.
 //
 // Online homes are the account service's (ARENA4): the service moves each home row in one migration - see
 // bible/11-Multiplayer/Arena.md "ARENA1 record". Every other record keyed to the cell (a rented room, a repair
@@ -16,7 +31,7 @@
 // (world/arenaCity.js arenaRecordDisplaced) and each system's own law for a building that is not there takes it.
 
 import { inArenaCell, arenaRecordDisplaced, ARENA_REGION } from '../world/arenaCity.js';
-import { interiorSceneName, renameScene } from './sceneCache.js';
+import { interiorSceneName, cacheScene, containsPermanentScene, addPermanentScene, removePermanentScene } from './sceneCache.js';
 import { isResidence } from '../world/buildingNames.js';
 
 /** The market's generator (banking.js housesForSale), seeded by what names this move. */
@@ -44,11 +59,47 @@ export function arenaHouseFor({ mapId, oldKey, oldType }, summaries, { held = ne
   return list.length ? list[pick(list.length, mapId, oldKey)] : null;
 }
 
+/** The key of the new house's first container in its scene (scenes/worldModes.js restoreInteriorScene's `container:i`). */
+export const ARENA_CRATE_KEY = 'container:0';
+const copyItem = (it) => ({ ...it });
+/**
+ * THE OLD HOUSE'S SCENE EMPTIED INTO THE NEW ONE (the fix above): every entry of `from` (and its other layouts' visits,
+ * `from|<layout>`) taken out of the cache, what it held answered, and one entry cached under `to` - permanent if the old
+ * one was - whose first container holds every item. Answers `{ own, refund, crate, pieces, hidden }`: the owner's own
+ * things (to give back), the gold the placed pieces cost (to pay back whole), the items put in the new house's chest,
+ * how many pieces were placed and how many furniture marks were dropped. Pure on the cache.
+ */
+export function emptyArenaScene(cache, from, to) {
+  const out = { own: [], refund: 0, crate: [], pieces: 0, hidden: 0 };
+  if (!cache?.scenes) return out;
+  const moved = (name) => name === from || name.startsWith(`${from}|`);
+  let permanent = false;
+  for (const [name, d] of [...cache.scenes]) {
+    if (!moved(name)) continue;
+    cache.scenes.delete(name);
+    for (const item of Object.values(d?.decorOwn ?? {})) if (item) out.own.push(copyItem(item));
+    for (const p of d?.decor ?? []) { if (p?.item) continue; out.pieces++; out.refund += Number.isSafeInteger(p?.paid) && p.paid > 0 ? p.paid : 0; }
+    out.hidden += Array.isArray(d?.hiddenBase) ? d.hiddenBase.length : 0;
+    for (const c of d?.lootContainers ?? []) if (Array.isArray(c?.items) && !String(c.key ?? '').startsWith('shelf')) out.crate.push(...c.items.map(copyItem));
+    for (const list of Object.values(d?.decorItems ?? {})) if (Array.isArray(list)) out.crate.push(...list.map(copyItem));
+    for (const pile of d?.droppedPiles ?? []) if (Array.isArray(pile?.items)) out.crate.push(...pile.items.map(copyItem));
+  }
+  for (const name of [...cache.permanent]) if (moved(name)) { permanent = true; cache.permanent.delete(name); }
+  removePermanentScene(cache, from);
+  if (out.crate.length || permanent || containsPermanentScene(cache, to)) {
+    cacheScene(cache, to, { lootContainers: out.crate.length ? [{ key: ARENA_CRATE_KEY, items: out.crate.map(copyItem), crate: true, stockedDate: 0 }] : [], frame: 'building' });
+    if (permanent) addPermanentScene(cache, to);
+  }
+  return out;
+}
+
 /**
  * The move, on the save's records. `houses` banking's per-region deeds; `summaries`, `oldTypeOf(buildingKey)`,
  * `held`, `isActiveQuestBuilding` as above; `scenes` the save's scene cache; the hooks the host's (each optional):
- * `undiscoverCell()`, `discover(summary)`, `addNote(text)`, `notice()`. `displaced(rec)` defaults to the arena's
- * law. Answers { from, to, name } for a deed moved, else null.
+ * `undiscoverCell()`, `discover(summary)`, `addNote(text)`, `notice()`; ARENA2's `giveOwn(items)` (the owner's own
+ * things back - furniture to the furnishings, the rest to the pack) and `refund(gold)` (the placed pieces' cost, to
+ * the bank). `displaced(rec)` defaults to the arena's law. Answers { from, to, name, own, refund, crate } for a deed
+ * moved, else null.
  */
 export function moveArenaRecords({ houses, summaries, oldTypeOf, held = new Set(), isActiveQuestBuilding = null, scenes = null, displaced = arenaRecordDisplaced } = {}, hooks = {}) {
   const slot = houses?.[ARENA_REGION];
@@ -56,11 +107,13 @@ export function moveArenaRecords({ houses, summaries, oldTypeOf, held = new Set(
   const from = slot.buildingKey;
   const to = arenaHouseFor({ mapId: slot.mapId, oldKey: from, oldType: oldTypeOf?.(from) ?? null }, summaries, { held, isActiveQuestBuilding });
   if (!to) return null;
-  if (scenes) renameScene(scenes, interiorSceneName(slot.mapId, from), interiorSceneName(slot.mapId, to.buildingKey));
+  const emptied = scenes ? emptyArenaScene(scenes, interiorSceneName(slot.mapId, from), interiorSceneName(slot.mapId, to.buildingKey)) : { own: [], refund: 0, crate: [] };
   slot.buildingKey = to.buildingKey;
+  if (emptied.own.length) hooks.giveOwn?.(emptied.own);
+  if (emptied.refund > 0) hooks.refund?.(emptied.refund);
   hooks.undiscoverCell?.();
   hooks.discover?.(to);
   hooks.addNote?.(to);
   hooks.notice?.(to);
-  return { from, to: to.buildingKey, name: to.name ?? '' };
+  return { from, to: to.buildingKey, name: to.name ?? '', own: emptied.own.length, refund: emptied.refund, crate: emptied.crate.length };
 }

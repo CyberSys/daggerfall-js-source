@@ -192,19 +192,20 @@
   {
     "name": "ARENA1-MOVE-NO-SCENE",
     "file": "src/systems/arenaMove.js",
-    "old": "  if (scenes) renameScene(scenes, interiorSceneName(slot.mapId, from), interiorSceneName(slot.mapId, to.buildingKey));",
-    "new": "",
+    "old": "  const emptied = scenes ? emptyArenaScene(",
+    "new": "  const emptied = null ? emptyArenaScene(",
     "tests": [
       "test/arena1_move.test.js"
     ]
   },
   {
-    "name": "ARENA1-RENAME-NO-LAYOUTS",
-    "file": "src/systems/sceneCache.js",
+    "name": "ARENA1-MOVE-NO-LAYOUTS",
+    "file": "src/systems/arenaMove.js",
     "old": "  const moved = (name) => name === from || name.startsWith(`${from}|`);",
     "new": "  const moved = (name) => name === from;",
     "tests": [
-      "test/arena1_move.test.js"
+      "test/arena1_move.test.js",
+      "test/arena2_move.test.js"
     ]
   },
   {

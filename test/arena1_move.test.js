@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { arenaHouseFor, moveArenaRecords } from '../src/systems/arenaMove.js';
 import { arenaRecordDisplaced, arenaGatePersonOf, ARENA_GATE_PEOPLE, ARENA_LOCATION_KEY } from '../src/world/arenaCity.js';
 import { ARENA_TEXT } from '../src/systems/arenaText.js';
-import { createSceneCache, cacheScene, addPermanentScene, interiorSceneName, layoutSceneName, renameScene } from '../src/systems/sceneCache.js';
+import { createSceneCache, cacheScene, addPermanentScene, interiorSceneName, layoutSceneName } from '../src/systems/sceneCache.js';
 import { configureLayoutPins, recordStands, _resetLayoutPins } from '../src/systems/layoutPins.js';
 import { findRentedRoom } from '../src/systems/tavern.js';
 import { isBeingRepairedAt } from '../src/systems/repairService.js';
@@ -48,7 +48,7 @@ test('ARENA1 move: the new house - of the old one\'s type, never in the cell, ne
   assert.ok(picks.size > 1);
 });
 
-test('ARENA1 move: the deed moves once with its scene - the entry, its other layouts\' visits, their permanence - and the letter is said', () => {
+test('ARENA1 move (ARENA2 the fix): the deed moves once, its old scene EMPTIED into the new house - the chests\' things in its first chest, the furniture marks dropped, its other layouts\' visits with it - and the letter is said', () => {
   const houses = createHouses(62);
   Object.assign(houses[17], { mapId: MAP, buildingKey: OLD, location: 'Daggerfall' });
   const scenes = createSceneCache();
@@ -66,12 +66,14 @@ test('ARENA1 move: the deed moves once with its scene - the entry, its other lay
   assert.equal(houses[17].buildingKey, r.to);
   assert.equal(houses[17].mapId, MAP);
   const to = interiorSceneName(MAP, r.to);
-  assert.deepEqual(scenes.scenes.get(to).hiddenBase, ['bed']);
-  assert.equal(scenes.scenes.get(to).decor.length, 1);
-  assert.equal(scenes.scenes.get(to).lootContainers[0].items[0].name, 'gold');
-  assert.ok(scenes.scenes.has(layoutSceneName(to, 'beautiful-cities@0.5.0')));
+  // ARENA2: the old house's places do not fit the new one - nothing of them is carried, only what they held
+  assert.deepEqual(scenes.scenes.get(to).hiddenBase, [], 'the furniture taken out of the OLD house names nothing in the new');
+  assert.equal(scenes.scenes.get(to).decor.length, 0, 'a placed piece never stands where the old room had floor');
+  assert.deepEqual(scenes.scenes.get(to).lootContainers, [{ key: 'container:0', items: [{ name: 'gold' }], crate: true, stockedDate: 0 }]);
+  assert.ok(!scenes.scenes.has(layoutSceneName(to, 'beautiful-cities@0.5.0')), 'the other layout\'s visit poured into the same chest');
   assert.ok(!scenes.scenes.has(from));
-  assert.deepEqual([...scenes.permanent].sort(), [to, layoutSceneName(to, 'beautiful-cities@0.5.0')].sort());
+  assert.deepEqual([...scenes.permanent], [to]);
+  assert.equal(r.crate, 1);
   assert.deepEqual(said, ['forget', `discover ${r.to}`, 'note', 'letter']);
   // once: the deed names a standing house now
   assert.equal(moveArenaRecords({ houses, summaries: CITY, scenes, displaced: (rec) => arenaRecordDisplaced(rec, keyOfMapId) }), null);
@@ -79,7 +81,6 @@ test('ARENA1 move: the deed moves once with its scene - the entry, its other lay
   const h2 = createHouses(62);
   Object.assign(h2[17], { mapId: MAP, buildingKey: makeBuildingKey(1, 1, 0) });
   assert.equal(moveArenaRecords({ houses: h2, summaries: CITY, displaced: (rec) => arenaRecordDisplaced(rec, keyOfMapId) }), null);
-  assert.equal(renameScene(createSceneCache(), 'a', 'b'), 0);
 });
 
 test('ARENA1 move: every other record keyed there names no building - a room at any inn of the city, a ticket at any smith', () => {
@@ -111,7 +112,8 @@ test('ARENA1 gate: the Herald is known by his record, and his click opens the no
   assert.ok(Object.isFrozen(ARENA_TEXT) && Object.isFrozen(ARENA_TEXT.heraldNotice));
   assert.equal(ARENA_TEXT.heraldNotice[0], 'The Arena of Daggerfall');
   assert.match(ARENA_TEXT.heraldNotice.join(' '), /Bouts begin soon/);
-  assert.match(read('src/scenes/worldModes.js'), /if \(!info && arenaGatePersonOf\(pn\)\?\.role === 'herald'\) \{ townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[\.\.\.ARENA_TEXT\.heraldNotice\]\)\); return; \}/);
+  // ARENA2: his choice now (the host's - scenes/world.js arenaHerald); a host with no arena driver keeps the notice
+  assert.match(read('src/scenes/worldModes.js'), /if \(!info && arenaGatePersonOf\(pn\)\?\.role === 'herald'\) \{ if \(!host\.arenaHerald\?\.\(\)\) townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[\.\.\.ARENA_TEXT\.heraldNotice\]\)\); return; \}/);
 });
 
 test('ARENA1 move (ARENA2): a deed to a GEMSAL03 house moves to a house of its kind standing in Daggerfall, in both layouts', { skip: !HAS_ARENA2 && 'ARENA2_PATH not set' }, async () => {
