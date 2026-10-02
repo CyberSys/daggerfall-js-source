@@ -105,3 +105,30 @@ export function riteFaithfulOf(day) {
   for (let i = 0; i < n; i++) out.push({ career: RITE_CAREERS[gateHash(GATE_SALT, day, 18, i) % RITE_CAREERS.length], summoner: false });
   return out;
 }
+
+// ── BROKER-CAGE (2026-10-02, Mac: "she should be present at the site in a jailed gate, and the gate opens after all the
+// enemies are cleared") ── the Sigil Broker is the faithful's prisoner, caged at their circle (scenes/sigilBrokerPool.js).
+// The cage opens when EVERY ONE of the day's faithful has fallen - the Summoner and each of Dagon's Faithful - inside the
+// rite's window: a player who saw them all fall says so in the rite's word (`c`), the relay's cell keeps it beside the
+// broken rite, and the hub says it to everyone (net/wire.js validRiteOut `cl`). Not cleared by the opening, she stays
+// caged that night (the faithful pass into the breach). Caged or free, she stands from the omen until the Wrath's midnight
+// - a Warden fallen early takes the breach and its circle, never her.
+
+/** The last day's faithful by career, `[[career, n], ...]` (riteRosterFell's, made once a day). */
+let _rosterDay = null, _roster = [];
+/** Has every one of the day's faithful fallen: the Summoner (`fell`), and each of Dagon's Faithful by its career
+ *  (`slain` - career to deaths seen, systems/riteChest.js riteMemory)? Pure. */
+export function riteRosterFell(day, slain, fell) {
+  if (!fell || !slain || typeof slain !== 'object') return false;
+  if (_rosterDay !== day) {   // the day's faithful by career, made once a day - the rite's word asks every frame
+    const want = new Map();
+    for (const m of riteFaithfulOf(day)) if (!m.summoner) want.set(m.career, (want.get(m.career) ?? 0) + 1);
+    _roster = [...want]; _rosterDay = day;
+  }
+  for (const [career, n] of _roster) if (!(Number.isSafeInteger(slain[career]) && slain[career] >= n)) return false;
+  return true;
+}
+
+/** She stands at the circle, caged or free, from the omen until the Wrath's midnight (relay ms) - the hub says her cage
+ *  open to a hello for as long. */
+export const cageStands = (day, now) => { const t = gateTimes(day); return isGateDay(day) && now >= t.omenAt && now < t.wrathAt; };
