@@ -173,7 +173,7 @@ test('FB1001-WODROCK: the streaming host re-maps each WoD piece as it reads its 
   assert.match(w, /^import [^\n]*; import \{ wodRockUvs \} from '\.\.\/world\/wodRockUv\.js';/m);
   // the piece's model is read through it, before its box, its batch and its collider: the batch draws the new UVs,
   // and the box and the collider read the same positions and indices (a dfMeshToModel pebble's own arrays - below)
-  assert.match(w, /for \(const m of place\.models\) \{\n\s*const gpu = await getGpuMesh\(m\.modelId\);\n[^\n]*\n\s*const cpu = wodRockUvs\(cpuModels\.get\(m\.modelId\), m\.matrix\);/);
+  assert.match(w, /for \(const m of place\.models\) \{\n\s*const gpu = await getGpuMesh\(m\.modelId\);\n[^\n]*\n\s*const cpu = wodRockUvs\(cpuModels\.get\(m\.modelId\), m\.matrix, m\.modelId\);/);
   assert.equal(w.split('wodRockUvs(').length - 1, 1, 'the WoD pieces alone - never a town\'s models or the Hold\'s');
   const loop = w.slice(w.indexOf('for (const m of place.models) {'), w.indexOf('for (const f of place.flats) {'));
   assert.match(loop, /staticBuilder\.add\(cpu, m\.matrix, resolveTexKey, m\.normalMatrix\);/);

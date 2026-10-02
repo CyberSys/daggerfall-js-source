@@ -3707,7 +3707,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const m of place.models) {
         const gpu = await getGpuMesh(m.modelId);
         if (!gpu) continue;   // a model ARCH3D does not carry stands empty in DFU (no mesh, no collider)
-        const cpu = wodRockUvs(cpuModels.get(m.modelId), m.matrix);   // FB1001-WODROCK (Mac: "Retexture them to be as detailed as possible"): a piece stretched 4x or more draws its planes unfolded at its pebble's own texel density (world/wodRockUv.js) - new UVs only, its positions and indices the model's own arrays; a camp or a house is the same object
+        const cpu = wodRockUvs(cpuModels.get(m.modelId), m.matrix, m.modelId);   // FB1001-WODROCK (Mac: "Retexture them to be as detailed as possible"): a piece stretched 4x or more draws its planes unfolded at its pebble's own texel density (world/wodRockUv.js) - new UVs only, its positions and indices the model's own arrays; a camp or a house is the same object
         const box = transformedAabb(archAabb(m.modelId, cpu.positions), m.matrix);
         // ROADS-CLEAR (2026-09-25, Mac: "Camps, mountains from WOD, shouldnt be placed on roads"): a piece whose own
         // mesh box reaches a road - here or in the pixel it spills into - is not stood: no mesh, no collider. The rock

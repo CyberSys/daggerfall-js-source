@@ -11,16 +11,18 @@
 // WOD_Mountain_01r1 at (824,399) read as ground texture smeared up a cliff. The pieces stand where they stand and as
 // tall as they are; their FACES are re-mapped.
 //
-// THE LAW. A piece whose matrix stretches the model by WOD_ROCK_STRETCH_MIN or more on any axis gets new UVs, plane by
-// plane: each of the model's planes (the triangles that share vertices and lie in one plane - dfMeshToModel emits
-// each DF plane its own vertices) is UNFOLDED ISOMETRICALLY. A frame (t, b) is laid in the unscaled plane along one of
-// its triangle's edges and the same frame in the scaled plane along the same edge; a vertex's metric coordinates in
-// the scaled plane, read through the unscaled plane's own UV map, give its UV. So every face of the scaled piece
-// carries the texture exactly as the pebble's face carried it - the same texels per metre in every direction, the
-// same orientation against the face's edge - and tiles it across the face (renderer.js uploads world art REPEAT with
-// a mip chain, so a repeat is free and the far view takes the chain). A plane's map is ONE affine function of the
-// position, so the triangles that make a plane meet without a seam. Each plane's UVs are then shifted by whole
-// repeats to start near zero (REPEAT makes the shift invisible; it keeps a 2.5 km face's UVs in the low thousands).
+// THE LAW. A piece whose matrix stretches the model by WOD_ROCK_STRETCH_MIN or more on any axis (a rock pebble from any
+// real stretch - WOD_ROCK_MODELS) gets new UVs, plane by plane: each of the model's planes (the triangles that share
+// vertices and lie in one plane - dfMeshToModel emits each DF plane its own vertices) is UNFOLDED ISOMETRICALLY. A frame
+// (t, b) is laid in the unscaled plane along the texture's own ROWS (dP/du of the reference triangle) and the same frame
+// in the scaled plane along the image of those rows; a vertex's metric coordinates in the scaled plane, read through
+// the unscaled plane's own UV map, give its UV. So every face of the scaled piece carries the texture as the pebble's
+// face carried it - the same texels per metre in every direction, its rows along the edge they ran along (AUDIT part
+// five WR1: laid along a triangle's first edge - often a quad's diagonal - a palisade's planks turned 54 degrees, a
+// dock's blocks 14) - and tiles it across the face (renderer.js uploads world art REPEAT with a mip chain, so a repeat
+// is free and the far view takes the chain). A plane's map is ONE affine function of the position, so the triangles
+// that make a plane meet without a seam. Each plane's UVs are then shifted by whole repeats to start near zero (REPEAT
+// makes the shift invisible; the real data's largest is 8,782, a sixteenth of a texel in float32).
 // A vertex two planes share (not one dfMeshToModel makes) is given to the first and copied for the rest.
 //
 // Below the threshold the model comes back as the SAME object, so a camp, a house, a shrine statue (2.65 at most)
@@ -35,6 +37,13 @@
  *  38), the docks' planks and piles (58041, 61027, 6804: 60) and a fort's 41106 at 2 x 1.5 x 5 (3), whose stretched planks tile now
  *  too. Under it stand the camps, the houses and the shrine's statue (uniform 2.65). */
 export const WOD_ROCK_STRETCH_MIN = 4;
+
+/** AUDIT part five WR2: ARCH3D's pebbles the mod builds its rock from. One outcrop mixes them below and above the
+ *  threshold (60610 at 3.01 beside 60610 at 4.69 in WOD_BanditCamp_04 and WOD_Nature_01; WOD_Rocks_Cave_00's 60718 at
+ *  3.5 beside 60714 at 1.9), and touching pieces wore two to three and a half times each other's texel density - so a
+ *  pebble is unfolded from any real stretch (WOD_ROCK_PEBBLE_MIN), and every rock face of an outcrop agrees. */
+export const WOD_ROCK_MODELS = new Set([60610, 60711, 60712, 60713, 60714, 60715, 60716, 60717, 60718, 60719, 60720, 41719]);
+export const WOD_ROCK_PEBBLE_MIN = 1.05;
 
 /** The longest column of a column-major matrix's upper 3x3 - the piece's largest |scale|, whatever its rotation. */
 export function pieceStretch(m) {
@@ -53,10 +62,11 @@ const scaled = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
  * @template {{positions: Float32Array, normals?: Float32Array, uvs?: Float32Array, indices: Uint32Array, subMeshes: Array<any>}} M
  * @param {M} cpu - the model in its own frame, UVs as dfMeshToModel leaves them (a repeat is 1)
  * @param {ArrayLike<number>} matrix - the piece's column-major matrix (objectMatrix: T * R * S)
+ * @param {?number} [modelId] - the piece's ARCH3D model: one of the mod's rock pebbles is unfolded from any real stretch
  * @param {number} [minStretch]
  * @returns {M}
  */
-export function wodRockUvs(cpu, matrix, minStretch = WOD_ROCK_STRETCH_MIN) {
+export function wodRockUvs(cpu, matrix, modelId = null, minStretch = WOD_ROCK_MODELS.has(modelId) ? WOD_ROCK_PEBBLE_MIN : WOD_ROCK_STRETCH_MIN) {
   if (!cpu?.uvs || !cpu.indices?.length || !(pieceStretch(matrix) + 1e-4 >= minStretch)) return cpu;   // a float32 matrix holds a scale of 4 as 3.9999998
   const P = cpu.positions, UV = cpu.uvs, I = cpu.indices;
   const nV = P.length / 3, nT = I.length / 3;
@@ -119,14 +129,18 @@ export function wodRockUvs(cpu, matrix, minStretch = WOD_ROCK_STRETCH_MIN) {
     if (ref >= 0) {
       const a = I[ref * 3], b = I[ref * 3 + 1], c = I[ref * 3 + 2];
       const pa = pos(a), e1 = sub(pos(b), pa), e2 = sub(pos(c), pa);
-      const n0 = cross(e1, e2), t0 = scaled(e1, 1 / len(e1)), b0 = cross(scaled(n0, 1 / len(n0)), t0);
+      // the frame along the texture's own rows (dP/du), not along e1: an in-plane stretch turns every direction but
+      // the frame's against the face, and a quad's e1 may be its diagonal - a plank's rows ran along its edge
+      const dt = (UV[b * 2] - UV[a * 2]) * (UV[c * 2 + 1] - UV[a * 2 + 1]) - (UV[c * 2] - UV[a * 2]) * (UV[b * 2 + 1] - UV[a * 2 + 1]);
+      const rows = sub(scaled(e1, (UV[c * 2 + 1] - UV[a * 2 + 1]) / dt), scaled(e2, (UV[b * 2 + 1] - UV[a * 2 + 1]) / dt));
+      const n0 = cross(e1, e2), t0 = scaled(rows, 1 / len(rows)), b0 = cross(scaled(n0, 1 / len(n0)), t0);
       // the unscaled plane's UV map: (x, y) in (t0, b0) metres -> (u, v), from the reference triangle
       const x1 = dot(e1, t0), y1 = dot(e1, b0), x2 = dot(e2, t0), y2 = dot(e2, b0);
       const du1 = UV[b * 2] - UV[a * 2], dv1 = UV[b * 2 + 1] - UV[a * 2 + 1];
       const du2 = UV[c * 2] - UV[a * 2], dv2 = UV[c * 2 + 1] - UV[a * 2 + 1];
       const k = x1 * y2 - x2 * y1;
-      // the same frame on the scaled plane, along the same edge
-      const f1 = lin(e1), f2 = lin(e2), m1 = cross(f1, f2), lf = len(f1), lm = len(m1);
+      // the same frame on the scaled plane, along the image of the same rows
+      const f1 = lin(rows), m1 = cross(lin(e1), lin(e2)), lf = len(f1), lm = len(m1);
       if (k !== 0 && lf > 0 && lm > 0 && Number.isFinite(lf * lm)) {
         const ux = (du1 * y2 - du2 * y1) / k, uy = (du2 * x1 - du1 * x2) / k;
         const vx = (dv1 * y2 - dv2 * y1) / k, vy = (dv2 * x1 - dv1 * x2) / k;

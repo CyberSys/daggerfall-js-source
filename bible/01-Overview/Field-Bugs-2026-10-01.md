@@ -1197,7 +1197,7 @@ drawing the mod faithfully.
 possible"*. **Built** (`world/wodRockUv.js` wodRockUvs; `scenes/world.js`, the WoD loop): a piece stretched 4x or more on
 any axis is drawn with new UVs, plane by plane - each plane of the model unfolded isometrically through its own
 unscaled UV map, so every face of the scaled piece carries the texture at its pebble's own texel density and
-orientation (the spire's face: 74 texels a metre, where it carried 0.07), tiled REPEAT, each plane shifted by whole
+its rows along the edge they ran along (the spire's face: 74 texels a metre, where it carried 0.07), tiled REPEAT, each plane shifted by whole
 repeats to start near zero, a vertex two planes share copied for the second. Positions, indices, the collider and the
 mining boxes are the model's own; a camp, a house or the shrine statue (2.65 at most) is the same object, batched byte
 for byte as before. A departure (Port-Ledger). `test/fb1001_wodrock.test.js`; `tools/mutants/fb1001_wodrock.json` (17,
@@ -1249,6 +1249,8 @@ pinned red on the branch before its fix (a gap pin's mutants are its claim) and 
 | UI2 | CURSOR-EDGE | the unscoped dress turned a touch screen's invisible overlay scrollbar into a standing 10 px bar (the front page 915 px wide to 905), with no cursor there to keep | for a pointer device only (`@media (any-pointer: fine)`) |
 | UI3 | CURSOR-EDGE | the classic arrow's sizing was pinned by its source text alone - a fixed 2x, the whole image drawn, the full size and a moved hotspot all passed | pinned on the real canvas path |
 | UI4 | ORBIT-FREE | sound (resets, chords, the pitch clamp, the pad and touch unchanged; the jump as it frees is 8.3 degrees of tilt at least, under one R/F key step, by design); a leftward drift, the freeing move's own along-lock travel and a fresh drag's clean start were unpinned | pinned |
+| WR1 | WOD-ROCK | the unfolding's frame was laid along the reference triangle's first edge - often a quad's diagonal - and an in-plane stretch keeps only that direction's angle: on the re-mapped non-rock pieces the textures with a grain turned - a palisade's planks (43001) 54 degrees off the wall, a fort piece's 32, a dock's stone blocks 14 (the rock, the same either way, hid it) | the frame along the texture's own rows (dP/du); every textured face of the 847 within 0.13 degrees |
+| WR2 | WOD-ROCK | one outcrop mixes pebbles under and over the 4x threshold (60610 at 3.01 beside 4.69; 60718 at 3.5 beside 60714 at 1.9): touching faces two to three and a half times each other's density | a rock pebble is unfolded from any real stretch, by the model id the host hands in (`WOD_ROCK_MODELS`) |
 | R | the record | part five's own page and rows: the FRIENDS-SYNC section said no frame changed shape (F5 added the hello's `ps`), 157 dead where 158 died, ORBIT-FREE's repro 20 px across where it was 30, the H1, the preface and Active-Arcs silent on part five, the Ledger row naming one of its two pins, a Testing row overstating its source pins, CAST-USE's audit tags F where the page said CU; and main's struck Ledger row 821, re-aimed by half (its `world.js:2584-2589` now `8855-8867`) | corrected; the cast-use tags CU1-CU3 in the source, the pins and the mutant names |
 
 The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
@@ -1257,7 +1259,10 @@ Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2
 `test/fb1001_friendsaudit.test.js`; `tools/mutants/fb1001_friendsaudit.json` (15, all dead). `test/fb1001_slowaudit.test.js` (SP1 and SP2 red on the branch before);
 `tools/mutants/fb1001_slowaudit.json` (6, all dead), `fb1001_slowfall.json` judged dead again. `test/fb1001_castaudit.test.js`
 (CU1 and CU2 red on the branch before); `tools/mutants/fb1001_castaudit.json` (8, all dead). `test/fb1001_uiaudit.test.js` (UI1 and UI2
-red on the branch before); `tools/mutants/fb1001_uiaudit.json` (9, all dead). Seen and left (before part five, not asked): the
+red on the branch before); `tools/mutants/fb1001_uiaudit.json` (9, all dead). `test/fb1001_wodaudit.test.js` (WR1 and WR2 red
+on the branch before); `tools/mutants/fb1001_wodaudit.json` (5, all dead), `fb1001_wodrock.json` judged again. Measured and asked,
+not changed: at the pebble's density the rock reads as rock within some 10 m, a regular lattice at 30 to 100 m and its
+mean colour from 300 m (no anisotropy on model textures) - and the spire is seen from hundreds of metres. Seen and left (before part five, not asked): the
 Enhanced Plus gauntlet's pressed frame draws its fingertip about 14 px right of its hotspot (`ui/plusCursor.js`). Seen and left (no diff, every
 fall's): a peer's body has no in-air pose - the others see a slow faller walk or stand mid-air (a pose field, a relay). Seen and left (main's
 own): `auditworld34` A1 fails one run in two or three on main as on the branch (its 25 ms windows).
