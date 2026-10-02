@@ -30,6 +30,7 @@ const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const START = 523530;
 const noon = (d = 1) => START - (START % MINUTES_PER_DAY) + d * MINUTES_PER_DAY + 12 * 60;
 const W = ARENA_TEXT.window;
+const grandLadderOf = () => ({ ...newArenaLadder(), grand: true, tier: 9, won: 3, champs: Array(10).fill(true) });
 const kids = (n, cls) => (n?.children ?? []).flatMap((c) => [...(c.classList?.contains(cls) ? [c] : []), ...kids(c, cls)]);
 const one = (n, cls) => kids(n, cls)[0] ?? null;
 const textOf = (n) => `${n.textContent ?? ''}${(n.children ?? []).map(textOf).join('')}`;
@@ -160,6 +161,13 @@ test('ARENA3 window model: the Leaderboards - the highest tier with me pinned, t
   assert.equal(gc.cells[0], 'Grand Champion');
   assert.ok(g.fast.rows.some((r) => r.you && r.cells[0] === W.days(40)), 'forty days to the title');
   assert.ok(g.fast.rows.every((r, i, a) => i === 0 || Number(a[i - 1].cells[0].split(' ')[0]) <= Number(r.cells[0].split(' ')[0])), 'the fastest first');
+  // over many seasons the fastest board fills, the fastest first
+  const old = { ...G, season: 405, since: 405 };
+  const later = gm + 4 * 360 * MINUTES_PER_DAY;
+  const many = AB.boardsPage({ ladder: grandLadderOf(), league: old, gameMinutes: later, name: 'Aldric' }).fast.rows;
+  assert.ok(many.length >= 2, `${many.length} on the board`);
+  const days = many.map((r) => Number(r.cells[0].split(' ')[0]));
+  assert.deepEqual(days, [...days].sort((x, y) => x - y), 'the fastest first');
   // the rating: online
   assert.deepEqual([m.pvp.rows.length, m.pvp.empty], [0, W.boards.pvpNone]);
   // the banners: this season, then the closed ones

@@ -12,6 +12,7 @@ import * as LG from '../src/systems/arenaLeague.js';
 import * as AB from '../src/systems/arenaBoard.js';
 import { ARENA_TEXT } from '../src/systems/arenaText.js';
 import { createArenaBouts } from '../src/scenes/arenaBouts.js';
+import { heraldChoice } from '../src/systems/arenaHerald.js';
 import { MINUTES_PER_DAY } from '../src/systems/gameDate.js';
 
 const START = 523530;
@@ -92,5 +93,12 @@ test('ARENA3 on the sand: the Herald cries me by my title; the title on the wind
   assert.equal(me.cells[0], 'Grand Champion');
   assert.equal(me.cells[1], W().allTen);
   assert.deepEqual(AB.ladderPage(o).titles, ARENA_TEXT.titles.slice(0, LADDER_TIERS.length));
+  // the Herald names the banner I fight under, or the laurel I wear
+  const hc = heraldChoice({ gameMinutes: gm, ladder: grandLadder(), league: o.league });
+  assert.ok(hc.lines.includes(ARENA_TEXT.herald.title('Grand Champion')) && hc.lines.includes(ARENA_TEXT.teams.under('the Red Banner')));
+  const lau = heraldChoice({ gameMinutes: gm, ladder: grandLadder(), league: { ...o.league, laurel: { banner: 'red', season: 405 } } });
+  assert.ok(lau.lines.includes(ARENA_TEXT.teams.laurelYou));
+  assert.ok(!heraldChoice({ gameMinutes: gm, ladder: grandLadder() }).lines.some((l) => /Banner|laurel/.test(l)), 'no banner, no word of one');
+  for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js']) assert.match(readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'), /healthShare: \(playerEntity\.health \?\? 0\) \/ Math\.max\(1, playerEntity\.maxHealth \?\? 1\), league: playerEntity\.arenaLeague \}\);   \/\/ ARENA3: and the banner/, f);
 });
 const W = () => ARENA_TEXT.window;

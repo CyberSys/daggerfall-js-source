@@ -85,6 +85,7 @@ test('ARENA3 points: a ladder bout won 1, a tier champion 3, the Grand Champion 
   assert.equal(L.grandAt, at(9));
   for (let i = 0; i < 30; i++) L = LG.leagueAfterBout(L, { gameMinutes: at(10 + i), tier: 9, won: false });
   assert.equal(L.bouts.length, LG.BOUTS_KEPT, 'the Records page keeps twenty');
+  L = LG.leagueAfterBout(L, { gameMinutes: at(50), tier: 9, won: true, champion: true, grand: true });
   assert.equal(L.grandAt, at(9), 'stamped once');
 });
 
@@ -94,7 +95,7 @@ test('ARENA3 season close: the standings closed with my points, the winner kept,
   let L = LG.joinBanner(LG.newArenaLeague(), 'red', at()).league;
   const fin = LG.seasonFinal(405);
   const behind = fin.blue - fin.red;
-  L.points.red = Math.max(0, behind + 5);   // enough to win
+  L.points.red = Math.max(5, behind + 5);   // enough to win
   const rolled = LG.rollLeague(L, at(360));
   assert.equal(rolled.season, 406);
   assert.equal(rolled.since, 405, 'the Hall\'s first season');

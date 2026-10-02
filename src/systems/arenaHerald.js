@@ -17,10 +17,11 @@ import { rollLeague, leagueStandings, joinRefusal, laurelWorn, otherBanner } fro
 export const FIGHT_HEALTH_MIN = 0.5;
 
 /**
- * ARENA3: `window` - the host opens the Arena window ("A - The Arena window").
- * @param {{ gameMinutes: number, cityBout?: { a: string, b: string } | null, ladder?: any, healthShare?: number, window?: boolean }} o
+ * ARENA3: `window` - the host opens the Arena window ("A - The Arena window"); `league` the banners' record
+ * (systems/arenaLeague.js) - he names the banner you fight under, and the laurel when you wear it.
+ * @param {{ gameMinutes: number, cityBout?: { a: string, b: string } | null, ladder?: any, healthShare?: number, window?: boolean, league?: any }} o
  */
-export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, healthShare = 1, window = true }) {
+export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, healthShare = 1, window = true, league = null }) {
   const H = ARENA_TEXT.herald;
   const lines = [];
   const hour = Math.floor(Math.max(0, gameMinutes) / 60);
@@ -39,6 +40,8 @@ export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, heal
   }
   const title = ladderTitle(ladder);
   if (title) lines.push(H.title(title));
+  const team = league ? rollLeague(league, gameMinutes).team : null;
+  if (team) lines.push(laurelWorn(league, gameMinutes) ? ARENA_TEXT.teams.laurelYou : ARENA_TEXT.teams.under(ARENA_TEXT.teams.the[team]));   // ARENA3
   const options = [];
   if (canWatch) options.push({ code: 'KeyW', label: H.watch, act: 'watch' });
   if (next && fit) options.push({ code: 'KeyF', label: H.fight, act: 'fight' });

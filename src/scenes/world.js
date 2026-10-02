@@ -7885,7 +7885,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function arenaHerald() {
     const ladder = arenaLadderRestore(playerEntity.arenaLadder);
     const sand = arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null;
-    const ch = heraldChoice({ gameMinutes: worldMinutes(), cityBout: sand, ladder, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1) });
+    const ch = heraldChoice({ gameMinutes: worldMinutes(), cityBout: sand, ladder, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1), league: playerEntity.arenaLeague });   // ARENA3: and the banner
     townTalk.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => arenaHeraldAct(o.act) })) }));
     return true;
   }
@@ -13575,6 +13575,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       };
     };
     window.__arenaHerald = () => arenaHerald();
+    // ARENA3 probe surface (tools/arena3Probe.mjs): the gate's people and the window, the league and the purse
+    window.__arenaGate = { recruiter: (r) => arenaGate.recruiter(r), bookmaker: () => arenaGate.bookmaker(), open: (p) => arenaGate.openWindow(p), board: () => arenaGate.board() };
+    window.__arenaLeague = () => ({ league: playerEntity.arenaLeague ?? null, gold: playerEntity.goldPieces ?? 0, pauseDoor: !!pauseDoorHooks().arenaJoined?.() });
     window.__arenaCloseOverlays = () => { let n = 0; while (townTalk.overlayActive && n < 40) { townTalk.closeOverlay?.(); n++; } return n; };   // the tutorial's pages and the main quest's box, put away for a probe
     window.__arenaStrike = (dmg = 20) => {   // a blow of mine on my bout's first opponent, through its pool's own door (a probe's swing)
       const b = arenaBouts.bout();
