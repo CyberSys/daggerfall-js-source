@@ -219,6 +219,10 @@ export async function settleWeek(db, week, nowS, zero = null) {
   const paidHistory = (key, kind, data, rid) => db.prepare(`INSERT INTO town_seat_history (key, week, kind, data, at)
     SELECT ?1, ?2, ?3, json_set(?4, '$.marks', amount), ?5 FROM marks_ledger WHERE actor = 'seats' AND rid = ?6`).bind(key, week, kind, JSON.stringify(data), nowS, rid);   // the (actor, rid) index
   const stmts = [db.prepare('INSERT INTO town_seat_weeks (week, settled_at) VALUES (?, ?)').bind(week, nowS)];
+  // STANDING-TREND (7.9: "Standing and its trend"): each held seat's Standing as this Turning found it and as it leaves
+  // it - a row the Chronicle never shows (seatInfluence.js chronicleOf), first in the batch; the standings read names
+  // the holder's `was` off it the week after
+  for (const w of plan.standings) stmts.push(history(w.key, 'standing', { guild: w.guild, was: Number(holds.get(Number(w.key))?.standing ?? w.standing), standing: ending ? seasonStanding(w.standing) : w.standing }));
   for (const c of plan.claims) {
     // the fee burnt from the treasury - only where it holds it and the seat is still unheld, or the whole settle rolls back
     stmts.push(db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)

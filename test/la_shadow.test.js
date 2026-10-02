@@ -304,7 +304,7 @@ test('LA-LIGHTS1: EACH LANTERN FLICKERS ON ITS PIXEL\'S SLOTS - a pixel streamed
   assert.equal(lanternSlot(110, 220), lanternSlot(110, 220), 'named by the pixel alone');
   // the host: the street fills its pool by fillLanternPool from the animator's ranges, and the selection reads the pool's own ranges
   const w = rd('src/scenes/world.js');
-  assert.match(w, /const _pool = fillLanternPool\(built\.values\(\), \(p\) => state\.pixelTranslation\(p\.px, p\.py, _lightT\), _sceneLights, _litRanges, worldLightAnimator\.ranges\);/);
+  assert.match(w, /const _pool = fillLanternPool\(built\.values\(\), \(p\) => state\.pixelTranslation\(p\.px, p\.py, _lightT\), _sceneLights, _litRanges, worldLightAnimator\.ranges, festivalStage \? festivalStage\.lanterns : null\);/);   // FESTIVAL-STAGE: and a Festival town's lanterns
   assert.match(w, /_litRanges = _pool\.ranges;/);
   assert.match(w, /nearestLights\(_sceneLights, cam\.pos, renderer\.maxPointLights \+ \(renderer\.lightingLane \? 1 : 0\), _litRanges, null, 0, n\)/);
   assert.doesNotMatch(w, /nearestLights\([^)]*worldLightAnimator\.ranges/, 'no selection reads the animator by pool index');

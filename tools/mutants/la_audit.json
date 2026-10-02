@@ -137,7 +137,7 @@
   {
     "name": "LA-AUDIT-F2-1-the-pool-never-grows",
     "file": "src/world/cityLights.js",
-    "old": "    ranges = rangesFor(ranges, n + p.lights.length);\n",
+    "old": "    ranges = rangesFor(ranges, n + p.lights.length + m);\n",
     "new": "",
     "tests": [
       "test/la_audit.test.js"

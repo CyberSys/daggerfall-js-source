@@ -87,6 +87,18 @@ export function parseSeatCommand(text) {
   if (String(op ?? '').toLowerCase() !== 'strike' || !/^\d+$/.test(key ?? '') || !seatKeyOk(k) || more.length) return { error: SEAT_USAGE };
   return { op: 'strike', key: k };
 }
+/** VOID (Seats-Arc 18: "Moderators (MOD1) may **void a siege** (`/siege void`)"): a moderator's chat word -
+ *  `{ op: 'void', key }`, `{ error }` in words, or null when the line is not /siege. NEVER GUARDED HERE (RED1's law): whether
+ *  this player may is the service's question (server-account/src/seatSiege.js voidSiege). */
+export const SIEGE_USAGE = 'Usage: /siege void <seat key> - the map id of the seat whose battle this week was won by an exploit.';
+export function parseSiegeCommand(text) {
+  const m = /^\/siege(?:\s+([\s\S]*))?$/i.exec(String(text ?? '').trim());
+  if (!m) return null;
+  const [op, key, ...more] = (m[1] ?? '').trim().split(/\s+/).filter(Boolean);
+  const k = Number(key);
+  if (String(op ?? '').toLowerCase() !== 'void' || !/^\d+$/.test(key ?? '') || !seatKeyOk(k) || more.length) return { error: SIEGE_USAGE };
+  return { op: 'void', key: k };
+}
 
 /**
  * @param {{
@@ -585,6 +597,18 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       try { r = await door.strike(key); } catch { r = { ok: false, error: 'offline' }; }
       if (r?.ok) { at = -Infinity; return { ok: true, text: `Seat ${key} is struck from the registry (${r.data?.reports ?? 0} reports).` }; }
       return { ok: false, text: accountRefusalText(r?.error) };
+    },
+    /** VOID: the chat's `/siege void <key>` - a moderator's void of the seat's battle this week; the list and the standings
+     *  read afresh after (a Charter may have gone back). */
+    async voidSiege(key) {
+      let r;
+      try { r = await door.voidSiege(key); } catch { r = { ok: false, error: 'offline' }; }
+      if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
+      at = -Infinity;
+      standingsAt.clear();
+      const what = r.data?.battle === 'tourney' ? 'Tourney' : r.data?.battle === 'revolt' ? 'revolt' : 'siege';
+      if (r.data?.repeat) return { ok: true, text: `The ${what} at seat ${key} is void already.` };
+      return { ok: true, text: `The ${what} at seat ${key} is voided${r.data?.restored ? ' - its Charter went back to the guild that held it' : ''}.` };
     },
   };
 }

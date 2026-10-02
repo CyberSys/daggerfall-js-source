@@ -18,6 +18,7 @@
 //
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
 import { siegeHudModel } from '../net/siegeLink.js';   // the lines (pure, beside the fold - net/siegeSession.js draws through it)
+import { paintSwatch } from './heraldrySwatch.js';   // HERALDRY-SHOWN (Seats-Arc 8.1): each side's shield on the bar
 export { siegeHudModel };
 
 export const SIEGE_HUD_STYLE_ID = 'dagger-siege-hud-style';
@@ -25,7 +26,10 @@ export const SIEGE_HUD_CSS = `
 .sg-hud { position: fixed; left: 50%; top: 58px; transform: translateX(-50%); width: 760px; max-width: 94vw; pointer-events: none;
   z-index: 30; font: 600 13px 'Cormorant', Georgia, serif; letter-spacing: 0.06em; color: #efe2c8; text-align: center;
   text-shadow: 0 0 3px #000, 0 0 8px rgba(0,0,0,0.9); white-space: pre; }
-.sg-bar { border: 1px solid rgba(220,190,120,0.55); background: rgba(10,8,6,0.55); padding: 3px 8px; }
+.sg-bar { position: relative; border: 1px solid rgba(220,190,120,0.55); background: rgba(10,8,6,0.55); padding: 3px 34px; }
+.sg-arm { position: absolute; top: 4px; width: 22px; height: auto; filter: drop-shadow(0 0 2px #000); }
+.sg-arm-defend { left: 6px; }
+.sg-arm-attack { right: 6px; }
 .sg-sides { margin-top: 3px; font-size: 12px; opacity: 0.9; }
 .sg-works { margin-top: 2px; font-size: 12px; color: #e8c890; }
 .sg-self { position: fixed; right: 24px; bottom: 120px; text-align: right; font-size: 13px; }
@@ -54,6 +58,12 @@ export function createSiegeHud(doc, { onClaim = null, onLeave = null } = {}) {
     parts.title = doc.createElement('div'); parts.banners = doc.createElement('div');
     parts.works = doc.createElement('div'); parts.works.className = 'sg-works'; parts.works.style.display = 'none';   // SEAT2b part two (b): the Gatehouse, the Ram, the Walls
     bar.appendChild(parts.title); bar.appendChild(parts.banners); bar.appendChild(parts.works);
+    // HERALDRY-SHOWN: the defender's shield at the bar's left (named first), the challenger's at its right - hidden for none
+    for (const side of ['defend', 'attack']) {
+      const img = parts[`arm-${side}`] = doc.createElement('img');
+      img.className = `sg-arm sg-arm-${side}`;
+      bar.appendChild(img);
+    }
     parts.sides = doc.createElement('div'); parts.sides.className = 'sg-sides';
     parts.self = doc.createElement('div'); parts.self.className = 'sg-self';
     parts.card = doc.createElement('div'); parts.card.className = 'sg-card'; parts.card.style.display = 'none';
@@ -77,6 +87,7 @@ export function createSiegeHud(doc, { onClaim = null, onLeave = null } = {}) {
       root.style.display = '';
       put('title', m.bar[0]); put('banners', m.bar[1]); put('sides', m.sides); put('self', m.self.join('\n'));
       put('works', m.works ?? ''); parts.works.style.display = m.works ? '' : 'none';   // SEAT2b part two (b)
+      paintSwatch(parts['arm-defend'], m.arms?.defend); paintSwatch(parts['arm-attack'], m.arms?.attack);   // HERALDRY-SHOWN: painted when it changes
       parts.card.style.display = m.card ? '' : 'none';
       parts.leave.style.display = m.card ? 'none' : '';   // AUDIT-SEATS C1: the card's Close stands for it once the battle has ended
       if (m.card) {
