@@ -185,7 +185,7 @@ export class EnemyCaster {
     // landing an interrupted blow DFU would have cancelled. Reachable
     // where ResetMeleeTimer floors: player level ~22+ at low reflexes.
     if (canAct && ai.inSight && ai.detected && ai.giveUpTimer > 0
-        && attack.meleeTimer === 0 && dist <= MELEE_DISTANCE) {
+        && attack.meleeTimer === 0 && dist <= MELEE_DISTANCE && ai._tacStrike !== false) {   // TACT2: a touch spell is a blow - it waits its turn
       const sp = pickTouchSpell(ent, playerEntity, this.rolls);
       // EnemyMotor.cs:619-628: SetReadySpell is the LAST term of
       // DoTouchSpell's `&&` chain and ResetMeleeTimer runs INSIDE the
@@ -250,6 +250,7 @@ export class EnemyCaster {
       // nor the yaw gate touches the selection: outside 22.5 degrees
       // DFU turns to face and still stands off (:603-604).
       if (!idle || !withinYaw(ai.yaw, dx, dz, SPELL_YAW_DEG)) continue;
+      if (ai._tacShoot === false) continue;   // TACT2: no ranged token - it waits its turn (unset with the switch off)
       if (this.rolls() >= RANGED_SPELL_CHANCE) continue;
       decision = { spell: this.selectedSpell, touch: false };
     }

@@ -167,7 +167,7 @@ export class EnemyAttack {
           && dist > MIN_RANGED_DISTANCE && dist < MAX_RANGED_DISTANCE) {
         // ...and the 1/32 roll itself sits behind `if (!isPlayingOneShot)`
         // (:587), so a swing in flight DOES hold the bow roll.
-        if (!oneShot && withinYaw(ai.yaw, dx, dz, ATTACK_YAW_DEG) && this.rolls() < BOW_SHOT_CHANCE) {
+        if (!oneShot && withinYaw(ai.yaw, dx, dz, ATTACK_YAW_DEG) && ai._tacShoot !== false && this.rolls() < BOW_SHOT_CHANCE) {   // TACT2: no ranged token, no shot (unset with the switch off)
           const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
           if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; }
         }
@@ -186,6 +186,7 @@ export class EnemyAttack {
       // (and against the player) the reach is unchanged.
       const vsAI = ai._armedTargeting && ai.target && !ai.target.isPlayer;
       if (dist > (vsAI ? CLASSIC_MELEE_DISTANCE_VS_AI : MELEE_DISTANCE)) continue;
+      if (ai._tacStrike === false) continue;   // TACT2: no melee token - it holds the ring and waits its turn (unset with the switch off)
       // MeleeAnimation (:151-176) has now returned TRUE, so FixedUpdate
       // :85 calls ResetMeleeTimer UNCONDITIONALLY - even when the state
       // change it just asked for did nothing. Classic mobiles have ONE
@@ -198,7 +199,7 @@ export class EnemyAttack {
       if (!oneShot || this.firedRanged) {
         if (oneShot) { this.machine.state = 'Idle'; this.machine.acc = 0; }
         const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
-        if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; }
+        if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; ai._tacSwung = (ai._tacSwung ?? 0) + 1; }   // TACT2: the brain sees its blow
       }
       this.meleeTimer = resetMeleeTimer(this.playerLevel, this.reflexes, this.rolls());
     }

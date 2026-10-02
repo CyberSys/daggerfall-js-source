@@ -1,0 +1,227 @@
+[
+  {
+    "name": "TACT2-switch-ignored",
+    "file": "src/ai/tactics.js",
+    "old": "  if (!tacticsSwitchOn()) { if (ai._tac) releaseTactics(ai);",
+    "new": "  if (false) { if (ai._tac) releaseTactics(ai);",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-tokens-unbounded",
+    "file": "src/ai/tactics.js",
+    "old": "  if (m.size < cap) {",
+    "new": "  if (true) {",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-longest-first",
+    "file": "src/ai/tactics.js",
+    "old": "    if (longest !== ai) return false;",
+    "new": "    if (false) return false;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-patience",
+    "file": "src/ai/tactics.js",
+    "old": "  } else if (!(waited >= TACT.PATIENCE)) return false;",
+    "new": "  } else return false;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-swing-beat",
+    "file": "src/ai/tactics.js",
+    "old": "    if (s.state === 'engage') { s.state = 'swing'; s.until = now + TACT.SWING; }",
+    "new": "    if (s.state === 'engage') { s.state = 'swing'; s.until = now; }",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-token-kept",
+    "file": "src/ai/tactics.js",
+    "old": "    b.melee.delete(ai); b.waiting.set(ai, now);\n  }\n  if ((s.state",
+    "new": "    b.waiting.set(ai, now);\n  }\n  if ((s.state",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-waiters-strike",
+    "file": "src/ai/tactics.js",
+    "old": "  ai._tacStrike = false;\n  if (s.state === 'recover'",
+    "new": "  ai._tacStrike = undefined;\n  if (s.state === 'recover'",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-hurt-backoff",
+    "file": "src/ai/tactics.js",
+    "old": "    if (s.hp.length > 1 && (s.hp[0][1] - v.health) / v.maxHealth >= TACT.HURT_SHARE && s.state !== 'backoff') {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-backoff-stays-in",
+    "file": "src/ai/tactics.js",
+    "old": "    const out = s.state === 'backoff' ? ring + 1.5 : ring;",
+    "new": "    const out = 0;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-backoff-forever",
+    "file": "src/ai/tactics.js",
+    "old": "  if ((s.state === 'recover' || s.state === 'backoff') && now >= s.until) s.state = 'wait';",
+    "new": "  if (s.state === 'recover' && now >= s.until) s.state = 'wait';",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-everyone-flees",
+    "file": "src/ai/tactics.js",
+    "old": "    if (!s.fled && share < TACT.FLEE_SHARE && isCoward(v.mobileType) && ai.predictedTargetPos) {",
+    "new": "    if (!s.fled && share < TACT.FLEE_SHARE && ai.predictedTargetPos) {",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-nobody-flees",
+    "file": "src/ai/tactics.js",
+    "old": "      ai.flee(from, TACT.FLEE_SECONDS);",
+    "new": "      void from;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-kite",
+    "file": "src/ai/tactics.js",
+    "old": "    if (has && dist < TACT.KITE_RANGE) {",
+    "new": "    if (false) {",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-ranged-ungated",
+    "file": "src/ai/tactics.js",
+    "old": "    ai._tacShoot = has;",
+    "new": "    ai._tacShoot = true;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-back-turned",
+    "file": "src/ai/tactics.js",
+    "old": "  const backTurned = key === LOCAL && _me && backTurnedOn(ai);",
+    "new": "  const backTurned = false;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-ring-inside-reach",
+    "file": "src/ai/tactics.js",
+    "old": "  const ring = reach + TACT.RING_GAP;",
+    "new": "  const ring = reach;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-prune",
+    "file": "src/ai/tactics.js",
+    "old": "  prune(b, now);\n",
+    "new": "\n",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-no-out-of-sight-gate",
+    "file": "src/ai/tactics.js",
+    "old": "  const fighting = ai.inSight && ai.detected &&",
+    "new": "  const fighting = true &&",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-peer-not-own-key",
+    "file": "src/ai/tactics.js",
+    "old": "  return t.owner ?? t.peerId ?? t;",
+    "new": "  return t;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-release-keeps",
+    "file": "src/ai/tactics.js",
+    "old": "  for (const b of _boards.values()) { b.melee.delete(ai); b.ranged.delete(ai); b.waiting.delete(ai); }",
+    "new": "  for (const b of _boards.values()) { b.waiting.delete(ai); }",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-motor-ignores",
+    "file": "src/characters/enemyMotor.js",
+    "old": "    if (tacticsStep(this, dx, dz) && !detouring) return;",
+    "new": "    tacticsStep(this, dx, dz);",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-walk-ignores-step",
+    "file": "src/characters/enemyMotor.js",
+    "old": "      const dir2d = this._tacDir ? [this._tacDir[0], 0, this._tacDir[1]] : [Math.sin(this.yaw), 0, Math.cos(this.yaw)];",
+    "new": "      const dir2d = [Math.sin(this.yaw), 0, Math.cos(this.yaw)];",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-attack-ungated",
+    "file": "src/characters/enemyAttack.js",
+    "old": "      if (ai._tacStrike === false) continue;",
+    "new": "      if (false) continue;",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-blow-unseen",
+    "file": "src/characters/enemyAttack.js",
+    "old": "ai._tacSwung = (ai._tacSwung ?? 0) + 1; }",
+    "new": "}",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  },
+  {
+    "name": "TACT2-bow-ungated",
+    "file": "src/characters/enemyAttack.js",
+    "old": "&& ai._tacShoot !== false && this.rolls() < BOW_SHOT_CHANCE) {",
+    "new": "&& this.rolls() < BOW_SHOT_CHANCE) {",
+    "tests": [
+      "test/tact2.test.js"
+    ]
+  }
+]

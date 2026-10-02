@@ -65,6 +65,7 @@ import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_TH
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { MOBILE_TYPES } from './mobileTypes.js';
 import { coverDistance } from '../ai/cover.js';   // TACT1: billboards are cover (sight, the clear shot)
+import { tacticsStep } from '../ai/tactics.js';   // TACT2: the tactics brain
 
 // C15 knockback (EnemyMotor.KnockbackMovement): classic units through
 // the speed ratio. Stored speed clamps at 40; motion caps at 25; the
@@ -360,7 +361,7 @@ export const DETOUR_ARRIVAL = 0.3;              // UpdateTimers zeroes the timer
  * waterSurfaceY(x, z), the 2.5 head margin, beached = frozen).
  */
 export class EnemyAI {
-  constructor(collider, feet, yawRad, { liveSpeed = 50, isHostile = true, height = CAPSULE_HEIGHT, seesThroughInvisibility = false, behaviour = 'General', mobileId = -1, waterSurfaceY = null, spawnDistanceType = 0, playerInside = true, isActionDoor = null, rolls = Math.random, hasBowAttack = false, canCastRangedSpell = null, hasMagickaToCast = null, centreOffset = null } = {}) {
+  constructor(collider, feet, yawRad, { liveSpeed = 50, isHostile = true, height = CAPSULE_HEIGHT, seesThroughInvisibility = false, behaviour = 'General', mobileId = -1, waterSurfaceY = null, spawnDistanceType = 0, playerInside = true, isActionDoor = null, rolls = Math.random, hasBowAttack = false, canCastRangedSpell = null, hasMagickaToCast = null, centreOffset = null, vitals = null } = {}) {
     this.collider = collider;
     /** ObstacleCheck's DaggerfallActionDoor arm (:1167-1176). The AI
      *  cannot resolve a collider bucket key to an action object - the
@@ -502,6 +503,11 @@ export class EnemyAI {
     // struck (RDBLayout.AddEnemy :1519-1521). Pacification (C-slice)
     // clears it too; damage restores it.
     this.isHostile = isHostile;
+    /** TACT2: () => { health, maxHealth } - the brain's read of the body it drives (null: no read) */
+    this.vitals = vitals;
+    /** @type {number[]|null} TACT2: the brain's step (unit xz) - null, the classic walk along the yaw */
+    this._tacDir = null;
+    this._tacSpeed = 1;
     // WERE-FRIGHT: the run from a fright (flee, below) - seconds left, and the point it runs from. No run by default.
     this.fleeLeft = 0;
     this.fleeFrom = null;
@@ -1448,6 +1454,11 @@ export class EnemyAI {
     // EvaluateMoveInForAttack and every AttemptMove below it.
     if (paused) { this.moving = false; return; }
     const dx = this.destination[0] - this.feet[0], dz = this.destination[2] - this.feet[2];
+    // TACT2 (ai/tactics.js, the Enhanced AI switch on): the tokens, the ring, the beat after a blow, backing off,
+    // a coward's run, an archer's kiting - a foe in sight of its target, not detouring. Off, it answers false and
+    // touches nothing.
+    if (tacticsStep(this, dx, dz) && !detouring) return;
+    this._tacDir = null;
     // Ranged attacks (:468-470) - the FIRST branch of TakeAction's
     // action ladder, AHEAD of the detour (AUDIT 26 F011: the port took
     // the detour first, so for up to 0.75s after an obstacle probe an
@@ -1953,17 +1964,19 @@ export class EnemyAI {
       // grounded foe); the port steers by yaw, which the 5.625 gate in
       // _classicTick has already brought within 5.625 degrees of the
       // direction to the destination.
-      const dir2d = [Math.sin(this.yaw), 0, Math.cos(this.yaw)];
+      const dir2d = this._tacDir ? [this._tacDir[0], 0, this._tacDir[1]] : [Math.sin(this.yaw), 0, Math.cos(this.yaw)];   // TACT2: a step the brain chose - back, or round the ring - facing the target
       this._obstacleCheck(dir2d);
       this._fallCheck(dir2d);
       if (this.fallDetected || this.obstacleDetected) {
         // The translation is the ELSE arm (:989-996) - a blocked foe
         // does not move this step at all, it picks a way round. Gravity
         // is separate (ApplyGravity, :167) and still applies.
-        this._findDetour(dir2d);
+        if (this._tacDir) this._tacDir = null;   // TACT2: a wall or a drop behind it: it stands its ground
+        else this._findDetour(dir2d);
       } else {
-        dxm = dir2d[0] * this.speed * dt;
-        dzm = dir2d[2] * this.speed * dt;
+        const k = this._tacDir ? this._tacSpeed : 1;
+        dxm = dir2d[0] * this.speed * k * dt;
+        dzm = dir2d[2] * this.speed * k * dt;
       }
     }
     const r = this.collider.move(this.feet, dxm, dy, dzm, this.height, true, FOE_KEEPS_FLOOR);

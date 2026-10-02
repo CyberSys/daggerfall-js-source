@@ -282,7 +282,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         // the table ever changes.
         hasBowAttack: false,
         canCastRangedSpell: () => false,   // D9: no spell list and no EnemyCaster - CanCastRangedSpell's list half is empty
-        hasMagickaToCast: () => hasMagickaToCast(entity),   // GetDestination's own term (:539-540) still asks the entity
+        hasMagickaToCast: () => hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540) still asks the entity; TACT2: the brain reads his health
       });
       pending.feet = ai.feet;   // AUDIT-39r: the AI's copy is the live array from here
       // MakeEnemyHostileToAttacker + GiveUpTimer *= 3, verbatim: a

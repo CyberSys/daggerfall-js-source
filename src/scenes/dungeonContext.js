@@ -1255,7 +1255,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // :610 `return true`), it stands off and turns to face.
         hasBowAttack: hasBowAttack(basics),
         canCastRangedSpell: () => rec?.caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster that owns the pick
-        hasMagickaToCast: () => foeDeps.hasMagickaToCast(entity),   // GetDestination's own term (:539-540) - CurrentMagicka > 0, not the band gate
+        hasMagickaToCast: () => foeDeps.hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540) - CurrentMagicka > 0, not the band gate; TACT2: the brain reads its health
       });
       const attack = new D.EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(D.playerEntity), reflexes: D.playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72 re-reads LiveSpeed per FixedUpdate
       // Combat bows: EnemyMotor.cs:131-137 reads the MobileEnemy
@@ -1333,7 +1333,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // :610 `return true`), it stands off and turns to face.
         hasBowAttack: hasBowAttack(basics),
         canCastRangedSpell: () => rec?.caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster that owns the pick
-        hasMagickaToCast: () => foeDeps.hasMagickaToCast(entity),   // GetDestination's own term (:539-540) - CurrentMagicka > 0, not the band gate
+        hasMagickaToCast: () => foeDeps.hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540) - CurrentMagicka > 0, not the band gate; TACT2: the brain reads its health
       });
       const attack = new D.EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(D.playerEntity), reflexes: D.playerEntity.reflexes });   // AUDIT 39: EnemyAttack.cs:69-72 re-reads LiveSpeed per FixedUpdate
       // The same EnemyMotor.cs:131-137 flag test the class branch
@@ -1928,7 +1928,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15115 / exterior.js:3770), set
+  // host's own townTalk sink (world.js:15116 / exterior.js:3770), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3884,7 +3884,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:25216,
+              // playerArrowHitFoe is the one copy world.js:25218,
               // exterior.js:5389 and worldModes.js:8830 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP

@@ -434,7 +434,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // the target in sight stands off instead of closing.
         hasBowAttack: hasBowAttack(basics),
         canCastRangedSpell: () => caster?.canCastRangedSpell() ?? false,   // D9: SelectedSpell, from the caster stood below
-        hasMagickaToCast: () => hasMagickaToCast(entity),   // GetDestination's own term (:539-540)
+        hasMagickaToCast: () => hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540); TACT2: the brain reads its health
       });
       pending.feet = ai.feet;   // AUDIT 39: the AI's copy is the live array from here
       const attack = new EnemyAttack({ liveSpeed: () => liveStat(entity, 'speed'), playerLevel: () => effectiveLevel(playerEntity), reflexes: playerEntity.reflexes, rolls });   // AUDIT 39: EnemyAttack.cs:69-72, ditto

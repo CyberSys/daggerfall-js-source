@@ -13,7 +13,7 @@ overdoing it"*. His calls, asked the same day:
 | Griefing | How is it done today? | **Guards blocking doors** - guards clump in a doorway so nobody can get in or out |
 | Blows | How many new telegraphed attacks? | **One or two, tier-based** - small wind-up attacks on tougher foes only, used sparingly, always readable and dodgeable |
 
-**Status: TACT3 and TACT1 BUILT 2026-10-02 (Mac: anti-grief first) - see their records at the foot; TACT2, TACT4 designed, not built.**
+**Status: TACT3, TACT1 and TACT2 BUILT 2026-10-02 (Mac: anti-grief first) - see their records at the foot; TACT4 designed, not built.**
 
 ## Where it stands (measured on the code, 2026-10-02)
 
@@ -142,3 +142,29 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
 - **Off** - with the switch off `coverDistance` answers Infinity before the index is asked: DFU's sight to the bit.
 - The switch's Features note says it (+63 chars). Not looked at on a real install yet.
 - Pins `test/tact1.test.js` (9); mutants `tools/mutants/tact1.json` (23), all dead.
+
+## TACT2 - BUILT 2026-10-02 (the Enhanced AI switch on, every host)
+
+- **Where** - `ai/tactics.js tacticsStep`, called from the motor's classic tick (`EnemyAI._classicTick`, after the
+  destination, ahead of the ranged stand-off), for a foe that SEES its target within 14 m (a shooter: DFU's 51.2 m
+  band) and is not detouring or following; otherwise the classic ladder (and the dungeon's navmesh) pursues. The
+  motor still walks: the brain sets `_tacDir` (a step back or round the ring, facing the target, at a share of the
+  walk - a wall or a drop behind stops it) and the gates `_tacStrike` (melee and touch spells) and `_tacShoot` (the
+  bow roll and the ranged spell roll). With the switch off none is set: DFU to the bit (pinned on a five-foe crowd).
+- **Tokens** - one board per target (the local player one key, a peer by its owner, a foe by itself): 2 melee and 2
+  ranged (Mac). A holder walks in and swings on DFU's clock; after its blow it STANDS it (0.7 s), steps back to the
+  ring for 0.8-1.6 s and hands the token on - to the foe that has waited longest. A foe waiting past 6 s goes in
+  regardless (patience). A holder not ticked for 1.5 s (despawned, unloaded) loses its token.
+- **The ring** - the waiting stand 1.5 m outside their reach (+-0.6), circle slowly toward their own slot angle (each
+  its own, drifting), never swinging. A target whose back is turned on a waiting foe at the ring is open: it goes in.
+  (The local player's feet and facing, noted by the world host each frame - `noteLocalPlayer`.)
+- **Backing off** - a quarter of its health lost inside 3 s: out to 3 m past the ring for 2 s, then back in the queue.
+- **Fleeing** - animals and the cowardly classes (Mage, Sorcerer, Healer, Bard, Burglar, Acrobat, Thief) below a
+  fifth of their health run, once (DFU's own `flee`, 8 s); the watch, undead, daedra, constructs and every other class
+  fight on. The hosts hand each foe's entity (`vitals`) for the read.
+- **Kiting** - a shooter holding a ranged token backs away from a target inside 5 m; a shooter without one holds its
+  fire.
+- **Not built** - the player's other open moments (mid-swing recovery, casting, drinking, staggered) are not read;
+  ranged foes do not yet seek a clear line round cover; guards giving up a door is TACT3's doorway rule.
+- The switch's Features note says it. Not looked at on a real install yet.
+- Pins `test/tact2.test.js` (15); mutants `tools/mutants/tact2.json` (25), all dead.
