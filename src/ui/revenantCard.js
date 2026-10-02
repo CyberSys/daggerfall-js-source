@@ -89,6 +89,11 @@ body .rvncard-name {
   border-bottom-width: 1px; border-bottom-style: solid; overflow-wrap: anywhere;
 }
 body .rvncard-sub { font-size: 11px; color: #8b8578; }
+/* REVENANT-VOICE: who it is - a chip before what it is */
+body .rvncard-mood {
+  display: inline-block; margin-right: 6px; padding: 0 5px; border-width: 1px; border-style: solid; font-size: 9px; line-height: 1.5;
+  letter-spacing: 0.12em; text-transform: uppercase; color: #e9c46a; vertical-align: 1px;
+}
 body .rvncard-say { margin-top: 6px; font-size: 13px; line-height: 1.35; color: #e9e4d9; min-height: 1.35em; overflow-wrap: anywhere; }
 body .rvncard-say:empty { display: none; }
 body .rvncard-caret { display: inline-block; width: 0.5em; animation: rvncard-blink 0.8s steps(1) infinite; }
@@ -199,10 +204,11 @@ function build(d, ev) {
   const kicker = d.createElement('div'); kicker.className = 'rvncard-kicker'; kicker.textContent = ev.kicker; kicker.setAttribute('aria-hidden', 'true');
   const name = d.createElement('div'); name.className = 'rvncard-name'; name.textContent = ev.name; name.setAttribute('aria-hidden', 'true');
   const sub = d.createElement('div'); sub.className = 'rvncard-sub'; sub.textContent = [ev.rank > 0 ? `Rank ${numeral(ev.rank)}` : null, ev.sub || null].filter(Boolean).join(' · '); sub.setAttribute('aria-hidden', 'true');
+  if (ev.mood) { const mood = d.createElement('span'); mood.className = 'rvncard-mood'; mood.textContent = ev.mood; sub.insertBefore(mood, sub.firstChild); }   // REVENANT-VOICE
   const say = d.createElement('div'); say.className = 'rvncard-say'; say.setAttribute('aria-hidden', 'true');
   const body = d.createElement('div'); body.className = 'rvncard-body'; body.textContent = ev.body ?? ''; body.setAttribute('aria-hidden', 'true');
   const sr = d.createElement('span'); sr.className = 'rvncard-sr';
-  sr.textContent = [ev.kicker, ev.name, ev.speech ? quoted(ev.speech) : null, ev.body].filter(Boolean).join('. ');
+  sr.textContent = [ev.kicker, ev.name, ev.mood, ev.speech ? quoted(ev.speech) : null, ev.body].filter(Boolean).join('. ');
   text.append(kicker, name, sub, say, body, sr);
   el.append(face, text);
   setPortrait(face, ev);
@@ -321,7 +327,7 @@ export function buildRevenantPreview(doc) {
   ensureStyle(doc);
   const stack = doc.createElement('div');
   stack.className = 'rvncard-stack';
-  const { el, say } = build(doc, { kind: 'taunt', kicker: 'Revenant', name: 'Revenant taunts (preview)', rank: 2, sub: 'Orc Warlord', speech: 'You should have finished me.', body: null, portrait: null });
+  const { el, say } = build(doc, { kind: 'taunt', kicker: 'Revenant', name: 'Revenant taunts (preview)', rank: 2, sub: 'Orc Warlord', mood: 'Witty', speech: 'You should have finished me.', body: null, portrait: null });
   say.textContent = quoted('You should have finished me.');
   el.classList.add('rvncard-in');
   stack.append(el);

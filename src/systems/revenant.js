@@ -1,8 +1,8 @@
 // @ts-check
 // ═══════════════════════════════════════════════════════════════════
-// REVENANT (2026-10-02, Mac: "the ability for these enemies that kill you, or a very small chance to flee at low
+// REVENANTS (2026-10-02, Mac: "the ability for these enemies that kill you, or a very small chance to flee at low
 // health. These enemies can return at a later time stronger, with a new name, a chance of more loot and taunt the
-// player. This is our own similar revenant system").
+// player"; REVENANT-NAME, Mac: "Should instead be something unique" - a foe that RETURNS).
 //
 // WHO BECOMES ONE. A SPECIAL foe - an elite (systems/eliteFoes.js), a LOOT7 champion (systems/champions.js) or a
 // revenant already - that
@@ -57,6 +57,7 @@ import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { KNIGHT_CITY_WATCH, MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { firstName, monsterName, BANK_TYPES, GENDERS } from '../characters/nameHelper.js';
 import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
+import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 
 // ── the numbers ─────────────────────────────────────────────────────
 /** A revenant is a foe of this level or more (LOOT7's champion floor, ELITE-FLOOR's). */
@@ -125,37 +126,14 @@ export const REVENANT_EPITHETS = Object.freeze({
   // from rank 3, whatever the deed
   risen: Object.freeze(['the Thrice-Risen', 'the Undying', 'the Dread', 'Revenant of {p}', 'the Relentless', '{p}\'s Shadow']),
 });
-const TAUNTS = Object.freeze({
-  slew: Object.freeze([
-    'Back for more, {p}? I remember how you fell.',
-    'I still wear your blood, {p}.',
-    'You died once by my hand. Again, then.',
-    'They told me you were dead, {p}. I will make sure of it.',
-  ]),
-  fled: Object.freeze([
-    'You should have finished me, {p}.',
-    'I remember your blade, {p}. Now remember mine.',
-    'Every scar you gave me, I bring back to you.',
-    'I ran from you once. Never again.',
-  ]),
-  risen: Object.freeze([
-    'How many times must I bury you, {p}?',
-    'Every time we meet, I grow. Every time, you bleed.',
-    'Still standing, {p}? Not for long.',
-  ]),
-});
-const GROWLS = Object.freeze([
-  '{n} bares its teeth - it remembers you.',
-  '{n} circles, scarred and patient. It knows your scent.',
-  '{n} lets out a long, hateful cry at the sight of you.',
-]);
+// REVENANT-VOICE: what each says, in its own personality's voice, is systems/revenantPersonality.js's.
 
 // ── the store ───────────────────────────────────────────────────────
 /** @typedef {{ deed: 'slew'|'fled'|'returned'|'fell', at: number }} RevenantDeed */
 /** @typedef {{ id: string, rev: number, mobileType: number, gender: 'male'|'female', given: string, epithet: string,
  *   name: string, rank: number, kills: number, escapes: number, returns: number, trait: string|null, elite: boolean,
  *   born: number, dueAt: number, out: boolean, outAt: number, defeated: boolean, defeatedAt: number|null,
- *   notice: string|null, history: RevenantDeed[], archive: number|null, gone?: boolean }} RevenantRecord */
+ *   notice: string|null, history: RevenantDeed[], archive: number|null, personality: string, gone?: boolean }} RevenantRecord */
 
 /** @type {{ list: RevenantRecord[], mirrorId: string|null }} */
 const _state = { list: [], mirrorId: null };
@@ -173,6 +151,10 @@ function hashStr(s) {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
   return h >>> 0;
 }
+
+/** REVENANT-VOICE: the id a special foe's voice is drawn from - its record's, or (a foe that speaks before it is one: it
+ *  breaks and runs) one minted on it then and kept, so the revenant it becomes speaks as it already did. */
+const voiceIdOf = (entity) => entity?.revenant?.id ?? (entity._voiceId ??= mintCharacterId());
 
 /** A REVENANT'S GIVEN NAME: DFU's own banks - a monster's from Monster1/Monster2, a class foe's (a person) a first
  *  name from one of the eight races' banks - drawn on a stream SEEDED by the revenant's id, the shared DFRandom put
@@ -228,6 +210,7 @@ function sanitize(r) {
     defeated: !!r.defeated, defeatedAt: isNum(r.defeatedAt) ? r.defeatedAt : null,
     notice: isStr(r.notice) ? r.notice : null,
     archive: Number.isInteger(r.archive) ? r.archive : null,
+    personality: isPersonality(r.personality) ? r.personality : personalityFor(r.id, r.mobileType),   // REVENANT-VOICE: an older record's, drawn from its id as a new one's is
     history: Array.isArray(r.history) ? r.history.filter((d) => d && isStr(d.deed) && isNum(d.at)).slice(-HISTORY_MAX) : [],
   };
 }
@@ -306,7 +289,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
     r.rank = Math.min(REVENANT_MAX_RANK, r.rank + 1);
     r.epithet = revenantEpithet(deedName, r.rank, pName, rolls, r.epithet);
   } else {
-    const id = mintCharacterId();
+    const id = voiceIdOf(entity);   // REVENANT-VOICE: the id its voice was drawn from while it fled, if it spoke before it was one
     const given = revenantGivenName(id, mobileType, gender);
     r = {
       id, rev: 0, mobileType, gender: gender === 'female' ? 'female' : 'male', given,
@@ -314,6 +297,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
       trait: typeof entity.champion === 'string' && entity.champion ? entity.champion : null, elite: !!entity.eliteFoe,
       born: now, dueAt: 0, out: false, outAt: 0, defeated: false, defeatedAt: null, notice: null, history: [],
       archive: Number.isInteger(archive) ? archive : null,   // REVENANT-CARD: the sprite it wore (a retextured kind's own), for its portrait
+      personality: personalityFor(id, mobileType),   // REVENANT-VOICE: who it is - one per id
     };
     _state.list.push(r);
     // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
@@ -507,44 +491,39 @@ export function grantRevenantLoot(entity, level, rolls = Math.random) {
 // portrait, the name, what it says in its own voice, what happens in the narrator's) and the one LINE a text surface
 // says instead (the classic skin, a page without a document). `revenantSay` hands an event to the face, or its line to
 // the host's own `say`.
-const ESCAPES = Object.freeze([
-  'You will see me again, {p}.',
-  'Not today. But soon.',
-  'Count your days, {p}.',
-]);
-const LAST_WORDS = Object.freeze([
-  'This... is not... the end...',
-  'Remember... my name...',
-  'You were... worthy...',
-  'Curse you, {p}...',
-]);
-const GLOATS = Object.freeze([
-  'Rest while you can, {p}. I am coming.',
-  'Your blood is on my blade still.',
-  'Sleep lightly, {p}.',
-]);
 const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 /** What a returning revenant greets the player with: its words (a speaker's) or what it does (a beast's). */
 function tauntParts(r, playerName, rolls) {
-  const p = firstWord(playerName);
-  if (!revenantSpeaks(r.mobileType)) {
-    const g = pick(GROWLS, rolls);
-    return { speech: null, body: capFirst(fill(g, { n: '' }).trim()), line: fill(g, { n: r.name }) };
-  }
   const last = [...(r.history ?? [])].reverse().find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
-  const pool = r.rank >= 3 ? TAUNTS.risen : TAUNTS[last];
-  const speech = fill(pick(pool, rolls), { p });
+  return voiceParts(r, r.rank >= 3 ? 'taunt_risen' : last === 'fled' ? 'taunt_fled' : 'taunt_slew', playerName, rolls);
+}
+/** REVENANT-VOICE: one moment in its voice - a speaker's words (quoted, its line `Name: "..."`), a beast's deed in its
+ *  temperament (the narrator's, its line `Name circles you...`). `r` a record, or what a special foe is before it is
+ *  one ({ id, name, mobileType, personality }). */
+function voiceParts(r, event, playerName, rolls = Math.random) {
+  const personality = isPersonality(r.personality) ? r.personality : personalityFor(r.id, r.mobileType);
+  if (!revenantSpeaks(r.mobileType)) {
+    const body = beastBody(personality, event);
+    return { speech: null, body, line: `${r.name} ${body.charAt(0).toLowerCase()}${body.slice(1)}` };
+  }
+  const speech = voiceLine(personality, event, { p: firstWord(playerName), rolls });
   return { speech, body: null, line: `${r.name}: "${speech}"` };
 }
 /** The line a returning revenant greets the player with (a beast's, what it does). */
 export function revenantTaunt(r, playerName, rolls = Math.random) {
   return r ? tauntParts(r, playerName, rolls).line : null;
 }
-/** A special foe breaking and running. */
-export function revenantFleeLine(entity, base) {
+/** A special foe breaking and running - its words in its voice (REVENANT-VOICE). */
+export function revenantFleeLine(entity, base, rolls = Math.random) {
   const n = entity?.revenant?.name ?? base;
-  return revenantSpeaks(entity?.mobileType) ? `${n} breaks and runs! "This isn't over!"` : `${n} breaks and runs!`;
+  if (!revenantSpeaks(entity?.mobileType)) return `${n} breaks and runs!`;
+  return `${n} breaks and runs! "${voiceLine(personalityOfLive(entity), 'flee', { rolls })}"`;
 }
+/** REVENANT-VOICE: a live foe's personality - its record's, or the one its voice id draws. */
+const personalityOfLive = (entity) => {
+  const r = entity?.revenant?.id ? revenantById(entity.revenant.id) : null;
+  return r?.personality ?? personalityFor(voiceIdOf(entity), entity?.mobileType);
+};
 /** Out of reach: it is a revenant now (or a stronger one). */
 export const revenantEscapeLine = (r) => `${r.given} got away. ${r.name} will remember this.`;
 /** Slain at last. */
@@ -570,8 +549,14 @@ export function revenantPortrait({ mobileType, gender = 'male', archive = null }
   if (!Number.isInteger(a)) return null;
   return { archive: a, record: b?.hasIdle ? 15 : 0 };
 }
-const KICKERS = Object.freeze({ taunt: 'Revenant', flee: 'Fleeing', cornered: 'Cornered', escape: 'Escaped', slain: 'Revenant slain', rise: 'A revenant rises' });
-/** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string,
+const KICKERS = Object.freeze({
+  taunt: 'Revenant', flee: 'Fleeing', cornered: 'Cornered', escape: 'Escaped', slain: 'Revenant slain', rise: 'A revenant rises',
+  // REVENANT-FATE: beaten, judged
+  yield: 'Yields', executed: 'Executed', spared: 'Sworn to you', slip: 'Slipped away',
+  // REVENANT-COMPANION: sworn to the player
+  arrive: 'Companion', dismiss: 'Sent away', downed: 'Companion down', kill: 'Companion', battle: 'Companion', release: 'Released',
+});
+/** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string, mood: string|null,
  *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} RevenantEvent */
 /** One thing a revenant (or a special foe about to become one) says or does, as a face draws it: `kind` (taunt, flee,
  *  escape, slain, rise), its name and what it is (rank, kind, trait, elite), its portrait, what it SAYS (its own voice,
@@ -584,6 +569,7 @@ export function revenantEvent(kind, src, { speech = null, body = null, line = ''
   return {
     kind, kicker: KICKERS[kind] ?? 'Revenant', id: r.id ?? null, name: r.name || kindName, rank: r.rank | 0,
     sub: [kindName, trait, r.elite ? 'Elite' : null].filter(Boolean).join(' · '),
+    mood: personalityLabel(r.personality) ?? (r.id || r.mobileType != null ? personalityLabel(personalityFor(r.id, r.mobileType)) : null),   // REVENANT-VOICE: its personality, the card's chip
     portrait: revenantPortrait({ mobileType: r.mobileType, gender: r.gender, archive: archive ?? r.archive }),
     speech, body, line,
   };
@@ -593,7 +579,8 @@ function liveSource(entity, base, gender) {
   const r = entity?.revenant?.id ? revenantById(entity.revenant.id) : null;
   if (r) return r;
   return { id: null, name: entity?.revenant?.name ?? base, rank: entity?.revenant?.rank ?? 0, mobileType: entity?.mobileType, gender,
-    trait: typeof entity?.champion === 'string' ? entity.champion : null, elite: !!entity?.eliteFoe };
+    trait: typeof entity?.champion === 'string' ? entity.champion : null, elite: !!entity?.eliteFoe,
+    personality: personalityOfLive(entity) };   // REVENANT-VOICE: the voice it will keep if it gets away
 }
 /** A returning revenant, in sight: its taunt. */
 export function revenantTauntEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
@@ -601,46 +588,51 @@ export function revenantTauntEvent(r, playerName, { rolls = Math.random, archive
   return revenantEvent('taunt', r, { speech: t.speech, body: t.body, line: t.line, archive });
 }
 /** A special foe breaking and running. */
-export function revenantFleeEvent(entity, base, { gender = 'male', archive = null } = {}) {
+export function revenantFleeEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random } = {}) {
   const src = liveSource(entity, base, gender);
-  const speaks = revenantSpeaks(entity?.mobileType);
-  return revenantEvent('flee', src, { speech: speaks ? 'This isn\'t over!' : null, body: speaks ? null : 'Breaks and runs!', line: revenantFleeLine(entity, base), archive });
+  const v = voiceParts(src, 'flee', '', rolls);
+  return revenantEvent('flee', src, { speech: v.speech, body: v.speech ? null : v.body, line: v.speech ? `${src.name} breaks and runs! "${v.speech}"` : v.line, archive });
 }
 /** Run down before it got away: it turns and fights. */
-export function revenantCorneredEvent(entity, base, { gender = 'male', archive = null } = {}) {
+export function revenantCorneredEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random } = {}) {
   const src = liveSource(entity, base, gender);
-  const speaks = revenantSpeaks(entity?.mobileType);
+  const v = voiceParts(src, 'cornered', '', rolls);
   return revenantEvent('cornered', src, {
-    speech: speaks ? 'Then I take you with me!' : null, body: speaks ? 'Cornered - it turns to fight.' : 'Cornered - it turns on you.',
+    speech: v.speech, body: v.speech ? 'Cornered - it turns to fight.' : v.body,
     line: `${src.name} is cornered and turns to fight!`, archive,
   });
 }
 /** Out of reach - a revenant now, or a stronger one. */
 export function revenantEscapeEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
-  const speaks = revenantSpeaks(r.mobileType);
   return revenantEvent('escape', r, {
-    speech: speaks ? fill(pick(ESCAPES, rolls), { p: firstWord(playerName) }) : null,
+    speech: voiceParts(r, 'escape', playerName, rolls).speech,
     body: `Got away. ${r.rank > 1 ? `Now rank ${revenantRankNumeral(r.rank)} - it` : 'It'} will remember this.`,
     line: revenantEscapeLine(r), archive,
   });
 }
 /** Slain at last - its last words, a speaker's. */
 export function revenantSlainEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
-  const speaks = revenantSpeaks(r.mobileType);
   return revenantEvent('slain', r, {
-    speech: speaks ? fill(pick(LAST_WORDS, rolls), { p: firstWord(playerName) }) : null,
+    speech: voiceParts(r, 'slain', playerName, rolls).speech,
     body: 'Has fallen. Your revenant is no more.', line: revenantSlainLine(r), archive,
   });
 }
 /** Alive again after its kill: it lives on, and gloats. */
 export function revenantRiseEvent(r, playerName, { rolls = Math.random } = {}) {
   const kind = enemyDisplayName(r.mobileType) ?? 'foe';
-  const speaks = revenantSpeaks(r.mobileType);
   return revenantEvent('rise', r, {
-    speech: speaks ? fill(pick(GLOATS, rolls), { p: firstWord(playerName) }) : null,
+    speech: voiceParts(r, 'rise', playerName, rolls).speech,
     body: r.kills > 1 ? `Has killed you ${r.kills} times. It grows stronger.` : `The ${kind} that killed you lives on. It will come for you again.`,
     line: revenantRiseLine(r),
   });
+}
+
+/** REVENANT-VOICE: any other moment it has a word for (REVENANT-FATE's yield, executed, spared, slip; a companion's
+ *  arrive, dismiss, downed, kill, battle, release) - in its voice, with what happens in the narrator's (`body`, when the
+ *  moment says more than its words), and its one text line. */
+export function revenantMomentEvent(kind, r, playerName, { body = null, line = null, rolls = Math.random, archive = null } = {}) {
+  const v = voiceParts(r, kind, playerName, rolls);
+  return revenantEvent(kind, r, { speech: v.speech, body: v.speech ? body : v.body, line: line ?? v.line, archive });
 }
 
 // THE FACE (`setRevenantPresenter`, `revenantSay`) is a leaf's - systems/revenantVoice.js - so the HUD's card asks it

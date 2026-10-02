@@ -116,13 +116,14 @@ test('REVENANT-CARD THE EVENTS: a taunt, a flight, an escape, a fall and a rise 
   assert.equal(N.revenantPortrait({ mobileType: MOBILE_TYPES.OrcWarlord, archive: 9999 }).archive, 9999, 'the sprite it wore first');
   const noIdle = Object.keys(ENEMY_BASICS).map(Number).find((k) => ENEMY_BASICS[k]?.maleTexture && !ENEMY_BASICS[k].hasIdle);
   if (noIdle != null) assert.equal(N.revenantPortrait({ mobileType: noIdle }).record, 0, 'no idle: the walk\'s front');
-  const beast = { ...r, mobileType: MOBILE_TYPES.SabertoothTiger };
+  const beast = { ...r, mobileType: MOBILE_TYPES.SabertoothTiger, personality: 'cold' };
   const g = N.revenantTauntEvent(beast, me.name, { rolls: () => 0 });
   assert.equal(g.speech, null, 'a beast says nothing');
-  assert.match(g.body, /^Bares its teeth/, 'the narrator says what it does');
-  assert.match(g.line, new RegExp(`^${r.name} bares its teeth`));
+  assert.match(g.body, /^Circles you in eerie silence\./, 'the narrator says what it does, in its temperament');
+  assert.match(g.line, new RegExp(`^${r.name} circles you in eerie silence`));
+  assert.equal(g.mood, 'Cold', 'REVENANT-VOICE: its personality on the card');
   const fl = N.revenantFleeEvent(orc({ eliteFoe: true, champion: undefined }), 'Elite Orc Warlord');
-  assert.equal(fl.kind, 'flee'); assert.equal(fl.name, 'Elite Orc Warlord'); assert.equal(fl.rank, 0); assert.equal(fl.speech, 'This isn\'t over!'); assert.match(fl.sub, /Elite$/);
+  assert.equal(fl.kind, 'flee'); assert.equal(fl.name, 'Elite Orc Warlord'); assert.equal(fl.rank, 0); assert.ok(fl.speech && fl.mood, 'its words in its own voice, its personality named'); assert.match(fl.sub, /Elite$/);
   const es = N.revenantEscapeEvent(r, me.name, { rolls: () => 0 });
   assert.equal(es.kicker, 'Escaped'); assert.match(es.speech, /Ayla/); assert.equal(es.line, N.revenantEscapeLine(r));
   const sl = N.revenantSlainEvent(r, me.name, { rolls: () => 0 });

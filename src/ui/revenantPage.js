@@ -11,6 +11,7 @@
 import { revenantsFor, revenantOn, revenantPortrait, revenantRankNumeral, REVENANT_MAX } from '../systems/revenant.js';
 import { ownMinutes } from '../systems/worldTick.js';
 import { requestFittedIcon, fittedImg } from './textureCanvas.js';
+import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-VOICE: who each is
 
 export const REVENANT_PAGE_SECTIONS = Object.freeze([['revenants', 'Revenants']]);
 export const REVENANT_PAGE_STYLE_ID = 'revenant-page-css';
@@ -39,6 +40,8 @@ export const REVENANT_PAGE_CSS = `
 .px-sys .rvn-when.is-waiting { color: #b8b0a0; }
 .px-sys .rvn-when.is-out { color: #e0a54a; }
 .px-sys .rvn-sub { font-size: 11px; color: #8b8578; }
+.px-sys .rvn-mood { display: inline-block; margin-right: 6px; padding: 0 5px; border-width: 1px; border-style: solid; font-size: 9px; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: #e9c46a; vertical-align: 1px; }
+.px-sys .rvn-blurb { font-size: 11px; font-style: italic; color: #b8b0a0; }
 .px-sys .rvn-deeds { font-size: 12px; color: #e9e4d9; }
 .px-sys .rvn-come { font-size: 12px; color: #b8b0a0; }
 .px-sys .rvn-history { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 10px; color: #8b8578; }
@@ -114,7 +117,11 @@ function row(el, r, now, kindName) {
   const come = fallen ? null : comeWords(r, now);
   if (come) head.append(el('span', `rvn-when ${come.cls}`.trim(), come.tag));
   const trait = typeof r.trait === 'string' && r.trait ? r.trait.charAt(0).toUpperCase() + r.trait.slice(1) : null;
-  text.append(head, el('span', 'rvn-sub', [`Rank ${revenantRankNumeral(r.rank)}`, kindName(r.mobileType), trait, r.elite ? 'Elite' : null].filter(Boolean).join(' · ')));
+  const sub = el('span', 'rvn-sub', [`Rank ${revenantRankNumeral(r.rank)}`, kindName(r.mobileType), trait, r.elite ? 'Elite' : null].filter(Boolean).join(' · '));
+  const P = PERSONALITIES[r.personality];
+  if (P) sub.insertBefore(el('span', 'rvn-mood', P.label), sub.firstChild ?? null);   // REVENANT-VOICE: who it is
+  text.append(head, sub);
+  if (P) text.append(el('span', 'rvn-blurb', P.blurb));
   const deeds = deedWords(r);
   if (deeds) text.append(el('span', 'rvn-deeds', deeds));
   text.append(el('span', 'rvn-come', fallen ? `Fell ${agoWords(r.defeatedAt ?? now, now)}.` : come.line));

@@ -161,7 +161,7 @@ export const FRAME_ROLES = {
     '.hmpick',
     'body .dfdecor-chip',   // PLUS-DRESS: the decorator's filters and modes - pickable cells, the chosen one brass
     'body .dfnaval-choice'],   // NAV-F: the captor's three choices - the one taken brass
-  chip: ['body .rvncard-rank', '.px-sys .rvn-rank', '.hud-qspell', '.pack-shell .sf-tile', '.pack-shell .sf-pill', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
+  chip: ['body .rvncard-rank', '.px-sys .rvn-rank', 'body .rvncard-mood', '.px-sys .rvn-mood', '.hud-qspell', '.pack-shell .sf-tile', '.pack-shell .sf-pill', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
     '.shell .subbtn .count', '.hb .hb-caption',
     'body .dfnaval-chip', 'body .dfnaval-gun'],   // NAV-F: the plate's fire/brace chips and the battery rose - readouts, never pressed
   well: ['body .rvncard-face', '.px-sys .rvn-face', '.trade-shell .packcol', '.pack-shell .sf-sec', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer

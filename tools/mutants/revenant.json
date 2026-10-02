@@ -119,8 +119,8 @@
   {
     "name": "REVENANT-a-beast-that-talks",
     "file": "src/systems/revenant.js",
-    "old": "  if (!revenantSpeaks(r.mobileType)) {\n    const g = pick(GROWLS, rolls);",
-    "new": "  if (false) {\n    const g = pick(GROWLS, rolls);",
+    "old": "  if (!revenantSpeaks(r.mobileType)) {\n    const body = beastBody(personality, event);",
+    "new": "  if (false) {\n    const body = beastBody(personality, event);",
     "tests": [
       "test/revenant.test.js"
     ]
