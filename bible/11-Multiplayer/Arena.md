@@ -236,7 +236,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 |---|---|---|
 | **ARENA1** (SHIPPED 2026-10-02 - the record below) | the colosseum in cell (4,3) of Daggerfall (both layouts), the model vendored and drawn, ARENADAG.RMB, the building list strip, the gate's people (Herald opens a placeholder card), the undercroft dungeon, the displaced records moved (offline) | ARENA2 data: the city's grid, the strip, the model's mesh and collider, the move of a deed |
 | **ARENA2** (SHIPPED 2026-10-02 - the record below) | the bout law, AI fighters (bout team, foe yield floor), exhibitions on the city floor, the instance of the floor, the ladder's ten tiers offline, the crowd (sound, sight, mood, words), the Herald, the HUD | the bout law's tests, a bout played through headless |
-| **ARENA3** | the teams, the Arena window (all tabs, offline records), tier titles and Grand Champion offline, purses, the bookmaker | UI probes, the window's model tests |
+| **ARENA3** (SHIPPED 2026-10-02 - the record below) | the teams, the Arena window (all tabs, offline records), tier titles and Grand Champion offline, purses, the bookmaker | UI probes, the window's model tests |
 | **ARENA4** | online: the account service tables and board, the relay's arena rooms, matchmaking, PVP-REF, the relay-run ladder opponent, spectators, the online titles and the laurel glyph, the online home move | the relay over fake sockets, the service over node:sqlite |
 | **ARENA5** | the audit: every slice re-read against this page, the probes, the mutants | |
 
@@ -506,3 +506,81 @@ suites updated where the law moved); mutants `tools/mutants/arenafix.json` (43, 
 
 Not done / open: the probes run on a software GPU at a frame or two a second, so a whole walk-in is watched in the
 headless suite (real motors on a flat floor) and only its first metre in the browser.
+
+## ARENA3 record (2026-10-02) - SHIPPED
+
+**The banners** (`src/systems/arenaLeague.js`, pure - the game minute handed in). The season offline is the game's year
+(3E 405 at a new game; its day the day of the year). Joining is at the recruiters, free; quitting is at once and asked
+twice; the OTHER banner is refused until the next season ("you quit the Red Banner this season"), the banner quit takes
+you back at once. Team points: a ladder bout won 1, a tier champion 3, the Grand Champion 10, to the banner worn (none
+unworn - the bout is still kept). The season closes on the first read past it (`rollLeague`): the roster's whole season
+plus the player's points, its winner, the side the player fought on, kept for the Team board (twelve seasons); the
+laurel to the winning banner for the next season - the crowd's favour +0.25 from the first bell for a fighter in it (the
+player in a ladder bout when they wear it; an exhibition's fighter in its colours); a level season none; seasons passed
+unread each closed, the player's points only in the first. THE ROSTER: 24 fighters a banner a season, Daggerfall's 18
+classes, named by the bouts' own law (`fighterIdentity` - NameHelper over their home's bank on a seeded DFRandom stream),
+each climbing the same ten tiers one bout every 7 to 20 days by a talent against the tier (`rosterWinChance`, 4% to 96%):
+measured over 3E 405-410, a Grand Champion in some seasons and none in most, the banners' totals ~800 at the close and a
+few dozen apart, so a whole ladder climbed in a season (67 points) can turn it. The roster is the leaderboards' field, the banners' points and the Hall's names.
+
+**The gate** (`src/scenes/arenaGate.js`, one home for both hosts that stand the colosseum - world.js and exterior.js;
+worldModes.js finds the person by office): the Red and Blue Banners' recruiters (`recruiterChoice` - the pitch, the
+season's day and standing, join / quit / the Arena window / leave, every refusal a line; joining opens the window on its
+Team page), and the bookmaker. The Herald's choice carries "A - The Arena window" (the ARENA2 pin moved, its reason in
+the test) and names the banner you fight under, or the laurel.
+
+**The bookmaker** (`src/systems/arenaBook.js`). An exhibition fighter's record (6 to 35 bouts) and form come from the
+bout's own seed; its strength is its level (the tier's, or Daggerfall's own for a beast) and its form; the chances are
+the two strengths apart. The price is the fair price less the house's tenth, rounded DOWN the bookmaker's ladder of 40
+prices ("5 to 6" on an even bout, 1 to 5 the shortest, 10 to 1 the longest); a winning stake pays itself and the price
+in whole gold. One wager a bout, 10 to 1000 gold (DFU's payment law - coins, then letters of credit), taken while the
+bout is open and until the fight's word. Settled by the verdict seen on this screen (the driver's `exhibitionVerdict`),
+or - nobody here saw it - by the house's seeded record by the same chances once its hour is out (never while its bout
+stands here); a draw returns the stake. Winnings wait at the stall ("C - Collect your 175 gold"): he pays in person.
+
+**The Arena window** (`src/ui/arenaWindow.js` over `src/systems/arenaBoard.js`; `src/ui/arenaDoor.js`, the Reforge's
+door's shape). Bouts (the hour's exhibition or the next - the Red's fighter against the Blue's, each with pennant, home,
+epithet, class and level, record, price and the favourite; Watch and Wager - whom, how much, placed; the players' bouts
+said online; the ladder's next - Fight; every press refused at the press with its reason under it: at the gate only
+(60 m of the Herald), not until its hour, the book shut, rest first; what the bookmaker owes). Ladder (the ten tiers as
+a column, three pips and a crown each, cleared / you are here / ahead; a tier picked opens whole - its three bouts' and
+its champion's opponents, beaten and next marked, its purses, the title it gives, the beasts and the melee said; your
+titles). Team (the season on one split bar with the laurel marked; joined: your banner's crest, motto and lore, your
+points and bouts won for it, the roster's top ten by points with you pinned under it at your true rank; unjoined: both
+banners, their best three and where to join). Leaderboards (the highest tier - this season's field and you, the Grand
+Champions first; the fastest Grand Champion - days from the first bout, every season this save has seen; the season's
+rating - online, said; the banners by season with the side you fought on). Records (ten stats, your titles, the last
+twenty bouts with date, tier, opponent, result, how, purse and points; your wagers). Rules (five sections in plain
+words). Six `role="tab"` tabs the pad turns, 1-6 a page, the arrows on a tab; textContent only. The kit's roles on Plus
+(`FRAME_ROLES` - the window, the cards, the presses, the header, the chips, the tiers); the classic skin lays its own
+sheet (`ARENA_WINDOW_CSS` and the kit cut to `aw-`). Opened by the Herald, the recruiters, the bookmaker, and - once a
+banner is worn - the pause window's Stats page and the F5 page ("Arena", beside Pack, Spellbook and Chronicle) in every
+host (the street, an interior, a dungeon - the undercroft too).
+
+**The titles** offline: the Herald cries you by the ladder's title on the sand ("Aldric, Grand Champion!"); the window's
+card and the leaderboard show it; the character sheet's Arena lines carry the banner worn. The Hall of Champions
+(`hallOfChampions`, the Keeper's) reads every Grand Champion this save has seen: yours first, then the banners' who took
+the title, each season since the save first saw the arena (`since`), the newest first, home and banner.
+
+**The versus bar** (`ui/arenaHud.js`): each fighter of a banner wears its pennant before the name (`data-team`) - mine in
+a ladder bout under one, an exhibition's Red against Blue; the house's fighters none. ARENA2's `data-banner` unchanged.
+
+**The save**: `arenaLeague` (versioned `v: 1`, beside ARENA2's `arena`): the banner, the quit, the season's points, the
+laurel, the closed seasons, the last twenty bouts, the first bout's and the Grand Champion's minute, and the book (twenty
+wagers, the verdicts seen, what is owed). Any older or broken shape reads back to a fighter of no banner.
+
+**Verified.** Four suites (`test/arena3_*.test.js`, 27 tests), 62 mutants all dead (`tools/mutants/arena3.json`). The
+window probe (`tools/arenaWindowProbe.mjs`) draws every page and the wager open at 1440, 800 and 390 wide on both skins
+over a save with something on every page: inside the viewport, nothing sideways, the pixel face, the kit's frame (301 checks, all ok; on a phone the tab strip runs past the edge and scrolls inside the window, the page itself never sideways). The
+world probe (`tools/arena3Probe.mjs`, Chromium on a software GPU, the player's data): booted in Daggerfall, the Red
+Banner's recruiter's choice at the gate (Join / the window / Leave), joined - the window opening on its Team page - every
+page standing in the viewport over the real save, Escape; the bookmaker's stall (its book shut on the probe's hour - the 12:00 bout already on the sand - so the wager placed and paid is the window probe's and the gate-flow test's); the Herald's choice with the window's
+door; the pause window's Arena door once joined; down to the floor's instance for a ladder bout - the red pennant on the
+versus bar - fought to a win, kept for the Records page with its point for the Red Banner (every check ok, no arena error on the page).
+
+**Not done / open.** Recorded, not built: the banners' colours ON THE SAND (banners on your side of the floor, the crowd's
+half in your colour - Arena.md 3) wait on a tint the billboard pass does not take and on hangings the floor's instance
+does not stand; the HUD's pennant is this slice's mark of them. The exhibition fighters are the bouts' own (ARENA2's
+`exhibitionFor`), not the roster's, so a wager's record and form are the bout's and not a roster fighter's season. The
+online half - the season's 8 weeks, the PvP board, `arenachampion` and the laurel glyph, the relay's arena rooms - is
+ARENA4's; the audit is ARENA5's.

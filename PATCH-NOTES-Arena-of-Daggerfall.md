@@ -9,8 +9,35 @@
 
 ## The gate
 - At the north gate you'll find the **Herald of the Arena**, two gate wardens of the Royal Guard, recruiters for the Red Banner and the Blue Banner, and a bookmaker.
-- Talk to the **Herald** and he gives you a choice: **watch the exhibition**, **fight on the ladder**, **go down to the fighters' hall** (the undercroft), or leave. If a choice isn't open, he tells you why.
-- The teams and the betting come in a later update.
+- Talk to the **Herald** and he gives you a choice: **watch the exhibition**, **fight on the ladder**, open **the Arena window**, **go down to the fighters' hall** (the undercroft), or leave. If a choice isn't open, he tells you why.
+
+## The Red Banner and the Blue Banner
+- The arena's two companies take fighters at the gate. Talk to the **Red Banner Recruiter** or the **Blue Banner Recruiter** to join. Joining is free.
+- Every ladder bout you win is a point for your banner. Beating a Tier Champion is worth 3, and the Grand Champion 10.
+- A season lasts a year of the game's calendar. When it ends, the banner with more points wins, and its fighters wear the **laurel** all the next year: the crowd is on your side from the first bell.
+- You can quit your banner whenever you like (the recruiter asks you twice), but you can't join the other one until the next season. You can go back to the banner you quit at any time.
+- Each banner fields 24 fighters of its own, who climb the same ladder you do over the season. You'll see them on the leaderboards.
+- Your banner's pennant shows beside your name on the versus bar. In an exhibition, the Red Banner's fighter faces the Blue Banner's.
+
+## The Arena window
+- One window for everything at the arena, opened by the Herald, the recruiters and the bookmaker, and once you've joined a banner, from the **Arena** button on the character page of the pause menu.
+- **Bouts:** the hour's exhibition with both fighters' records and odds (Watch, Wager), and your next ladder bout with its purse (Fight). Watching, wagering and fighting are done at the arena's gate; the window tells you why when you can't.
+- **Ladder:** the ten tiers, where you stand, every opponent and champion, the purses and the title each tier gives.
+- **Team:** your banner, the season's standing against the other, the laurel, your points, and your banner's top ten.
+- **Leaderboards:** the highest tier, the fastest Grand Champion and the banners season by season, with your own row pinned below the top ten. The player rating board is for online play.
+- **Records:** your wins, losses, yields, falls, streaks and purses, your last twenty bouts and your wagers.
+- **Rules:** the arena's rules in plain words.
+
+## The bookmaker
+- **The Bookmaker** at the gate takes wagers on the hour's exhibition, from 10 to 1000 gold, until the fight begins. One wager a bout.
+- His odds come from the fighters' records, less the house's tenth. A winning wager pays your stake back plus the odds he gave; a draw gives you your stake back.
+- If you don't stay to watch, the bout is still fought and your wager is still settled once the hour is over.
+- Collect your winnings at his stall. He pays in person.
+
+## Titles
+- The Herald calls you by your arena title when you step onto the sand.
+- **The Hall of Champions** in the undercroft names every Grand Champion your character has seen: yours first, then each banner fighter who took the title, season by season.
+- Your banner shows on the character sheet beside your arena title and record.
 
 ## The bouts
 - **Exhibitions:** every hour from 8 in the morning until 10 at night, two fighters meet on the arena's sand. Stand near the colosseum and you'll see the bout, hear the crowd and see the fight on your screen. The same hour always brings the same two fighters.
