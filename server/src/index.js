@@ -201,7 +201,8 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // deploy: net/gateLaw.js (the day's window and the room key - it imports wire.js alone), net/gateBrain.js (the fight,
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
-import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
+import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS, isGateDay } from '../../src/net/gateLaw.js';
+import { riteNear, riteHolds, riteStands, RITE_HELPERS_MAX } from '../../src/net/gateRite.js';   // WB12d: the faithful's rite
 import { newFight, joinFight, applyHit, applyCrystalHit, applyHostHit, applyHeal, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
 // RAID3 (2026-09-27, Mac, on World Events - Raiding Parties online: "1. Server"): TWO FILES JOIN THE BUNDLE -
@@ -214,13 +215,13 @@ import { mintRaidReceipt, readRaidReceipt } from '../../src/net/raidReceipt.js';
 // boss slain): ONE FILE JOINS THE BUNDLE - net/gateHerald.js (the posts and when they are owed, pure law - it imports
 // gateLaw.js and wire.js, both here). The hub posts off its own alarm; bible/11-Multiplayer/World-Bosses.md, "THE
 // HERALD".
-import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFellLive, gateSiteDayOk, foldGateSite, agreedGateSite, HERALD_RETRY_MS, HERALD_TIMEOUT_MS } from '../../src/net/gateHerald.js';
+import { heraldWebhook, heraldRole, omenPost, fellPost, ritePost, heraldOmenDue, heraldFellLive, gateSiteDayOk, foldGateSite, agreedGateSite, HERALD_RETRY_MS, HERALD_TIMEOUT_MS } from '../../src/net/gateHerald.js';
 // OW6L (2026-09-29, the product owner: "Everything needs that persistence between players in the overworld."): ONE FILE
 // JOINS THE BUNDLE - net/overworldLaw.js (a cell's overworld ledger: the bands and raiders spent in it, its spawned
 // dungeons' clocks - pure law; it imports wire.js, gateLaw.js and raidLaw.js, all three here already).
 import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD, riteGate, validRiteOut, sanitizeName, RITE_INTERNAL_BROKEN, RITE_INTERNAL_DAY, RITE_TELL_RETRY_MS, RITE_KEY, RITE_BY_MAX } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -234,6 +235,8 @@ const rand32 = () => crypto.getRandomValues(new Uint32Array(1))[0];
 /** WB3: the boss's dice - a [0,1) draw off the same CSPRNG (net/gateBrain.js takes its randomness as an argument). */
 const rand01 = () => rand32() / 4294967296;
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' } });
+/** WB12d: the hub's word of a broken rite - its circle, when, and the first names of those who broke it. */
+const riteSaid = (r) => ({ k: 'br', d: r.d, px: r.px, py: r.py, at: r.at, by: Object.values(r.h ?? {}).filter((n) => typeof n === 'string' && n).slice(0, RITE_BY_MAX) });
 
 export default {
   async fetch(request, env) {
@@ -405,6 +408,8 @@ export class Room {
     if (path === GATE_INTERNAL_FELL) return this._gateFellInternal(request);   // WB3: a gate's kill, said to the hub
     if (path === RAID_INTERNAL_CLEAN) return this._raidCleanInternal(request);   // RAID3: a raid's cleanse, said to the hub
     if (path === RAID_INTERNAL_DAY) return this._raidDayInternal(request);   // RAID-ROLL: a cell asking the hub for the day's roll
+    if (path === RITE_INTERNAL_BROKEN) return this._riteBrokenInternal(request);   // WB12d: a circle's rite broken, said to the hub
+    if (path === RITE_INTERNAL_DAY) return this._riteDayInternal(request);   // WB12d: a breach's room asking the hub for the rite's helpers
     const key = roomOf(new URL(request.url).pathname);
     // AUDIT WB A1: A SEAT IS A HELLO'S. A socket that opened and never said hello kept its seat for as long as it stood
     // open, so one page's loop could fill a room with silence and every player after it was refused 'room full' - a
@@ -878,7 +883,8 @@ export class Room {
     const reg = await this.state.storage.get('reg');
     if (reg) { const due = reg.at + PARK_TTL_MS; if (Date.now() >= due) await this.state.storage.delete('reg'); else await this.state.storage.setAlarm(due); return; }
     if (await this._gateTick()) return;   // WB3: a gate room's alarm is its boss's beat
-    if (await this._raidSweep(Date.now())) return;   // RAID3: a cell's alarm is its raids' ends, and a cleanse its hub has not heard
+    const riteOwed = await this._riteSweep(Date.now());   // WB12d: a broken rite its hub has not heard
+    if (await this._raidSweep(Date.now())) { if (riteOwed) await this._riteArm(Date.now() + RITE_TELL_RETRY_MS); return; }   // RAID3: a cell's alarm is its raids' ends, and a cleanse its hub has not heard - never past the rite's retry
     for (const [, b] of this._all()) if (b.id) return;
     const m = await this.state.storage.list({ prefix: 'world:' });
     const dead = [...m.keys()];
@@ -1233,6 +1239,8 @@ export class Room {
         if (isSocialRoom(a.key)) { try { const g = await this._gateFellOf(); if (g && gateHolds(g.d, now)) this._send(ws, JSON.stringify({ t: 'gate', ...g })); } catch (e) { console.warn('[hub] gate word failed', e?.message ?? e); } }
         // AUDIT WB A4: and this account's receipt, while it is good (spent, it goes)
         if (isSocialRoom(a.key) && who.subject) { try { await this._gateReceiptTo(ws, who.subject, now); } catch (e) { console.warn('[hub] gate receipt failed', e?.message ?? e); } }
+        // WB12d: the faithful's rite broken while this player was away, while its circle still stands
+        if (isSocialRoom(a.key)) { try { const r = await this._riteOf(); if (r && riteStands(r.d, now)) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r) })); } catch (e) { console.warn('[hub] rite word failed', e?.message ?? e); } }
         // RAID3: the raids cleansed today and yesterday - so a raid this player's machine still holds open is closed quietly,
         // never said withdrawn (the cleanse's own word went out while they were away)
         if (isSocialRoom(a.key)) { try { const l = await this._raidCleansOf(now); if (l.length) this._send(ws, JSON.stringify({ t: 'raid', k: 'cls', l })); } catch (e) { console.warn('[hub] raid word failed', e?.message ?? e); } }
@@ -1607,6 +1615,15 @@ export class Room {
       if (!this._spend(ws, now, raidGate, 'raidBucket', 'raidDrops', 'too many raid frames')) return;
       if (!isCellRoom(a.key)) { this._junk(ws); return; }
       try { await this._raidWord(ws, a, m, now); } catch (e) { console.warn('[raid] word failed', e?.message ?? e); }
+      return;
+    }
+    if (m.t === 'rite') {
+      // WB12d: A WORD AT THE FAITHFUL'S RITE - from a player at a breach's circle, to the circle's CELL (the raid's law): on
+      // its own bucket, in a cell alone (anywhere else junk), credited to the VERIFIED account
+      const now = Date.now();
+      if (!this._spend(ws, now, riteGate, 'riteBucket', 'riteDrops', 'too many rite frames')) return;
+      if (!isCellRoom(a.key)) { this._junk(ws); return; }
+      try { await this._riteWord(ws, a, m, now); } catch (e) { console.warn('[rite] word failed', e?.message ?? e); }
       return;
     }
     if (m.t === 'raidtowns') {
@@ -2327,11 +2344,18 @@ export class Room {
   async _gateFall(f, now) {
     const key = await this._receiptKeyOf();
     const nowS = Math.floor(now / 1000);
+    const helped = await this._riteHelpersOf(f.day);   // WB12d: who broke the faithful's rite - an ember more each
     f.rc = {};
     for (const sub of Object.keys(f.players)) {
       if (!earned(f, sub)) continue;
-      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub), l: f.players[sub].lv }, key, { subtle: crypto.subtle, nowS }); }   // AUDIT WBX S2: the level the fight admitted it at
+      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub), l: f.players[sub].lv, ...(helped.has(sub) ? { r: 1 } : {}) }, key, { subtle: crypto.subtle, nowS }); }   // AUDIT WBX S2: the level the fight admitted it at
       catch (e) { console.warn('[gate] receipt refused', e?.message ?? e); }
+    }
+    // WB12d: one who broke the rite and took no part in the fight - a receipt of the rite alone (its ember, and nothing else)
+    for (const sub of helped) {
+      if (f.rc[sub]) continue;
+      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: 'rite' }, key, { subtle: crypto.subtle, nowS }); }
+      catch (e) { console.warn('[rite] receipt refused', e?.message ?? e); }
     }
     f.said = true;
     // AUDIT WBX S4: who stood in the court at the kill - their spoils are its floor's, so the hub does not hand another
@@ -2475,7 +2499,8 @@ export class Room {
   /** What the herald has posted and owes, in storage: the last day whose omen and whose kill went, and a kill owed. */
   async _heraldState() {
     const v = await this.state.storage.get('herald');
-    return { omen: Number.isSafeInteger(v?.omen) ? v.omen : -1, fell: Number.isSafeInteger(v?.fell) ? v.fell : -1, owe: v?.owe && typeof v.owe === 'object' ? v.owe : null };
+    return { omen: Number.isSafeInteger(v?.omen) ? v.omen : -1, fell: Number.isSafeInteger(v?.fell) ? v.fell : -1, owe: v?.owe && typeof v.owe === 'object' ? v.owe : null,
+      rite: Number.isSafeInteger(v?.rite) ? v.rite : -1, riteOwe: v?.riteOwe && typeof v.riteOwe === 'object' ? v.riteOwe : null };   // WB12d: the last rite posted, and one owed
   }
   /** The hub's record of where the gate stands - the instance's, else storage's. */
   async _gateSiteOf() {
@@ -2494,7 +2519,7 @@ export class Room {
   }
   /** When the herald next owes a post: a kill owed, now; the next omen at its instant; or null (no herald, nothing). */
   _heraldNextAt(st, now) {
-    if (st.owe) return now;
+    if (st.owe || st.riteOwe) return now;
     const due = heraldOmenDue(now, st.omen);
     return due ? due.at : null;
   }
@@ -2519,6 +2544,15 @@ export class Room {
     await this.state.storage.put({ herald: st, hub: 1 });
     await this._hubArm(now);
   }
+  /** WB12d: a broken rite, owed to the channel once a day while its circle still stands - the kill's law. */
+  async _heraldRiteOwe(r, now) {
+    if (!this._heraldOf() || !riteStands(r.d, now)) return;
+    const st = await this._heraldState();
+    if (st.rite >= r.d || st.riteOwe?.d === r.d) return;
+    st.riteOwe = { d: r.d, by: riteSaid(r).by };
+    await this.state.storage.put({ herald: st, hub: 1 });
+    await this._hubArm(now);
+  }
   /** THE HERALD'S BEAT, on the hub's alarm: the kill owed posted (or let go once it is no news), the omen posted in its
    *  window, and the alarm armed for what is owed next - a post Discord did not take, HERALD_RETRY_MS on. */
   async _heraldBeat(now) {
@@ -2526,8 +2560,15 @@ export class Room {
     if (!h) return;
     try {
       const st = await this._heraldState();
-      const was = JSON.stringify(st), read = st.owe;
+      const was = JSON.stringify(st), read = st.owe, readRite = st.riteOwe;
       let retry = null;
+      // WB12d: the rite owed - posted, or let go once its breach no longer holds
+      if (st.riteOwe && (st.riteOwe.d <= st.rite || !riteStands(st.riteOwe.d, now))) st.riteOwe = null;
+      if (st.riteOwe) {
+        const site = agreedGateSite(await this._gateSiteOf(), st.riteOwe.d);
+        if (await this._heraldSend(ritePost({ day: st.riteOwe.d, place: site?.pl ?? null, by: st.riteOwe.by }))) { st.rite = st.riteOwe.d; st.riteOwe = null; }
+        else retry = now + HERALD_RETRY_MS;
+      }
       if (st.owe && (st.owe.d <= st.fell || !heraldFellLive(st.owe.d, now))) st.owe = null;
       if (st.owe) {
         const site = agreedGateSite(await this._gateSiteOf(), st.owe.d);
@@ -2543,11 +2584,12 @@ export class Room {
       // WRITTEN OVER WHAT STORAGE HOLDS NOW, not over this beat's read: a kill owed while Discord answered is kept
       if (JSON.stringify(st) !== was) {
         const cur = await this._heraldState();
-        st.omen = Math.max(st.omen, cur.omen); st.fell = Math.max(st.fell, cur.fell);
+        st.omen = Math.max(st.omen, cur.omen); st.fell = Math.max(st.fell, cur.fell); st.rite = Math.max(st.rite, cur.rite);
         if (cur.owe && cur.owe.d !== read?.d && cur.owe.d > st.fell) st.owe = cur.owe;
+        if (cur.riteOwe && cur.riteOwe.d !== readRite?.d && cur.riteOwe.d > st.rite) st.riteOwe = cur.riteOwe;   // WB12d
         await this.state.storage.put('herald', st);
       }
-      const owed = st.owe ? null : heraldOmenDue(now, st.omen);
+      const owed = st.owe || st.riteOwe ? null : heraldOmenDue(now, st.omen);
       const next = [retry, owed && owed.at > now ? owed.at : null].filter((x) => x != null);
       if (next.length) await this._hubArm(Math.min(...next));
     } catch (e) { console.warn('[herald] beat failed', e?.message ?? e); await this._hubArm(now + HERALD_RETRY_MS); }
@@ -2699,6 +2741,108 @@ export class Room {
     if (!rooms?.idFromName || !rooms?.get) return true;
     try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RAID_INTERNAL_CLEAN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
     catch (e) { console.warn('[raid] hub', e?.message ?? e); return false; }
+  }
+  // ─────────────────────────── WB12d: THE FAITHFUL'S RITE ───────────────────────────
+  /** A WORD AT THE RITE (net/gateRite.js): believed from a pose at the day's circle in the gate's pixel, inside the rite's
+   *  window, from an account the token vouched for (a guest is handed no receipt). Who struck the faithful is kept by
+   *  account; the Summoner's fall, said, breaks the rite - kept, then the hub told, and told again as more who struck
+   *  are said, until the breach opens. Honest limit (bible section 19 D): a word is its player's own - the cell checks
+   *  where and when it was said, not each blow. */
+  async _riteWord(ws, a, m, now) {
+    if (worldRoom(m.px, m.py) !== a.key) { this._junk(ws); return; }
+    if (!isGateDay(m.d) || !riteHolds(m.d, now)) return;   // outside its window: nothing read, kept or said
+    if (!a.pose || !riteNear(m.d, m.px, m.py, a.pose.x, a.pose.z)) return;   // not at its circle
+    if (typeof a.sub !== 'string' || !a.sub) return;
+    let led = await this._riteLedgerOf();
+    if (led && led.d > m.d) return;   // an older day's word
+    if (led && led.d === m.d && (led.px !== m.px || led.py !== m.py)) return;   // the day's first circle stands
+    if (!led || led.d !== m.d) led = { d: m.d, px: m.px, py: m.py, h: {}, f: 0, at: 0, told: -1 };
+    let moved = false;
+    if (m.s === 1 && !Object.hasOwn(led.h, a.sub) && Object.keys(led.h).length < RITE_HELPERS_MAX) { led.h[a.sub] = sanitizeName(a.name ?? ''); moved = true; }
+    if (m.f === 1 && !led.f) { led.f = 1; led.at = now; moved = true; }
+    if (moved) await this._riteSave(led);
+    await this._riteTellHubOnce(led, now);
+  }
+  async _riteLedgerOf() {
+    if (this._riteLed === undefined) { const v = await this.state.storage.get(RITE_KEY); this._riteLed = v && typeof v === 'object' && Number.isSafeInteger(v.d) ? v : null; }
+    return this._riteLed;
+  }
+  async _riteSave(led) { this._riteLed = led; await this.state.storage.put(RITE_KEY, led); }
+  /** The hub told of a broken rite and who broke it - again when more are said; a hub that did not answer is told at the
+   *  next word, or by the alarm (RITE_TELL_RETRY_MS). */
+  async _riteTellHubOnce(led, now) {
+    const n = Object.keys(led.h).length;
+    if (!led.f || led.told >= n) return;
+    if (!(await this._riteTellHub({ d: led.d, px: led.px, py: led.py, at: led.at, h: Object.entries(led.h) }))) { await this._riteArm(now + RITE_TELL_RETRY_MS); return; }
+    led.told = n;
+    await this._riteSave(led);
+  }
+  /** The alarm's beat for a rite the hub has not heard: armed no later than `at` (never pushed off a sooner one). */
+  async _riteArm(at) {
+    try { const had = await this.state.storage.getAlarm(); if (had == null || had > at) await this.state.storage.setAlarm(at); }
+    catch (e) { console.warn('[rite] arm', e?.message ?? e); }
+  }
+  /** The alarm's half: a broken rite the hub has not heard of, told again - answers whether it is still owed. */
+  async _riteSweep(now) {
+    const led = await this._riteLedgerOf();
+    if (!led?.f || led.told >= Object.keys(led.h).length) return false;
+    await this._riteTellHubOnce(led, now);
+    return led.told < Object.keys(led.h).length;
+  }
+  /** The hub's door (the raid's): a relay built without the binding keeps the cell's own word. */
+  async _riteTellHub(body) {
+    const rooms = this.env?.ROOMS;
+    if (!rooms?.idFromName || !rooms?.get) return true;
+    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RITE_INTERNAL_BROKEN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    catch (e) { console.warn('[rite] hub', e?.message ?? e); return false; }
+  }
+  /** THE HUB'S HALF: the day's rite (one key, the latest day's) - its circle, when it broke, and who broke it. */
+  async _riteOf() {
+    if (this._riteHub === undefined) { const v = await this.state.storage.get(RITE_KEY); this._riteHub = v && typeof v === 'object' && Number.isSafeInteger(v.d) ? v : null; }
+    return this._riteHub;
+  }
+  /** A circle's rite broken: kept (the day's first circle - a later day's replaces it), said to everyone online the first
+   *  time, and its helpers folded in each time - the breach's room reads them at the kill. Projected through the wire's
+   *  own law, as a client would. */
+  async _riteBrokenInternal(request) {
+    let body = null;
+    try { body = await request.json(); } catch { /* refused below */ }
+    const o = validRiteOut({ k: 'br', d: body?.d, px: body?.px, py: body?.py, at: body?.at, by: [] });
+    if (!o) return json({ ok: false }, 400);
+    let r = await this._riteOf();
+    if (r && (r.d > o.d || (r.d === o.d && (r.px !== o.px || r.py !== o.py)))) return json({ ok: true });   // an older day's, or another circle's
+    const fresh = !r || r.d !== o.d;
+    if (fresh) r = { d: o.d, px: o.px, py: o.py, at: o.at, h: {} };
+    for (const e of Array.isArray(body.h) ? body.h.slice(0, RITE_HELPERS_MAX) : []) {
+      if (!Array.isArray(e) || typeof e[0] !== 'string' || !e[0] || e[0].length > 128) continue;
+      if (Object.hasOwn(r.h, e[0]) || Object.keys(r.h).length < RITE_HELPERS_MAX) r.h[e[0]] = sanitizeName(typeof e[1] === 'string' ? e[1] : '');
+    }
+    this._riteHub = r;
+    await this.state.storage.put(RITE_KEY, r);
+    if (fresh) {
+      const said = JSON.stringify({ t: 'rite', ...riteSaid(r) });
+      for (const [ws, b] of [...this._all()]) if (b.id) this._send(ws, said);
+      try { await this._heraldRiteOwe(r, Date.now()); } catch (e) { console.warn('[herald] rite not kept', e?.message ?? e); }   // and to the channel
+    }
+    return json({ ok: true });
+  }
+  /** A breach's room asking for the day's helpers at the kill. */
+  async _riteDayInternal(request) {
+    let body = null;
+    try { body = await request.json(); } catch { /* none */ }
+    const r = await this._riteOf();
+    return json({ h: r && r.d === body?.d ? Object.keys(r.h) : [] });
+  }
+  /** The breach's room's half: the accounts that broke the day's rite, asked of the hub (none when it does not answer -
+   *  the kill is never held for it). */
+  async _riteHelpersOf(day) {
+    const rooms = this.env?.ROOMS;
+    if (!rooms?.idFromName || !rooms?.get) return new Set();
+    try {
+      const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RITE_INTERNAL_DAY}`, { method: 'POST', body: JSON.stringify({ d: day }) }));
+      const body = res?.ok ? await res.json() : null;
+      return new Set(Array.isArray(body?.h) ? body.h.filter((x) => typeof x === 'string' && x).slice(0, RITE_HELPERS_MAX) : []);
+    } catch (e) { console.warn('[rite] helpers', e?.message ?? e); return new Set(); }
   }
   // ─────────────────────────── RAID-ROLL: THE DAY'S ROLL, THE RELAY'S TOO ───────────────────────────
   /** A cell's copy of a day's slots (net/raidLaw.js raidDaySlots - the draws no game data decides). */

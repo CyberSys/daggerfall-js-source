@@ -111,7 +111,7 @@
   {
     "name": "WB9g-the-gates-never-counted",
     "file": "server-account/src/accounts.js",
-    "old": "       AND (SELECT COUNT(*) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3\n",
+    "old": "       AND (SELECT COALESCE(SUM(stones), 0) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3\n",
     "new": "",
     "tests": [
       "test/wb9g_insignia.test.js"

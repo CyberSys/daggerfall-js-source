@@ -322,8 +322,8 @@
   {
     "name": "WB8c-the-herald-mute-on-marks",
     "file": "src/net/gateHerald.js",
-    "old": ".${map}${marks}`,",
-    "new": ".${map}`,",
+    "old": ".${map}${marks} The faithful work their rite nearby.`,",
+    "new": ".${map} The faithful work their rite nearby.`,",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/discordgates.test.js"

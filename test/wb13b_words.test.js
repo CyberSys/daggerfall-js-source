@@ -77,7 +77,7 @@ test('WB13b the chat names the marks - the card and the bar say what each does; 
   assert.equal(marksLine({ boss: P.boss, md: ['burning'] }), 'Valkynaz Ruhn comes the Burning tonight.');
   for (const t of GATE_TRIALS) assert.ok(!marksLine({ boss: P.boss, md: ['burning', t.id] }).includes(t.text), `${t.id}: named, never explained`);
   const post = omenPost({ day: 112, place: 'Copperham' }).content;
-  assert.ok(post.endsWith(' Valkynaz Ruhn comes **the Rime-Wrought** tonight, Colossal and Unyielding.'), post);
+  assert.ok(post.endsWith(' Valkynaz Ruhn comes **the Rime-Wrought** tonight, Colossal and Unyielding. The faithful work their rite nearby.'), post);   // WB12d: the rite, a line
   assert.ok(!/holds it|Tonight he comes/.test(post));
   assert.equal(fellPost({ day: 112, top: [], n: 0 }).content, '**Valkynaz Ruhn has fallen** at Dagon\'s Breach in the wilds. The breach collapses.');
   assert.equal(fellLine({ near: null, boss: P.boss, top: [] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach in the wilds. The breach collapses.', 'the chat says what Discord says');

@@ -396,9 +396,10 @@ export async function equipAura({ db, nowS }, player, env, aura) {
 }
 
 /** WB9g: what the account's own closed gates could still pay for - one Sigil Stone a gate closed (gate_kills, WB5b),
- *  less what its insignia already cost (`insignia_spent`). Never below 0. */
+ *  less what its insignia already cost (`insignia_spent`). Never below 0. WB12d: a row's own `stones` - two with the
+ *  faithful's rite broken, one for the rite alone (migration 0046). */
 export async function insigniaPurse({ db }, player) {
-  const r = await db.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1').bind(player.id).first();
+  const r = await db.prepare('SELECT COALESCE(SUM(stones), 0) AS n FROM gate_kills WHERE account = ?1').bind(player.id).first();
   const spent = Number.isSafeInteger(player?.insignia_spent) ? player.insignia_spent : 0;
   return Math.max(0, Number(r?.n ?? 0) - spent);
 }
@@ -426,7 +427,7 @@ export async function buyInsignia({ db, nowS }, player, env, id) {
        insignia_spent = insignia_spent + ?3, last_seen = ?4
      WHERE id = ?1
        AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?2 || ' %')
-       AND (SELECT COUNT(*) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
+       AND (SELECT COALESCE(SUM(stones), 0) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
      RETURNING insignia, insignia_spent`,
   ).bind(player.id, offer.id, offer.price, nowS).first();
   if (!row) {
@@ -813,9 +814,9 @@ export async function reportDuelLoss({ db, nowS }, loser, winner) {
 // the row), so the client keeps the receipt and claims it again then,
 // inside the receipt's week.
 
-/** An account's gates: `{ closed }`, counted off the rows. */
+/** An account's gates: `{ closed }`, counted off the rows - WB12d: a rite's own row is no breach closed. */
 export async function gateRecordOf({ db }, playerId) {
-  const r = await db.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1').bind(playerId).first();
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1 AND earned != 'rite'").bind(playerId).first();
   return { closed: Number(r?.n ?? 0) };
 }
 
@@ -835,14 +836,15 @@ export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey
   const c = v.claims;
   if (c.s !== player.id) return { error: 'not-yours' };
   if (!player.handle) return { recorded: false, why: 'guest', ...(await gateRecordOf({ db }, player.id)) };
-  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)')
-    .bind(c.d, player.id, c.b, c.x, nowS);
+  // WB12d: the row's embers - an ember more for the faithful's rite broken (`r`); a rite's own receipt is one
+  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
+    .bind(c.d, player.id, c.b, c.x, nowS, c.r === 1 ? 2 : 1);
   // MARKS1 / AUDIT 28 M4: the gate's Marks (marks.js gateStrikeStatement) IN THE SAME BATCH as the row - one transaction,
   // so a strike that fails takes the row with it and the retry claims afresh; `strike` null where Marks are not this
-  // account's, and the row is written alone
-  const stmt = strike?.(c.d) ?? null;
+  // account's, and the row is written alone. WB12d: the rite alone is no breach closed - no strike
+  const stmt = c.x === 'rite' ? null : strike?.(c.d) ?? null;
   const [r, m] = stmt ? await db.batch([kill, stmt]) : [await kill.run(), null];
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
   const struck = Number(m?.meta?.changes ?? 0) > 0;
-  return recorded ? { recorded, day: c.d, ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
+  return recorded ? { recorded, day: c.d, ...(c.x === 'rite' ? { rite: true } : {}), ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
 }

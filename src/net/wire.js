@@ -1432,7 +1432,7 @@ export function inRange(roomKey, from, to) {
   return pixelDistance(from, to) <= RANGE_PIXELS;
 }
 
-/** One client frame, parsed and checked: {t:'hello'|'pose'|'ping'|'chat'|'roll'|'say'|'narrate'|'stage'|'mute'|'renown'|'guild'|'guildout'|'world'|'foes'|'own'|'hit'|'act'|'who'|'quest'|'social'|'party'|'trade'|'cast'|'card'|'page'|'duel'|'park'|'look'|'gate'|'raid'|'raidtowns'|'ow'|'trav'|'amap', ...}
+/** One client frame, parsed and checked: {t:'hello'|'pose'|'ping'|'chat'|'roll'|'say'|'narrate'|'stage'|'mute'|'renown'|'guild'|'guildout'|'world'|'foes'|'own'|'hit'|'act'|'who'|'quest'|'social'|'party'|'trade'|'cast'|'card'|'page'|'duel'|'park'|'look'|'gate'|'raid'|'raidtowns'|'rite'|'ow'|'trav'|'amap', ...}
  *  or {error} - the caller closes on an error. INSPECT1: every arm below, named - this line had fallen seven behind
  *  (test/auditworld2.test.js derives the list from the arms now, so it cannot fall behind again - the merge with
  *  main's HCC-PARK was its first catch: the park arm, unnamed). */
@@ -1509,6 +1509,11 @@ export function parseClient(text, { hasHello = false } = {}) {
     if (!hasHello) return { error: 'raid before hello' };
     const r = validRaidIn(m);
     return r ? { t: 'raid', ...r } : { error: 'bad raid' };
+  }
+  if (m.t === 'rite') {   // WB12d: a word at the faithful's rite, to the circle's cell - projected by validRiteIn; the cell judges where and when
+    if (!hasHello) return { error: 'rite before hello' };
+    const r = validRiteIn(m);
+    return r ? { t: 'rite', ...r } : { error: 'bad rite' };
   }
   if (m.t === 'raidtowns') {   // RAID-ROLL: a piece of the towns table, to the hub that asked for it - projected by validRaidTownsIn; the hub keeps it only whole and by its pinned hash
     if (!hasHello) return { error: 'raid towns before hello' };
@@ -3453,6 +3458,48 @@ export function validRaidOut(m) {
     default: return null;
   }
 }
+
+// ═══ WB12d: THE FAITHFUL'S RITE ══════════════════════════════════════════════════════════════════
+//
+// (2026-10-01, Mac: "faithful and a Summoner" - bible/11-Multiplayer/World-Bosses.md section 19 D.) A player at a
+// breach's circle says the rite's word (`rite`) to the circle's CELL - the raid's law: on its own bucket, believed from a
+// pose at the circle (net/gateRite.js riteNear) inside the rite's window. The cell folds who struck the faithful by
+// account and, when the Summoner's fall is said, tells the hub; the hub says the broken rite to everyone online and at
+// every hello (`rite` `br`), and the breach's room asks it for the day's helpers at the kill (a receipt's `r`, and a
+// receipt of the rite alone - net/gateReceipt.js).
+/** The first relay that keeps the rite. An older one CLOSES the socket on the frame, so a client says none to it. */
+export const RITE_RELAY_MIN = 141;
+export const relaySupportsRite = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= RITE_RELAY_MIN; };
+/** The rite's own bucket: a word every RITE_WORD_MS, one at a strike or the Summoner's fall, and a second's slack. */
+export const RITE_HZ_MAX = 2;
+export const riteGate = (bucket, nowMs) => tokenGate(bucket, nowMs, RITE_HZ_MAX);
+/** A client's rite word, projected: `{d, px, py, s, f}` - the gate's day, its pixel, 1 once I have struck one of the
+ *  faithful, 1 once I have seen the Summoner fall - or null. */
+export function validRiteIn(m) {
+  if (!m || typeof m !== 'object' || !Number.isSafeInteger(m.d) || m.d < 0) return null;
+  if (!intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || (m.s !== 0 && m.s !== 1) || (m.f !== 0 && m.f !== 1)) return null;
+  return { d: m.d, px: m.px, py: m.py, s: m.s, f: m.f };
+}
+/** What the hub says of a rite: `br`, broken. */
+export const RITE_OUT_KINDS = Object.freeze(['br']);
+/** The names a broken rite's word carries. */
+export const RITE_BY_MAX = 8;
+/** The hub's word of a rite, projected for the client - `{k:'br', d, px, py, at, by}` - or null. */
+export function validRiteOut(m) {
+  if (!m || typeof m !== 'object' || !RITE_OUT_KINDS.includes(m.k)) return null;
+  if (!Number.isSafeInteger(m.d) || m.d < 0 || !intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !Number.isSafeInteger(m.at) || m.at <= 0) return null;
+  const by = Array.isArray(m.by) ? m.by.slice(0, RITE_BY_MAX).filter((n) => typeof n === 'string' && n).map(sanitizeName) : [];
+  return { k: 'br', d: m.d, px: m.px, py: m.py, at: m.at, by };
+}
+/** The doors between a circle's cell and the hub: the rite broken (its helpers ride it), and the day's helpers for the
+ *  breach's room at the kill (HCC-PARK's doors' law - the public worker forwards /room/<key> alone). */
+export const RITE_INTERNAL_BROKEN = '/internal/rite/broken';
+export const RITE_INTERNAL_DAY = '/internal/rite/day';
+/** How soon a cell whose hub did not answer tells it again (the raid's number). */
+export const RITE_TELL_RETRY_MS = 5000;
+/** Where a cell keeps its circle's ledger and the hub the day's rite - one key each, the latest day's (never `world:`
+ *  or `raid:` - those prefixes are swept). */
+export const RITE_KEY = 'rite';
 
 // ═══ OW6L: THE OVERWORLD'S LEDGER, KEPT BY THE RELAY ═════════════════════════════════════════════
 //

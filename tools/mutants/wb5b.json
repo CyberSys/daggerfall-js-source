@@ -20,8 +20,8 @@
   {
     "name": "WB5b-counted-twice",
     "file": "server-account/src/accounts.js",
-    "old": "'INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)'",
-    "new": "'INSERT OR REPLACE INTO gate_kills (day, account, boss, earned, at) VALUES (?1, ?2, ?3, ?4, ?5)'",
+    "old": "'INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6)'",
+    "new": "'INSERT OR REPLACE INTO gate_kills (day, account, boss, earned, at, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6)'",
     "tests": [
       "test/wb5b_gate_claim.test.js"
     ]

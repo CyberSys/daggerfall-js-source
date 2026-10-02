@@ -71,7 +71,7 @@ export function omenPost({ day, place = null, role = null }) {
   // WB13b: two sentences for the two times, and the marks in the chat's own sentence (net/gateLaw.js marksLine)
   const marks = ` ${boss.name} comes **${aspect.epithet}** tonight${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
   return {
-    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}). The Covenant seals it at ${stamp(t.sealAt, 't')}.${map}${marks}`,
+    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}). The Covenant seals it at ${stamp(t.sealAt, 't')}.${map}${marks} The faithful work their rite nearby.`,   // WB12d: the rite, a line
     allowed_mentions: role ? { roles: [role] } : { parse: [] },
   };
 }
@@ -87,6 +87,18 @@ export function fellPost({ day, place = null, top = [], n = 0 }) {
   const by = names.length ? `, struck down by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';   // WB13b: the chat's kill line's sentence
   return {
     content: `**${boss.name} has fallen** at Dagon's Breach ${place ? `near ${place}` : 'in the wilds'}${by}. The breach collapses.`,
+    allowed_mentions: { parse: [] },
+  };
+}
+
+/**
+ * WB12d: THE RITE'S POST - the faithful's rite broken before the breach opened, where, and by whom. Pings nobody.
+ * @param {{day?: number, place?: string|null, by?: ReadonlyArray<string>}} o
+ */
+export function ritePost({ place = null, by = [] }) {
+  const names = (Array.isArray(by) ? by : []).slice(0, GATE_TOP_MAX).map(heraldName).filter(Boolean);
+  return {
+    content: `**The faithful's rite ${place ? `near ${place}` : 'in the wilds'} is broken**${names.length ? ` by ${listOf(names)}` : ''}.`,
     allowed_mentions: { parse: [] },
   };
 }

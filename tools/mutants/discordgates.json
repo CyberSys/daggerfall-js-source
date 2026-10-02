@@ -47,8 +47,8 @@
   {
     "name": "DISCORD-GATES-the-kill-pings",
     "file": "src/net/gateHerald.js",
-    "old": "allowed_mentions: { parse: [] },",
-    "new": "allowed_mentions: { parse: ['everyone', 'roles', 'users'] },",
+    "old": "The breach collapses.`,\n    allowed_mentions: { parse: [] },",
+    "new": "The breach collapses.`,\n    allowed_mentions: { parse: ['everyone', 'roles', 'users'] },",
     "tests": [
       "test/discordgates.test.js"
     ]

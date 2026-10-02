@@ -46,7 +46,7 @@ test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY m
   const p = omenPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', role: ROLE });
   assert.ok(p.content.startsWith(`<@&${ROLE}> `), 'the role, first');
   assert.deepEqual(p.allowed_mentions, { roles: [ROLE] }, 'that role and nothing else - no @everyone, no user, whatever the text holds');
-  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** Dagon's faithful open a breach <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>). The Covenant seals it at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name} comes **the Storm-Crowned** tonight, Unyielding and Soul-Hungry.`);   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
+  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** Dagon's faithful open a breach <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>). The Covenant seals it at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name} comes **the Storm-Crowned** tonight, Unyielding and Soul-Hungry. The faithful work their rite nearby.`);   // WB12d: the rite, a line   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
   assert.deepEqual(gateModsOf(DAY), ['storm', 'unyielding', 'soulhungry'], 'WB8c: the day\'s own marks, in the tables\' words - never a player\'s');
   assert.equal(TT.openAt - TT.omenAt, 15 * 60_000, 'Mac\'s "15 min before": the omen is the gate\'s own, fifteen real minutes before it opens');
   const q = omenPost({ day: DAY });

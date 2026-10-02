@@ -273,8 +273,8 @@
   {
     "name": "RAID3-relay-cell-not-asked",
     "file": "server/src/index.js",
-    "old": "    if (worldRoom(m.px, m.py) !== a.key) { this._junk(ws); return; }\n",
-    "new": "",
+    "old": "    if (worldRoom(m.px, m.py) !== a.key) { this._junk(ws); return; }\n    if (!raidWordSane(m)) { this._junk(ws); return; }",
+    "new": "    if (!raidWordSane(m)) { this._junk(ws); return; }",
     "tests": [
       "test/raid3_raidLedger.test.js"
     ]
