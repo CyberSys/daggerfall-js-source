@@ -92,8 +92,8 @@
   {
     "name": "WB4-the-raise-held-from-the-word",
     "file": "src/world/gateBoss.js",
-    "old": "frame: tel.t < 0.5 ? 0 : 1,",
-    "new": "frame: 1,",
+    "old": "frame: cast ? CAST_RAISE_FRAME : tel.t < 0.5 ? 0 : 1,",
+    "new": "frame: cast ? CAST_RAISE_FRAME : 1,",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "WB4-a-cue-off-his-own-voice",
     "file": "src/world/gateBoss.js",
-    "old": "    cleave: voice(B.barkSound, 0.78),",
-    "new": "    cleave: voice(B.moveSound, 0.78),",
+    "old": "    cleave: voice(B.barkSound, 0.96),",
+    "new": "    cleave: voice(B.moveSound, 0.96),",
     "tests": [
       "test/wb4_gate_boss.test.js"
     ]

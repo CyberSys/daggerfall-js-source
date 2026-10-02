@@ -16672,6 +16672,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
     me: () => online?.name ?? null,   // GATE-UX: my row of the damage chart - the relay's name for me (ACC1g: the issued one)
     yaw: () => cam.yaw,   // WB13a: the way out of a blow on me, turned as the screen is
+    shake: (amount) => betterAmbience.weaponKick(amount),   // WB13d: his landings near me felt, under the player's own maxShake
   }) : null;
   let _omenClockAt = null;   // AUDIT WB C4: when the relay's clock was first read this session (the omen's fallback wait)
   const gateOmen = params.has('online') ? createGateOmen({

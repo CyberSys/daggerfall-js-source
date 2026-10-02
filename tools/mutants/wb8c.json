@@ -239,8 +239,8 @@
   {
     "name": "WB8c-his-voice-unchanged",
     "file": "src/world/gateBoss.js",
-    "old": "  if (kind === 'windup') return { id: ASPECT_CUE_IDS[aspect],",
-    "new": "  if (kind === 'windup') return { ...cue, id: cue.id,",
+    "old": "  if (kind === 'windup' || kind === 'release') return { id: ASPECT_CUE_IDS[aspect],",
+    "new": "  if (kind === 'windup' || kind === 'release') return { ...cue, id: cue.id,",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]

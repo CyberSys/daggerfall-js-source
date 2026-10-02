@@ -221,7 +221,7 @@ import { createDroppedTorches } from './droppedTorches.js';
 import { createCamps } from './camps.js';   // SURV3: a fire on the dungeon floor (no tent below - the camp law says so)
 import { campWire, validCampRecord } from '../systems/survival/camp.js';   // SURV3: the room's memory carries the camps as the wire says them   // HT1: Handheld Torches' dropped lights in the dungeon   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
-import { flashPlayerDamage } from '../ui/damageFlash.js';
+import { flashPlayerDamage, shakePlayerDamage } from '../ui/damageFlash.js';   // WB13d: the gate boss's elemental blows shake, unflashed
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { activeMemberships } from '../systems/guilds.js';   // F117
 import { avoidDeath, AVOID_DEATH_TEXT } from '../systems/guildServices.js';   // F117: Stendarr
@@ -3862,7 +3862,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24442,
+              // playerArrowHitFoe is the one copy world.js:24443,
               // exterior.js:5374 and worldModes.js:8522 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -8076,7 +8076,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      *  through the one door any foe's blow takes (resolveFoeMelee) with its three signs - the hit's sound, the flash,
      *  the cry - and fire's burning in the hit's place, unflashed (DFU's spell damage does not flash, ui/damageFlash.js).
      *  WB8b: his aspect's frost, lightning and venom as his fire - unflashed, each in its element's own cast
-     *  (systems/enemySpells.js SPELL_CAST_SOUND, by id). */
+     *  (systems/enemySpells.js SPELL_CAST_SOUND, by id). WB13d: and shaken as his physical blows are (his heaviest -
+     *  the Hellfire, the Nova, the Meteor, the Spokes - landed with no camera's answer at all). */
     strikePlayer(dmg, { fire = false, el = fire ? 'fire' : null } = {}) {
       if (!(dmg > 0)) return;
       const cast = GATE_STRIKE_CAST[el];
@@ -8084,6 +8085,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       else audio.playOneShot(el === 'fire' ? SOUND.Burning : hitSoundFor(null), PLAYER_HIT_VOLUME);
       hurtPlayer(dmg);
       if (!el) flashPlayerDamage(dmg);
+      else shakePlayerDamage(dmg);
       playPlayerVoice(audio, playerPainVoice(playerEntity, dmg));
     },
     // WORLD2: one simulation per room - the stream out and in, the hit in, the seat

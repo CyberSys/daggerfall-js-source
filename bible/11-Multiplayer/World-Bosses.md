@@ -1920,6 +1920,32 @@ What changes beyond the wording:
 - **The meteor:** seen falling, longer and lower.
 - **No hit-stop:** the port has none, and a frozen frame online reads as lag.
 
+**As built:**
+- His body flashes on the game's own curve (`systems/hitFlash.js`). My blows flash him fully. The court's flash him at
+  0.4: a fall in his health of 0.3% of his whole or more, as the relay reports it. His host's bodies flash the same way
+  on any fall in their health. His falling body never flashes.
+- A blow into his ward shows *Warded* in the ward's gold, never a number.
+- His elemental blows shake the camera as his physical ones do and still never flash (`ui/damageFlash.js`
+  shakePlayerDamage).
+- His landings shake it by how near they fall (`world/gateBoss.js` LAND_SHAKE):
+  - Slam and Leap: 2.5, fading to nothing at 12 m.
+  - The bound: 4, to 25 m.
+  - The Meteor: 3.5, to 15 m.
+  - The Nova: 2, to 24 m.
+  - The Wrath and the Reckoning: 6, everywhere.
+  - The player's own shake setting caps it.
+- His own landings light the floor at his feet. The Meteor and the Hellfire light the floor where they land for
+  450 ms (3.0 over 16 m, 1.2 over 7 m) and leave him his ember.
+- A release sound plays 350 ms before each landing: a low blade swing, a body's fall for his weight, or his fire's cast
+  at 1.1 (his aspect's under an aspect).
+- Wind-ups that share a clip are at least four semitones apart: Cleave 0.96, Slam 0.76, Leap 0.6 and Spokes 0.47 on his
+  bark; Hellfire 0.8, Nova 0.63 and Meteor 0.5 on his cast.
+- His fire uses the Daedra Lord's spell frames: frame 1 held through the wind-up, frame 3 as it lands.
+- The meteor falls for 1700 ms at 35 degrees, from the same side.
+- No relay change.
+- Pinned in `test/wb13d_blows.test.js` (10), with WB4 and WB9e re-pinned.
+- Mutants in `tools/mutants/wb13d.json` (28), with three older records re-aimed.
+
 ### WB13e. The beats
 
 - **His wake:** the opening's end is said in the state, and a roar, a flare and his name come as he moves.
@@ -2388,4 +2414,16 @@ developed"*):
 - No relay or account change.
 - Pins `test/wb13c_hud.test.js` (10) and `test/eventtip.test.js`, with seven older files re-pinned; mutants
   `tools/mutants/wb13c.json` (29), with five older records re-aimed.
+
+**WB13d (2026-10-01) - the blows.** Section 20 above:
+- He and his host flash when struck: fully for my blows, lightly for the court's.
+- A blow into his ward shows *Warded*.
+- His elemental blows shake the camera, and his landings shake it by how near they fall.
+- His landings light the floor where they land.
+- A release sound plays before each landing, and his wind-ups are spread apart.
+- His fire uses his cast pose.
+- The meteor is seen falling.
+- No relay or account change.
+- Pins `test/wb13d_blows.test.js` (10), with WB4 and WB9e re-pinned; mutants `tools/mutants/wb13d.json` (28), with
+  three older records re-aimed.
 

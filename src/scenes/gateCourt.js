@@ -19,11 +19,12 @@
 import { ATTACK_BY_ID, ATTACKS, COURT_CENTRE, COURTS, COURT_R, HIT_KINDS, POOL_TICK_MS, PHASE_NAMES, profileOf, nearestCourt, windupOf, CRYSTAL_R, CRYSTAL_H, inCourt, POSE_SLACK, RECKON_CLOSE_MS, WALKS, walkFormed, HOST_BLOWS, hostBlowUnder } from '../net/gateBrain.js';
 import { strikeVerdict, blowOf, strikeDamage, savedShare, landingPools, poolUnder, inAttack, chargeHead, segmentDistance } from '../net/gateStrike.js';
 import { GATE_BOSSES, gateBossOf } from '../net/gateLaw.js';
-import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue, hostPulseColor } from '../world/gateBoss.js';
+import { bossAct, bossFrame, bossGlow, bossPlace, bossHop, bossLookOf, bossStandIn, bossCue, BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, WARD_COLOR, EMBER_COLOR, poolColor, emberColor, attackColor, crystalStandIn, crystalColor, groundStepCue, hostPulseColor, gateHitFlash, GATE_FLASH_SHARE, RELEASE_LEAD_MS, landShake, LANDING_LIGHT_Y } from '../world/gateBoss.js';
 import { courtToDungeon, portalDoor, PORTAL_AFTER_MS, PORTAL_RISE_MS, PORTAL_DROP, COURT_TEXT } from '../world/gateArena.js';
 import { GateTelegraphRenderer, telegraphShape, markShape, poolShapes, telegraphEdge, TELEGRAPH_STYLE, TELEGRAPH_EDGE, TELEGRAPH_NOW_MS } from '../render/gateTelegraph.js';
 import { CourtCrystalRenderer, crystalGrowth, CRYSTAL_GROW_MS, CRYSTAL_SHATTER_MS, CRYSTAL_FLASH_MS, CRYSTALS_DRAW_MAX } from '../render/courtCrystals.js';   // WB9c: the crystals of Oblivion, drawn
-import { GateFxRenderer, fxBurstOf, meteorFall, FX_BURST_MS, FX_BURSTS_MAX, FX_KINDS } from '../render/gateFx.js';   // WB9e: his blows seen landing
+import { GateFxRenderer, fxBurstOf, meteorFall, FX_BURST_MS, FX_BURSTS_MAX, FX_KINDS, FX_LIGHT_MS } from '../render/gateFx.js';   // WB9e: his blows seen landing
+import { setBatchHitFlash } from '../systems/hitFlash.js';   // WB13d: his body struck flashes, as every foe's does
 import { tierColour } from '../render/spoilsGlow.js';   // WB9f: a piece's landing sparks in its tier's colour
 import { RARITIES } from '../systems/lootRarity.js';
 import { GatePassRenderer, gateSpinRate } from '../render/gatePass.js';   // WBX2: the portal's fire is the gate's own
@@ -212,7 +213,10 @@ export const HEAL_SEND_MS = 1000;
  *   soulTrap?: (trap: { chance: number, mobile: number, name: string }) => void,
  *   me?: () => (string|null),
  *   yaw?: () => (number|null),
+ *   shake?: (amount: number) => void,
  * }} deps
+ *   WB13d: `shake` the camera's (systems/betterAmbience.js weaponKick, under the player's own maxShake) - his landings near
+ *   me felt.
  *   WB9a: `veiled` - the step's fire is over the screen (ui/gateVeil.js): the marks' card waits under it. WB9c:
  *   `sendCrystal` - a blow of mine on a crystal of Oblivion, to the court's room (the wire's `xhit`). WB11c: `sendHost` -
  *   a blow of mine on one of his host, to the court's room (the wire's `ahit`). GATE-HEAL: `sendHeal` - what my mates'
@@ -228,7 +232,7 @@ export function createGateCourt({
   renderer = null, gl = null, getTexture = null, uploadRecordFrame = null, audio = null,
   link, spoils = null, now, cam = () => null, feet = () => null, player = () => null, save = () => 100,
   strike = () => {}, say = () => {}, hudHidden = () => false, veiled = () => false, send = () => false, sendCrystal = () => false, sendHost = () => false, sendHeal = () => false, rng = Math.random,
-  portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null, yaw = () => null,
+  portalDoor: layPortalDoor = () => {}, soulTrap = () => {}, me = () => null, yaw = () => null, shake = () => {},
 }) {
   let pass = null;
   try { if (gl) pass = new GateTelegraphRenderer(gl); } catch (e) { console.warn('[gate] the telegraph would not build', e?.message ?? e); pass = null; }
@@ -275,6 +279,8 @@ export function createGateCourt({
    *  next, the health last heard and his last grunt, the landing that shook the ground, the phase the thunder has
    *  answered, and whether his body has met the floor */
   let stepFrom = null, strideRun = 0, growlAt = null, hpHeard = null, gruntAt = -Infinity, quaked = noMark(), thunderPhase = 0, thudCued = false;
+  /** WB13d: each blow's release heard once; when the court's blows were last seen in his health (and where it stood) */
+  let released = noMark(), courtFlashAt = -Infinity, hpFlashSeen = null;
   /** WBX5: the burning ground the landings this screen saw have left (net/gateStrike.js landingPools), the attack whose
    *  pools were laid last, and when the fire under my feet last bit; WBX4: his mark on the floor, and the pools' shapes */
   let pools = [], pooled = noMark(), burnAt = -Infinity, inFire = false, outAt = -Infinity, mark = null;
@@ -312,13 +318,14 @@ export function createGateCourt({
   let groundName = '', groundColor = null, biteAt = -Infinity, biteColor = null;
   /** WB9e: his blows seen landing - the bursts' slots (each where it landed in the dungeon's frame, its moment on the
    *  relay's clock, its kind and colour), the frame's live ones and the meteor's fall; the pass (made the first time) */
-  const _bursts = [], _fxLive = [], _meteor = { at: [0, 0, 0], color: null };
+  const _bursts = [], _fxLive = [], _meteor = { at: [0, 0, 0], color: null }, _landLights = [];   // WB13d: a light a burst's slot
   let meteorNow = null, fxPass = null, fxTried = false;
 
   function reset(d) {
     day = d; judged = noMark(); cued = noMark(); landed = noMark(); phaseHeard = 0; fellCued = false; wrathLanded = false;
     prevT = -Infinity; hurtAt = -Infinity; shape = null; standIn = null; spewed = false; spoilsSaid = false;
     stepFrom = null; strideRun = 0; growlAt = null; hpHeard = null; gruntAt = -Infinity; quaked = noMark(); thunderPhase = 0; thudCued = false;
+    released = noMark(); courtFlashAt = -Infinity; hpFlashSeen = null;   // WB13d
     pools = []; pooled = noMark(); burnAt = -Infinity; inFire = false; outAt = -Infinity; mark = null; poolDraw = [];
     marksSaid = false; fedHeard = null; marksAt = null; chartAt = null;   // GATE-UX
     healOwed.clear();   // GATE-HEAL
@@ -431,7 +438,9 @@ export function createGateCourt({
   function cue(s, t, P) {
     const atk = s.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
     if (A && !marked(cued, atk)) { setMark(cued, atk); if (t < atk.at) sound(bossCue('windup', A, P), s, t, atk); }   // WB8b: in his aspect's voice
-    if (A && !marked(landed, atk) && t >= atk.at) { setMark(landed, atk); if (t < atk.at + Math.max(A.active, 1) + 400) { sound(bossCue('land', A, P), s, t, atk); burstsOf(atk, A, P); } }   // WB9e: and seen landing
+    // WB13d: THE RELEASE - RELEASE_LEAD_MS before it lands, the sound of it coming (the bark said what; this says now)
+    if (A && !marked(released, atk) && t >= atk.at - RELEASE_LEAD_MS) { setMark(released, atk); if (t < atk.at) sound(bossCue('release', A, P), s, t, atk); }
+    if (A && !marked(landed, atk) && t >= atk.at) { setMark(landed, atk); if (t < atk.at + Math.max(A.active, 1) + 400) { sound(bossCue('land', A, P), s, t, atk); burstsOf(atk, A, P); feltLanding(s, t, A, atk); } }   // WB9e: and seen landing; WB13d: and felt
     if (A && !marked(quaked, atk) && t >= atk.at && QUAKE_ON.includes(A.key)) { setMark(quaked, atk); if (t < atk.at + Math.max(A.active, 1) + 400) sound(BOSS_CUES.quake, s, t, atk); }   // WB7: the ground's shock under a heavy landing
     if (s.phase > thunderPhase) { if (thunderPhase > 0) sound(BOSS_CUES.thunder, s, t, null); thunderPhase = s.phase; }   // WB7: thunder over his roar as a phase turns
     if (s.phase > phaseHeard) { if (phaseHeard > 0) { sound(BOSS_CUES.roar, s, t, null); const line = courtPhaseText(s.phase, P.aspect); if (line) say(line); } phaseHeard = s.phase; }   // WBX5: and the turn said, by its name; WB8b: in his aspect's words
@@ -511,6 +520,18 @@ export function createGateCourt({
     const rare = (RARITIES[tier]?.rank ?? 0) >= RARITIES.rare.rank;
     addBurst(pos, now(), rare ? FX_KINDS.spoilRestRare : FX_KINDS.spoilRest, tierColour(tier));
   };
+  /** WB13d: A LANDING FELT - the camera shaken by how near it fell to my feet (world/gateBoss.js LAND_SHAKE: the nearest
+   *  of its landings; one the whole arena feels, wherever I stand), as his blow on me shakes it. */
+  function feltLanding(s, t, A, atk) {
+    const f = feet();
+    if (!f) return;
+    const fx = f[0] - COURT_CENTRE[0], fz = f[2] - COURT_CENTRE[2];
+    const away = A.aim === 'players' ? atk.tg ?? NONE : A === ATTACKS.meteor ? (atk.tg?.length ? [atk.tg[0]] : NONE) : null;
+    let k = 0;
+    if (away) for (const p of away) k = Math.max(k, landShake(A, Math.hypot(fx - p[0], fz - p[1])));
+    else { const [x, z] = bossPlace(s, t); k = landShake(A, Math.hypot(fx - x, fz - z)); }   // his own: where he stands as it lands
+    if (k >= 0.05) shake(k);
+  }
   function burstsOf(atk, A, P) {
     const kind = fxBurstOf(A);
     if (!kind) return;
@@ -678,6 +699,11 @@ export function createGateCourt({
       batch.origin = [0, 0, 0];
     }
     batchShown = true;
+    // WB13d: HIS BODY STRUCK - my blow flashes him whole, the court's (a share of his health gone, as the relay says it)
+    // lightly; his fall is its own
+    if (hpFlashSeen === null || s.hp > hpFlashSeen) hpFlashSeen = s.hp;
+    else if (s.max > 0 && hpFlashSeen - s.hp >= s.max * GATE_FLASH_SHARE) { courtFlashAt = t; hpFlashSeen = s.hp; }
+    setBatchHitFlash(batch, s.fell ? 0 : gateHitFlash(hurtAt, courtFlashAt, t));
     batch.record = rkey;
     batch.size = size;
     if (batch.bounds) batch.bounds[3] = Math.hypot(w, h) * 0.5;   // the cull sphere follows the frame's own size
@@ -853,6 +879,15 @@ export function createGateCourt({
         const kk = d.grow * (0.55 + 0.45 * d.hp) * (1.1 + 0.25 * Math.sin(t / 240 + d.seed * 6) + 0.8 * d.flash);
         L.x = d.at[0]; L.y = d.at[1] + CRYSTAL_LIGHT_Y; L.z = d.at[2];
         L.color[0] = d.color[0] * kk; L.color[1] = d.color[1] * kk; L.color[2] = d.color[2] * kk;
+        _lights.push(L);
+      }
+      // WB13d: a landing away from him lights the floor where it fell (the meteor's, the hellfire's), fading
+      for (let k = 0; k < _bursts.length; k++) {
+        const b = _bursts[k], L0 = b.kind?.light, age = t - b.at0;
+        if (!L0 || !(age >= 0) || age >= FX_LIGHT_MS) continue;
+        const L = (_landLights[k] ??= { x: 0, y: 0, z: 0, range: 0, color: [0, 0, 0] }), kk = L0[0] * (1 - age / FX_LIGHT_MS);
+        L.x = b.at[0]; L.y = b.at[1] + LANDING_LIGHT_Y; L.z = b.at[2]; L.range = L0[1];
+        L.color[0] = b.color[0] * kk; L.color[1] = b.color[1] * kk; L.color[2] = b.color[2] * kk;
         _lights.push(L);
       }
       for (const l of host.lights()) _lights.push(l);   // WB11c: a Ward-Bearer holding his ward glows in its gold

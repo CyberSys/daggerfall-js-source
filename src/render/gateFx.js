@@ -33,10 +33,15 @@ export const FX_GRAVITY = 14;
 export const FX_SPARK_M = 0.32;
 /** THE METEOR: it falls through the last METEOR_FALL_MS of its wind-up from METEOR_FROM_M up its path (out of the sky
  *  from the great tower's side - METEOR_DIR, the path's direction back up from the mark), its stone METEOR_HEAD_M across
- *  and its trail METEOR_TRAIL_M long. */
-export const METEOR_FALL_MS = 1100;
+ *  and its trail METEOR_TRAIL_M long. WB13d: longer and lower - 1100 ms at 63 degrees was above the frame of anyone
+ *  looking at him, and a dot to one under it; METEOR_ELEV_DEG over the horizon, from the same side. */
+export const METEOR_FALL_MS = 1700;
 export const METEOR_FROM_M = 90;
-export const METEOR_DIR = Object.freeze((() => { const v = [0.28, 1, -0.42], l = Math.hypot(...v); return v.map((x) => x / l); })());
+export const METEOR_ELEV_DEG = 35;
+export const METEOR_DIR = Object.freeze((() => {
+  const h = [0.28, -0.42], l = Math.hypot(...h), e = (METEOR_ELEV_DEG * Math.PI) / 180;
+  return [(h[0] / l) * Math.cos(e), Math.sin(e), (h[1] / l) * Math.cos(e)];
+})());
 export const METEOR_HEAD_M = 4.2;
 export const METEOR_TRAIL_M = 32;
 
@@ -45,6 +50,7 @@ export const METEOR_TRAIL_M = 32;
  * it is his weight's (grit: darker, heavier) or his element's - or null for a landing that throws none (a blade's, the
  * charge's run, the spokes' lanes: their telegraph's flash is their landing). Pure.
  * @param {any} A an attack (net/gateBrain.js ATTACKS)
+ * @returns {{ share: number, power: number, grit: boolean, light?: ReadonlyArray<number> }|null}
  */
 export function fxBurstOf(A) {
   switch (A?.key) {
@@ -58,12 +64,15 @@ export function fxBurstOf(A) {
     default: return null;
   }
 }
+/** WB13d: the light a landing throws where it falls away from him - `light` [intensity, reach m] for FX_LIGHT_MS, fading
+ *  (a landing at his own feet is his glow's: world/gateBoss.js bossGlow). */
+export const FX_LIGHT_MS = 450;
 export const FX_KINDS = Object.freeze({
   slam: Object.freeze({ share: 0.75, power: 1, grit: true }),
   leap: Object.freeze({ share: 0.85, power: 1.15, grit: true }),
   cross: Object.freeze({ share: 1, power: 1.5, grit: true }),
-  hellfire: Object.freeze({ share: 0.4, power: 0.7, grit: false }),
-  meteor: Object.freeze({ share: 1, power: 1.6, grit: false }),
+  hellfire: Object.freeze({ share: 0.4, power: 0.7, grit: false, light: Object.freeze([1.2, 7]) }),
+  meteor: Object.freeze({ share: 1, power: 1.6, grit: false, light: Object.freeze([3.0, 16]) }),
   nova: Object.freeze({ share: 1, power: 1.3, grit: false }),
   dagon: Object.freeze({ share: 1, power: 2, grit: false }),
   // WB9f: his spoils - the gold out of his chest, and each piece's landing (a Rare-or-better's brighter)

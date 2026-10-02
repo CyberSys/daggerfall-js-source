@@ -21,7 +21,7 @@ import {
   telegraphShape, telegraphStyle, poolShapes, GateTelegraphRenderer, TELEGRAPH_STYLE, TELEGRAPH_FS, TELEGRAPH_WAVE_MPS, TELEGRAPH_WAVE_MS, TELEGRAPH_NOW_MS,
 } from '../src/render/gateTelegraph.js';
 import {
-  GateFxRenderer, fxBurstOf, meteorFall, sparkAt, sparkSeed, FX_KINDS, FX_BURST_MS, FX_SPARKS, FX_BURSTS_MAX, METEOR_FALL_MS, METEOR_FROM_M, METEOR_DIR, FX_SPARK_VS,
+  GateFxRenderer, fxBurstOf, meteorFall, sparkAt, sparkSeed, FX_KINDS, FX_BURST_MS, FX_SPARKS, FX_BURSTS_MAX, METEOR_FALL_MS, METEOR_FROM_M, METEOR_DIR, METEOR_ELEV_DEG, FX_SPARK_VS,
 } from '../src/render/gateFx.js';
 import { createGateCourt } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
@@ -117,7 +117,8 @@ test('WB9e the meteor seen falling: through the last METEOR_FALL_MS of its wind-
   assert.ok(Math.abs(Math.hypot(top.at[0] - 6, top.at[1], top.at[2] + 4) - METEOR_FROM_M) < 1e-9, 'from METEOR_FROM_M up its path');
   assert.ok(top.at[1] > mid.at[1] && mid.at[1] > low.at[1] && low.at[1] < 2, 'down onto the mark');
   assert.ok(METEOR_FROM_M - Math.hypot(mid.at[0] - 6, mid.at[1], mid.at[2] + 4) < METEOR_FROM_M / 2, 'gathering speed: slower in its first half');
-  assert.ok(Math.abs(Math.hypot(...METEOR_DIR) - 1) < 1e-12 && METEOR_DIR[1] > 0.8, 'out of the sky');
+  assert.ok(Math.abs(Math.hypot(...METEOR_DIR) - 1) < 1e-12 && Math.abs((Math.asin(METEOR_DIR[1]) * 180) / Math.PI - METEOR_ELEV_DEG) < 1e-9, 'out of the sky');
+  assert.ok(METEOR_ELEV_DEG <= 40 && METEOR_FALL_MS >= 1700, 'WB13d: low enough and long enough to be seen by one looking at him');
 });
 
 test('WB9e the court throws them: each landing its bursts at its own moment (his feet for his own, where it lands for a leap, a bound or a meteor, under each mark for Hellfire), in its colour under his profile, the slots reused past FX_BURSTS_MAX; the meteor\'s fall through its last moments; the pass draws them after the telegraph, depth tested and never written (mutants: bursts at his feet for a meteor; a burst a frame)', () => {

@@ -19,7 +19,8 @@
 // Not a DFU member. Ledger A (WB11).
 import { HOST, HOST_KINDS, HOST_BLOWS, COURT_CENTRE, ATTACKS, hostAt, hostBlowUnder, nearestCourt } from '../net/gateBrain.js';
 import { hostVerdict, hostTelegraphAt } from '../net/gateStrike.js';
-import { hostLookOf, hostAct, hostFallAct, hostStandIn, hostCue, bossFrame, bossPlace, HOST_BITE_COLOR, hostPulseColor, emberColor, WARD_COLOR, BOSS_CUES } from '../world/gateBoss.js';
+import { hostLookOf, hostAct, hostFallAct, hostStandIn, hostCue, bossFrame, bossPlace, HOST_BITE_COLOR, hostPulseColor, emberColor, WARD_COLOR, BOSS_CUES, gateHitFlash } from '../world/gateBoss.js';
+import { setBatchHitFlash } from '../systems/hitFlash.js';   // WB13d: a body of his host struck flashes, as he does
 import { courtToDungeon } from '../world/gateArena.js';
 import { TELEGRAPH_KIND, TELEGRAPH_STYLE, TELEGRAPH_FLASH_MS, TELEGRAPH_EDGE, TELEGRAPH_POOL } from '../render/gateTelegraph.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
@@ -154,7 +155,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
   function destroyBatch(b) { if (b?.batch) { renderer?.destroyBillboardBatch?.(b.batch); b.batch = null; } }
 
   /** One body drawn: the frame its act shows to my eye, at its place (an Imp hovering; one rising or crumbling under the
-   *  floor by its `sink`), facing `yaw`. */
+   *  floor by its `sink`), facing `yaw`. WB13d: struck, it flashes - whole for my blow, lightly for the court's. */
   function draw(b, act, x, z, yaw, t) {
     const T = texture(b.look.mobile);
     if (!T || !renderer?.createBillboardBatch || act.act === 'gone') { b.shown = false; return; }
@@ -169,6 +170,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
     const size = { w: fr.flip ? -sz.w : sz.w, h: sz.h };
     if (!b.batch) { b.batch = renderer.createBillboardBatch(T.archive, rkey, { w: sz.w, h: sz.h }, [[0, 0, 0]]); b.batch.origin = [0, 0, 0]; }
     b.shown = true;
+    setBatchHitFlash(b.batch, gateHitFlash(b.hurtAt, b.courtAt ?? -Infinity, t));
     b.batch.record = rkey;
     b.batch.size = size;
     if (b.batch.bounds) b.batch.bounds[3] = Math.hypot(sz.w, sz.h) * 0.5;
@@ -200,7 +202,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
         live.add(a.i);
         let b = bodies.get(a.i);
         if (!b) {
-          b = { look: hostLookOf(a.k, P.aspect.id), batch: null, shown: false, hurtAt: -Infinity, heardHurt: -Infinity, hp: a.h, wound: NaN, landed: NaN, judged: NaN, seed: (a.i * 0.6180339) % 1 * 6.283 };
+          b = { look: hostLookOf(a.k, P.aspect.id), batch: null, shown: false, hurtAt: -Infinity, courtAt: -Infinity, heardHurt: -Infinity, hp: a.h, wound: NaN, landed: NaN, judged: NaN, seed: (a.i * 0.6180339) % 1 * 6.283 };
           bodies.set(a.i, b);
           // its rising heard out of the fire, and its wave said once - while it is news
           if (Number.isFinite(a.rose) && t - a.rose <= HOST_LATE_MS && !s.fell && s.wrath == null) {
@@ -213,6 +215,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
           }
         }
         if (a.h < b.hp && t - b.heardHurt >= HOST_HURT_GAP_MS) { b.heardHurt = t; play(hostCue('hurt', b.look.mobile), placeOf(a, t, 1.2)); }
+        if (a.h < b.hp) b.courtAt = t;   // WB13d: the court's blow on it, seen
         b.hp = a.h;
         // its blow: cued at its word, heard landing, judged against my feet at its landing (co-op's law)
         if (a.atk) {
