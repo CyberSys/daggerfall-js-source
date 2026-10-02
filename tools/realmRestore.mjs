@@ -114,7 +114,8 @@ export function planRestore({ then, now, handles = new Map() }) {
         const place = `${home.map_id}/${home.building_key}`;
         const nowHome = one(now, 'SELECT player, char_id FROM homes WHERE map_id = ? AND building_key = ?', home.map_id, home.building_key);
         if (nowHome && nowHome.player === player && nowHome.char_id === origin) continue;   // never lost
-        if (nowHome && nowHome.player !== player) {
+        // AUDIT GUILD1d S8: a guild's hall is its guild's, whichever account bought it - never a home bought again
+        if (nowHome && (nowHome.player !== player || String(nowHome.char_id).startsWith('guild:'))) {
           taken.push({ player, handle: who(player), origin, building: place, by: who(nowHome.player) });
           continue;
         }

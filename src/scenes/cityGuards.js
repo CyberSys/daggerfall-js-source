@@ -137,6 +137,7 @@ export const GUARD_INDOOR_DOOR_OFFSET = CAPSULE_RADIUS + 0.1;   // 0.45
 
 export function createCityGuards({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, onPlayerHurt, currentMinute, rand = Math.random, say = null,
   hitEffects = null, groundStands = null,   // AUDIT 24 (wave 39): the host's one blood/effect pool; FALL-HOLD: exteriorFoes.js's ground law - the watch has no distance cull at all
+  levelBonus = null,   // SEAT1d (Seats-Arc 7.6): CURFEW - () => the levels a watchman is posted stronger (at night in a Curfew town)
   // GameObjectHelper.CreateEnemyCorpseMarker (:836-839) hands an
   // OUTSIDE corpse to StreamingWorld.TrackLooseObject, which stamps it
   // with the streamer's CURRENT map pixel (:462-476). exteriorFoes
@@ -243,7 +244,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     const gen = epoch;   // AUDIT-39r: the world this guard is being posted to
     try {
       const career = await ensureCareer();
-      const entity = makeEnemyEntity(GUARD_MOBILE_TYPE, basics, career, level ?? effectiveLevel(playerEntity), Math.random, { exactLevel: level != null });   // AUDIT ALL A6: a quickload re-rolled every standing watchman's Range(3,7) bonus - a free difficulty re-roll, and online the streamed `l` moved and every reader tore its puppet down
+      const entity = makeEnemyEntity(GUARD_MOBILE_TYPE, basics, career, level ?? effectiveLevel(playerEntity) + (levelBonus?.() ?? 0), Math.random, { exactLevel: level != null });   // SEAT1d: a Curfew's night watch   // AUDIT ALL A6: a quickload re-rolled every standing watchman's Range(3,7) bonus - a free difficulty re-roll, and online the streamed `l` moved and every reader tore its puppet down
       // RF2: SetEnemyCareer's whole loot chain, one seam
       // (hostCombat.spawnEnemyLoot) - the table on the PLAYER's gender
       // (AUDIT 18; Knight_CityWatch has NO LootTableKey in DFU, so the

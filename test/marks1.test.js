@@ -113,12 +113,12 @@ test('MARKS1 the law: a balance holds 10,000,000; the gate strikes 50, two a UTC
   assert.deepEqual([1, 300, 0, -1, 1.5, 301, NaN, '5'].map((n) => marksAmountOk(n, 300)), [true, true, false, false, false, false, false, false]);
   assert.equal(exchangeGold(300), 2400);
   assert.ok(MARKS_RID_RE.test('req-000001') && !MARKS_RID_RE.test('short') && !MARKS_RID_RE.test('has space in it'));
-  assert.deepEqual([marksText(1), marksText(1240)], ['1 Drake', '1,240 Drakes']);
+  assert.deepEqual([marksText(1), marksText(1240)], ['1 silver', '1,240 silver']);
 });
 
 test('MARKS1: GOLD NEVER BUYS MARKS - no kind, route, table or statement takes gold in and strikes a Mark', () => {
   // PROF1 built the second: a Court writ's pay, struck for units the service took out of the Stores (test/prof1_service)
-  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate', 'writ'], 'the faucets built - each a witnessed act');
+  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate', 'writ', 'siege-honours', 'gate-incursion', 'seat-strike-refund'], 'the faucets built - each a witnessed act');   // PIN MOVED (AUDIT-SEATS): a siege's relay-signed Honours and an Incursion's agreed gate days, registered at last
   assert.ok(![...ROUTES].some((r) => r.startsWith('/v1/marks/') && /buy|purchase|gold/i.test(r)), 'no route to buy Drakes');
   const marks = src('server-account/src/marks.js').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mints = [...marks.matchAll(/SELECT 'mint', NULL, 'account', \?1, '([a-z-]+)'/g)].map((m) => m[1]);
@@ -417,7 +417,7 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\), bankRegion\(\)\) : null,/);
   assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\)\)/, 'a kept sale settles as the counter opens');
-  assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell Drakes', act: \(\) => w\._button\('sellMarks'\)/);
-  assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Drake treasury'\)\);/);
-  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Drakes', marksText\(flow\.account\.marks\)\);/);
+  assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell silver', act: \(\) => w\._button\('sellMarks'\)/);
+  assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Silver treasury'\)\);/);
+  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Silver', marksText\(flow\.account\.marks\)\);/);
 });

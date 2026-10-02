@@ -274,8 +274,8 @@
   {
     "name": "the-camp-foe-counts-against-the-cap",
     "file": "src/scenes/world.js",
-    "old": "allied: act.allied, placed: true,",
-    "new": "allied: act.allied, placed: false,",
+    "old": "allied: act.allied, placed: true, groundAlign: { hitDist: hitDistance(hit) }, site: wodSiteOf(p, w) })   // WOD7",
+    "new": "allied: act.allied, placed: false, groundAlign: { hitDist: hitDistance(hit) }, site: wodSiteOf(p, w) })   // WOD7",
     "tests": [
       "test/wod3_spawner.test.js"
     ]

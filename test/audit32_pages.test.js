@@ -171,7 +171,7 @@ test('AUDIT 32 P6: at a Clothing Store the Weavers\' purchase the Marks cannot m
       const buy = p.btn('Buy 2 from the Weavers');
       if (want === 'none') assert.equal(buy, undefined);
       else assert.equal(buy.disabled, want === 'held', `${marks} Marks`);
-      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 Drake(?!s)/ : /you hold 3 Drakes/);
+      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 silver/ : /you hold 3 silver/);
     } finally { resetProfPages(); setProfessionsPages(null); }
   }
 });
@@ -183,7 +183,8 @@ test('AUDIT 32 P8/R4: Standard-bearer\'s Silk says what it waits on; the Outfitt
   try {
     p.btn('Clothing').onclick();
     p.btn('Standard-bearer\'s Silk').onclick();
-    assert.match(p.text(), /cloth:standard comes with the sieges - a Siege Honour's Spoils\. Nothing yields it yet\./);
+    assert.match(p.text(), /cloth:standard comes with the sieges - a Siege Honour's Spoils\./);   // PIN MOVED (AUDIT-SEATS): the sieges yield it now
+    assert.doesNotMatch(p.text(), /Nothing yields it yet/);
     const root = el('div');
     document.body.append(root);
     drawProfessionsPage(root, () => {}, kit);

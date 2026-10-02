@@ -220,8 +220,8 @@
   {
     "name": "GUILD1b-a-disband-with-gold-in-it",
     "file": "src/ui/socialPanel.js",
-    "old": "      const can = !busy && v.treasury === 0;",
-    "new": "      const can = !busy;",
+    "old": "      const can = !busy && v.treasury === 0 && !v.hall;",
+    "new": "      const can = !busy && !v.hall;",
     "tests": [
       "test/guild1b.test.js"
     ]
@@ -229,7 +229,7 @@
   {
     "name": "GUILD1b-the-guildmaster-walking-out",
     "file": "src/ui/socialPanel.js",
-    "old": "    const canLeave = !busy && (!master || (alone && v.treasury === 0));",
+    "old": "    const canLeave = !busy && (!master || (alone && v.treasury === 0 && !v.hall));",
     "new": "    const canLeave = !busy;",
     "tests": [
       "test/guild1b.test.js"

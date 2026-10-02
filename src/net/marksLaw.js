@@ -79,6 +79,28 @@ export const MARKS_KINDS = Object.freeze({
   'commission-escrow': 'move', // PROF6: a commission's pay, held while it stands (the commission's id)
   'commission-pay': 'move',   // PROF6: the pay less its tax, out of the escrow into the crafter's balance
   'commission-return': 'move', // PROF6: a withdrawn, declined or expired commission's pay, back to its poster
+  tribute: 'burn',            // SEAT1b: a guild's Tribute at the seat it pledged, from its treasury (Seats-Arc 4.2)
+  'seat-claim': 'burn',       // SEAT1c: a Charter's claim fee, from the taker's treasury at the Turning (5.2)
+  'seat-upkeep': 'burn',      // SEAT1d: a Charter's week, from its holder's treasury at the Turning (7.1)
+  'seat-edict': 'burn',       // SEAT1d: a Festival's cost, at the Turning that makes it law (7.6)
+  tithe: 'move',              // SEAT1d: a sale's Tithe (and a courier's share) to its seat's holder - burnt where none can take it (7.2)
+  'bounty-escrow': 'move',    // SEAT1d: a Bounty's set-aside, held while it rules (the `escrow` end, `bounty:<key>:<week>`)
+  bounty: 'move',             // SEAT1d: twenty Drakes a camp cleared, out of the Bounty's escrow
+  'bounty-return': 'move',    // SEAT1d: what a Bounty's escrow did not pay, home to its guild at the next Turning
+  // AUDIT-SEATS: the kinds the guilds and the seats wrote that this list never named
+  heraldry: 'burn',           // GUILD1d: a guild's heraldry changed (Seats-Arc 8.1: 500 Drakes)
+  'sellsword-escrow': 'move', // SEAT2a: a Sellsword's fee, from the hiring guild's treasury, held while the contract stands
+  'sellsword-fee': 'move',    // SEAT2a: the fee, out of the escrow to the Sellsword at the battle's end
+  'sellsword-return': 'move', // SEAT2a: a withdrawn or unearned contract's fee, home to its guild
+  'siege-honours': 'mint',    // SEAT2a: a siege's Honours, off the fighter's relay-signed receipt (Seats-Arc 6.8)
+  conscription: 'move',       // CROWN1: a palace seat's share of its Tithe to its crown's treasury
+  'royal-escrow': 'move',     // CROWN1: a Royal Tourney's prize, held from the crown's treasury while it rules
+  'royal-prize': 'move',      // CROWN1: the prize, out of the escrow to the champion's account
+  'royal-return': 'move',     // CROWN1: a Tourney no bout won - the prize home
+  'fealty-tribute': 'move',   // CROWN2: a vassal's 5% of its Tithe to its liege
+  'gate-incursion': 'mint',   // AUDIT-SEATS: a Daedric Incursion's second half of a gate's Marks, once three claims agree (9.3)
+  fort: 'burn',               // SEAT2b: a fortification project's Marks, from the holder's treasury as it is begun (7.5)
+  'seat-strike-refund': 'mint', // AUDIT-SEATS S4: a struck seat's claim fee, minted back to its holder within the Season (16)
 });
 
 /** The switch the service's config holds (MARKS_OPEN): off, dev (the developers alone), on. */
@@ -95,4 +117,4 @@ export const exchangeGold = (marks) => marks * MARKS_BANK.goldPerMark;
 export const MARKS_RID_RE = /^[A-Za-z0-9_-]{8,40}$/;
 
 /** A balance as a person reads it: "1,240 Marks", "1 Mark". */
-export const marksText = (n) => `${Number(n).toLocaleString('en-US')} ${n === 1 ? 'Drake' : 'Drakes'}`;
+export const marksText = (n) => `${Number(n).toLocaleString('en-US')} silver`;

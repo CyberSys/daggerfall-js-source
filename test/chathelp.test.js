@@ -31,5 +31,6 @@ test('CHAT-HELP: the host greets on every join - chatStart pushes it quietly, as
   const start = w.indexOf('const chatStart = () => {');
   assert.ok(start > 0);
   const body = w.slice(start, w.indexOf('\n  };', start));
-  assert.match(body, /chatLog = new ChatLog\(\);\n\s+chatLinks = new Map\(\);\n\s+chatLog\.push\(chatLog\.active, \{ text: CHAT_GREETING_TEXT, system: true \}, \{ quiet: true \}\);/);
+  // PIN MOVED (CROWN2): the seats' red lines' door is set with the chat, between the two
+  assert.match(body, /chatLog = new ChatLog\(\);\n\s+chatLinks = new Map\(\);\n\s+redChat = [^\n]*\n\s+chatLog\.push\(chatLog\.active, \{ text: CHAT_GREETING_TEXT, system: true \}, \{ quiet: true \}\);/);
 });

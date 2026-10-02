@@ -2,8 +2,8 @@
 // place). These initial values are the PRE-CHARGEN state only:
 // createCharacter (systems/chargen) rolls the real career the first
 // time a chargen-running context boots, and every host runs it
-// through systems/chargenSession.js - dungeonContext.js:2425,
-// world.js:5279, exterior.js:1411 and applyHeadlessChargen for the
+// through systems/chargenSession.js - dungeonContext.js:2430,
+// world.js:5445, exterior.js:1411 and applyHeadlessChargen for the
 // test room (AUDIT 23).
 //
 // NOT A GAP (recorded): the stand-ins below - flat skills 30,
@@ -198,6 +198,22 @@ export const playerDamageWithheld = () => { if (_staff.god) return true; try { r
 export function setStaffPowers({ god, fly } = {}) { if (typeof god === 'boolean') _staff.god = god; if (typeof fly === 'boolean') _staff.fly = fly; }
 export const staffPowers = () => ({ ..._staff });
 export const staffFly = () => _staff.fly;
+/** AUDIT-SEATS G5 (Seats-Arc 6.1: "Teleport, Recall and Levitate do nothing in a siege room"): THE WARD ON THE LEVITATE
+ *  EFFECT, registered by the host that knows where the player stands (scenes/world.js - a siege's own room): while it
+ *  answers true, the motor-flag write reads the effect as lifting nothing - inside that ONE write (scenes/shared.js
+ *  applyMotorEffectFlags), never a second: the motor cancels a step on every change of the flag. The staff's /fly is
+ *  the typer's own and is not warded. A ward that throws wards nothing. */
+let _levitateWard = null;
+export function registerLevitateWard(fn) { _levitateWard = typeof fn === 'function' ? fn : null; }
+export const levitateWarded = () => { try { return !!_levitateWard?.(); } catch { return false; } };
+/** AUDIT-SEATS G4 (Seats-Arc 6.6: "a free camera over the town"; 19: "a free camera (WASD, the mouse, the pad's
+ *  sticks)"): A SPECTATOR'S FLIGHT, registered by the host that knows who watches a battle from its room (scenes/
+ *  world.js): while it answers true, the motor-flag write lifts the body as the staff's /fly does - the motor's own
+ *  levitation, so the keys, the mouse and the pad's sticks move it and the float keys raise and lower it; the host puts
+ *  the spectator back where it stood when the watching ends. A flight that throws lifts nothing. */
+let _freeFlight = null;
+export function registerFreeFlight(fn) { _freeFlight = typeof fn === 'function' ? fn : null; }
+export const freeFlight = () => { try { return !!_freeFlight?.(); } catch { return false; } };
 
 /** DUEL1: THE DUEL'S WORD THAT ITS PLAYER FELL, registered by the host that runs the duel (scenes/world.js - the duel
  *  law's `fell`) and reached through `duelSpare`, the `spare` every duel-sourced blow passes (the opponent's strike, the

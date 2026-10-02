@@ -400,8 +400,8 @@
   {
     "name": "ports-null-is-a-port",
     "file": "src/systems/travelPorts.js",
-    "old": "  if (mapId == null || !Number.isFinite(mapId)) return false;",
-    "new": "  if (mapId == null || !Number.isFinite(mapId)) return true;",
+    "old": "  if (mapId == null || !Number.isFinite(mapId)) return false;\n  return PORT_SET.has(maskMapId(mapId));",
+    "new": "  if (mapId == null || !Number.isFinite(mapId)) return true;\n  return PORT_SET.has(maskMapId(mapId));",
     "tests": [
       "test/to1_travelOptions.test.js"
     ]

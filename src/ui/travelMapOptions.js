@@ -27,7 +27,7 @@
 // module reads that store rather than growing a second one.
 
 import { drawMapSection, drawPath, drawLocation, isLocationLarge, packColor, packRGBA, DOT_SCALE, ROAD_COLOR, TRACK_COLOR, RIVER_COLOR, STREAM_COLOR } from './travelPathsOverlay.js';
-import { hasPort } from '../systems/travelPorts.js';
+import { hasPortFor as hasPort } from '../systems/travelPorts.js';   // SEAT2b part two: HasPort, or a members' Harbour at a seat (travelPorts.js hasPortFor)
 import { TRAVEL_OPTIONS_TEXT as T, format } from '../systems/travelOptionsText.js';
 import { PATH_ROADS, PATH_TRACKS, PATH_RIVERS, PATH_STREAMS } from '../systems/travelPaths.js';
 import { BUILDING_TYPES, isNamedBuildingType } from '../world/buildingNames.js';   // RMBLayout.IsNamedBuilding, one home

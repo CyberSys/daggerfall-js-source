@@ -245,11 +245,12 @@
   {
     "name": "RENOWN1-refusal-retried-forever",
     "file": "src/net/renownTracker.js",
-    "old": "    if (PERMANENT.has(r?.error)) { stopped = true; held = null; pending = 0; try { onStop(r.error); } catch { /* the stop stands */ } }",
-    "new": "    if (PERMANENT.has(r?.error)) { held = null; pending = 0; try { onStop(r.error); } catch { /* the stop stands */ } }",
+    "old": "    if (PERMANENT.has(r?.error)) { stopped = true; held = null; pend.clear(); try { onStop(r.error); } catch { /* the stop stands */ } }",
+    "new": "    if (PERMANENT.has(r?.error)) { held = null; pend.clear(); try { onStop(r.error); } catch { /* the stop stands */ } }",
     "tests": [
       "test/renown1.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "RENOWN1-layer-in-the-stored-health",
