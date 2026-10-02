@@ -11889,25 +11889,40 @@ Modelled end to end on the developer's `/seat strike <key>`.
   `POST /v1/seats/siege/void { key }` (`net/accountClient.js` accountSeats `voidSiege`) and says the answer in words.
 - **Who may** (`server-account/src/seatSiege.js` voidSiege): titles.js canModerate - a moderator (MOD1's list) or a
   developer; anyone else `not-moderator` (403). A seat with no battle this week `battle-none` (404, "No battle is named
-  here this week."); a battle already void answers `repeat` - idempotent.
+  here this week."); a battle already void answers `repeat` - idempotent. AUDIT 529 V5: a battle whose week its Turning
+  has settled (a void whose clock was read before the boundary) `battle-settled` (409, "That battle's week is settled -
+  its Turning has reckoned it, and it can no longer be voided."), asked in the void's own write too.
 - **What it does** - the seat's battle of this week (a siege, a Tourney or a revolt) void, a Chronicle row
   (`siege-voided`: "the siege of X was voided by the Moderators"), no red line; no pass opens to it and a receipt claimed
   after is `battle-void`. DECIDED, each: before its result, the Sellswords' escrow home now (signed or not), and the
-  challenger's Right does NOT carry (an exploit's void - the Turning carries only a battle still scheduled); after a
+  challenger's Right does NOT carry (an exploit's void - the Turning carries only a battle still scheduled) - and
+  (AUDIT 529 V1) a revolt's holder's Charter lapses now, as the Turning lapses a revolt nobody put down (the shared
+  `revoltStood` statements: the hold gone, its projects fallen, its Edict for next week void, `revolt-stood`); after a
   capture (or a revolt that stood), the Charter back to the guild that held it as the result kept it - its Standing, the
   week it took the seat, its truce, Tithe and arrears (none kept: Standing 50 from this week) - its Legacy back, the
   works' capture drop undone and a Fortifier's save unspent, the capturer's own projects fallen to the stockpile and its
-  Edict for next week void; after a hold (or a forfeit, or a revolt put down), the holder's Standing back where it stood
-  and its defence fifth struck, the challenger's bar lifted and its influence and Legacy back; after a Tourney, the
+  Edict for next week void, and (AUDIT 529 V2) the holder's own projects the capture or the lapse made fall begun again
+  (`seatForts.js` fortsRestoredStatements: the tier they were raising, their starter's marks and day, what they held
+  taken back out of the stockpile as far as it is still there - short, the day forgotten and the project waiting on the
+  stockpile again; given back, never refunded) and a revolt's voided Edict proclaimed again; (AUDIT 529 V3) a capture of
+  a seat the result kept unheld (its holder relinquished before the battle) gives no Charter back - the capturer's alone
+  gone; after a hold (or a forfeit, or a revolt put down), the holder's Standing back where it stood (AUDIT 529 V4: a
+  result that kept none leaves it as it stands) and its defence fifth struck, the challenger's bar lifted and its
+  influence and Legacy back; after a Tourney, the
   winner's Charter gone (the fee stays burnt). Honours, Marks, Renown and Spoils already claimed stand - never clawed
   back; the Sellswords paid at the result stay paid; the palace's decor a capture cleared is not given back. A forfeit
   the Moderators voided is not the pair's forfeit of the Season.
-- **Migration 0066** (`0067_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
+- **Migration 0067** (`0067_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
   result's own INSERT (the seat's Charter row, its Legacy rows from that week on, and at a capture the works' tiers
-  after the due projects rose), so the void gives back exactly that.
+  after the due projects rose), so the void gives back exactly that. AUDIT 529 V2: and at a capture or a revolt that
+  stood, the building projects the result makes fall (`projects`), what they held (`held`) and the holder's Edict for
+  next week (`edict`). AUDIT 529 V3: a result written before the column keeps NULL - the void reads it as nothing kept,
+  never as a seat nobody held.
 
 Pinned: `test/siege_void.test.js` (8). Mutants: `tools/mutants/siege_void.json` (39, all dead). A new route and a
-migration; no service version bump (no pin required one) and no relay change.
+migration; no service version bump (no pin required one) and no relay change. AUDIT 529 (V1-V6): six more tests
+(`test/siege_void.test.js`, 14), the mutants 60 (21 more, all dead); the service `acct64`, naming this route and migration 0067 and
+STANDING-TREND's `standing` rows, which rode acct63's deploy unnamed.
 
 ### STANDING-TREND and FESTIVAL-STAGE - Standing's trend, a Festival's town (2026-10-02)
 

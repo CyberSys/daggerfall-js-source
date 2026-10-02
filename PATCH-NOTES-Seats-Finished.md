@@ -18,7 +18,13 @@
 - **After a hold:** the holder keeps the seat but loses the Standing and the next-defence bonus the battle gave it, and the challenger's bar from the seat is lifted.
 - **Rewards already claimed stay claimed** - Honours, silver, Renown and Spoils are never taken back - but no new ones can be claimed from a voided battle.
 
-
 ## Standing and Festivals (online)
 - **Standing's trend.** A seat's board now says which way its holder's Standing moved since the last Turning - "Standing 55, up 7 since the last Turning."
 - **A Festival you can hear and see.** While a Festival rules in a town, its streets play the tavern's songs, the holder's banners hang at the taverns' doors and over the bounty boards too, and a lantern glows before every banner after dusk.
+
+## Fixes
+- **Voiding a revolt before it is fought no longer saves the Charter.** It now lapses, exactly as it would have at the Turning had nobody put the revolt down.
+- **A voided capture gives back the holder's building projects.** Anything the defenders were building when their seat fell starts again where it was, with the materials it held taken back from the seat's stockpile - the silver they spent on it is no longer lost. A voided revolt that stood does the same, and brings back the holder's Edict for next week.
+- **A guild that gave up its seat before the siege no longer gets it back from a void.** The capturer loses the seat, and it stands unheld, as it did before the battle.
+- **Voiding a held siege fought before this update leaves the holder's Standing alone** instead of taking off more than the battle gave.
+- **A void can no longer land after the Turning.** Once a battle's week has been reckoned, `/siege void` says so: "That battle's week is settled - its Turning has reckoned it, and it can no longer be voided."
