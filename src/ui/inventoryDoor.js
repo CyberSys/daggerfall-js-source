@@ -43,6 +43,7 @@ import { closeSession } from '../systems/inventorySession.js';
 import { immersiveFootsteps } from '../systems/immersiveFootsteps.js';   // AUDIT-IF F5: the enhanced skin's close refreshes the mod's armour slots too
 import { racialSuppressInventory } from '../systems/lycanthropy.js';   // DISC10-E L3: GetSuppressInventory, in the window itself
 import { messageBox } from '../systems/notify.js';   // DISC10-E L3: DaggerfallUI.MessageBox, the refusal's voice
+import { ChoiceWindow } from './talkWindow.js';   // REVENANT-FATE: the classic skin's keyed box
 
 export { inventoryArtLoaded };
 
@@ -69,6 +70,9 @@ export function createInventoryWindow(deps = {}) {
   // refusal onto a few of its doors and missed the rest (a building's pack,
   // every corpse and pile, the sheet's Items button). Here it is ONE door:
   // the line is said and no window is built - the caller mounts nothing.
+  // REVENANT-FATE: a beaten revenant's choice is the loot window's fate side on the enhanced skin; the classic's canvas
+  // window has no room for one, so there it is a keyed box - its name, its plea, K kill, S spare, Esc leave it
+  if (deps.fate && !(isEnhanced() && typeof document !== 'undefined')) return classicFateWindow(deps.fate);
   const sup = racialSuppressInventory(deps.entity);
   if (sup) { messageBox(sup.text); return null; }
   // `document` for the reason every fork before this one gives: node
@@ -78,6 +82,14 @@ export function createInventoryWindow(deps = {}) {
     return enhancedInventoryOverlay(deps);
   }
   return new NativeInventoryWindow(deps);
+}
+
+/** REVENANT-FATE on the classic skin: the choice as a keyed box (talkWindow.js ChoiceWindow). */
+function classicFateWindow(fate) {
+  const lines = [fate.name, fate.sub ?? '', '', fate.plea?.speech ? `"${fate.plea.speech}"` : (fate.plea?.body ?? ''), ''].filter((l, i, a) => l !== '' || (i > 0 && a[i - 1] !== ''));
+  const options = fate.options.filter((o) => !o.disabled).map((o) => ({ code: `Key${o.key}`, label: `${o.key} - ${o.label}: ${o.detail}`, action: () => fate.choose(o.id) }));
+  options.push({ code: 'Escape', label: 'Esc - Leave it kneeling', action: () => {} });
+  return new ChoiceWindow({ lines, options });
 }
 
 /**

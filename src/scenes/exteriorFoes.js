@@ -80,6 +80,9 @@ import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVis
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
 import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, applyRevenant, grantRevenantLoot, revenantById, revenantSay, revenantTauntEvent, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent, REVENANT_TAUNT_DISTANCE } from '../systems/revenant.js';   // REVENANT: the foes that kill you or run, and come back
+import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it
+import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE: burnt away, or gathered through a portal
+import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL
 import { elitesAllowed, promoteEliteFoe, rollOverworldElite, overworldEliteAllowed, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 2% of the wilds' foes, one at a time   // HITFLASH1
 
 // The port's allocation-owner guards (classic self-limits through the
@@ -242,7 +245,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // (scenes/deepWatersPlayer.js waterLevelY), so an aquatic foe swims
   // only then, as it does under the mod. Absent: no water.
   waterLevelY = null, groundStands = null,   // FALL-HOLD: (x, z) => whether ground is BUILT under that column (the streaming host's heightAt) - a foe over none is held (EnemyAI.holdFrame); absent, nothing is
-  magicHooks = null }) {  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams
+  magicHooks = null,  // X3-slice: { explodeAt, fireMissile } - the host's spell release seams
+  // REVENANT-FATE: the host can open a yielded revenant's choice (its activation's door) - a host that cannot leaves
+  // its revenants dying as ever; `dropLoot(items, feet)` where an executed one's pile is minted (the host's dropped-loot
+  // pool), absent a body is left holding it; `shake(k)` the camera's kick
+  fates = false, dropLoot = null, shake = null }) {
   const foes = [];        // { mobile, ai, attack, entity, batch, tex, archive, mobileType, dead, _encounter: true }
   const corpseBatches = [];
   // AUDIT 39 / THE FOUR HOSTS RULE: an IN-FLIGHT spawn's feet. spawnFoe
@@ -254,6 +261,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // array as soon as there is one, because EnemyAI COPIES the position
   // it is handed.
   const spawning = [];    // { feet, capped }
+  const portals = createPortalSet({ renderer, audio });   // COMPANION-PORTAL: this pool's own, drawn with its foes
+  let _eye = null;   // COMPANION-PORTAL: the camera, for a portal to stand behind its body
   // ELITE-RARITY: the character's minute the open world last stood an elite of mine - set at the promotion itself, so
   // a camp's members (one synchronous loop, each past its awaits in turn) never all win the roll
   let _lastEliteAt = null;
@@ -795,7 +804,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
 
   function damageFoe(f, damage, playerFeet, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null } = {}) {   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's)
-    if (f.dead || (fromPlayer && !peer && isShipmate(f))) return;   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
+    if (f.dead || (fromPlayer && !peer && isShipmate(f))) return;
+    if (f.yielded || f.executing || f.sparing) return;   // REVENANT-FATE: a beaten revenant takes no blow - its fate is the player's choice   // AUDIT 68 S20-foe-dies-twice: a corpse takes no blow - a magic round after the killing one re-ran the whole death (notice, loot handlers, corpse)   // AUDIT NAV2 F55: and a shipmate none of the player's, whatever road it took here (cityGuards' damageGuard holds a raid's defender so) - the vampiric drain's reached him as the player's attack and turned him
     if (fromPlayer && !peer) renownFoeStruck(f);   // RENOWN1: MY blow - a puppet's too, before the divert sends it to the owner
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the owner
@@ -870,6 +880,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // CREW-COMPANIONS: a companion is knocked out, never killed - held at 1 and marked, before every death arm (the
       // trap, the notice, the corpse); the companion layer (crewAshore.js) carries him back aboard next frame
       if (f.companion != null) { f.entity.health = 1; f._knockedOut = true; return; }
+      // REVENANT-FATE: one of the player's revenants beaten is never killed outright - it YIELDS (whoever struck: the
+      // revenant is the player's own), its fate the player's; a kill (a Disintegrate's whole) is a kill
+      if (fates && !_whole && revenantMayYield(f)) { yieldFoe(f); return; }
       // X5: the SOUL TRAP intercept, where EnemyEntity.SetHealth's
       // override sits (:157-177) - before the death, every source alike.
       // AUDIT WORLD6b B2 (AUDIT WORLD2 B9's law, the dungeon's): a PEER's killing blow reads no gem of mine and fills
@@ -1102,17 +1115,119 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   }
   /** REVENANT: a fleeing foe out of reach - gone as the cull takes a foe (no corpse, no kill, its batch freed; online
    *  its record leaves the stream), made a revenant (or a stronger one), and said. */
-  function escapeFoe(f) {
+  function escapeFoe(f, { slip = false } = {}) {
     releaseFoeBatch(f);
     f.dead = true;
     f.fleeing = false;
     f.escaped = true;
+    f.yielded = null;
     if (f.ai?.detected) setEnemyAlert(playerEntity, false);
     const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.archive });
-    if (r) revenantSay(revenantEscapeEvent(r, playerEntity?.name, { archive: f.archive }), say);
+    if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.archive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.archive }), say);   // REVENANT-FATE: a slip says the hesitation
+  }
+
+  // ── REVENANT-FATE: beaten, it yields; judged, it burns or is sworn ─────────────────────────────────────────────
+  /** It yields: held at 1, kneeling, its plea said - its fate the player's (systems/revenantFate.js). */
+  function yieldFoe(f) {
+    if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const ev = beginYield(playerEntity, f, { now: Date.now(), rolls });
+    if (f.ai) { f.ai.velX = 0; f.ai.velZ = 0; }
+    audio?.play3d?.(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });   // it drops to its knees
+    if (ev) revenantSay(ev, say);
+  }
+  /** The choice's model for a kneeling one (the host's window), or null. */
+  function fateFor(f) {
+    if (!f || f.dead || !f.yielded || !foes.includes(f)) return null;
+    return fateModel(playerEntity, f, { choose: (id) => chooseFate(f, id) });
+  }
+  /** The player chose: KILL - the execution plays; SPARE - it is sworn and steps into its portal. */
+  function chooseFate(f, id) {
+    if (!f?.yielded || f.dead) return false;
+    const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    if (id === 'kill') {
+      const ev = beginExecution(playerEntity, f, { now: Date.now(), rolls });
+      audio?.play3d?.(SOUND.SwingLowPitch, at, 1, { maxDistance: 16 });
+      shake?.(1.4);
+      if (ev) revenantSay(ev, say);
+      return true;
+    }
+    if (id === 'spare') {
+      const s = beginSpare(playerEntity, f, { now: Date.now(), rolls });
+      if (!s) return false;
+      portals.open(at);
+      revenantSay(s.event, say);
+      return true;
+    }
+    return false;
+  }
+  /** One frame of a judged or kneeling foe: no step, no blow, no cast - its pose held, its beats played. */
+  function fateFrame(f, dt, playerFeet, eye) {
+    const now = Date.now();
+    if (f.executing) {
+      const st = executionStep(f, now);
+      f._mout = kneelPose(f, eye, now);
+      if (st === 'burst') executionBurst(f);
+      else if (st === 'done') executionDone(f);
+      return;
+    }
+    if (f.sparing) {
+      f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;   // it rises
+      if (spareDone(f, now)) questPoolOps.removeFoe(f);   // through: the companion layer stands it at the player's side
+      return;
+    }
+    if (yieldStep(f, playerFeet, dt * 1000) === 'slip') { escapeFoe(f, { slip: true }); return; }
+    f._mout = kneelPose(f, eye, now);
+  }
+  /** The blow's burst: blood thrown wide, the body's last flash, the ground shaken. */
+  function executionBurst(f) {
+    const mark = ENEMY_BASICS[f.mobileType]?.bloodIndex ?? 0;
+    const max = f.entity?.maxHealth || 100;
+    // the heaviest blow there is: past every overkill line, a warhammer's to throw the gibs (combat/bloodDecals.js)
+    hitEffects?.showBloodSplash(mark, f.ai._centre?.() ?? f.ai.feet, null, { ...bloodHit(max * 4, f.entity, { fromPlayer: true, weapon: { templateIndex: 126 } }), markIndex: mark });
+    audio?.play3d?.(SOUND.Hit2, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 20 });
+    audio?.play3d?.(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.7, { maxDistance: 20 });
+    shake?.(3);
+    setBatchHitFlash(f.batch, 1);
+  }
+  /** Burnt away: gone with no body - its kill counted - and where it knelt, its pile: all it carried, and its trophy. */
+  function executionDone(f) {
+    const feet = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    reportPlayerKill(f.entity, { kind: 'melee' });   // SET2: a kill of mine
+    renownFoeDied(f);
+    raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath - its handlers' items join its pile
+    const items = finishExecution(playerEntity, f);
+    releaseFoeBatch(f);
+    f.dead = true;
+    f.executed = true;
+    f.executing = null;
+    if (typeof dropLoot === 'function' && items.length) { try { dropLoot(items, feet); playRareDrop?.(audio, feet, items); } catch (e) { console.warn('[revenant] the pile would not drop', e?.message ?? e); } }
+    else if (items.length) { f.entity.items = items; f.corpse = true; f._diedAt = _now(); mintCorpse(f); }   // no pile door: a body holds it
+  }
+  /** COMPANION-PORTAL: the place's portal work for the companion layer (crewAshore.js `place.fx`). */
+  const companionFx = {
+    arrive(rec) { if (!rec?.ai) return; portals.open(rec.ai.feet); rec.portalFx = { dir: 'in', at: Date.now(), delay: 220, ms: 640 }; },
+    leave(rec, done) {
+      if (!rec?.ai || rec.dead) { done(); return; }
+      portals.open(rec.ai.feet);
+      rec.portalFx = { dir: 'out', at: Date.now(), delay: 180, ms: 600 };
+      rec.leaving = { at: Date.now(), done };
+    },
+    jump(rec, from) {
+      if (!rec?.ai) return;
+      portals.open(from, { short: true });
+      portals.open(rec.ai.feet, { short: true, quiet: true });
+      rec.portalFx = { dir: 'in', at: Date.now(), delay: 140, ms: 480 };
+    },
+  };
+  /** A companion stepping out through its portal: held where it stands, taken out once the portal has it. */
+  function leavingFrame(f, eye) {
+    f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
+    if (Date.now() - f.leaving.at >= 900) { const done = f.leaving.done; f.leaving = null; try { done(); } catch { questPoolOps.removeFoe(f); } }
   }
   function update(dt, playerFeet, eye, senses = {}) {
     _ecvT += dt; _lastPlayerHeight = senses.playerHeight ?? CAPSULE_HEIGHT;   // ROAD-H H2: the live capsule this tick, for the AoC blast the cast seam fires
+    if (eye) _eye = eye;
+    portals.tick(_eye);   // COMPANION-PORTAL: each opening, holding, sealing
     hitEffects?.bleed?.(dt, foes, foeBleedView);   // BLOOD2c: the wounded drip, the dead bleed out - every body this pool walks, puppets included
     _peerFrame++;   // WORLD6b-ii: the peers are read once a frame
     spaceFoes(foes, collider, foeFrameDt(dt));   // FOE-SPACING: two bodies in one spot are pushed apart (characters/foeSpacing.js)
@@ -1153,6 +1268,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
           f._pup.cast = null;
         }
         f._mout = f.mobile.update(dt, { moving: f.ai.moving, striking: edge && !f.attack.firedRanged, rangedStriking: edge && !!f.attack.firedRanged, hurting: f.ai.hurtKnock, casting: !!f._castPending }, f.ai.yaw, f.ai.feet, eye);
+        if ((f._pupYield || f._pupExec) && f.mobile.heldPose) f._mout = f.mobile.heldPose('hurt', -1, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet);   // REVENANT-FATE: its owner's kneels - so it kneels here
         f._castPending = false;
         if (edge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));
         tickEnemySound(f.sounds, f.ai.feet, playerFeet, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });
@@ -1178,6 +1294,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         }
         continue;
       }
+      // REVENANT-FATE: a beaten revenant kneels - no step, no blow, no cast - until its fate is chosen (or it slips away);
+      // its execution and its oath play out where it knelt. COMPANION-PORTAL: a companion stepping out stands still.
+      if (f.yielded || f.executing || f.sparing) { fateFrame(f, dt, playerFeet, eye); continue; }
+      if (f.leaving) { leavingFrame(f, eye); continue; }
       // AUDIT 24 (wave 32): PARALYSIS. This pool passed the literal `false`
       // for the motor's paralyzed argument and ran the attack machine
       // unconditionally, so a paralysed encounter foe kept walking and kept
@@ -1559,7 +1679,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
     const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
-    return t ? { title: t } : null;
+    return t ? { title: f.yielded || f._pupYield ? `${t} - beaten` : t } : null;   // REVENANT-FATE: a kneeling revenant says so
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),
   // not a bulk transfer - `openWindow` is the host's own inventory door.
@@ -1644,6 +1764,9 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       f.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
       setBatchHitFlash(f.batch, foeHitFlash(f, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
       setBatchEliteGlow(f.batch, eliteGlow(f.entity, performance.now() / 1000, (f.seq * 1.7) % 6.28), performance.now() / 1000);   // ELITE FOES: the pulse
+      const _dv = f.executing || f.sparing || f.portalFx ? fateDissolve(f, Date.now()) : f._pupExec ? fateDissolve({ executing: { at: f._pupExec } }, Date.now()) : null;   // REVENANT-FATE / COMPANION-PORTAL: burning away (its owner's too), or through a portal
+      if (!_dv && f.portalFx && f.portalFx.dir === 'in') f.portalFx = null;   // through: whole
+      setBatchDissolve(f.batch, _dv ? _dv[0] : 0, _dv ? _dv.slice(1) : undefined);
 
       const o = f._mout;
       const rkey = `${o.record}#${o.frame}`;
@@ -1663,7 +1786,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       } else f.batch.origin = f.ai.feet;
       out.push(f.batch);
     }
-    return [...out, ...corpseBatches.map((c) => c.batch)];
+    return [...out, ...corpseBatches.map((c) => c.batch), ...portals.batches()];   // COMPANION-PORTAL: and the portals
   }
 
   /** CollectLooseObjects (StreamingWorld.cs:1040-1052), the corpse
@@ -1735,6 +1858,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     for (const f of foes) releaseFoeBatch(f);
     for (const c of corpseBatches) renderer.destroyBillboardBatch(c.batch);
     corpseBatches.length = 0;
+    portals.clear();   // COMPANION-PORTAL: and the portals standing
     foes.length = 0;
     for (const s of spawning) s.capped = false;   // AUDIT 68 S20-encounter-cap-race: a cancelled spawn holds no slot in the next world
     _lostSites.clear();   // AUDIT WB12d (C1): a site a race gave away is the old world's - the epoch above already ends its spawns in flight
@@ -1754,6 +1878,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     }
     // AUDIT 39: the spawns still crossing their awaits move too.
     for (const s of spawning) { s.feet[0] += offset[0]; s.feet[1] += offset[1]; s.feet[2] += offset[2]; }
+    portals.offsetAll(offset);   // COMPANION-PORTAL
     for (const c of corpseBatches) {
       c.pos[0] += offset[0]; c.pos[1] += offset[1]; c.pos[2] += offset[2];
       renderer.destroyBatch(c.batch);
@@ -1778,7 +1903,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  teardown loses corpses on any teleport already, and DFU's own
    *  restore disables a dead record rather than re-minting it. */
   function snapshotWorld(toNative) {
-    return foes.filter((f) => !f.dead && !f.puppet && !f.transient).map((f) => {   // WORLD6b: a puppet is its owner's, never this save's; DW-E4: nor a foe with no LoadID
+    return foes.filter((f) => !f.dead && !f.puppet && !f.transient && !f.yielded && !f.executing && !f.sparing).map((f) => {   // REVENANT-FATE: a kneeling revenant is the moment's, never the save's   // WORLD6b: a puppet is its owner's, never this save's; DW-E4: nor a foe with no LoadID
       const wc = toNative(f.ai.feet);
       return {
         mobileType: f.mobileType, gender: f.gender,
@@ -1980,12 +2105,12 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       const g = wireRecipient(f.ai.target);   // AUDIT WORLD6b-ii A8: no target is '' (none) - '.' was the word for a foe that had not stepped yet, and it latched the puppet hostile
       // AUDIT WORLD6b-ii B2/B3: the attacker's terms - its level and its right-hand weapon - so a puppet's blow is this foe's
       const wpn = f.entity.weapon, wd = wpn && Number.isInteger(wpn.templateIndex) ? [wpn.templateIndex, wpn.material | 0] : null;
-      const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), ...(Number.isFinite(f.entity.maxHealth) && f.entity.maxHealth >= 1 ? { k: Math.min(FOE_HEALTH_MAX, f.entity.maxHealth) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0), ...(f.entity?.eliteFoe ? { z: 1 } : {}), ...(!onWatch && typeof f.entity?.revenant?.name === 'string' && f.entity.revenant.name ? { nm: f.entity.revenant.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, REVENANT_NAME_MAX) } : {}) };   // REVENANT-WIRE: its revenant's name rides to every puppet   // ELITE FOES: `z` an elite, so a puppet stands as one   // AUDIT (pre-merge) Q5: nor a quest foe's body - its take arm answers only the owner's own (A5), so a member's press asked again forever   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
+      const r = { i: f.seq, t: f.mobileType, x: f.gender === 'female' ? 1 : 0, f: [q2(w[0]), q2(w[1]), q2(w[2])], y: q3(f.ai.yaw), ...(Number.isFinite(f.entity.health) ? { h: Math.max(0, Math.min(FOE_HEALTH_MAX, f.entity.health)) } : {}), ...(Number.isFinite(f.entity.maxHealth) && f.entity.maxHealth >= 1 ? { k: Math.min(FOE_HEALTH_MAX, f.entity.maxHealth) } : {}), d: f.dead ? 1 : 0, a: f._atkA | 0, b: f._atkB ?? '', m: f.ai.moving ? 1 : 0, g, l: f.entity.level | 0, w: wd, c: f._castN | 0, s: f._castIdx | 0, u: f._castU ?? '', o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0), ...(f.entity?.eliteFoe ? { z: 1 } : {}), ...(!onWatch && typeof f.entity?.revenant?.name === 'string' && f.entity.revenant.name ? { nm: f.entity.revenant.name.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, REVENANT_NAME_MAX) } : {}), ...(f.yielded ? { yd: 1 } : {}), ...(f.executing ? { ex: 1 } : {}) };   // REVENANT-FATE: kneeling, burning   // REVENANT-WIRE: its revenant's name rides to every puppet   // ELITE FOES: `z` an elite, so a puppet stands as one   // AUDIT (pre-merge) Q5: nor a quest foe's body - its take arm answers only the owner's own (A5), so a member's press asked again forever   // AUDIT WATCH1 A3: a watch body advertises NO pile - its take arm is its owner's own door (cityGuards.takeLoot), which the wire does not reach, so a peer offered the body clicked it for ever and heard nothing; WORLD6b-iii: the cast count and its spell; AUDIT WORLD6b-iii(a) A3: b/u whom the last blow/cast was at; WORLD6b-iii(c): o the body's pile
       if (!onWatch && f.entity?.champion) r.cp = championIndex(f.entity.champion);   // LOOT7: its trait rides to every puppet, which stands as the same champion
       if (!onWatch && !f.dead && _sharedFoe(f)) { const n = fightN(f); if (n > 1) r.n = n; }   // AUDIT PSCALE1: how many fight it - every reader weighs its hits by the owner's count
       if (!onWatch && f.dead && typeof f._trapBy === 'string') { r.j = f._trapBy; r.q = f._trapQ | 0; }   // STRIKE-SHARED: whose soul trap was on it as it fell, and the trap's chance
       if (heirOf && !onWatch && !f.dead) { const h = heirOf(f) ?? null; f._heir = h; if (h) r.e = h; }   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame); QUEST-PARTY phase 2: a shared quest's foe too - the host names a party member   // AUDIT CONTRIB P1: the handover frame's heir (handOverFrame)
-      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''}`;
+      const key = `${r.f[0]},${r.f[1]},${r.f[2]},${r.y},${r.h},${r.k},${r.d},${r.a},${r.b},${r.m},${r.g},${r.l},${wd ? wd.join('/') : '-'},${r.c},${r.s},${r.u},${r.o},${r.n},${r.z ?? 0},${r.nm ?? ''},${r.yd ?? 0},${r.ex ?? 0}`;
       if (!full && f._sentKey === key) continue;
       f._sentKey = key;
       out.push(r); src.set(r, f); if (qt) qtOf.set(r, qt);
@@ -2230,6 +2355,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (r.m !== undefined) p.moving = r.m === 1;
     if (r.h !== undefined && f._pupQuest && !f._qHurt && p.h != null && r.h < p.h) { f._qHurt = true; _questShare?.onPuppetHurt?.(f._pupQuest); }   // QUEST-PARTY: the first blow I see land is the injury my copy of the quest reads (QuestResourceBehaviour's own check)
     if (r.z === 1 && !f.entity.eliteFoe && !f.entity.champion) promoteEliteFoe(f.entity, { own: false });
+    f._pupYield = r.yd === 1;   // REVENANT-FATE: its owner's revenant kneels...
+    f._pupExec = r.ex === 1 ? (f._pupExec ?? Date.now()) : null;   // ...or burns away, from the record that said so
     if (typeof r.nm === 'string' && r.nm && f.entity.revenant?.name !== r.nm) f.entity.revenant = { id: null, name: r.nm, rank: 0 };   // REVENANT-WIRE: called what its owner calls it   // ELITE FOES: its owner's elite - the blows, the size, the glow (its maximum is `k`)
     if (r.k !== undefined) f.entity.maxHealth = r.k;   // AUDIT SETS M1: the owner's maximum - "under half" is its word
     if (r.h !== undefined) { if (p.h != null && r.h < p.h) p.hurt = true; p.h = r.h; f.entity.health = r.h; }   // AUDIT WORLD6b-iii(a) B6: a drop against the last STREAMED health - a self-heal cast here made every record after it a hurt
@@ -2699,6 +2826,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // live (scenes/lootLines.js picks the Rare-or-better); a peer's body shows none - its list lives on its owner's side
     lootFinds: () => foes.filter((f) => f.dead && f.corpseMarker && !f.puppet && !f.corpseDisabled && f.entity?.items?.length).map((f) => ({ root: lootCrown(f.corpseMarker.pos, f.corpseMarker.size), items: f.entity.items })),
     // WORLD6b: the cell's stream - the net installed, my foes out, a peer's in, a peer's blow in, the puppets pruned
+    fateFor, chooseFate, companionFx, portals,   // REVENANT-FATE: a kneeling revenant's choice; COMPANION-PORTAL: this pool's portals
     setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
     setQuestShare,   // QUEST-PARTY

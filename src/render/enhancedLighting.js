@@ -68,6 +68,7 @@ import { BAYER_GLSL, BAYER_MEAN } from './orderedDither.js';
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
+import { DISSOLVE_GLSL } from '../systems/dissolve.js';   // DISSOLVE: the classic BB_FS's own
 import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
@@ -645,6 +646,7 @@ ${EL_POINT_LIT_GLSL}
 ${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
 ${ELITE_GLOW_GLSL}
+${DISSOLVE_GLSL}
 out vec4 outColor;
 void main() {
   vec2 uv = vUV;
@@ -662,6 +664,7 @@ void main() {
     }
     discard;
   }
+  if (dissolveGone(uv)) discard;   // DISSOLVE: burnt away, or not yet through its portal
   vec3 emission = elDecode(texture(uEmissionTex, uv).rgb);
   vec3 albedo = max(elDecode(tex.rgb) - emission, vec3(0.0));
   vec3 base = vBBBase + vec3(0.0, 0.5, 0.0);   // EL2: the shadow is read a half unit up the sprite's base, once for the whole flat
@@ -685,6 +688,7 @@ void main() {
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3's mode, which this lane never drew
   lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: a struck body's red - the lane had no flash at all
+  lit = dissolveLit(lit, uv);   // DISSOLVE: the burning edge, in linear light for the bloom to catch
   if (uConceal.x == 4.0) lit = vec3(0.0);
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;

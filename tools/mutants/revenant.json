@@ -83,8 +83,8 @@
   {
     "name": "REVENANT-the-slain-returned",
     "file": "src/systems/revenant.js",
-    "old": "export const livingRevenants = () => _state.list.filter((r) => !r.defeated && !r.gone);",
-    "new": "export const livingRevenants = () => _state.list.filter((r) => !r.gone);",
+    "old": "export const livingRevenants = () => _state.list.filter((r) => !r.defeated && !r.gone && !r.sworn);",
+    "new": "export const livingRevenants = () => _state.list.filter((r) => !r.gone && !r.sworn);",
     "tests": [
       "test/revenant.test.js"
     ]

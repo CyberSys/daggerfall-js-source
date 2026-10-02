@@ -79,7 +79,8 @@ import { dfWornEquipment } from '../formats/mwItemMap.js';   // PX25
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // PX26
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';   // PX25
 import { inventoryItemImage, inventoryItemModel, templateByIndex, isAmmunition } from '../systems/itemTemplates.js';   // WEAR-UI: isAmmunition, spent not worn
-import { requestIcon, paperDollDataUrl, requestFittedPicture, iconName, fittedImg } from './textureCanvas.js';
+import { requestIcon, paperDollDataUrl, requestFittedPicture, requestFittedIcon, iconName, fittedImg } from './textureCanvas.js';
+import { fateColumn, fateKey, ensureFateStyle, FATE_FACE_BOX } from './revenantFateView.js';   // REVENANT-FATE: a beaten revenant's choice, this window's FATE side
 import { SLOT_BOX, gridBox, wornBox, screenDpr } from './iconFit.js';   // UI1: the fit law's boxes and the screen's ratio
 import { requestModelIconUrl } from './modelIcon.js';   // DISC24-B
 import { modelIconUrl as modelIconUrlOf } from './itemIconUrl.js';   // MW-D38, shared with the HUD's quickslots (QS3)
@@ -300,7 +301,7 @@ export function equippedModel(entity = {}) {
 /** What the remote side is CALLED, per DFU's four claims. The word is
  *  the port's; which claim is showing is inventorySession's. */
 export const REMOTE_TITLE = Object.freeze({
-  wagon: 'Wagon', reward: 'Choose one', container: 'Loot', storage: 'Storage', ground: 'Ground',
+  wagon: 'Wagon', reward: 'Choose one', container: 'Loot', storage: 'Storage', ground: 'Ground', fate: 'Fate',
 });
 /** What moving an item THERE is called. A verb per destination,
  *  because "Transfer" tells the player nothing about where. */
@@ -320,6 +321,8 @@ const GOLD_VERB = Object.freeze({ wagon: 'Stow', container: 'Drop', storage: 'St
  * wagon would be a second reading of that order.
  */
 export function remoteModel(deps = {}, state = {}) {
+  // REVENANT-FATE: a beaten revenant's choice - this window's remote side with no list of items, called by its name
+  if (deps.fate) return { kind: 'fate', title: deps.fate.name ?? REMOTE_TITLE.fate, items: [], count: 0, weight: 0, capacity: null, pile: null };
   const items = (remoteTarget(deps, state) ?? []).filter(Boolean);
   const kind = state.usingWagon ? 'wagon'
     : state.chooseOne ? 'reward'
@@ -585,6 +588,7 @@ let tab = PAGE_IDS[0];
 const _scrollMemo = new Map();   // PX22: scrollTop per tab across repaints
 let _renderedTab = null;          // PX22: the tab the current DOM shows
 let picked = null;      // the selected item object
+let fatePick = null;    // REVENANT-FATE: the fate row picked ('kill' | 'spare'), the second press confirms
 let side = 'local';     // which list `picked` came out of
 let notice = null;
 /** CHAT-POST: what the card says after a post. */
@@ -2450,7 +2454,35 @@ function pileTabs(pile) {
   return bar;
 }
 
+/** REVENANT-FATE: the fate side - the trophy drawn as a looted weapon is, the revenant's portrait in its well. */
+function fateCol() {
+  ensureFateStyle(typeof document === 'undefined' ? null : document);
+  const fate = deps.fate;
+  const choose = (id) => {
+    const f = deps.fate;
+    fatePick = null;
+    onExit();   // the window's own close law first; the choice plays on an open world
+    try { f?.choose?.(id); } catch (e) { console.warn('[fate]', e?.message ?? e); }
+  };
+  return fateColumn(fate, fatePick, {
+    el,
+    trophyTile: (row, item) => { markItemFrame(row, item); row.append(tileWithWear(itemLine(item, deps.entity), row, SLOT_BOX.loot)); },
+    portrait: (face, p) => {
+      if (!p || !Number.isInteger(p.archive)) return false;
+      try {
+        const pic = requestFittedIcon(p.archive, p.record, { box: FATE_FACE_BOX, dpr: screenDpr(), cap: 8, onReady: () => { if (host && deps.fate === fate) render(); } });
+        if (!pic?.src) return false;
+        face.append(fittedImg(pic));
+        return true;
+      } catch { return false; }
+    },
+    onPick: (id) => { fatePick = id; render(); },
+    onChoose: choose,
+  });
+}
+
 function remoteCol() {
+  if (remote.kind === 'fate') return fateCol();   // REVENANT-FATE
   const col = el('section', 'packcol packremote');
   if (remote.pile) col.append(pileTabs(remote.pile));
   const head = el('div', 'remotehead');
@@ -3367,7 +3399,7 @@ function render() {
     // PX21e: a long pile WIDENS rather than scrolls - two columns of
     // rows hold twice as much in the same height.
     const loot = (remote.kind !== 'ground' || remote.count > 0)
-      ? el('aside', `loot-win${remote.count > LOOT_ONE_COLUMN ? ' wide' : ''}`) : null;
+      ? el('aside', `loot-win${remote.count > LOOT_ONE_COLUMN ? ' wide' : ''}${remote.kind === 'fate' ? ' fate' : ''}`) : null;   // REVENANT-FATE: the fate side's own width
     if (loot) {
       for (const c of ['tl', 'tr', 'bl', 'br']) loot.append(el('span', `px-gem px-corner px-${c}`));
       loot.append(remoteCol());
@@ -3471,6 +3503,8 @@ function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  // REVENANT-FATE: K and S pick, a second press or Enter confirms, Back steps out of a pick (and then closes, below)
+  if (deps?.fate && !e.repeat && fateKey(e, deps.fate, fatePick, { onPick: (id) => { fatePick = id; render(); }, onChoose: (id) => { const f = deps.fate; fatePick = null; onExit(); try { f?.choose?.(id); } catch (err) { console.warn('[fate]', err?.message ?? err); } } })) { e.preventDefault(); e.stopPropagation(); return; }
   // DROPS-AUDIT F5: Escape with the PLUS7 menu open puts the MENU away, not the pack - this handler hears the key
   // first (window capture runs before the menu's own document listener), so it answers for the menu here
   if (menuEl && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
@@ -3560,6 +3594,7 @@ export function mountEnhancedInventory(hostEl, d = {}) {
   // (PlayerActivate.cs:902-925), and the classic skin still does.
   packOpen = !d.loot || d.loot.storage === true;
   side = d.loot ? 'remote' : 'local';
+  fatePick = null;   // REVENANT-FATE: a fate comes as a body's loot does (an empty one - the host's door), its side alone
   // MAC-M2: the "that release was a drag" latch belongs to a GESTURE,
   // so it must not outlive the pane that held it - a session that ended
   // on a release no click ever followed (one off the panel lands on the

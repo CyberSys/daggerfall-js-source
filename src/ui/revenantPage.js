@@ -86,7 +86,9 @@ export function deedWords(r) {
   const s = parts.join(', ');
   return s ? s.charAt(0).toUpperCase() + s.slice(1) + '.' : '';
 }
-const DEED_WORDS = Object.freeze({ slew: 'killed you', fled: 'escaped', returned: 'came back', fell: 'fell' });
+const DEED_WORDS = Object.freeze({ slew: 'killed you', fled: 'escaped', returned: 'came back', fell: 'fell', yielded: 'yielded', executed: 'executed', spared: 'spared', released: 'released' });
+/** REVENANT-FATE: how a fallen one ended, in the page's words. */
+const FATE_WORDS = Object.freeze({ executed: 'Executed', released: 'Released' });
 
 function face(el, r) {
   const f = el('div', 'rvn-face');
@@ -114,17 +116,24 @@ function row(el, r, now, kindName) {
   const text = el('div', 'rvn-text');
   const head = el('div', 'rvn-head');
   head.append(el('span', 'rvn-name', r.name));
-  const come = fallen ? null : comeWords(r, now);
+  const come = fallen || r.sworn ? null : comeWords(r, now);
   if (come) head.append(el('span', `rvn-when ${come.cls}`.trim(), come.tag));
+  else if (r.sworn) head.append(el('span', 'rvn-when is-waiting', 'Sworn'));   // REVENANT-COMPANION
   const trait = typeof r.trait === 'string' && r.trait ? r.trait.charAt(0).toUpperCase() + r.trait.slice(1) : null;
   const sub = el('span', 'rvn-sub', [`Rank ${revenantRankNumeral(r.rank)}`, kindName(r.mobileType), trait, r.elite ? 'Elite' : null].filter(Boolean).join(' · '));
   const P = PERSONALITIES[r.personality];
   if (P) sub.insertBefore(el('span', 'rvn-mood', P.label), sub.firstChild ?? null);   // REVENANT-VOICE: who it is
   text.append(head, sub);
   if (P) text.append(el('span', 'rvn-blurb', P.blurb));
+  if (r.sworn) {   // REVENANT-COMPANION: it walks with the player now - the Companions page keeps it
+    const st = r.companion?.state ?? 'with';
+    text.append(el('span', 'rvn-come', st === 'with' ? 'Sworn to you - at your side.' : st === 'resting' ? 'Sworn to you - recovering from a fall.' : 'Sworn to you - away, waiting for your call.'));
+    item.append(face(el, r), text);
+    return item;
+  }
   const deeds = deedWords(r);
   if (deeds) text.append(el('span', 'rvn-deeds', deeds));
-  text.append(el('span', 'rvn-come', fallen ? `Fell ${agoWords(r.defeatedAt ?? now, now)}.` : come.line));
+  text.append(el('span', 'rvn-come', fallen ? `${FATE_WORDS[r.fate] ?? 'Fell'} ${agoWords(r.defeatedAt ?? now, now)}.` : come.line));
   const hist = (r.history ?? []).slice(-5);
   if (hist.length) {
     const ul = el('ul', 'rvn-history');
@@ -143,7 +152,8 @@ export function drawRevenantsPage(detail, rerender, { el, divider, player = null
   ensureStyle(typeof document === 'undefined' ? null : document);
   const now = Math.floor(ownMinutes());
   const all = revenantsFor(player);
-  const living = all.filter((r) => !r.defeated).sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);
+  const living = all.filter((r) => !r.defeated && !r.sworn).sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);
+  const sworn = all.filter((r) => r.sworn && !r.defeated).sort((a, b) => b.rank - a.rank);   // REVENANT-COMPANION
   const fallen = all.filter((r) => r.defeated).sort((a, b) => (b.defeatedAt ?? 0) - (a.defeatedAt ?? 0));
   detail.append(divider(`Revenants (${living.length} of ${REVENANT_MAX})`));
   if (!living.length) {
@@ -153,6 +163,12 @@ export function drawRevenantsPage(detail, rerender, { el, divider, player = null
   } else {
     const list = el('div', 'rvn-list');
     for (const r of living) list.append(row(el, r, now, kindName));
+    detail.append(list);
+  }
+  if (sworn.length) {
+    detail.append(divider('Sworn to you'));
+    const list = el('div', 'rvn-list');
+    for (const r of sworn) list.append(row(el, r, now, kindName));
     detail.append(list);
   }
   if (fallen.length) {

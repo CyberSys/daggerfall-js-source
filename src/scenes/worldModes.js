@@ -1172,6 +1172,8 @@ export function createWorldModes(host) {
       // sound, knockback, death, corpse, loot AND the splash - runs
       // indoors exactly as it does in the other three hosts.
       hitEffects: interiorHitEffects,
+      // REVENANT-FATE: the host opens a beaten revenant's choice; an executed one's pile is the building's dropped loot
+      fates: !!host.openRevenantFate, dropLoot: (items, feet) => interiorDropped.dropPile(items, feet), shake: (k) => host.shakeCamera?.(k),
       playerWeaponSheathed: () => !!interiorWeapon.playerWeapon.sheathed,
       currentMinute: () => Math.floor(interiorTicker.ownMinutes),
       // exterior.js's arm, and for the same reason: a host whose
@@ -6894,6 +6896,7 @@ export function createWorldModes(host) {
         modal: (t) => mountInterior(new ActionTextBox(String(t).split('\n'))),
         makeEnemiesHostile: () => makeEnemiesHostile(interiorEnemyDatabase()),
         openCompanion: (rec) => !!host.openCompanionPack?.(rec),   // COMPANION-KIT: my companion's pack
+        openFate: (rec) => !!host.openRevenantFate?.(rec),   // REVENANT-FATE: a beaten revenant's choice
         playerFeet: player.pos,
         nothingText: () => townTalk?.randomText?.(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
       }) : false);
@@ -7528,6 +7531,7 @@ export function createWorldModes(host) {
           postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
           allyMarks: (sp) => host.allyMarks?.(sp) ?? null,   // AID1 onto ALLY-CAST: the party mates' bodies, in the dungeon's frame - SPELL-GIFT: with the spell
           companionBodies: () => host.companionBodies?.() ?? null,   // COMPANION-KIT: my companions underground (the dungeon's own records)
+          fates: !!host.openRevenantFate, shakeCamera: (k) => host.shakeCamera?.(k),   // REVENANT-FATE: the host opens a beaten revenant's choice; an execution's blow felt
           onLootClaimed: () => host.onLootClaimed?.(),   // AUDIT WORLD4 C2/D5: a claimed container makes the room's memory due this frame
           // A10: the Recall prompt (Teleport.cs:81-98). The outer host
           // owns it - the plan's arms are its pixel teleport, its mode
@@ -7890,6 +7894,7 @@ export function createWorldModes(host) {
       reach, getInteractionMode(), playerEntity, {
         nearerThan,
         openCompanion: (rec) => !!host.openCompanionPack?.(rec),   // COMPANION-KIT: my companion's pack, underground
+        openFate: (rec) => !!host.openRevenantFate?.(rec),   // REVENANT-FATE: a beaten revenant's choice, underground
         // AUDIT 65 HP-2/HP-3: the sinks are the DUNGEON'S, not the
         // building's. DaggerfallUI.MessageBox builds on uiManager's
         // TopWindow (PlayerActivate.cs:1640/:1646 -> DaggerfallUI.cs:1328-1330)

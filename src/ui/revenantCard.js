@@ -111,6 +111,22 @@ body .rvncard.is-slain .rvncard-face::before {
   content: ''; position: absolute; left: -10%; right: -10%; top: 50%; z-index: 1; border-top: 3px solid #8c3a32;
   transform: rotate(-38deg); box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
 }
+/* REVENANT-FATE: beaten in gold, executed in blood, sworn in green, a slip in amber; REVENANT-COMPANION: the sworn's
+   own words in the portal's violet, its leaving in ash */
+body .rvncard.is-yield { border-left-color: #c9a227; }
+body .rvncard.is-yield .rvncard-kicker { color: #f3cf86; }
+body .rvncard.is-executed { border-left-color: #a02a20; }
+body .rvncard.is-executed .rvncard-face img { filter: saturate(0.4) brightness(0.8) sepia(0.6) hue-rotate(-30deg); }
+body .rvncard.is-spared { border-left-color: #4f9a62; }
+body .rvncard.is-spared .rvncard-kicker { color: #8fc7a0; }
+body .rvncard.is-slip { border-left-color: #c9822e; }
+body .rvncard.is-slip .rvncard-kicker { color: #e0a54a; }
+body .rvncard.is-arrive, body .rvncard.is-battle, body .rvncard.is-kill { border-left-color: #8a63d2; }
+body .rvncard.is-arrive .rvncard-kicker, body .rvncard.is-battle .rvncard-kicker, body .rvncard.is-kill .rvncard-kicker { color: #c3a8ff; }
+body .rvncard.is-dismiss, body .rvncard.is-release { border-left-color: #6d6a63; }
+body .rvncard.is-dismiss .rvncard-kicker, body .rvncard.is-release .rvncard-kicker { color: #b8b0a0; }
+body .rvncard.is-downed { border-left-color: #c9822e; }
+body .rvncard.is-downed .rvncard-kicker { color: #e0a54a; }
 body .rvncard .rvncard-sr {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }

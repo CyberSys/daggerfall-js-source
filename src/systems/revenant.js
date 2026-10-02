@@ -129,11 +129,16 @@ export const REVENANT_EPITHETS = Object.freeze({
 // REVENANT-VOICE: what each says, in its own personality's voice, is systems/revenantPersonality.js's.
 
 // ── the store ───────────────────────────────────────────────────────
-/** @typedef {{ deed: 'slew'|'fled'|'returned'|'fell', at: number }} RevenantDeed */
+/** @typedef {{ deed: 'slew'|'fled'|'returned'|'fell'|'yielded'|'executed'|'spared'|'released', at: number }} RevenantDeed */
+/** REVENANT-COMPANION: a sworn one's place - walking with the player, sent away (called back at will), or resting after
+ *  a fall (`until` the character's minute it is fit again) - its health carried between places, and its pack.
+ *  @typedef {{ state: 'with'|'away'|'resting', health: number|null, maxHealth: number|null, until: number|null, items: any[] }} RevenantCompanion */
 /** @typedef {{ id: string, rev: number, mobileType: number, gender: 'male'|'female', given: string, epithet: string,
  *   name: string, rank: number, kills: number, escapes: number, returns: number, trait: string|null, elite: boolean,
  *   born: number, dueAt: number, out: boolean, outAt: number, defeated: boolean, defeatedAt: number|null,
- *   notice: string|null, history: RevenantDeed[], archive: number|null, personality: string, gone?: boolean }} RevenantRecord */
+ *   notice: string|null, history: RevenantDeed[], archive: number|null, personality: string,
+ *   fate: 'executed'|'sworn'|'released'|null, sworn: boolean, swornAt: number|null, companion: RevenantCompanion|null,
+ *   gone?: boolean }} RevenantRecord */
 
 /** @type {{ list: RevenantRecord[], mirrorId: string|null }} */
 const _state = { list: [], mirrorId: null };
@@ -185,8 +190,11 @@ export function revenantEpithet(deed, rank, playerName, rolls = Math.random, cur
   return pick(choices.length ? choices : pool.map((e) => fill(e, { p })), rolls);
 }
 
-/** The living revenants (the slain kept in their records, `defeated`; the forgotten are tombstones, `gone`). */
-export const livingRevenants = () => _state.list.filter((r) => !r.defeated && !r.gone);
+/** The living revenants that hunt the player (the slain kept in their records, `defeated`; the forgotten are tombstones,
+ *  `gone`; REVENANT-COMPANION: the sworn walk with the player, and hunt nobody). */
+export const livingRevenants = () => _state.list.filter((r) => !r.defeated && !r.gone && !r.sworn);
+/** REVENANT-COMPANION: the revenants sworn to the player - with it, away, or resting. */
+export const swornRevenants = () => _state.list.filter((r) => r.sworn && !r.defeated && !r.gone);
 /** Every record, the slain too - a journal's page (never a tombstone). */
 export const allRevenants = () => _state.list.filter((r) => !r.gone);
 /** REVENANT-PAGE: this character's records (the mirror read in first), the slain too - the pause menu's page. */
@@ -195,6 +203,17 @@ export const revenantById = (id) => _state.list.find((r) => r.id === id && !r.go
 
 const isStr = (v) => typeof v === 'string';
 const isNum = (v) => Number.isFinite(v);
+const FATES = new Set(['executed', 'sworn', 'released']);
+/** REVENANT-COMPANION: a sworn one's place read back - the shape checked; anything odd walks with the player whole. */
+function sanitizeCompanion(c) {
+  const state = c?.state === 'away' || c?.state === 'resting' ? c.state : 'with';
+  const hp = Number(c?.health), max = Number(c?.maxHealth);
+  return {
+    state, health: c?.health != null && Number.isFinite(hp) && hp > 0 ? hp : null, maxHealth: c?.maxHealth != null && Number.isFinite(max) && max > 0 ? max : null,
+    until: state === 'resting' && isNum(c?.until) ? c.until : null,
+    items: Array.isArray(c?.items) ? c.items.filter((it) => it && typeof it === 'object') : [],
+  };
+}
 /** A record read back (a save, the app's storage) - the shape checked, anything else dropped. */
 function sanitize(r) {
   if (r && isStr(r.id) && r.id && r.gone === true) return { id: r.id, rev: isNum(r.rev) ? r.rev : 0, gone: true };   // a tombstone: the id and its revision alone
@@ -211,6 +230,9 @@ function sanitize(r) {
     notice: isStr(r.notice) ? r.notice : null,
     archive: Number.isInteger(r.archive) ? r.archive : null,
     personality: isPersonality(r.personality) ? r.personality : personalityFor(r.id, r.mobileType),   // REVENANT-VOICE: an older record's, drawn from its id as a new one's is
+    // REVENANT-FATE: how it ended (or did not) - executed, sworn to the player, released by the player
+    fate: FATES.has(r.fate) ? r.fate : null, sworn: !!r.sworn && !r.defeated, swornAt: isNum(r.swornAt) ? r.swornAt : null,
+    companion: r.sworn && !r.defeated ? sanitizeCompanion(r.companion) : null,
     history: Array.isArray(r.history) ? r.history.filter((d) => d && isStr(d.deed) && isNum(d.at)).slice(-HISTORY_MAX) : [],
   };
 }
@@ -298,6 +320,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
       born: now, dueAt: 0, out: false, outAt: 0, defeated: false, defeatedAt: null, notice: null, history: [],
       archive: Number.isInteger(archive) ? archive : null,   // REVENANT-CARD: the sprite it wore (a retextured kind's own), for its portrait
       personality: personalityFor(id, mobileType),   // REVENANT-VOICE: who it is - one per id
+      fate: null, sworn: false, swornAt: null, companion: null,   // REVENANT-FATE: not judged yet
     };
     _state.list.push(r);
     // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
@@ -392,19 +415,66 @@ export function revenantFleeStep(f, feet, { onMe = () => true, mayRun = true, ro
 }
 
 /** Slain: the record is closed. Answers the record (its name for the line), or null for no revenant. */
-export function revenantSlain(player, entity, { now = nowMinutes() } = {}) {
+export function revenantSlain(player, entity, { now = nowMinutes(), deedName = 'fell' } = {}) {
   const id = entity?.revenant?.id;
   if (!id) return null;
   ensureMirror(player);
   const r = revenantById(id);
-  if (!r || r.defeated) return null;
+  if (!r || r.defeated || r.sworn) return null;   // REVENANT-COMPANION: a sworn one's fall is a knock-out, never this
   r.defeated = true; r.defeatedAt = now; r.out = false; r.notice = null;
-  deed(r, 'fell', now);
+  deed(r, deedName, now);
   touch(r);
   prune();
   persist();
   return r;
 }
+
+// ── REVENANT-FATE: beaten, it yields; judged, it dies or is sworn ─────────────
+/** It yields - beaten, held at the edge of death, its fate the player's (a deed of its record). Answers the record. */
+export function revenantYielded(player, entity, { now = nowMinutes() } = {}) {
+  const r = entity?.revenant?.id ? (ensureMirror(player), revenantById(entity.revenant.id)) : null;
+  if (!r || r.defeated || r.sworn) return null;
+  deed(r, 'yielded', now);
+  touch(r);
+  persist();
+  return r;
+}
+/** EXECUTED: the player destroyed it - its record closed for good, as a slaying is, its fate written. */
+export function revenantExecuted(player, entity, { now = nowMinutes() } = {}) {
+  const r = revenantSlain(player, entity, { now, deedName: 'executed' });
+  if (r) { r.fate = 'executed'; touch(r); persist(); }
+  return r;
+}
+/** SPARED: sworn to the player - it hunts nobody now; REVENANT-COMPANION keeps it (`state` where it stands). */
+export function revenantSpared(player, entity, { now = nowMinutes(), state = 'with', health = null, maxHealth = null } = {}) {
+  const r = entity?.revenant?.id ? (ensureMirror(player), revenantById(entity.revenant.id)) : null;
+  if (!r || r.defeated || r.sworn) return null;
+  r.sworn = true; r.fate = 'sworn'; r.swornAt = now; r.out = false; r.notice = null;
+  r.companion = sanitizeCompanion({ state, health, maxHealth });
+  deed(r, 'spared', now);
+  touch(r);
+  persist();
+  return r;
+}
+/** REVENANT-COMPANION: change a sworn one's record (its place, its health, its pack) - kept at once, both places. A
+ *  `release` ends it: released, it is gone from the player's side for good (the page's Fallen remembers it). */
+export function revenantCompanionUpdate(player, id, change) {
+  ensureMirror(player);
+  const r = revenantById(id);
+  if (!r || !r.sworn || r.defeated) return null;
+  r.companion ??= sanitizeCompanion(null);
+  const out = change(r.companion, r);
+  if (out === 'release') {
+    r.sworn = false; r.fate = 'released'; r.defeated = true; r.defeatedAt = nowMinutes(); r.companion = null;
+    deed(r, 'released', nowMinutes());
+  }
+  touch(r);
+  prune();
+  persist();
+  return r;
+}
+/** REVENANT-COMPANION: the save's word changed under a live party (a load) - read the record afresh. */
+export const revenantRecord = (player, id) => { ensureMirror(player); return revenantById(id); };
 
 // ── the return ──────────────────────────────────────────────────────
 /** An open-world encounter roll's question: does a revenant come instead? The one due (its time come, none of the
@@ -452,7 +522,7 @@ export function revenantPresence(foes, { now = nowMinutes(), wall = Date.now() }
   // the open world's pool and whichever host the player stands in (a dungeon's foe that killed me stands there)
   let pools = null;
   for (const r of _state.list) {
-    if (!r.out || r.defeated || r.gone || wall - r.outAt < 15000) continue;
+    if (!r.out || r.defeated || r.gone || r.sworn || wall - r.outAt < 15000) continue;
     pools ??= [...(foes ?? []), ...(playerDoor()?.foes?.() ?? [])];
     const here = pools.some((f) => f && !f.dead && f.entity?.revenant?.id === r.id);
     if (here) continue;

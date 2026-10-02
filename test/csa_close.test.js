@@ -439,7 +439,7 @@ test('CSA-J (the audit): the load\'s doors - OnStartLoad ahead of the save\'s pl
   const q = w.slice(w.indexOf('async function worldQuickLoad('));
   assert.ok(q.indexOf('csaRuntime.OnStartLoad()') < q.indexOf('const extras = restorePlayer(playerEntity, snap, spellsByIndex);'), 'the world load: OnStartLoad first');
   // PIN MOVED (AUDIT WK-P4, 2026-10-01): the same door lifts the party first (crewAshore.clear), the mod's call unchanged
-  assert.match(w, /modStartLoad: \(\) => \{ crewAshore\.clear\(\); if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnStartLoad\(\)\); \},[^\n]*\n\s+modSaveLoad: \(modData\) => \{ restoreModSaveRecords\(modData, csaModLoadFailed\); \},[^\n]*\n\s+modLoaded: \(\) => \{ if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnLoad\(\)\); \},/);
+  assert.match(w, /modStartLoad: \(\) => \{ crewAshore\.clear\(\); (?:revenantAshore\.clear\(\); )?if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnStartLoad\(\)\); \},[^\n]*\n\s+modSaveLoad: \(modData\) => \{ restoreModSaveRecords\(modData, csaModLoadFailed\); \},[^\n]*\n\s+modLoaded: \(\) => \{ if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnLoad\(\)\); \},/);
   const d = src('scenes/dungeonContext.js');
   assert.match(d, /opts\.modStartLoad\?\.\(\);[^\n]*\n\s+const extras = restorePlayer\(playerEntity, snap, spellsByIndex\);/);
   assert.match(d, /this\.restoreSaved\(extras, setPlayerPos\);\n\s+opts\.modLoaded\?\.\(\);/);

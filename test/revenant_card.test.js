@@ -124,8 +124,8 @@ test('REVENANT-CARD THE EVENTS: a taunt, a flight, an escape, a fall and a rise 
   assert.equal(g.mood, 'Cold', 'REVENANT-VOICE: its personality on the card');
   const fl = N.revenantFleeEvent(orc({ eliteFoe: true, champion: undefined }), 'Elite Orc Warlord');
   assert.equal(fl.kind, 'flee'); assert.equal(fl.name, 'Elite Orc Warlord'); assert.equal(fl.rank, 0); assert.ok(fl.speech && fl.mood, 'its words in its own voice, its personality named'); assert.match(fl.sub, /Elite$/);
-  const es = N.revenantEscapeEvent(r, me.name, { rolls: () => 0 });
-  assert.equal(es.kicker, 'Escaped'); assert.match(es.speech, /Ayla/); assert.equal(es.line, N.revenantEscapeLine(r));
+  const es = N.revenantEscapeEvent({ ...r, personality: 'brutal' }, me.name, { rolls: () => 0 });
+  assert.equal(es.kicker, 'Escaped'); assert.equal(es.speech, 'Next time, I take your head, Ayla.', 'its promise, in its voice, to the player'); assert.equal(es.line, N.revenantEscapeLine(r));
   const sl = N.revenantSlainEvent(r, me.name, { rolls: () => 0 });
   assert.equal(sl.kicker, 'Revenant slain'); assert.equal(sl.body, 'Has fallen. Your revenant is no more.'); assert.ok(sl.speech, 'its last words');
   const ri = N.revenantRiseEvent(r, me.name, { rolls: () => 0 });
@@ -298,7 +298,7 @@ test('REVENANT-DUNGEON, REVENANT-WIRE, the single-location host: a special foe o
   assert.match(d, /const _flee = f\.fleeing \|\| \(!f\._fleeRolled && revenantFleeHealth\(f\.entity\)\) \? revenantFleeStep\(f, _pf, \{ mayRun: !onlineRoom\(\) \|\| !_roomFoe, onMe: /, 'the one flee law - mine alone, never a room\'s shared foe');
   assert.match(d, /if \(_flee === 'escape'\) \{ escapeDungeonFoe\(f\); continue; \}/);
   assert.match(d, /if \(_flee === 'start' \|\| _flee === 'run'\) _tgt = null;/, 'running, it aims at nothing; its walk below');
-  assert.match(d, /function escapeDungeonFoe\(f\) \{\s*\n\s*questPoolOps\.removeFoe\(f\);/);
+  assert.match(d, /function escapeDungeonFoe\(f(?:, \{ slip = false \} = \{\})?\) \{\s*\n\s*questPoolOps\.removeFoe\(f\);/);
   assert.match(d, /if \(foe\.entity\?\.revenant\) \{ const nr = revenantSlain\(playerEntity, foe\.entity\);/);
   // the wire
   const base = { i: 1, t: 7, x: 0, f: [0, 0, 0], y: 0 };
@@ -309,7 +309,7 @@ test('REVENANT-DUNGEON, REVENANT-WIRE, the single-location host: a special foe o
   assert.equal(validFoeRecord({ ...base, nm: 7 }), null);
   const x = read('src/scenes/exteriorFoes.js');
   assert.match(x, /\.\.\.\(!onWatch && typeof f\.entity\?\.revenant\?\.name === 'string' && f\.entity\.revenant\.name \? \{ nm: /, 'the owner sends it');
-  assert.match(x, /\$\{r\.z \?\? 0\},\$\{r\.nm \?\? ''\}`;/, 'a changed name is sent again');
+  assert.match(x, /\$\{r\.z \?\? 0\},\$\{r\.nm \?\? ''\}(?:,\$\{r\.yd \?\? 0\},\$\{r\.ex \?\? 0\})?`;/, 'a changed name is sent again (REVENANT-FATE: and a kneel or a burning begun)');
   assert.match(x, /if \(typeof r\.nm === 'string' && r\.nm && f\.entity\.revenant\?\.name !== r\.nm\) f\.entity\.revenant = \{ id: null, name: r\.nm, rank: 0 \};/, 'the puppet called so');
   // the single-location host
   const e = read('src/scenes/exterior.js');

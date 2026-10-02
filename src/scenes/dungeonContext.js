@@ -216,7 +216,10 @@ import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, elit
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
-import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent } from '../systems/revenant.js';   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
+import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent } from '../systems/revenant.js';
+import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it (the open world's law, one home)
+import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE
+import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: HARD1 - the ring is this context's to own and to end
 import { createHitEffects, bloodCentre } from './hitEffects.js';
@@ -1469,14 +1472,99 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  contract) - the dungeon twin of exteriorFoes' questPoolOps. */
   /** REVENANT-DUNGEON: a fleeing foe out of reach - retired through the quest pool's own door (no corpse, no kill; a
    *  layout foe due back as any it retires), made a revenant (or a stronger one), and said. */
-  function escapeDungeonFoe(f) {
+  function escapeDungeonFoe(f, { slip = false } = {}) {
     questPoolOps.removeFoe(f);
     f.fleeing = false;
     f.escaped = true;
+    f.yielded = null;
     if (f.ai?.detected) setEnemyAlert(playerEntity, false);
     const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive });
-    if (r) revenantSay(revenantEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));
+    if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.mobileArchive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));   // REVENANT-FATE: a slip says the hesitation
   }
+  // ── REVENANT-FATE underground: the open world's law (scenes/exteriorFoes.js), for a foe of the player's alone ─────
+  const portals = createPortalSet({ renderer, audio });   // COMPANION-PORTAL: this place's own, drawn with its foes
+  const fateSay = (ev) => { if (ev) revenantSay(ev, (l) => hudText.add(l)); };
+  /** It yields: held at 1, kneeling, its plea said. */
+  function yieldDungeonFoe(f) {
+    if ((!foeDeps || !f.ai?._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai?.target)) && f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const ev = beginYield(playerEntity, f, { now: Date.now() });
+    audio.play3d(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
+    fateSay(ev);
+  }
+  /** The choice's model for a kneeling one (the host's window), or null. */
+  function fateFor(f) {
+    if (!f || f.dead || !f.yielded || !foes.includes(f)) return null;
+    return fateModel(playerEntity, f, { choose: (id) => chooseFate(f, id) });
+  }
+  function chooseFate(f, id) {
+    if (!f?.yielded || f.dead) return false;
+    const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    if (id === 'kill') {
+      const ev = beginExecution(playerEntity, f, { now: Date.now() });
+      audio.play3d(SOUND.SwingLowPitch, at, 1, { maxDistance: 16 });
+      opts.shakeCamera?.(1.4);
+      fateSay(ev);
+      return true;
+    }
+    if (id === 'spare') {
+      const sp = beginSpare(playerEntity, f, { now: Date.now() });
+      if (!sp) return false;
+      portals.open(at);
+      fateSay(sp.event);
+      return true;
+    }
+    return false;
+  }
+  /** One frame of a judged or kneeling foe (its pose held, its beats played) - 'gone' when it left the place. */
+  function dungeonFateFrame(f, dt, playerFeet, eye) {
+    const now = Date.now();
+    if (f.leaving) {
+      f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
+      if (now - f.leaving.at >= 900) { const done = f.leaving.done; f.leaving = null; try { done(); } catch { questPoolOps.removeFoe(f); } }
+    } else if (f.executing) {
+      const st = executionStep(f, now);
+      f._mout = kneelPose(f, eye, now);
+      if (st === 'burst') {
+        const mark = ENEMY_BASICS[f.mobileType]?.bloodIndex ?? 0;
+        hitEffects.showBloodSplash(mark, f.ai._centre?.() ?? f.ai.feet, null, { ...bloodHit((f.entity?.maxHealth || 100) * 4, f.entity, { fromPlayer: true, weapon: { templateIndex: 126 } }), markIndex: mark });   // the heaviest blow there is: the gibs thrown
+        audio.play3d(SOUND.Hit2, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 20 });
+        audio.play3d(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.7, { maxDistance: 20 });
+        opts.shakeCamera?.(3);
+        setBatchHitFlash(f.batch, 1);
+      } else if (st === 'done') {
+        const feet = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+        reportPlayerKill(f.entity, { kind: 'melee' });
+        renownFoeDied(f);
+        raiseEnemyDeath(f.entity, { luck: liveStat(playerEntity, 'luck') });
+        const items = finishExecution(playerEntity, f);
+        f.executing = null;
+        questPoolOps.removeFoe(f);   // gone with no body
+        f.executed = true;
+        if (items.length) { droppedLoot.dropPile(items, feet); playRareDrop(audio, feet, items); }
+      }
+    } else if (f.sparing) {
+      f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
+      if (spareDone(f, now)) questPoolOps.removeFoe(f);
+    } else if (yieldStep(f, playerFeet, dt * 1000) === 'slip') escapeDungeonFoe(f, { slip: true });
+    else f._mout = kneelPose(f, eye, now);
+    return f.dead ? 'gone' : 'held';
+  }
+  /** COMPANION-PORTAL: the place's portal work for the companion layer (crewAshore.js `place.fx`). */
+  const companionFx = {
+    arrive(rec) { if (!rec?.ai) return; portals.open(rec.ai.feet); rec.portalFx = { dir: 'in', at: Date.now(), delay: 220, ms: 640 }; },
+    leave(rec, done) {
+      if (!rec?.ai || rec.dead) { done(); return; }
+      portals.open(rec.ai.feet);
+      rec.portalFx = { dir: 'out', at: Date.now(), delay: 180, ms: 600 };
+      rec.leaving = { at: Date.now(), done };
+    },
+    jump(rec, from) {
+      if (!rec?.ai) return;
+      portals.open(from, { short: true });
+      portals.open(rec.ai.feet, { short: true, quiet: true });
+      rec.portalFx = { dir: 'in', at: Date.now(), delay: 140, ms: 480 };
+    },
+  };
   const questPoolOps = {
     removeFoe: (f) => {
       if (f.dead) return;
@@ -5543,7 +5631,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function damageFoe(foe, damage, playerFeet = null, knockDir = null, { fromPlayer = true, bypassShield = false, kind = 'melee', peer = false, peerId = null, whole = false, spell = null, striker = null } = {}) {   // AUDIT CC-E1: `striker` the foe whose blow it is (hurtFromFoe's)
     // AUDIT 68 S19-damagefoe-dead-reentry: a corpse takes no blow. EnemyDeath runs once; the round sinks tick on
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
-    if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
+    if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // REVENANT-FATE (below): a beaten revenant takes no blow either   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
+    if (foe.yielded || foe.executing || foe.sparing) return;   // REVENANT-FATE: a beaten revenant takes no blow - its fate is the player's choice
     if (fromPlayer && !peer) renownFoeStruck(foe);   // RENOWN1: MY blow - a joiner's too, before the divert sends it to the host
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the host
@@ -5666,6 +5755,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (foe.entity.health <= 0) {
       // CREW-COMPANIONS: a companion is knocked out, never killed (exteriorFoes' twin) - before the trap and the corpse
       if (foe.companion != null) { foe.entity.health = 1; foe._knockedOut = true; return; }
+      // REVENANT-FATE: one of the player's revenants, the player's ALONE here (offline, or past the room's shared run -
+      // REVENANT-DUNGEON's own gate), yields instead of dying; a kill (a Disintegrate's whole) is a kill
+      if (opts.fates && !_whole && (!onlineRoom() || !isRoomFoe(foe)) && revenantMayYield(foe)) { yieldDungeonFoe(foe); return; }
       // X5: SOUL TRAP intercepts the kill, exactly where DFU's
       // EnemyEntity.SetHealth override does (:157-177) - before the
       // death, on every damage source alike. A successful roll with no
@@ -6433,6 +6525,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // decides for it (no senses, no pursuit, no swing, no cast, no fall, no door, no bark of its own choosing);
       // the mobile arm past this block still draws it - the walk, the attack clip, the hurt one-shot
       const _roomFoe = isRoomFoe(f, _fi);   // REST-SYNC: the layout's run, or a shared encounter
+      const _fateHeld = !!(f.yielded || f.executing || f.sparing || f.leaving);   // REVENANT-FATE / COMPANION-PORTAL: held where it stands - no step, no blow, no cast
+      if (_fateHeld && dungeonFateFrame(f, dt, _pf, eye) === 'gone') continue;
       const _puppet = isPuppetFoe(f, _fi);   // QUEST-PARTY phase 3c: a party member's quest foe follows its owner's stream; AUDIT PRE-MERGE 0928 O6: the one test, which the host asks too
       let _tgt = null, _strikeEdge = false;
       if (_puppet) {
@@ -6443,7 +6537,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         tickEnemySound(f.sounds, f.ai.feet, playerFeet || eye, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });   // the barks are the foe's, not the frame's
         if (_strikeEdge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // the streamed swing's own sound
       }
-      else {
+      else if (!_fateHeld) {   // REVENANT-FATE: a held foe decides nothing
       // MT-iv: the armed context and the target's feet - exteriorFoes'
       // pair, one spelling. Unarmed (no candidates, or the foe
       // subsystem never loaded) both fall through to the legacy
@@ -6637,7 +6731,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (!f.mobile) resolveFoeMelee(f, _pf);
       }
       }   // WORLD2: the end of the authority's own step - a puppet skipped it
-      if (f.mobile) {
+      if (f.mobile && !_fateHeld) {   // REVENANT-FATE: a held foe's pose is its own (dungeonFateFrame)
         // C11: the sprite mobile. Paralysis freezes the anim clock
         // (FreezeAnims - the cached output redraws); otherwise the
         // unit consumes the frame's intent: attack while the shared
@@ -6736,6 +6830,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         f.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
         setBatchHitFlash(f.batch, foeHitFlash(f, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
         setBatchEliteGlow(f.batch, eliteGlow(f.entity, performance.now() / 1000, (f.mobileType * 1.7) % 6.28), performance.now() / 1000);   // ELITE FOES: the pulse
+        const _dv = f.executing || f.sparing || f.portalFx ? fateDissolve(f, Date.now()) : null;   // REVENANT-FATE / COMPANION-PORTAL: burning away, or through a portal
+        if (!_dv && f.portalFx && f.portalFx.dir === 'in') f.portalFx = null;
+        setBatchDissolve(f.batch, _dv ? _dv[0] : 0, _dv ? _dv.slice(1) : undefined);
 
         const out = f._mout;
         const rkey = `${out.record}#${out.frame}`;
@@ -6795,7 +6892,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // sprite mobiles - they are billboards at a world position with
     // no animation, exactly like a corpse.
     droppedLoot.tickFlats(dt);   // FA1 slice 3
-    const _dropBatches = droppedLoot.batches();
+    portals.tick(eye);   // COMPANION-PORTAL
+    const _dropBatches = [...droppedLoot.batches(), ...portals.batches()];   // COMPANION-PORTAL: the portals ride the drops' pass
     const _spellBatches = magic.batches();   // M3: player spell missiles
     // BLOOD1 AUDIT 3: the ring is NOT drawn here. It was - inside this
     // gate - and both dungeon hosts already draw the context's pool by
@@ -7609,6 +7707,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     corpseKeyOf: (f) => { const i = foes.indexOf(f); return i >= 0 && lootableBody(f) && f.entity?.items?.length ? `corpse:${i}` : null; },
     isPuppetFoe: (f) => isPuppetFoe(f),   // AUDIT PRE-MERGE 0928 O6: the frame's own puppet test, for a host that would move a foe (Come Sail Away's hull)
     spawnQuestFoe,   // B1: CreateFoe's dungeon arm stands foes through the one build chain
+    fateFor, chooseFate, companionFx,   // REVENANT-FATE: a kneeling revenant's choice; COMPANION-PORTAL: the place's portals
     removeLooseFoe,   // CREW-COMPANIONS: a companion out of the room with no corpse
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here

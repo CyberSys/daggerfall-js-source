@@ -112,7 +112,7 @@ test('AUDIT WK-P3 his pack is read by his key at every look: a quickload under t
 // ── P4: a dungeon's load lifts the party ───────────────────────────────────────────────────────────────────────────
 
 test('AUDIT WK-P4 a same-dungeon load lifts the party first, as worldQuickLoad does (AUDIT CC-A8): its OnStartLoad door runs ahead of the save\'s player and world (mutants: the dungeon\'s load leaving the party standing)', () => {
-  assert.match(WORLD, /modStartLoad: \(\) => \{ crewAshore\.clear\(\); if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnStartLoad\(\)\); \},/);
+  assert.match(WORLD, /modStartLoad: \(\) => \{ crewAshore\.clear\(\); (?:revenantAshore\.clear\(\); )?if \(csaRuntime\) csaCall\(\(\) => csaRuntime\.OnStartLoad\(\)\); \},/);
   const load = DUNGEON.slice(DUNGEON.indexOf('opts.modStartLoad?.();'));
   assert.ok(load.indexOf('opts.modStartLoad?.();') < load.indexOf('restorePlayer(playerEntity, snap'), 'ahead of the player');
   assert.ok(load.indexOf('restorePlayer(playerEntity, snap') < load.indexOf('this.restoreSaved(extras'), 'and of the world');

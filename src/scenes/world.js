@@ -22,7 +22,7 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
-import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
 import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2)
@@ -391,6 +391,9 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LI
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
+import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength } from '../systems/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
+import { registerCompanionCount, registerCompanionRoster } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
+import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
@@ -6506,6 +6509,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  or the street's slot). Answers whether it opened. */
   const openCompanionPack = (rec) => {
     const key = rec?.companion;
+    if (isRevenantCompanionKey(key)) return openSwornPack(rec);   // REVENANT-COMPANION: a sworn one's pack - its record's own list
     if (!naval?.companionPack?.(key) || !inventoryDoorReady()) return false;
     // AUDIT WK-P3: his pack read by his key at every look - a quickload under the window stands a restored party, and a
     // list taken once kept the unloaded pack's items to be taken again (each F9/F11 a duplicate)
@@ -6524,6 +6528,39 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!w) return false;
     if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
     return true;
+  };
+  /** REVENANT-COMPANION: a sworn one activated - its pack (its record's own list, read by its id at every look, as a
+   *  hand's is by his key) opened as a storage beside mine, carrying what its body's strength can. */
+  const openSwornPack = (rec) => {
+    const id = revenantIdOfKey(rec?.companion);
+    const packOf = () => _revenantParty?.packOf(id) ?? null;
+    if (!packOf() || !inventoryDoorReady()) return false;
+    let orphan = null;
+    const named = revenantRecord(playerEntity, id)?.name ?? null;
+    const capacity = () => {
+      if (!packOf()) return { kg: 0, name: named, gone: true };
+      const body = revenantAshore.bodies().find((f) => f.companion === rec.companion) ?? rec;
+      return { kg: packCapacityKg(body?.entity ?? null), name: named };
+    };
+    const pack = { items: () => packOf() ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true, capacity };   // COMPANION-WEIGHT's capacity, his pack's own
+    const w = makeInventoryWindow({ loot: pack });
+    if (!w) return false;
+    const mounted = !!modes?.mountWindow?.(w);
+    if (!mounted) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the window built for it put away again
+    return mounted;
+  };
+  /** REVENANT-FATE (2026-10-02, Mac: "the choice popup should reuse the loot menu"): a beaten revenant activated - its
+   *  choice in the loot window (the pool's model: its name, its plea, the trophy it would drop, where a sworn one would
+   *  stand), over whatever the mode draws, as a companion's pack opens. Answers whether it opened. */
+  const openRevenantFate = (rec) => {
+    const pool = [exteriorFoes, modes?.interiorPool?.(), _dungeonPool()].find((p) => p?.fateFor && p.foes?.includes(rec)) ?? null;
+    const model = pool?.fateFor(rec) ?? null;
+    if (!model || !inventoryDoorReady()) return false;
+    const w = makeInventoryWindow({ fate: model, loot: { items: () => [], playerOwned: false } });   // a body's door: the loot window, its fate side alone
+    if (!w) return false;
+    const mounted = !!modes?.mountWindow?.(w);
+    if (!mounted) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the window built for it put away again
+    return mounted;
   };
   /** PROF-MENU: a profession node's acts as a list (ListPickerWindow: a tap, the pad or the mouse), where no plaque lists
    *  them - the boat menu's way; the window is closed before the act starts, so the act begins on an open world. True
@@ -7564,17 +7601,18 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  every cap, out of the place's own save - the layer's catch-up comes long before the street's cull) and goes, and where behind the player a
    *  body may stand (the place's collider swept from the player's feet). None while the player is not afoot in it: a
    *  door or a load in flight, at a helm, in the travel view, or the naval arc off. */
-  function companionPlace() {
-    if (!navalOn() || !walkMode || !playerSpawned || _loading || modes?.transitioning || travelView?.active || csaRuntime?.isSailing?.()) return null;
+  function companionPlace({ crew = true } = {}) {   // REVENANT-COMPANION: the sworn's layer asks it without the naval arc's gate
+    if ((crew && !navalOn()) || !walkMode || !playerSpawned || _loading || modes?.transitioning || travelView?.active || csaRuntime?.isSailing?.()) return null;
     const spotOf = (col) => (from, dx, dz) => { const p = [from[0], from[1], from[2]]; try { col?.move(p, dx, 0, dz, 1.8); } catch { /* the leader's own spot */ } return [p[0], p[1], p[2]]; };   // AUDIT CC-A3: the swept spot's own height (a slope's, a stair's)
     const mode = _mode();
     const standIn = (pool) => (mobile, feet, o) => pool.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, allied: true, loose: true, transient: true });
     // AUDIT CC-A1: `has` - a place's clear empties its list and marks nobody (the street's clearLive), so the layer
     // asks the list itself whether a body still stands there
-    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider) };
+    // COMPANION-PORTAL: each place's portals (`fx` - the pool draws them with its foes)
+    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider), fx: exteriorFoes.companionFx };
     if (mode === 'interior') {
       const pool = modes?.interiorPool?.();
-      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider) } : null;
+      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider), fx: pool.companionFx } : null;
     }
     const d = _dungeonPool();
     if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
@@ -7583,7 +7621,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT CC-E1: a companion rides the room's own lane as a loose stand - the frame's `cp` names him, and everyone in
       // the room stands him as my ally (dungeonContext.js companionPuppet); off the lane he was nobody's to see
       spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }),
-      remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider),
+      remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider), fx: d.companionFx ?? null,
     };
   }
   const crewAshore = createCrewAshore({
@@ -7593,6 +7631,63 @@ export async function bootWorld(canvas, renderer, params, status) {
     now: () => Math.floor(playerTicker.ownMinutes),
     onKnocked: (c) => naval?.companionKnocked?.(c),
   });
+  // COMPANION-SLOTS: the crew's hands ashore take the player's side's slots with the sworn
+  registerCompanionCount('crew', () => (navalOn() ? naval?.companions?.party?.length ?? 0 : 0));
+  // REVENANT-COMPANION (2026-10-02, Mac: "Spare should allow you to free the enemy, which then adds them as a companion
+  // ... Reuse the crew companion system"): THE SWORN, stood by the crew's own layer - every place, every door, the
+  // heel, the catch-up, health and spells carried - from their records (systems/revenantCompanions.js). Never gated on
+  // the naval arc: a sworn revenant walks with any character.
+  setRetinuePlayer(playerEntity);
+  /** The sworn ones the player just called or spared, who say so as they step through (the roster's call). */
+  const _revenantArrivals = new Set();
+  const revenantCompanionSay = (kind, id, body = null) => {
+    const r = revenantRecord(playerEntity, id);
+    if (r) revenantSay(revenantMomentEvent(kind, r, playerEntity?.name, body ? { body } : {}), (l) => townTalk.say(l));
+  };
+  const _revenantParty = revenantParty({ onWake: (r) => townTalk.say(`${r.name} has recovered, and waits for your call.`) });
+  const revenantAshore = createCrewAshore({
+    party: () => (playerSpawned ? _revenantParty : null),
+    place: () => companionPlace({ crew: false }),
+    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),
+    now: () => Math.floor(playerTicker.ownMinutes),
+    onKnocked: (c) => revenantCompanionSay('downed', c.name, `${c.title ?? 'It'} falls, and is carried off through a portal to recover.`),
+    onStood: (c, rec) => {
+      const r = revenantRecord(playerEntity, c.name);
+      applySwornStrength(rec.entity, r, { fresh: !(c.maxHealth > 0) });   // its rank's strength, as it fought me with; its whole once
+      rec.revenantCompanion = c.name;
+      if (_revenantArrivals.delete(c.name)) revenantCompanionSay('arrive', c.name);
+    },
+  });
+  /** REVENANT-COMPANION: a sworn one called to the player's side - it says so as it steps through. */
+  const noteRevenantArrival = (id) => _revenantArrivals.add(id);
+  // COMPANION-ROSTER (ui/companionRoster.js): the roster's acts heard here - a call's words wait for the stand, a
+  // sending-away's and a release's are said as the layer's next frame takes the body out (the menu closed); the crew's
+  // hands in the slots by name; a sworn one's live health off its body
+  const _revenantDepartures = [];
+  setRetinueListener((kind, r) => { if (kind === 'arrive') noteRevenantArrival(r.id); else _revenantDepartures.push({ kind, r }); });
+  setRetinueBodies((id) => revenantAshore.bodies().find((b) => b.revenantCompanion === id && !b.dead)?.entity ?? null);
+  registerCompanionRoster('crew', () => (navalOn() ? (naval?.companions?.party ?? []).map((c) => ({ name: c.name, role: c.role })) : []));
+  /** REVENANT-COMPANION: A SWORN ONE'S WORD IN A FIGHT, now and then and never a chatter - as it goes in (BARK_BATTLE), over
+   *  a foe it put down (BARK_KILL) - each one's own wait between, and a quiet spell for the whole party after any. */
+  const BARK = Object.freeze({ party: 20000, each: 60000, battle: 0.35, kill: 0.55 });
+  const _barkAt = new Map();
+  let _barkLast = 0;
+  function revenantCompanionBarks() {
+    const now = Date.now();
+    for (const rec of revenantAshore.bodies()) {
+      const id = rec.revenantCompanion;
+      if (!id || rec.dead || !rec.ai) continue;
+      const tgt = rec.ai.target && rec.ai.target.entity ? rec.ai.target : null;
+      const was = rec._barkTgt ?? null;
+      rec._barkTgt = tgt;
+      let kind = null;
+      if (was && was !== tgt && (was.dead || !(was.entity?.health > 0))) kind = Math.random() < BARK.kill ? 'kill' : null;
+      else if (tgt && !was) kind = Math.random() < BARK.battle ? 'battle' : null;
+      if (!kind || now - _barkLast < BARK.party || now - (_barkAt.get(id) ?? -Infinity) < BARK.each) continue;
+      _barkLast = now; _barkAt.set(id, now);
+      revenantCompanionSay(kind, id);
+    }
+  }
   let _companionPruneN = 0;
   /** CREW-COMPANIONS: the companion layer's frame, in every mode (the street's frame and the modal one) - and the party
    *  kept to the living hands once a second. */
@@ -7602,13 +7697,26 @@ export async function bootWorld(canvas, renderer, params, status) {
   function partyCompanions() {
     // AUDIT WK-U5: none while I sail - the party is lifted aboard (it stood its cards over the ship's plate on a phone)
     const party = navalOn() && !csaRuntime?.isSailing?.() ? naval?.companions?.party ?? [] : [];
-    if (!party.length) return [];
+    const sworn = swornCards?.() ?? [];   // REVENANT-COMPANION: the sworn's cards after the crew's
+    if (!party.length) return sworn;
     const bodies = new Map(crewAshore.bodies().map((r) => [r.companion, r]));
-    return party.map((c) => {
+    return [...party.map((c) => {
       const key = `${c.boat}:${c.name}`, rec = bodies.get(key);
       const e = rec && !rec.dead ? rec.entity : null;
       const hm = e?.maxHealth ?? c.maxHealth ?? 100, h = e ? e.health : c.health ?? hm;
       return { key, name: c.name, role: c.role, h, hm, fx: e ? composePartyFx(e) : [] };
+    }), ...sworn];
+  }
+  /** REVENANT-COMPANION: the sworn walking with me, as the party panel's cards - its name, "Sworn" and who it is, its
+   *  health off its body where one stands, else as its record carries it; none while I sail. */
+  function swornCards() {
+    if (csaRuntime?.isSailing?.()) return [];
+    const bodies = new Map(revenantAshore.bodies().map((r) => [r.companion, r]));
+    return revenantsWithYou().map((r) => {
+      const key = `rv:${r.id}`, rec = bodies.get(key);
+      const body = rec && !rec.dead ? rec.entity : null;
+      const hm = body?.maxHealth ?? r.companion?.maxHealth ?? 100, h = body ? body.health : r.companion?.health ?? hm;
+      return { key, name: r.name, role: `Sworn · ${PERSONALITIES[r.personality]?.label ?? 'Revenant'}`, h, hm, fx: body ? composePartyFx(body) : [] };
     });
   }
   /** COMPANION-KIT: offline (no chat links, which draw the panel online) the party panel stands for my companions alone -
@@ -7634,6 +7742,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (gamePaused()) return;   // AUDIT CC-A10: no knock, no stand, no catch-up under a window
     if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
     try { crewAshore.frame(); } catch (e) { console.warn('[companions]', e?.message ?? e); }
+  }
+  /** REVENANT-COMPANION: the sworn's layer's frame, in every mode beside the crew's - never the naval arc's to stop. */
+  function revenantAshoreTick() {
+    if (gamePaused()) return;   // the sworn wait out a window too (AUDIT CC-A10's law: no knock, no stand, no catch-up under one)
+    try { revenantAshore.frame(); } catch (e) { console.warn('[companions] the sworn', e?.message ?? e); }
+    while (_revenantDepartures.length) { const d = _revenantDepartures.shift(); revenantSay(revenantMomentEvent(d.kind, d.r, playerEntity?.name), (l) => townTalk.say(l)); }   // COMPANION-ROSTER: its parting words, as it goes
+    try { revenantCompanionBarks(); } catch { /* a bark is no frame's business */ }
   }
   /** CREW-COMPANIONS: a boat of mine's hands to take ashore (two at most) or send back aboard - a picker of her roster,
    *  a refused row with its reason (crewCompanions.js companionRows), the press the host's (navalHost companionPress). */
@@ -7950,6 +8065,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // LIVE. Same damage door shape as the guards; no crime machinery.
   const exteriorFoes = createExteriorFoes({
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
+    // REVENANT-FATE: this host opens a beaten revenant's choice; an executed one's pile is the street's dropped loot
+    fates: true,
+    dropLoot: (items, feet) => droppedLoot.dropPile(items, feet, `${playerTravelPixel().x},${playerTravelPixel().y}`),
+    shake: (k) => betterAmbience.weaponKick(k),
     skyMinute: () => Math.floor(skyMinutes()),   // TIME1: the wilds' night is the sky's
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
@@ -8562,7 +8681,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, audio, getTexture, uploadRecord, uploadRecordFrame,
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
-    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions here - my healing and buffs reach them
+    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions here - my healing and buffs reach them (REVENANT-COMPANION: the sworn too)
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
     duelMark: () => { if (!duelMgr.fighting) return siegeSpellMarks(); const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },   // AUDIT-SEATS G5: outside a duel, a siege's foes
     castAtDuel: (id, sp) => duelSpellOut(id, sp),
@@ -11440,6 +11559,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     travelOptions?.clearTravelDestination();
     if (worldTimeScale() !== 1) resetTimeScale();
     crewAshore.clear();   // AUDIT CC-A8: the party out of every pool before the save lands - a dungeon's patches its foes by number, and a companion in the list took another's record
+    revenantAshore.clear();   // REVENANT-COMPANION: and the sworn, the same law - a dungeon's patches its foes by number, and a companion in the list took another's record
     // AUDIT-MACL F2: THE LATCH GOES UP BEFORE THE FIRST AWAIT, and MAC-L4
     // is why it has to be said out loud. This guard and the latch below
     // it used to be separated by straight-line code alone - one
@@ -20442,8 +20562,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     postItem: (text) => postItemInChat(text), canPostItem: () => canPostItemInChat(),   // CHAT-POST: the building's and the dungeon's packs post too
     partyNear: () => partyOnMaps(), professionMarks: (feet) => professionMarks(feet),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here); NODE-MARKS: the dungeon's veins (and a body the knife may skin) on its compass, at its own feet
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
-    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine
+    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine (REVENANT-COMPANION: the sworn too)
     openCompanionPack: (rec) => openCompanionPack(rec),   // COMPANION-KIT: a companion activated indoors or underground - his pack
+    openRevenantFate: (rec) => openRevenantFate(rec),   // REVENANT-FATE: a beaten revenant indoors or underground - its choice
+    shakeCamera: (k) => betterAmbience.weaponKick(k),   // REVENANT-FATE: an execution's blow, felt
     selfId: () => online?.id ?? null,
     dungeonAuthority,   // WORLD2: a dungeon built while another hosts starts as puppets
     // TTL1: the two spawned-dungeon clocks, from the mode machine's
@@ -20761,7 +20883,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
     // (:1378, before the restore at :1497: Come Sail Away's StopSailing hands a lent ship back, and after the restore it
     // took the loaded character's own), the records, and OnLoad once the load has landed (:1554 - the boats' visibility)
-    modStartLoad: () => { crewAshore.clear(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
+    modStartLoad: () => { crewAshore.clear(); revenantAshore.clear(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
     modSaveLoad: (modData) => { restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back
     modLoaded: () => { if (csaRuntime) csaCall(() => csaRuntime.OnLoad()); },
     // PX17c: the pause window's journal seams ride into the interior
@@ -23164,6 +23286,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       raidingPartiesFrame(gamePaused() ? 0 : dt);   // RAID1: indoors too - the day's roll, the region's news, a raid running out; nothing is stood (FindCurrentRaid wants the street)
       if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
       crewAshoreTick();   // CREW-COMPANIONS: the party stood indoors and underground too
+      revenantAshoreTick();   // REVENANT-COMPANION: and the sworn
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too - the hotkeys' "outdoors only", the settings, the switch
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
@@ -23786,6 +23909,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
               modal: (t) => townTalk.showOverlay(new ActionTextBox(String(t).split('\n'))),
               makeEnemiesHostile: _makeEnemiesHostile,
               openCompanion: (rec) => openCompanionPack(rec),   // COMPANION-KIT: my companion's pack
+              openFate: (rec) => openRevenantFate(rec),   // REVENANT-FATE: a beaten revenant's choice
               playerFeet: walkMode ? player.pos : cam.pos,
               nothingText: () => townTalk.randomText(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
             });
@@ -24469,6 +24593,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     csaPoolFrame(dt);   // CSA-B/C: the sails' FixDeformations (LateUpdate) and the lanterns' two behaviours, on Time.deltaTime; the lights they decide reach the next frame's list (the mod's own Update and LateUpdate ran after the motor: csaUpdate)
     warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: TransportToShipWithDelay's WaitForSeconds, held by a pause, scaled with the world
     crewAshoreTick();   // CREW-COMPANIONS: the party stood on the street
+    revenantAshoreTick();   // REVENANT-COMPANION: and the sworn
     hccTick(dt, now);   // AUDIT HCC H1: LateUpdate - after the motor and the recentre, before the world pass draws the wagon
     renderer.setClearColor(SKY_CLEAR);   // INCIDENT 2026-09-04 / REVIEW 2026-09-05: this frame is the EXTERIOR's (the mode frames returned above and clear black in worldModes) - CameraClearManager.cs:51-57
     renderer.setFlashLight(sky.lightningLight() ?? boltFrame.flash);   // DS1: Dynamic Skies' LightningFlash, composed first on the point-light channel just stored; BOLT: else a near ground strike's own light, from where it struck
