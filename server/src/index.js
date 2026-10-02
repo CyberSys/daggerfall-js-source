@@ -218,9 +218,23 @@ import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFel
 // OW6L (2026-09-29, the product owner: "Everything needs that persistence between players in the overworld."): ONE FILE
 // JOINS THE BUNDLE - net/overworldLaw.js (a cell's overworld ledger: the bands and raiders spent in it, its spawned
 // dungeons' clocks - pure law; it imports wire.js, gateLaw.js and raidLaw.js, all three here already).
+// ARENA4 (2026-10-02, Mac: "watch AI fights, player fights, join a team (red and blue) and climb esclating tiers of
+// opponents, or choose to matchmake for a real opponent to take on in real time"): FOUR FILES JOIN THE BUNDLE -
+// net/arenaLaw.js (the rooms, the season, the rating, the queue, the referee's numbers, the words both ways - it imports
+// nothing), net/arenaBrain.js (one bout on the relay: the law, the referee, the ladder's AI fighters), the bout law it
+// runs (systems/arenaBout.js - pure, and it reaches net/duelSession.js, which reaches wire.js) and net/arenaReceipt.js (a
+// bout's receipt, the relay's third signature under the gate's one key). bible/11-Multiplayer/Arena.md "7. Online".
+import {
+  isArenaRoom, isArenaHall, isArenaBoutRoom, arenaBoutRoom, arenaBoutIdOf, pairQueue, matchBand, arenaRatingOk, MATCH_ACCEPT_MS, MATCH_QUEUE_MAX,
+  MATCH_REPAIR_MS, ARENA_TICK_MS, ARENA_KEEP_MS, ARENA_LIVE_MAX, ARENA_HALL,
+} from '../../src/net/arenaLaw.js';
+import {
+  openBout, joinBout, leaveSeat, poseOf, refBlow, yieldOf, cheerOf, stepBout, fighterGone, stateWord, aiWords, hpWord, liveEntry, boutFinished, fighterOfSub,
+} from '../../src/net/arenaBrain.js';
+import { mintArenaReceipt } from '../../src/net/arenaReceipt.js';
 import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD, arenaGate } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -244,11 +258,25 @@ export default {
     // WB3: a gate's room stands only inside its day's window - no object is minted for a gate the clock did not raise
     // (AUDIT CHAT A1's law, for a key a client could otherwise mint at will: `gate:<any day>`)
     if (key.startsWith('gate:') && !(isGateRoom(key) && gateHolds(gateDayOfRoom(key), Date.now()))) return json({ error: 'the gate is closed' }, 404);
+    // ARENA4: the arena's rooms are its hall and its bouts - no object is minted for any other `arena:` key
+    if (key.startsWith('arena:') && !isArenaRoom(key)) return json({ error: 'no such room' }, 404);
     if (String(request.headers.get('Upgrade') ?? '').toLowerCase() !== 'websocket') return json({ error: 'websocket only' }, 426);
     const id = env.ROOMS.idFromName(key);
     return env.ROOMS.get(id).fetch(request);
   },
 };
+
+/** ARENA4: the doors between the arena's objects - the hall opening a matched bout's room, and a bout telling the hall it
+ *  stands (its entry on the list of bouts to watch) or is done. The public worker forwards /room/<key> alone. */
+const ARENA_INTERNAL_OPEN = '/internal/arena/open';
+const ARENA_INTERNAL_LIVE = '/internal/arena/live';
+/** ARENA4: how often a waiting queue's band is said again, and the bout room's checkpoint, ms. */
+const ARENA_SAY_BAND_MS = 5000;
+const ARENA_SAVE_MS = 1000;
+/** ARENA4: a bout's place on the list is told the hall no oftener than this (a spectator's seat taken or left). */
+const ARENA_LIVE_TELL_MS = 2000;
+/** ARENA4: a bout's id, 16 hex off the relay's CSPRNG. */
+const arenaId = () => [...crypto.getRandomValues(new Uint8Array(8))].map((x) => x.toString(16).padStart(2, '0')).join('');
 
 const lookKey = (id) => `look:${id}`;
 const secretKey = (id) => `secret:${id}`;
@@ -405,6 +433,8 @@ export class Room {
     if (path === GATE_INTERNAL_FELL) return this._gateFellInternal(request);   // WB3: a gate's kill, said to the hub
     if (path === RAID_INTERNAL_CLEAN) return this._raidCleanInternal(request);   // RAID3: a raid's cleanse, said to the hub
     if (path === RAID_INTERNAL_DAY) return this._raidDayInternal(request);   // RAID-ROLL: a cell asking the hub for the day's roll
+    if (path === ARENA_INTERNAL_OPEN) return this._arenaOpenInternal(request);   // ARENA4: the hall opening a matched bout's room
+    if (path === ARENA_INTERNAL_LIVE) return this._arenaLiveInternal(request);   // ARENA4: a bout telling the hall it stands (or is done)
     const key = roomOf(new URL(request.url).pathname);
     // AUDIT WB A1: A SEAT IS A HELLO'S. A socket that opened and never said hello kept its seat for as long as it stood
     // open, so one page's loop could fill a room with silence and every player after it was refused 'room full' - a
@@ -878,6 +908,7 @@ export class Room {
     const reg = await this.state.storage.get('reg');
     if (reg) { const due = reg.at + PARK_TTL_MS; if (Date.now() >= due) await this.state.storage.delete('reg'); else await this.state.storage.setAlarm(due); return; }
     if (await this._gateTick()) return;   // WB3: a gate room's alarm is its boss's beat
+    if (await this._arenaTick()) return;   // ARENA4: a bout's beat, or the hall's queue
     if (await this._raidSweep(Date.now())) return;   // RAID3: a cell's alarm is its raids' ends, and a cleanse its hub has not heard
     for (const [, b] of this._all()) if (b.id) return;
     const m = await this.state.storage.list({ prefix: 'world:' });
@@ -1067,7 +1098,7 @@ export class Room {
     if (c.gi) await this._loadGuildOuts(nowS);   // AUDIT MERGE-PLUS A3: the holds a wake left in storage
     const guild = c.gi && !this._guildOutAfter(c.gi, c.gm, c.i) ? { gi: c.gi, gt: c.gt, gm: c.gm } : {};
     // WB9g: and the aura at their feet - `au`, the one the token signed for (stamped by `badged` beside the title)
-    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };
+    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, au: c.au, mu, lv: c.lv, ...guild, gio: c.i, ar: c.ar };   // ARENA4: the season's rating, the hall's queue's
   }
 
   /** The verifying key, imported once. Shared by the hello and by
@@ -1205,7 +1236,8 @@ export class Room {
       await this.state.storage.put(secretKey(m.id), m.secret);
       if (!chat) { await this.state.storage.put(lookKey(m.id), m.look); this._looks.set(m.id, m.look); }   // a channel keeps no look: nobody is drawn from it
       const guild = who.gi ? { gi: who.gi, gt: who.gt, gm: who.gm } : {};   // GUILD1c: the guild the token carried, when it carried one
-      if (!this._setAttach(ws, { ...a, id: m.id, name: who.name, title: who.title, glyphs: who.glyphs, au: who.au, lv: who.lv, ...guild, gio: who.gio, sub: who.subject, mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
+      const arena = isArenaRoom(a.key) ? { ar: arenaRatingOk(who.ar), lk: who.kind === 'linked' ? 1 : 0 } : {};   // ARENA4: the hall queues by the signed rating, and a guest is queued for no rated bout
+      if (!this._setAttach(ws, { ...a, id: m.id, name: who.name, title: who.title, glyphs: who.glyphs, au: who.au, lv: who.lv, ...guild, gio: who.gio, sub: who.subject, mu: who.mu, pose: chat ? null : m.pose, since: replaced?.since ?? now, ...arena })) { this._refuse(ws, 'hello too large'); return; }   // MOD1: `sub` the verified account (what a mute names), `mu` until when it may not talk   // RENOWN1: `lv` the Renown level the token carried
       // SRV-N: `v` rides EVERY welcome, a channel's included. A player in the enhanced skin holds a presence socket
       // and one chat socket per tab; whichever reconnects first after a hand deploy is the one that notices, and the
       // client's detector (net/updateNotice.js) is a Set so the rest of them say nothing. SLAM13 (AUDIT SLAM A5): and
@@ -1256,6 +1288,9 @@ export class Room {
       // Selecting first fixes the breach and the waste together: at most ROSTER_MAX keys are ever asked for, and an
       // awake object usually asks for none, because `_looks` already holds what every hello said (the `who` path
       // has read it that way since AUDIT WORLD6b-iii(e) B1 - the hello path just never did).
+      // ARENA4: A BOUT'S ROOM DRAWS ITS FIGHTERS ALONE - a spectator has no body (Seats-Arc 6.6), so the roster is the
+      // sockets on the sand, and a hello's join is said when its `in` puts it there (_boutWord), never here
+      if (isArenaBoutRoom(a.key)) for (let i = others.length - 1; i >= 0; i--) if (!others[i].af) others.splice(i, 1);
       const near = rosterFor(others, m.id, m.pose);
       const missing = near.filter((b) => !this._looks.has(b.id)).map((b) => lookKey(b.id));
       const fetched = missing.length ? await this.state.storage.get(missing) : new Map();
@@ -1293,6 +1328,7 @@ export class Room {
         const parks = (await this._parkList(now)).filter((e) => e.sub !== sub).map((e) => this._parkPublic(e));
         if (!this._send(ws, JSON.stringify({ t: 'parks', now, data: parks }))) return;
       }
+      if (isArenaBoutRoom(a.key)) return;   // ARENA4: said at the `in`, for a fighter alone
       const join = JSON.stringify(badged({ t: 'join', id: m.id, name: who.name, look: m.look, pose: m.pose }, who));
       for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, join);
       return;
@@ -1599,6 +1635,20 @@ export class Room {
       try { await this._gateFrame(ws, a, m, now); } catch (e) { console.warn('[gate] frame failed', e?.message ?? e); }
       return;
     }
+    if (m.t === 'arena') {
+      // ARENA4: A WORD TO THE ARENA - the hall (the queue, an offer's answer, the bouts to watch) or a bout's room (on the
+      // sand or in the stands, a blow claim, a yield, a cheer). On its own bucket (the gate's depth), credited to the
+      // VERIFIED account (`sub`, off the token); in an arena room alone - anywhere else junk.
+      const now = Date.now();
+      if (!this._spend(ws, now, arenaGate, 'arenaBucket', 'arenaDrops', 'too many arena frames')) return;
+      if (typeof a.sub !== 'string' || !a.sub) { this._junk(ws); return; }
+      try {
+        if (isArenaHall(a.key)) await this._hallWord(ws, a, m, now);
+        else if (isArenaBoutRoom(a.key)) await this._boutWord(ws, a, m, now);
+        else this._junk(ws);
+      } catch (e) { console.warn('[arena] word failed', e?.message ?? e); }
+      return;
+    }
     if (m.t === 'raid') {
       // RAID3: A WORD ON A TOWN'S RAID - from a player standing in the raided town, to the town's CELL, whose object keeps
       // the raid's ledger (net/raidLaw.js). On its own bucket (the same strikes), in a cell alone (anywhere else junk: a
@@ -1879,6 +1929,13 @@ export class Room {
       if (!met) return;   // over the rate: kept as the latest, not relayed
       if (m.t === 'ping') { this._send(ws, '{"t":"pong"}'); return; }   // a ping that reached the object (the runtime answers the exact one in its sleep)
       if (chat) return;   // a channel is no place: a pose there is kept by no one and reaches no one
+      // ARENA4: a bout's room - a fighter's pose is the referee's (its speed checked, its place the reach's), and a
+      // spectator's reaches nobody: the stands have no bodies
+      if (isArenaBoutRoom(a.key) && m.t === 'pose') {
+        const cur = this._attach(ws);
+        if (!cur.af) return;
+        try { const st = await this._boutOf(); if (st && cur.afid) poseOf(st, cur.afid, m.p.x, m.p.z, now); } catch (e) { console.warn('[arena] pose', e?.message ?? e); }
+      }
       const out = JSON.stringify({ t: 'pose', id: a.id, p: m.p });
       // SLAM1: the fan is BOUNDED. A room's cost was N senders times N listeners, and the range cull does not help
       // the one case that matters - an event, where everybody stands in one place and every range test passes.
@@ -2197,6 +2254,330 @@ export class Room {
     this._travOwed.delete(a.id);   // AUDIT DEEP2 C2: the leave takes the mark out - an owed clear of it is said
     if (!isChatRoom(a.key) && this._leads(a, ws)) this._sayHost({ skip: ws, except: ws });   // WORLD1: the host left - the next-longest in the room is the host now, said to everyone (ROSTER-G: a channel has no host)
     if (isSocialRoom(a.key) && a.acct) { try { await this._leaveAccount(ws, a, Date.now()); } catch (e) { console.warn('[hub] leave failed', e?.message ?? e); } }   // SOC1: last seen stamped, the friends and the party told
+    if (isArenaRoom(a.key) && a.sub) { try { await this._arenaLeave(ws, a, Date.now()); } catch (e) { console.warn('[arena] leave failed', e?.message ?? e); } }   // ARENA4: out of the queue, off the sand, out of the stands
+  }
+
+
+  // ───────────────────────────── ARENA4: THE ARENA ─────────────────────────────
+  /** An arena word to one socket. */
+  _arenaSend(ws, w) { return this._send(ws, JSON.stringify({ t: 'arena', ...w })); }
+  /** The hello'd sockets of an account in this room. */
+  _arenaSocketsOf(sub) { return [...this._all()].filter(([, b]) => b.id && b.sub === sub).map(([w]) => w); }
+  /** A word to an account, every socket of it here. */
+  _arenaTell(sub, w) { for (const s of this._arenaSocketsOf(sub)) this._arenaSend(s, w); }
+  /** A POST to another arena object (the hall, a bout) - true when it answered ok; a relay built without the binding
+   *  (a lone test room) answers true and does nothing. */
+  async _arenaPost(key, path, body) {
+    const rooms = this.env?.ROOMS;
+    if (!rooms?.idFromName || !rooms?.get) return true;
+    try { const res = await rooms.get(rooms.idFromName(key)).fetch(new Request(`https://relay.internal${path}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    catch (e) { console.warn('[arena] post', path, e?.message ?? e); return false; }
+  }
+
+  // ── THE HALL (`arena:hall`): the queue, the offers, the bouts to watch ──
+  /** The hall's book, read once an instance life. `q` the queue `[{ sub, name, rating, title, lv, at }]`, `offers`
+   *  `[{ o, a, b, until, ya, yb }]`, `live` the bouts on the sand by id, `apart` the pairs not to offer again yet. */
+  async _hallOf() {
+    if (this._hall === undefined) {
+      const v = await this.state.storage.get('arenahall');
+      this._hall = v && typeof v === 'object' ? v : { q: [], offers: [], live: {}, apart: [], said: {} };
+    }
+    return this._hall;
+  }
+  async _hallSave() { await this.state.storage.put('arenahall', this._hall); }
+  async _hallArm(now) {
+    const at = await this.state.storage.getAlarm();
+    if (at == null || at > now + 1000) await this.state.storage.setAlarm(now + 1000);
+  }
+  /** A fighter as the hall bills them to their opponent. */
+  _bill(e) { return { n: e.name, r: e.rating, ...(e.title ? { t: e.title } : {}) }; }
+  _queueWord(H, now, sub) {
+    const e = H.q.find((x) => x.sub === sub);
+    return e ? { k: 'qd', n: Math.min(MATCH_QUEUE_MAX, H.q.length), band: matchBand(now - e.at) } : null;
+  }
+  /** ONE HALL WORD: `q` into the queue (a registered account, one place an account), `x` out of it, `y`/`n` an offer's
+   *  answer, `ls` the bouts to watch. */
+  async _hallWord(ws, a, m, now) {
+    const H = await this._hallOf();
+    const sub = a.sub;
+    const inOffer = H.offers.find((f) => f.a.sub === sub || f.b.sub === sub) ?? null;
+    if (m.k === 'q') {
+      if (!a.lk) { this._arenaSend(ws, { k: 'qx', m: 'guest' }); return; }
+      if (inOffer) { this._arenaSend(ws, { k: 'of', o: inOffer.o, vs: this._bill(inOffer.a.sub === sub ? inOffer.b : inOffer.a), until: inOffer.until }); return; }
+      if (!H.q.some((x) => x.sub === sub)) {
+        if (H.q.length >= MATCH_QUEUE_MAX) { this._arenaSend(ws, { k: 'qx', m: 'full' }); return; }
+        H.q.push({ sub, name: a.name, rating: arenaRatingOk(a.ar), title: a.title ?? null, lv: m.lv ?? a.lv ?? 1, at: now });
+        await this._hallSave();
+      }
+      this._arenaTell(sub, this._queueWord(H, now, sub));
+      await this._hallArm(now);
+      return;
+    }
+    if (m.k === 'x') {
+      const was = H.q.length;
+      H.q = H.q.filter((x) => x.sub !== sub);
+      if (inOffer) await this._hallDecline(H, inOffer, sub, now);
+      if (H.q.length !== was || inOffer) await this._hallSave();
+      this._arenaTell(sub, { k: 'qx', m: 'left' });
+      return;
+    }
+    if (m.k === 'y' || m.k === 'n') {
+      if (!inOffer || inOffer.o !== m.o) { this._arenaSend(ws, { k: 'qx', m: 'lapsed' }); return; }
+      if (m.k === 'n') { await this._hallDecline(H, inOffer, sub, now); this._arenaTell(sub, { k: 'qx', m: 'left' }); await this._hallSave(); return; }
+      if (inOffer.a.sub === sub) inOffer.ya = true; else inOffer.yb = true;
+      if (inOffer.ya && inOffer.yb) await this._hallGo(H, inOffer, now);
+      await this._hallSave();
+      return;
+    }
+    if (m.k === 'ls') { this._arenaSend(ws, this._liveWord(H, now)); return; }
+    this._junk(ws);
+  }
+  /** The bouts on the sand now, the newest first. */
+  _liveWord(H, now) {
+    const l = Object.values(H.live).filter((e) => now - e.at < 30 * 60_000).sort((x, y) => y.at - x.at).slice(0, ARENA_LIVE_MAX);
+    return { k: 'live', l };
+  }
+  /** An offer declined (or let lapse) by `sub`: it goes out of the queue, the other back into it with their wait kept,
+   *  told so; the pair is not offered again for MATCH_REPAIR_MS. */
+  async _hallDecline(H, f, sub, now) {
+    H.offers = H.offers.filter((x) => x !== f);
+    const other = f.a.sub === sub ? f.b : f.a;
+    if (!H.q.some((x) => x.sub === other.sub)) H.q.push(other);
+    H.apart.push([f.a.sub, f.b.sub, now + MATCH_REPAIR_MS]);
+    this._arenaTell(other.sub, { k: 'qx', m: 'declined' });
+    this._arenaTell(other.sub, this._queueWord(H, now, other.sub));
+  }
+  /** Both said yes: the bout's room opened with its two fighters, each told where to go and whom they meet. */
+  async _hallGo(H, f, now) {
+    H.offers = H.offers.filter((x) => x !== f);
+    const o = f.o;
+    const fighters = [f.a, f.b].map((e) => ({ sub: e.sub, name: e.name, lv: e.lv, rating: e.rating, title: e.title }));
+    const ok = await this._arenaPost(arenaBoutRoom(o), ARENA_INTERNAL_OPEN, { o, kind: 'pvp', f: fighters, at: now });
+    if (!ok) {
+      for (const e of [f.a, f.b]) { if (!H.q.some((x) => x.sub === e.sub)) H.q.push(e); this._arenaTell(e.sub, { k: 'qx', m: 'busy' }); }
+      return;
+    }
+    H.live[o] = { o, kind: 'pvp', a: this._bill(f.a), b: this._bill(f.b), sp: 0, at: now };
+    this._arenaTell(f.a.sub, { k: 'go', o, side: 0, vs: this._bill(f.b) });
+    this._arenaTell(f.b.sub, { k: 'go', o, side: 1, vs: this._bill(f.a) });
+  }
+  /** THE HALL'S BEAT, a second: offers lapsed (the one who did not say yes out of the queue, the other back in), the
+   *  queue paired (pairQueue - the band widening with the wait), each band said again as it widens, the old forgotten. */
+  async _hallTick(now) {
+    const H = await this._hallOf();
+    for (const f of [...H.offers]) {
+      if (now < f.until) continue;
+      H.offers = H.offers.filter((x) => x !== f);
+      for (const [e, yes] of [[f.a, f.ya], [f.b, f.yb]]) {
+        if (yes) { if (!H.q.some((x) => x.sub === e.sub)) H.q.push(e); this._arenaTell(e.sub, { k: 'qx', m: 'lapsed' }); this._arenaTell(e.sub, this._queueWord(H, now, e.sub)); }
+        else this._arenaTell(e.sub, { k: 'qx', m: 'lapsed' });
+      }
+      H.apart.push([f.a.sub, f.b.sub, now + MATCH_REPAIR_MS]);
+    }
+    H.apart = H.apart.filter((p) => p[2] > now);
+    // the queue holds only accounts with a socket in the hall (a tab closed without a word is out)
+    H.q = H.q.filter((e) => this._arenaSocketsOf(e.sub).length);
+    const apart = (x, y) => H.apart.some((p) => (p[0] === x && p[1] === y) || (p[0] === y && p[1] === x));
+    for (const [a, b] of pairQueue(H.q, now, apart)) {
+      H.q = H.q.filter((x) => x.sub !== a.sub && x.sub !== b.sub);
+      const f = { o: arenaId(), a, b, until: now + MATCH_ACCEPT_MS, ya: false, yb: false };
+      H.offers.push(f);
+      this._arenaTell(a.sub, { k: 'of', o: f.o, vs: this._bill(b), until: f.until });
+      this._arenaTell(b.sub, { k: 'of', o: f.o, vs: this._bill(a), until: f.until });
+    }
+    H.said ??= {};
+    for (const e of H.q) {
+      const band = matchBand(now - e.at);
+      const was = H.said[e.sub];
+      if (!was || was.band !== band || now - was.at >= ARENA_SAY_BAND_MS) { H.said[e.sub] = { band, at: now }; this._arenaTell(e.sub, this._queueWord(H, now, e.sub)); }
+    }
+    for (const k of Object.keys(H.said)) if (!H.q.some((e) => e.sub === k)) delete H.said[k];
+    for (const [o, e] of Object.entries(H.live)) if (now - e.at > 30 * 60_000) delete H.live[o];
+    await this._hallSave();
+    if (H.q.length || H.offers.length) await this.state.storage.setAlarm(now + 1000);
+  }
+  /** A bout tells the hall where it stands: its entry, or none when it is done. */
+  async _arenaLiveInternal(request) {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: 'bad' }, 400); }
+    if (!body || typeof body.o !== 'string') return json({ error: 'bad' }, 400);
+    const H = await this._hallOf();
+    if (body.done) delete H.live[body.o];
+    else if (body.e && typeof body.e === 'object') H.live[body.o] = { ...body.e, at: Number.isFinite(body.e.at) ? body.e.at : Date.now() };
+    await this._hallSave();
+    return json({ ok: true });
+  }
+
+  // ── A BOUT (`arena:b<id>`) ──
+  async _boutOf() {
+    if (this._bout === undefined) { const v = await this.state.storage.get('arenabout'); this._bout = v && typeof v === 'object' ? v : null; }
+    return this._bout;
+  }
+  async _boutSave(now, force = false) {
+    if (!force && now - (this._boutSavedAt ?? 0) < ARENA_SAVE_MS) return;
+    this._boutSavedAt = now;
+    await this.state.storage.put('arenabout', this._bout);
+  }
+  async _boutArm(now, at = now + ARENA_TICK_MS) {
+    const cur = await this.state.storage.getAlarm();
+    if (cur == null || cur > at) await this.state.storage.setAlarm(at);
+  }
+  /** Words to every hello'd socket in the bout's room. */
+  _boutFan(words) {
+    if (!words?.length) return;
+    const outs = words.map((w) => JSON.stringify({ t: 'arena', ...w }));
+    for (const [ws, b] of [...this._all()]) if (b.id) for (const s of outs) if (!this._send(ws, s)) break;
+  }
+  /** The whole bout to every socket - each with its own fighter id, '' in the stands. */
+  _boutFanState(st) { for (const [ws, b] of [...this._all()]) if (b.id) this._arenaSend(ws, stateWord(st, b.afid ?? '')); }
+  /** The hall told of this bout - its entry, or done. */
+  async _boutTellHall(st, done = false) {
+    const e = done ? null : liveEntry(st);
+    return this._arenaPost(ARENA_HALL, ARENA_INTERNAL_LIVE, { o: st.o, ...(done ? { done: true } : { e }) });
+  }
+  /** The hall opens a matched bout here: its two fighters, nobody on the sand yet. */
+  async _arenaOpenInternal(request) {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: 'bad' }, 400); }
+    if (!body || typeof body.o !== 'string' || body.kind !== 'pvp' || !Array.isArray(body.f) || body.f.length !== 2) return json({ error: 'bad' }, 400);
+    if (await this._boutOf()) return json({ error: 'taken' }, 409);
+    const now = Date.now();
+    this._bout = openBout({ o: body.o, kind: 'pvp', f: body.f, now });
+    await this._boutSave(now, true);
+    await this._boutArm(now);
+    return json({ ok: true });
+  }
+  /** ONE BOUT WORD: `in` (to the sand or the stands - a ladder bout opened by its own fighter's first `in`), `hit` (a blow
+   *  claim, the referee's), `yd` (a yield at the line), `ch` (a spectator's cheer or boo). */
+  async _boutWord(ws, a, m, now) {
+    let st = await this._boutOf();
+    if (m.k === 'in') {
+      if (!st) {
+        // A LADDER BOUT IS OPENED BY ITS FIGHTER: the `in` names the tier and the bout; whether it is the account's next
+        // is the account service's question at the claim (the climb is in order in its write)
+        if (m.r !== 'f' || m.tier === undefined) { this._arenaSend(ws, { k: 'no', m: 'no bout' }); return; }
+        st = this._bout = openBout({ o: arenaBoutIdOf(a.key), kind: 'pve', f: [{ sub: a.sub, name: a.name, lv: m.lv ?? a.lv ?? 1, mh: m.mh ?? 0, title: a.title ?? null }], tier: m.tier, bout: m.bout, now });
+        await this._boutTellHall(st);
+      }
+      const before = st.phase;
+      const j = joinBout(st, a.sub, m.r, now);
+      if (j.no) { this._arenaSend(ws, { k: 'no', m: j.no }); return; }
+      const cur = this._attach(ws);
+      if (j.role === 'f') {
+        this._setAttach(ws, { ...cur, af: 1, afid: j.id, asp: 0 });
+        // the fighter comes onto the sand: its body said to the room now (the hello said nothing)
+        const look = this._looks.get(cur.id) ?? (await this.state.storage.get(lookKey(cur.id))) ?? null;
+        const join = JSON.stringify(badged({ t: 'join', id: cur.id, name: cur.name, look, pose: cur.pose }, cur));
+        if (!cur.af) for (const [other, b] of [...this._all()]) if (other !== ws && b.id) this._send(other, join);
+        if (cur.pose) poseOf(st, j.id, cur.pose.x, cur.pose.z, now);
+      } else if (!cur.asp) {
+        this._setAttach(ws, { ...cur, asp: 1 });
+        this._boutFan([{ k: 'sp', n: st.spectators }]);
+        if (now - (this._boutHallAt ?? 0) >= ARENA_LIVE_TELL_MS) { this._boutHallAt = now; await this._boutTellHall(st); }
+      }
+      if (before === 'wait' && st.phase === 'law') this._boutFanState(st);
+      else this._arenaSend(ws, stateWord(st, j.role === 'f' ? j.id : ''));
+      if (st.ai.length) for (const w of aiWords(st, now)) this._arenaSend(ws, w);
+      if (st.b) this._arenaSend(ws, hpWord(st));
+      const r = st.rc?.[a.sub];
+      if (r && j.role === 'f') this._arenaSend(ws, { k: 'rc', r });   // a reconnect after the end: its receipt again
+      await this._boutSave(now, true);
+      if (!boutFinished(st)) await this._boutArm(now);
+      return;
+    }
+    if (!st) { this._junk(ws); return; }
+    const cur = this._attach(ws);
+    if (m.k === 'hit') {
+      if (!cur.af || !cur.afid) { this._junk(ws); return; }
+      // the striker's place is its last good pose, as its pose frames said it (_message's pose arm) - never re-stamped
+      // here, or a stale place would read as fresh and the next real move as a run too fast to believe
+      const r = refBlow(st, cur.afid, m, now);
+      this._boutFan(r.words);
+      return;
+    }
+    if (m.k === 'yd') {
+      if (!cur.af || !cur.afid) { this._junk(ws); return; }
+      const r = yieldOf(st, cur.afid, now);
+      this._boutFan(r.words);
+      if (r.no === 'early') this._arenaSend(ws, { k: 'no', m: 'early' });
+      return;
+    }
+    if (m.k === 'ch') {
+      if (!cur.asp) { this._junk(ws); return; }
+      const w = cheerOf(st, cur.id, m.c, now);
+      if (w) this._boutFan([w]);
+      return;
+    }
+    if (m.k === 'out') return;   // the socket's close says the rest
+    this._junk(ws);
+  }
+  /** A socket left an arena room: out of the hall's queue and its offer; off the sand (a fighter gone - a forfeit if it
+   *  stays gone) or out of the stands. */
+  async _arenaLeave(ws, a, now) {
+    if (isArenaHall(a.key)) {
+      if (this._arenaSocketsOf(a.sub).some((w) => w !== ws)) return;   // another tab of the account still in the hall
+      const H = await this._hallOf();
+      const f = H.offers.find((x) => x.a.sub === a.sub || x.b.sub === a.sub);
+      const was = H.q.length;
+      H.q = H.q.filter((x) => x.sub !== a.sub);
+      if (f) await this._hallDecline(H, f, a.sub, now);
+      if (f || was !== H.q.length) await this._hallSave();
+      return;
+    }
+    const st = await this._boutOf();
+    if (!st) return;
+    if (a.af && fighterOfSub(st, a.sub)) {
+      if (!this._arenaSocketsOf(a.sub).some((w) => w !== ws)) { fighterGone(st, a.sub, now); await this._boutSave(now, true); }
+    } else if (a.asp) {
+      leaveSeat(st);
+      this._boutFan([{ k: 'sp', n: st.spectators }]);
+      if (now - (this._boutHallAt ?? 0) >= ARENA_LIVE_TELL_MS) { this._boutHallAt = now; await this._boutTellHall(st); }
+    }
+  }
+  /** THE ARENA'S ALARM: a bout's beat (the law, the referee's clock, the AI fighters, the end's receipts, the hall told)
+   *  or the hall's. False when this object holds neither. */
+  async _arenaTick() {
+    const now = Date.now();
+    if (this._hall !== undefined || (await this.state.storage.get('arenahall'))) { await this._hallTick(now); return true; }
+    const st = await this._boutOf();
+    if (!st) return false;
+    if (boutFinished(st) && st.toldDone) {
+      // the bout is over and said: kept ARENA_KEEP_MS for a reconnect's receipt, then forgotten
+      if (now >= (st.endAt || st.at) + ARENA_KEEP_MS) { this._bout = null; await this.state.storage.delete('arenabout'); return true; }
+      await this.state.storage.setAlarm((st.endAt || st.at) + ARENA_KEEP_MS);
+      return true;
+    }
+    const ph = st.phase === 'law' ? st.b?.phase : st.phase;
+    let words = [];
+    try { words = stepBout(st, now, rand01); } catch (e) { console.warn('[arena] beat failed', e?.message ?? e); }
+    const ph2 = st.phase === 'law' ? st.b?.phase : st.phase;
+    // the AI's blows go to everyone (the stands see them land); the struck player's own game applies its own (`to`)
+    this._boutFan(words);
+    if (ph2 !== ph) this._boutFanState(st);
+    if (st.owed?.length) {
+      const key = await this._receiptKeyOf();
+      const nowS = Math.floor(now / 1000);
+      st.rc = st.rc ?? {};
+      for (const w of st.owed) {
+        try {
+          const r = await mintArenaReceipt(w, key, { subtle: crypto.subtle, nowS });
+          for (const sub of w.a === 'p' ? w.f : [w.s]) st.rc[sub] = r;
+        } catch (e) { console.warn('[arena] receipt refused', e?.message ?? e); }
+      }
+      st.owed = [];
+      await this._boutSave(now, true);
+      for (const [ws, b] of [...this._all()]) { const r = b.id && b.af ? st.rc[b.sub] : null; if (r) this._arenaSend(ws, { k: 'rc', r }); }
+    }
+    if (boutFinished(st)) {
+      st.endAt = Number.isFinite(st.endAt) ? st.endAt : now;
+      if (!st.toldDone && (await this._boutTellHall(st, true))) st.toldDone = true;
+      await this._boutSave(now, true);
+      await this.state.storage.setAlarm(st.toldDone ? st.endAt + ARENA_KEEP_MS : now + 1000);
+      return true;
+    }
+    await this._boutSave(now);
+    await this.state.storage.setAlarm(now + ARENA_TICK_MS);
+    return true;
   }
 
   // ───────────────────────────── WB3: THE GATE ─────────────────────────────

@@ -295,7 +295,7 @@ export const ARENA_IN_KINDS = Object.freeze(['q', 'x', 'y', 'n', 'ls', 'in', 'hi
 /**
  * A CLIENT'S ARENA WORD, projected - or null for anything that is not one:
  *   hall:  q (the queue - `lv` my Renown level), x (out of it), y / n (yes or no to offer `o`), ls (the live bouts)
- *   bout:  in (`r` 'f' to fight, 's' to watch; a ladder bout's opener names `t` its tier, `u` its bout, `lv` my level
+ *   bout:  in (`r` 'f' to fight, 's' to watch; a ladder bout's opener names `tier` and `bout`, `lv` my level
  *          and `mh` my whole health), hit (`i` whom, `d` the damage, `r` how - ARENA_HIT, `w` the weapon's template, `m`
  *          its material, `q` the blow's sequence), yd (I yield), ch (a spectator's `c` cheer 1 or boo -1), out (I leave)
  * @param {any} m
@@ -309,9 +309,9 @@ export function validArenaIn(m) {
     case 'in': {
       if (m.r !== 'f' && m.r !== 's') return null;
       const out = { k: 'in', r: m.r };
-      if (m.t !== undefined || m.u !== undefined) {
-        if (int(m.t, 0, ARENA_TIERS - 1) == null || int(m.u, 0, ARENA_TIER_BOUTS) == null) return null;
-        Object.assign(out, { t: m.t, u: m.u });
+      if (m.tier !== undefined || m.bout !== undefined) {
+        if (int(m.tier, 0, ARENA_TIERS - 1) == null || int(m.bout, 0, ARENA_TIER_BOUTS) == null) return null;
+        Object.assign(out, { tier: m.tier, bout: m.bout });
       }
       if (m.lv !== undefined) { if (int(m.lv, 1, 999) == null) return null; out.lv = m.lv; }
       if (m.mh !== undefined) { if (int(m.mh, 1, 99999) == null) return null; out.mh = m.mh; }
@@ -334,8 +334,8 @@ export function validArenaIn(m) {
 
 /** The relay's words, by kind. */
 export const ARENA_OUT_KINDS = Object.freeze(['qd', 'qx', 'of', 'go', 'live', 'st', 'ev', 'hp', 'mv', 'atk', 'blow', 'rc', 'cr', 'no', 'sp']);
-const NAME_RE = /^[\p{L}\p{N} '._-]{1,32}$/u;
-const nameOk = (s) => typeof s === 'string' && NAME_RE.test(s);
+/** A name on an arena word: the relay's own (the token's, a display name) - bounded and free of control characters. */
+const nameOk = (s) => typeof s === 'string' && s.length >= 1 && s.length <= 40 && !/[\u0000-\u001f\u007f]/.test(s);
 const bannerOk = (b) => b == null || ARENA_BANNERS.includes(b);
 /** A fighter as the hall bills one: name, rating, title and banner (each optional but the name). */
 function billOk(v) {
@@ -377,7 +377,7 @@ function evOk(e) {
  *   bout:  st (the whole bout: `o`, `kind`, `ph` its phase, `pa` the phase's start, `fa` the fight's, `lim`, `tier`, `bout`,
  *          `f` its fighters, `me` my id or '', `sp` spectators, `res` the result), ev (`e` law events), hp (`h`
  *          `[[id, hp, max]]`), mv (`i` an AI fighter, its walk `x z tx tz v at`), atk (`i` its blow `at` landing at `x z`),
- *          blow (`i` struck me for `d`), rc (`r` my receipt), cr (the crowd's `c` cheer or boo, `n` how many), no (`m` a
+ *          blow (`i` struck player `to` for `d`), rc (`r` my receipt), cr (the crowd's `c` cheer or boo, `n` how many), no (`m` a
  *          refusal), sp (`n` spectators)
  * @param {any} m
  */
@@ -446,7 +446,7 @@ export function validArenaOut(m) {
       if (typeof m.tg !== 'string' || !FID_RE.test(m.tg)) return null;
       return { k: 'atk', i: m.i, at: m.at, x: m.x, z: m.z, tg: m.tg };
     }
-    case 'blow': return typeof m.i === 'string' && /^a[0-3]$/.test(m.i) && int(m.d, 0, 9999) != null ? { k: 'blow', i: m.i, d: m.d } : null;
+    case 'blow': return typeof m.i === 'string' && /^a[0-3]$/.test(m.i) && int(m.d, 0, 9999) != null && typeof m.to === 'string' && /^p[01]$/.test(m.to) ? { k: 'blow', i: m.i, d: m.d, to: m.to } : null;
     case 'rc': return typeof m.r === 'string' && m.r.length <= 640 ? { k: 'rc', r: m.r } : null;
     case 'cr': return (m.c === 1 || m.c === -1) && int(m.n, 1, ARENA_SPECTATORS_MAX) != null ? { k: 'cr', c: m.c, n: m.n } : null;
     case 'sp': return int(m.n, 0, ARENA_SPECTATORS_MAX) != null ? { k: 'sp', n: m.n } : null;

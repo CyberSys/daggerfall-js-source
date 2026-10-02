@@ -174,6 +174,7 @@ import { nameAllowed } from './nameFilter.js';   // NAME-F2: the filter runs INS
 import { validRollSpec, validRoll, rollDice, ROLL_DICE_MAX, ROLL_SIDES_MAX, ROLL_MOD_MAX } from './dice.js';   // DICE1: the dice's law - one home for both ends (dice.js imports nothing, so the worker's graph stays flat)
 import { GUILD_TAG_RE } from './guildLaw.js';   // GUILD1c: a guild's tag is badged beside the name - guildLaw.js imports nothing, so the worker's graph stays flat
 import { RAID_KEY_RE, RAID_SIG_RE, RAID_TARGET_MIN, RAID_TARGET_MAX, RAID_TYPES, RAID_WORD_KILLS_MAX, RAID_ACCOUNTS_MAX, RAID_TOP_MAX, RAID_TOWNS_SHA_RE, RAID_TOWNS_CHUNK, RAID_TOWNS_CHUNKS_MAX } from './raidLaw.js';   // RAID3: a town raid's law - raidLaw.js imports nothing, so the worker's graph stays flat
+import { validArenaIn, validArenaOut } from './arenaLaw.js';   // ARENA4: the arena's words both ways - arenaLaw.js imports nothing, so the worker's graph stays flat
 import { validGateMods, GATE_FEEDS_MAX } from './gateMods.js';   // WB8b: the Warden's marks on a gate's state - gateMods.js imports nothing, so the worker's graph stays flat
 export { validRollSpec, validRoll, rollDice, ROLL_DICE_MAX, ROLL_SIDES_MAX, ROLL_MOD_MAX };
 
@@ -1463,7 +1464,7 @@ export function inRange(roomKey, from, to) {
   return pixelDistance(from, to) <= RANGE_PIXELS;
 }
 
-/** One client frame, parsed and checked: {t:'hello'|'pose'|'ping'|'chat'|'roll'|'say'|'narrate'|'stage'|'mute'|'renown'|'guild'|'guildout'|'world'|'foes'|'own'|'hit'|'act'|'who'|'quest'|'social'|'party'|'trade'|'cast'|'card'|'page'|'duel'|'park'|'look'|'gate'|'raid'|'raidtowns'|'ow'|'trav'|'amap', ...}
+/** One client frame, parsed and checked: {t:'hello'|'pose'|'ping'|'chat'|'roll'|'say'|'narrate'|'stage'|'mute'|'renown'|'guild'|'guildout'|'world'|'foes'|'own'|'hit'|'act'|'who'|'quest'|'social'|'party'|'trade'|'cast'|'card'|'page'|'duel'|'park'|'look'|'gate'|'arena'|'raid'|'raidtowns'|'ow'|'trav'|'amap', ...}
  *  or {error} - the caller closes on an error. INSPECT1: every arm below, named - this line had fallen seven behind
  *  (test/auditworld2.test.js derives the list from the arms now, so it cannot fall behind again - the merge with
  *  main's HCC-PARK was its first catch: the park arm, unnamed). */
@@ -1535,6 +1536,11 @@ export function parseClient(text, { hasHello = false } = {}) {
     if (!hasHello) return { error: 'gate before hello' };
     const g = validGateIn(m);
     return g ? { t: 'gate', ...g } : { error: 'bad gate' };
+  }
+  if (m.t === 'arena') {   // ARENA4: a word to the arena's hall (the queue, an offer's answer, the bouts to watch) or to a bout's room (on the sand or in the stands, a blow claim, a yield, a cheer) - projected by validArenaIn; the room's referee (net/arenaBrain.js) judges it
+    if (!hasHello) return { error: 'arena before hello' };
+    const g = validArenaIn(m);
+    return g ? { t: 'arena', ...g } : { error: 'bad arena' };
   }
   if (m.t === 'raid') {   // RAID3: a word on a town's raid, to the town's cell - projected by validRaidIn; the cell's ledger (net/raidLaw.js) judges it
     if (!hasHello) return { error: 'raid before hello' };
@@ -3177,6 +3183,15 @@ export const gateGate = (bucket, nowMs) => tokenGate(bucket, nowMs, GATE_HZ_MAX)
  *  holds no fight - so the gate's door answers "not yet" at it (scenes/gatePool.js ready). */
 export const GATE_RELAY_MIN = 113;   // world110 on its branch; main's EVENT1, RENOWN1 and PARTY-TRAVEL took world110-112, none of which holds a fight
 export const relaySupportsGate = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= GATE_RELAY_MIN; };
+/** ARENA4: the arena frames' own bucket - blows at the referee's ARENA_HIT_HZ_MAX (4), a swing's bodies under one `q`, the
+ *  `in`, the queue's words and a spectator's cheers: the gate's own depth. */
+export const ARENA_HZ_MAX = 16;
+export const arenaGate = (bucket, nowMs) => tokenGate(bucket, nowMs, ARENA_HZ_MAX);
+/** ARENA4: the first relay that opens the arena's rooms - an older one opens no `arena:` room (the Worker answers 404). */
+export const ARENA_RELAY_MIN = 142;
+export const relaySupportsArena = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= ARENA_RELAY_MIN; };
+/** ARENA4: an arena word from the relay, checked by the client as the relay checked the client's (net/arenaLaw.js). */
+export const readArenaOut = (m) => validArenaOut(m);
 /** AUDIT WBX S1: the first relay whose hub hears a `spent` - an older one closes the socket on the frame. world116
  *  (world114 on its branch; main's Enhanced Plus patch and GUILD1c took world114 and world115 first, and neither hears it). */
 export const GATE_SPENT_RELAY_MIN = 116;
