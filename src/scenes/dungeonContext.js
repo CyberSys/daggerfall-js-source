@@ -216,6 +216,11 @@ import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online
 import { elitesAllowed, pickDungeonElites, promoteEliteFoe, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, eliteCorpseSize } from '../systems/eliteFoes.js';   // ELITE FOES: 3-4 champions in an Elite Dungeon
 import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOOT_DROP_MULT, ELITE_LOOT_QUALITY_MULT } from '../world/spawnedDungeons.js';   // ELITE: an elite spawn's foe count and strength
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
+import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
+import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent } from '../systems/revenant.js';
+import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it (the open world's law, one home)
+import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE
+import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
 import { createBloodMarks } from '../combat/bloodMarks.js';   // BLOOD1a: HARD1 - the ring is this context's to own and to end
 import { createHitEffects, bloodCentre } from './hitEffects.js';
@@ -281,7 +286,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2485); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2678); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -936,7 +941,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   markDungeonChampions(enemies, dfLocation.dungeon.recordElement.header.locationId);   // LOOT7: the layout's champions, a hash of the place and the marker - every client the same, no wire word
   // ELITE FOES: an Elite Dungeon holds 3 or 4 champions among its foes - a pure pick over the list every client builds,
   // seeded by the dungeon's own id, so every client marks the same records (systems/eliteFoes.js)
-  // ...and a normal dungeon at most one, one time in five
+  // ...and a normal dungeon at most one, one time in ten
   // ONLINE ONLY: offline, no elites (the room's id is read straight off opts - onlineRoom() is declared below)
   if (elitesAllowed({ onlinePage: isOnlinePage(), inRoom: opts.selfId?.() != null })) pickDungeonElites(enemies, dfLocation?.dungeon?.recordElement?.header?.locationId ?? dfLocation?.name ?? '', { elite: !!dfLocation?.elite });
   // C8 E1 (?foes): CLASS enemies (mobileType > 43, human morphology)
@@ -1162,7 +1167,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
   }
   function applyEliteScaling(entity, e) {
-    if (e?.eliteFoe && entity) { promoteEliteFoe(entity, { eliteDungeon: !!e.elite }); if (e.elite) entity.elite = true; return; }   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling
+    if (e?.eliteFoe && entity && promoteEliteFoe(entity, { eliteDungeon: !!e.elite, checkLevel: false })) { if (e.elite) entity.elite = true; return; }   // ELITE-FLOOR: the pick's own (by the kind's level, every client alike)   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling
     if (!e?.elite || !entity) return void applyChampion(entity, e?.champion);   // LOOT7: a plain dungeon's champion (its loot reads the mark, so before it)
     entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * ELITE_HEALTH_SCALE));
     entity.health = entity.maxHealth;
@@ -1466,6 +1471,115 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   }
   /** B1: the quest behaviour's pool surface (the questFoeHost
    *  contract) - the dungeon twin of exteriorFoes' questPoolOps. */
+  /** REVENANT-DUNGEON: a fleeing foe out of reach - retired through the quest pool's own door (no corpse, no kill; a
+   *  layout foe due back as any it retires), made a revenant (or a stronger one), and said. */
+  function escapeDungeonFoe(f, { slip = false } = {}) {
+    questPoolOps.removeFoe(f);
+    f.fleeing = false;
+    f.escaped = true;
+    f.yielded = null;
+    if (f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const r = revenantDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f, archive: f.mobileArchive });
+    if (r) revenantSay(slip ? slipEvent(playerEntity, r, { archive: f.mobileArchive }) : revenantEscapeEvent(r, playerEntity?.name, { archive: f.mobileArchive }), (l) => hudText.add(l));   // REVENANT-FATE: a slip says the hesitation
+  }
+  // ── REVENANT-FATE underground: the open world's law (scenes/exteriorFoes.js), for a foe of the player's alone ─────
+  const portals = createPortalSet({ renderer, audio });   // COMPANION-PORTAL: this place's own, drawn with its foes
+  const fateSay = (ev) => { if (ev) revenantSay(ev, (l) => hudText.add(l)); };
+  /** It yields: held at 1, kneeling, its plea said. */
+  function yieldDungeonFoe(f) {
+    if ((!foeDeps || !f.ai?._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai?.target)) && f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const ev = beginYield(playerEntity, f, { now: Date.now() });
+    // AUDIT (2026-10-02): a FLYER beaten kneels on the floor below, never in the air out of the player's reach
+    if (f.ai?.flies) { const g = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]); if (g && g[1] < f.ai.feet[1]) f.ai.feet[1] = g[1]; }
+    audio.play3d(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
+    fateSay(ev);
+  }
+  /** The choice's model for a kneeling one (the host's window), or null. */
+  function fateFor(f) {
+    if (!f || f.dead || !f.yielded || !foes.includes(f)) return null;
+    return fateModel(playerEntity, f, { choose: (id) => chooseFate(f, id) });
+  }
+  function chooseFate(f, id) {
+    if (!f?.yielded || f.dead) return false;
+    const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+    if (id === 'kill') {
+      renownFoeStruck(f);   // AUDIT (2026-10-02): the execution is my blow - a kneel past RENOWN_ASSIST_MS paid nothing
+      const ev = beginExecution(playerEntity, f, { now: Date.now() });
+      audio.play3d(SOUND.SwingLowPitch, at, 1, { maxDistance: 16 });
+      opts.shakeCamera?.(1.4);
+      fateSay(ev);
+      return true;
+    }
+    if (id === 'spare') {
+      const sp = beginSpare(playerEntity, f, { now: Date.now() });
+      if (!sp) return false;
+      portals.open(at);
+      fateSay(sp.event);
+      return true;
+    }
+    return false;
+  }
+  /** One frame of a judged or kneeling foe (its pose held, its beats played) - 'gone' when it left the place. */
+  /** AUDIT (2026-10-02): the portal's hand-offs, run AFTER the foe loop - a lift takes its record out of `foes`, and a
+   *  splice under the loop's own iteration skipped the next foe for that frame (no step, no draw: a flicker). */
+  const _leftDone = [];
+  function runLeftDone() {
+    for (let i = 0; i < _leftDone.length; i += 2) { const f = _leftDone[i]; try { _leftDone[i + 1](); } catch { questPoolOps.removeFoe(f); } }
+    _leftDone.length = 0;
+  }
+  function dungeonFateFrame(f, dt, playerFeet, eye) {
+    const now = Date.now();
+    if (f.leaving) {
+      f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
+      if (now - f.leaving.at >= 900) { _leftDone.push(f, f.leaving.done); f.leaving = null; }   // handed off after the foe loop (runLeftDone)
+    } else if (f.executing) {
+      const st = executionStep(f, now);
+      f._mout = kneelPose(f, eye, now);
+      if (st === 'burst') {
+        const mark = ENEMY_BASICS[f.mobileType]?.bloodIndex ?? 0;
+        hitEffects.showBloodSplash(mark, f.ai._centre?.() ?? f.ai.feet, null, { ...bloodHit((f.entity?.maxHealth || 100) * 4, f.entity, { fromPlayer: true, weapon: { templateIndex: 126 } }), markIndex: mark });   // the heaviest blow there is: the gibs thrown
+        audio.play3d(SOUND.Hit2, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 20 });
+        audio.play3d(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.7, { maxDistance: 20 });
+        opts.shakeCamera?.(3);
+        f._hfAt = performance.now() / 1000;   // the red flash, on foeHitFlash's own clock (the frame's write reads it)
+      } else if (st === 'done') {
+        const feet = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]);   // AUDIT (2026-10-02): its pile on the floor, never in the air
+        // AUDIT (2026-10-02): ITS SOUL - the kill door's X5 trap and V3 Star, which the yield ran ahead of (the open world's law)
+        const trap = attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
+        if (trap.alert && trap.alert !== 'trapNoneEmpty' && SOUL_TRAP_TEXT[trap.alert]) hudText.add(SOUL_TRAP_TEXT[trap.alert]);
+        if (f.mobileType < 128 && isAzurasStarEquipped(playerEntity) && fillEmptyTrap(playerEntity.items, f.mobileType, { azurasStarOnly: true })) hudText.add(SOUL_TRAP_TEXT.trapSuccess);
+        reportPlayerKill(f.entity, { kind: 'melee' });
+        renownFoeDied(f);
+        raiseEnemyDeath(f.entity, { luck: liveStat(playerEntity, 'luck') });
+        const items = finishExecution(playerEntity, f);
+        f.executing = null;
+        questPoolOps.removeFoe(f);   // gone with no body
+        f.executed = true;
+        if (items.length) { droppedLoot.dropPile(items, feet); playRareDrop(audio, feet, items); }
+      }
+    } else if (f.sparing) {
+      f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
+      if (spareDone(f, now)) { questPoolOps.removeFoe(f); f._swornAway = true; }
+    } else if (yieldStep(f, playerFeet, dt * 1000) === 'slip') escapeDungeonFoe(f, { slip: true });
+    else f._mout = kneelPose(f, eye, now);
+    return f.dead ? 'gone' : 'held';
+  }
+  /** COMPANION-PORTAL: the place's portal work for the companion layer (crewAshore.js `place.fx`). */
+  const companionFx = {
+    arrive(rec) { if (!rec?.ai) return; portals.open(rec.ai.feet); rec.portalFx = { dir: 'in', at: Date.now(), delay: 220, ms: 640 }; },
+    leave(rec, done) {
+      if (!rec?.ai || rec.dead) { done(); return; }
+      portals.open(rec.ai.feet);
+      rec.portalFx = { dir: 'out', at: Date.now(), delay: 180, ms: 600 };
+      rec.leaving = { at: Date.now(), done };
+    },
+    jump(rec, from) {
+      if (!rec?.ai) return;
+      portals.open(from, { short: true });
+      portals.open(rec.ai.feet, { short: true, quiet: true });
+      rec.portalFx = { dir: 'in', at: Date.now(), delay: 140, ms: 480 };
+    },
+  };
   const questPoolOps = {
     removeFoe: (f) => {
       if (f.dead) return;
@@ -1927,7 +2041,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15193 / exterior.js:3766), set
+  // host's own townTalk sink (world.js:15348 / exterior.js:3775), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2514,7 +2628,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1422,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1425,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3056,7 +3170,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1118 against :1148; worldModes.js:8109 against :8129).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1118 against :1148; worldModes.js:8115 against :8135).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3600,7 +3714,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // Backstabbing skill, tallied inside CalculateBackstabChance
     // (FormulaHelper.cs:975-990 - the tally was ported nowhere).
     for (const f of foes) if (!f.dead) f._backFacing = foeDeps.isBackFacing(f.ai.yaw, f.ai.feet, playerFeet);
-    const live = foes.filter((f) => !f.dead && f.companion == null);   // CREW-COMPANIONS: my companion is never the swing's (exteriorFoes' SHIPMATES filter)
+    const live = dropFateHeld(foes.filter((f) => !f.dead && f.companion == null));   // REVENANT-FATE (the 2026-10-02 audit): one held by its fate is no swing's. CREW-COMPANIONS: my companion is never the swing's (exteriorFoes' SHIPMATES filter)
     // WB4b: THE COURT'S BOSS, a body the swing meets as it meets a foe - the same resolveHit and formula, against his
     // stand-in, by his body's SURFACE (bossSight); never in `foes`: what lands goes to the relay (landOnBoss)
     const boss = gateBossBody();
@@ -3880,8 +3994,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:25450,
-              // exterior.js:5385 and worldModes.js:8829 already ran;
+              // playerArrowHitFoe is the one copy world.js:25610,
+              // exterior.js:5394 and worldModes.js:8835 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4761,7 +4875,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2485). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2678). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5192,6 +5306,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         health: f.entity.health, dead: !!f.dead,
         died: f.dead && Number.isFinite(f._diedAt) ? f._diedAt : null,   // WORLD8: when it fell, the relay's clock - the hour's respawn reads it
         ...(f.abyssDestroyed ? { abyssDestroyed: true } : {}),   // AUDIT OH-F B1: Object.Destroy'd - in DFU's save not at all
+        ...(f.dead && (f.escaped || f.executed || f._swornAway) ? { noBody: true } : {}),   // REVENANT-FATE (the 2026-10-02 audit): fled, burnt away or sworn - gone with no body, so a load lays none
         feet: [...f.ai.feet], yaw: f.ai.yaw, anchor: 1,   // REVIEW 2026-09-05: feet under the enemyAnchor law (a pre-fix save carries no stamp)
         items: (f.entity.items ?? []).map((it) => ({ ...it })),
         // CH4 (the senses verify pass): SerializableEnemy carries
@@ -5335,7 +5450,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1855's restoreWorld goes through
+    // construction (exteriorFoes.js:2044's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -5343,6 +5458,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // A PRE-PASS over the WHOLE live pool, not a line in the loop
     // below: that loop visits only the indices the record carries.
     for (const f of foes) if (f?.entity) f.entity.pickpocketAttempted = false;
+    // REVENANT-FATE (the 2026-10-02 audit): a judgement in flight is the replaced game's - a same-dungeon load patched the
+    // foe whole and left it kneeling, or burning (its pile dropped after the load)
+    for (const f of foes) { if (!f) continue; f.yielded = null; f.executing = null; f.sparing = null; f.trophy = null; f.yieldEvent = null; }
     if (truncate) clearOwnPuppets();   // QUEST-PARTY phase 3c: the save holds none (collectWorld), so its indices are this pool's without them - they stand again from their owners' next frames
     const _now = _wallNow();
     const settling = [];   // AUDIT OH-F B1: the restore's rebuilds - RestoreEnemyData is whole before the mod loop runs
@@ -5377,6 +5495,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         settling.push(retypeFoe(i, sf.mobileType, sf.gender ?? null).then((ok) => { if (ok && foes[i]) { patchFoe(foes[i], sf, wire); applyLoot(bodyRecords(w.loot, i)); } }).catch((e) => console.error('[online] the rebuilt foe could not take the record - the foe stands as it is:', e)));   // AUDIT ONCRASH1 A1: the async tail has its own catch - `_deliver` cannot see past the promise it is handed
         return;
       }
+      // REVENANT-FATE (the 2026-10-02 audit): one gone with no body (fled, burnt away, sworn) - out again with none: a save
+      // of it had laid its corpse, its whole pack lootable (an executed one's twice over: its pile is the save's too). One
+      // due back past the hour was rebuilt above, as any foe is
+      if (sf.noBody && sf.dead) { if (!f.dead) questPoolOps.removeFoe(f); if (Number.isFinite(sf.died)) f._diedAt = sf.died; return; }
       patchFoe(f, sf, wire);
     });
     // SL2 / SerializableStateManager.RestoreEnemyData (:404-425): a
@@ -5534,6 +5656,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // after the killing tick inside one window, and each re-ran the whole death arm (trap, chime, OnEnemyDeath).
     if (foe.dead || (fromPlayer && !peer && foe.companion != null)) return;   // CREW-COMPANIONS: and my companion takes no blow of mine (exteriorFoes' AUDIT NAV2 F55 gate) - it turned him
     if (fromPlayer && !peer) renownFoeStruck(foe);   // RENOWN1: MY blow - a joiner's too, before the divert sends it to the host
+    if (foe.yielded || foe.executing || foe.sparing) return;   // REVENANT-FATE: a beaten revenant takes no blow - its fate is the player's choice
     // AUDIT PSCALE1 DOORS-1: a KILL is not a blow - a Disintegrate, a stat drained to zero (the sinks' `whole`), the
     // Razor's whole-health strike (its mark on the foe) - and no fighters' toughness divides it, here or at the host
     const _whole = whole || takeWholeBlow(foe.entity);
@@ -5655,6 +5778,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (foe.entity.health <= 0) {
       // CREW-COMPANIONS: a companion is knocked out, never killed (exteriorFoes' twin) - before the trap and the corpse
       if (foe.companion != null) { foe.entity.health = 1; foe._knockedOut = true; return; }
+      // REVENANT-FATE: one of the player's revenants, the player's ALONE here (offline, or past the room's shared run -
+      // REVENANT-DUNGEON's own gate), yields instead of dying; a kill (a Disintegrate's whole) is a kill
+      if (opts.fates && !_whole && (!onlineRoom() || !isRoomFoe(foe)) && revenantMayYield(foe)) { yieldDungeonFoe(foe); return; }
       // X5: SOUL TRAP intercepts the kill, exactly where DFU's
       // EnemyEntity.SetHealth override does (:157-177) - before the
       // death, on every damage source alike. A successful roll with no
@@ -5697,6 +5823,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // WORLD6b B2): a PEER's killing blow applied here speaks no notice of mine - the striker's own rings at the
       // striker, below in applyFoeRecord, when this host's record names it
       if (!peer) sayEnemyDied((l) => hudText.add(l), foe.mobileType, foe.entity);
+      if (foe.entity?.revenant) { const nr = revenantSlain(playerEntity, foe.entity); if (nr && !peer) revenantSay(revenantSlainEvent(nr, playerEntity?.name, { archive: foe.mobileArchive }), (l) => hudText.add(l)); }   // REVENANT-DUNGEON: one that killed me here and stood, slain at last
       spawnCorpse(foe);
       playRareDrop(audio, foe.ai.feet, foe.entity.items);   // LR3: the chime for a Rare or better on the body
       stampWonWeapons(foe.entity.items, _sharedFoe(foe) ? fightN(foe) : 1);   // SIGIL1: the body's Magic+ weapons won online may carry a sigil; a bigger fight, better odds
@@ -6417,6 +6544,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // action at all (EnemyMotor.cs:464-466 + :267-269,
       // EnemyAttack.cs:59-61), not merely no anim intent.
       const _fPaused = !!(f.mobile?.isPlayingOneShot() && f.mobile.oneShotPauseActionsWhilePlaying());
+      const _fateHeld = !!(f.yielded || f.executing || f.sparing || f.leaving);   // REVENANT-FATE / COMPANION-PORTAL: held where it stands - no step, no blow, no cast
+      if (_fateHeld && dungeonFateFrame(f, dt, _pf, eye) === 'gone') continue;
       // WORLD2: a PUPPET - another hosts the room and this layout foe follows its stream (puppetStep): nothing below
       // decides for it (no senses, no pursuit, no swing, no cast, no fall, no door, no bark of its own choosing);
       // the mobile arm past this block still draws it - the walk, the attack clip, the hurt one-shot
@@ -6431,7 +6560,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         tickEnemySound(f.sounds, f.ai.feet, playerFeet || eye, dt, { audio, collider, hearing: acuteHearingMultiplier(playerEntity) });   // the barks are the foe's, not the frame's
         if (_strikeEdge) playEnemyClip(audio, f.sounds.attack(), f.ai.feet, acuteHearingMultiplier(playerEntity));   // the streamed swing's own sound
       }
-      else {
+      else if (!_fateHeld) {   // REVENANT-FATE: a held foe decides nothing
       // MT-iv: the armed context and the target's feet - exteriorFoes'
       // pair, one spelling. Unarmed (no candidates, or the foe
       // subsystem never loaded) both fall through to the legacy
@@ -6453,6 +6582,15 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       applyEnemyMotorEffectFlags(f.ai, f.entity);   // A5: Levitate.SetEnemyMotor's IsLevitating, folded from the effect's presence
       f.ai.update(foeFrameDt(dt), _pf, _armed(f, _senses, _roomFoe), _fParalyzed, _fPaused);   // E2 senses + pursuit; P13: the stealth context; MT-iv: the target machine; AUDIT WORLD3 D1: the peers only for a foe the stream carries
       _tgt = _targetFeet(f);   // MT-iv: whatever it SELECTED
+      // REVENANT-DUNGEON (systems/revenant.js revenantFleeStep - the open world's own law): a special foe MINE ALONE (offline,
+      // or past the room's shared run - a room's layout foe vanishing on one client would leave it standing on the rest)
+      // may run; running it aims at nothing (no blow, no cast; the walk below still draws it); out of reach it has
+      // ESCAPED - retired through the quest pool's door, no corpse, a revenant made; run down, it is CORNERED and fights on
+      const _flee = f.fleeing || (!f._fleeRolled && revenantFleeHealth(f.entity)) ? revenantFleeStep(f, _pf, { mayRun: !onlineRoom() || !_roomFoe, onMe: () => !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target) }) : null;   // asked only of a foe running or under the line
+      if (_flee === 'escape') { escapeDungeonFoe(f); continue; }
+      if (_flee === 'start') revenantSay(revenantFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive, playerName: playerEntity?.name }), (l) => hudText.add(l));
+      else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive, playerName: playerEntity?.name }), (l) => hudText.add(l));
+      if (_flee === 'start' || _flee === 'run') _tgt = null;
       // CH3 (characters-8): a past-threshold landing bills the
       // player's fall formula - trunc(5 x (drop - 5)) - through the
       // pool's damage door (no knockback), ringing FallDamage at the
@@ -6635,7 +6773,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // too - and the port's cache froze the FACING as well as the
         // frame. What stops the blow is EnemyAttack's early return, which
         // is the consume-and-clear below.
-        {
+        if (!_fateHeld) {   // REVENANT-FATE: a held foe's pose is its own (dungeonFateFrame) - it is still drawn below
           // A5 - DaedraSeducerMobileBehaviour.Update, a MonoBehaviour
           // Update that runs BEFORE the anim step consumes the state
           // it raises. Its one input is `enemySenses.Target ==
@@ -6715,6 +6853,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         f.batch.conceal = ecv.kind === 'conceal' ? ecv.visual : null;
         setBatchHitFlash(f.batch, foeHitFlash(f, performance.now() / 1000));   // HITFLASH1: a foe struck flashes red - any blow, mine, a peer's, or its owner's stream
         setBatchEliteGlow(f.batch, eliteGlow(f.entity, performance.now() / 1000, (f.mobileType * 1.7) % 6.28), performance.now() / 1000);   // ELITE FOES: the pulse
+        const _dv = f.executing || f.sparing || f.portalFx ? fateDissolve(f, Date.now()) : null;   // REVENANT-FATE / COMPANION-PORTAL: burning away, or through a portal
+        if (!_dv && f.portalFx && f.portalFx.dir === 'in') f.portalFx = null;
+        setBatchDissolve(f.batch, _dv ? _dv[0] : 0, _dv ? _dv.slice(1) : undefined);
 
         const out = f._mout;
         const rkey = `${out.record}#${out.frame}`;
@@ -6773,8 +6914,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // U26: the player's own dropped piles ride the SAME pass as the
     // sprite mobiles - they are billboards at a world position with
     // no animation, exactly like a corpse.
+    if (_leftDone.length) runLeftDone();   // COMPANION-PORTAL: the portal has them - out of the pool, after the loop
     droppedLoot.tickFlats(dt);   // FA1 slice 3
-    const _dropBatches = droppedLoot.batches();
+    portals.tick(eye);   // COMPANION-PORTAL
+    const _dropBatches = [...droppedLoot.batches(), ...portals.batches()];   // COMPANION-PORTAL: the portals ride the drops' pass
     const _spellBatches = magic.batches();   // M3: player spell missiles
     // BLOOD1 AUDIT 3: the ring is NOT drawn here. It was - inside this
     // gate - and both dungeon hosts already draw the context's pool by
@@ -7073,8 +7216,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (key.startsWith('mobileFoe:')) {
       const f = liveFoeFor(foes, key, 'mobileFoe');
       if (!f) return null;
-      const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
-      return t ? { title: t } : null;
+      const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
+      return t ? { title: f.yielded ? `${t} - beaten` : t } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does
     }
     if (key.startsWith('door:') || key.startsWith('act:')) {
       const o = actions.objects.get(key) ?? null;
@@ -7592,6 +7735,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     corpseKeyOf: (f) => { const i = foes.indexOf(f); return i >= 0 && lootableBody(f) && f.entity?.items?.length ? `corpse:${i}` : null; },
     isPuppetFoe: (f) => isPuppetFoe(f),   // AUDIT PRE-MERGE 0928 O6: the frame's own puppet test, for a host that would move a foe (Come Sail Away's hull)
     spawnQuestFoe,   // B1: CreateFoe's dungeon arm stands foes through the one build chain
+    fateFor, chooseFate, companionFx,   // REVENANT-FATE: a kneeling revenant's choice; COMPANION-PORTAL: the place's portals
     removeLooseFoe,   // CREW-COMPANIONS: a companion out of the room with no corpse
     spawnLooseFoe,   // SD1: the same chain with no quest behaviour bound - the enchant ctx's spawner
     questSpawnSpots: () => dungeonQuestSpawnSpots(dungeon.blocks),   // FIELD BUGS 29h (BOUNTY-LAIR): where DFU stands a quest's foe here
@@ -8067,6 +8211,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // foes on its own build (PrepareAbyssDungeon), and the hour's respawn refuses a destroyed foe on each.
       for (const f of w.foes) delete f.abyssDestroyed;
       w.loot = lootRecords([..._lootSeen]);
+      for (const f of w.foes) delete f.noBody;   // REVENANT-FATE: the room's door has no field for it either
       // AUDIT WORLD34 C2: the memory's action records are the SHARED half, as an act's are (AUDIT WORLD3 B1) - the
       // save record carried the picker's per-player latch, so one host's failed pick silenced every joiner's attempt
       w.actions = (w.actions ?? []).map(sharedRecord);
@@ -8951,6 +9096,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // is still warming cannot mint onto the orphan.
       for (const p of droppedLoot._piles) { p.dead = true; if (p.batch) renderer.destroyBillboardBatch(p.batch); }
       droppedLoot._piles.length = 0;
+      portals.clear();   // COMPANION-PORTAL: the portals standing own a batch each and leave with the dungeon
       // NT1 (F214): the context minted its own cast engine; a spell in
       // flight at the exit owned a batch nothing else can reach.
       magic.handReadyTo(opts.outerCastEngine?.() ?? null);   // CAST-USE (AUDIT part five CU1): a ready held at the way out (the door, a Recall, a load) goes with the player

@@ -22,9 +22,10 @@ import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
 import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFireLights, rollHoldFoes } from '../world/wodPrivateersHold.js';   // WOD4: the camp at Privateer's Hold
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
+import { revenantToReturn, revenantSpawnOptions, revenantPresence, takeRevenantNotice, revenantSay, releaseRevenantStand, revenantRecord, revenantMomentEvent } from '../systems/revenant.js';   // REVENANT: who comes back, and what the player is told
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
-import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2)
+import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2); HERB-CURSOR: an act's free cursor
 import { attachTouch } from '../ui/touch.js';
 import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks the same hooks
 import { BlocksFile } from '../formats/blocksFile.js';
@@ -390,6 +391,9 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LI
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
+import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember } from '../systems/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
+import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COMPANION_SLOTS } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
+import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
 import { padFamily } from '../ui/padGlyphs.js';   // AUDIT NAV1 (the presentation): the pad in hand's family - the readout names its buttons
@@ -6536,6 +6540,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  or the street's slot). Answers whether it opened. */
   const openCompanionPack = (rec) => {
     const key = rec?.companion;
+    if (isRevenantCompanionKey(key)) return openSwornPack(rec);   // REVENANT-COMPANION: a sworn one's pack - its record's own list
     if (!naval?.companionPack?.(key) || !inventoryDoorReady()) return false;
     // AUDIT WK-P3: his pack read by his key at every look - a quickload under the window stands a restored party, and a
     // list taken once kept the unloaded pack's items to be taken again (each F9/F11 a duplicate)
@@ -6554,6 +6559,44 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!w) return false;
     if (!modes?.mountWindow?.(w)) { (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.(); return false; }
     return true;
+  };
+  /** REVENANT-COMPANION: a sworn one activated - its pack (its record's own list, read by its id at every look, as a
+   *  hand's is by his key) opened as a storage beside mine, carrying what its body's strength can. */
+  const openSwornPack = (rec) => {
+    const id = revenantIdOfKey(rec?.companion);
+    const packOf = () => _revenantParty?.packOf(id) ?? null;
+    if (!packOf() || !inventoryDoorReady()) return false;
+    let orphan = null;
+    const named = revenantRecord(playerEntity, id)?.name ?? null;
+    const capacity = () => {
+      if (!packOf()) return { kg: 0, name: named, gone: true };
+      const body = revenantAshore.bodies().find((f) => f.companion === rec.companion) ?? rec;
+      return { kg: packCapacityKg(body?.entity ?? null), name: named };
+    };
+    const pack = { items: () => packOf() ?? (orphan ??= []), containerImage: () => CONTAINER_IMAGES.Backpack, playerOwned: true, storage: true, capacity };   // COMPANION-WEIGHT's capacity, his pack's own
+    const w = makeInventoryWindow({ loot: pack });
+    if (!w) return false;
+    const mounted = !!modes?.mountWindow?.(w);
+    if (!mounted) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the window built for it put away again
+    return mounted;
+  };
+  /** REVENANT-FATE (2026-10-02, Mac: "the choice popup should reuse the loot menu"): a beaten revenant activated - its
+   *  choice in the loot window (the pool's model: its name, its plea, the trophy it would drop, where a sworn one would
+   *  stand), over whatever the mode draws, as a companion's pack opens. Answers whether it opened. */
+  const openRevenantFate = (rec) => {
+    const pool = [exteriorFoes, modes?.interiorPool?.(), _dungeonPool()].find((p) => p?.fateFor && p.foes?.includes(rec)) ?? null;
+    const model = pool?.fateFor(rec) ?? null;
+    if (!model || !inventoryDoorReady()) return false;
+    // AUDIT (2026-10-02): a choice made on one gone (nothing can take it now - its wait holds under the window - but a
+    // choice is never silent): said
+    const choose = model.choose;
+    model.choose = (id) => { if (!model.live() || !choose(id)) townTalk.say(`${model.given ?? 'It'} is gone.`); };
+    const w = makeInventoryWindow({ fate: model, loot: { items: () => [], playerOwned: false } });   // a body's door: the loot window, its fate side alone
+    if (!w) return false;
+    const mounted = !!modes?.mountWindow?.(w);
+    if (!mounted) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the window built for it put away again
+    else if (rec.yielded) rec.yielded.judging = () => !w.done;   // AUDIT (2026-10-02): its wait holds while its choice stands open
+    return mounted;
   };
   /** PROF-MENU: a profession node's acts as a list (ListPickerWindow: a tap, the pad or the mouse), where no plaque lists
    *  them - the boat menu's way; the window is closed before the act starts, so the act begins on an open world. True
@@ -7601,17 +7644,18 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  every cap, out of the place's own save - the layer's catch-up comes long before the street's cull) and goes, and where behind the player a
    *  body may stand (the place's collider swept from the player's feet). None while the player is not afoot in it: a
    *  door or a load in flight, at a helm, in the travel view, or the naval arc off. */
-  function companionPlace() {
-    if (!navalOn() || !walkMode || !playerSpawned || _loading || modes?.transitioning || travelView?.active || csaRuntime?.isSailing?.()) return null;
+  function companionPlace({ crew = true } = {}) {   // REVENANT-COMPANION: the sworn's layer asks it without the naval arc's gate
+    if ((crew && !navalOn()) || !walkMode || !playerSpawned || _loading || modes?.transitioning || travelView?.active || csaRuntime?.isSailing?.()) return null;
     const spotOf = (col) => (from, dx, dz) => { const p = [from[0], from[1], from[2]]; try { col?.move(p, dx, 0, dz, 1.8); } catch { /* the leader's own spot */ } return [p[0], p[1], p[2]]; };   // AUDIT CC-A3: the swept spot's own height (a slope's, a stair's)
     const mode = _mode();
     const standIn = (pool) => (mobile, feet, o) => pool.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, allied: true, loose: true, transient: true });
     // AUDIT CC-A1: `has` - a place's clear empties its list and marks nobody (the street's clearLive), so the layer
     // asks the list itself whether a body still stands there
-    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider) };
+    // COMPANION-PORTAL: each place's portals (`fx` - the pool draws them with its foes)
+    if (mode === 'exterior') return { key: exteriorFoes, spawn: standIn(exteriorFoes), remove: (f) => exteriorFoes.removeFoe(f), has: (f) => exteriorFoes.foes.includes(f), spot: spotOf(collider), fx: exteriorFoes.companionFx };
     if (mode === 'interior') {
       const pool = modes?.interiorPool?.();
-      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider) } : null;
+      return pool ? { key: pool, spawn: standIn(pool), remove: (f) => pool.removeFoe(f), has: (f) => pool.foes.includes(f), spot: spotOf(modes?.interiorCollider), fx: pool.companionFx } : null;
     }
     const d = _dungeonPool();
     if (!d?.spawnLooseFoe || !d.removeLooseFoe) return null;
@@ -7620,7 +7664,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // AUDIT CC-E1: a companion rides the room's own lane as a loose stand - the frame's `cp` names him, and everyone in
       // the room stands him as my ally (dungeonContext.js companionPuppet); off the lane he was nobody's to see
       spawn: (mobile, feet, o) => d.spawnLooseFoe(mobile, feet, { yawRad: o.yaw, allied: true, gender: o.gender }),
-      remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider),
+      remove: (f) => d.removeLooseFoe(f), has: (f) => d.foes.includes(f), spot: spotOf(d.collider), fx: d.companionFx ?? null,
     };
   }
   const crewAshore = createCrewAshore({
@@ -7630,6 +7674,73 @@ export async function bootWorld(canvas, renderer, params, status) {
     now: () => Math.floor(playerTicker.ownMinutes),
     onKnocked: (c) => naval?.companionKnocked?.(c),
   });
+  // COMPANION-SLOTS: the crew's hands ashore take the player's side's slots with the sworn
+  registerCompanionCount('crew', () => (navalOn() ? naval?.companions?.party?.length ?? 0 : 0));
+  // REVENANT-COMPANION (2026-10-02, Mac: "Spare should allow you to free the enemy, which then adds them as a companion
+  // ... Reuse the crew companion system"): THE SWORN, stood by the crew's own layer - every place, every door, the
+  // heel, the catch-up, health and spells carried - from their records (systems/revenantCompanions.js). Never gated on
+  // the naval arc: a sworn revenant walks with any character.
+  setRetinuePlayer(playerEntity);
+  /** The sworn ones the player just called or spared, who say so as they step through (the roster's call). */
+  const _revenantArrivals = new Set();
+  const revenantCompanionSay = (kind, id, body = null) => {
+    const r = revenantRecord(playerEntity, id);
+    if (r) revenantSay(revenantMomentEvent(kind, r, playerEntity?.name, body ? { body } : {}), (l) => townTalk.say(l));
+  };
+  const _revenantParty = revenantParty({ onWake: (r) => townTalk.say(`${r.name} has recovered, and waits for your call.`) });
+  const revenantAshore = createCrewAshore({
+    party: () => (playerSpawned ? _revenantParty : null),
+    place: () => companionPlace({ crew: false }),
+    leader: () => (playerSpawned ? { feet: [player.pos[0], player.pos[1], player.pos[2]], yaw: cam.yaw, grounded: !!player.grounded && !player.levitating && !player.swimming } : null),
+    now: () => Math.floor(playerTicker.ownMinutes),
+    onKnocked: (c) => revenantCompanionSay('downed', c.name, `${c.title ?? 'It'} falls, and is carried off through a portal to recover.`),
+    onStood: (c, rec) => {
+      const r = revenantRecord(playerEntity, c.name);
+      applySwornStrength(rec.entity, r, { fresh: !(c.maxHealth > 0) });   // its rank's strength, as it fought me with; its whole once
+      rec.revenantCompanion = c.name;
+      if (_revenantArrivals.delete(c.name)) revenantCompanionSay('arrive', c.name);
+    },
+  });
+  /** REVENANT-COMPANION: a sworn one called to the player's side - it says so as it steps through. */
+  const noteRevenantArrival = (id) => _revenantArrivals.add(id);
+  // COMPANION-ROSTER (ui/companionRoster.js): the roster's acts heard here - a call's words wait for the stand, a
+  // sending-away's and a release's are said as the layer's next frame takes the body out (the menu closed); the crew's
+  // hands in the slots by name; a sworn one's live health off its body
+  const _revenantDepartures = [];
+  // AUDIT (2026-10-02): opposite acts in one pause cancel - a call after a sending-away (the body never left) says neither
+  // word, nor leaves an arrival waiting for the next door; a release carries its pack's count for its words
+  setRetinueListener((kind, r, extra) => {
+    const sentAt = _revenantDepartures.findIndex((d) => d.kind === 'dismiss' && d.r.id === r.id);
+    if (kind === 'arrive') { if (sentAt >= 0) _revenantDepartures.splice(sentAt, 1); else noteRevenantArrival(r.id); return; }
+    _revenantArrivals.delete(r.id);
+    _revenantDepartures.push({ kind, r, items: extra?.items ?? 0 });
+  });
+  /** AUDIT (2026-10-02): the sworn's layer lifted for a load - its bodies, the words still to say, and every member (so
+   *  no spell the last game's body wore stands with the loaded one). */
+  const clearSworn = () => { revenantAshore.clear(); _revenantArrivals.clear(); _revenantDepartures.length = 0; forgetSwornMember(); };
+  setRetinueBodies((id) => revenantAshore.bodies().find((b) => b.revenantCompanion === id && !b.dead)?.entity ?? null);
+  registerCompanionRoster('crew', () => (navalOn() ? (naval?.companions?.party ?? []).map((c) => ({ name: c.name, role: c.role })) : []));
+  /** REVENANT-COMPANION: A SWORN ONE'S WORD IN A FIGHT, now and then and never a chatter - as it goes in (BARK_BATTLE), over
+   *  a foe it put down (BARK_KILL) - each one's own wait between, and a quiet spell for the whole party after any. */
+  const BARK = Object.freeze({ party: 20000, each: 60000, battle: 0.35, kill: 0.55 });
+  const _barkAt = new Map();
+  let _barkLast = 0;
+  function revenantCompanionBarks() {
+    const now = Date.now();
+    for (const rec of revenantAshore.bodies()) {
+      const id = rec.revenantCompanion;
+      if (!id || rec.dead || !rec.ai) continue;
+      const tgt = rec.ai.target && rec.ai.target.entity ? rec.ai.target : null;
+      const was = rec._barkTgt ?? null;
+      rec._barkTgt = tgt;
+      let kind = null;
+      if (was && was !== tgt && (was.dead || !(was.entity?.health > 0))) kind = Math.random() < BARK.kill ? 'kill' : null;
+      else if (tgt && !was) kind = Math.random() < BARK.battle ? 'battle' : null;
+      if (!kind || now - _barkLast < BARK.party || now - (_barkAt.get(id) ?? -Infinity) < BARK.each) continue;
+      _barkLast = now; _barkAt.set(id, now);
+      revenantCompanionSay(kind, id);
+    }
+  }
   let _companionPruneN = 0;
   /** CREW-COMPANIONS: the companion layer's frame, in every mode (the street's frame and the modal one) - and the party
    *  kept to the living hands once a second. */
@@ -7639,13 +7750,26 @@ export async function bootWorld(canvas, renderer, params, status) {
   function partyCompanions() {
     // AUDIT WK-U5: none while I sail - the party is lifted aboard (it stood its cards over the ship's plate on a phone)
     const party = navalOn() && !csaRuntime?.isSailing?.() ? naval?.companions?.party ?? [] : [];
-    if (!party.length) return [];
+    const sworn = swornCards?.() ?? [];   // REVENANT-COMPANION: the sworn's cards after the crew's
+    if (!party.length) return sworn;
     const bodies = new Map(crewAshore.bodies().map((r) => [r.companion, r]));
-    return party.map((c) => {
+    return [...party.map((c) => {
       const key = `${c.boat}:${c.name}`, rec = bodies.get(key);
       const e = rec && !rec.dead ? rec.entity : null;
       const hm = e?.maxHealth ?? c.maxHealth ?? 100, h = e ? e.health : c.health ?? hm;
       return { key, name: c.name, role: c.role, h, hm, fx: e ? composePartyFx(e) : [] };
+    }), ...sworn];
+  }
+  /** REVENANT-COMPANION: the sworn walking with me, as the party panel's cards - its name, "Sworn" and who it is, its
+   *  health off its body where one stands, else as its record carries it; none while I sail. */
+  function swornCards() {
+    if (csaRuntime?.isSailing?.()) return [];
+    const bodies = new Map(revenantAshore.bodies().map((r) => [r.companion, r]));
+    return revenantsWithYou().map((r) => {
+      const key = `rv:${r.id}`, rec = bodies.get(key);
+      const body = rec && !rec.dead ? rec.entity : null;
+      const hm = body?.maxHealth ?? r.companion?.maxHealth ?? 100, h = body ? body.health : r.companion?.health ?? hm;
+      return { key, name: r.name, role: `Sworn · ${PERSONALITIES[r.personality]?.label ?? 'Revenant'}`, h, hm, fx: body ? composePartyFx(body) : [] };
     });
   }
   /** COMPANION-KIT: offline (no chat links, which draw the panel online) the party panel stands for my companions alone -
@@ -7671,6 +7795,24 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (gamePaused()) return;   // AUDIT CC-A10: no knock, no stand, no catch-up under a window
     if (++_companionPruneN >= 60) { _companionPruneN = 0; naval?.pruneCompanions?.(); }
     try { crewAshore.frame(); } catch (e) { console.warn('[companions]', e?.message ?? e); }
+  }
+  /** REVENANT-COMPANION: the sworn's layer's frame, in every mode beside the crew's - never the naval arc's to stop. */
+  function revenantAshoreTick() {
+    if (gamePaused()) return;   // the sworn wait out a window too (AUDIT CC-A10's law: no knock, no stand, no catch-up under one)
+    try { revenantAshore.frame(); } catch (e) { console.warn('[companions] the sworn', e?.message ?? e); }
+    while (_revenantDepartures.length) {   // COMPANION-ROSTER: its parting words, as it goes
+      const d = _revenantDepartures.shift();
+      const body = d.items ? `It hands you back its pack (${d.items === 1 ? 'one item' : `${d.items} items`}).` : null;
+      revenantSay(revenantMomentEvent(d.kind, d.r, playerEntity?.name, body ? { body } : {}), (l) => townTalk.say(l));
+    }
+    // AUDIT (2026-10-02): THE SLOTS HOLD. Every way in checks them, but a load stands the crew the save had ashore beside
+    // the sworn the mirror has with the player (and the naval arc switched back on counts its hands again): past the
+    // slots, the one most lately sworn steps away to wait
+    if (companionsWithYou() > COMPANION_SLOTS) {
+      const last = revenantsWithYou().sort((a, b) => (b.swornAt ?? 0) - (a.swornAt ?? 0))[0];
+      if (last && sendRevenantAway(last.id)) townTalk.say(`Your companions are full - ${last.name} steps away to wait.`);
+    }
+    try { revenantCompanionBarks(); } catch { /* a bark is no frame's business */ }
   }
   /** CREW-COMPANIONS: a boat of mine's hands to take ashore (two at most) or send back aboard - a picker of her roster,
    *  a refused row with its reason (crewCompanions.js companionRows), the press the host's (navalHost companionPress). */
@@ -7989,6 +8131,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     inLocation: () => _musicInLocationRect(),   // SOFTCAP5: only the wilderness scales its foes (towns and cities never)
     skyMinute: () => Math.floor(skyMinutes()),   // TIME1: the wilds' night is the sky's
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a foe over a pixel not built is held, not stepped
+    // REVENANT-FATE: this host opens a beaten revenant's choice; an executed one's pile is the street's dropped loot
+    fates: true,
+    dropLoot: (items, feet) => droppedLoot.dropPile(items, feet, `${playerTravelPixel().x},${playerTravelPixel().y}`),
+    shake: (k) => betterAmbience.weaponKick(k),
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     currentMinute: () => Math.floor(playerTicker.ownMinutes),
     currentPixelKey: () => `${playerTravelPixel().x},${playerTravelPixel().y}`,   // TrackLooseObject's stamp
@@ -8044,6 +8190,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // rest session's local counter standing in for `now` while the world's clock stood.]
     const now = Math.floor(playerTicker.ownMinutes);
     if (_lastEncMinutes == null) _lastEncMinutes = now;
+    // REVENANT (systems/revenant.js): a revenant out in the world and no longer there comes again later; a kill of one
+    // the player has not yet heard of is said once they stand alive again
+    revenantPresence(exteriorFoes.foes, { now });
+    revenantSay(takeRevenantNotice(playerEntity), (l) => townTalk.say(l));   // REVENANT-CARD: the card, or the line
     // THE FLAG, AT LAST WITH A READER. PlayerEntity.Update wraps this
     // whole loop - the spawn roll AND the passive guard rolls inside
     // it - in `if (!preventEnemySpawns)` (:479-482), and clears the
@@ -8096,6 +8246,9 @@ export async function bootWorld(canvas, renderer, params, status) {
         climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),
         playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2: mentor mode - the group's encounters
       });
+      // REVENANT: a due revenant may take an open-world roll instead - the player's own, whoever rolls the group's wanderers
+      const _revenant = hit && _m === 'exterior' ? revenantToReturn(playerEntity, { now }) : null;
+      if (_revenant) { Promise.resolve(_standEncounterFoe({ ...hit, mobileType: _revenant.mobileType, revenant: _revenant }, playerFeet)).then((f) => { if (!f) releaseRevenantStand(_revenant); }); break; }   // claimed by the roll; a stand that stood nobody frees it
       if (hit && _rollsForGroup) {   // PSCALE1: a roll that is not the group's stands nothing - the group's roller stands it for everyone
         // RE1: DFU's own placement. This used to walk eight compass
         // points at minDistance and take the first with ground under
@@ -8448,7 +8601,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         step: (n) => plaqueStep(n),
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
-        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
+        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); }, pointer: (want) => { const relock = () => { if (!cursorActive() && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen() && !travelView?.active) requestLook(canvas); }; if (want === 'look') { if (cursorActive()) { setCursorActive(false); relock(); } return null; } if (controllerLook()) return null; const off = holdCursor(); return () => { if (!off()) return; if (backButtonHeld) escRelock = relock; else relock(); }; },   // HERB-CURSOR (FIELD BUGS 2026-10-02 part four): the Basket's glints are clicked with the cursor, held free while it plays and the look taken back after (never under a window, a surface, an overlay, the travel view or the player's own freed mouse); a vein's, a body's or the net's act is aimed by the look - a mouse the player freed is taken back, under the same gates (AUDIT A4). AUDIT A1: an Escape that ended the act asks on its keyup (escRelock) - a lock taken inside its keydown was the browser's to end on the keyup, and ESC-LOCK read that as a second Escape; C8: a pad in hand strikes with its trigger, and no hold shows the OS pointer
       });
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
@@ -8592,7 +8745,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, audio, getTexture, uploadRecord, uploadRecordFrame,
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the party mates' bodies, for a beneficial touch, missile or blast (declared beside allyTargetPick, below) - SPELL-GIFT: the spell rides, for the strangers its list may reach
     peerBodies: () => peersNear(),   // SPELLFX1: every player's body, where a peer's drawn missile stops (declared below this engine's build)
-    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions here - my healing and buffs reach them
+    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions here - my healing and buffs reach them (REVENANT-COMPANION: the sworn too)
     // DUEL1: my duel opponent's body, for my harmful spells alone, while we fight - and the door the blow leaves by
     duelMark: () => { if (!duelMgr.fighting) return siegeSpellMarks(); const b = duelBody(duelMgr.opponent); return b ? { ...b, name: peerName(b.id) ?? 'your opponent' } : null; },   // AUDIT-SEATS G5: outside a duel, a siege's foes
     castAtDuel: (id, sp) => duelSpellOut(id, sp),
@@ -8718,10 +8871,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2777 mounts the same one, gated on
+  // and dungeonContext.js:2891 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6853
+  // that context through modes.dungeonCtx - so worldModes.js:6856
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -8816,11 +8969,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:552-557) never looks the record up in `foes`, and
+    // (exteriorFoes.js:574-579) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1628-1646) gives it -
+    // got exactly what removeGuard (cityGuards.js:1629-1647) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:1032) and spliced out at the end of it (:1226).
+    // (cityGuards.js:1033) and spliced out at the end of it (:1227).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -8898,6 +9051,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const fly = (ENEMY_BASICS[hit.mobileType]?.behaviour ?? 'General') === 'Flying';
     const stood = exteriorFoes.spawnFoe(hit.mobileType, [spot.x, fly ? spot.y + 1.5 : spot.y, spot.z], {
       yaw: Math.atan2(feet[0] - spot.x, feet[2] - spot.z),   // LookAt player
+      ...(hit.revenant ? revenantSpawnOptions(hit.revenant, effectiveLevel(playerEntity)) : {}),   // REVENANT: a returning one - its record, its gender, a class foe's level
     }).catch(() => null);
     journeyMet();   // AUDIT OW5b E1: placed beside the traveller - a walking journey stops now, never once the foe has loaded and sensed
     return stood;
@@ -11338,7 +11492,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7814), so exterior mode and a
+    // composer, dungeonContext.js:7958), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11471,6 +11625,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     travelOptions?.clearTravelDestination();
     if (worldTimeScale() !== 1) resetTimeScale();
     crewAshore.clear();   // AUDIT CC-A8: the party out of every pool before the save lands - a dungeon's patches its foes by number, and a companion in the list took another's record
+    clearSworn();   // REVENANT-COMPANION: the sworn too
     // AUDIT-MACL F2: THE LATCH GOES UP BEFORE THE FIRST AWAIT, and MAC-L4
     // is why it has to be said out loud. This guard and the latch below
     // it used to be separated by straight-line code alone - one
@@ -12928,7 +13083,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // window is up, so `keys` never sees the press - hence its own latch,
   // above the return. Its one consumer is the prison countdown's
   // accelerator (DaggerfallCourtWindow.cs:301-304).
-  let backButtonHeld = false;
+  let backButtonHeld = false; let escRelock = null;   // AUDIT HERB-CURSOR A1: the look an act's Escape gave back, asked on that Escape's keyup
   // AUDIT SOC B6/C2 (2026-09-16): THE POINTER SURFACES ARE COUNTED. The chat, the friends panel (SOC3) and the F-menu
   // (SOC5) each freed the mouse on open and took it back on close, so closing one while another stood - the F-menu
   // over the panel, the panel over the chat - relocked the pointer under a surface still up, and its buttons were
@@ -13247,14 +13402,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   // movement Set since the first host and never told the open window
   // anything; DFU's buttons hear both edges (Button.cs:79-92) and the
   // travel popup's EXIT is the deferral that needs the release.
-  addEventListener('keyup', (e) => { keys.delete(e.code); noteKeyUp(latch.edge, e.code); peerMenuReader?.up(e.code); if (e.code === 'Escape') backButtonHeld = false; if (e.code === 'AltLeft') e.preventDefault(); townTalk.keyup(e); modes?.keyup?.(e); });   // ROAD-E E1: the up seam reaches BOTH slots this host feeds - the outer overlay and the mode machine's
+  addEventListener('keyup', (e) => { keys.delete(e.code); noteKeyUp(latch.edge, e.code); peerMenuReader?.up(e.code); if (e.code === 'Escape') backButtonHeld = false; if (e.code === 'Escape' && escRelock) { const r = escRelock; escRelock = null; r(); } if (e.code === 'AltLeft') e.preventDefault(); townTalk.keyup(e); modes?.keyup?.(e); });   // ROAD-E E1: the up seam reaches BOTH slots this host feeds - the outer overlay and the mode machine's
   // U45: Actions.ActivateCursor (Enter) - PlayerMouseLook.cursorActive,
   // bound since I1 with no consumer, and the flag the large HUD's
   // IsLargeHUDInteractable actually is.
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:89-303), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-329), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -14077,7 +14232,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10386-10450 -
+  // worldModes answers it in BOTH modes (worldModes.js:10392-10456 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20518,8 +20673,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     postItem: (text) => postItemInChat(text), canPostItem: () => canPostItemInChat(),   // CHAT-POST: the building's and the dungeon's packs post too
     partyNear: () => partyOnMaps(), professionMarks: (feet) => professionMarks(feet),   // DISC23-A: the party's bodies, for the dungeon's and the building's plans (AUDIT pre-merge I-E: those drawn here); NODE-MARKS: the dungeon's veins (and a body the knife may skin) on its compass, at its own feet
     allyMarks: (sp) => allyMarksNear(sp),   // AID1 onto ALLY-CAST: the dungeon's own cast engine gives to the same mates - SPELL-GIFT: and strangers, by the spell
-    companionBodies: () => crewAshore.bodies(),   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine
+    companionBodies: () => [...crewAshore.bodies(), ...revenantAshore.bodies()],   // COMPANION-KIT: my companions underground, for the dungeon's own cast engine (REVENANT-COMPANION: the sworn too)
     openCompanionPack: (rec) => openCompanionPack(rec),   // COMPANION-KIT: a companion activated indoors or underground - his pack
+    openRevenantFate: (rec) => openRevenantFate(rec),   // REVENANT-FATE: a beaten revenant indoors or underground - its choice
+    shakeCamera: (k) => betterAmbience.weaponKick(k),   // REVENANT-FATE: an execution's blow, felt
     selfId: () => online?.id ?? null,
     dungeonAuthority,   // WORLD2: a dungeon built while another hosts starts as puppets
     // TTL1: the two spawned-dungeon clocks, from the mode machine's
@@ -20837,7 +20994,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
     // (:1378, before the restore at :1497: Come Sail Away's StopSailing hands a lent ship back, and after the restore it
     // took the loaded character's own), the records, and OnLoad once the load has landed (:1554 - the boats' visibility)
-    modStartLoad: () => { crewAshore.clear(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
+    modStartLoad: () => { crewAshore.clear(); clearSworn(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
     modSaveLoad: (modData) => { restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back
     modLoaded: () => { if (csaRuntime) csaCall(() => csaRuntime.OnLoad()); },
     // PX17c: the pause window's journal seams ride into the interior
@@ -23294,6 +23451,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       raidingPartiesFrame(gamePaused() ? 0 : dt);   // RAID1: indoors too - the day's roll, the region's news, a raid running out; nothing is stood (FindCurrentRaid wants the street)
       if (_bandChase.size) bandDrop();   // AUDIT OW4 B5: a door ends every chase, spent - the band frame never runs indoors, and a chase froze there to take up again on the way out
       crewAshoreTick();   // CREW-COMPANIONS: the party stood indoors and underground too
+      revenantAshoreTick();   // REVENANT-COMPANION: and the sworn
       hccTick(dt, now);   // AUDIT HCC H1: the runtime's LateUpdate indoors too - the hotkeys' "outdoors only", the settings, the switch
       townTalk.frame(dt);
       renderer.resolveFrame();   // AUDIT RETRO1 E5/C8: a frame that drew no screen quad (the enhanced skin, a sheathed weapon) is shown NOW, not at the next beginFrame
@@ -23868,13 +24026,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
         const nodeTook = useEdge && !_holdFire && !modes.transitioning && !naval?.takesActivate?.() && (gatherHost?.press() ?? false);
-        // PROF-MENU: and the click on a node's lit row is the node's, as a loot row's click takes it (never mid-act: that
-        // click is the act's, below)
-        const nodeClicked = !useEdge && _act.activate && !_holdFire && !modes.transitioning && !gatherHost?.acting() && !naval?.takesActivate?.() && profClickPress();   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
         // knife and ended the trace. CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck the
-        // act's last blow lifts after the act has ended
+        // act's last blow lifts after the act has ended; AUDIT HERB-CURSOR B2: asked before the node's click, as the dungeon's ladder asks it
         const _actClick = gatherHost?.clickTaken(_activateDown) ?? false;
+        // PROF-MENU: and the click on a node's lit row is the node's, as a loot row's click takes it (never mid-act, nor
+        // an act's click lifting: that click is the act's - the last glint's release pressed the patch's "Pick" row)
+        const nodeClicked = !useEdge && _act.activate && !_holdFire && !modes.transitioning && !gatherHost?.acting() && !_actClick && !naval?.takesActivate?.() && profClickPress();   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
@@ -23916,6 +24074,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
               modal: (t) => townTalk.showOverlay(new ActionTextBox(String(t).split('\n'))),
               makeEnemiesHostile: _makeEnemiesHostile,
               openCompanion: (rec) => openCompanionPack(rec),   // COMPANION-KIT: my companion's pack
+              openFate: (rec) => openRevenantFate(rec),   // REVENANT-FATE: a beaten revenant's choice
               playerFeet: walkMode ? player.pos : cam.pos,
               nothingText: () => townTalk.randomText(FOUND_NOTHING_VALUABLE_TEXT_ID) || 'You found nothing valuable.',
             });
@@ -24599,6 +24758,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     csaPoolFrame(dt);   // CSA-B/C: the sails' FixDeformations (LateUpdate) and the lanterns' two behaviours, on Time.deltaTime; the lights they decide reach the next frame's list (the mod's own Update and LateUpdate ran after the motor: csaUpdate)
     warmAshesFrame(gamePaused() ? 0 : dt * worldTimeScale());   // WA1: TransportToShipWithDelay's WaitForSeconds, held by a pause, scaled with the world
     crewAshoreTick();   // CREW-COMPANIONS: the party stood on the street
+    revenantAshoreTick();   // REVENANT-COMPANION: and the sworn
     hccTick(dt, now);   // AUDIT HCC H1: LateUpdate - after the motor and the recentre, before the world pass draws the wagon
     renderer.setClearColor(SKY_CLEAR);   // INCIDENT 2026-09-04 / REVIEW 2026-09-05: this frame is the EXTERIOR's (the mode frames returned above and clear black in worldModes) - CameraClearManager.cs:51-57
     renderer.setFlashLight(sky.lightningLight() ?? boltFrame.flash);   // DS1: Dynamic Skies' LightningFlash, composed first on the point-light channel just stored; BOLT: else a near ground strike's own light, from where it struck
@@ -25458,11 +25618,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:778-783), so this seam ROUTES by pool exactly
+        // (cityGuards.js:779-784), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1347). DFU makes no pool distinction:
+        // (cityGuards.js:1348). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.
@@ -25585,7 +25745,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // layer, because a talk window is a modal above the vitals.
     // AUDIT 39: THE CALL IS UNCONDITIONAL. drawHud runs the damage
     // flash and the enhanced DOM HUD ABOVE its own `!art` return
-    // (hud.js:451-479) because neither reads ARENA2 - "a player whose
+    // (hud.js:452-480) because neither reads ARENA2 - "a player whose
     // HUD art failed to load still has vitals". Wrapping the whole
     // call in `if (hudArt)` inverted that: hudArt starts null and is
     // filled by a fire-and-forget load whose failure leaves it null

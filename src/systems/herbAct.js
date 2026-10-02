@@ -44,7 +44,7 @@ export function createHerbAct({ kind, band = 1, botanist = false, master = false
   const glint = (master ? BASKET_ACT.masterGlintS : BASKET_ACT.glintS) * band;
   const length = kind === 'hand' ? HERB_ACT.commonS : kind === 'steady' ? HERB_ACT.steadyS : BASKET_ACT.finds * (glint + BASKET_ACT.gapS) + BASKET_ACT.gapS;
   const st = {
-    kind, t: 0, length, done: false, cancelled: false, bruised: false, window,
+    kind, t: 0, length, done: false, cancelled: false, bruised: false, window, gentle,   // AUDIT HERB-CURSOR C2: said, as the mine's and the trace's are
     /** the Basket: which find, where it glints, how long it has shown, and what was found */
     find: 0, spot: -1, showing: 0, finds: 0, gap: BASKET_ACT.gapS, glint, early: false, hits: /** @type {boolean[]} */ ([]),
     /** the steady hand's start: the view and the place it measures from */

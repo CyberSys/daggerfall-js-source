@@ -151,6 +151,9 @@ export function getTargets(self, candidates, playerFeet, {
     const targetAi = isPlayer ? null : c.ai;
     // Can't target self (:768)
     if (c === self || (targetAi && targetAi === ai)) continue;
+    // REVENANT-FATE: a beaten revenant on its knees, judged or burning, and COMPANION-PORTAL's body stepping through its
+    // portal, are nobody's foe - nothing can reach them, so nothing hunts them
+    if (!isPlayer && (c.yielded || c.executing || c.sparing || c.leaving)) continue;
     // NoTarget mode (:776-777): the BASICS team here
     if ((noTargetMode || !ai.isHostile || selfMobileTeam === 'PlayerAlly' || self.companion != null) && isPlayer) continue;   // AUDIT CC-B2: a companion never the player's foe, whatever his team reads
     // Pacified enemies should not attack player allies (:780-781)

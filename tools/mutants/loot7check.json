@@ -56,7 +56,7 @@
   {
     "name": "CHAMP-HOVER-the-street-arm-forgets",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "{ hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion }",
+    "old": "{ hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) }",
     "new": "{ hostile: !!f.ai?.isHostile }",
     "tests": [
       "test/loot7check.test.js"
@@ -65,7 +65,7 @@
   {
     "name": "CHAMP-HOVER-the-building-arm-forgets",
     "file": "src/scenes/worldModes.js",
-    "old": "{ hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion }",
+    "old": "{ hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) }",
     "new": "{ hostile: !!f.ai?.isHostile }",
     "tests": [
       "test/loot7check.test.js"
@@ -74,7 +74,7 @@
   {
     "name": "CHAMP-HOVER-the-dungeon-arm-forgets",
     "file": "src/scenes/dungeonContext.js",
-    "old": "{ hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion }",
+    "old": "{ hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) }",
     "new": "{ hostile: !!f.ai?.isHostile }",
     "tests": [
       "test/loot7check.test.js"
@@ -83,7 +83,7 @@
   {
     "name": "CHAMP-HOVER-the-watch-arm-forgets",
     "file": "src/scenes/cityGuards.js",
-    "old": "{ hostile: !!g.ai?.isHostile, champion: !!g.entity?.champion }",
+    "old": "{ hostile: !!g.ai?.isHostile, champion: foeTitled(g.entity) }",
     "new": "{ hostile: !!g.ai?.isHostile }",
     "tests": [
       "test/loot7check.test.js"

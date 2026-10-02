@@ -521,6 +521,7 @@ import { decalIndices, DECAL_FLOATS_PER_VERTEX } from '../combat/bloodDecals.js'
 import { BLOOD_ABSORB_ENCODED, INK_DEPTH } from '../combat/bloodArt.js';
 import { glslFloat } from './airPass.js';   // AUDIT BLOOD3 F9: a dial at a whole number is an INT literal in GLSL, and vec3 * int does not compile   // BLOOD3: the film's absorption - the classic mark takes the depth, the lane takes the sheen too
 import { SHADE_DARK } from '../systems/concealDraw.js';   // ECV1 / AUDIT 65 PN-3: the shade's pull toward black, interpolated into BB_FS below - the shader restated 0.12 as a second literal. The LEAF, not systems/combatVisuals.js, which re-exports it: that module's graph would take this file's closure from 13 modules to 69
+import { FLAT_DISSOLVE_GLSL } from '../systems/dissolve.js';   // DISSOLVE: a sprite burnt away, or gathered through a portal (a leaf)
 import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, shared with the lane's billboard shader and the sprite quad (a LEAF, no imports)
 
 const BB_FS = `#version 300 es
@@ -534,6 +535,7 @@ uniform vec4 uConceal;  // ECV1: x mode (0 plain, 1 chameleon, 2 shade, 3 hit re
 uniform float uHitFlash;  // HITFLASH1: a body struck, 0..1 (batch.hitFlash)
 uniform float uEliteGlow;  // ELITE FOES: the glow's pulse, 0 off (batch.eliteGlow)
 uniform float uEliteTime;  // ELITE FOES: seconds, for the embers
+uniform vec4 uDissolve;  // DISSOLVE: x the share gone (0 whole, 1 gone), yzw the edge's colour (systems/dissolve.js)
 uniform vec3 uTint; // time-of-day: ambient (+ the moon's half); VC4: the sun's half rides uBBSun so a cloud's shadow can take it
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -552,6 +554,7 @@ ${FOG_GLSL}
 ${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
 ${ELITE_GLOW_GLSL}
+${FLAT_DISSOLVE_GLSL}
 void main() {
   // ECV1: a chameleoned foe ripples - a slow horizontal wobble across
   // the sprite, phased per foe - so it reads as blending in, not as a
@@ -568,13 +571,14 @@ void main() {
   // blended too and takes the spectral threshold.
   if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
     // ELITE FOES: the rim - a cut-out texel beside the silhouette is the halo's - and the embers rising off it
-    if (uEliteGlow != 0.0 && uConceal.x == 0.0) {   // negative: an elite's corpse - the rim alone
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0) {   // negative: an elite's corpse - the rim alone; DISSOLVE: none round a body burning away or through a portal
       if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), fogFactorAt(vBBWorld)), 1.0); return; }
       float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
       if (em > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), fogFactorAt(vBBWorld)), 1.0); return; }
     }
     discard;
   }
+  if (dissolveGone(uv)) discard;   // DISSOLVE: burnt away, or not yet through its portal
   // Point lights on flats: billboards have no normal, so the term is
   // attenuation-only (squared linear falloff) - documented equivalence
   // to Unity's vertex-lit billboards.
@@ -607,6 +611,7 @@ void main() {
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3: a player struck flashes red for a moment (z the strength, fading)
   lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES: the sprite warmed toward gold (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: over any concealment, never instead of it
+  lit = dissolveLit(lit, uv, uDissolve.yzw);   // DISSOLVE: the edge it burns along blazes
   if (uConceal.x == 4.0) lit = vec3(0.0);   // EOTB-IL: Eye Of The Beholder's shade - Color.black at the batch's alpha (UpdateMaterial, IL_4f69)
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;
@@ -1406,6 +1411,7 @@ export class Renderer {
     this._dwColumn = null;   // DW-F: the water column's frame for the flats (setWaterColumn), a frame's like the fog
     this._bbColumnOn = 0;   // LA-COST1 x DW-F: the billboard program's uColumnOn as last sent (the frame block resets it)
     this._bbTipOn = false;   // PROF4: the billboard program's uTip as last sent - a falling tree's (the frame block resets it)
+    this._bbDissolveOn = false;   // DISSOLVE: the billboard program's uDissolve as last sent (the frame block resets it)
     this._dwCamFwd = new Float32Array(3);
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
@@ -1952,6 +1958,7 @@ export class Renderer {
     this.bbUSpectral = gl.getUniformLocation(this.bbProgram, 'uSpectral');
     this.bbUConceal = gl.getUniformLocation(this.bbProgram, 'uConceal');   // ECV1
     this.bbUHitFlash = gl.getUniformLocation(this.bbProgram, 'uHitFlash');   // HITFLASH1
+    this.bbUDissolve = gl.getUniformLocation(this.bbProgram, 'uDissolve');   // DISSOLVE
     this.bbUEliteGlow = gl.getUniformLocation(this.bbProgram, 'uEliteGlow');   // ELITE FOES
     this.bbUEliteTime = gl.getUniformLocation(this.bbProgram, 'uEliteTime');   // ELITE FOES: the embers' clock
     this.bbUElitePad = gl.getUniformLocation(this.bbProgram, 'uElitePad');   // ELITE FOES: the widened quad
@@ -5006,7 +5013,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, dissolve: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
@@ -5738,6 +5745,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       this._bbColumnOn = 0;
       gl.uniform3f(this.bbUTip, 0, 0, 0);   // PROF4: every flat stands until a felled tree says otherwise
       this._bbTipOn = false;
+      gl.uniform4f(this.bbUDissolve, 0, 0, 0, 0);   // DISSOLVE: every flat whole until a burning one says otherwise - the shadow below is only true if this is sent
+      this._bbDissolveOn = false;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row
@@ -5827,6 +5836,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       const ep = eg !== 0 ? b.elitePad : null;   // ELITE FOES: the widened quad (an elite's, or its corpse's) and the embers' clock
       if (ep || this._bbPadOn) { gl.uniform4f(this.bbUElitePad, ep ? ep[0] : 0, ep ? ep[1] : 0, ep ? ep[2] : 0, ep ? ep[3] : 0); this._bbPadOn = !!ep; }
       if (eg !== 0) gl.uniform1f(this.bbUEliteTime, (performance.now() / 1000) % 3600);   // the embers' and the corpses' pulse clock (one clock, every elite batch)
+      const dv = b.dissolve;   // DISSOLVE: a body burning away or gathering through a portal ([share, r, g, b]); every other batch whole
+      if (dv || this._bbDissolveOn) { gl.uniform4f(this.bbUDissolve, dv ? dv[0] : 0, dv ? dv[1] : 0, dv ? dv[2] : 0, dv ? dv[3] : 0); this._bbDissolveOn = !!dv; }
       this._bindVao(b.vao);
       gl.drawElements(gl.TRIANGLES, b.indexCount, gl.UNSIGNED_INT, 0);
       this.stats.draws++;

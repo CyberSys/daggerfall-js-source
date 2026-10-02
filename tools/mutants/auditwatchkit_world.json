@@ -137,7 +137,7 @@
   {
     "name": "WK-P4-dungeon-load-unlifted",
     "file": "src/scenes/world.js",
-    "old": "modStartLoad: () => { crewAshore.clear(); if (csaRuntime)",
+    "old": "modStartLoad: () => { crewAshore.clear(); clearSworn(); if (csaRuntime)",
     "new": "modStartLoad: () => { if (csaRuntime)",
     "tests": [
       "test/auditwatchkit_world.test.js"

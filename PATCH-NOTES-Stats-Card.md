@@ -43,3 +43,6 @@ mean damage) for both cores; plus strength/swing/material arithmetic, bare hands
 - **The shimmer is gone**: the light sweep across the card while it turns is removed (the turn, lift, shadow and rising content stay).
 - **The hit chances were far too high.** The old reference foes were a hybrid: a class (human) foe's armour numbers (100 = unarmoured) with a monster's +40 (overhaul +50) bonus to be hit, so a bare foe read 97% whatever your skill. They are now the real thing: monsters carry `armorValue x 5` (the bestiary runs -12..7, so 30 / 0 / -50 on each part) with the monster bonus; the human is a class foe with no bonus, and the overhaul reads the flat 60 it reads off every class foe (`pcaaoArmorToHit`). Damage figures were right and are unchanged.
 - Tests updated to the four foes (soft, armoured and human checked against the real roll code in the classic core; the overhaul core against `pcaaoSuccessfulHit`).
+
+## Firefox fix
+- **Firefox no longer shows the paperdoll mirrored over the stats.** Under the pack's blurred backdrop Firefox could lose the card's 3D turn and draw both faces at once. In Firefox alone, the face turned away is now hidden at the exact moment the card is edge-on (about a quarter of a second into the turn), so you never see either side from behind. Other browsers are unchanged, and reduced motion keeps its crossfade.

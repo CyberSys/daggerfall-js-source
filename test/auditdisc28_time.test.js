@@ -134,7 +134,8 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
     'intermittentEnemySpawn', '_musicInLocationRect', 'maps', 'playerTravelPixel', 'SOLITARY_TYPES', 'partyExtraFoes', 'partySize',
     '_standEncounterFoe', '_questRegionIndex', 'passiveGuardSpawns', 'legalRepOf', 'setCrimeCommitted', 'CRIMES', '_witnessResponse',
     'cityGuards', '_guardPool', 'reviveForPlay', 'RESURRECT_HEALTH_PCT', 'RESURRECT_TEXT', 'townTalk', 'DeathScreen', 'sharedClockOn', 'worldMinutes', 'skyMinutes',   // LIVED1: the spawn roll's sky; TIME1: the sky's own clock
-    'statedDeathLoss', 'stateDeathLoss', 'effectiveLevel'];   // SOFTCAP2: the mentor's level the loop's roll reads   // THE MERGE: DEATH-PENALTY's screen loss, withdrawn by a rescue (AUDIT 28 B5)
+    'statedDeathLoss', 'stateDeathLoss', 'effectiveLevel',
+    'revenantPresence', 'takeRevenantNotice', 'revenantToReturn', 'exteriorFoes', 'revenantSay'];   // REVENANT: none here - the loop reads, and stands nobody   // SOFTCAP2: the mentor's level the loop's roll reads   // THE MERGE: DEATH-PENALTY's screen loss, withdrawn by a rescue (AUDIT 28 B5)
   const body = 'let _lastEncMinutes = null, _respawning = false, _rezSeen = null, _deadMark = null, _partyComposedAt = 0, _deathWasOnline = true;\n'
     + `${fnText(w, 'runEncounterTick')}\n${fnText(w, 'resurrectInPlace')}\n${fnText(w, 'closeDeathScreen')}\n`
     + 'return { runEncounterTick, resurrectInPlace, marker: () => _lastEncMinutes };';
@@ -150,7 +151,8 @@ test('AUDIT DISC28 TM-2: a Resurrect replays no dead minute of the encounter loo
     () => { guardCalls++; return null; }, () => true, { getClimateIndex: () => 0 }, () => ({ x: 0, y: 0 }), new Set(), () => 0, () => 1, () => {}, () => 1,
     (ctx) => passiveGuardSpawns(ctx, () => 0), legalRepOf, setCrimeCommitted, CRIMES, () => {},
     { makeNpcGuardsIntoEnemies: () => Promise.resolve() }, () => [], reviveForPlay, RESURRECT_HEALTH_PCT, RESURRECT_TEXT,
-    { overlay: null, overlayActive: false, say() {}, closeOverlay() {} }, class { restoreView() {} }, () => true, worldMinutes, skyMinutes, () => null, () => {}, (x) => x?.level ?? 1);
+    { overlay: null, overlayActive: false, say() {}, closeOverlay() {} }, class { restoreView() {} }, () => true, worldMinutes, skyMinutes, () => null, () => {}, (x) => x?.level ?? 1,
+    () => false, () => null, () => null, { foes: [] }, () => false);
   host.runEncounterTick([0, 0, 0]);   // a living frame: the marker at now
   e.health = 0; clock += 12;           // the death screen's 60 s at 12x - world.js's frame holds the loop under it
   host.resurrectInPlace({ name: 'Mate' });

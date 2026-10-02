@@ -311,7 +311,7 @@ test('COMPANION-KIT THE PARTY PANEL: with no party a companion ashore stands the
 
 test('COMPANION-KIT THE WORLD\'S WIRING: both cast engines are handed my companions\' bodies; activating one opens his pack as a Backpack storage over whatever the mode draws, in the street, a building and a dungeon; a tap never locks onto him; the bars carry his name, health and effects; the party panel is made in one place, over the party or none, with my companions under its seats (mutants: an engine without them, the pack never opened, the lock-on onto him, the bars bare, a second panel)', () => {
   const w = rd('src/scenes/world.js'), m = rd('src/scenes/worldModes.js'), d = rd('src/scenes/dungeonContext.js'), n = rd('src/scenes/navalHost.js');
-  assert.equal((w.match(/companionBodies: \(\) => crewAshore\.bodies\(\),/g) ?? []).length, 2, 'the world\'s engine and the dungeon\'s');
+  assert.equal((w.match(/companionBodies: \(\) => (?:crewAshore\.bodies\(\)|\[\.\.\.crewAshore\.bodies\(\), \.\.\.revenantAshore\.bodies\(\)\]),/g) ?? []).length, 2, 'the world\'s engine and the dungeon\'s (REVENANT-COMPANION: the sworn with the crew)');
   assert.match(m, /companionBodies: \(\) => host\.companionBodies\?\.\(\) \?\? null,/);
   assert.match(d, /companionBodies: opts\.companionBodies \? \(\) => opts\.companionBodies\(\) : null,/);
   // AUDIT WK-P3 (PIN MOVED): his pack read by his key at every look, never a list taken once; COMPANION-WEIGHT (PIN

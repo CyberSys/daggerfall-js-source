@@ -155,8 +155,8 @@
   {
     "name": "NAV-F-the-scuttle-undressed",
     "file": "src/ui/enhancedFrame.js",
-    "old": "  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',\n    'body .dfnaval-scuttle'],",
-    "new": "  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel'],",
+    "old": "  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',\n    'body .dfnaval-scuttle',",
+    "new": "  warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',",
     "tests": [
       "test/nav_f_ui.test.js",
       "test/plusdress1.test.js"

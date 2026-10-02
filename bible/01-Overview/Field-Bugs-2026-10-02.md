@@ -1,11 +1,12 @@
-# FIELD BUGS 2026-10-02 - the shards over Hadus; and the climb out of a dungeon's pit, the hunt under the foes, the net at the helm, the boat's loop; and the climb audited on Daggerfall's dungeons; and the rocks that held a ship, the sea that read as land, the crew's words over each other
+# FIELD BUGS 2026-10-02 - the shards over Hadus; and the climb out of a dungeon's pit, the hunt under the foes, the net at the helm, the boat's loop; and the climb audited on Daggerfall's dungeons; and the rocks that held a ship, the sea that read as land, the crew's words over each other; and the Basket's cursor
 
-*The same date, three times (the merges of main into `ccr-563257f1-ggcmg4` and into `ccr-a6a7383a-8i95b3`,
-2026-10-02): ROCK-SUNK was written on main (PR #521) while part two - three #bug-reports threads, a relayed line and
-Mac's ask, then its audit - was written on `ccr-563257f1-ggcmg4`, and part three - Mac's sailing, the rocks, the sea
-and the crew's words, audited the same day as `Field-Bugs-2026-10-02b.md` - on `ccr-a6a7383a-8i95b3`, each under the
-same name. The merges keep all three here, so every cite of this page stands; part one's number (1), part two's (1-5)
-and part three's (1-3), their tags and their pins' `fb1002_` are each their own.*
+*The same date, four times (the merges of main into `ccr-563257f1-ggcmg4`, into `ccr-a6a7383a-8i95b3` and into
+`ccr-a853eeda-b59kud`, 2026-10-02): ROCK-SUNK was written on main (PR #521) while part two - three #bug-reports
+threads, a relayed line and Mac's ask, then its audit - was written on `ccr-563257f1-ggcmg4`, part three - Mac's
+sailing, the rocks, the sea and the crew's words, audited the same day as `Field-Bugs-2026-10-02b.md` - on
+`ccr-a6a7383a-8i95b3`, and part four - the Basket's cursor, and its audit - on `ccr-a853eeda-b59kud`, each under the
+same name. The merges keep all four here, so every cite of this page stands; part one's number (1), part two's (1-5),
+part three's (1-3) and part four's (1, 2; its audit's A-D), their tags and their pins' `fb1002_` are each their own.*
 
 A #bug-reports thread through Mac (a screenshot, 2026-10-02): maya, *"Insane glitched geometry over at Hadus"* -
 *"yea.."* under a frame of dark, faceted slabs hanging in the sky over the desert east of the town - and Ashley:
@@ -520,3 +521,125 @@ dead: `csa_close.json` CSA-J-host-terrain-unclamped, `field_csa2.json` FIELD-CSA
 `csa_sailing.json` CSA-D-back-node-stern - now CSA-D-back-node-bow, the C#'s node ASTERN leaves -
 `navaudit_frame.json` NAVF-sweep-box-unturned (by the comment only sphereCastAll's cull has), and `livingcrew.json`'s
 SAY-every-line and SAY-never-hidden. Not seen in a browser.
+
+## Part four - the Basket's cursor
+
+A #bug-reports thread through Mac (a screenshot, 2026-10-02), and Mac's ask under it:
+
+> miö, "Herbalism minigame bugged": *"Doesn't make mouse appear when the minigame starts, so cant click on the
+> targets."*
+>
+> Mac: "Also check the other minigames"
+
+| | Report | Reporter | What it was | Done |
+|---|---|---|---|---|
+| 1 | "Doesn't make mouse appear when the minigame starts, so cant click on the targets" | miö | the Basket's glints stand about the crosshair (`ui/profReticle.js` `BASKET_SPREAD`, up to about 40 px off it at HUD scale 1), drawn as targets with "tap the glint" under them. The mouse stayed locked to the look, so moving it toward a glint turned the view and the glint turned with it: no glint could be put under the pointer. A press anywhere while a glint showed did find it (ACT-CLICK), but nothing on the screen said so, and a press during the gap spends the next glint (AUDIT 29 C9) | fixed (HERB-CURSOR) |
+| 2 | "Also check the other minigames" | Mac | every act read for what it needs of the mouse: the mine's points, the knife's line and the net's throw (the school its release lands in - the audit, C1) are aimed by the look itself, and a cursor the player had freed (FreeMouse; Enter only offline, or with the chat put away) left them unaimable by the mouse; the chop's ring, the hand and the steady hold need neither; the stations (the heat, the stitch, the plane, the chisel) are Stores-page sections, under the pause window's free cursor | fixed (HERB-CURSOR); the rest checked, unchanged |
+
+## HERB-CURSOR: the act says what it needs of the mouse (1, 2)
+
+**The law** (`scenes/gatherHost.js` `ACT_POINTER` and `actPointer`, by the act machine's kind): the Basket `cursor`,
+the mine, the trace and the net `look`, every other act nothing; an act played gently needs nothing, but for the net,
+whose gentle throw is still aimed (the audit, C2). The host asks its `pointer` seam as an act starts, in the press's
+frame, and calls the release the seam answered as the act ends, however it ends: its end, Escape, walking off, a window
+over it, the professions shut, `dispose` (which no host calls yet - a new host's boot clears a hold left over). It syncs
+at the change where the host makes it, and at every frame's start and end (`syncPointer`); leaving a dungeon is synced
+by the next frame (a dungeon's acts are the mine's and the trace's, which hold nothing).
+
+**The hold** (`player/pointerLock.js` `holdCursor`). Not the player's toggle (`cursorActive` - its freed mouse is the
+large HUD's, the hotbar's mouse mode and the pad's pointer mode, none of them the Basket's): a hold of its own. Taken,
+it lets the lock go; while any stands, `requestLook` refuses (a click's relock arm, a window's close, the look gate,
+PL3's net), a lock the browser grants late is let go (AUDIT OW5 V1's listener), and the FreeMouse toggle is refused
+(the audit, A2). The release is once-only and says whether it let go of the last. A host's boot clears any left over,
+as it resets the toggle (PL3).
+
+**The world's seam** (`scenes/world.js`, line-neutral). `cursor`: the hold - none with a pad in hand, whose trigger
+strikes (C8) - and at its release the look asked back unless something else holds the mouse: the player's own freed
+cursor, a paused window, a surface (the chat, the friends panel), a modal window, an enhanced overlay, the travel view.
+When an Escape ended the act, the look is asked on that Escape's keyup (A1). `look`: a cursor the player freed is
+taken back (`setCursorActive(false)`), the lock asked under the same gates (A4); no release - the look stays.
+
+**The relock.** Chromium and the desktop app grant it without a fresh gesture, the page having let the lock go itself.
+A browser that asks a recent gesture of every lock (Firefox: about five seconds) may refuse it at the end of a search
+whose last glints ran out unclicked; the cursor then stays until the next click, which relocks and activates nothing
+(the canvas arm's click delay).
+
+The Basket's rules are unchanged: any press while a glint shows finds it, and a press in the gap spends the next (5, 8;
+AUDIT 29 C9). A pad's trigger and a finger's tap strike as before (ACT-TOUCH). The cursor is now free to click the
+glint itself, and the hint says so: "click the glint" (C3).
+
+## Pins and mutants (part four)
+
+- `test/fb1002_herbcursor.test.js` (6): the law; the hold (refused requests, the last release, once-only, the late
+  lock, the boot's reset); the report, answered (the Basket's search through the real host and herbKind: the cursor
+  asked in the press's frame, held through the three glints, every clicked glint found, the look handed back once);
+  every end (Escape, walking off, a window, the professions shut, `dispose`); the other acts (a vein asks the look; a
+  common herb's hand and, stood again at tier 2, the Sickle's steady hold ask nothing); the world's seam, by source.
+- `tools/mutants/fb1002_herbcursor.json` (17, with the audit's let-go-before-the-end), all dead.
+- PIN MOVED: `test/chat1.test.js`'s source pin on world.js's `pointerLock.js` import (holdCursor joined it). Six
+  records re-aimed by content to the two lines of `pointerLock.js` the hold changed - one each in `menurelock1.json`
+  and `freemouse1.json`, three in `fb0929_overworld_mouse.json`, one in `ow5.json` - each killed by the tests its
+  original was (their four lists, 55, all dead). The cites the change moved were re-resolved (`tools/citeShift.mjs
+  --base 1d2e8ce8`, 4: the range into `pointerLock.js` from the toggle's flag to `bindCursorToggle`).
+- Every other list aimed at `scenes/gatherHost.js` or `player/pointerLock.js` (21) run on the final code: 779 dead,
+  7 equivalent as recorded, none stale; four survivors that survive on the base too (below).
+
+## The audit of part four (Mac: "Audit this")
+
+Four lenses over the batch as committed (8e5dcbe2), each against the base (1d2e8ce8), nothing changed while they read:
+A the mouse and the lock in a browser (a fake one with Chromium's and Firefox's lock rules - asynchronous grants, the
+page-released exception, the post-Escape cooldown, Escape's unlock on its keyup - over the real `pointerLock.js` and
+gathering host); B the host's acts and the click (every start and end, the real activation gate); C every other
+minigame and station, on both skins, with a mouse, FreeMouse, a pad and a finger; D the records. Every finding was
+reproduced red in `test/fb1002_herbcursor_audit.test.js` first - world.js's own lines (the seam, the Escape's keyup,
+the street ladder's two clicks) lifted out of the source and run over the real modules - then fixed and its mutant
+killed.
+
+| | Finding | Fix |
+|---|---|---|
+| A1 | Escape ending the Basket asked the lock back inside its own keydown. The lock landed before the key came up, and both browsers end a lock on Escape's keyup: the cursor came back free anyway, and with Escape held 300 ms or more ESC-LOCK read the loss as a second Escape and opened the pause (AUDIT 29 D1's "the pause waits for the next press" broken) | the relock is kept for that Escape's keyup (`escRelock`, under the same gates); the act's other ends ask at once |
+| A2 | FreeMouse pressed mid-Basket latched unseen (the cursor was already free); at the end the release saw the player's freed cursor and left it, and every click's relock was refused until FreeMouse was pressed again | the toggle is refused while a hold stands |
+| A3, B1 | The hold was let go only at the end of the host's frame. world.js swallows a frame's throw: a throw on the frame an act ended kept the cursor free a frame, and a throw every frame (the HUD's, a node's list) kept it free for the session, every relock refused | `syncPointer` at the frame's start too, before anything of it can throw |
+| A4, B4 | `look` asked the lock with no gate: a FreeMouse under the friends panel or the F-menu (both surfaces), then a Pick-Axe from the hotbar's mouse mode, took the lock from under the panel (AUDIT SOC B6's dead panel) | the flag cleared, the lock asked under the release's gates; the surface's close relocks |
+| A5 | Firefox (no page-released exception) cannot relock without a gesture in the last five seconds: a search nobody clicks ends with the cursor free until a click | recorded (above); C2's gentle search, the one that is never clicked, no longer holds |
+| B2 | Pre-existing, found here: the release of the click that found the Basket's last glint pressed the patch's lit "Pick" row - `nodeClicked` was asked before the act's click (CLICK-LIFT) and without it - and played a second act nobody asked for, a harvest and the Sickle's wear. The free cursor's 0.3 s click delay hid it for a quick click, not for one held 0.3 s | the street ladder asks the act's click first and the node's click is refused on it, as the dungeon's ladder already did |
+| C1 | The net's throw is aimed by the look (`fishAct` `schoolAt`, the school its release lands in: a school's catch is bigger), so "the net needs neither" was wrong and FreeMouse left the throw unaimable by the mouse | the net takes the look (`fish: 'look'`) |
+| C2 | Gentle acts unread: a gentle Basket (nothing to press, its finds plain) freed the cursor for its whole search under "tap the glint", and a gentle vein or body took a freed cursor for no aim | an act played gently needs nothing (`actPointer`; the herb act's state says `gentle`, as the mine's and the trace's did), but the net's throw, still aimed |
+| C3 | Pre-existing: "tap the glint" over a cursor now free to click it, and over a gentle search with nothing to press | "click the glint"; a gentle search says "searching..." |
+| C8 | A pad in hand had the lock let go too, and the OS pointer stood mid-screen through the search (Enhanced Plus hides it; the other skins did not) | no hold with a pad in hand (`controllerLook`); its trigger strikes |
+| D | The records: Enter named as freeing the mouse online (the chat takes it there), "778 dead" (779 - one ran under the full suite's load and survived; alone it dies three times in three), the six re-aimed records only in a commit message, the hand pinned and recorded as the steady hold, the "(mutants: ...)" titles against the list, the index and the page's title without this part, a cite-shaped record citeShift would move, `dispose` called "the page gone" (no host calls it), "after every change of the act" (the dungeon left is the next frame's), the precedence comment in `requestLook`, the patch notes' "Fishing doesn't use the mouse cursor" and their missing "the look stays" | each made true |
+
+**Checked and sound.** Every caller of `requestLook` (the street, the exterior, the dungeon, interiors, talk, books,
+the dial, the pause, the shell) is refused under a hold, so nothing takes the lock mid-search; a lock asked before the
+hold lands and is let go as the page's own release (no synthetic Escape); the travel view, the chat and the friends
+panel, a key-opened window and the classic list window all end the search and leave the relock to their own close; a
+click with the cursor free reaches the act once (the window's `mousedown`) and nothing else - no swing, cast,
+activation, hover or target change; the glints, meter and prompt ignore the pointer; touch has no lock; the pad's
+pointer mode keys on the player's toggle, not the hold. Every act's kind is in the law, and every station opens under
+the pause window's free cursor on both skins (a home's piece through `togglePause({ at: 'stores' })`, a shop's through
+the Professions key).
+
+**Not changed.** The steady hold reads the view's turn to bruise; with a cursor the player freed, the mouse cannot
+turn the view, so it cannot bruise (the turn keys and the feet still do) - pre-existing, and keeping still is the
+act. Taking the look for a mine, a trace or a net is one-way: the player frees the mouse again if they want it.
+
+Pinned: `test/fb1002_herbcursor_audit.test.js` (10). `tools/mutants/fb1002_herbcursor_audit.json` (14), all dead. On
+the final code, the two lists with every record any other list aims at the files the audit changed (`pointerLock.js`,
+`gatherHost.js`, `herbHost.js`, `herbAct.js` and `profReticle.js` whole, world.js within 30 lines of its changes: 242):
+272 dead; VEIN-NEED-press-keeps-nothing survives, on the base too (below).
+PIN MOVED: `test/prof1_client.test.js` (the ladder's order: the act's click before the node's),
+`test/fb0930b_toolsaid.test.js` (the node's click refused on the act's; the Basket's words); STEADY-SAID-the-key-never-named
+(`fb1001_nodes.json`) re-aimed to the new words (its list, 9, all dead). The audit's cites re-resolved (`tools/citeShift.mjs`
+against 8e5dcbe2, 4: the same range, grown by A2's refusal); world.js stayed line-neutral (the ladder's two lines
+traded places).
+
+## Found on the way, not changed (part four)
+
+- Four records survive on the base as here, none in this change's code: VEIN-NEED-press-keeps-nothing
+  (`fb0929h_veinneed.json`), TOOL-SAID-the-basket-names-no-choice-key (`fb0930b_toolsaid.json`), PROF4-ram-kit-made
+  and PROF4-ram-kit-asked (`prof4.json`). Not this batch's.
+- ESC-LOCK's twin of A1, on the base: a window the look gate let the lock go for, closed by a held Escape, relocks
+  inside the keydown and the keyup's unlock opens the pause (lens A's `windowEscClose`). Not this batch's - its fix is
+  ESC-LOCK's (a loss while the real Escape is still down is that press).
+- The first harvest's "where the Stores are" line names the Professions key's label, '?' when it is unbound
+  (`gatherHost.js` `storesWhereLine`); its fallback names the pause menu's Stores page, which the Classic pause has not.

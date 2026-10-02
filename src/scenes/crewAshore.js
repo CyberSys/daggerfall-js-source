@@ -17,6 +17,13 @@
 //    none of the player's blows can reach (combat/friendlyFire.js), and a `companion` every hostile may fight.
 //  - KNOCKED OUT: the pools' death arms hold a companion at 1 and mark him (`_knockedOut`); here he is taken out and
 //    the party carries him back aboard to rest (crewCompanions.js knock).
+//  - COMPANION-PORTAL (2026-10-02, Mac: "Companions when playing catch up, spawning in, or spawning out should use a
+//    unique portal animation instead of just popping in and out"): a place that can draw one hands its `fx` - a body
+//    ARRIVES through a portal at its stand, LEAVES through one (sent back, knocked out: it is taken out of the place
+//    only once the portal has closed on it) and JUMPS through a pair (a catch-up: one opens where it was, one where it
+//    stands again). A change of place lifts the party at once - the place it leaves is going.
+//  - REVENANT-COMPANION: the layer stands any party of the crew's shape - the sworn revenants' too
+//    (systems/revenantCompanions.js) - a member's own `key` and `title` where it has them.
 import { companionSlot } from '../systems/naval/crewCompanions.js';
 
 /** A companion further than this from the player (m, on the ground's plane) is stood behind the player again. */
@@ -27,13 +34,14 @@ export const CATCH_UP_DY = 6;
 export const HEEL_M = 2.5;
 export const HEEL_STEP_M = 1.2;
 
-export const companionKeyOf = (c) => `${c.boat}:${c.name}`;
+export const companionKeyOf = (c) => c.key ?? `${c.boat}:${c.name}`;
 
 /**
  * @param {{
  *   party: () => (ReturnType<typeof import('../systems/naval/crewCompanions.js').createCompanions> | null),
  *   place: () => ({ key: any, spawn: (mobile: number, feet: number[], o: { yaw: number, gender: string }) => Promise<any>,
- *     remove: (rec: any) => void, has?: (rec: any) => boolean, spot?: (from: number[], dx: number, dz: number) => number[] } | null),
+ *     remove: (rec: any) => void, has?: (rec: any) => boolean, spot?: (from: number[], dx: number, dz: number) => number[],
+ *     fx?: { arrive?: (rec: any) => void, leave?: (rec: any, done: () => void) => void, jump?: (rec: any, from: number[]) => void } } | null),
  *   leader: () => ({ feet: number[], yaw: number, grounded?: boolean } | null),
  *   now: () => number,
  *   onKnocked?: (c: any) => void,
@@ -41,7 +49,7 @@ export const companionKeyOf = (c) => `${c.boat}:${c.name}`;
  * }} deps
  */
 export function createCrewAshore(deps) {
-  /** @type {Map<string, { c: any, rec: any, remove: (rec: any) => void, has: ((rec: any) => boolean) | null }>} */
+  /** @type {Map<string, { c: any, rec: any, remove: (rec: any) => void, has: ((rec: any) => boolean) | null, fx: any }>} */
   const stood = new Map();
   const pending = new Set();
   let placeKey, epoch = 0;
@@ -57,6 +65,11 @@ export function createCrewAshore(deps) {
   const carry = (s) => { const fx = s.rec?.entity?.activeEffects; carried.set(s.c, Array.isArray(fx) ? fx.filter((a) => a && !a.ended) : []); };
 
   const lift = (s) => { try { s.remove(s.rec); } catch (e) { console.warn('[companions] a body would not lift', e?.message ?? e); } };
+  /** COMPANION-PORTAL: out through a portal where the place draws one - the body taken out once it has closed. */
+  const leave = (s) => {
+    if (typeof s.fx?.leave !== 'function') { lift(s); return; }
+    try { s.fx.leave(s.rec, () => lift(s)); } catch (e) { console.warn('[companions] a portal would not open', e?.message ?? e); lift(s); }
+  };
   function liftAll() { for (const s of stood.values()) { carry(s); lift(s); } stood.clear(); }
   /** Where the `i`th of `n` stands behind the leader, walked out from the leader's feet (the place's `spot`: never in a wall). */
   function slotFeet(place, L, i, n) {
@@ -71,7 +84,7 @@ export function createCrewAshore(deps) {
     const party = deps.party();
     const now = deps.now();
     party?.wake(now);
-    const place = party?.party.length ? deps.place() : null;
+    const place = party && (party.party.length || stood.size) ? deps.place() : null;   // COMPANION-PORTAL: the last one sent away still leaves through its portal (no party: everyone out)
     const key = place ? place.key : undefined;
     if (key !== placeKey) { liftAll(); placeKey = key; epoch++; }
     if (!party) return;
@@ -82,14 +95,14 @@ export function createCrewAshore(deps) {
       const { rec } = s;
       const i = list.indexOf(s.c);
       if (rec._knockedOut) {
-        stood.delete(k); lift(s);
+        stood.delete(k); leave(s);   // COMPANION-PORTAL: carried off through a portal
         if (party.knock(s.c.boat, s.c.name, now)) deps.onKnocked?.(s.c);
         continue;
       }
       // the place swept it - a cull, a remove, or (AUDIT CC-A1) a clear that empties the list and marks nobody (the
       // street's clearLive: a fast travel, a Recall, a passage, a respawn): it stands again below
       if (rec.dead || !rec.ai || (s.has && !s.has(rec))) { carry(s); stood.delete(k); continue; }   // AUDIT WK-M3: with his spells
-      if (i < 0) { stood.delete(k); lift(s); continue; }   // sent back aboard
+      if (i < 0) { stood.delete(k); leave(s); continue; }   // sent back aboard - COMPANION-PORTAL: through a portal
       if (rec.entity) {
         party.hurt(s.c.boat, s.c.name, rec.entity.health, rec.entity.maxHealth);
         // AUDIT CC-A4: the player's, whatever turned him (a blow of mine that reached him, a reset of an ally's team)
@@ -104,7 +117,9 @@ export function createCrewAshore(deps) {
         const away = Math.hypot(f[0] - L.feet[0], f[2] - L.feet[2]) > CATCH_UP_M || (L.grounded !== false && Math.abs(f[1] - L.feet[1]) > CATCH_UP_DY);
         if (away) {
           const at = slotFeet(place, L, i, list.length);
+          const from = [f[0], f[1], f[2]];
           f[0] = at[0]; f[1] = at[1]; f[2] = at[2];
+          try { s.fx?.jump?.(rec, from); } catch { /* COMPANION-PORTAL: no portal, the step all the same */ }
           // AUDIT CC-A3: stood afresh - the motor resumes as a puppet handed back does (enemyMotor.js resumeLive: its
           // grounding, so no fall is billed from the ledge he left; its target and senses; the route)
           if (typeof rec.ai.resumeLive === 'function') rec.ai.resumeLive();
@@ -127,7 +142,7 @@ export function createCrewAshore(deps) {
         rec.companion = k;
         rec.shipmate = true;
         if (rec.entity) {
-          rec.entity.name = c.name;
+          rec.entity.name = /** @type {any} */ (c).title ?? c.name;   // REVENANT-COMPANION: a sworn one's own name
           // AUDIT CC-A2: a door neither heals nor hurts him - each place rolls his class's pool afresh.
           // AUDIT WK-U2: so his WHOLE rides with him too, not a share of the new roll: carried as a share, his maximum
           // changed at every door (94, 86, 76, 105...) and his card and bar read each re-roll as a blow or a heal
@@ -137,7 +152,8 @@ export function createCrewAshore(deps) {
           if (fx?.length) rec.entity.activeEffects = [...(rec.entity.activeEffects ?? []), ...fx];
         }
         if (rec.ai) rec.ai.follow = followOf(Math.max(0, party.party.indexOf(c)));
-        stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null });
+        stood.set(k, { c, rec, remove: place.remove, has: place.has ?? null, fx: place.fx ?? null });
+        try { place.fx?.arrive?.(rec); } catch { /* COMPANION-PORTAL: no portal, the stand all the same */ }
         deps.onStood?.(c, rec);
       }).catch((e) => { pending.delete(k); console.warn('[companions] a companion would not stand', e?.message ?? e); });
     });

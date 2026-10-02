@@ -17,6 +17,24 @@ import { itemLongName } from '../systems/itemInfo.js';
 import { PIXEL_STACK } from './pixelifyFive.js';   // the Enhanced Plus face: Pixelify Sans, its 5 from Silkscreen
 
 const FLIP_MS = 900;
+// THE TURN, one set of numbers for the keyframes and for FIREFOX-FLIP's face swap below: the first leg runs to FLIP_MID
+// of the turn and FLIP_PAST degrees past edge-on (90 + 6 to the back, 90 - 6 coming home), on FLIP_EASE; the second leg
+// settles. The easing is the segment's own (an animation's timing function runs per keyframe interval), so the card is
+// EDGE-ON well before half the turn.
+const FLIP_MID = 0.45;
+const FLIP_PAST = 6;
+const FLIP_EASE = Object.freeze([0.3, 0.7, 0.25, 1]);
+/** The moment the turning card is edge-on (ms into the turn): where the first leg's eased rotation crosses 90 degrees
+ *  - the cubic-bezier solved for its output, then read back as time. Both directions cross at the same moment. */
+export function flipEdgeMs(ms = FLIP_MS, [x1, y1, x2, y2] = FLIP_EASE, mid = FLIP_MID, past = FLIP_PAST) {
+  const ax = 1 - 3 * x2 + 3 * x1, bx = 3 * x2 - 6 * x1, cx = 3 * x1;
+  const ay = 1 - 3 * y2 + 3 * y1, by = 3 * y2 - 6 * y1, cy = 3 * y1;
+  const want = 90 / (90 + past);
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 40; i++) { const s = (lo + hi) / 2; if (((ay * s + by) * s + cy) * s < want) lo = s; else hi = s; }
+  return Math.round(ms * mid * ((ax * lo + bx) * lo + cx) * lo);
+}
+export const FLIP_EDGE_MS = flipEdgeMs();
 let flipped = false;      // survives repaints of the pack
 let foeIdx = 0;           // which reference foe the page scores against
 
@@ -256,18 +274,18 @@ export const STATS_CARD_CSS = `
   background: radial-gradient(ellipse at center, rgba(0,0,0,0.5), transparent 70%); opacity: 0.35; pointer-events: none; }
 .pack-shell .statflip-inner { position: relative; flex: 1 1 auto; min-height: 0; display: grid; transform-style: preserve-3d; }
 .pack-shell .statflip.is-back .statflip-inner { transform: rotateY(180deg); }
-.pack-shell .statflip.to-back .statflip-inner { animation: sf-to-back ${FLIP_MS}ms cubic-bezier(.3,.7,.25,1) both; }
-.pack-shell .statflip.to-front .statflip-inner { animation: sf-to-front ${FLIP_MS}ms cubic-bezier(.3,.7,.25,1) both; }
+.pack-shell .statflip.to-back .statflip-inner { animation: sf-to-back ${FLIP_MS}ms cubic-bezier(${FLIP_EASE.join(',')}) both; }
+.pack-shell .statflip.to-front .statflip-inner { animation: sf-to-front ${FLIP_MS}ms cubic-bezier(${FLIP_EASE.join(',')}) both; }
 .pack-shell .statflip.to-back::before, .pack-shell .statflip.to-front::before { animation: sf-shadow ${FLIP_MS}ms ease-in-out both; }
 @keyframes sf-to-back {
   0% { transform: rotateY(0deg) translateZ(0) scale(1); }
-  45% { transform: rotateY(96deg) translateZ(70px) scale(1.05) rotateZ(-0.6deg); }
+  ${FLIP_MID * 100}% { transform: rotateY(${90 + FLIP_PAST}deg) translateZ(70px) scale(1.05) rotateZ(-0.6deg); }
   100% { transform: rotateY(180deg) translateZ(0) scale(1); } }
 @keyframes sf-to-front {
   0% { transform: rotateY(180deg) translateZ(0) scale(1); }
-  45% { transform: rotateY(84deg) translateZ(70px) scale(1.05) rotateZ(0.6deg); }
+  ${FLIP_MID * 100}% { transform: rotateY(${90 - FLIP_PAST}deg) translateZ(70px) scale(1.05) rotateZ(0.6deg); }
   100% { transform: rotateY(0deg) translateZ(0) scale(1); } }
-@keyframes sf-shadow { 0%,100% { opacity: 0.35; transform: scaleX(1); } 45% { opacity: 0.75; transform: scaleX(0.55); } }
+@keyframes sf-shadow { 0%,100% { opacity: 0.35; transform: scaleX(1); } ${FLIP_MID * 100}% { opacity: 0.75; transform: scaleX(0.55); } }
 .pack-shell .statflip-face { grid-area: 1 / 1; min-height: 0; display: flex; flex-direction: column;
   backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .pack-shell .statflip-front > * { flex: 1 1 auto; min-height: 0; }
@@ -333,6 +351,20 @@ export const STATS_CARD_CSS = `
 .pack-shell .statflip.is-back .sf-rise { animation: sf-rise .55s cubic-bezier(.2,.8,.25,1) both; animation-delay: calc(var(--i, 0) * 55ms + 380ms); }
 .pack-shell .statflip:not(.to-back):not(.to-front) .sf-rise { animation-duration: 0s; animation-delay: 0s; }
 @keyframes sf-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* FIREFOX-FLIP: Firefox alone can lose the 3D chain under the pack's backdrop-filter, ignore backface-visibility and draw the
+   paperdoll mirrored over the stats. Only there, the turned-away face is also hidden by VISIBILITY - swapped at the moment
+   the card is EDGE-ON (FLIP_EDGE_MS, ~226ms of the 900ms turn: the first leg's easing crosses 90 degrees long before half
+   the turn), so neither face is ever seen from behind. Two Firefox-only tests, either enough: -moz-appearance, and the
+   :-moz-focusring selector. Other browsers never see this; reduced motion has its own crossfade (below). */
+@supports (-moz-appearance: none) or selector(:-moz-focusring) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pack-shell .statflip-front, .pack-shell .statflip-back { transition: visibility 0s ${FLIP_EDGE_MS}ms; }
+    .pack-shell .statflip-back { visibility: hidden; }
+    .pack-shell .statflip.is-back .statflip-back { visibility: visible; }
+    .pack-shell .statflip.is-back .statflip-front { visibility: hidden; }
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .pack-shell .statflip { perspective: none; }
