@@ -7,12 +7,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ClimbHands, createClimbHands, climbHandsWanted, lookOffWall, wallYawOf, HANDS, NATIVE_H, NATIVE_W, GRIP_ART, REACH_ART } from '../src/combat/climbHands.js';
+import { ClimbHands, createClimbHands, climbHandsWanted, lookOffWall, wallYawOf, HANDS, GRIP_ART, REACH_ART } from '../src/combat/climbHands.js';
 import { climbRigInput } from '../src/player/climbPose.js';
 import { PARKOUR_HAND_SPAN } from '../src/player/parkour.js';
 
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const DEG = Math.PI / 180;
+const NATIVE_W = 320, NATIVE_H = 200;   // DFU's design surface
 const N = [0, 0, -1];   // the wall's face points -z: facing it is yaw 0, and the climber's right along it is +x
 const hang = (track = [0, 1, 0], extra = {}) => ({ mode: 'hang', normal: N, track, feet: track, grip: 1, move: null, ...extra });
 const climb = (track = [0, 1, 0], extra = {}) => ({ ...hang(track, extra), mode: 'climb' });

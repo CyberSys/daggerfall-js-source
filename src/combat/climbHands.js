@@ -34,10 +34,11 @@ import { PARKOUR_GRIP_LOW, PARKOUR_HAND_SPAN } from '../player/parkour.js';
 import { decodePng } from '../systems/textureReplacement.js';
 import { toScreenOrder } from '../formats/color32Order.js';
 import { APP_ROOT } from '../systems/appRoot.js';
+import { wrapAngle } from '../world/mat4.js';   // the one home for an angle into (-PI, PI] (audit24's ratchet)
 
-/** DFU's design surface (FPSWeapon's 320x200). */
-export const NATIVE_W = 320;
-export const NATIVE_H = 200;
+/** DFU's design surface (FPSWeapon's 320x200) - module-local: ui/nativePanel.js exports the names (audit24's ratchet). */
+const NATIVE_W = 320;
+const NATIVE_H = 200;
 const DEG = Math.PI / 180;
 
 /** The two paintings, their own pixels (the drawn boxes keep these aspects). */
@@ -89,8 +90,6 @@ export const HANDS = Object.freeze({
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const smooth = (x) => { const s = clamp01(x); return s * s * (3 - 2 * s); };
 const bump = (x) => Math.sin(Math.PI * clamp01(x));
-/** An angle into (-PI, PI]. */
-export const wrapAngle = (a) => { const t = (a + Math.PI) % (2 * Math.PI); return (t < 0 ? t + 2 * Math.PI : t) - Math.PI; };
 
 /** The heading that faces into a wall whose face points out along `normal` (the view's yaw convention: forward is
  *  [sin yaw, 0, cos yaw]). */
