@@ -849,7 +849,7 @@ says which way it moved ("Standing 55, up 7 since the last Turning.", `townSeatL
 `ui/seatTab.js`). Each Turning writes every held seat's Standing as it found it and as it left it, a Chronicle row of
 kind `standing` the Chronicle and the Hall of Records never show (`seatTurning.js` settleWeek, `seatInfluence.js`
 chronicleOf); the standings read names the holder's `was` off the last Turning's (standingWas) - no migration, the
-service still `acct61`. DECIDED: the trend is the Standing now less what it was as the last Turning began, so a siege
+service shipped at `acct63`, named on `acct64`. DECIDED: the trend is the Standing now less what it was as the last Turning began, so a siege
 held or a revolt put down since moves it too; "up N", "down N" or "steady"; none where the last Turning reckoned no
 Standing for this holder (a Charter it claimed, a seat taken since).
 

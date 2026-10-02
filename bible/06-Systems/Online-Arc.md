@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8591` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8592` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11941,7 +11941,7 @@ Mac: "lets finish the build work" - two more of the Seats arc's NOT YETs (Seats-
   writes every held seat's Standing as it found it and as it left it, a `town_seat_history` row of kind `standing`,
   first in its batch (`server-account/src/seatTurning.js` settleWeek); the Chronicle and the Hall of Records never
   show it (`seatInfluence.js` chronicleOf), and the standings read names the holder's `was` off the last Turning's
-  row where it names this holder (standingWas). No migration; the service stays `acct61` (undeployed, noted on it).
+  row where it names this holder (standingWas). No migration; it went out with the service's `acct63` deploy, and is named on `acct64`.
 - **The Festival's town** (7.6: "music, banners, lanterns"; `scenes/seatFestival.js`), while a Festival rules there -
   the holder's Edict on the seats' list, nothing on the relay or the service: its streets' City music becomes DFU's
   tavern playlist (`scenes/shared.js` createMusicDirector, festivalEnvironment - the day's song as a tavern picks

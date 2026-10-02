@@ -10,7 +10,6 @@
 - **The siege HUD shows both banners.** The defenders' shield stands at the left of the battle bar and the challengers' at the right.
 - **The Chronicle wears its arms.** Each line of a seat's Chronicle on the Notice Board sits under the shield of the guild it is about, and the Hall of Records book now ends with a **Roll of Arms** naming each guild's heraldry.
 
-
 ## Moderators (online)
 - **`/siege void <seat>`.** A Moderator can now void a seat's battle of the week when it was won by an exploit found after it - a siege, a Tourney or a revolt. The Chronicle says so: "The siege of X was voided by the Moderators."
 - **Before its result:** the battle is called off and every Sellsword's fee goes home to the guild that offered it. The challenger's Right of Siege is spent - it does not carry to next week.
