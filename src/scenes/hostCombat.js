@@ -109,10 +109,15 @@ export const hasBowAttack = (basics) =>
  *  affinity Human - so an Orc or a Knight is cut and a Zombie or a
  *  Daedra Lord is not. */
 const HUMANOID_LOOT_ITEM_SCALE = 0.25;   // MOD: keep a quarter of the item chance (drop 75%)
+/** MOD (Mac, 2026-10-02: "reduce the loot dropped by non elite enemies by 50%"): a foe that is no elite keeps HALF its
+ *  item chance - the loot-table roll and the worn kit both, over the humanoid cut; gold untouched, as that cut leaves it.
+ *  "Elite" is any of the three: an ELITE FOE (`eliteFoe`), an Elite Dungeon's foe (`elite`), a LOOT7 champion. */
+const PLAIN_FOE_LOOT_ITEM_SCALE = 0.5;
+const eliteLooted = (entity) => !!(entity?.eliteFoe || entity?.elite || championOf(entity));
 // ELITE: `lootDropMult` scales every item category's chance (gold untouched, as the humanoid cut);
 // `lootQualityMult` scales the rarity ladder's odds. Both 1 everywhere but an elite dungeon.
 export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Math.random, lootDropMult = 1, lootQualityMult = 1, where = null } = {}) {
-  const itemChanceScale = (isHumanoid(entity) ? HUMANOID_LOOT_ITEM_SCALE : 1) * lootDropMult;
+  const itemChanceScale = (isHumanoid(entity) ? HUMANOID_LOOT_ITEM_SCALE : 1) * (eliteLooted(entity) ? 1 : PLAIN_FOE_LOOT_ITEM_SCALE) * lootDropMult;
   entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: effectiveLevel(player), gender: player.gender }, undefined, { itemChanceScale, mobileType });
   const eq = equipEnemy(entity, mobileType, effectiveLevel(player), rolls, { player });   // SOFTCAP2: a mentor's foes carry the GROUP's loot and gear
   addEnemyLootExtras(entity.items, basics, rolls);
@@ -188,7 +193,8 @@ export function equipEnemy(entity, mobileType, playerLevel, rolls = Math.random,
   const all = equipmentItems(eq);   // everything AddItem put in Items - RRI2: an assigner's unequipped sidearm and arrow pile ride here too
   const worn = eq.worn ?? all;
   eq.worn = worn;
-  const droppable = isHumanoid(entity) ? all.filter(() => rolls() < HUMANOID_LOOT_ITEM_SCALE) : all;
+  const kept = isHumanoid(entity) ? all.filter(() => rolls() < HUMANOID_LOOT_ITEM_SCALE) : all;
+  const droppable = eliteLooted(entity) ? kept : kept.filter(() => rolls() < PLAIN_FOE_LOOT_ITEM_SCALE);   // MOD: a plain foe leaves half of that
   entity.items.push(...droppable);
   // AUDIT 58: AND IT PUTS THEM ON. ItemHelper.cs:1382/:1392/:1400 and
   // :1421-1450 pair every roll with
