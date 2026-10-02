@@ -462,7 +462,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Blocked - data, an asset, or a layer the port does not have.**
 
-- ~~**`src/scenes/world.js:7157`** - the port's default landing stands
+- ~~**`src/scenes/world.js:7159`** - the port's default landing stands
   in for `GetPlayerTravelPosition`, flagged for the first session with
   ARENA2.~~ **SHIPPED (ship landing, 2026-09-03).** *The owner supplied
   the real MAPS.BSA and the claim it rested on was FALSE: map pixel
@@ -694,7 +694,7 @@ regenerated onto the new sites: ~~`exterior.js:1619` -> `:1307`~~
 (**CLOSED at TP2**: the Recall interim narrowed to the one arm this host
 cannot take, `exterior.js:1981`), ~~`exterior.js:2031` -> `:1702`~~
 (**CLOSED at QX1**: this host took the quest bridge, so the pause window's
-Quests tab has a machine to read), ~~`world.js:7185` -> `:7208`~~
+Quests tab has a machine to read), ~~`world.js:7187` -> `:7210`~~
 (**CLOSED at the ship landing**), ~~`worldModes.js:2040` -> `:1914`~~
 (**CLOSED at ROAD-F GS1**, below), `pauseWindow.js:58` -> `:65`. The
 entries in the two lists above still quote the line numbers of the
