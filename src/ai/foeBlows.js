@@ -58,7 +58,7 @@ export function blowShapesOf(mobileType) {
 /** Is this body of the tier that telegraphs (Mac: level 10 and up, or an elite)? */
 export function blowTier(entity) {
   if (!entity) return false;
-  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.eliteFoe === true;
+  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;
 }
 /** Does this foe telegraph at all? */
 export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType).length > 0;

@@ -456,3 +456,16 @@ test('AUDIT TACT D (coverage): the watch resolves a telegraphed blow through the
   assert.match(g, /const dmg = blowScaled\(g\.ai, calculateAttackDamage\(g\.entity, playerEntity, \{/);
   assert.match(g, /\}\)\);\n(?:\s*\/\/[^\n]*\n){4}\s*if \(dmg > 0\) \{ onPlayerHurt/, 'the weighed blow is what hurts him');
 });
+
+test('AUDIT TACT (mutation survivor): a turned back is an opening - the waiting foe it is turned on goes in without a token; faced, it waits', () => {
+  const st = (x, z) => ({ inSight: true, detected: true, _dist: Math.hypot(x, z), feet: [x, 0, z], stopDistance: 2.25, yaw: 0, canAct: true, _armedTargeting: false, flee() {} });
+  const [a, b, c] = [st(0, 2), st(2, 0), st(-3.5, 0)];
+  noteLocalPlayer([0, 0, 0], [1, 0, 0]);   // facing +x: c, at -x, has my back
+  for (const [t, who] of [[0, [a]], [0.5, [a, b]], [1, [a, b, c]]]) { T = t; for (const x of who) tacticsStep(x, -x.feet[0], -x.feet[2]); }
+  assert.equal(c._tacStrike, true, 'my back is turned on it: it goes in');
+  resetTactics();
+  const [a2, b2, c2] = [st(0, 2), st(2, 0), st(-3.5, 0)];
+  noteLocalPlayer([0, 0, 0], [-1, 0, 0]);   // facing it
+  for (const [t, who] of [[0, [a2]], [0.5, [a2, b2]], [1, [a2, b2, c2]]]) { T = t; for (const x of who) tacticsStep(x, -x.feet[0], -x.feet[2]); }
+  assert.equal(c2._tacStrike, false, 'faced, it waits its turn');
+});

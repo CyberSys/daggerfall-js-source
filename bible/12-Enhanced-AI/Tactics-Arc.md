@@ -241,4 +241,4 @@ proven unchanged by a seeded run against the pre-TACT tree (same hash, same 440 
   through fog - fogged as the ground. D7 the switch's effect line said the next dungeon - the tactics, cover and blows
   are at once; only the navmesh waits. D11 the cover's broad phase built a string a cell a ray - numeric keys, no
   allocation a test. `tools/foeTelegraphProbe.mjs` now holds the fog and the tilt too (14 held).
-- Pins `test/audittact.test.js` (31); mutants `tools/mutants/audittact.json` (47), all dead. The four slices' own lists re-run over the fixes.
+- Pins `test/audittact.test.js` (32); mutants `tools/mutants/audittact.json` (47), all dead. The four slices' own lists re-run over the fixes.

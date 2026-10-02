@@ -131,6 +131,7 @@
     "old": "  const backTurned = key === LOCAL && _me && backTurnedOn(ai);",
     "new": "  const backTurned = false;",
     "tests": [
+      "test/audittact.test.js",
       "test/tact2.test.js"
     ]
   },
