@@ -11875,8 +11875,16 @@ siege HUD ... and the Chronicle".
   alone - closes with **a Roll of Arms**, each guild it names, once, with its heraldry in words.
 - DECIDED: a guild the client knows no heraldry of (no seat held or fought for, not the reader's own) wears none; the
   Chronicle shows a guild's heraldry as it is now, not as it was that day. No relay or service change, no version.
+- **Audited** (2026-10-02): a Moderators' void (`siege-voided`) is about the holder it restored, else none - never the
+  attacker its line never names; the Roll of Arms lists only the guilds a row's line names, in the line's order; the
+  index keeps each tag's guild name (`heraldryIndex`, `armsNamed`), and a Chronicle row's guild - the Seat tab's and the
+  Roll's - wears arms only where the tag's guild bears its name too (a disbanded guild's tag taken by a new guild shows
+  none of the new arms), a name tag still by tag alone; and the Overworld's name face (`ui/travelViewHud.js` badgeSprite)
+  frames a `<TAG>` as the name over a head does - the plate in the border colour and the shield drawn on its canvas
+  (`ui/heraldryArt.js` drawShield) into the kept sprite, keyed by the heraldry - off the same lookup
+  (setTravelViewArmsOf(seatArmsOf)).
 
-Pinned: `test/seat_heraldry_ui.test.js` (6). Mutants: `tools/mutants/seat_heraldry_ui.json` (57, all dead).
+Pinned: `test/seat_heraldry_ui.test.js` (10). Mutants: `tools/mutants/seat_heraldry_ui.json` (75, all dead).
 
 ### SIEGE-VOID - a moderator voids a siege (`/siege void`) (2026-10-02)
 
@@ -11926,8 +11934,12 @@ Mac: "lets finish the build work" - two more of the Seats arc's NOT YETs (Seats-
   each tavern's door, a pennant over each bounty board, at most 6; `scenes/seatBanners.js` createSeatBanners); and a
   lantern burns before every banner the town flies, in the street's lantern pool (festivalLanternsOf,
   `world/cityLights.js` fillLanternPool's `extra`), lit dusk to dawn and flickering on the slots after the pixel's own.
+- **Audited** (2026-10-02): the seats' list was read only at the session's start and a town's arrival, so a Festival (or a
+  Curfew) outlived its week for a player who stayed in town past the Turning, and one that became law was never staged.
+  A list read in an earlier seat week is now expired (`net/townSeatBook.js` read), and the book's frame tick (redTick,
+  already called each online frame) reads it again once when the seat week turns, while the seats are open.
 
-Pinned: `test/seat_standing_festival.test.js` (6). Mutants: `tools/mutants/seat_standing_festival.json` (23, all dead).
+Pinned: `test/seat_standing_festival.test.js` (8). Mutants: `tools/mutants/seat_standing_festival.json` (27, all dead).
 
 ### CASTLE-GATE - a crown's field and banners at its castle's entrance (2026-10-02)
 

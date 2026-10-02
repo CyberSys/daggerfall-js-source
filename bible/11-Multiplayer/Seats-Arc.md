@@ -764,7 +764,9 @@ music is DFU's own tavern playlist (SongManager's TavernSongs - song_square_2, s
 song_fm_sqr_2), the day's song as a tavern picks it, heard in the town's streets by day and night (a building keeps its
 own); the banners are the holder's on the seat banners' cloth, two beside each tavern's door and a pennant over each
 board BOUNTY1 took, at most 6 more; the lanterns are lights in the street's own lantern pool, one before every banner
-the town flies, lit dusk to dawn with its lamps - a glow, no lantern sprite drawn.
+the town flies, lit dusk to dawn with its lamps - a glow, no lantern sprite drawn. The stage follows the Turning while
+the player stays in town: a seats' list read in an earlier seat week is stale, and the book reads it again once the
+week turns (Curfew alike).
 
 BUILT (CROWN1 part one, 2026-10-01; Online-Arc CROWN1): Conscription, a crown's alone (`edictForTier`; a palace's
 proclamation refused, `edict-tier`), made law at no cost and paid at the Turning that ends the week it ruled - after
@@ -885,8 +887,10 @@ carries a guild's heraldry to these faces (a peer's token names its tag alone), 
 (unique) off what the client already holds - the reader's own guild, the seats' list's holders and battles, a seat's
 standings (`net/heraldryIndex.js` heraldryByTag) - and a guild the client knows no heraldry of wears the plain tag, no
 shield, no Roll line; no relay or service change. DECIDED: a Chronicle line shows the guild's heraldry as it is now, not
-as it was that day (a row keeps the name and tag alone). DECIDED: the book reader draws text alone, so the Hall of
-Records names the arms in words.
+as it was that day (a row keeps the name and tag alone) - and only where the guild holding its tag now bears its name
+too (a reused tag shows no new arms on an old guild's lines). DECIDED: the book reader draws text alone, so the Hall of
+Records names the arms in words - each guild a line names, in the line's order. A Moderators' void is about the holder
+it restored, else none. The Overworld's name face frames the tag with the shield too, drawn on its canvas.
 
 ### 8.2 The guild hall (GUILD1d)
 
