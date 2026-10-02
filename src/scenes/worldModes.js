@@ -311,7 +311,8 @@ import {
   clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
   layoutSceneName,  // WD3 (AUDIT WD3 R1): a permanent scene's visit in another layout, kept beside it
 } from '../systems/sceneCache.js';
-import { arenaGatePersonOf, arenaRecordDisplaced } from '../world/arenaCity.js';   // ARENA1: the gate's people; a save made in a building the arena took
+import { arenaGatePersonOf, arenaRecordDisplaced, isUndercroftDoor } from '../world/arenaCity.js';   // ARENA1: the gate's people; a save made in a building the arena took; ARENA2: the Herald's way down to the fighters' hall
+import { arenaFloorLocation, arenaFloorBlocks, isArenaFloor, arenaExitDoors, floorCentre as arenaFloorCentre, ARRIVE as ARENA_ARRIVE } from '../world/arenaFloor.js';   // ARENA2: the floor's instance - a made level on this host's dungeon arm
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Herald's word
 import { isNpcFlat } from '../world/rdbLayout.js';   // WD3 (AUDIT WD3 G1): a street flat is a person's only in a person archive
 import { WORLD_CONTEXT } from '../systems/teleportAnchor.js';   // A10: SetAnchor's world context, one enum for the three hosts
@@ -518,7 +519,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3852 hands
+   * record these hosts mint spells it `name` (exterior.js:3857 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1295,7 +1296,7 @@ export function createWorldModes(host) {
    *  This host owned two pools and ran NO fan-out at all - no
    *  runMagicRoundsFor, so no tickActiveEffects and no updatePoisons
    *  (worldTick.js:392-393), and no killIfAnyLiveStatZero. Both pools
-   *  READ the effect list every frame (exteriorFoes.js:1138-1142 and
+   *  READ the effect list every frame (exteriorFoes.js:1149-1153 and
    *  cityGuards.js:1039-1049 each take `entityIsParalyzed` +
    *  `applyEnemyMotorEffectFlags`), and nothing ever ended one: a
    *  Continuous Damage bundle on a foe in a shop never took a round,
@@ -1644,10 +1645,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2066 states), so the same visual
+   *  the C11 law dungeonContext.js:2071 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1951, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1956, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2974,7 +2975,9 @@ export function createWorldModes(host) {
     // ARENA1: the Herald of the Arena at the colosseum's gate (world/arenaCity.js ARENA_GATE_PEOPLE) - until the bouts
     // are fought (ARENA2) and the Arena window opens (ARENA3), his word through the one box: the enhanced skin's notice
     // panel, the classic skin's parchment. The recruiters, the bookmaker and the wardens talk as the city's people do.
-    if (!info && arenaGatePersonOf(pn)?.role === 'herald') { townTalk?.showOverlay?.(new ActionTextBox([...ARENA_TEXT.heraldNotice])); return; }
+    // ARENA2: his CHOICE now (systems/arenaHerald.js - watch, fight, the fighters' hall, leave), the host's; a host with no
+    // arena driver (the standalone city - scenes/exterior.js) keeps ARENA1's notice
+    if (!info && arenaGatePersonOf(pn)?.role === 'herald') { if (!host.arenaHerald?.()) townTalk?.showOverlay?.(new ActionTextBox([...ARENA_TEXT.heraldNotice])); return; }
     Promise.resolve(townTalk?.ensureFactions?.())
       .then(() => (info ? presentNpcInfo(pn) : openStaticNpc(pn))).catch(() => {});
   }
@@ -3468,6 +3471,14 @@ export function createWorldModes(host) {
     for (const c of data.lootContainers) {
       const [kind, i] = c.key.split(':');
       const target = kind === 'shelf' ? interiorCtx.shelves?.[+i] : interiorCtx.containers?.[+i];
+      // ARENA2: A HOUSE THE ARENA MOVED brought its chests', its storage pieces' and its floor's things in its first
+      // container (systems/arenaMove.js emptyArenaScene, `crate`): a house with none has them set down as a crate where
+      // its owner first walks in - a pile of their own, in the building's frame, cached with the floor from here on
+      if (!target && c.crate && c.items?.length) {
+        const o = buildingOrigin(), f = player.pos;
+        data.droppedPiles = [...(data.droppedPiles ?? []), { pos: [f[0] - o[0], f[1] - o[1], f[2] - o[2]], items: c.items.map((it) => ({ ...it })) }];
+        continue;
+      }
       // `items: null` is a shelf that was never opened - restoring it
       // as null keeps the LAZY stock, which is what makes a first
       // browse still roll fresh goods after an uneventful visit.
@@ -7041,6 +7052,55 @@ export function createWorldModes(host) {
       return gatedTransition((live) => dungeonTransition(hit, [], true, live));
     });
   }
+  /** ARENA2: the floor's light and air - the sky open over the sand, the hour the torches are lit: a warm ambient the
+   *  braziers add to, and a thin night fog the far tiers stand in (the court's shape, COURT_FOG). */
+  const ARENA_FLOOR_AMBIENT = Object.freeze([0.46, 0.42, 0.38]);
+  const ARENA_FLOOR_FOG = Object.freeze({ mode: 'exp', density: 0.0045, color: Object.freeze([0.07, 0.07, 0.1]) });
+  /** ARENA2: THE FLOOR'S INSTANCE (world/arenaFloor.js) - this host's dungeon arm with a level made in code, as the
+   *  Burning Court is: the colosseum, its tiers, its torches and braziers, laid from ARENADAG.RMB into a made block, the
+   *  player arriving at their mark on the sand (`kind` 'ladder') or on the lower terrace (`'watch'`). Entered from the
+   *  Herald at the gate (the host's choice - scenes/world.js arenaHerald), left by its gates back to him. Offline and
+   *  online alike - the bout is this screen's (ARENA4 makes it a relay room). */
+  async function enterArenaFloor(kind = 'ladder') {
+    if (mode !== 'exterior' || !(playerEntity.health > 0)) return false;
+    const city = host.arenaCity?.() ?? null;
+    const dfLocation = arenaFloorLocation({ kind, city });
+    const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind), arenaFloor: kind, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
+    return tryEnterDungeon(hit, [], { preferEnterMarker: false });
+  }
+  /** ARENA2: the Herald's "Go down to the fighters' hall" - the undercroft's own door (the colosseum's 43600 stair,
+   *  world/arenaCity.js), taken as if walked through: the city pixel's door list holds it while the city stands. */
+  async function enterArenaUndercroft() {
+    if (mode !== 'exterior') return false;
+    const entries = doorTargets?.() ?? [];
+    const e = entries.find((x) => isUndercroftDoor(x, DOOR_TYPE.DUNGEON_ENTRANCE) && x.dfLocation?.arenaUndercroft);
+    if (!e) return false;
+    return tryEnterDungeon({ ...e }, entries, { preferEnterMarker: false });
+  }
+  /** ARENA2: the floor's ways out stood into its built context - its two gates (the sand's and the terrace's) as the
+   *  level's exit doors, named on the plaque. */
+  function standArenaFloor(ctx) {
+    for (const d of arenaExitDoors()) ctx.exitDoors.push(d);
+    ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('exit:') ? { title: ARENA_TEXT.wayOut } : null));
+  }
+  /** ARENA2: THE INSTANCE AS A STAGE (scenes/arenaBouts.js) - the sand's centre in the dungeon's frame, the fighters
+   *  through the context's own loose stands (at their tier's level, their bout tag on them from the first frame), the
+   *  ground under a seat asked of the context's collider. Null outside the instance. */
+  let _arenaStage = null, _arenaStageCtx = null;
+  function arenaFloorStage() {
+    if (mode !== 'dungeon' || !dungeonCtx || !isArenaFloor(dungeonLoc)) return null;
+    if (_arenaStageCtx === dungeonCtx && _arenaStage) return _arenaStage;
+    const ctx = dungeonCtx, c = arenaFloorCentre();
+    _arenaStageCtx = ctx;
+    _arenaStage = {
+      kind: 'floor',
+      centre: () => c,
+      spawn: (mobile, feet, o) => ctx.spawnLooseFoe?.(mobile, [feet[0], feet[1] + 0.9, feet[2]], { gender: o.gender ?? null, yawRad: o.yaw ?? null, level: o.level ?? null, bout: o.bout ?? null }) ?? null,
+      remove: (f) => ctx.removeLooseFoe?.(f),
+      heightAt: (x, z) => { const top = c[1] + 24; const d = ctx.collider.raycast([x, top, z], [0, -1, 0], 48); return Number.isFinite(d) ? top - d : null; },
+    };
+    return _arenaStage;
+  }
   /** WB6c: THE WAY HOME out of the court - through the fire, as the way in was: the dungeon's exit taken at the top of the
    *  frame after the veil has closed (F-A5's deferral), for a player alive in a court still standing. WBX2: one door for
    *  the bridge's membrane and the portal that rises where he fell (scenes/gateCourt.js). */
@@ -7382,7 +7442,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7797), so the OUTER host's one rides in.
+          // (dungeonContext.js:7815), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7404,6 +7464,7 @@ export function createWorldModes(host) {
           // has always passed this; without it the world-hosted dungeon
           // death fell to the standing defaults.
           motorState: () => ({ eyeLevel: player.eye[1] - player.pos[1], capsule: player.height }),
+          playerSpare: () => host.arenaPlayerSpare?.() ?? null,   // ARENA2: a blow taken in my bout on the sand leaves me at 1 (the duel's spare)
           // AUDIT 26 F222/F223/F101: the host's half of the pose -
           // this mode machine owns the modal player and camera; the
           // context owns the weapon and folds weaponDrawn in itself.
@@ -7420,6 +7481,7 @@ export function createWorldModes(host) {
       if (!live()) { abandonContext(ctx); return false; }   // AUDIT 68 X3-transition-build-race: the world moved under the build - it hands its seams back and publishes nothing
       dungeonCtx = ctx;
       if (hit.gateArena) standCourt(ctx);   // WB3b: the court, before the start marker is read and before any namer
+      if (hit.arenaFloor) standArenaFloor(ctx);   // ARENA2: the floor's gates, before any namer
       // OH-D: DaggerfallDungeon.OnSetDungeon - SetDungeon raises it after LayoutDungeon, before TransitionDungeonInterior
       // reads the start marker. A listener may hand back the work it started (the port's foe rebuilds - DFU's are
       // immediate), and the dungeon stands once it is done; the world moving under that wait abandons the build.
@@ -7519,6 +7581,7 @@ export function createWorldModes(host) {
         candidates: entries.filter((e) =>
           e.group === hit.group && e.door.doorType === DOOR_TYPE.DUNGEON_ENTRANCE),
         gate: hit.gateArena ?? null,   // WB3b: the way home lands at the gate, not at a door
+        arena: hit.arenaFloor ?? null,   // ARENA2: the floor's way out lands before the Herald
       };
       // DE1: WHICH DFU MEMBER THIS IS. Walking in through the door is
       // TransitionDungeonInterior, which uses the START marker and
@@ -7580,6 +7643,7 @@ export function createWorldModes(host) {
         cam.pitch = 0;
       }
       if (hit.gateArena) cam.yaw = Math.PI;   // WB3b: arriving by the bridge, facing him across the court (the start marker's own facing levelled the pitch)
+      if (hit.arenaFloor) cam.yaw = (ARENA_ARRIVE[hit.arenaFloor] ?? ARENA_ARRIVE.ladder).yaw;   // ARENA2: at my mark facing my opponent, or over the sand from the terrace
       mountQuestResources();   // B2: AddQuestResourceObjects(SiteTypes.Dungeon) on the transition, as PlayerEnterExit raises it
       // AUDIT 39 (#31): the sixth of TalkManager's six subscriptions.
       // PlayerEnterExit raises OnTransitionDungeonInterior from BOTH
@@ -7750,7 +7814,8 @@ export function createWorldModes(host) {
       dungeonCtx.actions.activate(key, { steal: getInteractionMode() === 'steal', doorSpell: doorSpellFor(playerEntity) });   // X1
       return true;
     }
-    if (isGateArena(dungeonLoc)) { gateWayHome(); return true; }   // WB6c: the way home is through the fire, as the way in was - taken at the top of the frame after it has closed (F-A5's deferral); and no wagon: it waits in Tamriel
+    if (isGateArena(dungeonLoc)) { gateWayHome(); return true; }
+    if (isArenaFloor(dungeonLoc)) { if (host.arenaHolds?.()) { setMidScreenText(ARENA_TEXT.refuse.door); return true; } return exitDungeonNow(); }   // ARENA2: the gates are shut while my bout stands (the duel's law); no wagon on the sand   // WB6c: the way home is through the fire, as the way in was - taken at the top of the frame after it has closed (F-A5's deferral); and no wagon: it waits in Tamriel
     // AUDIT 28 W2c: THE EXIT-DOOR WAGON PROMPT (PlayerActivate.cs
     // :649-664). A dungeon exit with a Small_cart in the pack and
     // Settings.DungeonExitWagonPrompt raises TEXT.RSC 38 as a YesNo
@@ -7800,7 +7865,7 @@ export function createWorldModes(host) {
   const dungeonPose = () => weaponPoseOf(dungeonCtx?.weaponRig?.()?.playerWeapon ?? null);
   /** WB3b: where a dungeon's exit lands - the entrance door the player came in by (PositionPlayerToDungeonExit), or,
    *  out of the Burning Court, before its gate (the host's gateLanding - world/gateArena.js gateLandingFor). */
-  const returnLanding = () => (dungeonReturn.gate ? host.gateLanding?.(dungeonReturn.gate) ?? null : dungeonEntranceLanding(dungeonReturn.candidates.map((e) => e.door)));
+  const returnLanding = () => (dungeonReturn.gate ? host.gateLanding?.(dungeonReturn.gate) ?? null : dungeonReturn.arena ? host.arenaLanding?.() ?? null : dungeonEntranceLanding(dungeonReturn.candidates.map((e) => e.door)));   // ARENA2: out of the floor, before the Herald
   function exitDungeonNow() {
     unleveledLootPreTransition();   // UL1: OnPreTransition (TransitionDungeonExterior) - and NO OnTransitionExterior here, bug for bug
     // Verbatim PositionPlayerToDungeonExit; the camera faces the normal.
@@ -8388,6 +8453,7 @@ export function createWorldModes(host) {
       renderer.setMoonlight(null);
       renderer.setIndirectLight(NO_INDIRECT_POS, 0, NO_INDIRECT_COLOR);
       if (isGateArena(dungeonLoc)) { const _cl = courtLighting(deadlandsFlash(_deadS)); const _ct = dungeonTrilight(!!renderer.lightingLane, _cl.tri); renderer.setLighting(courtEquatorOf(_ct), 0, undefined, _ct); renderer.setMoonlight(_cl.key); }   // WB6a: the court is no dungeon - lit red from the sky, orange from the fire under it, and by the vortex's fire from behind the boss (the moon's term: the one directional light a dungeon frame leaves dark); the lane's dark rides the trilight as the fog's does   // WB6b: a strike in the sky flares over it, the moment the sky draws it
+      if (isArenaFloor(dungeonLoc)) renderer.setLighting(new Float32Array(ARENA_FLOOR_AMBIENT), 0);   // ARENA2: an open sky over the sand at the torches' hour - the stands seen across it, not a dungeon's dark
       // AUDIT 26 F001: a dungeon mesh is textured by SetDungeonTextures
       // (DaggerfallMesh.cs:153-169), which calls GetMaterial with NO
       // window style - so a dungeon's window records keep the colour a
@@ -8404,6 +8470,7 @@ export function createWorldModes(host) {
       // BASE it hands the fog, which backs it up on the dry frames and
       // restores it on surfacing.
       { const _fog = dungeonFog(!!renderer.lightingLane, betterAmbience.dungeonFog() ?? DUNGEON_FOG); applyFog(renderer, dungeonCtx.underwaterFogSettings?.(cam.pos[1], player.pos, _fog) ?? _fog); }
+      if (isArenaFloor(dungeonLoc)) applyFog(renderer, dungeonFog(!!renderer.lightingLane, ARENA_FLOOR_FOG));   // ARENA2: the night air over the colosseum, thin enough to see the far tiers
       if (isGateArena(dungeonLoc)) applyFog(renderer, dungeonFog(!!renderer.lightingLane, COURT_FOG));   // WB3b: the Deadlands' air in the court, over the dungeon's   // AUDIT-EL F6   // BA1: FoggyDungeons' linear fog is the base the water murk overrides
       // AUDIT DISC19: THE CANDLE BURNS WHITE UNDERGROUND TOO. One shared
       // colour lit every light down here - the dungeon's 0.8, or the lane's
@@ -8593,7 +8660,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14765's own wave-46 note); the interior
+          // a blow (world.js:14919's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9525,7 +9592,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3914`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:3919`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10559,6 +10626,7 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
+    enterArenaFloor, enterArenaUndercroft, arenaFloorStage,   // ARENA2: the floor's instance, the fighters' hall, the instance as a bout's stage
     enterAbyss,   // OH-D: the pit's way down
     /** OH-E: RemoveBorrowedQuestResources - every QuestResourceBehaviour under the live dungeon destroyed: the quest
      *  stands this host mounted there, and the quest foes. */
@@ -11235,9 +11303,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3485-3507), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3490-3512), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11028). So an F9 pressed in a shop
+     *  unconditionally (world.js:11149). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11276,7 +11344,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11306)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11435)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11286,8 +11354,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10018`
-     *  and `dungeonContext.js:7808` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10139`
+     *  and `dungeonContext.js:7827` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

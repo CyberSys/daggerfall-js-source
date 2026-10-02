@@ -30,7 +30,16 @@ import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks 
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
 import { isClimateFreeModel, NO_CLIMATE_REMAP } from '../world/customModels.js';   // ARENA1: RuntimeMaterials' ApplyClimate 0 - the colosseum wears its own pictures
-import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell
+import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION, ARENA_BLOCK, ARENA_GATE_PEOPLE } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell; ARENA2: the colosseum's block in a built pixel, the Herald's place
+import { isFurnishing } from '../systems/decorFurnish.js';   // ARENA2: a moved house's furniture back among the furnishings
+import { createArenaBouts } from './arenaBouts.js';   // ARENA2: the bout on this screen - its law over real bodies, its crowd, its HUD
+import { createArenaSound } from '../systems/arenaSound.js';   // ARENA2: the crowd, heard - built from DAGGER.SND's own voices
+import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';   // ARENA2: the march and the fanfare
+import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
+import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
+import { exhibitionFor, nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
+import { heraldChoice } from '../systems/arenaHerald.js';   // ARENA2: the Herald's choice at the gate
+import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once
 import { DOOR_TYPE } from '../world/meshReader.js';   // ARENA1: the undercroft's stair is a dungeon entrance
@@ -3393,6 +3402,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const windmills = []; // WM2b: { local, state } - mills whose rotor turns each frame
     made.windmills = windmills;   // BUILD-FAIL1
     const holdBlocks = [];   // WOD4: the origin matrix of each block DungeonExterior would find by name
+    let arenaOrigin = null;   // ARENA2: the colosseum's block's origin (pixel-local) - the city floor's frame
     let population = null;   // T2 towns: this pixel's wandering pool
     let locOrigin = null;    // the location origin, pixel-local
     let personBatches = null;
@@ -3433,6 +3443,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const originMatrix = trs(
           locLocal[0] + b.originX, locLocal[1], locLocal[2] + b.originZ, 0, 0, 0);
         if (wod && b.blockName === PRIVATEERS_HOLD_BLOCK) holdBlocks.push(originMatrix);   // WOD4
+        if (b.blockName === ARENA_BLOCK) arenaOrigin = [originMatrix[12], originMatrix[13], originMatrix[14]];   // ARENA2
         // AUDIT 64 F11: DFU's `firstModel` is a LOCAL, reset once per
         // subrecord inside AddModels (RMBLayout.cs:824-832), and
         // AddModels runs once per PLACED block with a fresh
@@ -4009,6 +4020,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       forest: { base: climate.natureArchive, archive: natureArchive, trees: pixelTrees.filter((t) => forestGroups.has(t.group)), groups: forestGroups },
       wodSpawners, // WOD2: LoadObject's spawn markers, for WOD3
       privateersHold,   // WOD4: the camp's block origins and its Start's state, null off the Hold
+      arena: arenaOrigin,   // ARENA2: the colosseum's block origin, pixel-local - null off Daggerfall's cell (4,3)
       wodLife,     // AUDIT BRANCH (WoD) L1-3/m1: the terrain's identity, which a late pile and the carry name
       gateClearKey: gateClear?.key ?? null,   // GATE-CLEAR: the gate's clearing this pixel was built against (null: none)
       gateRefused: gateLedger.refused,   // GATE-CLEAR: whether that clearing cost it a site or a piece
@@ -7767,6 +7779,115 @@ export async function bootWorld(canvas, renderer, params, status) {
     },
   });
 
+  // ═══ ARENA2 (2026-10-02, Mac: "Players can choose to watch AI fights ... and climb esclating tiers of opponents";
+  // "During fights, the crowd is present and can cheer/boo you"): THE ARENA'S BOUTS ON THIS SCREEN ═══════════════════
+  // One driver (scenes/arenaBouts.js) for both floors: the CITY's colosseum (cell 4,3 of Daggerfall - this host's own
+  // pool, an exhibition on the hour of the game's clock while the player is near), and the floor's INSTANCE (the
+  // dungeon arm's made level - scenes/worldModes.js arenaFloorStage - a ladder bout, or an exhibition watched from the
+  // stands). The ladder rides the save (playerEntity.arenaLadder, systems/save.js). bible/11-Multiplayer/Arena.md.
+  const arenaSound = createArenaSound(audio);
+  /** The healers (the duel's own heal, said by the Herald rather than the duel's line). */
+  const arenaHeal = () => {
+    if (!(playerEntity.health > 0) || modes?.deathUp?.()) return;
+    playerEntity.health = playerEntity.maxHealth;
+    playerEntity.fatigue = maxFatigue(playerEntity);
+    playerEntity.magicka = playerEntity.maxMagicka ?? playerEntity.magicka;
+    surfacePlayer();
+  };
+  const arenaBouts = createArenaBouts({
+    now: () => performance.now(), playerEntity, setPlayerBout,
+    say: (l) => setMidScreenText(l, 2.6),
+    notice: (lines) => { for (const l of lines) townTalk.say(l); },
+    sound: arenaSound, drawHud: (m, o) => drawArenaHud(m, o),
+    renderer, getTexture, uploadRecordFrame,
+    pay: (g) => addGold(playerEntity, g),
+    heal: arenaHeal,
+    crime: () => { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); },   // the watch for a brawler, by the street's own law
+  });
+  /** THE CITY'S FLOOR as a stage: the colosseum's sand where its block stands in a built pixel (null off it), its
+   *  fighters through this host's own pool - `loose` (no cap), `transient` (no save holds them), `managed` (no cull),
+   *  no champion, no loot - and the ground under a seat asked of the collider from above. */
+  const _arenaCityC = [0, 0, 0];
+  const arenaCityPixel = () => { for (const p of built.values()) if (p.arena) return p; return null; };
+  const arenaCityStage = {
+    kind: 'city',
+    centre: () => {
+      const p = arenaCityPixel();
+      if (!p) return _arenaCityC;
+      const t = state.pixelTranslation(p.px, p.py), f = cityFloorCentre();
+      _arenaCityC[0] = t[0] + p.arena[0] + f[0]; _arenaCityC[1] = t[1] + p.arena[1] + f[1]; _arenaCityC[2] = t[2] + p.arena[2] + f[2];
+      return _arenaCityC;
+    },
+    spawn: (mobile, feet, o) => exteriorFoes.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true, managed: true, champion: null })
+      .then((f) => { if (f) { f.entity.bout = o.bout; f.entity.items = []; } return f; }),
+    remove: (f) => exteriorFoes.removeFoe(f),
+    heightAt: (x, z) => { const top = _arenaCityC[1] + 30; const d = collider.raycast([x, top, z], [0, -1, 0], 60); return Number.isFinite(d) ? top - d : null; },
+  };
+  /** Where the Herald stands, in the scene (his block record's place in the colosseum's block), or null. */
+  function arenaHeraldAt() {
+    const p = arenaCityPixel();
+    const h = ARENA_GATE_PEOPLE.find((g) => g.role === 'herald');
+    if (!p || !h) return null;
+    const t = state.pixelTranslation(p.px, p.py);
+    return [t[0] + p.arena[0] + h.x * 0.025, t[1] + p.arena[1], t[2] + p.arena[2] + (h.z + 4096) * 0.025];
+  }
+  /** THE CITY'S SCHEDULE: an exhibition on the hour (systems/arenaLadder.js exhibitionFor - the same hour, the same bout,
+   *  on every screen) while I am outside near the colosseum; walked away from, it goes, unsaid, and comes back from its
+   *  call if I return inside its window. Answers the stage this frame stands (the instance's when I am in it). */
+  const ARENA_NEAR_M = 150, ARENA_FAR_M = 260;
+  function arenaStageNow() {
+    const mode = modes?.mode ?? 'exterior';
+    if (mode === 'dungeon') return modes?.arenaFloorStage?.() ?? null;
+    if (mode !== 'exterior' || !walkMode || !playerSpawned || !arenaCityPixel()) return null;
+    const c = arenaCityStage.centre();
+    const d = Math.hypot(player.pos[0] - c[0], player.pos[2] - c[2]);
+    if (d > (arenaBouts.stageKind() === 'city' ? ARENA_FAR_M : ARENA_NEAR_M)) return null;
+    return arenaCityStage;
+  }
+  let _arenaFrames = 0;   // the probe's count of the frames the arena was ticked in
+  function arenaFrame(dt) {
+    _arenaFrames++;
+    const stg = arenaStageNow();
+    arenaBouts.setStage(stg);
+    if (stg === arenaCityStage && !arenaBouts.bout() && !arenaBouts.pending() && !gamePaused()) {
+      const ex = exhibitionFor(worldMinutes());
+      if (ex?.open && ex.hour !== _arenaHourRun) { _arenaHourRun = ex.hour; arenaBouts.ask({ where: 'city', kind: 'exhibition', ex }); }
+    }
+    if (!stg) { arenaBouts.frame(dt, {}); if (!arenaBouts.bout()) arenaSound.stop(); return; }
+    const inDungeon = (modes?.mode ?? 'exterior') === 'dungeon';
+    const rig = inDungeon ? modes?.dungeonCtx?.weaponRig?.() : weaponRig;
+    arenaBouts.frame(gamePaused() ? 0 : dt, {
+      playerFeet: player.pos, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,
+      stamina: (playerEntity.fatigue ?? 0) / Math.max(1, maxFatigue(playerEntity)),
+      hidden: gamePaused() || !!townTalk.hudHidden, touch: isTouchDevice(),
+    });
+  }
+  let _arenaHourRun = null;   // the hour whose exhibition this screen has started (one start an hour, a walk back restarts it)
+  /** THE HERALD'S CHOICE (systems/arenaHerald.js): watch, fight, the fighters' hall, leave - answered here, the
+   *  instance and the undercroft through the mode machine. True: his choice is up. */
+  function arenaHerald() {
+    const ladder = arenaLadderRestore(playerEntity.arenaLadder);
+    const sand = arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null;
+    const ch = heraldChoice({ gameMinutes: worldMinutes(), cityBout: sand, ladder, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1) });
+    const act = (a) => {
+      if (a === 'watch') {
+        const ex = exhibitionFor(worldMinutes());
+        if (!ex) return;
+        _arenaHourRun = ex.hour;
+        arenaBouts.dismiss();
+        arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
+        modes?.enterArenaFloor?.('watch');
+      } else if (a === 'fight') {
+        const next = nextLadderBout(ladder);
+        if (!next) return;
+        arenaBouts.ask({ where: 'floor', kind: 'ladder', next });
+        modes?.enterArenaFloor?.('ladder');
+      } else if (a === 'hall') modes?.enterArenaUndercroft?.();
+    };
+    townTalk.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => act(o.act) })) }));
+    return true;
+  }
+
   // The classic catch-up loop (PlayerEntity.Update:486-492): per
   // elapsed game minute, one intermittent roll; break on a spawn.
   // Fast travel resets the anchor (PreventEnemySpawns parity - DFU
@@ -8434,10 +8555,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2762 mounts the same one, gated on
+  // and dungeonContext.js:2769 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6673
+  // that context through modes.dungeonCtx - so worldModes.js:6684
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -11024,7 +11145,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7781), so exterior mode and a
+    // composer, dungeonContext.js:7799), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11200,6 +11321,14 @@ export async function bootWorld(canvas, renderer, params, status) {
         discover: (to) => discoverBuilding(locId, to, `${playerEntity.name ?? ''}'s residence`),
         addNote: (to) => questBridge?.notebook?.addNote(ARENA_TEXT.deedMovedNote.replace('%s', to.name || 'a house in Daggerfall')),
         notice: () => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...ARENA_TEXT.deedMoved])); } catch { setTimeout(show, 500); } }; show(); },
+        // ARENA2: what stood in the old house - the owner's own things back where they live (furniture among the
+        // furnishings, the rest in the pack), the catalogue's placed pieces paid back whole into the city's bank account
+        giveOwn: (items) => { for (const it of items) { if (isFurnishing(it)) (playerEntity.furnishings ??= []).push(it); else addItem(playerEntity.items ??= [], it); } },
+        refund: (gold) => {
+          playerEntity.bankAccounts ??= createBankAccounts(BANK_REGION_COUNT);
+          const a = playerEntity.bankAccounts[goldRegion(playerEntity.bankAccounts, ARENA_REGION)] ?? null;
+          if (a) a.accountGold = (Number.isFinite(a.accountGold) ? a.accountGold : 0) + gold; else addGold(playerEntity, gold);
+        },
       });
       if (moved) console.log(`[arena] the deed to house ${moved.from} moved to ${moved.to} (${moved.name})`);
       return moved;
@@ -13410,6 +13539,31 @@ export async function bootWorld(canvas, renderer, params, status) {
       sea: state.pixelTranslation(e.px, e.py, [0, 0, 0])[1] + deepWaters.oceanLocalY }))
       .filter((r) => r.d && r.d !== 'rejected:not-selected') : null);
     window.__currentPixel = () => `${state.current.x},${state.current.y}`;
+    // ARENA2 probe surface (tools/arenaProbe.mjs): the city floor's sand and the Herald's place, the bout standing (its
+    // phase, its fighters' health, the crowd's mood and how many sit), and the Herald's three doors pressed as his choice
+    window.__arena = () => {
+      const b = arenaBouts.bout(), c = arenaBouts.crowd();
+      return {
+        centre: arenaCityPixel() ? [...arenaCityStage.centre()] : null, herald: arenaHeraldAt(), stage: arenaBouts.stageKind(), kind: arenaBouts.kind(),
+        phase: b?.phase ?? null, result: b?.result ?? null, fighters: b ? b.fighters.map((f) => ({ id: f.id, name: f.name, side: f.side, health: f.health, max: f.maxHealth, out: f.out })) : [],
+        mood: c?.mood ?? null, crowd: arenaBouts.batches().length, ladder: arenaLadderRestore(playerEntity.arenaLadder), mode: modes?.mode ?? 'exterior',
+        near: arenaCityPixel() ? Math.hypot(player.pos[0] - arenaCityStage.centre()[0], player.pos[2] - arenaCityStage.centre()[2]) : null, walk: !!walkMode && !!playerSpawned,
+        hour: exhibitionFor(worldMinutes()), ran: _arenaHourRun, pending: arenaBouts.pending()?.kind ?? null,
+        frames: _arenaFrames, paused: gamePaused(), stageNow: arenaStageNow()?.kind ?? null,
+      };
+    };
+    window.__arenaHerald = () => arenaHerald();
+    window.__arenaCloseOverlays = () => { let n = 0; while (townTalk.overlayActive && n < 40) { townTalk.closeOverlay?.(); n++; } return n; };   // the tutorial's pages and the main quest's box, put away for a probe
+    window.__arenaStrike = (dmg = 20) => {   // a blow of mine on my bout's first opponent, through its pool's own door (a probe's swing)
+      const b = arenaBouts.bout();
+      const st = (modes?.mode ?? 'exterior') === 'dungeon' ? modes?.arenaFloorStage?.() : null;
+      if (!b || !st) return false;
+      const ctx = modes?.dungeonCtx;
+      const foe = (ctx?.foes ?? ctx?.enemies ?? []).find((f) => f?.entity?.bout && !f.entity.bout.out);
+      if (!foe) return false;
+      ctx.damageFoe?.(foe, dmg, player.pos, null, { fromPlayer: true });
+      return true;
+    };
     // CSA-B probe surface: stand a boat at a pose (the placement ray is CSA-C's), light its lanterns, read the pool
     window.__csaSpawn = async (hull = 0, variant = 0, x = 0, y = 0, z = 0, yaw = 0) => {   // CSA-C: through the runtime's own PlaceBoat (the int overload), the boat's forward along the yaw
       if (!csaRuntime || !(await csa.preload())) return null;
@@ -13846,7 +14000,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10181-10245 -
+  // worldModes answers it in BOTH modes (worldModes.js:10248-10312 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -16471,7 +16625,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // scene's socket, bodies, motor, HUD, chat and account.
   /** DUEL1: a live duel's opponent is AN ENEMY NEARBY to every gate that asks (the travel map, a journey, rest): the
    *  ring holds the body, and these hold the doors a map or a bed would open out of it. */
-  function duelEnemyNear() { return !!duelMgr?.live; }
+  function duelEnemyNear() { return !!duelMgr?.live || arenaBouts.holds(); }   // ARENA2: my own bout holds me as a duel does - no rest, no travel, no journey
   /** A peer's body in THIS scene (peersNear's { id, feet, height }), or null. */
   const duelBody = (peerId) => (peerId ? (peersNear()?.find((x) => x.id === peerId) ?? null) : null);
   /** A peer's feet in the WORLD frame - their pose's own (net/online.js `shown`) - or null. */
@@ -17007,6 +17161,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (want === SCORE_SILENCE) { if (music.current !== null) music.fadeOut(); } else music.playSong(want);   // AUDIT WB D2: the quiet after the fanfare is its ending, faded - not a cut
     return true;
   };
+  /** ARENA2: THE ARENA'S MUSIC (systems/arenaScore.js) - while a bout is heard here, the march, then the fanfare, then
+   *  quiet through the healers; let go (the song stopped, the director's next frame plays its own) the frame there is
+   *  none. The songs are made the first time a bout is heard. Answers whether the arena holds the music this frame. */
+  let _arenaScoreHeld = false, _arenaScoreMade = false;
+  const arenaScoreFrame = () => {
+    const want = arenaBouts.scoreWant();
+    if (want == null) {
+      if (_arenaScoreHeld) { _arenaScoreHeld = false; music.stop(); }
+      return false;
+    }
+    if (!_arenaScoreMade) { _arenaScoreMade = true; for (const song of Object.values(arenaScoreSongs())) music.registerSong(song.name, song); }
+    _arenaScoreHeld = true;
+    if (want === ARENA_SCORE_SILENCE) { if (music.current !== null) music.fadeOut(); } else music.playSong(want);
+    return true;
+  };
   const deadlandsAirFrame = () => { if (modes?.gateArenaDay?.() != null) deadlandsAir.frame(deadlandsSeconds(), cam.pos, courtFireBeds); else deadlandsAir.stop(); };
   /** WB2: THE GATE THE WORLD STANDS (scenes/gatePool.js) - online alone, as the omen is; stood each exterior frame from
    *  the omen's word, drawn in the world pass (the stone) and after the duel wall (the fire and the beacon). Its door
@@ -17210,6 +17379,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // WB3b: the court's floor is a ring the body cannot leave - WB9b: the three courts' floor, as far as the walkways
     // between them are laid (one arena, its crossings and clock refilled each frame)
     if (!player.arena && modes?.gateArenaDay?.() != null) { _courtArena.xa = gateLink?.state()?.xa ?? _gateFloor.none; _courtArena.now = Date.now() + _sharedOffsetMs; player.arena = _courtArena; }
+    if (!player.arena) player.arena = arenaBouts.ring();   // ARENA2: my bout's ring on the arena's sand (the duel's clamp)
     duelPrompt?.render();
   };
   /** DUEL1: THE RING I DUEL IN, FOR THE ONLOOKERS, on my foes frame (validRingRecord's shape): on every FULL frame while it
@@ -19835,7 +20005,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // now draws, which the enemy sprite gives way to, would be nothing at all indoors and underground
     // (and DISC23-B's walkers: a peer standing as their chosen set gives the class sprite way just the same, so the
     // merge of the two hands their batches here too)
-    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
+    extraBillboards: () => [...(remotePlayers?.batches() ?? []), ...(peerRiders?.batches() ?? []), ...(peerWalkers?.batches() ?? []), ...(gateCourt?.batches() ?? []), ...(csaOn() ? csa.batches() : []), ...((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : [])],   // WB4: and the Burning Court's boss; CSA-C: a boat's crew and lanterns where it stands indoors
     drawModeMeshes: () => { if (csaOn()) { csa.draw(renderer); csaDrawParticlesOpaque(); } },   // CSA-C: a boat placed on a dungeon's water (UpdateBoatVisibility's inside arm keeps it active there); CSA-F: its wake's and splashes' quads and its flag
     csaDrawParticlesBlended: () => { if (csaOn()) csaDrawParticlesBlended(); },   // CSA-F: ...and its drops, after the mode's last world draw
     modeLights: () => (csaOn() ? csa.lights(cam.pos) : []),   // CSA-C: ...and its lit lanterns
@@ -20269,6 +20439,20 @@ export async function bootWorld(canvas, renderer, params, status) {
     // teleport into the Mantellan Crux, the cemetery transfer and a new
     // game at a location whose exterior carries no entrance door.
     // WB3b: the court's climate and region - its gate's pixel's (the omen's site, when it is that day's)
+    // ARENA2: THE ARENA'S DOORS for the mode machine - the Herald's choice, the bout's 1 HP floor on my blows taken in
+    // the instance, the duel's law while my bout stands, and where the way out of the instance lands (before the
+    // Herald, facing the market)
+    arenaHerald: () => arenaHerald(),
+    arenaPlayerSpare: () => arenaBouts.playerSpare(),
+    arenaHolds: () => arenaBouts.holds(),
+    arenaLanding: () => {
+      const at = arenaHeraldAt();
+      if (!at) return null;
+      const x = at[0], z = at[2] + 2.5;
+      const y = heightAt(x, z);
+      return Number.isFinite(y) ? { pos: [x, y, z], normal: [0, 0, 1] } : null;
+    },
+    arenaCity: () => { try { return maps.getLocation(ARENA_REGION, ARENA_LOCATION); } catch { return null; } },
     gateArenaSite: (g) => {
       const ci = maps.getClimateIndex(g.px, g.py);
       const climateType = getWorldClimateSettings(ci).climateType;
@@ -22454,8 +22638,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }
     csaDrawHelmPanel();   // CSA-L: the helm panel, once a frame in every mode
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
-    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
+    if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; if (!player.arena) player.arena = arenaBouts.ring(); /* ARENA2: my bout's ring on the arena's sand */ }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
+    arenaFrame(dt);   // ARENA2: the bout on the city's floor or the instance's - before the modal return, so the instance's runs too
     setCourtRules(modes?.gateArenaDay?.() != null);   // WBX6: the Deadlands keep no regeneration - set before any magic round of this frame, cleared the frame the court is gone
     meterFor(renderer.gl)?.markCpu('sim');   // PERF-CPU: everything between here and the next mark is the rest of the simulation
     lookGate(gamePaused());   // a window up frees the cursor; closing re-locks
@@ -22474,7 +22659,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // sunny outdoor track, and when that song ended nothing fed `songEnded`
     // so it fell silent for the rest of the visit. The whole interior and
     // dungeon music path was dead code in this host.
-    if (!gateScoreFrame()) musicDirector.update({   // WB7: the court holds the music while it stands
+    if (!gateScoreFrame() && !arenaScoreFrame()) musicDirector.update({   // WB7: the court holds the music while it stands; ARENA2: and a bout while it is heard
       inside: false,
       inLocationRect: _musicInLocationRect(),
       locationType: _musicLocationType(),
@@ -23995,6 +24180,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (peerRiders) for (const b of peerRiders.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // RIDE: the others in the saddle; AUDIT FLICKER R3: off screen, a shadow still in reach
     if (peerWalkers) for (const b of peerWalkers.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // DISC23-B: and on foot, as they chose; AUDIT FLICKER R3: off screen, a shadow still in reach
     if (bandSprites) for (const b of bandSprites.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // OW-FOES: the bands near, as their monsters; AUDIT FLICKER R3: off screen, a shadow still in reach
+    for (const b of arenaBouts.batches()) { if (cullOn && billboardOutside(b)) continue; allBatches.push(b); }   // ARENA2: the crowd in the colosseum's tiers, and what it throws (no shadow: a crowd of hundreds would fill the casters)
     if (yards) for (const b of yards.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed; AUDIT FLICKER R3: off screen, a shadow still in reach
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which
