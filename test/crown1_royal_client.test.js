@@ -56,7 +56,7 @@ test('CROWN1 THE ROYAL HUD\'S WORDS: the tourney, its prize and its end; the rin
   const t = { seat: 'Wayrest', prize: 5000, endsMs: AT + 2 * 86_400_000 + 3 * 3_600_000 };
   let s = ROYAL_STATE_EMPTY;
   let m = royalHudModel(s, t, 'p1', AT, { name });
-  assert.deepEqual(m.bar, ['THE ROYAL TOURNEY OF WAYREST   prize 5,000 Drakes   ends in 2d 3h', 'The ring is empty - challenge a contender from their card.']);
+  assert.deepEqual(m.bar, ['THE ROYAL TOURNEY OF WAYREST   prize 5,000 silver   ends in 2d 3h', 'The ring is empty - challenge a contender from their card.']);
   assert.equal(m.sides, 'No bout has been won yet.');
   assert.deepEqual(m.self, ['You have no bout won yet.']);
   assert.equal(m.card, null);
@@ -256,7 +256,7 @@ test('CROWN1 THE SEAT TAB\'S DOORS: a crown\'s Royal Tourney said - its prize, i
   assert.deepEqual(royalTourneyLines(null), []);
   assert.deepEqual(royalTourneyLines({ prize: 5000, ladder: [] }).slice(1), ['No bout has been won yet.']);
   assert.deepEqual(royalTourneyLines({ prize: 5000, ladder: [{ name: 'Arden', wins: 4, losses: 1 }, { name: '', wins: 1, losses: 0 }] }),
-    ['A Royal Tourney is proclaimed: a duel ladder all week at the castle\'s square, every blow refereed. The week\'s champion takes 5,000 Drakes and the title for good.', '1. Arden - 4 won, 1 lost', '2. Someone - 1 won, 0 lost']);
+    ['A Royal Tourney is proclaimed: a duel ladder all week at the castle\'s square, every blow refereed. The week\'s champion takes 5,000 silver and the title for good.', '1. Arden - 4 won, 1 lost', '2. Someone - 1 won, 0 lost']);
   const tick = (n = 4) => new Promise((r) => { let i = 0; const go = () => (++i >= n ? r() : setTimeout(go, 0)); setTimeout(go, 0); });
   const noticeBook = { seenAt: () => null, read: async () => ({ board: { notes: [], notices: [], me: {} } }), markSeen: () => {}, cached: () => null, draft: () => ({ subject: '', body: '', days: 7, button: '' }), noticeDraft: () => ({ subject: '', body: '', days: 3 }), readGuild: async () => ({ data: null, error: 'no-guild' }) };
   const now = 1_800_000_000;

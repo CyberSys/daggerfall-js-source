@@ -243,16 +243,16 @@ export const REFUSALS = Object.freeze({
   receipt: 'That gate\'s receipt was not signed by the gate, or it has run out.',
   'not-yours': 'That gate\'s receipt names another account.',
   // MARKS1: Marks, the server's currency (server-account/src/marks.js)
-  'marks-need-account': 'Drakes are kept by registered accounts. Add a username to hold them.',
-  'marks-closed': 'The counting-houses are not striking Drakes yet.',
+  'marks-need-account': 'Silver is kept by registered accounts. Add a username to hold it.',
+  'marks-closed': 'The counting-houses are not striking silver yet.',
   'marks-rid': 'That request could not be read. Try again.',
-  'bad-marks': `Drakes move 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
-  'marks-short': 'You do not hold that many Drakes.',
-  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} Drakes from you a day.`,
-  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
-  'guild-marks-short': 'The treasury does not hold that many Drakes.',
-  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
-  'marks-rate': 'You have moved a great many Drakes this hour. Try again later.',
+  'bad-marks': `Silver moves 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
+  'marks-short': 'You do not hold that much silver.',
+  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} silver from you a day.`,
+  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} silver.`,
+  'guild-marks-short': 'The treasury does not hold that much silver.',
+  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} silver.`,
+  'marks-rate': 'You have moved a great deal of silver this hour. Try again later.',
   'not-developer': 'Only a developer may do that.',   // MARKS1's report, NOTICE1's notices, CUSTOMS-PASS's grant
   // SEAT1a: the seats' registry (server-account/src/townSeats.js)
   'seats-need-account': 'The seats are witnessed by registered accounts. Add a username to witness one.',
@@ -266,7 +266,7 @@ export const REFUSALS = Object.freeze({
   'seat-pledges-full': 'Your guild has pledged in five regions this week. Take one pledge down first.',
   'seat-no-pledge': 'Your guild is not pledged to that seat this week.',
   'seat-tribute-cap': 'Tribute is at most a fifth of your guild\'s week at a seat. Earn more influence there first.',
-  'bad-tribute': 'Tribute is paid in tens of Drakes.',
+  'bad-tribute': 'Tribute is paid in multiples of 10 silver.',
   'bad-watch': 'Those watch receipts could not be read.',
   // SEAT1c: the Charters
   'seat-not-held': 'Your guild does not hold that Charter.',
@@ -278,11 +278,11 @@ export const REFUSALS = Object.freeze({
   'edict-twice': 'That Edict rules this week, and only Market Day may be proclaimed two weeks running.',
   'edict-tier': 'Only a crown may proclaim that Edict.',
   'seat-no-edict': 'No Edict is proclaimed for next week.',
-  'bad-bounty': 'A Bounty sets aside at least 20 Drakes, and at most 100,000.',
+  'bad-bounty': 'A Bounty sets aside at least 20 silver, and at most 100,000.',
   'bad-orc-camp': 'That camp is not one the Orc Raids count.',   // SEASON1 part two
   // SEAT2a: the battles' week - the window, the rosters, the Sellswords (the board's own words: townSeatLaw.js SIGN_WHY)
   'bad-window': 'A window is a day from Wednesday to Saturday and a start from 16:00 to 02:00 UTC.',
-  'bad-fee': `A Sellsword's fee is a whole number of Drakes, at most ${SELLSWORD_FEE_MAX.toLocaleString('en-US')}.`,
+  'bad-fee': `A Sellsword's fee is a whole amount of silver, at most ${SELLSWORD_FEE_MAX.toLocaleString('en-US')}.`,
   'bad-handle': 'Name the account by its username.',
   'no-such-account': 'There is no account by that name.',
   'hire-none': 'That Sellsword has no contract to withdraw.',
@@ -352,7 +352,7 @@ export const REFUSALS = Object.freeze({
   'prof-rate': 'You have done a great deal at your crafts this hour. Try again later.',
   // PROF5: the market (server-account/src/market.js)
   'market-closed': 'The market is not open yet.',
-  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} silver.`,
   'bad-units': `A number of units is 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,   // AUDIT 31 L6: a listing's, an order's, a writ's, a guild Stores move's
   'bad-provenance': 'Only a crafted piece, with its maker\'s record, lists on the market.',
   'bad-wear': 'That piece could not be weighed for the market.',
@@ -365,7 +365,7 @@ export const REFUSALS = Object.freeze({
   'market-short': 'There are not that many left.',
   'market-no-road': 'The couriers do not know the road there yet.',
   'market-price-moved': 'The market has moved since you looked. Look again.',
-  'market-seller-full': 'The seller cannot hold any more Drakes just now.',
+  'market-seller-full': 'The seller cannot hold any more silver just now.',
   'market-listings-max': `You have as many listings up as this board allows (${MARKET_LISTINGS_MAX}, more in a town with a Market Hall). Cancel one first.`,   // AUDIT SEATS-3 D2: a Market Hall's town lists more
   'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
   // MARKET-KEEP: the piece stays with its holder - said so, and where it may still go
@@ -384,8 +384,8 @@ export const REFUSALS = Object.freeze({
   // GOLD-MARKET: gold is a realm character's, and what gold bought stays gold's (Professions-Arc 10.8)
   'market-gold-realm': 'Gold changes hands on the market only between characters of the online realm.',
   'market-currency': 'That listing is priced in the other currency. Look again.',
-  'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for Drakes, to a station, a craft or a writ.',
-  'market-drakes-goods': 'What you bought with Drakes sells for Drakes. Only what you gathered, made or bought with gold sells for gold.',
+  'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for silver, to a station, a craft or a writ.',
+  'market-drakes-goods': 'What you bought with silver sells for silver. Only what you gathered, made or bought with gold sells for gold.',
   'market-gold-none': 'Your sales hold no gold for you just now.',
   'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
   // MARKET-ANY: a piece from the pack
@@ -401,7 +401,7 @@ export const REFUSALS = Object.freeze({
   'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
   // AUDIT 31
   'auction-moved': 'Another bid landed as yours was weighed. The auction has been read again - bid again if you still would.',
-  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} silver.`,
   'market-no-record': 'The counting-house has no record of that piece, so it cannot be sold or handed over.',
   'piece-kept': 'The counting-house is still settling another business with that piece. It answers that first.',
   'other-character': 'That was begun by another of your characters. It settles when they next open the board.',
@@ -420,7 +420,7 @@ export const REFUSALS = Object.freeze({
   'fort-not-here': 'That work cannot be raised at this seat.',
   'fort-building': 'That work is being raised already.',
   'fort-max': 'That work stands at its last tier.',
-  'seat-treasury': 'The guild\'s treasury does not hold the Drakes that project asks.',
+  'seat-treasury': 'The guild\'s treasury does not hold the silver that project asks.',
   'bad-rid': 'That request was malformed. Try again.',
   'writ-rate': `You have done as much with writs and commissions as an hour allows (${WRIT_POSTS_MAX} posted, ${WRIT_OPS_MAX} other acts). Try again later.`,
   'writ-busy': 'The counting-house is still settling your last writ.',
@@ -429,7 +429,7 @@ export const REFUSALS = Object.freeze({
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
-  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Drake treasury, which is full. Take Drakes out of the treasury first.',   // AUDIT 31 A15
+  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15
   // GUILD1d (Seats-Arc 8): the guild hall and the heraldry (server-account/src/halls.js)
   'guild-hall-have': 'Your guild already has a hall. Sell it first to buy another.',
   'guild-hall-none': 'Your guild has no hall.',
@@ -442,12 +442,12 @@ export const REFUSALS = Object.freeze({
   'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
   'heraldry-same': 'That is already your guild\'s heraldry.',
   'heraldry-moved': 'The guild\'s heraldry changed meanwhile. Look again.',
-  'heraldry-drakes': `Changing the heraldry costs ${HERALDRY_CHANGE_DRAKES} Drakes from the guild's Drake treasury, and it holds less.`,
+  'heraldry-drakes': `Changing the heraldry costs ${HERALDRY_CHANGE_DRAKES} silver from the guild's silver treasury, and it holds less.`,
   'writ-own-guild': 'Your guild\'s Officers and Guildmaster take its Stores out, so they do not deliver to its writs.',   // AUDIT 31 S6
   'guild-stores-mine': 'A member takes out only what they put in of their own. The Officers and the Guildmaster take the rest.',   // AUDIT 31 R1
-  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} silver.`,
   'bad-quality': 'Ask a quality from Crude to Masterwork - or none, for a piece that takes none.',
-  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} silver.`,
   'commission-recipe': 'Only a piece the market lists may be commissioned - never arrows or siege works.',
   'commission-crafter': 'There is no crafter by that name.',
   'commission-self': 'You cannot commission yourself.',

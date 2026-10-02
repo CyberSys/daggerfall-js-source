@@ -171,7 +171,7 @@ test('AUDIT 32 P6: at a Clothing Store the Weavers\' purchase the Marks cannot m
       const buy = p.btn('Buy 2 from the Weavers');
       if (want === 'none') assert.equal(buy, undefined);
       else assert.equal(buy.disabled, want === 'held', `${marks} Marks`);
-      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 Drake(?!s)/ : /you hold 3 Drakes/);
+      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 silver/ : /you hold 3 silver/);
     } finally { resetProfPages(); setProfessionsPages(null); }
   }
 });

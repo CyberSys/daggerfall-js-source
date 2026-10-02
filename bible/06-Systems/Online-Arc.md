@@ -13509,6 +13509,45 @@ Asked what to, Mac chose **"Drakes"** (an old Imperial coin): "250 Drakes", "1 D
   read the new words. Mutants: `tools/mutants/drakes.json` (10, all dead); `audit31.json`'s past-balance record and
   `prof6.json`'s writ-filled record re-aimed by content. Patch notes: `PATCH-NOTES-Drakes.md`.
 
+## SILVER (2026-10-02, Mac: "Can we change the name of Drakes to silver") - the currency is called silver
+
+Asked about the clash with the Silver metal, Mac chose plain **"silver"**: "250 silver", "1 silver", "Sell silver" at
+the Bank. As DRAKES above, only the words a player reads changed - and "silver" is a mass noun where "Drakes" was a
+count, so every sentence was reworded to read right, never just swapped.
+
+- **The balance's words.** `net/marksLaw.js` `marksText` is `${n} silver` for every n - "1 silver", "1,240 silver", no
+  plural - so every line built on it (the market's prices and fees, the auctions, the Chronicle's Conscription and
+  fealty sums, the guild's budget, the heraldry's cost) reads silver with no edit of its own. "its 1,240 Drakes go to
+  you" on a disbanding guild reads "its 1,240 silver goes to you".
+- **Every other line that named it.** The account card's row (Silver); the Bank's face (Silver to sell, Silver held,
+  "8 gold for each silver", Sell silver, "The Bank counts your silver..."); the gate's lines (`net/marksBook.js`); the
+  Market tab (the Silver/Gold switch, "Priced in silver", "Price in silver", "Opening bid in silver", "Silver each",
+  "Your silver:", "outbid - your silver comes back at the next look"); the Work tab ("Silver each", "Silver it pays",
+  "Pay (silver)", "withdrawn - silver back"); a writ's pay and filled line; the professions' pages ("3 silver each",
+  the counters' Buy, the respec's cost, the gold-goods line's "silver sale"); the guild's "Silver treasury", "Silver a
+  week" and its notes; the seats (`net/townSeatLaw.js`, `net/townSeatBook.js`, `net/royalLink.js`, `net/tideLaw.js`,
+  `systems/seatEdicts.js`, `ui/seatTab.js`, `ui/seatWorks.js`: Tribute, the claim's fee, the Edicts' costs, upkeep and
+  Neglect, the Bounty's pay, a Sellsword's fee, a work's cost, the Royal Tourney's prize, the Incursion's "double
+  silver"); the host's bought and filled lines (`scenes/world.js`); and every refusal the account door words
+  (`net/accountClient.js`: "You do not hold that much silver.", "Silver is kept by registered accounts. Add a username
+  to hold it.", "You have moved a great deal of silver this hour.", "Tribute is paid in multiples of 10 silver.").
+- **Nothing stored moved, and the code keeps its names.** The balances, the ledger, the routes, `MARKS_OPEN`, the
+  constants (`HERALDRY_CHANGE_DRAKES`, `tributeDrakes`, the `heraldry-drakes` and `market-drakes-goods` refusal codes,
+  the `notice-seat-drakes` class), the service and the relay versions all stand; comments keep "Drakes" where they
+  said it (a CSS comment in `ui/enhancedPlusStyle.js` and SQL comments in `server-account/src/market.js` and
+  `writs.js` are inside strings, and no player reads them).
+- **The metal is the metal.** "Silver", "Silver Ingot" and `metal:silver` are untouched; a line that names both reads
+  the currency lowercase mid-sentence.
+- Pins: `test/silver.test.js` (2; red on the tree before): `marksText` for 0, 1, 2, 1,240 and 10,000,000, five
+  refusals and two seat lines; a sweep of the nineteen files that show the currency, comments blanked, and of every
+  other file under `src/` and `server-account/src/`, for any word left saying "Drake", with the Bank's, the card's, the
+  treasury's, the Market's and the Work tab's words by name and the metal's two names standing. `test/drakes.test.js`
+  reads the new words (its Marks sweep stands). Every client and law pin that read "Drakes" reads "silver". Mutants:
+  `tools/mutants/silver.json` (14, all dead); `drakes.json`'s ten re-aimed at the new words;
+  `crown1_royal_client.json`'s two prize records and `prof6.json`'s writ-filled record re-aimed by content,
+  `crown2.json`'s tribute mutant reworded. Patch notes: `PATCH-NOTES-Silver.md`; the unreleased Seats and Guild Halls
+  notes say silver.
+
 ## STRIKE-SHARED (2026-09-29, Mac: "Do #1") - a strike spell reaches a foe another player runs
 
 For Mac 4 of `01-Overview/Field-Bugs-2026-09-29g.md`, the shared-foe half. A Cast When Strikes spell on a foe

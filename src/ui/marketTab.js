@@ -298,7 +298,7 @@ export function createMarketTab(m, ui) {
   /** GOLD-MARKET: the currency switch - a realm character's alone; a view shows one currency at a time. */
   function currencyNode() {
     if (!goldOk() || !CURRENCY_VIEWS.includes(st.view)) return null;
-    return select([['marks', 'Drakes'], ['gold', 'Gold']], st.currency, (v) => { st.currency = v === 'gold' ? 'gold' : 'marks'; st.picked = null; load(false); }, 'Currency');
+    return select([['marks', 'Silver'], ['gold', 'Gold']], st.currency, (v) => { st.currency = v === 'gold' ? 'gold' : 'marks'; st.picked = null; load(false); }, 'Currency');
   }
 
   const pick = (row) => { st.picked = st.picked === row.id ? null : row.id; st.qty = pickOf(row); ui.rerender(); };
@@ -411,7 +411,7 @@ export function createMarketTab(m, ui) {
     } else {
       const courier = courierOf({ ...a, kind: 'piece' }, 1);
       const amountNow = () => Math.max(a.next, intOf(st.bid[a.id] ?? a.next, a.next, AUCTION_BID_MAX));
-      const n = numberInput(amountNow(), a.next, AUCTION_BID_MAX, 'Your bid in Drakes', `bid|${a.id}`);
+      const n = numberInput(amountNow(), a.next, AUCTION_BID_MAX, 'Your bid in silver', `bid|${a.id}`);
       const ask = el('span', 'market-ask');
       ask.setAttribute('aria-live', 'polite');
       const go = button('primary market-bid', 'Bid', () => {
@@ -477,10 +477,10 @@ export function createMarketTab(m, ui) {
     // GOLD-MARKET: a realm character prices a Stores material or a piece in Drakes or gold (an auction stays Drakes')
     const gold = goldOk() && st.list.kind !== 'auction' && (st.list.currency === 'gold' || st.list.kind === 'item');
     if (goldOk() && st.list.kind !== 'auction' && st.list.kind !== 'item') {
-      box.append(select([['marks', 'Priced in Drakes'], ['gold', 'Priced in gold']], st.list.currency, (v) => { st.list.currency = v === 'gold' ? 'gold' : 'marks'; ui.rerender(); }, 'Currency'));
+      box.append(select([['marks', 'Priced in silver'], ['gold', 'Priced in gold']], st.list.currency, (v) => { st.list.currency = v === 'gold' ? 'gold' : 'marks'; ui.rerender(); }, 'Currency'));
     }
     const cur = gold ? 'gold' : 'marks';
-    const unitWord = gold ? 'gold' : 'Drakes';
+    const unitWord = gold ? 'gold' : 'silver';
     const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, `Price in ${unitWord}`, 'list-price');
     const hint = el('p', 'notice-tip');
     const b = button('primary market-list', 'List', () => send());
@@ -535,7 +535,7 @@ export function createMarketTab(m, ui) {
       const chosen = pieces.find((p) => p.item.provenance === st.list.piece) ?? null;
       box.append(pieces.length ? select(pieces.map((p) => [p.item.provenance, `${p.name}${p.where === 'home' ? ' (your home)' : ''}`]), st.list.piece, (v) => { st.list.piece = v; ui.rerender(); }, 'Crafted piece')
         : el('span', 'notice-tip', auction ? 'You carry no Masterwork to auction.' : 'You carry no crafted piece to sell.'),
-      el('span', 'notice-label', auction ? 'Opening bid in Drakes' : `Price in ${unitWord}`), price);
+      el('span', 'notice-label', auction ? 'Opening bid in silver' : `Price in ${unitWord}`), price);
       if (others) box.append(el('p', 'notice-tip', `${plural(others, 'crafted piece')} you hold ${others === 1 ? 'names' : 'name'} another owner in ${others === 1 ? 'its' : 'their'} maker's record: only that owner sells ${others === 1 ? 'it' : 'them'} as a crafted piece. ${goldOk() && m.goods ? 'List it as a piece from your pack, for gold.' : ''}`.trim()));
       if (elsewhere) box.append(el('p', 'notice-tip', `${plural(elsewhere, 'crafted piece')} you hold ${elsewhere === 1 ? 'stands' : 'stand'} on the market, on the road or in a home already.`));
       worth = () => st.list.price;
@@ -576,9 +576,9 @@ export function createMarketTab(m, ui) {
     const cat = marketCatalogue();
     if (!st.post.material) st.post.material = cat[0]?.key ?? '';
     const units = numberInput(st.post.units, 1, MARKET_UNITS_MAX, 'Units wanted', 'post-units');
-    const price = numberInput(st.post.price, 1, MARKET_PRICE_MAX, 'Drakes each', 'post-price');
+    const price = numberInput(st.post.price, 1, MARKET_PRICE_MAX, 'Silver each', 'post-price');
     box.append(select(cat.map((c) => [c.key, `${m.name(c.key)} (tier ${c.tier})`]), st.post.material, (v) => { st.post.material = v; ui.rerender(); }, 'Material wanted'),
-      el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', 'Drakes each'), price);
+      el('span', 'notice-label', 'Units'), units, el('span', 'notice-label', 'Silver each'), price);
     const hint = el('p', 'notice-tip');
     const full = (m.book.state.counts?.orders ?? 0) >= MARKET_ORDERS_MAX;
     const b = button('primary market-post', 'Post the order', () => act(() => m.book.order({ region: m.region, material: st.post.material, units: st.post.units, price: st.post.price, hubs: m.hubs }),
@@ -673,8 +673,8 @@ export function createMarketTab(m, ui) {
           : b.state === 'won' ? 'won - it comes to you'
             // AUDIT 31 S3: a void bid is a removed auction's, or a won one its seller could not be paid for in seven days;
             // U13: its Marks come back when this tab is next read - never "when you next open the market", which it is
-            : b.state === 'void' ? (b.returned ? 'void - your Drakes are back' : 'void - your Drakes come back at the next look')
-              : b.returned ? 'outbid - your Drakes are back' : 'outbid - your Drakes come back at the next look';
+            : b.state === 'void' ? (b.returned ? 'void - your silver is back' : 'void - your silver comes back at the next look')
+              : b.returned ? 'outbid - your silver is back' : 'outbid - your silver comes back at the next look';
         bl.append(el('li', `market-listing state-${b.state}`, `${m.pieceName(b.piece)} - ${marksText(b.amount)}${b.courier ? ` + ${b.courier} courier` : ''} - ${word}`));
       }
       box.append(bl);
@@ -786,7 +786,7 @@ export function createMarketTab(m, ui) {
     } else box.append(historyNode());
     const held = m.book.state.held ?? 0;
     const gold = goldOk() && purse() != null ? ` · Your gold here: ${goldText(purse())}` : '';   // GOLD-MARKET: the purse and the account here
-    const foot = el('p', 'market-foot', `Your Drakes: ${balance() == null ? '-' : marksText(balance())}${held > 0 ? ` (${marksText(held)} held in bids)` : ''}${gold}${st.stale ? ' - the market may be out of date' : ''}`);
+    const foot = el('p', 'market-foot', `Your silver: ${balance() == null ? '-' : marksText(balance())}${held > 0 ? ` (${marksText(held)} held in bids)` : ''}${gold}${st.stale ? ' - the market may be out of date' : ''}`);
     box.append(foot);
     return box;
   }

@@ -52,7 +52,7 @@ test('SEASON1 THE SEAT-SIDE TIDES: a Plague halves the Watch, rounded down; a Da
   assert.equal(accountSeatInfluence({ watch: 7, gates: 1 }, 0, 'harvest'), 7 * WATCH_INFLUENCE + GATE_INFLUENCE);
   assert.deepEqual([edictCost('festival', 'palace'), edictCost('festival', 'palace', 'plague'), edictCost('festival', 'crown', 'wedding'), edictCost('festival', 'palace', 'daedra')], [2500, 5000, 5000, 2500]);
   assert.deepEqual([edictCost('royal-tourney', 'crown', 'plague'), edictCost('royal-tourney', 'crown', 'wedding')], [5000, 5000], 'the one other Edict with a price, untouched');
-  assert.match(edictLine('festival', 'palace', 'plague'), /Costs 5,000 Drakes\.$/);
+  assert.match(edictLine('festival', 'palace', 'plague'), /Costs 5,000 silver\.$/);
   const base = { tier: 'palace', standing: 50, tithe: 6 };
   assert.equal(standingWeek({ ...base, tide: 'wedding' }).standing, standingWeek(base).standing + 3);
   assert.deepEqual(standingWeek({ ...base, tide: 'wedding' }).changes.at(-1), ['wedding', STANDING_CHANGES.wedding]);

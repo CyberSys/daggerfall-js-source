@@ -435,7 +435,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const shirt = buttons().find((b) => b.textContent.startsWith('Linen Short Shirt') && !b.textContent.includes(','));
   assert.match(shirt.textContent, /wants its inputs/);
   shirt.onclick();
-  await press('Buy 2 from the Weavers - 4 Drakes');
+  await press('Buy 2 from the Weavers - 4 silver');
   assert.deepEqual(bought, [['cloth:linen', 2, 'weavers']]);
   assert.deepEqual(GARMENT_WORDS(buttons()), ['Undyed', 'Blue', 'Grey', 'Red', 'Dark Brown', 'Purple', 'Light Brown', 'White', 'Aquamarine', 'Yellow', 'Green']);
   assert.equal(dyeWord(3), 'Dark Brown');

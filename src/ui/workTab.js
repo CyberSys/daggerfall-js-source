@@ -262,7 +262,7 @@ export function createWorkTab(w, ui) {
       // AUDIT 31 H6: a filled one of yours comes by the market's deliveries - collected at the Market tab
       const said = c.state === 'open' ? writLeftText(c.expiresAt, ui.nowS())
         : c.mine && c.state === 'filled' ? 'filled - collect it at the Market tab'
-          : `${COMMISSION_SAID[c.state] ?? c.state}${c.mine ? (c.returned ? ' - Drakes back' : ' - Drakes to come back') : ''}`;
+          : `${COMMISSION_SAID[c.state] ?? c.state}${c.mine ? (c.returned ? ' - silver back' : ' - silver to come back') : ''}`;
       li.append(el('span', 'work-what', `${who}: ${commissionPieceText(c)}, ${marksText(c.pay)}`), el('span', 'work-where', `${where} · ${said}`));
       if (c.state === 'open' && c.mine) {
         li.append(why(button('work-withdraw', 'Withdraw', () => act(() => w.writs.cancel(c.id), `Withdrawn. ${marksText(c.pay)} back to your account.`)), busyWhy()));
@@ -304,7 +304,7 @@ export function createWorkTab(w, ui) {
     const mat = select(choices.map((m) => [m.key, w.countName(m.key, 2)]), f.material, (v) => { f.material = v; f.pay = Math.min(f.pay, writPayMax(v)); ui.rerender(); }, 'The material the writ asks');
     const units = input('number', f.units, 'Units the writ asks', 'writ|units');
     units.min = '1'; units.max = String(WRIT_UNITS_MAX);
-    const pay = input('number', f.pay, 'Drakes each', 'writ|pay');
+    const pay = input('number', f.pay, 'Silver each', 'writ|pay');
     pay.min = '1'; pay.max = String(max());
     const said = el('p', 'work-hint');
     said.setAttribute('aria-live', 'polite');
@@ -330,7 +330,7 @@ export function createWorkTab(w, ui) {
     refresh();
     const row = el('div', 'work-fields');
     if (forSel) row.append(labelled('For', forSel, 'work-label-wide'));
-    row.append(labelled('Material', mat, 'work-label-wide'), labelled('Units', units), labelled('Drakes each', pay), go);
+    row.append(labelled('Material', mat, 'work-label-wide'), labelled('Units', units), labelled('Silver each', pay), go);
     box.append(row, said);
     return box;
   }
@@ -345,7 +345,7 @@ export function createWorkTab(w, ui) {
     const rec = select(recipesOf(f.family).map((r) => [r.id, r.name]), f.recipe, (v) => { f.recipe = v; ui.rerender(); }, 'The piece');
     const takesQ = commissionTakesQuality(f.recipe);
     const q = takesQ ? select(QUALITY_NAMES.map((n, i) => [String(i), `${n} or better`]), String(f.quality), (v) => { f.quality = intOf(v, 0, MASTERWORK); }, 'The least quality it takes') : null;
-    const pay = input('number', f.pay, 'Drakes it pays', 'comm|pay');
+    const pay = input('number', f.pay, 'Silver it pays', 'comm|pay');
     pay.min = '1'; pay.max = String(MARKET_PRICE_MAX);
     const said = el('p', 'work-hint');
     said.setAttribute('aria-live', 'polite');
@@ -373,7 +373,7 @@ export function createWorkTab(w, ui) {
     refresh();
     const row = el('div', 'work-fields');
     row.append(labelled('Crafter', who, 'work-label-wide'), labelled('Kind', fam), labelled('Piece', rec, 'work-label-wide'),
-      ...(q ? [labelled('Least quality', q)] : []), labelled('Pay (Drakes)', pay), go);
+      ...(q ? [labelled('Least quality', q)] : []), labelled('Pay (silver)', pay), go);
     box.append(row, said);
     return box;
   }

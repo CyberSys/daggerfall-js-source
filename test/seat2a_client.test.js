@@ -144,11 +144,11 @@ test('SEAT2a THE SEAT TAB\'S BATTLE: the announcement and both sides\' rosters f
   // a hired account
   host = mount(2, null, fight({ side: null, signed: false, sellsword: true, hire: { side: 'attack', fee: 300 } }));
   await tick();
-  assert.equal(byClass(host, 'notice-seat-sign')[0].textContent, 'Sign as a Sellsword (300 Drakes)');
+  assert.equal(byClass(host, 'notice-seat-sign')[0].textContent, 'Sign as a Sellsword (300 silver)');
   // the attackers' Guildmaster: its contracts, a withdrawal, a hire
   host = mount(0, 'g2', fight({ side: 'attack', signed: false, sellsword: false, hires: [{ handle: 'Bladra', fee: 300, state: 'offered' }] }));
   await tick();
-  assert.match(host.textContent, /Bladra - offered, 300 Drakes\./);
+  assert.match(host.textContent, /Bladra - offered, 300 silver\./);
 
   byClass(host, 'notice-seat-withdraw')[0].click(); await tick();
   assert.deepEqual(acts.at(-1), ['withdraw', 3021, 'Bladra']);
@@ -187,7 +187,7 @@ test('SEAT2a THE BOOK\'S CALLS: the window, a signing, an unsigning, a hire and 
   assert.match((await book.window(seat, 2, 18)).text, /Friday 18:00 UTC/);
   assert.equal((await book.sign(seat)).text, 'You are signed for the defenders as a Sellsword at Anticlere.');
   await book.unsign(seat);
-  assert.match((await book.hire(seat, 'Cutter', 300)).text, /Cutter is offered a Sellsword's contract at 300 Drakes\./);
+  assert.match((await book.hire(seat, 'Cutter', 300)).text, /Cutter is offered a Sellsword's contract at 300 silver\./);
   await book.withdrawHire(seat, 'Cutter');
   assert.deepEqual(calls.map((c) => c[0]), ['window', 'sign', 'unsign', 'hire', 'withdrawHire']);
   assert.deepEqual(calls[0], ['window', 'c1', 3021, 2, 18]);

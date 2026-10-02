@@ -48,7 +48,7 @@ test('SEAT2b THE WORKS PANEL: the works a palace may raise (no Gatehouse below t
   assert.match(lines[3], /Raising tier 1: 150 Oak Planks still wanted\./);
   assert.equal(byClass(host, 'notice-seat-works-stock')[0].textContent, 'The stockpile: 40 Iron Ingots.');
   assert.deepEqual(Object.keys(buttons), ['walls', 'watchtowers', 'barracks', 'forge', 'workshop'], 'none for the Market Hall (building) nor the Shrine (at its last tier); none for the Apothecary until its stations stand (AUDIT SEATS-2 L5, PIN MOVED)');
-  assert.equal(buttons.walls.textContent, 'Raise the Walls to tier 2 (3,000 Drakes)');
+  assert.equal(buttons.walls.textContent, 'Raise the Walls to tier 2 (3,000 silver)');
   buttons.forge.click();
   assert.deepEqual(begun, ['forge']);
   // a port and tier-3 Walls: the Harbour and a gate of its own
@@ -182,7 +182,7 @@ test('SEAT2b THE BOOK\'S WORKS: the read is refused while the seats are shut; a 
   assert.deepEqual(asks[0], ['c1', 3021, 'walls', 'rid-0000-1', true]);
   answer = { ok: true, data: { work: 'walls', tier: 2, marks: 3000 } };
   const r = await book.fortFund(SEAT, 'walls', true);
-  assert.equal(r.text, 'Work on the Walls at Anticlere is begun toward tier 2: 3,000 Drakes from the treasury. Seat writs deliver what they need.');
+  assert.equal(r.text, 'Work on the Walls at Anticlere is begun toward tier 2: 3,000 silver from the treasury. Seat writs deliver what they need.');
   await book.fortFund(SEAT, 'walls', true);
   assert.notEqual(asks[3][3], asks[2][3], 'an answer lets the id go');
   answer = { ok: false, error: 'fort-building' };

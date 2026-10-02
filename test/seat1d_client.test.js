@@ -101,14 +101,14 @@ test('SEAT1d THE EDICTS AND THEIR NUMBERS: six for a palace (the crown\'s two CR
 });
 
 test('SEAT1d THE WORDS: an Edict\'s line with its cost; the holder\'s members\' lines (next week\'s Edict, Unrest, the upkeep, Neglect\'s debt); everyone\'s line (the Tithe, the Edict, Unrest); the arrival\'s news; the Chronicle\'s new rows (mutants: each line)', () => {
-  assert.equal(edictLine('festival', 'palace'), 'Festival: Music and banners; everyone in the town is Festive, +5 to every attribute for a day. Standing +10. Costs 2,500 Drakes.');
+  assert.equal(edictLine('festival', 'palace'), 'Festival: Music and banners; everyone in the town is Festive, +5 to every attribute for a day. Standing +10. Costs 2,500 silver.');
   assert.equal(edictLine('market-day', 'palace'), 'Market Day: The town\'s shops ask a tenth less of everyone.');
   assert.equal(edictLine('nope', 'palace'), null);
   assert.deepEqual(seatHoldingLines(ANTICLERE, { standing: 15, tithe: 6, edict: null, next: 'levy', upkeep: 3125, owed: 2500 }), [
     'Proclaimed for next week: Levy.', 'Unrest: challengers earn a quarter more influence at Anticlere.',
-    'Upkeep at the Turning: 3,125 Drakes from the treasury (the Tithe at most 10%).', 'Neglect: 2,500 Drakes of upkeep are owed with it, or the Charter lapses.',
+    'Upkeep at the Turning: 3,125 silver from the treasury (the Tithe at most 10%).', 'Neglect: 2,500 silver of upkeep is owed with it, or the Charter lapses.',
   ]);
-  assert.deepEqual(seatHoldingLines(ANTICLERE, { standing: 50, tithe: 0, next: null, upkeep: 2500, owed: 0 }), ['No Edict is proclaimed for next week.', 'Upkeep at the Turning: 2,500 Drakes from the treasury (the Tithe at most 10%).']);
+  assert.deepEqual(seatHoldingLines(ANTICLERE, { standing: 50, tithe: 0, next: null, upkeep: 2500, owed: 0 }), ['No Edict is proclaimed for next week.', 'Upkeep at the Turning: 2,500 silver from the treasury (the Tithe at most 10%).']);
   assert.equal(seatRuleLine(ANTICLERE, { tithe: 8, edict: 'market-day', standing: 50 }), 'Tithe 8%. Market Day is proclaimed.');
   assert.equal(seatRuleLine(ANTICLERE, { tithe: 0, edict: null, standing: 10 }), 'Tithe 0%. No Edict rules this week. Anticlere is in Unrest.');
   assert.equal(seatRuleLine(ANTICLERE, null), null);
@@ -222,7 +222,7 @@ test('SEAT1d THE SEAT TAB\'S LEVERS: the holder\'s Officer sees the Tithe and it
   await tick();
   assert.match(host.textContent, /Tithe 6%\. A Festival is proclaimed\./);   // PIN MOVED (AUDIT-SEATS L7): its article
   assert.match(host.textContent, /Proclaimed for next week: Curfew\./);
-  assert.match(host.textContent, /Upkeep at the Turning: 2,500 Drakes/);
+  assert.match(host.textContent, /Upkeep at the Turning: 2,500 silver/);
   const opts = byClass(host, 'notice-seat-edict')[0].children.map((o) => o.value);
   assert.deepEqual(opts, ['market-day', 'open-gates', 'curfew', 'levy', 'bounty'], 'this week\'s Festival not offered again');
   byClass(host, 'notice-seat-tithe')[0].value = '9';

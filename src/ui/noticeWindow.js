@@ -397,7 +397,7 @@ export function mountNoticeBoard(host, deps) {
     li.style.setProperty('--tilt', `${((i * 37) % 5) - 2}deg`);
     li.append(el('span', 'notice-pin'), el('span', 'writ-kind', 'Court writ'));
     li.append(el('p', 'writ-need', `The Court of ${work.regionName} needs ${w.qty} ${work.countName(w.material, w.qty)}`));
-    li.append(el('p', 'writ-pay', `Pays ${w.pay.toLocaleString('en-US')} Drakes, ${w.renown.toLocaleString('en-US')} Renown`));
+    li.append(el('p', 'writ-pay', `Pays ${w.pay.toLocaleString('en-US')} silver, ${w.renown.toLocaleString('en-US')} Renown`));
     li.append(el('p', 'writ-left', w.state === 'mine' ? 'Taken by you' : w.state === 'taken' ? 'Filled by another' : timeLeftText(w.expiresAt, nowS())));
     const held = work.book.held(w.material);
     const take = el('div', 'writ-take');
@@ -422,7 +422,7 @@ export function mountNoticeBoard(host, deps) {
     busy = false;
     if (r?.ok) {
       writs = work.book.state && writs ? { ...writs, writs: writs.writs.map((x) => (x.id === w.id ? { ...x, state: 'mine' } : x)), today: r.data?.today ?? writs.today } : writs;
-      word = { ok: true, text: work.onTaken?.(r) || `Writ filled: ${r.data?.pay ?? w.pay} Drakes.` };
+      word = { ok: true, text: work.onTaken?.(r) || `Writ filled: ${r.data?.pay ?? w.pay} silver.` };
     } else {
       word = { ok: false, text: accountRefusalText(r?.error) };
       if (r?.error === 'writ-taken' || r?.error === 'writ-expired') loadWrits(true);

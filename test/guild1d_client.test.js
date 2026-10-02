@@ -208,7 +208,7 @@ test('GUILD1d the client\'s door: the four routes and their bodies; every refusa
   for (const w of ['guild-hall-have', 'guild-hall-none', 'guild-hall-moved', 'guild-hall', 'hall-item', 'hall-yard', 'bad-heraldry', 'heraldry-same', 'heraldry-moved', 'heraldry-drakes']) {
     assert.equal(typeof REFUSALS[w], 'string', w);
   }
-  assert.match(REFUSALS['heraldry-drakes'], /500 Drakes/);
+  assert.match(REFUSALS['heraldry-drakes'], /500 silver/);
 });
 
 // ─── THE TAB ─────────────────────────────────────────────────────────────────────────────────────────────────────────

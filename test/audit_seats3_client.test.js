@@ -257,7 +257,7 @@ test('AUDIT SEATS-3 D3: a board\'s Tithe as the seats\' list says it (its bailiw
   assert.equal(boardTithePct(seats, 40, [0, 0]), 0, 'a region with no seat');
   assert.equal(boardTithePct(null, 17, null), 0);
 
-  for (const [pct, want] of [[8, `less ${saleTax(100)}% tax and the seat's 8% Tithe \\(${sellerGets(1, 8)} Drakes? if it all sells\\)`],
+  for (const [pct, want] of [[8, `less ${saleTax(100)}% tax and the seat's 8% Tithe \\(${sellerGets(1, 8)} silver if it all sells\\)`],
     [0, `less ${saleTax(100)}% tax \\(`], [null, 'less 5% tax and the seat\'s Tithe, if its town\'s seat is held \\(.* if it all sells, before any Tithe\\)']]) {
     const t = tabOver({ mine: { rows: [], orders: [] } }, { m: { tithe: () => pct } });
     await t.tab.open();

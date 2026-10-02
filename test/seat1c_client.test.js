@@ -88,7 +88,7 @@ test('SEAT1c THE WORDS AND THE MARKS: the Chronicle\'s lines; the holder\'s, the
   assert.equal(seatBattleLine({ kind: 'tourney', guild: SH, against: EO }), 'The Silver Hand <SH> and Ebon Oath <EO> meet in a Tourney for the Charter this week.');
   assert.equal(seatBattleLine({ kind: 'siege', guild: EO, against: SH }), 'Ebon Oath <EO> has won a Right of Siege against the Silver Hand <SH> this week.');
   assert.equal(seatBattleLine(null), null);
-  assert.match(seatClaimLine(ANTICLERE), /6,000 influence, and 8,000 Drakes/);
+  assert.match(seatClaimLine(ANTICLERE), /6,000 influence, and 8,000 silver/);
   assert.match(seatClaimLine(ANTICLERE, 7410), /the holder's defence of 7,410, and at least 6,000 influence/);
   assert.equal(seatArrivalLine(ANTICLERE, SH), 'Anticlere, held by the Silver Hand <SH>.');
   assert.equal(seatInfoLine(ANTICLERE, SH), 'The Charter of Anticlere: held by the Silver Hand <SH>');

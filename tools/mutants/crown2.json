@@ -321,7 +321,7 @@
   "name": "CROWN2-chron-marks",
   "file": "src/net/townSeatLaw.js",
   "old": "paid ${marksText(Number(d.marks ?? 0))} of tribute",
-  "new": "paid ${d.marks} Drakes of tribute",
+  "new": "paid ${d.marks} silver of tribute",
   "tests": [
    "test/crown2_law.test.js"
   ]

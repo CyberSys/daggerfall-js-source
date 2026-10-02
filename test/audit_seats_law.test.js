@@ -135,9 +135,9 @@ test('AUDIT-SEATS L7 THE CHRONICLE\'S WORDS: "1 bout"; Drakes, the players\' wor
   assert.equal(line('royal-champion', { name: 'Arden', kingdom: 'wayrest', wins: 1 }), 'In week 9, Arden won the Royal Tourney at Wayrest with 1 bout - Champion of Wayrest.');
   assert.match(line('royal-champion', { name: 'Arden', kingdom: 'wayrest', wins: 4 }), /with 4 bouts/);
   const SH = { name: 'The Silver Hand', tag: 'SH' };
-  assert.match(line('conscription', { guild: SH, marks: 1 }), /brought the Silver Hand <SH> 1 Drake of its kingdom's Tithe\.$/);
-  assert.match(line('conscripted', { guild: SH, crown: SH, marks: 1200 }), /paid 1,200 Drakes of its Tithe/);
-  assert.match(line('fealty-tribute', { vassal: SH, liege: SH, marks: 5 }), /paid 5 Drakes of tribute/);
+  assert.match(line('conscription', { guild: SH, marks: 1 }), /brought the Silver Hand <SH> 1 silver of its kingdom's Tithe\.$/);
+  assert.match(line('conscripted', { guild: SH, crown: SH, marks: 1200 }), /paid 1,200 silver of its Tithe/);
+  assert.match(line('fealty-tribute', { vassal: SH, liege: SH, marks: 5 }), /paid 5 silver of tribute/);
   assert.equal(line('edict', { guild: SH, edict: 'festival' }), 'In week 9, the Silver Hand <SH> proclaimed a Festival at Wayrest.');
   assert.equal(line('edict', { guild: SH, edict: 'market-day' }), 'In week 9, the Silver Hand <SH> proclaimed Market Day at Wayrest.');
   assert.equal(line('edict', { guild: SH, edict: 'nonsense' }), 'In week 9, the Silver Hand <SH> proclaimed an Edict at Wayrest.');

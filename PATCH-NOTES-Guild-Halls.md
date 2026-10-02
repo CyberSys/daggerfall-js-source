@@ -28,7 +28,7 @@
 - **Every guild can raise a banner:** a field colour, a border colour and a device. There are 16 colours and 24 devices (wolf, bear, stag, dragon, tower, crown, sword, sun, rose and more).
   - Ash can only be used as the border.
   - The guildmaster chooses on the Guild tab, which shows the banner as you choose it.
-  - The first choice is free. Each change after that costs **500 Drakes** from the guild's Drake treasury, and the Drake ledger shows it as a heraldry change.
+  - The first choice is free. Each change after that costs **500 silver** from the guild's silver treasury, and the silver ledger shows it as a heraldry change.
 - **Banners at the hall:** once your guild has heraldry, two banners hang either side of its hall's door, swaying in the wind.
 
 ## Fixes

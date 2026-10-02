@@ -970,9 +970,9 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const b = W.state.writBudget;
     if (writMay(me, 'writBudget')) {
       out.push(el('div', 'dfsocial-sec', 'Writ budget'));
-      out.push(el('div', 'dfsocial-note', `What your Officers may post in guild writs a week, from the Drake treasury${b ? ` - ${marksText(b.budget)}, ${marksText(b.spent)} posted this week` : ''}. Your own writs are not counted.`));
+      out.push(el('div', 'dfsocial-note', `What your Officers may post in guild writs a week, from the silver treasury${b ? ` - ${marksText(b.budget)}, ${marksText(b.spent)} posted this week` : ''}. Your own writs are not counted.`));
       const bform = el('div', 'dfsocial-form');
-      guildField(bform, 'Drakes a week', d.budget ?? '', String(WRIT_BUDGET_MAX).length, (x) => { d.budget = x; });
+      guildField(bform, 'Silver a week', d.budget ?? '', String(WRIT_BUDGET_MAX).length, (x) => { d.budget = x; });
       out.push(bform);
       const typed = () => { const t = String(d.budget ?? '').trim(); const n = /^\d+$/.test(t) ? Number(t) : null; return n != null && writBudgetOk(n) ? n : null; };
       const bacts = el('div', 'dfsocial-acts');
@@ -1044,7 +1044,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     form.append(el('div', 'dfsocial-label', 'Field'), pick('The field', HERALDRY_COLOURS.filter((c) => c.key !== HERALDRY_UNHELD).map((c) => [c.key, c.name]), d.heraldry.field, (k) => { d.heraldry.field = k; }));
     form.append(el('div', 'dfsocial-label', 'Border'), pick('The border', HERALDRY_COLOURS.map((c) => [c.key, c.name]), d.heraldry.border, (k) => { d.heraldry.border = k; }));
     form.append(el('div', 'dfsocial-label', 'Device'), pick('The device', HERALDRY_DEVICES.map((k) => [k, heraldryDeviceName(k)]), d.heraldry.device, (k) => { d.heraldry.device = k; }));
-    form.append(el('div', 'dfsocial-empty', v.heraldry ? `A change costs ${marksText(HERALDRY_CHANGE_DRAKES)} from the Drake treasury.` : 'The first choice is free.'));
+    form.append(el('div', 'dfsocial-empty', v.heraldry ? `A change costs ${marksText(HERALDRY_CHANGE_DRAKES)} from the silver treasury.` : 'The first choice is free.'));
     out.push(form);
     const acts = el('div', 'dfsocial-acts');
     acts.append(liveBtn(v.heraldry ? 'Change it' : 'Raise it', () => {
@@ -1052,7 +1052,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
       const why = g.busy ? 'a moment' : !h ? 'two different colours - Ash only as the border'
         : heraldrySame(h, v.heraldry) ? 'already your heraldry'
           : v.heraldry && !('marks' in v) ? accountRefusalText('marks-closed')   // AUDIT GUILD1d R12: Drakes not this account's
-            : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the Drake treasury` : '';
+            : v.heraldry && Number(v.marks ?? 0) < HERALDRY_CHANGE_DRAKES ? `${marksText(HERALDRY_CHANGE_DRAKES)} in the silver treasury` : '';
       return { enabled: !why, why };
     }, { run: () => guildDo(g.setHeraldry(d.heraldry), 'The guild\'s banner is raised.', () => { d.heraldry = null; }) }));
     out.push(acts);
@@ -1127,10 +1127,10 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     // MARKS1 (PROF0 10.5): THE MARKS TREASURY beside the gold one - any member puts Marks in from the account's balance,
     // the guildmaster alone takes them out; shown where Marks are this account's (the service's switch)
     if (g.marks?.state?.open === true) {
-      out.push(el('div', 'dfsocial-sec', 'Drake treasury'));
+      out.push(el('div', 'dfsocial-sec', 'Silver treasury'));
       out.push(el('div', 'dfsocial-note', `The treasury holds ${marksText(Number(v.marks ?? 0))}. You hold ${marksText(Number(g.marks.state.balance ?? 0))}.`));
       const mform = el('div', 'dfsocial-form');
-      guildField(mform, 'Drakes', d.marks ?? '', 7, (x) => { d.marks = x; });
+      guildField(mform, 'Silver', d.marks ?? '', 7, (x) => { d.marks = x; });
       out.push(mform);
       const marksTyped = () => (/^\d{1,7}$/.test(String(d.marks ?? '').trim()) ? Number(String(d.marks).trim()) : 0);
       const macts = el('div', 'dfsocial-acts');
@@ -1167,7 +1167,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     const leaveWhy = master && !alone ? 'hand the guild on first' : master && v.treasury > 0 ? 'take the gold out first' : master && v.hall ? 'sell the hall first' : 'a moment';
     const canLeave = !busy && (!master || (alone && v.treasury === 0 && !v.hall));   // GUILD1d: a guild holding a hall never goes
     // AUDIT 28 M3: the Marks treasury never holds a guild back - a guild that goes gives what it holds to its guildmaster
-    if (master && (v.marks ?? 0) > 0) out.push(el('div', 'dfsocial-note', `If the guild is disbanded, its ${marksText(Number(v.marks))} go to you.`));
+    if (master && (v.marks ?? 0) > 0) out.push(el('div', 'dfsocial-note', `If the guild is disbanded, its ${marksText(Number(v.marks))} goes to you.`));
     acts.append(armed('leave') ? btn('Sure?', { warn: true, enabled: canLeave, why: leaveWhy, run: () => guildDo(g.leave(), 'You left the guild.') })
       : btn('Leave', { enabled: canLeave, why: leaveWhy, run: () => arm('leave') }));
     if (master) {

@@ -142,7 +142,7 @@ export function createSeatTab(host, ui) {
         n.type = 'number'; n.min = String(TRIBUTE_MARKS_PER_INFLUENCE); n.step = String(TRIBUTE_MARKS_PER_INFLUENCE); n.max = String(room);
         if (!tributeDrakes || tributeDrakes > room) tributeDrakes = Math.min(100, room - (room % TRIBUTE_MARKS_PER_INFLUENCE));
         n.value = String(tributeDrakes);
-        n.setAttribute('aria-label', 'Drakes of Tribute');
+        n.setAttribute('aria-label', 'Silver for Tribute');
         n.setAttribute('data-focus', 'seat-tribute');
         n.oninput = () => { tributeDrakes = Math.floor(Number(n.value) || 0); };
         const pay = button('notice-seat-tribute', 'Pay Tribute', () => {
@@ -192,7 +192,7 @@ export function createSeatTab(host, ui) {
     if (chosen === 'bounty') {
       const a = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-bounty'));
       a.type = 'number'; a.min = String(BOUNTY_MARKS); a.step = String(BOUNTY_MARKS); a.value = String(bountyAside);
-      a.setAttribute('aria-label', 'Drakes set aside for the Bounty');
+      a.setAttribute('aria-label', 'Silver set aside for the Bounty');
       a.oninput = () => { bountyAside = Math.floor(Number(a.value) || 0); };
       out.append(a);
     }
@@ -318,7 +318,7 @@ export function createSeatTab(host, ui) {
       out.append(el('p', 'notice-seat-mine', `You are signed for the ${mine.side === 'attack' ? sideWords[0] : sideWords[1]}${mine.sellsword ? ' as a Sellsword' : ''}.`));
       if (f.open) { const b = button('notice-seat-unsign', 'Give back your place', () => act(() => book.unsign(seat))); b.disabled = busy; out.append(b); }
     } else if (f.open && (mine?.side || mine?.hire)) {
-      const words = mine.hire ? `Sign as a Sellsword${mine.hire.fee ? ` (${mine.hire.fee} Drakes)` : ''}` : 'Sign for your side';
+      const words = mine.hire ? `Sign as a Sellsword${mine.hire.fee ? ` (${mine.hire.fee} silver)` : ''}` : 'Sign for your side';
       const b = button('notice-seat-sign', words, () => act(() => book.sign(seat)));
       b.disabled = busy;
       out.append(b);
@@ -336,7 +336,7 @@ export function createSeatTab(host, ui) {
     }
     if (mine?.hires && f.open) {
       for (const h of mine.hires) {
-        const p = el('p', 'notice-seat-mine', `${h.handle} - ${h.state === 'signed' ? 'signed' : 'offered'}${h.fee ? `, ${h.fee} Drakes` : ''}.`);
+        const p = el('p', 'notice-seat-mine', `${h.handle} - ${h.state === 'signed' ? 'signed' : 'offered'}${h.fee ? `, ${h.fee} silver` : ''}.`);
         if (h.state === 'offered') { const w = button('notice-seat-withdraw', 'Withdraw', () => act(() => book.withdrawHire(seat, h.handle))); w.disabled = busy; p.append(w); }
         out.append(p);
       }
@@ -346,7 +346,7 @@ export function createSeatTab(host, ui) {
         n.oninput = () => { hireHandle = n.value.trim(); };
         const fee = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-hire-fee'));
         fee.type = 'number'; fee.min = '0'; fee.max = String(SELLSWORD_FEE_MAX); fee.value = String(hireFee);
-        fee.setAttribute('aria-label', 'The Sellsword\'s fee in Drakes'); fee.setAttribute('data-focus', 'seat-hire-fee');
+        fee.setAttribute('aria-label', 'The Sellsword\'s fee in silver'); fee.setAttribute('data-focus', 'seat-hire-fee');
         fee.oninput = () => { hireFee = Math.max(0, Math.floor(Number(fee.value) || 0)); };
         const hire = button('notice-seat-hire', 'Hire a Sellsword', () => (hireHandle
           ? act(() => book.hire(seat, hireHandle, Math.min(SELLSWORD_FEE_MAX, hireFee)))

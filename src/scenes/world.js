@@ -8384,7 +8384,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           const r = await profBook.stock(material, qty);
           toldBalance(r?.data?.balance);   // PROF5 (FOUND): the Bank's balance told too; AUDIT 32 B3: and the market's
           const who = counter === 'furnisher' ? 'furnisher' : counter === 'weavers' ? 'Weavers' : 'smith';   // PROF4: the furnisher's Linen; PROF7: the Weavers' at the tailor's
-          return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} Drakes.` } : { ok: false, text: accountRefusalText(r?.error) };
+          return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(material, r.data.qty)} from the ${who} for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };
         },
         heatBand: () => heatBand({ strength: liveStat(playerEntity, 'strength'), agility: liveStat(playerEntity, 'agility') }),
         // PROF4 (bible/06-Systems/Professions-Arc.md 25): THE WORKBENCH the player stands at, and the plane's band
@@ -18653,7 +18653,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       stock: async (key, n) => {
         const r = await profBook.stock(key, n);
         toldBalance(r?.data?.balance);   // AUDIT 30 U6
-        return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} Drakes.` } : { ok: false, text: accountRefusalText(r?.error) };
+        return r?.ok ? { ok: true, text: `Bought ${r.data.qty} ${materialCountLabel(key, r.data.qty)} at the Weavers' counter for ${r.data.marks} silver.` } : { ok: false, text: accountRefusalText(r?.error) };
       },
     } : null;
     return showNoticeWindow({
@@ -18706,7 +18706,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // PROF6 (FOUND): the XP is the writ's material's profession's - a metal writ's Mining, a wood writ's Logging - never
     // always Herbalism's, as this line said since PROF2 (the answer's track names it)
     const prof = professionName(d.track?.profession) || 'profession';
-    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} Drakes struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} ${prof} XP.${rose}`;
+    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} silver struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} ${prof} XP.${rose}`;
   };
   /** NOTICE1: the server's word on the Oblivion Gate while it stands - the map's own mark (WB1), under the red seal. */
   const noticeGateCard = () => {

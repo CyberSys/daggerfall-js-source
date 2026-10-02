@@ -450,7 +450,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       if (gates) row('Gates closed', gates);
       // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
       // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
-      if (Number.isSafeInteger(flow.account.marks)) row('Drakes', marksText(flow.account.marks));
+      if (Number.isSafeInteger(flow.account.marks)) row('Silver', marksText(flow.account.marks));
       // RAID4: the towns this account defended - each a raid's cleanse the relay signed and this service counted once
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);

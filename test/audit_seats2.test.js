@@ -36,7 +36,7 @@ test('AUDIT SEATS-2 L3, L4, L5, L7: a crown\'s Gatehouse stands from the first a
   assert.equal(APOTHECARY_OPEN, false);
   assert.equal(fortMayRaise('apothecary', { tier: 'palace' }), false);
   assert.equal(fortMayRaise('forge', { tier: 'palace' }), true);
-  assert.equal(TIDE_WORDS.daedra, 'Gate kills give double influence and double Drakes.');
+  assert.equal(TIDE_WORDS.daedra, 'Gate kills give double influence and double silver.');
 });
 
 test('AUDIT SEATS-2 L6 (Appendix B: "windows 5, edicts 5" an account an hour): the window keeps its own five, apart from the Edict\'s and the Tithe\'s (mutant: the window on the levers\' bucket)', () => {

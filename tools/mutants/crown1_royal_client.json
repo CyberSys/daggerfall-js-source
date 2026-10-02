@@ -83,8 +83,8 @@
  {
   "name": "CROWN1C-hud-title",
   "file": "src/net/royalLink.js",
-  "old": "prize ${Number(t.prize ?? 0).toLocaleString('en-US')} Drakes",
-  "new": "prize ${t.prize} Drakes",
+  "old": "prize ${Number(t.prize ?? 0).toLocaleString('en-US')} silver",
+  "new": "prize ${t.prize} silver",
   "tests": [
    "test/crown1_royal_client.test.js"
   ]
@@ -472,8 +472,8 @@
  {
   "name": "CROWN1C-lines-prize",
   "file": "src/net/townSeatLaw.js",
-  "old": "The week's champion takes ${Number(r.prize ?? 0).toLocaleString('en-US')} Drakes",
-  "new": "The week's champion takes ${r.prize} Drakes",
+  "old": "The week's champion takes ${Number(r.prize ?? 0).toLocaleString('en-US')} silver",
+  "new": "The week's champion takes ${r.prize} silver",
   "tests": [
    "test/crown1_royal_client.test.js"
   ]

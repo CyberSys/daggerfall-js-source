@@ -139,7 +139,7 @@ test('SEAT1b THE SEAT TAB\'S WORDS: the week\'s clock, a standing, the empty boa
   assert.deepEqual(seatMineLines(ANTICLERE, { ...mine, seasoned: false }), ['Your guild is pledged to Anticlere.', 'You count for your guild\'s seats after 7 days in it.']);
   assert.deepEqual(seatMineLines(ANTICLERE, { ...mine, bound: 'g2' }), ['Your guild is pledged to Anticlere.', 'Your account fights for another guild this week.']);
   assert.deepEqual(seatMineLines(ANTICLERE, null), ['Join a guild to fight for a seat.']);
-  assert.match(seatTributeLine(100), /^Tribute: up to 100 Drakes more this week/);
+  assert.match(seatTributeLine(100), /^Tribute: up to 100 silver more this week/);
   assert.match(seatTributeLine(0), /no room for more this week/);
 });
 
@@ -215,7 +215,7 @@ test('SEAT1b THE BOOK\'S STANDINGS, PLEDGE AND TRIBUTE: the standings kept half 
   const ids = calls.filter((c) => c[0] === 'tribute').map((c) => c[4]);
   assert.equal(ids[0], ids[1], 'the same payment, asked again, carries the same id');
   tributeAnswer = { ok: true, data: { ok: true, influence: 10, marks: 100 } };
-  assert.deepEqual(await book.tribute(ANTICLERE, 100), { ok: true, text: 'Tribute paid to Anticlere: 100 Drakes burnt, 10 influence.' });
+  assert.deepEqual(await book.tribute(ANTICLERE, 100), { ok: true, text: 'Tribute paid to Anticlere: 100 silver burnt, 10 influence.' });
   await book.tribute(ANTICLERE, 100);
   const after = calls.filter((c) => c[0] === 'tribute').map((c) => c[4]);
   assert.notEqual(after[3], after[2], 'an answered payment lets its id go - the next is a new payment');
@@ -276,7 +276,7 @@ test('SEAT1b THE SEAT TAB: beside the board\'s tabs while the seats are open, ne
   assert.equal(rows[1].className.includes('mine'), true, 'the reader\'s own guild marked');
   assert.equal(rows[0].querySelectorAll('.notice-banner').length, 1, 'a guild under its banner');
   assert.match(text, /Your guild is pledged to Anticlere\.Your week here: 340 of 2,000\./);
-  assert.match(text, /Tribute: up to 80 Drakes more this week/);
+  assert.match(text, /Tribute: up to 80 silver more this week/);
   byClass(host, 'notice-seat-drop')[0].click();
   await tick();
   assert.deepEqual(acts.at(-1), ['unpledge', 21]);
