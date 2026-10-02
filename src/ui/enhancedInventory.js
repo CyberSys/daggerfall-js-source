@@ -3503,11 +3503,11 @@ function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-  // REVENANT-FATE: K and S pick, a second press or Enter confirms, Back steps out of a pick (and then closes, below)
-  if (deps?.fate && !e.repeat && fateKey(e, deps.fate, fatePick, { onPick: (id) => { fatePick = id; render(); }, onChoose: (id) => { const f = deps.fate; fatePick = null; onExit(); try { f?.choose?.(id); } catch (err) { console.warn('[fate]', err?.message ?? err); } } })) { e.preventDefault(); e.stopPropagation(); return; }
   // DROPS-AUDIT F5: Escape with the PLUS7 menu open puts the MENU away, not the pack - this handler hears the key
   // first (window capture runs before the menu's own document listener), so it answers for the menu here
   if (menuEl && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
+  // REVENANT-FATE: K and S pick, a second press or Enter confirms, Back steps out of a pick (and then closes, below)
+  if (deps?.fate && !e.repeat && fateKey(e, deps.fate, fatePick, { onPick: (id) => { fatePick = id; render(); }, onChoose: (id) => { const f = deps.fate; fatePick = null; onExit(); try { f?.choose?.(id); } catch (err) { console.warn('[fate]', err?.message ?? err); } } })) { e.preventDefault(); e.stopPropagation(); return; }
   // AUDIT LOOT F7: THE CODEX OVER THE PACK HAS THE KEYS (after the menu's own Escape - the two never stand together:
   // the Codex's press puts the menu away). Its window's capture listener was laid after this one, so Back closed the
   // pack under it, and the pack's Inventory key left the Codex standing over the world: Back puts the Codex away and

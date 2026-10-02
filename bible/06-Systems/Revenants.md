@@ -192,3 +192,119 @@ The streaming world (`scenes/world.js`) and the single-location host (`scenes/ex
 
 The open world's pool (`scenes/exteriorFoes.js`) and the dungeon (`scenes/dungeonContext.js`) both run a fleeing foe
 and close a slain one. Returns stay in the open world: a dungeon's foes are its layout's.
+
+## 10. Who it is (REVENANT-VOICE)
+
+Mac: "They should have their own unique personalities that affect their speach. One could be humorous, or witty, etc."
+`systems/revenantPersonality.js` (a leaf) holds ten personalities and every word they say:
+
+| Personality | In a word | A beast's manner |
+|---|---|---|
+| Brutal | savage, blunt, hungry for blood | with a savage snarl |
+| Witty | sharp-tongued, sardonic | with an almost knowing glint |
+| Humorous | laughs at everything, your death included | with a playful yip |
+| Arrogant | proud, certain it is your better | with its head held high |
+| Cold | quiet, patient, merciless | in eerie silence |
+| Zealous | sees the gods in every blow | with wild, burning eyes |
+| Unhinged | manic, giggling | with a frenzied howl |
+| Honourable | a duellist with a code | with a steady, measured gaze |
+| Craven | all bluster and nerves | with a nervous whine |
+| Weary | tired of the killing | with a tired, rumbling sigh |
+
+- **One per revenant**, drawn from its id (`personalityFor`), so it is the same on every read, every load and every
+  client, and **leaning by kind**: an orc leans brutal, a lich cold, a daedra arrogant; a beast is never a preacher or a
+  wit; a person may be anyone. A record from before is given the one its id draws.
+- **A voice before a name**: a special foe that breaks and runs is given an id to speak with there and then; if it gets
+  away, the revenant it becomes keeps that id, and so that voice.
+- **Every moment**: its returns (by its last deed: it killed you, it ran, it has risen three times), flight, cornering,
+  escape, death, gloat, and REVENANT-FATE's and REVENANT-COMPANION's moments below - two lines or more in each, three
+  for the returns, the yield, the execution and the oath; `{p}` the player's first name.
+- **A beast never speaks**: the narrator says what it does, in its manner ("Sinks low before you with a playful yip,
+  beaten.").
+- The card and the page wear its personality as a chip.
+
+## 11. Beaten, it yields (REVENANT-FATE)
+
+Mac: "Players should have the option to kill or spare"; "the choice popup should reuse the loot menu".
+
+- **The yield**: the blow that would kill one of the player's revenants (any blow - the revenant is the player's own;
+  never a Disintegrate's kill) leaves it at 1 health on its knees (`systems/revenantFate.js beginYield`): its fight and
+  its run over, its hurt's last frame held with a breath now and then (`MobileUnit.heldPose`), no blow reaches it, no foe
+  hunts it (`enemyTargets.js`), never in the save. Its plea is said in its voice; its record notes the deed. Its
+  TROPHY is rolled now, so the choice shows it.
+- **The choice** is the loot window's: activating it (at the treasure's reach, as a body - `mobileEnemyActivate.js`)
+  opens the window with its FATE side (`ui/enhancedInventory.js` + `ui/revenantFateView.js`): the loot frame's own head
+  (its name, what it is, its personality), its plea, and two of the loot list's rows - KILL, drawn as the trophy weapon
+  is drawn when looted (its tile, its rarity's colour), and SPARE, its portrait and where it would stand. A row is
+  picked, then confirmed (a second press, the confirm button, Enter); K and S pick; Back steps out of a pick, then closes
+  the window and leaves it kneeling. The classic skin asks with a keyed box.
+- **Hesitate** past `REVENANT_YIELD_MS` (90 s of the world's own time - a window that pauses the game holds it), or walk
+  `REVENANT_YIELD_REACH` (60 m) off, and it **slips away**: an escape, its rank up, its words about your hesitation.
+- **Underground** the same, for a foe of the player's alone (REVENANT-DUNGEON's gate). A host that cannot open the
+  choice (`fates` off) lets its revenants die as before.
+
+## 12. Kill: the execution and the trophy (REVENANT-FATE, REVENANT-TROPHY)
+
+Mac: "Killing should show a unique animation where you destroy your foe, which drops a unique weapon random rarity
+weapon specific to the enemy, with their name included in the weapon name."
+
+The execution (`EXECUTION_MS`): its last words in its voice and the blow (a heavy swing's sound, the camera kicked);
+at 480 ms the BURST - blood thrown wide with gibs (the heaviest blow there is), a red flash, a harder kick, a burning
+roar - and from there the body **burns away from the feet up** in embers (DISSOLVE, below) until, at 1.5 s, it is gone:
+no body. Where it knelt drops a **pile** (the place's dropped loot, with its line of light): everything it carried and
+its trophy. Its record closes for good, **executed** (the page's Fallen say so).
+
+The trophy (`systems/revenantTrophy.js`):
+
+- **Its weapon**: the best blade it carried, else its kind's (an orc's war axe or battle axe, a lich's staff, a vampire's
+  saber or katana, a giant's warhammer, a bear's war axe...) or a person's by class (a Barbarian's claymore, an
+  Assassin's tanto, an Archer's longbow...); one of a kind's two by its id.
+- **Its name**: "<given>'s <noun>" - Grushnak's Reaver, Varis' Requiem - the noun the weapon's, by its id.
+- **A random rarity, never Common**: Legendary 12% + 5% a rank above the first, Rare 33% + 4% a rank, else Magic.
+- Its material the better of two rolls at the player's level.
+
+## 13. Spare: the sworn (REVENANT-COMPANION, COMPANION-SLOTS, COMPANION-ROSTER)
+
+Mac: "Spare should allow you to free the enemy, which then adds them as a companion, which you could keep send them away
+or keep them with you. Reuse the crew companion system. Companion slots should still be limited and will need a new
+enhanced plus UI feature."
+
+- **Sworn**: spared, it rises, gathers into a portal where it knelt, and is sworn to the player for good - it hunts
+  nobody, never returns as a foe, and its record keeps its place (`companion`: with the player, away, or resting).
+- **The crew's own layer** (`scenes/crewAshore.js`) stands the sworn - every place, every door, the heel, the catch-up,
+  health and spells carried - as a second party of the crew's shape (`systems/revenantCompanions.js revenantParty`), never
+  under the naval arc's gate. Each stands at the player's level with its rank's strength (health once, its blows always),
+  called by its own name; activated, it opens its pack (the crew's COMPANION-KIT storage); it has a card on the party
+  panel and a green bar overhead.
+- **Slots** (`systems/companionSlots.js`): **three** at the player's side, the crew's hands ashore and the sworn together -
+  a hand is refused ashore when they are full ("no room at your side"), and a newly spared one waits **away**.
+- **Six** sworn at most; with six, SPARE is refused until one is released.
+- **Knocked out**, it is carried off through a portal to rest eight hours, then waits, fit again, to be called.
+- **The Companions page** (`ui/companionRoster.js`, the pause menu's Stats rail): the slot strip (who stands in each,
+  a crew hand by name, the open ones), **At your side** (portrait, rank, personality, health; Send away), **Away**
+  (Call - refused, and saying why, while the slots are full or it is still hurt; its rest), **Release** asked twice.
+- **Its words**: as it arrives when called, as it is sent away or released, when it falls, now and then as it goes into
+  a fight or over a kill (a minute between each one's, twenty seconds between any) - all in its voice.
+
+## 14. The portals and the dissolve (COMPANION-PORTAL, DISSOLVE)
+
+Mac: "Companions when playing catch up, spawning in, or spawning out should use a unique portal animation instead of
+just popping in and out."
+
+- **The portal** (`scenes/portalFx.js`): a violet vortex drawn here (twelve frames, an oval with spiral arms turning
+  inward, a white-hot rim and a dark heart), self-lit and blended, standing a step behind the body from the eye. It tears
+  open (360 ms), holds, and seals (420 ms) with the magic school's cast sound. Every place's pool owns its set and draws
+  it with its foes (the street, a building, a dungeon).
+- **Where**: a companion's **arrival** (it gathers out of the light), its **leaving** (sent away, knocked out - it burns
+  into the light, and is taken out of the place only once the portal has it), a **catch-up** (a short pair: one where it
+  was, one where it stands again), and a spared revenant's oath. A change of place lifts the party at once (the place is
+  going) and it arrives through portals in the next.
+- **The dissolve** (`systems/dissolve.js`, both billboard shaders): `batch.dissolve = [share gone, r, g, b]` - the
+  sprite eaten in two-texel grains from the feet up, every grain blazing in its colour along the edge (ember for an
+  execution, arcane violet for a portal). The renderer uploads it per batch on change (`uDissolve`).
+
+## 15. Online (REVENANT-FATE)
+
+The choice is the owner's (a revenant is its character's memory). The foe record carries `yd` (kneeling) and `ex`
+(being executed), so every puppet kneels, and burns away, as its owner's does; the hover says it is beaten
+(`world152`, re-recorded).

@@ -183,7 +183,7 @@ test('REVENANT-FATE SPARE: sworn - at the player\'s side while a slot is free (e
   assert.equal(rec.sworn, true); assert.equal(rec.fate, 'sworn'); assert.equal(rec.companion.state, 'with');
   assert.ok(!N.livingRevenants().includes(rec), 'it hunts nobody');
   assert.ok(made.some((b) => b.archive === 'fxportal'), 'a portal opens where it knelt');
-  f.sparing.at -= F.SPARE_MS + 10;
+  f.sparing.at -= F.SPARING_MS + 10;
   frame(pool);
   assert.equal(f.dead, true, 'through the portal');
   assert.equal(N.revenantToReturn(me, { now: 1e9, rolls: () => 0 }), null, 'a sworn one never returns as a foe');
@@ -258,6 +258,10 @@ test('REVENANT-FATE the wire and the doors: a record says `yd` kneeling and `ex`
   assert.equal((m.match(/openFate: \(rec\) => !!host\.openRevenantFate\?\.\(rec\),/g) ?? []).length, 2, 'a building and a dungeon');
   assert.match(w, /const w = makeInventoryWindow\(\{ fate: model, loot: \{ items: \(\) => \[\], playerOwned: false \} \}\);/, 'the loot window itself');
   assert.match(d, /if \(opts\.fates && !_whole && \(!onlineRoom\(\) \|\| !isRoomFoe\(foe\)\) && revenantMayYield\(foe\)\) \{ yieldDungeonFoe\(foe\); return; \}/, 'underground: the player\'s alone');
+  // underground a held foe decides nothing and animates nothing of its own, but is still DRAWN - the kneel, the burn
+  const arm = d.slice(d.indexOf('      if (f.mobile) {\n'), d.indexOf('_mobileBatches.push(f.batch);'));
+  assert.match(arm, /^      if \(f\.mobile\) \{\n[\s\S]*?\n        if \(!_fateHeld\) \{[^\n]*\n\s*\/\/ A5 - DaedraSeducerMobileBehaviour/, 'the mobile arm draws a held foe; only its own update is skipped');
+  assert.match(arm, /const _dv = f\.executing \|\| f\.sparing \|\| f\.portalFx \? fateDissolve\(f, Date\.now\(\)\) : null;/, 'and burns it away as it draws');
 });
 
 // ── THE LOOT WINDOW'S FATE SIDE ────────────────────────────────────────────────────────────────────────────────

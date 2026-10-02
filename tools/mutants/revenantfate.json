@@ -313,5 +313,23 @@
     "tests": [
       "test/revenant_companions.test.js"
     ]
+  },
+  {
+    "name": "REVENANT-FATE-a-held-foe-animates-its-own-underground",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "        if (!_fateHeld) {   // REVENANT-FATE: a held foe's pose is its own (dungeonFateFrame) - it is still drawn below\n",
+    "new": "        {\n",
+    "tests": [
+      "test/revenant_fate.test.js"
+    ]
+  },
+  {
+    "name": "REVENANT-FATE-a-held-foe-undrawn-underground",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "      if (f.mobile) {\n        // C11: the sprite mobile.",
+    "new": "      if (f.mobile && !_fateHeld) {\n        // C11: the sprite mobile.",
+    "tests": [
+      "test/revenant_fate.test.js"
+    ]
   }
 ]

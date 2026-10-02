@@ -84,7 +84,7 @@ export function createCrewAshore(deps) {
     const party = deps.party();
     const now = deps.now();
     party?.wake(now);
-    const place = party?.party.length || stood.size ? deps.place() : null;   // COMPANION-PORTAL: the last one sent away still leaves through its portal
+    const place = party && (party.party.length || stood.size) ? deps.place() : null;   // COMPANION-PORTAL: the last one sent away still leaves through its portal (no party: everyone out)
     const key = place ? place.key : undefined;
     if (key !== placeKey) { liftAll(); placeKey = key; epoch++; }
     if (!party) return;

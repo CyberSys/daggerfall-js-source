@@ -367,7 +367,8 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
     '_pointColorGen', '_pointColorDecGen', '_pointColorDecLane', '_pointColorDecCount', '_adaptOneTex', '_tex0Bound', '_activeUnit',
     '_bbFrameStamp', '_dFrameStamp', '_cFrameStamp', '_tFrameStamp', '_frameStamp', ...AUTOMAP,
     '_bbColumnOn', '_dwCamFwd',   // merged beside DW-F: the column switch's GL-state shadow, and the camera-forward scratch
-    '_bbTipOn'];   // PROF4: the felled tree's tip, the same kind of GL-state shadow
+    '_bbTipOn',   // PROF4: the felled tree's tip, the same kind of GL-state shadow
+    '_bbDissolveOn'];   // DISSOLVE: the burn's switch, the same kind of GL-state shadow
   const { canvas } = stateGl();
   const r = new Renderer(canvas);
   for (const lane of [null, EL_LANE]) {

@@ -36,7 +36,7 @@ export const REVENANT_YIELD_REACH = 60;
 /** The execution's beats (ms from the choice): the blow lands at once, the body bursts, and it has burnt away. */
 export const EXECUTION_MS = Object.freeze({ burst: 480, end: 1500 });
 /** The sworn one's step into its portal where it knelt (ms): it gathers light, then is gone. */
-export const SPARE_MS = 900;
+export const SPARING_MS = 900;
 
 /** May this foe record yield rather than die? One of the player's own revenants (never a puppet, a companion, one
  *  already judged), the arc on. */
@@ -126,7 +126,7 @@ export function beginSpare(player, f, { now = Date.now(), rolls = Math.random } 
   return { r, state, event: revenantMomentEvent('spared', r, player?.name, { body, archive: f.archive, rolls }) };
 }
 /** The sworn one has stepped through its portal - take its kneeling body out. */
-export const spareDone = (f, now = Date.now()) => !!f?.sparing && now - f.sparing.at >= SPARE_MS;
+export const spareDone = (f, now = Date.now()) => !!f?.sparing && now - f.sparing.at >= SPARING_MS;
 
 /** WHAT ITS SPRITE SHOWS NOW: [share gone, r, g, b] for systems/dissolve.js, or null whole - an execution burning it
  *  away after the burst in ember; a sworn one gathering into its portal in arcane light; a companion's arrival
@@ -137,7 +137,7 @@ export function fateDissolve(f, now = Date.now()) {
     return t > 0 ? [Math.min(1, t / (EXECUTION_MS.end - EXECUTION_MS.burst)), ...DISSOLVE_EMBER] : null;
   }
   if (f?.sparing) {
-    const t = (now - f.sparing.at - 200) / (SPARE_MS - 200);
+    const t = (now - f.sparing.at - 200) / (SPARING_MS - 200);
     return t > 0 ? [Math.min(1, t), ...DISSOLVE_ARCANE] : null;
   }
   const p = f?.portalFx;

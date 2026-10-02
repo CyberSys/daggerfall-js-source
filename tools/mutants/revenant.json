@@ -263,8 +263,8 @@
   {
     "name": "REVENANT-PAGE-the-fallen-among-the-living",
     "file": "src/ui/revenantPage.js",
-    "old": "  const living = all.filter((r) => !r.defeated)",
-    "new": "  const living = all.filter((r) => r)",
+    "old": "  const living = all.filter((r) => !r.defeated && !r.sworn)",
+    "new": "  const living = all.filter((r) => !r.sworn)",
     "tests": [
       "test/revenant_card.test.js"
     ]
