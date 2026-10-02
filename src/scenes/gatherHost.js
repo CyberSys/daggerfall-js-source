@@ -90,6 +90,18 @@ export const GROUP_REFRESH_MS = 500;
 export const GROUP_LIFT_M = 2;
 /** GATHER-OW: a group's words - the profession and its count today. */
 export const groupLabel = (profession, n) => `${professionName(profession)} \u00d7${n}`;
+/** HERB-CURSOR (FIELD BUGS 2026-10-02 part four, "Doesn't make mouse appear when the minigame starts, so cant click on
+ *  the targets"): WHAT AN ACT NEEDS OF THE MOUSE, by its machine's kind. The Basket's glints stand about the crosshair,
+ *  where no look reaches them (the look turns the view, and they turn with it): its act holds the cursor free. A vein's
+ *  points, a body's line and the net's throw (the school its release lands in - AUDIT C1) are aimed by the look itself:
+ *  a cursor the player freed is taken back for them. The rest - the ring, the hand and the steady hold - need neither,
+ *  and leave the mouse as it is. */
+export const ACT_POINTER = Object.freeze({ basket: 'cursor', mine: 'look', trace: 'look', fish: 'look' });
+/** AUDIT HERB-CURSOR C2: what an act's state needs (ACT_POINTER), or null. An act played gently (the Gentle acts
+ *  setting) has no moment - its Basket finds nothing to click, its vein's glint and its body's line are not read - so it
+ *  needs nothing; the net's gentle throw still lands where the look sends it (its state carries no `gentle`, and is
+ *  named here so it never will by accident). */
+export const actPointer = (st) => (st?.gentle === true && st.kind !== 'fish' ? null : ACT_POINTER[st?.kind] ?? null);
 /** NODE-MARKS: the stood pixels walked for the marks - those within this many metres, past any kind's reach. */
 const MARK_WALK_M = 256;
 /** AUDIT NODE-MARKS (the independent pass): a place is any three numbers - the player's feet are the motor's
@@ -211,13 +223,16 @@ export function aimAt(eyePos, at, view) {
  *   activeDungeon?: () => boolean, onSettle?: () => void, clear?: (from: number[], to: number[], underground: boolean) => boolean,
  *   plaque?: () => boolean, lit?: (key: string) => any, choose?: (rows: string[], pick: (i: number) => void) => boolean,
  *   step?: (n: number) => boolean, settled?: (pos: number[]) => boolean,
+ *   pointer?: (want: 'cursor'|'look') => ((() => void) | null),
  * }} deps `active` - the streaming world's exterior, walking, nothing over it (the host's); `activeDungeon` - a dungeon
  *   entered, walking, nothing over it; `nowMs` the shared clock. PROF-MENU: `plaque` - the loot plaque stands (it names
  *   the node, so no prompt does); `lit(key)` - the row the plaque has lit over that key (quickLoot.js plaqueActionFor);
  *   `choose(rows, pick)` - the rows as a list, where no plaque stands (true when it opened); `step(n)` - the plaque's lit
  *   row moved n rows (quickLoot.js plaqueStep), the act choice key's. `settled` - SETTLE-STAND: whether a scene place is
  *   on a settlement's ground as the acts' check reads it (FORAGE0 14.3: the place's pixel's town, farm, temple, tavern or
- *   wealthy home, its footprint and a block round it), where no node of the ground (a kind with a `where`) stands
+ *   wealthy home, its footprint and a block round it), where no node of the ground (a kind with a `where`) stands.
+ *   `pointer(want)` - HERB-CURSOR: the mouse an act needs (ACT_POINTER), asked as it starts; answers its release, called
+ *   as it ends, or null
  */
 export function createGatherHost(deps) {
   const { book, hud, kinds } = deps;
@@ -235,6 +250,7 @@ export function createGatherHost(deps) {
   let passedCastAt = 0;       // CAST-E: when (the shared clock's ms) - a press the ladder took is never handed back
   let struck = null, strikeHeld = false;   // ACT-TOUCH: the act a finger's or a pad's press struck, for the next frame
   let clickHeld = false;      // CLICK-LIFT: the activation's button went down while an act played, and is not yet up
+  let pointerAct = null, pointerOff = null;   // HERB-CURSOR: the act the mouse was last set for, and its release
   let standSpecs = undefined; // SEASONAL-EYE: the specs that change what stands, as the pixels were last stood
   let chipLeft = 0;
   let chipProfession = /** @type {string|null} */ (null);
@@ -505,9 +521,23 @@ export function createGatherHost(deps) {
     if (!a) return false;
     if (a.refused) { hud.toast(a.refused); return false; }
     act = { ...a, node: t.node, px: t.px, py: t.py, dungeon: t.dungeon, loose: !!t.loose, info: t.info, world: t.world };
+    syncPointer();   // HERB-CURSOR: in the press's frame, while its activation stands (a lock a browser asks one for)
     chipProfession = a.profession;
     chipLeft = CHIP_S;
     return true;
+  }
+  /** HERB-CURSOR: the mouse as the act playing needs it (actPointer) - asked as an act starts, let go as it ends,
+   *  however it ends (its end, Escape, walking off, a window over it, the dungeon left, the professions shut, `dispose`):
+   *  at the change itself where the host makes it, and at every frame's start and end (AUDIT A3/B1: a frame that throws
+   *  after the act ended - world.js swallows it - no longer keeps the cursor free). */
+  function syncPointer() {
+    if (act === pointerAct) return;
+    pointerAct = act;
+    const off = pointerOff;
+    pointerOff = null;
+    off?.();
+    const want = act ? actPointer(act.act?.state) : null;
+    if (want) pointerOff = deps.pointer?.(want) ?? null;
   }
   function finish(a) {
     const report = a.act.report();
@@ -753,9 +783,10 @@ export function createGatherHost(deps) {
       return start(t, plan, templateIndex) ? 'started' : 'taken';
     },
     /** Escape: the act ends, nothing lost. True when there was one. */
-    cancel() { if (!act) return false; act.act.cancel(); act = null; hud.setMeter(null); return true; },
+    cancel() { if (!act) return false; act.act.cancel(); act = null; syncPointer(); hud.setMeter(null); return true; },   // HERB-CURSOR: the mouse given back
     /** Every frame the host is in the streaming world. */
     tick(dt) {
+      syncPointer();   // AUDIT HERB-CURSOR A3/B1: before anything of the frame can throw
       const now = deps.nowMs();
       // the state: read on arrival, at a new character and at the UTC day's turn; kept withdrawals settled on every good
       // read (AUDIT 29 C4: once a session, a withdrawal kept mid-session waited for a reload)
@@ -774,6 +805,7 @@ export function createGatherHost(deps) {
       if (book.state.open !== true) {
         if (act) { act.act.cancel(); act = null; }   // AUDIT 29 C5: shut mid-act - the act ends (the swing was held off, the tool in the hand)
         target = null;   // NODE-SHUT (AUDIT 2026-10-01 part four): shut, no node is the target - CLIMB-NODE's hold reads it, and it held the free climb everywhere until they opened again
+        syncPointer();   // HERB-CURSOR
         hud.setPrompt(null); hud.setMeter(null); hud.setChip(null); hud.frame(dt); return;
       }
       // the streamed pixels' witnessed states - a pixel that changed stands again
@@ -833,6 +865,7 @@ export function createGatherHost(deps) {
       const tally = (cp && kindOfProfession(cp)?.tally?.()) || { n: book.state.today?.[cp] ?? 0, cap: book.state.caps?.harvests ?? 60 };   // PROF7: Hunting's day is the account's
       hud.setChip(chipLeft > 0 && cp ? `${professionName(cp)} ${rank(cp)} - ${tally.n} / ${tally.cap} today` : null);
       hud.frame(dt);
+      syncPointer();   // HERB-CURSOR: an act this frame ended - finished, walked off, a window over it
     },
     /** For the pins and the compass: what stands, and the target. */
     get target() { return target; },
@@ -946,6 +979,6 @@ export function createGatherHost(deps) {
       return out;
     },
     /** The page's teardown. */
-    dispose() { this.leaveDungeon(); for (const s of stood.values()) unstand(s.entry); stood.clear(); act = null; hud.dispose(); },
+    dispose() { this.leaveDungeon(); for (const s of stood.values()) unstand(s.entry); stood.clear(); act = null; syncPointer(); hud.dispose(); },
   };
 }

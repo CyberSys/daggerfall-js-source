@@ -1194,7 +1194,7 @@ Enhanced Plus windows, in its brass and bone; layouts, not art. The board's Seat
 
   Hunting - the trace           Fishing - the haul                             The Basket - the search
    o . . . o . . . o             |---[  band  ]--------|   haul [########------]    ( * )  .   .     1 of 3
-    (draw along the dots)                  ^ the net's weight                        tap the glint
+    (draw along the dots)                  ^ the net's weight                        click the glint
 ```
 
 ## 22. PROF1 - the Stores, Herbalism and Court writs, as built (SHIPPED 2026-09-28, at `dev`)
@@ -2667,9 +2667,18 @@ unmoved.
   motion; every cue a sound (`systems/profSounds.js`).
 - **The stations (PROF-STATIONS).** The heat, the stitch's beat and the plane keep their bars and rules, dressed in the
   plaque's frame and the kit's tones (`ui/profStationStyle.js`); no pictures.
+- **The mouse (HERB-CURSOR, `01-Overview/Field-Bugs-2026-10-02.md` part four, and its audit).** The Basket's glints
+  stand about the crosshair, where the look cannot put them under it: its act holds the cursor free while it plays (no
+  hold with a pad in hand) and hands the look back at its end - an Escape's on its keyup (`scenes/gatherHost.js`
+  `ACT_POINTER`/`actPointer`, `player/pointerLock.js` `holdCursor`); its hint is "click the glint". The mine's points,
+  the knife's line and the net's throw are aimed by the look: a cursor the player freed is taken back for them, and
+  stays taken. The ring, the hand and the steady hold need neither, and an act played gently nothing (but the net's
+  throw). Any press while a glint shows still finds it (5's rule, unmoved).
 
 `test/profreticle.test.js` (10), `test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profreticle.json` (57),
-`profmenu.json`; `tools/profReticleProbe.mjs`.
+`profmenu.json`; `tools/profReticleProbe.mjs`. HERB-CURSOR: `test/fb1002_herbcursor.test.js` (6),
+`test/fb1002_herbcursor_audit.test.js` (10); `tools/mutants/fb1002_herbcursor.json` (17),
+`fb1002_herbcursor_audit.json` (14).
 
 ## 34. PROF11 - Masonry, as built (BUILT 2026-10-01)
 
