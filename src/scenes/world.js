@@ -7481,13 +7481,17 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
   const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
     || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
+  /** HUNT-FOES (FIELD BUGS 2026-10-02): a foe that sees me, or one still loading (spawnFoe is async - the frame's
+   *  encounter roll runs before the hunt's, and a foe on its way is in no pool yet), is near: no hunt opens over it,
+   *  and one open is closed. */
+  const huntFoesNear = () => areEnemiesNearby(exteriorFoePool()) || exteriorFoes.pendingFeet().length > 0;
   const hunting = createHunting({
     entity: playerEntity,
     env: () => ({
       minute: Math.floor(ownMinutes()), climateIndex: maps.getClimateIndex(playerTravelPixel().x, playerTravelPixel().y),   // LIVED1: the hunt's minute is the body's (its needs, its catch's age); the winter below is the sky's
       luck: liveStat(playerEntity, 'luck'), winter: seasonValue(dateFromClassicMinutes(worldMinutes())) === SEASONS.Winter,
       outdoors: _mode() === 'exterior' && !(walkMode && playerSpawned && player.isPlayerSwimming), afloat: playerAfloat(), inLocationRect: _musicInLocationRect(), night: isNight(minuteNow()),   // SEA-HUNT: nothing is hunted from a deck
-      enemiesNear: areEnemiesNearby(exteriorFoePool()), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
+      enemiesNear: huntFoesNear(), resting: !!playerEntity.isResting || !!playerEntity.preventEnemySpawns,
       hasBow: weaponTypeForItem(weaponRig.playerWeapon.weapon) === WEAPON_TYPES.Bow,
       skills: { archery: skillValue(playerEntity, SKILLS.Archery), stealth: skillValue(playerEntity, SKILLS.Stealth), criticalStrike: skillValue(playerEntity, SKILLS.CriticalStrike), climbing: skillValue(playerEntity, SKILLS.Climbing) },
     }),
@@ -7495,6 +7499,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode && playerSpawned ? player.pos : cam.pos, true); },   // CAMP-REST: the search's minutes are spent through the tick as a skip - no group roll on the replay
     spawnBeast: ({ mobileType, count }) => { const feet = walkMode && playerSpawned ? player.pos : cam.pos; for (let i = 0; i < count; i++) _standEncounterFoe({ mobileType, ...SPAWNER_ARMS.wilderness }, feet); },
     inflictPoison, inflictDisease, tally: (id) => tallySkill(playerEntity, id, 1),
+    enemiesNear: () => huntFoesNear(),   // HUNT-FOES: a foe come near closes the ask or the search
   });
   // FORAGE4 (bible/06-Systems/Foraging.md 13.1): online, QAE's `raise time by` is a wait on the hunt's busy page, in
   // the same slot - opened only when the slot is free (the tool's box and the pack closed first), the quest's boxes
@@ -8136,6 +8141,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             storm: () => currentWeather() === 'thunder',
             climateAt: (x, y) => { try { return maps.getClimateIndex(x, y); } catch { return null; } },
             day: () => utcDayOfMs(Date.now() + _sharedOffsetMs),
+            busy: () => !!csaRuntime?.isSailing?.() || !!naval?.aiming || !!naval?.boarding,   // HELM-NET: no cast at the helm, over the laid guns or in a boarding
             // the tug's buzz (5.2: "the pad and phone buzz") - the touch layer's own pulse, under its own pref (TI2)
             tug: () => { if (!getPref('touchHaptics')) return; try { navigator.vibrate?.(120); } catch { /* a platform without it */ } },
             trophy: (species) => {

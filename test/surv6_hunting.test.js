@@ -258,10 +258,13 @@ test('SURV6: composed - once a game minute the roll; the window in the slot, non
   w.input('KeyY');
   w.tick(100);
   assert.equal(w.phase, HUNT_PHASE.Result);
-  assert.deepEqual(advanced.length, 1); assert.ok(advanced[0] >= HUNT_MINUTES[0] && advanced[0] <= HUNT_MINUTES[1], 'the search\'s minutes passed');
+  // HUNT-FOES (FIELD BUGS 2026-10-02): the minutes pass at the close, not under the result page - offline their
+  // encounter tick stood a wanderer facing a hunter the box still held
+  assert.deepEqual(advanced, [], 'no minute passes under the box');
   assert.equal(spawned.length, 0, 'not under the box');
   assert.deepEqual(tallied, [], 'the hunted tallies nothing');
   w.click(0, 0);
+  assert.deepEqual(advanced.length, 1); assert.ok(advanced[0] >= HUNT_MINUTES[0] && advanced[0] <= HUNT_MINUTES[1], 'the search\'s minutes passed');
   assert.deepEqual(spawned, [{ mobileType: MOBILE_TYPES.GrizzlyBear, count: 3 }]); assert.equal(h.window, null);
   // a find: meat in the pack, the skills tallied
   const p2 = player(); const tallied2 = [];
@@ -283,7 +286,8 @@ test('SURV6: by source - the overworld host alone rolls, opens in the slot, pass
   assert.match(world, /minute: Math\.floor\(ownMinutes\(\)\), climateIndex: maps\.getClimateIndex\(playerTravelPixel\(\)\.x, playerTravelPixel\(\)\.y\),/);   // LIVED1: the hunt's minute is the body's
   assert.match(world, /luck: liveStat\(playerEntity, 'luck'\), winter: seasonValue\(dateFromClassicMinutes\(worldMinutes\(\)\)\) === SEASONS\.Winter,/);
   assert.match(world, /outdoors: _mode\(\) === 'exterior' && !\(walkMode && playerSpawned && player\.isPlayerSwimming\), afloat: playerAfloat\(\), inLocationRect: _musicInLocationRect\(\), night: isNight\(minuteNow\(\)\),/);
-  assert.match(world, /enemiesNear: areEnemiesNearby\(exteriorFoePool\(\)\), resting: !!playerEntity\.isResting \|\| !!playerEntity\.preventEnemySpawns,/);
+  assert.match(world, /enemiesNear: huntFoesNear\(\), resting: !!playerEntity\.isResting \|\| !!playerEntity\.preventEnemySpawns,/);   // HUNT-FOES
+  assert.match(world, /const huntFoesNear = \(\) => areEnemiesNearby\(exteriorFoePool\(\)\) \|\| exteriorFoes\.pendingFeet\(\)\.length > 0;/);
   assert.match(world, /hasBow: weaponTypeForItem\(weaponRig\.playerWeapon\.weapon\) === WEAPON_TYPES\.Bow,/);
   assert.match(world, /skills: \{ archery: skillValue\(playerEntity, SKILLS\.Archery\), stealth: skillValue\(playerEntity, SKILLS\.Stealth\), criticalStrike: skillValue\(playerEntity, SKILLS\.CriticalStrike\), climbing: skillValue\(playerEntity, SKILLS\.Climbing\) \},/);
   assert.match(world, /showOverlay: \(w\) => townTalk\.showOverlay\(w\), overlayActive: \(\) => townTalk\.overlayActive,\n\s+advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true\); \},/);   // CAMP-REST: the search's minutes are spent through the tick as a skip (LIVED1: on the character's own clock)

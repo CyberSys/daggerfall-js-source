@@ -15,8 +15,9 @@
 // options, the hunt keeping its defaults: `ask: false` opens on the busy
 // page; `escape: false` takes no Escape (the wait is the cost - offline
 // the hours are gone at once), and the page's caption says nothing it
-// does not keep; `interruptWhen` is asked every busy frame and ends the
-// page unsearched when it answers true (a foe near - the rest test);
+// does not keep; `interruptWhen` is asked every busy frame (and every
+// ask frame - HUNT-FOES) and ends the page unsearched when it answers
+// true (a foe near - the rest test);
 // `result: false` closes at the wait's end with no result page. And two
 // members for the wait's queue: `remaining`, and `extend(seconds)` - a
 // second `raise time by` joins the one standing.
@@ -84,8 +85,10 @@ export class HuntWindow {
 
   /** The frame's real seconds; the turn to the result at the wait's end. */
   tick(dt) {
-    if (this.phase !== HUNT_PHASE.Busy || this.done) return;
-    if (this._interruptWhen?.()) { this._end(false); return; }   // FORAGE4: a foe near ends it, the rest forgiven
+    if (this.done || this.phase === HUNT_PHASE.Result) return;
+    // FORAGE4: a foe near ends it, the rest forgiven; HUNT-FOES: the ask too - its Yes was a hunter frozen for the search
+    if (this._interruptWhen?.()) { this._end(false); return; }
+    if (this.phase !== HUNT_PHASE.Busy) return;
     this._elapsed += Math.max(0, dt || 0);
     if (this._elapsed < this.seconds) return;
     if (!this._result) { this._onSearched?.(); this._end(true); return; }   // FORAGE4: the wait's end, no result page

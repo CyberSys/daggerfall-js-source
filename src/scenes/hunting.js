@@ -17,6 +17,8 @@
 //   spawnBeast({ mobileType, count }) - the host's placement door
 //   inflictPoison / inflictDisease - the formulas (the law is pure)
 //   tally(skillId) - the host's tallySkill
+//   enemiesNear() - HUNT-FOES: a foe come near closes the ask or the
+//                   search as a No, and the hunter has their hands back
 import { survivalOn, survivalRules } from '../systems/survival/switch.js';
 import { survivalOf } from '../systems/survival/needs.js';
 import {
@@ -28,7 +30,7 @@ const range = ([min, max], rolls) => min + Math.floor(rolls() * (max - min + 1))
 
 export function createHunting({
   entity, env, showOverlay = null, overlayActive = () => false, advanceMinutes = null, spawnBeast = null,
-  inflictPoison = null, inflictDisease = null, tally = null, rolls = Math.random,
+  inflictPoison = null, inflictDisease = null, tally = null, rolls = Math.random, enemiesNear = null,
 } = {}) {
   let _lastMinute = null;
   let _win = null;
@@ -53,6 +55,10 @@ export function createHunting({
       prompt: huntPrompt(ev, { winter: !!e.winter }),
       busy: HUNT_BUSY[ev.kind],
       seconds: huntRealSeconds(minutes),
+      // HUNT-FOES (FIELD BUGS 2026-10-02, "enemies can attack you while the result loads"): the window holds the
+      // hunter's motor and WINFOE1 runs the foes under it - a foe come near (the rest's own test) ends the ask or the
+      // search as a No: nothing searched, nothing charged, the hands back to fight
+      interruptWhen: enemiesNear ? () => !!enemiesNear() : null,
       onSearched: () => {
         const now = env?.() ?? e;
         const minute = Math.floor(now.minute ?? 0);
@@ -62,11 +68,13 @@ export function createHunting({
           now: minute, currentDay: Math.trunc(minute / 1440), rolls, inflictPoison, inflictDisease,
         });
         for (const id of outcome.skills ?? []) tally?.(id);
-        advanceMinutes?.(minutes);
         return rows;
       },
       onClosed: (searched) => {
         _win = null;
+        // HUNT-FOES: the search's minutes pass as the box closes, not under it - offline the host spends them through
+        // the encounter tick, whose wanderer was stood 10-20 m off, facing a hunter the result page still held
+        if (outcome) advanceMinutes?.(minutes);
         if (searched && outcome?.beast) spawnBeast?.(outcome.beast);   // AUDIT SURV C: only after a search - a window dropped from under (a death) stands nothing
       },
     });

@@ -298,7 +298,7 @@ import {
   PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
   // CLIMB2: the hang, the shimmy, the grip and the free climb
   senseGrip, senseEaveAhead, senseEaveLedge, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
-  bandsClear, capsuleFits, PARKOUR_LEAN,
+  bandsClear, capsuleFits, PARKOUR_LEAN, PARKOUR_SIDESTEP_MAX, PARKOUR_SIDESTEP_PROBE, PARKOUR_SIDESTEP_RISE, PARKOUR_SIDESTEP_CLEAR, PARKOUR_HUG_PRESS,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
   PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_ARM_GRACE_S, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
@@ -2384,6 +2384,7 @@ export class PlayerMotor {
     }
     const into = [-w.normal[0], 0, -w.normal[2]];
     w.normal = c.normal;
+    w.gap = c.dist - CAPSULE_RADIUS;   // HUG-TOUCH: how far the face stands off the body (_fcMove's press)
     if (c.key !== w.key) { w.key = c.key; w.carrier = c.key != null ? (this.collider.bucketPose?.(c.key) ?? null) : null; }
     // CLIMB3: a fresh Jump on the free climb leaps - Back off the wall, Left or Right along it, else up it (Mac's
     // "Parkour leap"; until now Jump on a free climb did nothing). AUDIT CLIMB-FIELD J1 (Mac: "You cant jump from a
@@ -2434,8 +2435,57 @@ export class PlayerMotor {
     const held = () => this._fcHeld(n, w);
     for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);
     if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);
+    // STEP-BACK (FIELD BUGS 2026-10-02): going up, a face that steps back from the hands (a wall piece set 20 cm behind
+    // the one under it, its top too shallow to stand on) is reached for - the grab's own reach, as Back reaches for the
+    // wall under a sill (w.seek) - where the climb stopped under the step with nothing at its hands' contact
+    if (!held() && vert > 0 && !side && !w.seek) {
+      this._fcMove(was, 0, vert, v, n, dt);
+      const s = this.pos[1] - was[1] > 1e-4 && bandsClear(this.collider, this.pos, this.height)
+        ? wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH) : null;
+      if (s && s.normal[0] * n[0] + s.normal[2] * n[2] >= PARKOUR_FACE_FOLLOW) w.seek = true;
+    }
     if (!held()) { this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2]; }
     w.stuck = vert > 0 && this.pos[1] - was[1] < 1e-4;
+    if (vert <= 0 || side || (w.sidestep && this.pos[1] - w.sidestep.y0 >= PARKOUR_SIDESTEP_CLEAR)) w.sidestep = null;
+    if (!side && vert > 0 && (w.stuck || (w.sidestep && w.sidestep.gone < w.sidestep.want))) this._fcSidestep(v, n, dt, held);
+    return true;
+  }
+
+  /** SEAM-STEP (FIELD BUGS 2026-10-02, "A two blocks wall is too high for my character to climb up"): Daggerfall's
+   *  dungeon walls are stacked in 3.2 m units, and where the unit above stands a hand's width over to one side - its
+   *  corner, a jamb, a pier - the climber's head met its underside 1.4 m up the first unit and the climb went no
+   *  higher (the across move's clamp undid the resolve's push out from under it, which carried the classic climb on).
+   *  Stuck going straight up, the hands move along the wall to the nearest place the body rises again - the wall still
+   *  at them, within PARKOUR_SIDESTEP_MAX - along and up at the climb's diagonal pace until they are there, and the
+   *  climb goes on up from it. None that near, it stays stuck as under any top it cannot take. The way is kept until
+   *  the climb has risen PARKOUR_SIDESTEP_CLEAR past where it stuck: one obstruction moves the hands that far at most. */
+  _fcSidestep(v, n, dt, held) {
+    const w = this._wall;
+    const t = [-n[2], 0, n[0]];   // the across move's own +1 (_fcMove: -nz * side, nx * side)
+    const from = [this.pos[0], this.pos[1], this.pos[2]];
+    if (w.sidestep == null) {
+      const into = [-n[0], 0, -n[2]];
+      const rises = (s) => {
+        const q = [from[0] + t[0] * s, from[1] + PARKOUR_SIDESTEP_RISE, from[2] + t[2] * s];
+        return capsuleFits(this.collider, q, this.height) && !!wallContact(this.collider, q, into, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT);
+      };
+      for (let k = 1; k * PARKOUR_SIDESTEP_PROBE <= PARKOUR_SIDESTEP_MAX + 1e-9 && w.sidestep == null; k++) {
+        for (const s of [1, -1]) if (rises(s * k * PARKOUR_SIDESTEP_PROBE)) { w.sidestep = { dir: s, want: k * PARKOUR_SIDESTEP_PROBE, gone: 0, y0: from[1] }; break; }
+      }
+      if (w.sidestep == null) return false;
+    }
+    const st = w.sidestep;
+    if (st.gone >= st.want) return false;
+    const d = v * DIAGONAL_FACTOR;   // along and up in the one step, at the climb's diagonal pace
+    this._fcMove(from, st.dir, 0, Math.min(d, (st.want - st.gone) / dt), n, dt);
+    const gone = Math.abs(t[0] * (this.pos[0] - from[0]) + t[2] * (this.pos[2] - from[2]));
+    if (gone < 1e-4 || !held()) { this.pos[0] = from[0]; this.pos[1] = from[1]; this.pos[2] = from[2]; st.gone = st.want; return false; }
+    st.gone += gone;
+    if (w.stuck) {
+      const along = [this.pos[0], this.pos[1], this.pos[2]];
+      this._fcMove(along, 0, 1, d, n, dt);
+      if (!held()) { this.pos[0] = along[0]; this.pos[1] = along[1]; this.pos[2] = along[2]; }
+    }
     return true;
   }
 
@@ -2466,7 +2516,12 @@ export class PlayerMotor {
   _fcMove(was, side, vert, v, n, dt, out = null) {
     // CLIMB3: past a sill it held, the body rises straight up in front of it - pressed in, it was shoved down and back off
     // the sill's underside - until the feet are over it and the press takes it on to the wall above
-    const nx = n[0], nz = n[2], hug = out == null ? (this._wall?.past != null ? 0 : -this.speed * dt) : out;
+    // HUG-TOUCH (FIELD BUGS 2026-10-02): pressed to the face and a centimetre in, never the classic hug's whole step
+    // (Speed x dt, 7 cm a step) - the resolve's push back out of a press that deep leans along the face wherever the
+    // body meets a seam between two of its triangles, and Daggerfall's walls are a few great triangles split on the
+    // diagonal: up such a seam the push took 1.3 cm a step off the climb, and at Climbing 0 a climber never left the floor
+    const press = Math.min(this.speed * dt, Math.max(0, this._wall?.gap ?? Infinity) + PARKOUR_HUG_PRESS);
+    const nx = n[0], nz = n[2], hug = out == null ? (this._wall?.past != null ? 0 : -press) : out;
     this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2];
     this.collider.move(this.pos,
       -nz * side * v * dt + nx * hug, vert * v * dt, nx * side * v * dt + nz * hug,
