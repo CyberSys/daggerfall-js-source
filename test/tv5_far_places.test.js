@@ -127,7 +127,9 @@ test('PERF-TV readout: every mark on the one canvas; the screen read ONCE a fram
   hud.showTravelViewHud({}, doc);
   try {
     const marks = [];
-    for (let i = 0; i < 40; i++) marks.push({ key: `trav:${i}`, x: 3000 + i, y: 100, front: false, label: `Rider ${i}`, kind: 'traveller', edge: true });   // all held at the edge
+    // PIN MOVED (OW-CROWD): forty marks held at one edge - a band's each, never folded (forty travellers there are one
+    // crowd's arrow now, test/owcrowd.test.js)
+    for (let i = 0; i < 40; i++) marks.push({ key: `band:${i}`, x: 3000 + i, y: 100, front: false, label: `Rider ${i}`, kind: 'band', edge: true });   // all held at the edge
     marks.push({ key: 'place:1', x: 600, y: 300, front: true, label: 'Ripwych', kind: 'place', pick: true });
     const frame = { feet: { x: 640, y: 360, front: true }, heading: 0, yaw: 0, where: 'w', marks };
     reads.n = 0;
@@ -529,7 +531,8 @@ test('AUDIT NAMES N1-1/N1-5 readout: a busy first frame makes BADGE_BUILDS_PER_F
   hud.showTravelViewHud({}, P.doc);
   try {
     hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
-      { key: 'peer:long', x: 195, y: -3000, front: true, label: 'Aldric Stormcrown Vellan', kind: 'traveller', edge: true, badge: { title: 'dungeonmaster', glyphs: ['dm', 'dev', 'mod', 'sprout'], lv: 40, gt: 'DAGR' } },
+      // PIN MOVED (OW-CROWD): an arrow at the edge wears a badge only for my party now - the held badge's box asked of one
+      { key: 'peer:long', x: 195, y: -3000, front: true, label: 'Aldric Stormcrown Vellan', kind: 'party', edge: true, badge: { title: 'dungeonmaster', glyphs: ['dm', 'dev', 'mod', 'sprout'], lv: 40, gt: 'DAGR' } },
     ] });
     const [, x, , w] = P.draws.at(-1);
     assert.ok(Math.abs(x + w / 2 - 195) <= 1, `held ahead, centred (${x + w / 2})`);
@@ -543,9 +546,11 @@ test('AUDIT NAMES N1-8 readout: the kept images are capped by their pixels as we
   hud.showTravelViewHud({}, doc);
   try {
     const mark = (i) => ({ key: `peer:px${i}`, x: 100 + (i % 20) * 50, y: 200 + Math.floor(i / 20) * 40, front: true, label: `Pixelsworth the ${i}`, kind: 'traveller', badge: { title: 'founder', glyphs: ['dev'], lv: 12, gt: 'HND' } });
-    for (let i = 0; i < 300; i += hud.BADGE_BUILDS_PER_FRAME) {
+    // PIN MOVED (OW-CROWD): the six nearest wear a badge a frame now - fed six at a time, every one of them made
+    const step = Math.min(hud.BADGE_BUILDS_PER_FRAME, hud.TV_BADGES_MAX);
+    for (let i = 0; i < 300; i += step) {
       const marks = [];
-      for (let k = i; k < Math.min(300, i + hud.BADGE_BUILDS_PER_FRAME); k++) marks.push(mark(k));
+      for (let k = i; k < Math.min(300, i + step); k++) marks.push(mark(k));
       hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks });
     }
     texts.length = 0;
@@ -563,7 +568,8 @@ test('AUDIT NAMES N1-6 readout: a titled player held at the top near a corner an
   hud.showTravelViewHud({}, doc);
   try {
     hud.updateTravelViewHud({ feet: null, heading: null, yaw: 0, where: '', marks: [
-      { key: 'peer:top', x: -5047, y: -3176, front: true, label: 'Mack', kind: 'traveller', edge: true, badge: { title: 'developer', glyphs: ['dev'], lv: 40, gt: 'DAGR' } },
+      // PIN MOVED (OW-CROWD): held badges are my party's alone now - two of them
+      { key: 'peer:top', x: -5047, y: -3176, front: true, label: 'Mack', kind: 'party', edge: true, badge: { title: 'developer', glyphs: ['dev'], lv: 40, gt: 'DAGR' } },
       { key: 'peer:left', x: -5867, y: -3056, front: true, label: 'Aldric the Grey', kind: 'party', edge: true, badge: { title: 'founder', glyphs: ['sprout', 'dev'], lv: 12, gt: 'HND' } },
     ] });
     const [a, b] = draws.map(([, x, y, w, h]) => ({ x0: x, x1: x + w, y0: y, y1: y + h }));

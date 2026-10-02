@@ -56,7 +56,7 @@
       "test/accountdeploy.test.js",
       "test/wb5b_gate_claim.test.js"
     ],
-    "note": "A var of the name: every deploy rewrites it and Cloudflare refuses the secret its binding. FIELD BUGS 2026-09-30 (PIN MOVED): acct33. PROF7 (PIN MOVED): acct36. HOUSING (PIN MOVED): acct37. WB9g (PIN MOVED): acct38. PATREON-LINK (PIN MOVED): acct45. FIELD BUGS 2026-10-01 part four (PIN MOVED): acct46."
+    "note": "A var of the name: every deploy rewrites it and Cloudflare refuses the secret its binding. FIELD BUGS 2026-09-30 (PIN MOVED): acct33. PROF7 (PIN MOVED): acct36. HOUSING (PIN MOVED): acct37. WB9g (PIN MOVED): acct38. PATREON-LINK (PIN MOVED): acct45. FIELD BUGS 2026-10-01 part four (PIN MOVED): acct46. BOULDERS (PIN MOVED): acct47. MORE-NODES (PIN MOVED): acct48."
   },
   {
     "name": "GATEKEYS-the-proof-takes-no-key-for-a-key",

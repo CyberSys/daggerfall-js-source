@@ -138,7 +138,10 @@ test('PROF2 service: a boulder quarried - Rough Stone 3-5; a clean finish, or a 
   s.setXp(sb, xpForRank(100), 'mining', { spec100: 'stonebreaker' });
   const d = await s.call('/v1/prof/harvest', stone(sb, 400, 2, { glints: 0 }), sb.secret);
   assert.equal(d.body.material, 'stone:cut', 'a Stonebreaker cuts it always');
-  assert.equal(b.length, 3);
+  // PIN MOVED (BOULDERS, acct47): the Mountain's five boulders a day - the fifth quarried, a sixth no node
+  assert.equal(b.length, 5);
+  assert.equal((await s.call('/v1/prof/harvest', stone(mac, 400, 4, { glints: 0 }), mac.secret)).status, 200, 'the fifth slot');
+  assert.deepEqual((await s.call('/v1/prof/harvest', stone(mac, 400, 5, { glints: 0 }), mac.secret)).body, { error: 'bad-node' }, 'past the day\'s count');
   assert.deepEqual((await s.call('/v1/prof/harvest', { ...stone(mac, 400, 0, {}), node: key(400, 0), climate: SWAMP }, mac.secret)).body, { error: 'prof-pixel' }, 'a Swamp holds no boulders');
 });
 

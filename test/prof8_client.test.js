@@ -209,7 +209,7 @@ test('PROF8 kind: the cast stands ahead of the look only with a Fishing-Net in t
     const [cast] = k.looseNodesOf({ entity, dungeon: false });
     assert.ok(cast, 'a net, in water: a cast');
     assert.deepEqual(parseNodeKey(cast.key), { kind: 'haul', x: 300, y: 200, day: 20724, id: '0123456789ab' });
-    assert.deepEqual(cast.at(), [0, 1.0, CAST_AHEAD_M], 'just ahead of the look, below the eye');
+    assert.deepEqual(cast.at(), [0, 1.6, CAST_AHEAD_M], 'just ahead of the look, where it crosses there (PIN MOVED, CAST-LOOK: it stood 0.6 m under the eye whatever the look)');
     assert.equal(k.looseNodesOf({ entity, dungeon: false })[0].key, cast.key, 'the same cast until its haul');
     book._take(cast.key);
     assert.notEqual(k.looseNodesOf({ entity, dungeon: false })[0].key, cast.key, 'asked: a new one');

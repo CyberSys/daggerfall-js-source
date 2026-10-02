@@ -13,7 +13,8 @@
 //   nearest its point within VEIN_STONE_REACH tiles where nature could
 //   stand; else where nature stands at its point; else nowhere. A BOULDER
 //   is a piece itself - Quarrying works a rock field's boulders (5.2) -
-//   so a pixel with fewer pieces stands fewer. A piece holds one node.
+//   so a pixel with no clear side left stands fewer. ROCK-SHARE: a piece
+//   holds a node on each side, NODE_SPACING_M apart (it held one).
 //   THE PICTURE. The material's own item flat (TEXTURE.254: the metal's
 //   own, a new ore Lodestone's), a small cluster at the foot; a boulder's
 //   loose stone Lodestone's lump - no new art (law 6).
@@ -22,13 +23,13 @@
 //   its StrikeDown frames on each swing.
 // ═══════════════════════════════════════════════════════════════════
 import { veins, boulders, nodeKey, VEIN_TABLES, dungeonVeins, dveinKey } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, PROF_RANK_MAX, pickAxeBand, minedMaterial, storesFullIn } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, PROF_RANK_MAX, pickAxeBand, minedMaterial, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { natureStandsAt, groundAt, insideRocks } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home
 import { WORLD_MAP_TILE_DIM } from '../world/terrainTiles.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
 import { createMineAct } from '../systems/mineAct.js';
 import { FT } from '../systems/foragingLaw.js';
-import { foragingActRefusal, foragingToolIn } from '../systems/foragingInstall.js';
+import { foragingActRefusal, foragingToolIn, actChecksRefusal } from '../systems/foragingInstall.js';
 import { materialLabel } from '../systems/profItems.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { liveStat } from '../systems/statMods.js';
@@ -46,6 +47,15 @@ export const STONE_FLATS = 3;
 export const STONE_SCALE = 1.8;
 /** How far off a piece's box a node's flats stand (m), and how far a vein looks for a stone tile (tiles). */
 export const ROCK_OFFSET = 0.4;
+/** ROCK-SHARE: two nodes at a rock field stand at least this far apart (m) - on one piece's different sides, or two. */
+export const NODE_SPACING_M = 6;
+/** FOOT-IN (AUDIT of ROCK-FOOT): a node's foot stands at least this far inside its own pixel (m). A field's pieces reach
+ *  past the pixel's edge, and a node stood on the next pixel's ground was lit and on the compass but no look found it -
+ *  the gathering host asks only the pixels whose ground is in reach (gatherHost nearPixels) - and its height was read
+ *  off the edge's samples. */
+export const FOOT_INSET_M = 0.5;
+/** Whether a pixel-local (x, z) stands on the pixel's own ground, FOOT_INSET_M in. */
+const onPixel = (x, z) => x >= FOOT_INSET_M && x <= TERRAIN_SIZE - FOOT_INSET_M && z >= FOOT_INSET_M && z <= TERRAIN_SIZE - FOOT_INSET_M;
 export const VEIN_STONE_REACH = 24;
 /** A Prospector's compass marks the veins stood within this many metres (PROF0 3.3). */
 export const PROSPECT_M = 200;
@@ -79,6 +89,21 @@ export function rockFoot(box, x, z) {
 }
 /** The distance from (x, z) to a box's footprint (0 inside). */
 const toBox = (box, x, z) => Math.hypot(Math.max(box[0] - x, 0, x - box[3]), Math.max(box[2] - z, 0, z - box[5]));
+/** ROCK-FOOT: the sides a piece's foot may stand on (FOOT_SIDES), as points far off its centre for rockFoot to face -
+ *  (x, z) itself first, then the rest by how near their bearing is to it. */
+export const FOOT_SIDES = 8;
+function footTargets(box, x, z) {
+  const cx = (box[0] + box[3]) / 2, cz = (box[2] + box[5]) / 2;
+  const far = Math.max(box[3] - box[0], box[5] - box[2]) + 10;
+  const toward = Math.atan2(z - cz, x - cx);
+  const sides = [];
+  for (let k = 0; k < FOOT_SIDES; k++) {
+    const a = (k * 2 * Math.PI) / FOOT_SIDES;
+    sides.push({ a, off: Math.abs(Math.atan2(Math.sin(a - toward), Math.cos(a - toward))) });
+  }
+  sides.sort((p, q) => p.off - q.off || p.a - q.a);
+  return [[x, z], ...sides.map(({ a }) => [cx + Math.cos(a) * far, cz + Math.sin(a) * far])];
+}
 /** The stone tile nearest (tx, ty) within `reach` tiles where nature could stand, or null - VEIN-CLEAR: never a tile
  *  whose stand is inside a rock piece (`rocks`). */
 function nearestStone(samples, tilemap, locationRect, tx, ty, reach, rocks) {
@@ -105,21 +130,46 @@ function nearestStone(samples, tilemap, locationRect, tx, ty, reach, rocks) {
  */
 export function standMineNodes({ px, py, day, climate, region = null, confirmed = false, samples, tilemap, locationRect = null, rocks = [] }) {
   const out = [];
-  const free = [...(rocks ?? [])];
+  const pieces = rocks ?? [];
+  /** ROCK-SHARE: the feet taken - a piece holds a node on each of its sides NODE_SPACING_M apart */
+  const taken = [];
+  // ROCK-FOOT: the nearest piece with a foot clear of every piece - the side facing (x, z) first, then its others,
+  // nearest that way first. A piece whose one foot fell inside a neighbour was spent and nothing stood: a field's pieces
+  // overlap, so a boulder stood only where the first piece asked faced open ground. ROCK-SHARE: and clear of every node
+  // stood - a field's few open sides held one node a piece, so its boulders ran out at two or three a day
   const claim = (x, z) => {
-    if (!free.length) return null;
-    let bi = 0, bd = Infinity;
-    free.forEach((b, i) => { const d = toBox(b, x, z); if (d < bd) { bd = d; bi = i; } });
-    return free.splice(bi, 1)[0];
+    const order = pieces.map((b, i) => ({ i, d: toBox(b, x, z) })).sort((a, b) => a.d - b.d || a.i - b.i);
+    for (const { i } of order) {
+      for (const [tx, tz] of footTargets(pieces[i], x, z)) {
+        const foot = rockFoot(pieces[i], tx, tz);
+        if (!onPixel(foot[0], foot[1]) || insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN
+        if (taken.some((t) => Math.hypot(t[0] - foot[0], t[1] - foot[1]) < NODE_SPACING_M)) continue;
+        taken.push(foot);
+        return { rock: pieces[i], foot };
+      }
+    }
+    return null;
   };
+  // ROCK-FOOT: the boulders claim their pieces first - a vein with no piece left stands on the stone beside the field, a
+  // boulder with none stands nowhere (the veins took the field's clear pieces, and its boulders were rarely seen)
+  const stones = [];
+  for (const b of boulders({ x: px, y: py, day, climate })) {
+    // a boulder is a rock field's piece: none left whose foot is clear (AUDIT 29 C11: never inside a neighbour), none stands
+    const claimed = claim(b.u * TERRAIN_SIZE, b.v * TERRAIN_SIZE);
+    if (!claimed) continue;
+    const { rock, foot: [fx, fz] } = claimed;
+    const g = groundAt(samples, fx, fz);
+    stones.push({ key: nodeKey({ kind: 'boulder', x: px, y: py, day, slot: b.slot }), what: 'boulder', slot: b.slot, tier: b.tier, material: b.material, local: [fx, g, fz], rock, lift: Math.min(1.2, Math.max(0.4, (rock[4] - g) / 2)) });
+  }
   if (VEIN_TABLES[climate]) {
     for (const v of veins({ x: px, y: py, day, climate, region, confirmed })) {
       const x = v.u * TERRAIN_SIZE, z = v.v * TERRAIN_SIZE;
-      const rock = claim(x, z);
+      const claimed = claim(x, z);
+      const rock = claimed?.rock ?? null;
       let local = null;
-      if (rock) {
-        const [fx, fz] = rockFoot(rock, x, z);
-        if (!insideRocks(rocks ?? [], fx, fz)) local = [fx, groundAt(samples, fx, fz), fz];
+      if (claimed) {
+        const [fx, fz] = claimed.foot;
+        local = [fx, groundAt(samples, fx, fz), fz];
       }
       if (!local) {
         const tx = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(v.u * WORLD_MAP_TILE_DIM));
@@ -135,14 +185,7 @@ export function standMineNodes({ px, py, day, climate, region = null, confirmed 
       out.push({ key: nodeKey({ kind: 'vein', x: px, y: py, day, slot: v.slot }), what: 'vein', slot: v.slot, tier: v.tier, material: v.material, signature: v.signature, local, rock: rock ?? null, lift: 0.5 });
     }
   }
-  for (const b of boulders({ x: px, y: py, day, climate })) {
-    const rock = claim(b.u * TERRAIN_SIZE, b.v * TERRAIN_SIZE);
-    if (!rock) continue;   // a boulder is a rock field's piece: none left, none stands
-    const [fx, fz] = rockFoot(rock, b.u * TERRAIN_SIZE, b.v * TERRAIN_SIZE);
-    if (insideRocks(rocks ?? [], fx, fz)) continue;   // AUDIT 29 C11: its foot inside a neighbour - none stands
-    const g = groundAt(samples, fx, fz);
-    out.push({ key: nodeKey({ kind: 'boulder', x: px, y: py, day, slot: b.slot }), what: 'boulder', slot: b.slot, tier: b.tier, material: b.material, local: [fx, g, fz], rock, lift: Math.min(1.2, Math.max(0.4, (rock[4] - g) / 2)) });
-  }
+  out.push(...stones);
   return out;
 }
 /** A dungeon vein's checks: Foraging's inside, settlement, daylight and sea are the surface's (PROF0 5.1, 23) - the foe
@@ -236,6 +279,7 @@ export function mineKind({ book }) {
       return (specs('mining')[50] === 'prospector' && PROSPECTOR_MARKS[n.what]) || MINE_MARKS[n.what] || MINE_MARKS.vein;
     },
     tools: Object.freeze([FT.PickAxe]),   // TOOL-USE: the Pick-Axe's Use at a vein or a boulder is E there
+    where: (n) => (n.what === 'dvein' ? null : actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS)),   // SETTLE-SAID: a dungeon's vein asks no settlement (DUNGEON_SKIP)
     /** PROF-MENU: the menu's title - the boulder, or the vein's ore. */
     nodeName: (n) => (n.what === 'boulder' ? 'Boulder' : `${materialLabel(n.material).replace(/ Ore$/, '')} Vein`),
     plan(n, { entity, rank }) {
