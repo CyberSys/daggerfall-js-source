@@ -101,14 +101,15 @@ export const HULL_BUILDS = Object.freeze([
   // it): a gun at each of her ten gunports, its muzzle a hair outside her planking at the port's middle - the ports
   // 1.56 to 2.93 m over the sea, her gun deck at 1.085 - so a broadside leaves her through the holes it is fired from;
   // two chasers on swivels over her bow rail; the barrels over her stern under the castle. Her box is her hull's and
-  // her castle's MeshCollider's bounds; her rig her five sails' and their spars', each as it hangs set, over her roof
-  // (her castle's 12.3 - under it her box is her: the canvas over her waist below it is struck as her hull is).
+  // her castle's MeshCollider's bounds (GALLEON-2: her keel 4.64 m down on Mac's second export's deeper V); her rig
+  // her five sails' and their spars', each as it hangs set, over her roof (her castle's 12.3 - under it her box is her:
+  // the canvas over her waist below it is struck as her hull is).
   Object.freeze({   // 2 Small Ship - five ports a side on her gun deck (1.085), the guns' axis at the ports' middle (2.24)
     hull: 2, gun: 'long',
     broadside: Object.freeze([[5.949, 2.2435, -7.595], [5.949, 2.2435, -4.417], [5.949, 2.2435, -0.714], [5.949, 2.2435, 2.8105], [5.949, 2.2435, 6.5135]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.15, 7.45, 19.15]), Object.freeze([1.15, 7.45, 19.15])]) }),
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 5.4, -20.6])]) }),
-    hullHp: 420, sailHp: 160, crew: 24, deck: 6.2, beam: 5.4, ram: false, bowZ: 21.93, aftZ: -19.91, halfWidth: 5.86, keel: -3.89, top: 12.3, sailWay: 1,
+    hullHp: 420, sailHp: 160, crew: 24, deck: 6.2, beam: 5.4, ram: false, bowZ: 21.93, aftZ: -19.91, halfWidth: 5.86, keel: -4.64, top: 12.3, sailWay: 1,
     rig: rigOf([[-6.3, 12.3, 8.2], [6.3, 17.7, 11.6]], [[-5.65, 13.0, -0.8], [5.65, 19.0, 2.6]], [[-1.45, 12.3, -8.8], [1.45, 18.0, -0.1]], [[-1.1, 12.3, 9.4], [1.1, 16.5, 27.9]]),
   }),
   Object.freeze({   // 3 Large Galley - four long guns a side on the upper deck (10.25), three heavy guns over the stem, a ram

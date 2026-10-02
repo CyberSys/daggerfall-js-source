@@ -17,6 +17,13 @@
 // beams over it, the spars' grain and their iron hoops, the guns' iron, canvas, rope, gilt, the hatches' gratings, the
 // gunport lids' red, a planked door.
 //
+// GALLEON-2 (2026-10-02, Mac: "textures should be 64x64"): EVERY PICTURE IS 64 x 64, Daggerfall's own texture's size.
+// The tiling ones were that or smaller (the smaller painted at 64 now, their tiles stretched to keep the texel); the
+// whole-face ones (a sail's canvas, a door, a gunport lid) are painted at 64 over their face. And the three liveries
+// that ran a picture keel to rail - the hull's side, the castle's and the stern's - are painted as before and CUT into
+// 64-texel slices by height (`BANDS`): each slice its own record, square-pixelled at the density it had, and
+// world/galleonModel.js cuts each face they lie on at the slices' heights, so a band runs round her as it did.
+//
 // Each picture is `{ width, height, data }`, RGBA top-down (a PNG's order): textureReplacement.js's vendored-art door
 // (`addVendorTextures`, a `build` that returns one) takes it into the port's color32 order. Not a DFU member. Ledger A
 // (GALLEON).
@@ -24,22 +31,35 @@ import { mulberry32 } from '../combat/bloodArt.js';
 
 /** The galleon's pseudo-archive: past the gate's 38101, the court's 38111 and the spoils' 38121. */
 export const GALLEON_ARCHIVE = 38131;
-/** The records, by what wears them. */
+/** Every picture's size, square (GALLEON-2, Mac: "textures should be 64x64"). */
+export const GALLEON_TEX_SIZE = 64;
+/** The records, by what wears them. A livery's slices top down (`BANDS`): hullSide0 her rail's, hullSide3 her keel's. */
 export const TEX = Object.freeze({
-  hullSide: 0, hullBottom: 1, hullInner: 2, deck: 3, trim: 4, castle: 5, sternWindows: 6, spar: 7, iron: 8,
+  hullSide0: 0, hullBottom: 1, hullInner: 2, deck: 3, trim: 4, castle0: 5, sternWindows0: 6, spar: 7, iron: 8,
   canvas: 9, rope: 10, gilt: 11, grate: 12, lid: 13, door: 14, beams: 15, dark: 16,
+  // GALLEON-2: the liveries' lower slices, and her main deck's underside between Mac's beams
+  hullSide1: 17, hullSide2: 18, hullSide3: 19, castle1: 20, sternWindows1: 21, underDeck: 22,
 });
-/** The heights (the boat's frame, metres over the waterline) the hull's side picture spans, keel to rail. */
-export const HULL_SIDE_Y0 = -4.1;
+/** The heights (the boat's frame, metres over the waterline) the hull's side livery spans, keel to rail - GALLEON-2:
+ *  down to -4.2, her forefoot's new reach (-4.11) inside it. */
+export const HULL_SIDE_Y0 = -4.2;
 export const HULL_SIDE_Y1 = 7.4;
-/** The heights the castle's and the stern's pictures span, the main deck's foot to the castle rail's cap. */
+/** The heights the castle's and the stern's liveries span, the main deck's foot to the castle rail's cap. */
 export const CASTLE_Y0 = 5.7;
 export const CASTLE_Y1 = 12.3;
-/** How far each tiling picture repeats (metres a tile, u then v) - world/galleonModel.js projects by these. */
+/** The liveries as their slices: `y0..y1` cut into `recs.length` bands of 64 rows each, `recs` top down. */
+export const BANDS = Object.freeze({
+  hullSide: Object.freeze({ y0: HULL_SIDE_Y0, y1: HULL_SIDE_Y1, recs: Object.freeze([TEX.hullSide0, TEX.hullSide1, TEX.hullSide2, TEX.hullSide3]) }),
+  castle: Object.freeze({ y0: CASTLE_Y0, y1: CASTLE_Y1, recs: Object.freeze([TEX.castle0, TEX.castle1]) }),
+  sternWindows: Object.freeze({ y0: CASTLE_Y0, y1: CASTLE_Y1, recs: Object.freeze([TEX.sternWindows0, TEX.sternWindows1]) }),
+});
+/** How far each tiling picture repeats (metres a tile, u then v) - world/galleonModel.js projects by these; a
+ *  livery's (by its BANDS name) its u alone. GALLEON-2: the spar's, the iron's and the gilt's doubled with their
+ *  pictures, so a texel is the size it was. */
 export const GALLEON_TILE = Object.freeze({
   hullSide: [2.8, 0], hullBottom: [2, 2], hullInner: [2, 2], deck: [2, 2], trim: [2, 2], castle: [2.6, 0], sternWindows: [2.6, 0],
-  spar: [1, 2], iron: [1, 1], canvas: [0, 0], rope: [0, 0.5], gilt: [0.5, 0.5], grate: [1, 1], lid: [0, 0], door: [0, 0],
-  beams: [2, 2], dark: [1, 1],
+  spar: [2, 2], iron: [2, 2], canvas: [0, 0], rope: [0, 0.5], gilt: [1, 1], grate: [1, 1], lid: [0, 0], door: [0, 0],
+  beams: [2, 2], dark: [1, 1], underDeck: [2, 2],
 });
 
 /** The palette - Daggerfall's own muted earths, and the livery's three: oxblood, gilt, tar. */
@@ -132,6 +152,13 @@ function planks(img, { y0 = 0, y1 = img.height, ph = 8, lenMin = 24, lenMax = 48
   }
 }
 
+/** GALLEON-2: a livery's slice `k` (top down) - its rows k*64 .. k*64+63, a 64 x 64 picture of its own. */
+function sliceOf(img, k) {
+  const S = GALLEON_TEX_SIZE, out = picture(S, S);
+  out.data.set(img.data.subarray(k * S * S * 4, (k + 1) * S * S * 4));
+  return out;
+}
+
 /** A row band filled with one colour, a little noise on it. */
 function band(img, y0, y1, col, seed, amp = 0.06) {
   const n = noise(seed, img.width, img.height, 8, 8);
@@ -140,9 +167,10 @@ function band(img, y0, y1, col, seed, amp = 0.06) {
 
 // ── the pictures ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** The hull's side: 64 x 256, its rows her height from HULL_SIDE_Y1 (row 0) down to HULL_SIDE_Y0. */
-export function hullSideArt() {
-  const W = 64, H = 256;
+/** The hull's side livery: 64 x 256, its rows her height from HULL_SIDE_Y1 (row 0) down to HULL_SIDE_Y0 - worn as
+ *  its four slices (`hullSideArt`). */
+export function hullSideLivery() {
+  const W = 64, H = 64 * BANDS.hullSide.recs.length;
   const img = picture(W, H);
   const rowOf = (y) => Math.round(((HULL_SIDE_Y1 - y) / (HULL_SIDE_Y1 - HULL_SIDE_Y0)) * H);   // a height's row
   const n = noise(0x5a1, W, H, 8, 32);
@@ -175,6 +203,9 @@ export function hullSideArt() {
   for (let x = 0; x < W; x++) { put(img, x, ty0 - 1, C.giltDark); put(img, x, ty0, C.gilt); put(img, x, 0, C.waleLit); }
   return img;
 }
+
+/** The hull's side, slice `k` of four (0 her rail's, 3 her keel's): 64 x 64. */
+export const hullSideArt = (k) => sliceOf(hullSideLivery(), k);
 
 /** Below the waterline, seen from beneath: tarred planks, weed and the odd barnacle. 64 x 64, two metres a tile. */
 export function hullBottomArt() {
@@ -213,10 +244,11 @@ export function trimArt() {
   return img;
 }
 
-/** The stern castle's side: 64 x 128, its rows the castle's height (CASTLE_Y1 at row 0) - a black wale at the deck,
- *  oxblood panels framed in gilt, a gilt molding under the roof, and over it the rail's balusters. */
-export function castleArt() {
-  const W = 64, H = 128;
+/** The stern castle's side livery: 64 x 128, its rows the castle's height (CASTLE_Y1 at row 0) - a black wale at the
+ *  deck, oxblood panels framed in gilt, a gilt molding under the roof, and over it the rail's balusters. Worn as its
+ *  two slices (`castleArt`). */
+export function castleLivery() {
+  const W = 64, H = 64 * BANDS.castle.recs.length;
   const img = picture(W, H);
   const rowOf = (y) => Math.round(((CASTLE_Y1 - y) / (CASTLE_Y1 - CASTLE_Y0)) * H);
   const n = noise(0xca1, W, H, 8, 16);
@@ -252,11 +284,14 @@ export function castleArt() {
   return img;
 }
 
-/** The stern: the castle's band (castleArt's rows), with a gallery of leaded windows where its panels stand on the
- *  sides - a gilt frame each, the glass dark by day. */
-export function sternWindowsArt() {
-  const img = castleArt();
-  const W = 64, H = 128;
+/** The stern castle's side, slice `k` of two (0 the rail's): 64 x 64. */
+export const castleArt = (k) => sliceOf(castleLivery(), k);
+
+/** The stern's livery: the castle's (castleLivery's rows), with a gallery of leaded windows where its panels stand
+ *  on the sides - a gilt frame each, the glass dark by day. Worn as its two slices (`sternWindowsArt`). */
+export function sternWindowsLivery() {
+  const img = castleLivery();
+  const H = img.height;
   const rowOf = (y) => Math.round(((CASTLE_Y1 - y) / (CASTLE_Y1 - CASTLE_Y0)) * H);
   const top = rowOf(10.2), bot = rowOf(8.4);
   for (const px of [0, 32]) {
@@ -277,9 +312,13 @@ export function sternWindowsArt() {
   return img;
 }
 
-/** The emission the stern gallery's glass gives off: its panes alone, warm, on black (renderer.uploadEmissionTexture). */
-export function sternWindowsGlow() {
-  const img = sternWindowsArt();
+/** The stern, slice `k` of two (0 the rail's): 64 x 64. */
+export const sternWindowsArt = (k) => sliceOf(sternWindowsLivery(), k);
+
+/** The emission the stern gallery's glass gives off: its panes alone, warm, on black (renderer.uploadEmissionTexture)
+ *  - the whole livery's, cut as the stern's picture is (`galleonGlow`). */
+export function sternWindowsGlowLivery() {
+  const img = sternWindowsLivery();
   const out = picture(img.width, img.height);
   for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) {
     const c = get(img, x, y);
@@ -289,22 +328,22 @@ export function sternWindowsGlow() {
   return out;
 }
 
-/** Masts, yards and the bowsprit: grain running up the spar, an iron hoop on each tile. 32 x 64, a metre round and two
- *  long. */
+/** Masts, yards and the bowsprit: grain running up the spar, an iron hoop on each tile. 64 x 64, two metres round and
+ *  two long (a prism's spar wraps it once round). */
 export function sparArt() {
-  const img = picture(32, 64);
-  const n = noise(0x5b1, 32, 64, 16, 4);
-  for (let y = 0; y < 64; y++) for (let x = 0; x < 32; x++) put(img, x, y, mix(C.sparDark, C.spar, 0.35 + 0.65 * n(x, y)));
-  for (const y0 of [12]) for (let y = y0; y < y0 + 3; y++) for (let x = 0; x < 32; x++) put(img, x, y, y === y0 ? C.hoopLit : C.hoop);
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  const n = noise(0x5b1, S, S, 32, 4);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) put(img, x, y, mix(C.sparDark, C.spar, 0.35 + 0.65 * n(x, y)));
+  for (let y = 12; y < 15; y++) for (let x = 0; x < S; x++) put(img, x, y, y === 12 ? C.hoopLit : C.hoop);
   return img;
 }
 
-/** Gun iron: blackened, speckled, a little rust. 32 x 32, a metre a tile. */
+/** Gun iron: blackened, speckled, a little rust. 64 x 64, two metres a tile. */
 export function ironArt() {
-  const img = picture(32, 32);
-  const n = noise(0x1e1, 32, 32, 8, 8);
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  const n = noise(0x1e1, S, S, 16, 16);
   const r = mulberry32(0x1e2);
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     let c = mix(C.iron, C.ironLit, 0.5 * n(x, y));
     if (r() < 0.04) c = C.rust;
     put(img, x, y, c);
@@ -313,37 +352,36 @@ export function ironArt() {
 }
 
 /** A sail's canvas, the whole sail on one picture (u across it, v up it): its cloths sewn in vertical seams, a reef
- *  band with its points, a tabling round the edge, and weather darkening it toward the foot. 128 x 128. */
+ *  band with its points, a tabling round the edge, and weather darkening it toward the foot. 64 x 64. */
 export function canvasArt() {
-  const S = 128;
-  const img = picture(S, S);
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
   const n = noise(0xca9, S, S, 8, 8);
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     let c = mix(C.canvas, C.canvasDirt, 0.25 * n(x, y) + 0.25 * (y / S));
-    if (x % 16 === 0) c = C.canvasSeam;                       // the cloths' seams
-    if (x < 2 || x > S - 3 || y < 2 || y > S - 3) c = C.canvasSeam;   // the tabling
+    if (x % 8 === 0) c = C.canvasSeam;                                // the cloths' seams
+    if (x < 1 || x > S - 2 || y < 1 || y > S - 2) c = C.canvasSeam;   // the tabling
     put(img, x, y, c);
   }
-  for (const ry of [30, 31]) for (let x = 2; x < S - 2; x++) put(img, x, ry, ry === 30 ? C.canvasSeam : mix(C.canvasSeam, C.canvas, 0.5));
-  for (let x = 6; x < S - 4; x += 8) { put(img, x, 32, C.ropeDark); put(img, x, 33, C.rope); }   // the reef points
+  for (let x = 1; x < S - 1; x++) put(img, x, 15, C.canvasSeam);                            // the reef band
+  for (let x = 3; x < S - 2; x += 4) { put(img, x, 16, C.ropeDark); put(img, x, 17, C.rope); }   // its points
   return img;
 }
 
-/** Rope: a laid hemp line, its strands twisting along it. 16 x 64 (u round the rope, v along half a metre). */
+/** Rope: a laid hemp line, its strands twisting along it. 64 x 64 (u round the rope, v along half a metre). */
 export function ropeArt() {
-  const img = picture(16, 64);
-  for (let y = 0; y < 64; y++) for (let x = 0; x < 16; x++) {
-    const t = ((x * 2 + y) % 16) / 16;
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const t = ((x / 2 + y) % 16) / 16;
     put(img, x, y, t < 0.15 ? C.ropeDark : mix(C.rope, C.ropeDark, 0.45 * Math.abs(t - 0.55)));
   }
   return img;
 }
 
-/** Gilt: the carving's gold, worn on its high places. 32 x 32. */
+/** Gilt: the carving's gold, worn on its high places. 64 x 64, a metre a tile. */
 export function giltArt() {
-  const img = picture(32, 32);
-  const n = noise(0x611, 32, 32, 8, 8);
-  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  const n = noise(0x611, S, S, 16, 16);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     const v = n(x, y);
     put(img, x, y, v > 0.7 ? C.giltLit : v < 0.3 ? C.giltDark : C.gilt);
   }
@@ -367,27 +405,28 @@ export function grateArt() {
 }
 
 /** A gunport lid: its whole face (u across, v up) - the strake's oxblood planked, a black border, and its iron
- *  hinge straps over the top. 32 x 64. */
+ *  hinge straps over the top. 64 x 64. */
 export function lidArt() {
-  const img = picture(32, 64);
-  planks(img, { ph: 8, lenMin: 32, lenMax: 32, seed: 0x11d, base: () => C.oxblood, tone: 0.06, seamCol: [70, 20, 16], vertical: false });
-  for (let y = 0; y < 64; y++) for (let x = 0; x < 32; x++) if (x < 2 || x > 29 || y < 2 || y > 61) put(img, x, y, C.wale);
-  for (const sx of [6, 22]) for (let y = 2; y < 30; y++) for (let x = sx; x < sx + 4; x++) put(img, x, y, x === sx ? C.hoopLit : C.hoop);
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  planks(img, { ph: 8, lenMin: S, lenMax: S, seed: 0x11d, base: () => C.oxblood, tone: 0.06, seamCol: [70, 20, 16], vertical: false });
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (x < 4 || x > S - 5 || y < 2 || y > S - 3) put(img, x, y, C.wale);
+  for (const sx of [12, 44]) for (let y = 2; y < 30; y++) for (let x = sx; x < sx + 8; x++) put(img, x, y, x === sx ? C.hoopLit : C.hoop);
   return img;
 }
 
-/** A door: vertical planks, two iron strap hinges, a ring. 64 x 128, the leaf's whole face. */
+/** A door: vertical planks, two iron strap hinges, a ring. 64 x 64, the leaf's whole face. */
 export function doorArt() {
-  const img = picture(64, 128);
-  const n = noise(0xd00, 128, 64, 4, 16);
-  planks(img, { ph: 16, lenMin: 128, lenMax: 128, seed: 0xd01, base: (x, y) => mix(C.oakDark, C.oak, 0.4 * n(x, y)), tone: 0.08, grain: 0.15, seamCol: C.seam, vertical: true });
-  for (const hy of [20, 104]) for (let y = hy; y < hy + 5; y++) for (let x = 4; x < 52; x++) put(img, x, y, y === hy ? C.hoopLit : C.hoop);
-  for (let k = 0; k < 360; k += 10) { const a = (k * Math.PI) / 180; put(img, 52 + Math.round(Math.cos(a) * 4), 66 + Math.round(Math.sin(a) * 5), C.hoopLit); }
-  for (let y = 0; y < 128; y++) { put(img, 0, y, C.wale); put(img, 63, y, C.wale); }
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  const n = noise(0xd00, S, S, 4, 8);
+  planks(img, { ph: 16, lenMin: S, lenMax: S, seed: 0xd01, base: (x, y) => mix(C.oakDark, C.oak, 0.4 * n(x, y)), tone: 0.08, grain: 0.15, seamCol: C.seam, vertical: true });
+  for (const hy of [10, 51]) for (let y = hy; y < hy + 3; y++) for (let x = 4; x < 52; x++) put(img, x, y, y === hy ? C.hoopLit : C.hoop);
+  for (let k = 0; k < 360; k += 15) { const a = (k * Math.PI) / 180; put(img, 52 + Math.round(Math.cos(a) * 4), 33 + Math.round(Math.sin(a) * 3), C.hoopLit); }
+  for (let y = 0; y < S; y++) { put(img, 0, y, C.wale); put(img, S - 1, y, C.wale); }
   return img;
 }
 
-/** The underside of a deck from the hold: planks across, and a heavy beam every metre. 64 x 64, two metres a tile. */
+/** The underside of a deck with no beams of its own modelled (the castle's roof over the great cabin): planks across,
+ *  and a heavy beam every metre. 64 x 64, two metres a tile. */
 export function beamsArt() {
   const img = picture(64, 64);
   planks(img, { ph: 8, seed: 0xbe1, base: () => C.innerDark, tone: 0.1, trenail: C.beam });
@@ -395,30 +434,42 @@ export function beamsArt() {
   return img;
 }
 
-/** The dark of a port's throat and a hold's corners. 8 x 8. */
-export function darkArt() {
-  const img = picture(8, 8);
-  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) put(img, x, y, (x + y) % 3 ? C.black : [28, 24, 22]);
+/** GALLEON-2: her main deck's underside over the gun deck, between the beams Mac modelled under it - its planks alone,
+ *  pinned to them. 64 x 64, two metres a tile. */
+export function underDeckArt() {
+  const img = picture(64, 64);
+  planks(img, { ph: 8, seed: 0xbe1, base: () => C.innerDark, tone: 0.1, trenail: C.beam });
   return img;
 }
 
-/** Every picture the galleon wears: `[record, picture]`, in record order. */
+/** The dark of a port's throat and a hold's corners. 64 x 64, a metre a tile. */
+export function darkArt() {
+  const S = GALLEON_TEX_SIZE, img = picture(S, S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) put(img, x, y, ((x >> 3) + (y >> 3)) % 3 ? C.black : [28, 24, 22]);
+  return img;
+}
+
+/** Every picture the galleon wears: `[record, picture]`, in record order - each 64 x 64 (GALLEON-2), the liveries as
+ *  their slices. */
 export function galleonArt() {
+  const hull = hullSideLivery(), castle = castleLivery(), stern = sternWindowsLivery();
+  const cut = (band, livery) => band.recs.map((rec, k) => [rec, sliceOf(livery, k)]);
   return [
-    [TEX.hullSide, hullSideArt()], [TEX.hullBottom, hullBottomArt()], [TEX.hullInner, hullInnerArt()], [TEX.deck, deckArt()],
-    [TEX.trim, trimArt()], [TEX.castle, castleArt()], [TEX.sternWindows, sternWindowsArt()], [TEX.spar, sparArt()],
+    ...cut(BANDS.hullSide, hull), [TEX.hullBottom, hullBottomArt()], [TEX.hullInner, hullInnerArt()], [TEX.deck, deckArt()],
+    [TEX.trim, trimArt()], ...cut(BANDS.castle, castle), ...cut(BANDS.sternWindows, stern), [TEX.spar, sparArt()],
     [TEX.iron, ironArt()], [TEX.canvas, canvasArt()], [TEX.rope, ropeArt()], [TEX.gilt, giltArt()], [TEX.grate, grateArt()],
-    [TEX.lid, lidArt()], [TEX.door, doorArt()], [TEX.beams, beamsArt()], [TEX.dark, darkArt()],
-  ];
+    [TEX.lid, lidArt()], [TEX.door, doorArt()], [TEX.beams, beamsArt()], [TEX.dark, darkArt()], [TEX.underDeck, underDeckArt()],
+  ].sort((x, y) => x[0] - y[0]);
 }
 
 /** A record's night glow (its emission mask, top-down like its picture), or null for one that has none: the stern
- *  gallery's glass alone. Made once. */
+ *  gallery's glass alone - each of its slices its own cut of the glow. Made once. */
 let _glow = null;
 export function galleonGlow(record) {
-  if (record !== TEX.sternWindows) return null;
-  _glow ??= sternWindowsGlow();
-  return _glow;
+  const k = BANDS.sternWindows.recs.indexOf(record);
+  if (k < 0) return null;
+  _glow ??= (() => { const g = sternWindowsGlowLivery(); return BANDS.sternWindows.recs.map((_, i) => sliceOf(g, i)); })();
+  return _glow[k];
 }
 
 let _registered = false;

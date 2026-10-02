@@ -29,7 +29,7 @@
 // THE FRAME is Unity's, the boat's: +x starboard, +y up, +z the bow, the root on the waterline - every measurement
 // below is read off the bake (its frame, tools/bakeGalleon.mjs FRAME: Mac's metres x 0.7) and pinned against it
 // (test/galleon_model.test.js). Not a DFU member. Ledger A (GALLEON).
-import { GALLEON_ARCHIVE, TEX, GALLEON_TILE, HULL_SIDE_Y0, HULL_SIDE_Y1, CASTLE_Y0, CASTLE_Y1 } from './galleonArt.js';
+import { GALLEON_ARCHIVE, TEX, GALLEON_TILE, BANDS } from './galleonArt.js';
 import { MeshBench, colliderOf, prism, rope, box, planarUv, newell, sub, add, scl, dot, norm, len } from './galleonMesh.js';
 import { buildRig, RIG } from './galleonRig.js';
 import { pathHash } from './unityAnimator.js';
@@ -53,6 +53,9 @@ export const MEASURED = Object.freeze({
   castleDoor: Object.freeze({ halfX: 0.777, y0: 6.181, y1: 8.771, z: -10.395 }),
   bulkheadDoor: Object.freeze({ halfX: 0.777, y0: 1.085, y1: 3.675, z: -10.16 }),
   rudderPivotZ: -18.228,
+  // GALLEON-2: her six deck beams over the gun deck (Mac's second export), aft to fore - each 0.775 m fore and aft,
+  // their feet `underY`, their heads in the main deck
+  beams: Object.freeze({ z: Object.freeze([-12.857, -6.912, -1.89, 2.208, 7.107, 10.469]), halfZ: 0.387, underY: 5.221, halfX: 5.079 }),
 });
 
 /** The slope of the ramps her castle's stair wells run down under her two flights (a face's normal's y between
@@ -74,10 +77,12 @@ export const GALLEON_BATTERIES = Object.freeze({
 
 // ── the bake's parts, textured ─────────────────────────────────────────────────────────────────────────────────────
 
-/** Which picture a face of a baked part wears, and how it lies on it: `{ rec, uv(p) }`. */
+/** Which picture a face of a baked part wears, and how it lies on it: `{ rec, uv(p) }` - or, a face of a livery (the
+ *  hull's side, the castle's, the stern's), `{ band, u(p) }`: the livery's slices by height (galleonArt.js BANDS),
+ *  each 64 texels tall, that bakedPartGeometry cuts the face into, u along her as the livery tiles. */
 export function faceSkin(role, n, c) {
   const tiled = (rec) => ({ rec, uv: (p) => planarUv(p, n, GALLEON_TILE[keyOf(rec)]) });
-  const banded = (rec, y0, y1, tileU) => ({ rec, uv: (p) => [planarUv(p, n, [tileU, 1])[0], (p[1] - y0) / (y1 - y0)] });
+  const banded = (name) => ({ band: BANDS[name], u: (p) => planarUv(p, n, [GALLEON_TILE[name][0], 1])[0] });
   const up = n[1] > 0.7, down = n[1] < -0.7;
   switch (role) {
     case 'hull': {
@@ -87,27 +92,29 @@ export function faceSkin(role, n, c) {
       const core = [0, c[1], Math.max(-14, Math.min(14, c[2]))];
       if (dot(n, sub(core, c)) > 0) return tiled(TEX.hullInner);   // a face looking in toward her keel line: the ceiling planks
       if (n[1] < -0.55) return tiled(TEX.hullBottom);
-      return banded(TEX.hullSide, HULL_SIDE_Y0, HULL_SIDE_Y1, GALLEON_TILE.hullSide[0]);
+      return banded('hullSide');
     }
     case 'rudder': return tiled(TEX.hullBottom);
+    // GALLEON-2: a deck beam is a squared oak timber, its grain along it (athwartships) on its sides and its foot
+    case 'deckBeam': return { rec: TEX.trim, uv: (p) => [p[0] / GALLEON_TILE.trim[0], (Math.abs(n[1]) > 0.7 ? p[2] : p[1]) / GALLEON_TILE.trim[1]] };
     case 'gunDeck': return tiled(TEX.deck);
-    case 'mainDeck': return tiled(up ? TEX.deck : down ? TEX.beams : TEX.trim);
+    case 'mainDeck': return tiled(up ? TEX.deck : down ? TEX.underDeck : TEX.trim);   // GALLEON-2: under it, her beams are Mac's
     case 'castle': {
       const out = dot(n, sub(c, [0, 8.4, -15.1])) > 0;
       if (Math.abs(c[0]) < 0.85 && c[2] > -10.6 && Math.abs(n[2]) < 0.3 && c[1] < 9.2) return tiled(TEX.trim);   // the doorway's jambs and head
       if (!up && !down && Math.abs(n[1]) > 0.4 && c[1] > 9) return tiled(TEX.trim);   // the stairwells' cut
       if (out) {
         if (up) return tiled(TEX.deck);
-        if (n[2] < -0.25 && c[1] > 7.6) return banded(TEX.sternWindows, CASTLE_Y0, CASTLE_Y1, GALLEON_TILE.sternWindows[0]);
+        if (n[2] < -0.25 && c[1] > 7.6) return banded('sternWindows');
         if (down) return tiled(TEX.hullInner);
-        return banded(TEX.castle, CASTLE_Y0, CASTLE_Y1, GALLEON_TILE.castle[0]);
+        return banded('castle');
       }
       return tiled(down ? TEX.beams : up ? TEX.deck : TEX.hullInner);
     }
     case 'castleRail': case 'castleParapet': {
       const out = dot(n, sub(c, [0, c[1], -15.0])) > 0;
       if (up || down) return tiled(TEX.trim);
-      return out ? banded(TEX.castle, CASTLE_Y0, CASTLE_Y1, GALLEON_TILE.castle[0]) : tiled(TEX.trim);
+      return out ? banded('castle') : tiled(TEX.trim);
     }
     case 'stairsPort': case 'stairsStarboard': return tiled(up ? TEX.deck : TEX.trim);
     case 'bulkhead': return tiled(Math.abs(c[0]) < 0.85 && Math.abs(n[2]) < 0.3 ? TEX.trim : TEX.hullInner);
@@ -124,10 +131,16 @@ const pointsOf = (part) => { const out = []; for (let i = 0; i < part.positions.
 
 /**
  * A baked part as the port draws it: each polygon's triangles flat on its own normal, wearing its face's picture -
- * moved by `offset` (a hinge's: its part re-based on the node that turns it).
+ * moved by `offset` (a hinge's: its part re-based on the node that turns it). GALLEON-2: or several parts of one role
+ * as one mesh (`part` a list - her six deck beams), each face its own picture as alone.
  */
-export function bakedPartGeometry(part, { offset = [0, 0, 0], role = part.role, keep = null } = {}) {
+export function bakedPartGeometry(part, { offset = [0, 0, 0], role = Array.isArray(part) ? part[0].role : part.role, keep = null } = {}) {
   const bench = new MeshBench();
+  for (const one of Array.isArray(part) ? part : [part]) benchPart(bench, one, { offset, role, keep });
+  return bench.finish();
+}
+/** One baked part's faces onto `bench` (bakedPartGeometry's). */
+function benchPart(bench, part, { offset, role, keep }) {
   const pts = pointsOf(part).map((p) => sub(p, offset));
   part.polygons.forEach((poly, k) => {
     const ring = poly.map((i) => pts[i]);
@@ -138,10 +151,40 @@ export function bakedPartGeometry(part, { offset = [0, 0, 0], role = part.role, 
     for (let t = 0; t < part.triangleOf.length; t++) {
       if (part.triangleOf[t] !== k) continue;
       const [a, b, cc] = [part.triangles[t * 3], part.triangles[t * 3 + 1], part.triangles[t * 3 + 2]].map((i) => pts[i]);
-      bench.tri(skin.rec, a, b, cc, skin.uv(add(a, offset)), skin.uv(add(b, offset)), skin.uv(add(cc, offset)), n);
+      if ('band' in skin) bandTri(bench, skin, n, offset, a, b, cc);
+      else bench.tri(skin.rec, a, b, cc, skin.uv(add(a, offset)), skin.uv(add(b, offset)), skin.uv(add(cc, offset)), n);
     }
   });
-  return bench.finish();
+}
+
+/**
+ * GALLEON-2: a livery's triangle cut at its band's slice heights (her frame's - `offset` the part's) into the pieces each
+ * 64-texel slice wears: each piece its slice's record, v up that slice (1 its top row). The outer slices take what lies
+ * past the band's ends, v held at their edge (her faces lie inside their bands - a pin reads it).
+ */
+function bandTri(bench, { band, u }, n, offset, a, b, c) {
+  const S = band.recs.length, h = (band.y1 - band.y0) / S;
+  for (let k = 0; k < S; k++) {
+    const top = k === 0 ? Infinity : band.y1 - k * h, bottom = k === S - 1 ? -Infinity : band.y1 - (k + 1) * h;
+    const piece = clipY(clipY([a, b, c], offset[1], bottom, 1), offset[1], top, -1);
+    if (piece.length < 3) continue;
+    const y0 = band.y1 - (k + 1) * h;
+    const uv = (p) => { const w = add(p, offset); return [u(w), Math.min(1, Math.max(0, (w[1] - y0) / h))]; };
+    for (let i = 1; i + 1 < piece.length; i++) bench.tri(band.recs[k], piece[0], piece[i], piece[i + 1], uv(piece[0]), uv(piece[i]), uv(piece[i + 1]), n);
+  }
+}
+/** The part of a convex polygon on one side of the level `y` (her frame: a point's y plus `dy`) - `keep` 1 above it,
+ *  -1 below; its corners in order, the level's crossings among them. */
+function clipY(poly, dy, y, keep) {
+  if (!Number.isFinite(y)) return poly;
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length];
+    const sp = keep * (p[1] + dy - y), sq = keep * (q[1] + dy - y);
+    if (sp >= 0) out.push(p);
+    if ((sp > 0 && sq < 0) || (sp < 0 && sq > 0)) { const t = sp / (sp - sq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t]); }
+  }
+  return out;
 }
 
 // ── the parts built here ───────────────────────────────────────────────────────────────────────────────────────────
@@ -409,6 +452,11 @@ export function galleonPrefab(bake, csa) {
     ['bulkhead', 'Bulkhead'], ['stairsPort', 'StairsPort'], ['stairsStarboard', 'StairsStarboard'], ['balustradePort', 'BalustradePort'], ['balustradeStarboard', 'BalustradeStarboard'],
     ['mainMast', 'MainMast'], ['foreMast', 'ForeMast'], ['mainPartner', 'MainPartner'], ['mainStep', 'MainStep'], ['forePartner', 'ForePartner'], ['foreStep', 'ForeStep'],
     ['crowsNest', 'CrowsNest'], ['bowsprit', 'Bowsprit']]) kids.push(baked(role, name));
+  // GALLEON-2: her deck beams, one node over the six (a collider too - nothing aboard reaches them but a ladder's
+  // climber's hand)
+  const beamParts = bake.parts.filter((x) => x.role === 'deckBeam');
+  if (!beamParts.length) throw new Error('galleon: the bake has no deckBeam');
+  kids.push(meshNode('DeckBeams', 'galleon:deckBeams', bakedPartGeometry(beamParts), { collider: true }));
 
   // the hatch covers: Mac's fore cover is both (his aft one he left propped open), each on a hinge at its starboard edge
   const fore = part('hatchFore');
@@ -490,7 +538,7 @@ export function galleonPrefab(bake, csa) {
   // the bed in the great cabin under the castle's roof
   kids.push(nodeOf('BedObject', { p: [3.55, D, -16.2], r: yaw(-90) }));
   // the lanterns: two on the stern rail and the great one at her taffrail, two flanking the castle's door, three
-  // hanging in the gun deck and one in the cabin
+  // hanging in the gun deck - from her beams (GALLEON-2: the second, third and fifth, aft to fore) - and one in the cabin
   const lanternFlat = () => nodeOf('BillboardHelper-210_027:2');
   const pole = clone(findNode(old, 'LanternHookStandPoleShort'));
   for (const s of [-1, 1]) kids.push({ ...clone(pole), position: [s * 2.35, R, -18.7], rotation: yaw(s * -150) });
@@ -498,7 +546,7 @@ export function galleonPrefab(bake, csa) {
   kids.push(stand);
   const hook = clone(findNode(old, 'LanternHook'));
   for (const s of [-1, 1]) kids.push({ ...clone(hook), name: s < 0 ? 'LanternHookDoorPort' : 'LanternHookDoorStarboard', position: [s * 1.45, M.castleDoor.y1 + 0.2, M.castleFrontZ + 0.02], rotation: yaw(180) });
-  for (const [i, z] of [-8.6, -2.4, 4.6].entries()) kids.push(nodeOf(i ? `LanternHanging (${i})` : 'LanternHanging', { p: [0, M.mainDeckUnderY - 0.05, z], kids: [lanternFlat()] }));
+  for (const [i, k] of [1, 2, 4].entries()) kids.push(nodeOf(i ? `LanternHanging (${i})` : 'LanternHanging', { p: [0, M.beams.underY - 0.01, M.beams.z[k]], kids: [lanternFlat()] }));
   kids.push(nodeOf('LanternHanging (3)', { p: [0, M.castleCeilingY - 0.05, -15.4], kids: [lanternFlat()] }));
   // her colours over the crow's nest, on the flagstaff the rig stands there
   kids.push(fromOld('FlagObject', { p: [0, RIG.nestTopY + 1.45, RIG.mainZ + 0.05] }));

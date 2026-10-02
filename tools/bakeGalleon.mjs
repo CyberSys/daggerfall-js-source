@@ -13,6 +13,17 @@
 // (measured, node for node). So one is committed, and the hatch and the
 // shutter are read out of it by their own objects (`ROLES` below).
 //
+// GALLEON-2 (2026-10-02, Mac: "Replace it with this updated model"):
+// New_Ship_Even_EVEN_newer.fbx, committed over New_Ship.fbx. Read against
+// the first, part for part: the ship stands 36.25 m along the scene's Y
+// (FRAME.centreline - she was on Y 0); her hull is new below the wale - a
+// deeper V bottom on a keel 0.9 m lower, a finer entry and a forefoot
+// swept up to the stem (95 faces where it was 87); six deck beams carry
+// her main deck over the gun deck (`deckBeam`); and every other part is
+// the first's to the micrometre. The scene also keeps a TWIN of most parts
+// standing in the same place (Shift+D, never moved - checked vertex for
+// vertex, `SKIP` twin) and three more working stations far along Y.
+//
 // tools/fbxRead.mjs is the reader and tools/fbxMesh.mjs's helpers do the
 // polygon work; this is the bake for a SCENE OF PARTS rather than one mesh.
 // It does three things and nothing else, and leaves everything that is art
@@ -27,7 +38,8 @@
 //    +Y. Come Sail Away's hulls - and so the port's boats - stand in Unity's
 //    frame: +x starboard, +y up, +z the bow, the root on the waterline
 //    (systems/naval/navalShips.js's header). So a scene point (X, Y, Z) is
-//    the boat's ( -Y, Z - WATERLINE, X - MIDSHIP ) times SCALE: a mirror,
+//    the boat's ( CENTRELINE - Y, Z - WATERLINE, X - MIDSHIP ) times SCALE
+//    (CENTRELINE her keel line's Y, the middle of her hull's beam): a mirror,
 //    which is why every polygon's corners are REVERSED on the way through -
 //    Blender's front is counter-clockwise in a right-handed frame and the
 //    port's is clockwise in Unity's (renderer.js frontFace(CW)), so the
@@ -63,8 +75,9 @@ import { isMain } from './lib/isMain.mjs';
 export const SOURCE_FBX = 'src/assets/galleon/source/New_Ship.fbx';
 export const OUT = 'src/assets/galleon/galleon.json';
 
-/** The boat's frame, from Mac's scene (metres, Z up, bow +X). */
-export const FRAME = Object.freeze({ scale: 0.7, waterline: 3, midship: 2.7 });
+/** The boat's frame, from Mac's scene (metres, Z up, bow +X). GALLEON-2: `centreline` the scene Y of her keel line -
+ *  her hull's beam halved, 27.8779 to 44.6156 - where the first export stood her on Y 0. */
+export const FRAME = Object.freeze({ scale: 0.7, waterline: 3, midship: 2.7, centreline: 36.2467 });
 
 /**
  * Each of the scene's objects, by the role it plays aboard. Read off the
@@ -74,33 +87,58 @@ export const FRAME = Object.freeze({ scale: 0.7, waterline: 3, midship: 2.7 });
  * that renamed or moved one fails here by name, never ships a stair as a
  * hatch.
  */
+const Y = FRAME.centreline;
 export const ROLES = Object.freeze({
-  Cube: Object.freeze({ role: 'hull', at: [2, 5, 8] }),
-  'Cube.001': Object.freeze({ role: 'gunDeck', at: [0, 0, 4.55] }),
-  'Cube.002': Object.freeze({ role: 'mainDeck', at: [0, 0, 11.7] }),
-  'Cube.003': Object.freeze({ role: 'hatchAft', at: [-3.9, 0, 13] }),
-  'Cube.004': Object.freeze({ role: 'hatchFore', at: [9.3, 0, 11.9] }),
-  'Cube.005': Object.freeze({ role: 'castle', at: [-18, 0, 15] }),
-  'Cube.006': Object.freeze({ role: 'castleParapet', at: [-15, 0, 19] }),
-  'Cube.007': Object.freeze({ role: 'bulkhead', at: [-11.8, 0, 8] }),
-  'Cube.008': Object.freeze({ role: 'stairsStarboard', at: [-13, -5.8, 15] }),
-  'Cube.009': Object.freeze({ role: 'balustradePort', at: [-10, 7.45, 13] }),
-  'Cube.010': Object.freeze({ role: 'stairsPort', at: [-13, 5.8, 15] }),
-  'Cube.011': Object.freeze({ role: 'gunportLid', at: [-3.6, 9.3, 7.2] }),
-  'Cube.014': Object.freeze({ role: 'balustradeStarboard', at: [-10, -7.45, 13] }),
-  'Cube.015': Object.freeze({ role: 'castleRail', at: [-20, 0, 19.5] }),
-  Cylinder: Object.freeze({ role: 'bowsprit', at: [37, 0, 14.5] }),
-  'Cylinder.001': Object.freeze({ role: 'mainMast', at: [2.5, 0, 20] }),
-  'Cylinder.002': Object.freeze({ role: 'foreMast', at: [15.3, 0, 20] }),
-  'Cylinder.003': Object.freeze({ role: 'mainPartner', at: [2.6, 0, 12.2] }),
-  'Cylinder.004': Object.freeze({ role: 'mainStep', at: [2.6, 0, 5.3] }),
-  'Cylinder.005': Object.freeze({ role: 'foreStep', at: [15.4, 0, 5.3] }),
-  'Cylinder.006': Object.freeze({ role: 'forePartner', at: [15.4, 0, 12.2] }),
-  'Cylinder.007': Object.freeze({ role: 'crowsNest', at: [2.7, 0, 30] }),
+  Cube: Object.freeze({ role: 'hull', at: [2, Y + 5, 8] }),
+  'Cube.001': Object.freeze({ role: 'gunDeck', at: [0, Y, 4.55] }),
+  'Cube.002': Object.freeze({ role: 'mainDeck', at: [0, Y, 11.7] }),
+  'Cube.003': Object.freeze({ role: 'hatchAft', at: [-3.9, Y, 13] }),
+  'Cube.004': Object.freeze({ role: 'hatchFore', at: [9.3, Y, 11.9] }),
+  'Cube.005': Object.freeze({ role: 'castle', at: [-18, Y, 15] }),
+  'Cube.006': Object.freeze({ role: 'castleParapet', at: [-15, Y, 19] }),
+  'Cube.007': Object.freeze({ role: 'bulkhead', at: [-11.8, Y, 8] }),
+  'Cube.008': Object.freeze({ role: 'stairsStarboard', at: [-13, Y - 5.8, 15] }),
+  'Cube.009': Object.freeze({ role: 'balustradePort', at: [-10, Y + 7.45, 13] }),
+  'Cube.010': Object.freeze({ role: 'stairsPort', at: [-13, Y + 5.8, 15] }),
+  'Cube.011': Object.freeze({ role: 'gunportLid', at: [-3.6, Y + 9.3, 7.2] }),
+  // GALLEON-2: the deck beams, aft to fore - one role, six objects (galleonModel.js draws them as one)
+  'Cube.019': Object.freeze({ role: 'deckBeam', at: [-15.67, Y, 11] }),
+  'Cube.013': Object.freeze({ role: 'deckBeam', at: [-7.18, Y, 11] }),
+  'Cube.012': Object.freeze({ role: 'deckBeam', at: [0, Y, 11] }),
+  'Cube.018': Object.freeze({ role: 'deckBeam', at: [5.86, Y, 11] }),
+  'Cube.017': Object.freeze({ role: 'deckBeam', at: [12.86, Y, 11] }),
+  'Cube.016': Object.freeze({ role: 'deckBeam', at: [17.66, Y, 11] }),
+  'Cube.014': Object.freeze({ role: 'balustradeStarboard', at: [-10, Y - 7.45, 13] }),
+  'Cube.015': Object.freeze({ role: 'castleRail', at: [-20, Y, 19.5] }),
+  Cylinder: Object.freeze({ role: 'bowsprit', at: [37, Y, 14.5] }),
+  'Cylinder.001': Object.freeze({ role: 'mainMast', at: [2.5, Y, 20] }),
+  'Cylinder.002': Object.freeze({ role: 'foreMast', at: [15.3, Y, 20] }),
+  'Cylinder.003': Object.freeze({ role: 'mainPartner', at: [2.6, Y, 12.2] }),
+  'Cylinder.004': Object.freeze({ role: 'mainStep', at: [2.6, Y, 5.3] }),
+  'Cylinder.005': Object.freeze({ role: 'foreStep', at: [15.4, Y, 5.3] }),
+  'Cylinder.006': Object.freeze({ role: 'forePartner', at: [15.4, Y, 12.2] }),
+  'Cylinder.007': Object.freeze({ role: 'crowsNest', at: [2.7, Y, 30] }),
 });
-/** The scene's second station: the whole ship again, joined into one object 72.8 m along -Y (a working copy Mac kept
- *  beside the parts). Never baked - and checked to be that, so a real part is never dropped by its name. */
-export const SKIP = Object.freeze({ 'Cube.022': Object.freeze({ minY: 60 }) });
+/** What the scene keeps and she never wears, each checked to be what it is said to be - so a real part is never
+ *  dropped by its name:
+ *  - `minY`: another STATION, wholly beyond that scene Y - the whole ship again joined into one object (three of them,
+ *    working copies Mac keeps beside the parts) and the spare hatch covers and shutter by the third;
+ *  - `twin`: GALLEON-2, a part's copy standing IN its place (a Shift+D never moved), the same corners and faces as
+ *    the part it names to the micrometre - its materials' names apart. */
+export const SKIP = Object.freeze({
+  'Cube.020': Object.freeze({ minY: 60 }), 'Cube.021': Object.freeze({ minY: 60 }), 'Cube.022': Object.freeze({ minY: 60 }),
+  'Cube.023': Object.freeze({ minY: 60 }), 'Cube.029': Object.freeze({ minY: 60 }), 'Cube.038': Object.freeze({ minY: 60 }),
+  'Cube.044': Object.freeze({ twin: 'Cube' }), 'Cube.043': Object.freeze({ twin: 'Cube.001' }), 'Cube.042': Object.freeze({ twin: 'Cube.002' }),
+  'Cube.041': Object.freeze({ twin: 'Cube.005' }), 'Cube.040': Object.freeze({ twin: 'Cube.006' }), 'Cube.039': Object.freeze({ twin: 'Cube.007' }),
+  'Cube.035': Object.freeze({ twin: 'Cube.008' }), 'Cube.034': Object.freeze({ twin: 'Cube.009' }), 'Cube.033': Object.freeze({ twin: 'Cube.010' }),
+  'Cube.032': Object.freeze({ twin: 'Cube.012' }), 'Cube.031': Object.freeze({ twin: 'Cube.013' }), 'Cube.030': Object.freeze({ twin: 'Cube.014' }),
+  'Cube.028': Object.freeze({ twin: 'Cube.015' }), 'Cube.027': Object.freeze({ twin: 'Cube.016' }), 'Cube.026': Object.freeze({ twin: 'Cube.017' }),
+  'Cube.025': Object.freeze({ twin: 'Cube.018' }), 'Cube.024': Object.freeze({ twin: 'Cube.019' }),
+  'Cylinder.015': Object.freeze({ twin: 'Cylinder' }), 'Cylinder.014': Object.freeze({ twin: 'Cylinder.001' }),
+  'Cylinder.013': Object.freeze({ twin: 'Cylinder.002' }), 'Cylinder.012': Object.freeze({ twin: 'Cylinder.003' }),
+  'Cylinder.011': Object.freeze({ twin: 'Cylinder.004' }), 'Cylinder.010': Object.freeze({ twin: 'Cylinder.005' }),
+  'Cylinder.009': Object.freeze({ twin: 'Cylinder.006' }), 'Cylinder.008': Object.freeze({ twin: 'Cylinder.007' }),
+});
 /** The rudder's faces in the hull's mesh: aft of the sternpost, within this half-thickness of the centreline. */
 export const RUDDER = Object.freeze({ aftOf: -23.3, halfThickness: 0.2 });
 
@@ -108,7 +146,7 @@ const round4 = (v) => Math.round(v * 1e4) / 1e4 + 0;   // + 0: never a -0 in the
 
 /** A scene point (metres, Z up, bow +X) in the boat's frame. */
 export function toBoat([x, y, z], frame = FRAME) {
-  return [-y * frame.scale, (z - frame.waterline) * frame.scale, (x - frame.midship) * frame.scale];
+  return [(frame.centreline - y) * frame.scale, (z - frame.waterline) * frame.scale, (x - frame.midship) * frame.scale];
 }
 
 /** Every Mesh model with its Geometry, materials and scene placement, from a parsed FBX. */
@@ -291,6 +329,13 @@ export function slabFill(pts) {
   return { points, tris };
 }
 
+/** GALLEON-2: whether two objects are one shape - the same faces on the same corners, each within a micrometre. */
+function sameShape(a, b) {
+  if (a.scene.length !== b.scene.length || a.polygons.length !== b.polygons.length) return false;
+  if (!a.scene.every((p, i) => p.every((v, k) => Math.abs(v - b.scene[i][k]) < 1e-6))) return false;
+  return a.polygons.every((p, i) => p.length === b.polygons[i].length && p.every((v, j) => v === b.polygons[i][j]));
+}
+
 /** A scene box: { min, max } over some points. */
 function boxOf(points) {
   const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
@@ -347,11 +392,17 @@ export function bakeGalleon(fbxBytes) {
   const objects = sceneObjects(tree);
   const parts = [];
   const seen = new Set();
+  const byName = new Map(objects.map((o) => [o.name, o]));
   for (const o of objects) {
     const skip = SKIP[o.name];
     if (skip) {
-      const b = boxOf(o.scene);
-      if (!(b.min[1] > skip.minY)) throw new Error(`${o.name} was to be the scene's second station (beyond Y ${skip.minY}) and stands at Y ${b.min[1].toFixed(2)}`);
+      if (skip.twin) {
+        const t = byName.get(skip.twin);
+        if (!t || !sameShape(o, t)) throw new Error(`${o.name} was to be ${skip.twin}'s twin in its place and is not`);
+      } else {
+        const b = boxOf(o.scene);
+        if (!(b.min[1] > skip.minY)) throw new Error(`${o.name} was to be another station (beyond Y ${skip.minY}) and stands at Y ${b.min[1].toFixed(2)}`);
+      }
       continue;
     }
     const r = ROLES[o.name];
@@ -361,7 +412,7 @@ export function bakeGalleon(fbxBytes) {
     seen.add(o.name);
     const all = o.polygons.map((_, k) => k);
     if (r.role === 'hull') {
-      const rudder = all.filter((k) => o.polygons[k].every((vi) => o.scene[vi][0] < RUDDER.aftOf && Math.abs(o.scene[vi][1]) <= RUDDER.halfThickness));
+      const rudder = all.filter((k) => o.polygons[k].every((vi) => o.scene[vi][0] < RUDDER.aftOf && Math.abs(o.scene[vi][1] - FRAME.centreline) <= RUDDER.halfThickness));
       if (rudder.length !== 5) throw new Error(`the hull's rudder was five faces aft of ${RUDDER.aftOf} and ${rudder.length} were found`);
       parts.push(bakePart('hull', o, all.filter((k) => !rudder.includes(k))));
       parts.push(bakePart('rudder', o, rudder));

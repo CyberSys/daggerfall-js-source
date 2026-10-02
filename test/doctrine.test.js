@@ -421,7 +421,7 @@ const PUBLIC_ALLOWLIST = new Map([
   // test/galleon_model.test.js holds the bake to the bytes. Her pictures
   // carry no file at all: world/galleonArt.js paints them at load, from
   // nothing but numbers - no ARENA2 pixel.
-  ['src/assets/galleon/source/New_Ship.fbx', "SUPPLIED - Mac's Blender export of the new galleon (2026-10-01), committed so galleon.json is a DERIVATION the gate can re-run"],
+  ['src/assets/galleon/source/New_Ship.fbx', "SUPPLIED - Mac's Blender export of the new galleon (2026-10-01; his second, New_Ship_Even_EVEN_newer.fbx, over it 2026-10-02), committed so galleon.json is a DERIVATION the gate can re-run"],
   ['src/assets/galleon/galleon.json', 'SUPPLIED - New_Ship.fbx baked to the boat\'s frame by tools/bakeGalleon.mjs; geometry only, no ARENA2 or Come Sail Away data'],
 ]);
 

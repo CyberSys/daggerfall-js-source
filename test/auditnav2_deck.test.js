@@ -296,7 +296,9 @@ test('AUDIT NAV2 F36 ABOARD IS STANDING ON HER: a floor of hers under the feet -
   for (let x = rail[0] + deck.cell; x < rail[0] + 4 && !ramp; x += deck.cell / 4) if (!deck.under(x, rail[2], rail[1] + 0.3, 0) && deck.under(x, rail[2], rail[1] + 0.3, 1)) ramp = [x, rail[1] + 0.3, rail[2]];
   assert.ok(ramp, 'a point by her rail over no floor, her deck in reach');
   assert.equal(at(...ramp), true, `by her rail over no floor of hers: ${ramp.map((v) => v.toFixed(2))}`);
-  assert.equal(at(0, -4.6, 0), false, 'a swimmer under her keel');
+  // PIN MOVED (GALLEON-2, 2026-10-02): her keel 4.64 m down on Mac's second export (3.89 on his first) - the floor inside
+  // her V lies within a step of -4.6, so the swimmer is taken 0.76 m under her keel
+  assert.equal(at(0, -5.4, 0), false, 'a swimmer under her keel');
   // round her, off her hull at a quay's height and in the water: never aboard
   let slack = 0;
   for (let x = -12; x <= 12; x += 1) for (let z = -28; z <= 24; z += 1) {

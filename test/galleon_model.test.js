@@ -12,10 +12,14 @@ import { createHash } from 'node:crypto';
 import { bakeGalleon, galleonJson, toBoat, SOURCE_FBX, OUT, FRAME, ROLES } from '../tools/bakeGalleon.mjs';
 import {
   galleonPrefab, GALLEON_PREFAB_ID, GALLEON_HULL_NODE, MEASURED, HELM, GUN, GALLEON_BATTERIES, HATCH_OPEN_DEG, LID_OPEN_DEG,
-  WHEEL_TURNS, RUDDER_DEG,
+  WHEEL_TURNS, RUDDER_DEG, faceSkin, companionGeometry,
 } from '../src/world/galleonModel.js';
 import { SAILS } from '../src/world/galleonRig.js';
-import { galleonArt, galleonGlow, registerGalleonArt, _resetGalleonArt, GALLEON_ARCHIVE, TEX } from '../src/world/galleonArt.js';
+import {
+  galleonArt, galleonGlow, registerGalleonArt, _resetGalleonArt, GALLEON_ARCHIVE, TEX, BANDS, GALLEON_TEX_SIZE,
+  hullSideLivery, castleLivery, sternWindowsLivery,
+} from '../src/world/galleonArt.js';
+import { newell, norm } from '../src/world/galleonMesh.js';
 import { createGalleonGunDeck, recoilAt, HOLD_S, RUN_IN_X, RUN_OUT_X, RECOIL, KICK_S, HAUL_S } from '../src/systems/naval/galleonGunDeck.js';
 import { loadComeSailAwayModels, CSA_MODEL_URLS, GALLEON_MODEL_URL } from '../src/systems/comeSailAwayModels.js';
 import { animatorOf, colliderBounds } from '../src/systems/comeSailAwayBoat.js';
@@ -60,7 +64,7 @@ function rayMesh(g, o, d, max) {
 
 // ── the bake ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('GALLEON THE BAKE: Mac\'s export baked to the boat\'s frame is the file committed, byte for byte - every role at the place it was read at, the rudder\'s five faces split off the hull, the scene\'s second station skipped, the source\'s hash and frame carried (mutants: a role misplaced, the rudder kept on the hull, the frame unread)', () => {
+test('GALLEON THE BAKE: Mac\'s export baked to the boat\'s frame is the file committed, byte for byte - every role at the place it was read at, the rudder\'s five faces split off the hull, her six deck beams (GALLEON-2), the scene\'s other stations and her parts\' twins in their places skipped, the source\'s hash and frame carried, her centreline taken off (mutants: a role misplaced, the rudder kept on the hull, the frame unread, the centreline unread, a twin baked)', () => {
   const bytes = readFileSync(new URL(`../${SOURCE_FBX}`, import.meta.url));
   const baked = bakeGalleon(bytes);
   assert.equal(galleonJson(baked), readFileSync(new URL(`../${OUT}`, import.meta.url), 'utf8'), 'tools/bakeGalleon.mjs re-makes galleon.json to the byte');
@@ -69,21 +73,91 @@ test('GALLEON THE BAKE: Mac\'s export baked to the boat\'s frame is the file com
   const roles = baked.parts.map((p) => p.role);
   assert.deepEqual([...roles].sort(), [...Object.values(ROLES).map((r) => r.role), 'rudder'].sort(), 'every role once, and her rudder');
   assert.equal(baked.parts.find((p) => p.role === 'rudder').polygons.length, 5, 'the rudder\'s five faces');
+  assert.equal(roles.filter((r) => r === 'deckBeam').length, 6, 'GALLEON-2: her six deck beams, each once (their twins skipped)');
   // the frame: Blender's scene (Z up, the stem to -Y) into the boat's (Y up, +Z the bow, +X starboard), 0.7 of it, the
-  // waterline and the midship taken off
-  assert.deepEqual(toBoat([FRAME.midship, 0, FRAME.waterline]), [-0, 0, 0]);
-  assert.deepEqual(toBoat([FRAME.midship + 10, -1, FRAME.waterline + 2]), [0.7, 1.4, 7]);
+  // waterline, the midship and (GALLEON-2) her centreline taken off
+  assert.deepEqual(toBoat([FRAME.midship, FRAME.centreline, FRAME.waterline]), [0, 0, 0]);
+  toBoat([FRAME.midship + 10, FRAME.centreline - 1, FRAME.waterline + 2]).forEach((v, k) => near(v, [0.7, 1.4, 7][k], 1e-9, `axis ${k}`));
+  // her hull square on her keel line: her beam either side of it alike, to the bake's tenth of a millimetre
+  const hull = baked.parts.find((p) => p.role === 'hull').positions;
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < hull.length; i += 3) { lo = Math.min(lo, hull[i]); hi = Math.max(hi, hull[i]); }
+  near(lo, -hi, 1e-4, 'her half beam to port and to starboard');
 });
 
-test('GALLEON HER PARTS FACE OUT: every baked part, the hull\'s planking to the crow\'s nest, winds its faces outward (the front face Unity draws) - a positive volume each, her closed hatch covers and her shutter shut fast (mutants: the winding flipped)', () => {
+test('GALLEON HER PARTS FACE OUT: every baked part, the hull\'s planking to the crow\'s nest, winds its faces outward (the front face Unity draws) - a positive volume each, her closed hatch covers and her shutter shut fast; GALLEON-2: her deck beams, open-topped and open-ended (their heads in the deck), each face from the beam\'s middle (mutants: the winding flipped)', () => {
   for (const p of bakeJson.parts) {
     const P = p.positions, T = p.triangles;
+    if (p.role === 'deckBeam') {
+      // an open timber has no volume to sign: each face looks away from its middle instead
+      const mid = [0, 1, 2].map((k) => { let a = Infinity, b = -Infinity; for (let i = k; i < P.length; i += 3) { a = Math.min(a, P[i]); b = Math.max(b, P[i]); } return (a + b) / 2; });
+      assert.equal(p.polygons.length, 3, `${p.object}: two sides and a foot`);
+      for (let t = 0; t < T.length; t += 3) {
+        const v = (j) => [P[T[t + j] * 3], P[T[t + j] * 3 + 1], P[T[t + j] * 3 + 2]];
+        const [a, b, c] = [v(0), v(1), v(2)];
+        const e1 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], e2 = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        // the bake's winding, as every closed part's (whose volume it signs positive): e1 x e2 out of its front
+        const n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+        const out = [(a[0] + b[0] + c[0]) / 3 - mid[0], (a[1] + b[1] + c[1]) / 3 - mid[1], (a[2] + b[2] + c[2]) / 3 - mid[2]];
+        assert.ok(n[0] * out[0] + n[1] * out[1] + n[2] * out[2] > 0, `${p.object}: a face looks out of the beam`);
+      }
+      continue;
+    }
     let vol = 0;
     for (let t = 0; t < T.length; t += 3) {
       const a = T[t] * 3, b = T[t + 1] * 3, c = T[t + 2] * 3;
       vol += (P[a] * (P[b + 1] * P[c + 2] - P[b + 2] * P[c + 1]) - P[a + 1] * (P[b] * P[c + 2] - P[b + 2] * P[c]) + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c])) / 6;
     }
     assert.ok(vol > 0, `${p.role}: faces out (${vol.toFixed(3)})`);
+  }
+});
+
+test('GALLEON-2 HER DECK BEAMS (Mac\'s second export): six beams under her main deck as MEASURED reads them off the bake - each 0.775 m fore and aft, inside her ceiling, its foot 5.22 m over the sea and its head in the deck; none through a hatchway or a mast; drawn as one node in her oak, solid; her gun deck\'s three lanterns hung from three of them; each companion clear under them, a man\'s height over every tread (mutants: a beam misread, a lantern off its beam, the beams unsolid)', () => {
+  const span = (p, k) => { let a = Infinity, b = -Infinity; for (let i = k; i < p.positions.length; i += 3) { a = Math.min(a, p.positions[i]); b = Math.max(b, p.positions[i]); } return [a, b]; };
+  const beams = bakeJson.parts.filter((p) => p.role === 'deckBeam').map((p) => ({ x: span(p, 0), y: span(p, 1), z: span(p, 2) })).sort((a, b) => a.z[0] - b.z[0]);
+  const B = MEASURED.beams;
+  assert.equal(beams.length, 6);
+  beams.forEach((b, i) => {
+    near((b.z[0] + b.z[1]) / 2, B.z[i], 1e-3, `beam ${i}'s middle`);
+    near((b.z[1] - b.z[0]) / 2, B.halfZ, 1e-3, `beam ${i}'s half`);
+    near(b.y[0], B.underY, 1e-3, `beam ${i}'s foot`);
+    near(b.x[1], B.halfX, 1e-3, `beam ${i}'s end`);
+    assert.ok(b.x[1] < MEASURED.hullInnerX && b.y[1] > MEASURED.mainDeckUnderY, `beam ${i}: inside her ceiling, its head in her deck`);
+    for (const h of [MEASURED.hatchAft, MEASURED.hatchFore]) assert.ok(b.z[1] < h.z0 || b.z[0] > h.z1, `beam ${i}: clear of a hatchway`);
+    for (const role of ['mainMast', 'foreMast']) {
+      const m = span(bakeJson.parts.find((p) => p.role === role), 2);
+      assert.ok(b.z[1] < m[0] || b.z[0] > m[1], `beam ${i}: clear of her ${role}`);
+    }
+  });
+  // drawn and solid, one node
+  const tree = MODELS.prefab(GALLEON_PREFAB_ID);
+  const find = (n, name) => (n.name === name ? n : n.children.reduce((f, c) => f ?? find(c, name), null));
+  const node = find(tree, 'DeckBeams');
+  const comps = node.components.map((i) => MODELS.components[i]);
+  const filter = comps.find((c) => c.type === 'MeshFilter'), collider = comps.find((c) => c.type === 'MeshCollider');
+  assert.ok(collider?.m_Enabled && !collider.m_IsTrigger, 'solid');
+  const g = MODELS.geometry(filter.m_Mesh.mesh);
+  assert.deepEqual(g.slots.map((x) => x.record), [TEX.trim], 'her oak');
+  assert.equal(g.indices.length / 3, 36, 'six beams of two sides and a foot');
+  assert.equal(faceSkin('mainDeck', [0, -1, 0], [0, MEASURED.mainDeckUnderY, 0]).rec, TEX.underDeck, 'the deck over them its planks alone - the beams are Mac\'s now');
+  assert.equal(faceSkin('castle', [0, -1, 0], [0, MEASURED.castleCeilingY, -15]).rec, TEX.beams, 'the great cabin\'s ceiling, with none of his over it, keeps its painted beams');
+  // the lanterns over her gun deck hang from beams
+  const lanterns = [];
+  const walk = (n) => { if (/^LanternHanging/.test(n.name) && n.position[1] < MEASURED.mainDeckY) lanterns.push(n); n.children.forEach(walk); };
+  walk(tree);
+  assert.equal(lanterns.length, 3, 'three lanterns over her guns');
+  for (const l of lanterns) {
+    assert.ok(B.z.some((z) => Math.abs(z - l.position[2]) < 1e-9), `a lantern at ${l.position[2]} under a beam`);
+    near(l.position[1], B.underY - 0.01, 1e-9, 'hung from its foot');
+  }
+  // the companions: a man (1.8 m) on any tread under a beam stands clear of it
+  for (const hatch of [MEASURED.hatchAft, MEASURED.hatchFore]) {
+    const c = companionGeometry(hatch.z1, -1);
+    for (const b of beams) for (let z = b.z[0]; z <= b.z[1]; z += 0.05) {
+      if (z < c.bottomZ || z > hatch.z1) continue;
+      const tread = MEASURED.mainDeckY - (Math.floor((hatch.z1 - z) / c.run) + 1) * c.rise;
+      assert.ok(tread + 1.8 < B.underY, `the companion under a beam at ${z.toFixed(2)}: a tread at ${tread.toFixed(2)}`);
+    }
   }
 });
 
@@ -258,26 +332,75 @@ test('GALLEON HER RIG: five sails by Come Sail Away\'s names - three square (two
 
 // ── her pictures ────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('GALLEON HER PICTURES: painted at load from numbers alone - the same bytes every time - a record a TEX entry under GALLEON_ARCHIVE, each a power of two; registered with the vendor textures once (seventeen stand-ins), her stern windows alone glowing by night (mutants: a picture seeded off the clock, registered twice, the glow everywhere)', async () => {
+test('GALLEON HER PICTURES: painted at load from numbers alone - the same bytes every time - a record a TEX entry under GALLEON_ARCHIVE, each 64 x 64 (GALLEON-2, Mac: "textures should be 64x64"); registered with the vendor textures once (twenty-three stand-ins), her stern windows\' two slices alone glowing by night (mutants: a picture seeded off the clock, registered twice, the glow everywhere, a picture off 64)', async () => {
   const hash = (art) => createHash('sha256').update(JSON.stringify(art.map(([r, p]) => [r, p.width, p.height, Buffer.from(p.data).toString('base64')]))).digest('hex');
   const a = galleonArt(), b = galleonArt();
   assert.equal(hash(a), hash(b), 'the same bytes');
   assert.deepEqual(a.map(([r]) => r), Object.values(TEX), 'a picture a record, in record order');
+  assert.equal(GALLEON_TEX_SIZE, 64);
   for (const [r, p] of a) {
-    assert.ok(p.width > 0 && (p.width & (p.width - 1)) === 0 && (p.height & (p.height - 1)) === 0, `record ${r}: a power of two`);
+    assert.deepEqual([p.width, p.height], [64, 64], `record ${r}: 64 x 64`);
     assert.equal(p.data.length, p.width * p.height * 4);
   }
-  assert.ok(galleonGlow(TEX.sternWindows), 'her stern windows glow');
-  assert.equal(galleonGlow(TEX.hullSide), null, 'nothing else');
+  for (const r of BANDS.sternWindows.recs) assert.ok(galleonGlow(r)?.data.some((v, i) => i % 4 === 0 && v > 0), `her stern windows glow (record ${r})`);
+  for (const r of [TEX.hullSide0, TEX.castle0, TEX.castle1, TEX.deck]) assert.equal(galleonGlow(r), null, 'nothing else');
   _resetGalleonArt();
   const added = [];
   const add = (entries) => { added.push(...entries); return entries.length; };
   assert.equal(registerGalleonArt(add), Object.keys(TEX).length);
   assert.equal(registerGalleonArt(add), 0, 'once');
   assert.ok(added.every((e) => e.archive === GALLEON_ARCHIVE && e.standIn === true && e.frame === 0 && typeof e.build === 'function'), 'stand-ins under her own archive');
-  const built = await added.find((e) => e.record === TEX.castle).build();
-  assert.deepEqual([built.width, built.height], [a.find(([r]) => r === TEX.castle)[1].width, a.find(([r]) => r === TEX.castle)[1].height], 'built as painted');
+  const built = await added.find((e) => e.record === TEX.castle0).build();
+  assert.ok(Buffer.from(built.data).equals(Buffer.from(a.find(([r]) => r === TEX.castle0)[1].data)), 'built as painted');
   _resetGalleonArt();
+});
+
+test('GALLEON-2 HER LIVERY IN SLICES (Mac: "textures should be 64x64"): her side\'s, her castle\'s and her stern\'s liveries each cut into 64-texel slices by height, the slices her livery again stacked top down; every face of hers that wears one lies inside its band, and is drawn as pieces cut at its slices - each on the slice whose heights hold it, its v that height up the slice; every picture she draws one of hers (mutants: the cut unmade, a slice\'s v off its height, the slices out of order)', () => {
+  const art = new Map(galleonArt());
+  for (const [name, livery] of [['hullSide', hullSideLivery()], ['castle', castleLivery()], ['sternWindows', sternWindowsLivery()]]) {
+    assert.equal(livery.height, 64 * BANDS[name].recs.length, `${name}: 64 rows a slice`);
+    const stacked = Buffer.concat(BANDS[name].recs.map((r) => Buffer.from(art.get(r).data)));
+    assert.ok(stacked.equals(Buffer.from(livery.data)), `${name}: its slices are its livery, top down`);
+  }
+  // her faces inside their bands - none needs the outer slices' clamp
+  let worn = 0;
+  for (const p of bakeJson.parts) {
+    const P = p.positions;
+    p.polygons.forEach((poly) => {
+      const ring = poly.map((i) => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]]);
+      const c = [0, 1, 2].map((k) => ring.reduce((a, q) => a + q[k], 0) / ring.length);
+      const skin = faceSkin(p.role, norm(newell(ring)), c);
+      if (!skin.band) return;
+      worn++;
+      const ys = ring.map((q) => q[1]);
+      assert.ok(Math.min(...ys) >= skin.band.y0 - 1e-6 && Math.max(...ys) <= skin.band.y1 + 1e-6, `${p.role}: a face of ${Math.min(...ys)}..${Math.max(...ys)} inside its band ${skin.band.y0}..${skin.band.y1}`);
+    });
+  }
+  assert.ok(worn > 20, `her liveries are worn (${worn} faces)`);
+  // the pieces as drawn
+  const recs = new Set(Object.values(TEX));
+  let sliced = 0;
+  for (const key of Object.keys(MODELS.meshes).filter((k) => MODELS.meshes[k].galleon)) {
+    const g = MODELS.geometry(key);
+    // (a collider draws nothing; a skinned sail's or rope's pictures ride its renderer, galleonRig.js)
+    if (!key.endsWith(':collider') && !g.blendIndices) assert.ok(g.slots?.length && g.slots.length === g.subMeshes.length, `${key}: a picture for each of its submeshes`);
+    (g?.slots ?? []).forEach((slot, k) => {
+      assert.ok(slot.archive === GALLEON_ARCHIVE && recs.has(slot.record), `${key}: picture ${slot.record} is hers`);
+      const sm = g.subMeshes[k];
+      for (const band of Object.values(BANDS)) {
+        const s = band.recs.indexOf(slot.record);
+        if (s < 0) continue;
+        sliced++;
+        const h = (band.y1 - band.y0) / band.recs.length, top = band.y1 - s * h, bottom = top - h;
+        for (let v = sm.startIndex; v < sm.startIndex + sm.primitiveCount * 3; v++) {
+          const y = g.positions[v * 3 + 1];
+          assert.ok(y >= bottom - 1e-4 && y <= top + 1e-4, `${key}: slice ${s}'s piece at ${y} inside ${bottom}..${top}`);
+          near(g.uvs[v * 2 + 1], (y - bottom) / h, 1e-4, `${key}: slice ${s}'s v at ${y}`);
+        }
+      }
+    });
+  }
+  assert.ok(sliced >= 8, `her liveries' slices drawn (${sliced})`);
 });
 
 // ── the loader ──────────────────────────────────────────────────────────────────────────────────────────────────────

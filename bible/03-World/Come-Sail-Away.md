@@ -2294,11 +2294,12 @@ her sails, booms and rudder found by their names:
   helm, a captain's run-out tell) opens that side's shutters and runs its guns out; each gun kicks `RECOIL` inboard as
   its own ball leaves (the shot field's muzzle, its index the port's) and is hauled out over `HAUL_S`; `HOLD_S` past
   the last word the guns run in to load and the shutters close.
-- **Her texture** (`world/galleonArt.js`): seventeen pictures painted at load from numbers alone - the hull's painted
-  livery and gilt bands, her bottom, her inner planking, her deck, the castle's panels, the stern gallery (its glass
-  glowing by night through the pool's emission mask), spars, iron, canvas, rope, gilt, the hatch gratings, the shutters'
-  red, the doors, the beams - registered as stand-ins of archive 38131 on the vendor texture door, so a loose pack's
-  `38131_<record>-0.png` would override one as it overrides any record. No file, no ARENA2 pixel.
+- **Her texture** (`world/galleonArt.js`): twenty-three pictures, each 64 x 64 (GALLEON-2, below), painted at load
+  from numbers alone - the hull's painted livery and gilt bands, her bottom, her inner planking, her deck, the castle's
+  panels, the stern gallery (its glass glowing by night through the pool's emission mask), spars, iron, canvas, rope,
+  gilt, the hatch gratings, the shutters' red, the doors, the beams - registered as stand-ins of archive 38131 on the
+  vendor texture door, so a loose pack's `38131_<record>-0.png` would override one as it overrides any record. No file,
+  no ARENA2 pixel.
 - The mod's own small things are copied out of its galleon and stood in her: the anchor (weighed and let go), her cargo
   and its trigger, the stove, the bed in the great cabin, the lantern poles and hooks, her colours over the crow's nest;
   her six crew posts (the officer and the coxswain on the castle's roof by the wheel, the boatswain and the quartermaster
@@ -2327,14 +2328,53 @@ way ahead (`systems/comeSailAway.js inIrons`); her narrower hull lies closer in 
 comes in on a sounded berth unswung by the lookout and sounds the berth as wide as its legs (`systems/naval/navalAI.js
 boardCourse`, `berthOpen`).
 
-Pins: `test/galleon_model.test.js` (11); the naval suites' PIN MOVED rows (`test/auditnav2_deck.test.js`,
+Pins: `test/galleon_model.test.js` (13, GALLEON-2's two among them); the naval suites' PIN MOVED rows (`test/auditnav2_deck.test.js`,
 `auditnav2_crew`, `auditnav2_captains`, `auditnav2_helm`, `auditnav2_online`, `auditwatchkit_crew`, `deckwalk`,
 `livingcrew`, `nav_a_guns`, `nav_h_host`, `navaudit_captains`, `navaudit_guns`, `navaudit_helm`,
 `navaudit_presentation`, `fb1001b_peerboats`, `seapeace`); `test/csaScene.mjs` builds hull 2 on her as the game does.
-`tools/mutants/galleon.json` (14, all dead) and the naval lists' GALLEON records, all dead. Drawn offline with a
+`tools/mutants/galleon.json` (25, all dead) and the naval lists' GALLEON records, all dead. Drawn offline with a
 scratch rasterizer over the real prefab and art (her livery, the castle and the stern gallery, the wheel, her sails
 stowed, set and trimmed, the hatches and shutters open, the guns run out, the gun deck and the cabin from inside); not
 seen in a browser.
+
+### Her second model, and her pictures at 64 (GALLEON-2, 2026-10-02 - OURS)
+
+Mac, sending `New_Ship_Even_EVEN_newer.fbx`: *"Replace it with this updated model and also textures should be 64x64."*
+
+**The model.** Committed over `New_Ship.fbx` and read against the first, part for part (`tools/bakeGalleon.mjs`'s
+header): the ship stands 36.25 m along the scene's Y now (`FRAME.centreline`, her hull's beam halved, is taken off as
+the waterline and the midship are); her hull is new below the wale - a deeper V on a keel 4.64 m under the sea where
+the first's was 3.89, a finer entry and a forefoot swept up to the stem (95 faces where it was 87); six deck beams carry
+her main deck over the gun deck (`deckBeam`, six objects of one role); and every other part bakes to the first's to a
+tenth of a millimetre in her frame - her decks, ports, castle, stairs, masts, hatch covers and shutter. The scene keeps
+a twin of most parts standing in the same place (a Shift+D never moved), skipped and checked vertex for vertex against
+the part it twins (`SKIP` `twin`), and three more working stations far along Y beside the first's one (`minY`).
+
+**Her beams** are one node (`DeckBeams`), solid, in her oak with the grain along each (`MEASURED.beams`: 0.775 m fore
+and aft, their feet 5.22 m over the sea, their heads in the deck); none crosses a hatchway or a mast, and each companion
+passes under them a man's height clear. Her main deck's underside wears its planks alone now (`underDeck`) - the
+painted beams a metre apart stood in for the ones Mac has modelled, and stay only over the great cabin, where none of
+his stand. The gun deck's three lanterns hang from the second, third and fifth beams.
+
+**What the deeper hull moved.** HULL_BUILDS' Small Ship's keel is -4.64 (her box's floor - what a gun lays between to
+strike her). Two pins took their probes deeper: AUDIT NAV2 F36's swimmer under her keel (the floor inside her V lies
+within a step of -4.6; it is asked at -5.4) and FIELD BUGS 2026-09-29's frozen fish (from 2.5 m down its ray stopped
+17 cm short of her bottom; it hangs at 3 m). Nothing else moved.
+
+**Her pictures at 64** (`world/galleonArt.js`, `GALLEON_TEX_SIZE`). Every picture is 64 x 64, Daggerfall's own
+texture's size. The tiling ones were that or smaller - the smaller (spar, iron, gilt, rope, the dark) are painted at
+64, their tiles stretched to keep the texel they had; the whole-face ones (a sail's canvas, a door, a gunport lid) are
+painted at 64 over their face. The three liveries that ran one picture keel to rail - the hull's side (64 x 256), the
+castle's and the stern's (64 x 128) - are painted as before and cut into 64-row slices by height (`BANDS`): the hull's
+side four slices of 2.9 m (`HULL_SIDE_Y0` down to -4.2 for her new forefoot), the castle's and the stern's two of
+3.3 m, each slice a record of its own. Each face a livery lies on is cut at its slices' heights where it is drawn
+(`world/galleonModel.js bandTri`), every piece on the slice that holds it with its v that height up the slice - so the
+bands run round her as they did, square-pixelled at the density they had; the stern's glass glows through both its
+slices. Twenty-three records: the seventeen, the five lower slices and the deck's underside.
+
+Pins: `test/galleon_model.test.js` THE BAKE (the six beams, the twins and stations skipped, her centreline), HER PARTS
+FACE OUT (the open-topped beams face by face), HER DECK BEAMS, HER PICTURES (each 64 x 64), HER LIVERY IN SLICES;
+`tools/mutants/galleon.json`'s GALLEON2 records. Drawn offline again, not seen in a browser.
 
 ## What was already waiting in the port
 

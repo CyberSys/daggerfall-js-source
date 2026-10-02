@@ -9,6 +9,11 @@
 - **Cannon fire from the gunports.** She has five gunports a side. When you lay a broadside, that side's shutters swing up and the guns run out through the ports. Each ball leaves from its own port, and each gun kicks back as it fires before it's hauled out again. Ships of hers at sea open their ports when they run their guns out.
 - **Her castle is part of her deck.** Two staircases climb to the castle roof and the helm. Her crew and boarders can walk up them, so nobody at the wheel is out of reach. Her officer and coxswain keep their posts up there while the hands work the main deck.
 
+## Update: Mac's newer model
+- **The galleon is Mac's updated model.** Her hull runs deeper below the waterline, with a sharper bow and a forefoot that sweeps up to the stem.
+- **Deck beams.** Six heavy oak beams now carry the main deck over the gun deck. The gun deck's lanterns hang from them.
+- **64x64 textures.** Every texture on her is 64x64, the size of Daggerfall's own. The painted bands on her hull, castle and stern gallery still run unbroken round her.
+
 ## Balance
 - The new galleon carries five guns a side instead of the old one's six, so ships built on this hull hit a little lighter in a broadside. A cautious pirate brigantine is less eager to attack a boat on its own.
 
