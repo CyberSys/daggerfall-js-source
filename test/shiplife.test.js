@@ -14,7 +14,7 @@ import {
 } from '../src/systems/naval/shipLife.js';
 import { createSeaShip, stepCaptain, WIND_RATED } from '../src/systems/naval/navalAI.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
-import { HARBOUR_ROLL, HARBOUR_LEAVE, OWNER_SWEEP_S } from '../src/scenes/navalHost.js';
+import { HARBOUR_ROLL, HARBOUR_LEAVE, OWNER_SWEEP_S, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { DENSITY } from '../src/systems/naval/navalDirector.js';
 import { sea } from './navalSea.mjs';
 import { room } from './navalRoom.mjs';
@@ -245,7 +245,7 @@ test('SHIP-LIFE THE HARBOUR ROLL, by the real host: ashore in a port town, its h
   // far off and back
   const seeds = key(h);
   h.view.feet = [0, 0, 300 + HARBOUR_LEAVE + 800];
-  h.run(1);
+  h.run(1 + SHIP_FADE_S);   // SHIP-FADE (2026-10-02) PIN MOVED: they fade as they go
   assert.equal(moored().length, 0, 'gone once the port is far');
   h.view.feet = [0, 0, 300];
   h.run(1);

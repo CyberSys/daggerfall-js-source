@@ -416,8 +416,8 @@
   {
     "name": "NAV1-a-prize-engaged",
     "file": "src/scenes/navalHost.js",
-    "old": "engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.takenBy",
-    "new": "engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || e.ship.damage.state === SHIP_STATES.prize || !!e.takenBy",
+    "old": "engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.liner || !!e.takenBy",
+    "new": "engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.liner || e.ship.damage.state === SHIP_STATES.prize || !!e.takenBy",
     "tests": [
       "test/navaudit_captains.test.js"
     ]

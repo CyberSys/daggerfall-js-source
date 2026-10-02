@@ -174,7 +174,7 @@ export function herbKind({ book }) {
         // STEADY-SAID (AUDIT 2026-10-01 part four): the steady hand's key, which E's start must hold to the end - the meter
         // said "hold still" and nothing of the key, and a tap of E ended the act with nothing taken (the Sickle's Use
         // holds it itself: no key to name)
-        harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'tap the glint' : kind === 'steady' && !used ? keyLabel('Interact') : '',
+        harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'click the glint' : kind === 'steady' && !used ? keyLabel('Interact') : '',
         hand: (a) => (a.harvest === 'herbs' && a.tool ? SICKLE_HAND : null),
         heldByUse: !!used && kind === 'steady',   // TOOL-USE: the Sickle's Use holds the steady hand - keep still, no E held
       };

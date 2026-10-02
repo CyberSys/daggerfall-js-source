@@ -24,7 +24,7 @@ import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFi
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
-import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2)
+import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2); HERB-CURSOR: an act's free cursor
 import { attachTouch } from '../ui/touch.js';
 import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks the same hooks
 import { BlocksFile } from '../formats/blocksFile.js';
@@ -371,7 +371,7 @@ import { heatBand, planeBand, stitchBand, chiselBand, recipeById } from '../net/
 import { questActionsExtensionTemplates } from '../systems/quest/questActionsExtension.js';   // FORAGE1: QAE's four actions, which Foraging's quests say
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // FORAGE1: PlayerEntity.MaxEncumbrance, for Foraging's last check
 import { packCapacityKg } from '../systems/naval/crewCompanions.js';   // COMPANION-WEIGHT: what his pack carries
-import { createComeSailAwayPool, CULL_DETAIL_PX } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
+import { createComeSailAwayPool, CULL_DETAIL_PX, FADE_FLATS as CSA_FADE_FLATS } from './comeSailAwayPool.js';   // CSA-B: Come Sail Away's boats, drawn
 import { createComeSailAwayPeers } from './comeSailAwayPeers.js';   // CSA-J: another player's boats, seen
 import { createComeSailAwayAboard, CSA_ABOARD_GRACE, deckPose as csaDeckPose, helmWord as csaHelmWordOf, localOf as csaLocalOf } from './comeSailAwayAboard.js';   // CSA-K: another player's boat, boarded; FIELD BUGS 2026-09-29 (the sea) #1: the deck's frame, the helmsman's place
 import { csaWireRecord, csaRecordKey } from '../systems/comeSailAwayWire.js';   // CSA-J: my boats, said
@@ -407,6 +407,7 @@ import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';  
 import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
+import { laneNetwork, laneWay, packetsAt, LANE_PATH_PX } from '../systems/naval/seaLanes.js';   // SEA-LANES: the Bay's packets
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidTypeName as raidKindName, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
@@ -5906,7 +5907,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     for (const [key, b] of _csaBuckets) if (!want.has(key)) { b.col?.removeBucket?.(key); _csaBuckets.delete(key); }
   }
-  const _csaSlab = [0, 0, 0];
+  const _csaSlab = [0, 0, 0], _csaSweepSkip = new Set();   // FIELD BUGS 2026-10-02b: the sweep's scratch - the sweeping boat's own buckets
   /**
    * CSA-C: PHYSICS.RAYCAST AS COME SAIL AWAY CASTS IT - the Player and Ignore Raycast layers masked out, triggers as
    * asked. The port's scene as its colliders stand: the static world's meshes (the street's collider, or the
@@ -5982,12 +5983,19 @@ export async function bootWorld(canvas, renderer, params, status) {
    * leaves out, the ground asked every half metre along the sweep under the sphere's centre (DECLARED). The foes'
    * controllers are entities the C# leaves out, so none is swept. A boat's own buckets carry its root.
    */
-  function csaSphereCastAll(o, r, d, dist) {
+  function csaSphereCastAll(o, r, d, dist, opts = null) {
     const out = [];
     const col = csaModeCollider();
-    for (const h of col?.sphereCastAll?.(o, r, d, dist) ?? []) {
+    // FIELD BUGS 2026-10-02 ROCK-FREE and its audit (2026-10-02b): the hull's own sweep (player/collider.js
+    // hullSweepAll) - the sphere swept exactly, collider by collider as Unity's, a rock holding her holding her no
+    // more, an overlap answered where it touches (`start`, never the zero point); nothing under her keel (`keelY`, a
+    // shelf she floats over), and none of her own colliders (`opts.boat`'s buckets, which CheckCollision drops)
+    const skip = _csaSweepSkip;
+    skip.clear();
+    if (opts?.boat) for (const [k, b] of _csaBuckets) if (b.boat === opts.boat) skip.add(k);
+    for (const h of col?.hullSweepAll?.(o, r, d, dist, { keelY: opts?.keelY ?? -Infinity, skip }) ?? []) {
       const b = _csaBuckets.get(h.key);
-      out.push({ point: h.point, distance: h.dist, name: b ? String(h.key) : String(h.key ?? 'StaticGeometry'), root: b ? b.boat.GameObject : null, terrain: false, entity: false });
+      out.push({ point: h.point, distance: h.dist, name: b ? String(h.key) : String(h.key ?? 'StaticGeometry'), root: b ? b.boat.GameObject : null, terrain: false, entity: false, ...(h.start ? { start: true } : {}) });
     }
     if ((modes?.mode ?? 'exterior') === 'exterior') {
       for (let t = 0; t <= dist + 1e-9; t += 0.5) {
@@ -6651,6 +6659,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function csaParticleLists() {
     const lists = { wake: [], flags: [], drops: [] };
     for (const boat of naval?.enabled ? [...csaRuntime.AllBoats, ...naval.boats()] : csaRuntime.AllBoats) {   // NAV-H: and the sea's ships'
+      if ((boat.fade ?? 1) < CSA_FADE_FLATS) continue;   // AUDIT BAY A14: a ship half faded flies no flag and lays no foam - her flats' law
       for (const ps of boat.particleSystems ?? []) {
         if (!ps.particleCount || !ps.renderer?.m_Enabled) continue;
         const material = ps.renderer.m_Materials?.[0]?.material;
@@ -7008,7 +7017,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (!csaIsPortTown(p.x + dx, p.y + dy)) continue;
         const summary = travelLocationSummaryAt(mapDict, p.x + dx, p.y + dy);
         const loc = summary ? maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex) : null;
-        if (loc?.exterior?.exteriorData) town = { id: summary.id, loc, x: p.x + dx, y: p.y + dy };
+        if (loc?.exterior?.exteriorData) town = { id: summary.id, loc, x: p.x + dx, y: p.y + dy, name: maps.getRegion(summary.regionIndex)?.mapNames?.[summary.mapIndex] ?? null };
       }
       _navalHarbourAt = { key, town };
     }
@@ -7016,7 +7025,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!t) return null;
     const r = locationWorldRect(t.loc, t.x, t.y);
     const [ax, az] = state.localFromWorld(r.minX, r.minZ), [bx, bz] = state.localFromWorld(r.maxX, r.maxZ);
-    return { key: `port:${t.id}`, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };
+    return { key: `port:${t.id}`, name: t.name, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };   // SHIP-TAGS: her name, the words a ship bound there is read by
   };
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
@@ -7345,6 +7354,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); } }
     if (!on) return;
     if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
+    if (_mode() === 'exterior' && !gamePaused() && !_loading) laneShips();   // SEA-LANES: the Bay's packets about the player, stood and steered before the frame poses them
     naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && (held(keys, 'Crouch') || navalTouchBrace()) });   // the brace: ducking behind the rail - the Crouch action at the helm (AUDIT NAV1: or the plate's Brace under a finger)
     // AUDIT NAV1 (the frame's cost, #12): the sea's ships stand in the world's collider where this frame posed them - the
     // sync in the mod's own step runs before the sea's, so their decks and hulls stood a frame behind the hulls drawn;
@@ -7509,7 +7519,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  land by the crew's own sight cache, under the covers the bars keep. */
   const _sayKeys = new WeakMap();
   let _sayKey = 0;
-  function navalCrewLines(proj, view, eye) {
+  function navalCrewLines(proj, view, eye, dt = 0) {
     if (typeof document === 'undefined') return;
     const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
     const points = [];
@@ -7523,12 +7533,14 @@ export async function bootWorld(canvas, renderer, params, status) {
         let key = _sayKeys.get(l.member);
         if (key == null) { key = `say:${++_sayKey}`; _sayKeys.set(l.member, key); }
         if (crewSight.blocked(player.collider, eye, key, l.head)) continue;
-        // SHIP-CREW: a hand of mine speaks by his name (his first) - the sea's crews and another player's by none
+        // SHIP-CREW: a hand of mine speaks by his name (his first) - the sea's crews and another player's by none.
+        // FIELD BUGS 2026-10-02 CREW-SAY: the name rides beside the line, so a line many say at once (the chorus) is laid
+        // once and by no name - six copies each behind its own name stood over each other (ui/navalHud.js layoutCrewLines)
         const name = csa.boats.includes(l.key) ? naval?.crewName?.(l.key, l.member.i) : null;
-        points.push({ x: at.x, y: at.y, text: name ? `${name.split(' ')[0]}: ${l.text}` : l.text, kind: l.kind, distance: d });
+        points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, who: key, kind: l.kind, distance: d });   // FIELD BUGS 2026-10-02b: `who`, the speaker - his talk is his own
       }
     }
-    drawCrewLines(points, { covered, scale: enhancedHudScale() });
+    drawCrewLines(points, { covered, scale: enhancedHudScale(), dt: gamePaused() ? 0 : dt });
   }
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
@@ -8437,7 +8449,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         step: (n) => plaqueStep(n),
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
-        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
+        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); }, pointer: (want) => { const relock = () => { if (!cursorActive() && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen() && !travelView?.active) requestLook(canvas); }; if (want === 'look') { if (cursorActive()) { setCursorActive(false); relock(); } return null; } if (controllerLook()) return null; const off = holdCursor(); return () => { if (!off()) return; if (backButtonHeld) escRelock = relock; else relock(); }; },   // HERB-CURSOR (FIELD BUGS 2026-10-02 part four): the Basket's glints are clicked with the cursor, held free while it plays and the look taken back after (never under a window, a surface, an overlay, the travel view or the player's own freed mouse); a vein's, a body's or the net's act is aimed by the look - a mouse the player freed is taken back, under the same gates (AUDIT A4). AUDIT A1: an Escape that ended the act asks on its keyup (escRelock) - a lock taken inside its keydown was the browser's to end on the keyup, and ESC-LOCK read that as a second Escape; C8: a pad in hand strikes with its trigger, and no hold shows the OS pointer
       });
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
@@ -12917,7 +12929,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // window is up, so `keys` never sees the press - hence its own latch,
   // above the return. Its one consumer is the prison countdown's
   // accelerator (DaggerfallCourtWindow.cs:301-304).
-  let backButtonHeld = false;
+  let backButtonHeld = false; let escRelock = null;   // AUDIT HERB-CURSOR A1: the look an act's Escape gave back, asked on that Escape's keyup
   // AUDIT SOC B6/C2 (2026-09-16): THE POINTER SURFACES ARE COUNTED. The chat, the friends panel (SOC3) and the F-menu
   // (SOC5) each freed the mouse on open and took it back on close, so closing one while another stood - the F-menu
   // over the panel, the panel over the chat - relocked the pointer under a surface still up, and its buttons were
@@ -13236,14 +13248,14 @@ export async function bootWorld(canvas, renderer, params, status) {
   // movement Set since the first host and never told the open window
   // anything; DFU's buttons hear both edges (Button.cs:79-92) and the
   // travel popup's EXIT is the deferral that needs the release.
-  addEventListener('keyup', (e) => { keys.delete(e.code); noteKeyUp(latch.edge, e.code); peerMenuReader?.up(e.code); if (e.code === 'Escape') backButtonHeld = false; if (e.code === 'AltLeft') e.preventDefault(); townTalk.keyup(e); modes?.keyup?.(e); });   // ROAD-E E1: the up seam reaches BOTH slots this host feeds - the outer overlay and the mode machine's
+  addEventListener('keyup', (e) => { keys.delete(e.code); noteKeyUp(latch.edge, e.code); peerMenuReader?.up(e.code); if (e.code === 'Escape') backButtonHeld = false; if (e.code === 'Escape' && escRelock) { const r = escRelock; escRelock = null; r(); } if (e.code === 'AltLeft') e.preventDefault(); townTalk.keyup(e); modes?.keyup?.(e); });   // ROAD-E E1: the up seam reaches BOTH slots this host feeds - the outer overlay and the mode machine's
   // U45: Actions.ActivateCursor (Enter) - PlayerMouseLook.cursorActive,
   // bound since I1 with no consumer, and the flag the large HUD's
   // IsLargeHUDInteractable actually is.
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:89-303), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-329), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.
@@ -22712,6 +22724,58 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       if (step.state === 'contact') raidContact();
     }
   }
+  // ── SEA-LANES (2026-10-02, Mac: "ships should be more persistant and actively engage with multiple docks and multiple
+  // pathways around daggerfall"): THE BAY'S PACKETS (systems/naval/seaLanes.js) - the lanes between the map's ports, a
+  // lane's packets where the shared clock puts them, handed to the naval host each LANE_LIST_MS: every packet of every
+  // lane with a port within LANE_NEAR_PX past half a lane's longest way of the player (AUDIT BAY A19: the host
+  // knows each ship by her seeds wherever her clock puts her - one fallen behind her place, as the wind leaves a ship
+  // short of her schedule's way, was let go beside the player once the place left a list of the near ones); it stands
+  // and steers them (scenes/navalHost.js liners).
+  const LANE_LIST_MS = 2000, LANE_NEAR_PX = 4;
+  let _laneAt = -Infinity, _laneNet = null;
+  const _laneWays = new Map();
+  /** A map pixel of the open sea - the ocean's water, never a lake's - the lanes' and the roadsteads' water. */
+  const laneOpen = (px, py) => px >= 0 && py >= 0 && px < 1000 && py < 500 && tvWater(px, py) && maps.getClimateIndex(px, py) === CLIMATES.Ocean;
+  const laneOpenNative = (x, z) => { if (!(x >= 0 && z >= 0 && x < 1000 * RAID_NATIVE_PIXEL && z < 500 * RAID_NATIVE_PIXEL)) return false; const p = pixelOfNative(x, z); return laneOpen(p.x, p.y); };
+  /** The lanes of the whole map - every client's the same - made once. */
+  function laneNet() {
+    if (!_laneNet) {
+      const ports = [];
+      for (const id of new Set(PORT_LOCATION_IDS)) {
+        const summary = mapDict?.get(id & 0x000fffff);
+        if (!summary) continue;
+        const at = getPixelFromPixelID(summary.id);
+        ports.push({ id: summary.id, name: maps.getRegion(summary.regionIndex)?.mapNames?.[summary.mapIndex] ?? null, px: at.x, py: at.y, region: summary.regionIndex });   // AUDIT BAY A8: her names her home port's region's
+      }
+      _laneNet = laneNetwork(ports, laneOpen);
+    }
+    return _laneNet;
+  }
+  function laneShips() {
+    const t = performance.now();
+    if (t - _laneAt < LANE_LIST_MS || !naval?.enabled || !mapDict) return;
+    _laneAt = t;
+    const here = playerTravelPixel(), ms = raidNowMs();
+    const list = [];
+    const portOf = (p) => (p ? { key: `port:${p.id}`, name: p.name } : null);   // her harbour's key, as navalHarbourNear's
+    for (const lane of laneNet()) {
+      // every point of a way lies within half its longest of one of its ports: a ship on it within reach of the player
+      // has a port within this
+      const near = (p) => Math.hypot(p.road.x - here.x, p.road.y - here.y) <= LANE_PATH_PX / 2 + LANE_NEAR_PX;
+      if (!near(lane.a) && !near(lane.b)) continue;
+      let way = _laneWays.get(lane.key);
+      if (way === undefined) { way = laneWay(lane, laneOpen, laneOpenNative); _laneWays.set(lane.key, way); }
+      if (!way) continue;
+      const out = way.pts.map((q) => state.localFromWorld(q.x, q.z)), home = [...out].reverse();   // her legs in the scene (AUDIT BAY A6)
+      for (const p of packetsAt(lane, way, ms)) {
+        const [x, z] = state.localFromWorld(p.at.x, p.at.z);
+        const [dx, dz] = state.localFromWorld(p.at.x + p.dir.x, p.at.z + p.dir.z);
+        list.push({ id: p.id, seed: p.seed, seeds: p.seeds, classId: p.cls.id, region: p.region, phase: p.phase, pos: [x, 0, z], yaw: Math.atan2(dx - x, dz - z),
+          leg: p.leg === way.pts ? out : home, port: portOf(p.port), to: portOf(p.to), from: portOf(p.from) });
+      }
+    }
+    naval.liners(list);
+  }
   /** NAV-R: the naval host stands the raiders - the sea fight on and Warm Ashes' raiders sailing. */
   const navalRaidersOn = () => navalOn() && !!naval?.enabled && warmAshesOn();
   let _raidShipsAt = -Infinity;
@@ -23804,13 +23868,13 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         if (_act.cast && !_holdFire && !gatherHost?.acting()) magic.interceptAttack(true);   // the frame's firePending sends it down the live look; AUDIT 29 D2: never a readied spell mid-act (the dungeon held it off already)
         // PROF1: E at an herb patch is the patch's - an act started, or what it needs said - spent before the ladder
         const nodeTook = useEdge && !_holdFire && !modes.transitioning && !naval?.takesActivate?.() && (gatherHost?.press() ?? false);
-        // PROF-MENU: and the click on a node's lit row is the node's, as a loot row's click takes it (never mid-act: that
-        // click is the act's, below)
-        const nodeClicked = !useEdge && _act.activate && !_holdFire && !modes.transitioning && !gatherHost?.acting() && !naval?.takesActivate?.() && profClickPress();   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         // AUDIT 32 H5: a click mid-act is the act's too (AUDIT 29 D3's law for E) - it opened the body's loot under the
         // knife and ended the trace. CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck the
-        // act's last blow lifts after the act has ended
+        // act's last blow lifts after the act has ended; AUDIT HERB-CURSOR B2: asked before the node's click, as the dungeon's ladder asks it
         const _actClick = gatherHost?.clickTaken(_activateDown) ?? false;
+        // PROF-MENU: and the click on a node's lit row is the node's, as a loot row's click takes it (never mid-act, nor
+        // an act's click lifting: that click is the act's - the last glint's release pressed the patch's "Pick" row)
+        const nodeClicked = !useEdge && _act.activate && !_holdFire && !modes.transitioning && !gatherHost?.acting() && !_actClick && !naval?.takesActivate?.() && profClickPress();   // PROF2: a patch's, a vein's or a boulder's; NAVAL-E (AUDIT 2026-10-01 part four): never a press the sea takes - the net's cast stood in the look while the readout said "E: board her"
         if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {
           // T3b: a townsperson under the ray wins the activation (the
           // PlayerActivate nearest-hit order); G3: a guard corpse next
@@ -25561,7 +25625,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       drawPeerNames(proj, view, mwv.eye);   // ONLINE1: the names over the heads
       navalTags(proj, view, mwv.eye);   // AUDIT NAV1 (#14): the ships' tags
       navalCrewBars(proj, view, mwv.eye);   // SHIPMATES: the crew's green bars
-      navalCrewLines(proj, view, mwv.eye);   // LIVING CREW: the lines over their heads
+      navalCrewLines(proj, view, mwv.eye, dt);   // LIVING CREW: the lines over their heads
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
       // against the same door/person/board set, settled by the same

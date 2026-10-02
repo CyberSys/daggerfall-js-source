@@ -212,5 +212,5 @@ test('PERF-EXT25: the key is one-to-one over the cells a map can hold, and every
   assert.doesNotMatch(SRC, /const k = `\$\{/, 'none is filed');
   assert.doesNotMatch(SRC, /for \(const v of \[a, b, c\]\)/, 'and no fourth array is made a triangle for its bounds');
   const lookups = SRC.match(/\.(grid|coarse)\.get\(cellKey\(/g) || [];
-  assert.equal(lookups.length, 2, 'the two lookups: the point query\'s fine 3x3 and the ray\'s fine DDA (OW-WOD-LAG: the wide faces are the tree\'s, no grid)');
+  assert.equal(lookups.length, 4, 'the four lookups: the point query\'s fine 3x3 and the ray\'s fine DDA (OW-WOD-LAG: the wide faces are the tree\'s, no grid); FIELD BUGS 2026-10-02 ROCK-FREE\'s hull overlap over its radius\'s cells and the line up from her centre (partsHolding)');
 });
