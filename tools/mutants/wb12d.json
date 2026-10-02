@@ -179,11 +179,12 @@
   {
     "name": "WB12d-the-hello-unsaid",
     "file": "server/src/index.js",
-    "old": "if (r && riteStands(r.d, now, await this._fellAtOf(r.d))) for (const c of Object.values(r.c)) if (c.said) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r.d, c) }));",
-    "new": "void r;",
+    "old": "if (c.said && stands) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r.d, c) }));",
+    "new": "void stands;",
     "tests": [
       "test/wb12d_rite_relay.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): the hello's replay walks each circle for its broken word and her cage's."
   },
   {
     "name": "WB12d-the-post-owed-nowhere",
@@ -2221,14 +2222,15 @@
   {
     "name": "AUDIT-WB12d-T-relay-told-at-every-word",
     "file": "server/src/index.js",
-    "old": "filter((c) => c.f && c.told < Object.keys(c.h).length) : [];",
-    "new": "filter((c) => c.f) : [];",
+    "old": "const riteOwed = (c) => (!!c.f && c.told < Object.keys(c.h).length) || (!!c.cl && !c.clTold);",
+    "new": "const riteOwed = (c) => !!c.f || (!!c.cl && !c.clTold);",
     "tests": [
       "test/wb12d_rite_relay.test.js",
       "test/wb12d_rite_law.test.js",
       "test/wb12d_rite_world.test.js",
       "test/wb12d_rite_host.test.js"
-    ]
+    ],
+    "note": "BROKER-CAGE (re-aimed by content): the owed test is one home now (riteOwed), the cage's word beside the break."
   },
   {
     "name": "AUDIT-WB12d-T-relay-sweep-forgotten",
@@ -2245,7 +2247,7 @@
   {
     "name": "AUDIT-WB12d-T-relay-sweep-owed-unsaid",
     "file": "server/src/index.js",
-    "old": "      return Object.values(led.c).some((c) => c.f && c.told < Object.keys(c.h).length);",
+    "old": "      return Object.values(led.c).some(riteOwed);",
     "new": "      return false;",
     "tests": [
       "test/wb12d_rite_relay.test.js",
@@ -2332,22 +2334,23 @@
   {
     "name": "AUDIT-WB12d-T-relay-hello-word-in-every-room",
     "file": "server/src/index.js",
-    "old": "if (isSocialRoom(a.key)) { try { const r = await this._riteOf();",
-    "new": "if (true) { try { const r = await this._riteOf();",
+    "old": "        if (isSocialRoom(a.key)) {\n          try {\n            const r = await this._riteOf();",
+    "new": "        if (true) {\n          try {\n            const r = await this._riteOf();",
     "tests": [
       "test/wb12d_rite_relay.test.js",
       "test/wb12d_rite_law.test.js",
       "test/wb12d_rite_world.test.js",
-      "test/wb12d_rite_host.test.js"
+      "test/wb12d_rite_host.test.js",
+      "test/brokercage.test.js"
     ],
     "equivalent": true,
-    "why": "only the hub keeps circles marked said: a cell's ledger carries none and every other room keeps no rite key, so the replay says nothing elsewhere"
+    "why": "the replay runs in a chat room's hello alone (the `if (chat)` block): the hub keeps the circles, and a region's channel keeps no rite key - a cell, whose ledger keeps `cl` (BROKER-CAGE), never reaches it"
   },
   {
     "name": "AUDIT-WB12d-T-relay-hello-word-past-collapse",
     "file": "server/src/index.js",
-    "old": "if (r && riteStands(r.d, now, await this._fellAtOf(r.d))) for (const c of Object.values(r.c)) if (c.said)",
-    "new": "if (r) for (const c of Object.values(r.c)) if (c.said)",
+    "old": "const stands = riteStands(r.d, now, await this._fellAtOf(r.d)), caged = cageStands(r.d, now);",
+    "new": "const stands = true, caged = cageStands(r.d, now);",
     "tests": [
       "test/wb12d_rite_relay.test.js",
       "test/wb12d_rite_law.test.js",
@@ -2468,8 +2471,8 @@
   {
     "name": "AUDIT-WB12d-T-wire-out-at-zero",
     "file": "src/net/wire.js",
-    "old": "!Number.isSafeInteger(m.at) || m.at <= 0) return null;\n  const by = Array.isArray(m.by) ? m.by.filter",
-    "new": "!Number.isSafeInteger(m.at) || m.at < 0) return null;\n  const by = Array.isArray(m.by) ? m.by.filter",
+    "old": "!Number.isSafeInteger(m.at) || m.at <= 0) return null;\n  if (m.k === 'cl')",
+    "new": "!Number.isSafeInteger(m.at) || m.at < 0) return null;\n  if (m.k === 'cl')",
     "tests": [
       "test/wb12d_rite_law.test.js",
       "test/wb12d_rite_relay.test.js",
@@ -2686,8 +2689,8 @@
   {
     "name": "AUDIT-WB12d-T-host-word-stamped-unsent",
     "file": "src/scenes/riteHost.js",
-    "old": "    if (!send({ d: C.day, px: C.px, py: C.py, s, f }, C.cell)) return;",
-    "new": "    send({ d: C.day, px: C.px, py: C.py, s, f }, C.cell);",
+    "old": "    if (!send({ d: C.day, px: C.px, py: C.py, s, f, c }, C.cell)) return;",
+    "new": "    send({ d: C.day, px: C.px, py: C.py, s, f, c }, C.cell);",
     "tests": [
       "test/wb12d_rite_world.test.js",
       "test/wb12d_rite_law.test.js",
@@ -2855,8 +2858,8 @@
   {
     "name": "AUDIT-WB12d-T-wire-out-day-unchecked",
     "file": "src/net/wire.js",
-    "old": "  if (!Number.isSafeInteger(m.d) || m.d < 0 || !intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !Number.isSafeInteger(m.at) || m.at <= 0) return null;\n  const by = Array.isArray(m.by)",
-    "new": "  if (!intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !Number.isSafeInteger(m.at) || m.at <= 0) return null;\n  const by = Array.isArray(m.by)",
+    "old": "  if (!Number.isSafeInteger(m.d) || m.d < 0 || !intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !Number.isSafeInteger(m.at) || m.at <= 0) return null;\n  if (m.k === 'cl')",
+    "new": "  if (!intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !Number.isSafeInteger(m.at) || m.at <= 0) return null;\n  if (m.k === 'cl')",
     "tests": [
       "test/wb12d_rite_law.test.js",
       "test/wb12d_rite_relay.test.js",

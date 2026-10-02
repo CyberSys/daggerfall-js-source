@@ -1765,6 +1765,55 @@ and name until it is emptied, and wears *Opened* after.
 - Pins `test/wb12d_rite_law.test.js` (9), `test/wb12d_rite_relay.test.js` (12), `test/wb12d_rite_world.test.js` (27),
   `test/wb12d_rite_host.test.js` (8); mutants `tools/mutants/wb12d.json` (319); Chromium `tools/riteProbe.mjs`.
 
+### E. The caged Broker (BROKER-CAGE, 2026-10-02)
+
+Mac: "So with the new oblivion gate update, when does the broker spawn?" - then "I say she should be present at the
+site in a jailed gate, and the gate opens after all the enemies are cleared"; asked which enemies, "The rite's
+faithful"; asked what happens if they are not cleared by the opening, "Stays caged"; asked how long she stays once
+free, "Until midnight".
+
+**Where and when.** The Sigil Broker (SET7, `11-Multiplayer/Sigil-Sets.md` section 7) is the faithful's prisoner. Her
+cage stands **11.5 m from the circle's heart, turned 60 degrees from its bearing to the gate** - outside the braziers,
+on the gate's side, away from the casket, inside the 20 m the rock keeps off (`scenes/sigilBrokerPool.js
+cageSpotLocal`, the day's alone, so every client stands her in one place). She stands there **from the omen until the
+Wrath's midnight** (`net/gateRite.js cageStands`), caged or free; a Warden fallen early takes the breach and its
+circle, never her (the omen's `cageSite` reads the site off the day, not off the gate's standing). On a pixel not yet
+built she is not stood (GATE-SEEN's law), and nothing is shut.
+
+**The cage** (`world/cageModel.js`): 2.2 m square and 2.7 m high, cut from the gate's own stone - corner posts, door
+jambs and a frame of the plinth's, bars of the gate's a hand apart on three sides and either side of a 1 m barred door
+on the side toward the gate, and bars across the top. Its walls stand in the collider as plain slabs (no body slips
+between two bars), its shut door as another; the door's slab comes down the moment it opens. A wall is never stood
+around a body standing where it would rise (AUDIT SET W1's law, her post's). While she is caged her eye's box is the
+cage's whole, so the bars never hide her from the press; free, it is her own.
+
+**The door opens when every one of the faithful has fallen** - the Summoner and each of Dagon's Faithful, as many of
+each career as the day stood (`riteRosterFell`) - before the breach opens. A player who saw them all fall says so in
+the rite's word (`c`, beside `s` and `f`); the circle's cell keeps it beside the broken rite (every one fallen is the
+Summoner fallen) and tells the hub, which says **her cage open** (`rite` `cl`) once to everyone online and at every
+hello until midnight. Each screen opens it on the hub's word or on what its own character saw, so it opens at once for
+the one who struck last. Once the hub says it, no faithful is stood again at that circle for anyone. The door swings
+out over 1.5 s, and a player within 60 m who saw it shut hears **"The Sigil Broker is free."**; a page opened after
+(or whose word came within 3 s of her first frame) finds it open and hears nothing. Not cleared by the opening, the
+faithful pass into the breach and **she stays caged that night**.
+
+**The press.** Caged, her plaque reads *Sigil Broker / Caged by Dagon's Faithful*; Info and Steal are as ever; any
+other press says **"Kill all of Dagon's Faithful to free her."** while the rite holds and **"She stays caged
+tonight."** after it. Free, her plaque is her trade and a press opens her window; the sale asks that she stands free.
+Midnight takes her: a window open on her is shut, and she says **"The Sigil Broker leaves for the night."**
+
+**Honest limit, stated.** The rite's own (D above): a word is its player's own. A player at the circle can say every
+one of the faithful fell before they did and open the cage for everyone; the sale itself was always the buyer's
+machine's (SET7). A faithful seen to fall is counted by its career on each screen, so a copy stood again by a new owner
+and killed again counts twice there.
+
+Relay **world153** (`net/wire.js` RELAY_VERSION): the word's `c`, the cell's and the hub's `cl`, the hello's replay
+until midnight. An older relay ignores `c` (`validRiteIn` projects what it knows) and never says `cl`: each screen
+opens the cage on its own character's eyes alone. An older client drops `cl` (`validRiteOut` knows `br` alone).
+Pinned: `test/brokercage.test.js` (6) and `test/set7_broker_world.test.js` (12, re-pinned for the cage); mutants
+`tools/mutants/brokercage.json` (53), set7's and wb12d's records the cage moved re-aimed by content. The probe
+`tools/brokerProbe.mjs` draws her caged from three sides and freed, its door swung.
+
 ### Versions and the deploy
 
 The relay's law moves to **world151** (world141 on the branch; main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and

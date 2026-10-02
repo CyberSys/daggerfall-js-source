@@ -213,7 +213,7 @@ import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../syst
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
 import { createRiteHost, RITE_TEXT } from './riteHost.js';   // WB12d: the faithful's rite - its circle, its smoke, its faithful, its word and its chest
 import { RANDOM_TREASURE_ARCHIVE } from '../systems/lootDataTables.js';   // WB12d: the casket's pile, undrawn
-import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
+import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker - her body, her box and name, her press; BROKER-CAGE: caged at the faithful's circle
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
 import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
 import { drawGateBanner } from '../ui/gateBanner.js';
@@ -7771,7 +7771,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _hoverNamers = [
     (key) => gatherHost?.hoverName?.(key) ?? null,   // PROF-MENU: a profession node, its acts the plaque's rows
     (key) => gatePool?.hoverName(key) ?? null,   // WB2: the Oblivion Gate, and its countdown
-    (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker beside it
+    (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker (BROKER-CAGE: caged at the faithful's circle)
     (key) => riteHost?.hoverName(key) ?? null,   // WB12d: the faithful's chest - its own keys, and its pile's before the piles' word
     (key) => camps.hoverName?.(key) ?? null,
     (key) => droppedTorches.hoverName?.(key) ?? null,
@@ -17495,8 +17495,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     loot: { seed: (items, feet, pixelKey) => droppedLoot.seedPile(items, feet, { archive: RANDOM_TREASURE_ARCHIVE, record: 0 }, null, pixelKey, { unsaved: true, drawn: false }), keyOf: (p) => `droppedLoot:${p.id}` },   // the casket is its picture, and its name
     level: () => playerEntity.level ?? 1,
   }) : null;
-  /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - beside the gate while it stands whole, online alone as the gate
-   *  is: her body, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
+  /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - BROKER-CAGE: caged at the faithful's circle from the omen to
+   *  midnight, and free once every one of them fell (scenes/riteHost.js isCleared), online alone as the gate is: her
+   *  body, her cage, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
    *  the UTC day's of the shared clock (systems/sigilBroker.js), minted once a day and read by the window; the sale is
    *  the law's, made on the pack - the unlocked stones out, a fresh mint of the piece in, the offer marked - behind the
    *  pack's own carry gate (itemTransfer.js planTake), and it clinks as every concluded deal does (nativeTrade.js). */
@@ -17508,7 +17509,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return _brokerStock.offers;
   };
   const brokerBuy = (offer) => {
-    if (!sigilBroker?.stands() || _mode() !== 'exterior') return { ok: false, reason: 'gone' };   // a window left open on a gate that fell sells nothing - nor one carried off the street (AUDIT SET W2)
+    if (!sigilBroker?.stands() || _mode() !== 'exterior') return { ok: false, reason: 'gone' };   // a window left open as midnight took her sells nothing, nor one on her cage - nor one carried off the street (AUDIT SET W2)
     playerEntity.items = playerEntity.items || [];
     const sale = makeBrokerSale(offer, {
       items: playerEntity.items, day: brokerDay(_brokerNow()),
@@ -17598,16 +17599,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     });
     if (win) townTalk.showOverlay(win);
   };
-  const sigilBroker = gatePool ? createSigilBroker({
+  const sigilBroker = gateOmen ? createSigilBroker({
     renderer, getTexture, uploadRecordFrame, collider: () => collider,
-    place: () => gatePool.place(),   // AUDIT SET W5: the gate's place itself, not a state record made every frame to read one field of
-    heightAt: (x, z) => heightAt(x, z),
+    site: () => gateOmen.cageSite(),   // BROKER-CAGE: the breach the clock is about, omen to midnight - a Warden fallen early never takes her
+    pixelTranslation: (px, py, out) => state.pixelTranslation(px, py, out),
+    heightAt: (x, z) => surfaceAt(x, z),   // the drawn triangles' height, as the faithful's circle stands on (no ground: her pixel not built)
     now: _brokerNow,
+    freed: (day, px, py) => !!riteHost?.isCleared(day, px, py),   // BROKER-CAGE: every one of the faithful fallen - the hub's word, or my own eyes
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     cam: () => cam.pos,
     say: (text) => townTalk.say(text),   // AUDIT SET W4: her words to the HUD's lines, as every static NPC's Info says (worldModes presentNpcInfoText - DFU's AddHUDText)
     open: openBroker,
-    gone: () => closeBrokerDoor(),   // the gate fell under her open window: it is shut, and she says so
+    gone: () => closeBrokerDoor(),   // midnight took her from under her open window: it is shut, and she says so
   }) : null;
   /** WB1: the compass's mark - the gate's spot in THIS scene, while the gate stands and the player is in its ring. */
   // GUIDE5: a quest target's place to its map pixel (the held map's own goto law) - AUDIT GUIDE O3: through the host's
@@ -23825,7 +23828,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           const _hccPick = pickActivatableHit(cam.pos, useFwd, hcc.targets(), collider);   // HCC: the parked wagon's box, the following team's, the standing horse's (RegisterCustomActivation at 3.2), the same one ray
           const _springPick = pickActivatableHit(cam.pos, useFwd, springTargets(), collider);   // SURV3: a fountain, a well, a trough
           const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, [...gatePool.targets(), ...(riteHost?.targets() ?? [])], collider) : null;   // WB2: an Oblivion Gate's fire; WB12d: and the faithful's casket, on its ray
-          const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker beside it
+          const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker (BROKER-CAGE: in her cage, its whole her box)
           const _csaBoatPick = csaActivationPick(cam.pos, useFwd);   // CSA-D: a boat's box or hull (RegisterCustomActivation 112400-112406 at 3.2), the same one ray
           // HARD2: the race is ONE law now (player/activationRace.js) - the
           // body against the pile, the torch against both and the door,
@@ -24438,7 +24441,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
 
     // WB2: the gate stood for this frame - before the lights (its fire lights the ground) and the world pass (its stone)
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
-    try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the gate stood her
+    try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the clock stands her - BROKER-CAGE: in her cage at the faithful's circle
     try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
@@ -24504,6 +24507,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     drawPeerBodies(proj, view, mwv.eye, tvf ? tvFace : null);   // MWBODY1: the others' bodies, the same pass; OW-PEERS: grown under the Overworld
     mwViewDrawWagon(renderer);   // EOTB-IL: the cart, when the transport is the cart
     riteHost?.draw(renderer, null, mwv.eye);   // WB12d: the faithful's circle and their tents - AUDIT WB12d (G6): its sigil from near the eye alone
+    sigilBroker?.draw(renderer);   // BROKER-CAGE: the Sigil Broker's cage beside it, and its door
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)

@@ -104,11 +104,12 @@ test('WB12d the receipt: a third way earned - the rite alone - and a fighter\'s 
   assert.equal(readReceipt(await mintReceipt({ d: 700, b: 'ruhn', s: 'acct-2', c: 9, x: 'rite' }, null, { subtle, nowS })).x, 'rite');
 });
 
-test('WB12d the wire: a rite word is {d, px, py, s, f} and nothing more, parsed only after a hello; the hub\'s broken word bounds its names; a word is said only to a relay that keeps the rite (world151; world141 on its branch) - an older one closes the socket on it (mutants: a bad flag passed; the names unbounded; the version law)', () => {
-  assert.deepEqual(validRiteIn({ d: 700, px: 10, py: 20, s: 1, f: 0, x: 'junk' }), { d: 700, px: 10, py: 20, s: 1, f: 0 });
-  for (const bad of [{ d: -1 }, { px: 1000 }, { py: 500 }, { s: 2 }, { f: true }, { d: 1.5 }]) assert.equal(validRiteIn({ d: 700, px: 10, py: 20, s: 0, f: 0, ...bad }), null, JSON.stringify(bad));
+test('WB12d the wire: a rite word is {d, px, py, s, f, c} and nothing more (BROKER-CAGE\'s `c` 0 in a word from before it), parsed only after a hello; the hub\'s broken word bounds its names; a word is said only to a relay that keeps the rite (world151; world141 on its branch) - an older one closes the socket on it (mutants: a bad flag passed; the names unbounded; the version law)', () => {
+  assert.deepEqual(validRiteIn({ d: 700, px: 10, py: 20, s: 1, f: 0, x: 'junk' }), { d: 700, px: 10, py: 20, s: 1, f: 0, c: 0 });
+  assert.deepEqual(validRiteIn({ d: 700, px: 10, py: 20, s: 1, f: 1, c: 1 }), { d: 700, px: 10, py: 20, s: 1, f: 1, c: 1 }, 'BROKER-CAGE: every one of them seen to fall');
+  for (const bad of [{ d: -1 }, { px: 1000 }, { py: 500 }, { s: 2 }, { f: true }, { d: 1.5 }, { c: 2 }, { c: true }, { c: null }]) assert.equal(validRiteIn({ d: 700, px: 10, py: 20, s: 0, f: 0, ...bad }), null, JSON.stringify(bad));
   const frame = JSON.stringify({ t: 'rite', d: 700, px: 10, py: 20, s: 1, f: 1 });
-  assert.deepEqual(parseClient(frame, { hasHello: true }), { t: 'rite', d: 700, px: 10, py: 20, s: 1, f: 1 });
+  assert.deepEqual(parseClient(frame, { hasHello: true }), { t: 'rite', d: 700, px: 10, py: 20, s: 1, f: 1, c: 0 });
   assert.ok(parseClient(frame, { hasHello: false }).error);
   const names = Array.from({ length: 20 }, (_, i) => `N${i}`);
   const out = validRiteOut({ k: 'br', d: 700, px: 1, py: 2, at: 5, by: [...names, '', 3] });
@@ -117,7 +118,7 @@ test('WB12d the wire: a rite word is {d, px, py, s, f} and nothing more, parsed 
   assert.deepEqual(validRiteOut({ k: 'br', d: 700, px: 1, py: 2, at: 5, by: ['', 3, null, {}, ...names] }).by, names.slice(0, RITE_BY_MAX));
   assert.equal(validRiteOut({ k: 'xx', d: 700, px: 1, py: 2, at: 5 }), null);
   assert.equal(RITE_RELAY_MIN, 151);   // world141 on its branch: main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150 first
-  assert.deepEqual(['world150', 'world151', 'world152', 'acct62', null].map(relaySupportsRite), [false, true, true, false, false]);
+  assert.deepEqual(['world150', 'world151', 'world152', 'world153', 'acct62', null].map(relaySupportsRite), [false, true, true, true, false, false]);
 });
 
 // ═══ THE ACCOUNT SERVICE: THE RITE'S EMBER ═══════════════════════════════════════════════════════
@@ -222,7 +223,7 @@ test('AUDIT WB12d (lens T F14, F21, F22): the law\'s numbers are the bible\'s - 
   let mixed = 0;
   for (const d of DAYS) if (new Set(riteFaithfulOf(d).filter((m) => !m.summoner).map((m) => m.career)).size >= 3) mixed++;
   assert.ok(mixed > DAYS.length / 2, `each of the faithful its own career (${mixed} of ${DAYS.length} days three or more)`);
-  assert.deepEqual(validRiteIn({ d: 200, px: 999, py: 499, s: 1, f: 0 }), { d: 200, px: 999, py: 499, s: 1, f: 0 }, 'the map\'s last column and row');
+  assert.deepEqual(validRiteIn({ d: 200, px: 999, py: 499, s: 1, f: 0 }), { d: 200, px: 999, py: 499, s: 1, f: 0, c: 0 }, 'the map\'s last column and row');
   assert.equal(validRiteIn({ d: 200, px: 1000, py: 499, s: 1, f: 0 }), null);
   const out = { k: 'br', d: 200, px: 300, py: 200, at: 5, by: ['Ann'], n: 1 };
   for (const d of [-1, 1.5, '200', null]) assert.equal(validRiteOut({ ...out, d }), null, `day ${d}`);

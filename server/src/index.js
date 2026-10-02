@@ -202,7 +202,7 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS, isGateDay } from '../../src/net/gateLaw.js';
-import { riteNear, riteHeard, riteStands, RITE_HELPERS_MAX } from '../../src/net/gateRite.js';   // WB12d: the faithful's rite
+import { riteNear, riteHeard, riteStands, cageStands, RITE_HELPERS_MAX } from '../../src/net/gateRite.js';   // WB12d: the faithful's rite; BROKER-CAGE: the Broker's cage, omen to midnight
 import { isSiegeRoom, newFighter, isSiegeNpcId, siegeNpcFoe, siegeNpcPose, siegeNpcFell, siegeNpcInReach, siegeNpcProvoked, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP, siegePlaceFree, siegeReturn, royalPrune, worksOf, refereeWorkBlow, siegeWaveMs, siegeRamDown, siegeBreach, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM, siegeGroundOf, siegeOffGround, siegeStepLevel, royalLevel, SIEGE_HEIGHT_M } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle   // AUDIT-SEATS T3/R5: a side's places, a fighter's return, a tourney's records   // SEAT2b part two (b): the works in battle
 import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S, mintRoyalReceipt } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
 import { newFight, joinFight, applyHit, applyCrystalHit, applyHostHit, applyHeal, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
@@ -243,6 +243,11 @@ const riteNames = (c) => Object.values(c?.h ?? {}).filter((n) => typeof n === 's
 /** WB12d: the hub's word of a broken rite - its day, its circle, when, the first names of those who broke it and (AUDIT
  *  WB12d D4) how many did. */
 const riteSaid = (d, c) => ({ k: 'br', d, px: c.px, py: c.py, at: c.at, by: riteNames(c).slice(0, RITE_BY_MAX), n: Object.keys(c.h).length });
+/** BROKER-CAGE: the hub's word of a circle's faithful every one fallen - the Broker's cage open - and when. */
+const cageSaid = (d, c) => ({ k: 'cl', d, px: c.px, py: c.py, at: c.clAt });
+/** WB12d: a cell's circle the hub has not heard all of - its break and who struck since; BROKER-CAGE: or its faithful
+ *  every one fallen. */
+const riteOwed = (c) => (!!c.f && c.told < Object.keys(c.h).length) || (!!c.cl && !c.clTold);
 /** AUDIT WB12d (R1): the circles a day's record stands by - those at the gate's agreed site (net/gateHerald.js
  *  agreedGateSite: two accounts said where it stands) when there is one, else every circle told, the most struck first
  *  (the first told on a tie). A lie at a pixel no breach stands in is a circle the agreed site never names. */
@@ -1303,7 +1308,20 @@ export class Room {
         // AUDIT WB A4: and this account's receipt, while it is good (spent, it goes)
         if (isSocialRoom(a.key) && who.subject) { try { await this._gateReceiptTo(ws, who.subject, now); } catch (e) { console.warn('[hub] gate receipt failed', e?.message ?? e); } }
         // WB12d: the faithful's rite broken while this player was away, while its circle still stands
-        if (isSocialRoom(a.key)) { try { const r = await this._riteOf(); if (r && riteStands(r.d, now, await this._fellAtOf(r.d))) for (const c of Object.values(r.c)) if (c.said) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r.d, c) })); } catch (e) { console.warn('[hub] rite word failed', e?.message ?? e); } }   // each circle said (a client hears its own)
+        // BROKER-CAGE: and its faithful every one fallen - the Broker's cage open - until the Wrath's midnight (cageStands: a
+        // Warden fallen early takes the circle, never her)
+        if (isSocialRoom(a.key)) {
+          try {
+            const r = await this._riteOf();
+            if (r) {
+              const stands = riteStands(r.d, now, await this._fellAtOf(r.d)), caged = cageStands(r.d, now);
+              for (const c of Object.values(r.c)) {
+                if (c.said && stands) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r.d, c) }));   // each circle said (a client hears its own)
+                if (c.cl && caged) this._send(ws, JSON.stringify({ t: 'rite', ...cageSaid(r.d, c) }));
+              }
+            }
+          } catch (e) { console.warn('[hub] rite word failed', e?.message ?? e); }
+        }
         // RAID3: the raids cleansed today and yesterday - so a raid this player's machine still holds open is closed quietly,
         // never said withdrawn (the cleanse's own word went out while they were away)
         if (isSocialRoom(a.key)) { try { const l = await this._raidCleansOf(now); if (l.length) this._send(ws, JSON.stringify({ t: 'raid', k: 'cls', l })); } catch (e) { console.warn('[hub] raid word failed', e?.message ?? e); } }
@@ -3388,11 +3406,13 @@ export class Room {
     let moved = false;
     if (m.s === 1 && !Object.hasOwn(c.h, a.sub) && Object.keys(c.h).length < RITE_HELPERS_MAX) { c.h[a.sub] = sanitizeName(a.name ?? ''); moved = true; }
     if (m.f === 1 && !c.f) { c.f = 1; c.at = now; moved = true; }
+    // BROKER-CAGE: every one of the faithful seen to fall - the Summoner among them, so the rite is broken by it too
+    if (m.c === 1 && !c.cl) { c.cl = 1; c.clAt = now; if (!c.f) { c.f = 1; c.at = now; } moved = true; }
     if (!moved) return;   // AUDIT WB12d (R4): a word that moves nothing tells nothing - the alarm tells what is owed
     await this._riteSave(led);
     await this._riteTellHub(now);
   }
-  /** The cell's ledger - `{ d, c: { 'px,py': { px, py, h, f, at, told } } }`, the latest day's. Asked for `day`: an older
+  /** The cell's ledger - `{ d, c: { 'px,py': { px, py, h, f, at, told, cl?, clAt?, clTold? } } }`, the latest day's. Asked for `day`: an older
    *  day's word is nothing (null), a newer day's starts it again. */
   async _riteLedgerOf(day = null) {
     if (this._riteLed === undefined) { const v = await this.state.storage.get(RITE_KEY); if (this._riteLed === undefined) this._riteLed = riteRecordOk(v) ? v : null; }   // a read never undoes a word kept while it was out
@@ -3407,7 +3427,7 @@ export class Room {
    *  R5), and let go once its breach has collapsed (R3). Answers whether a tell is still owed. */
   async _riteTellHub(now) {
     const led = await this._riteLedgerOf();
-    const owed = led ? Object.values(led.c).filter((c) => c.f && c.told < Object.keys(c.h).length) : [];
+    const owed = led ? Object.values(led.c).filter(riteOwed) : [];
     if (!owed.length || !riteStands(led.d, now)) return false;
     if (this._riteTelling) return true;
     this._riteTelling = true;
@@ -3416,10 +3436,11 @@ export class Room {
       let moved = false;
       for (const c of owed) {
         const n = Object.keys(c.h).length;
-        if (await this._riteTellHubOf({ d: led.d, px: c.px, py: c.py, at: c.at, h: Object.entries(c.h) })) { c.told = Math.max(c.told, n); moved = true; }
+        const cl = c.cl ? 1 : 0;   // BROKER-CAGE: the faithful every one fallen, told beside the break
+        if (await this._riteTellHubOf({ d: led.d, px: c.px, py: c.py, at: c.at, h: Object.entries(c.h), ...(cl ? { cl, clAt: c.clAt } : {}) })) { c.told = Math.max(c.told, n); if (cl) c.clTold = 1; moved = true; }
       }
       if (moved && this._riteLed === led) await this._riteSave(led);
-      return Object.values(led.c).some((c) => c.f && c.told < Object.keys(c.h).length);
+      return Object.values(led.c).some(riteOwed);
     } finally { this._riteTelling = false; }
   }
   /** The alarm's beat for a rite the hub has not heard: armed no later than `at` (never pushed off a sooner one). */
@@ -3434,7 +3455,7 @@ export class Room {
     try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RITE_INTERNAL_BROKEN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
     catch (e) { console.warn('[rite] hub', e?.message ?? e); return false; }
   }
-  /** THE HUB'S HALF: the day's rites - `{ d, c: { 'px,py': { px, py, at, h, said } } }`, each circle a cell told of
+  /** THE HUB'S HALF: the day's rites - `{ d, c: { 'px,py': { px, py, at, h, said, cl?, clAt? } } }`, each circle a cell told of
    *  (RITE_HUB_CIRCLES_MAX), the latest day's. */
   async _riteOf() {
     if (this._riteHub === undefined) { const v = await this.state.storage.get(RITE_KEY); if (this._riteHub === undefined) this._riteHub = riteRecordOk(v) ? v : null; }
@@ -3470,12 +3491,19 @@ export class Room {
     }
     const fresh = !c.said;
     c.said = 1;
+    // BROKER-CAGE: its faithful every one fallen - kept once, with when the cell heard it
+    const cleared = body.cl === 1 && !c.cl;
+    if (cleared) { c.cl = 1; c.clAt = Number.isSafeInteger(body.clAt) && body.clAt > 0 ? body.clAt : now; }
     this._riteHub = r;
     await this.state.storage.put(RITE_KEY, r);
     if (fresh) {
       const said = JSON.stringify({ t: 'rite', ...riteSaid(r.d, c) });
       for (const [ws, b] of [...this._all()]) if (b.id) this._send(ws, said);
       try { await this._heraldRiteOwe(r.d, now); } catch (e) { console.warn('[herald] rite not kept', e?.message ?? e); }   // and to the channel
+    }
+    if (cleared) {   // the Broker's cage open, said to everyone online once (each client hears its own circle's)
+      const said = JSON.stringify({ t: 'rite', ...cageSaid(r.d, c) });
+      for (const [ws, b] of [...this._all()]) if (b.id) this._send(ws, said);
     }
     return json({ ok: true });
   }

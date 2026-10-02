@@ -87,6 +87,8 @@ export function riteMemory(day) {
   if (_rite.d !== day) _rite = blank(day);
   return _rite;
 }
+/** BROKER-CAGE: what this character saw of day `day`'s faithful, or null - read, never begun (riteMemory begins a day). */
+export const riteSeen = (day) => (_rite.d === day ? _rite : null);
 const bit = (v) => (v === 1 ? 1 : 0);
 registerModSaveData(RITE_DAY_SAVE_VENDOR, {
   newSaveData: () => blank(-1),

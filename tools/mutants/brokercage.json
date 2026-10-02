@@ -1,0 +1,486 @@
+[
+  {
+    "name": "BROKER-CAGE-a-faithful-short-counted-all",
+    "file": "src/net/gateRite.js",
+    "old": "if (!(Number.isSafeInteger(slain[career]) && slain[career] >= n)) return false;",
+    "new": "if (!(Number.isSafeInteger(slain[career]) && slain[career] >= n - 1)) return false;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-summoner-not-asked",
+    "file": "src/net/gateRite.js",
+    "old": "  if (!fell || !slain || typeof slain !== 'object') return false;\n  if (_rosterDay",
+    "new": "  if (!slain || typeof slain !== 'object') return false;\n  if (_rosterDay",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-a-career-missed",
+    "file": "src/net/gateRite.js",
+    "old": "for (const m of riteFaithfulOf(day)) if (!m.summoner) want.set(",
+    "new": "for (const m of riteFaithfulOf(day).slice(0, 2)) if (!m.summoner) want.set(",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-roster-of-the-first-day-asked",
+    "file": "src/net/gateRite.js",
+    "old": "  if (_rosterDay !== day) {",
+    "new": "  if (_rosterDay === null) {",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-midnight-kept",
+    "file": "src/net/gateRite.js",
+    "old": "now >= t.omenAt && now < t.wrathAt; };",
+    "new": "now >= t.omenAt && now < t.wrathAt + GATE_COLLAPSE_MS; };",
+    "tests": [
+      "test/brokercage.test.js",
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-omen-not-waited-for",
+    "file": "src/net/gateRite.js",
+    "old": "isGateDay(day) && now >= t.omenAt && now < t.wrathAt; };",
+    "new": "isGateDay(day) && now < t.wrathAt; };",
+    "tests": [
+      "test/brokercage.test.js",
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-c-unchecked",
+    "file": "src/net/wire.js",
+    "old": "  if (c !== 0 && c !== 1) return null;\n  return { d: m.d",
+    "new": "  return { d: m.d",
+    "tests": [
+      "test/brokercage.test.js",
+      "test/wb12d_rite_law.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-cl-refused",
+    "file": "src/net/wire.js",
+    "old": "export const RITE_OUT_KINDS = Object.freeze(['br', 'cl']);",
+    "new": "export const RITE_OUT_KINDS = Object.freeze(['br']);",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-cl-carrying-the-broken-words-names",
+    "file": "src/net/wire.js",
+    "old": "  if (m.k === 'cl') return { k: 'cl', d: m.d, px: m.px, py: m.py, at: m.at };",
+    "new": "  if (m.k === 'cl') return { k: 'cl', d: m.d, px: m.px, py: m.py, at: m.at, by: m.by };",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cell-never-keeps-it",
+    "file": "server/src/index.js",
+    "old": "if (m.c === 1 && !c.cl) { c.cl = 1;",
+    "new": "if (false) { c.cl = 1;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-cleared-without-the-summoners-fall",
+    "file": "server/src/index.js",
+    "old": "if (m.c === 1 && !c.cl) { c.cl = 1; c.clAt = now; if (!c.f) { c.f = 1; c.at = now; } moved = true; }",
+    "new": "if (m.c === 1 && !c.cl) { c.cl = 1; c.clAt = now; moved = true; }",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-hub-never-told",
+    "file": "server/src/index.js",
+    "old": "...(cl ? { cl, clAt: c.clAt } : {})",
+    "new": "",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-hub-says-it-at-every-tell",
+    "file": "server/src/index.js",
+    "old": "    const cleared = body.cl === 1 && !c.cl;",
+    "new": "    const cleared = body.cl === 1;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-hub-never-says-it",
+    "file": "server/src/index.js",
+    "old": "    if (cleared) {   // the Broker's cage open, said to everyone online once",
+    "new": "    if (false) {   // the Broker's cage open, said to everyone online once",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-hellos-word-gone-with-the-circle",
+    "file": "server/src/index.js",
+    "old": "if (c.cl && caged) this._send",
+    "new": "if (c.cl && stands) this._send",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-said-past-midnight",
+    "file": "server/src/index.js",
+    "old": "if (c.cl && caged) this._send",
+    "new": "if (c.cl) this._send",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-word-never-says-c",
+    "file": "src/scenes/riteHost.js",
+    "old": "c = riteRosterFell(C.day, mem.slain, mem.fell) ? 1 : 0, k = s * 4 + f * 2 + c;",
+    "new": "c = 0, k = s * 4 + f * 2 + c;",
+    "tests": [
+      "test/brokercage.test.js",
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-c-not-said-at-once",
+    "file": "src/scenes/riteHost.js",
+    "old": "c = riteRosterFell(C.day, mem.slain, mem.fell) ? 1 : 0, k = s * 4 + f * 2 + c;",
+    "new": "c = riteRosterFell(C.day, mem.slain, mem.fell) ? 1 : 0, k = s * 4 + f * 2;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-another-circles-word-believed",
+    "file": "src/scenes/riteHost.js",
+    "old": "      if (clearedWords.has(circleKey(day, px, py))) return true;",
+    "new": "      if (clearedWords.size) return true;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-faithful-stood-again-after-it",
+    "file": "src/scenes/riteHost.js",
+    "old": "    if (clearedHere()) return [];\n",
+    "new": "",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-a-day-begun-by-the-cages-question",
+    "file": "src/scenes/riteHost.js",
+    "old": "      const mem = riteSeen(day);",
+    "new": "      const mem = riteMemory(day);",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cleared-word-taken-for-broken",
+    "file": "src/scenes/riteHost.js",
+    "old": "      if (w.k === 'cl') {",
+    "new": "      if (w.k === 'xx') {",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cage-site-the-gates-standing",
+    "file": "src/systems/gateOmen.js",
+    "old": "      const s = c.site ?? siteOf(c.t.day);",
+    "new": "      const s = c.site;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-omens-midnight-kept",
+    "file": "src/systems/gateOmen.js",
+    "old": "      if (!c?.t || !cageStands(c.t.day, now())) return null;",
+    "new": "      if (!c?.t) return null;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-a-cage-site-a-frame",
+    "file": "src/systems/gateOmen.js",
+    "old": "      if (cage?.day !== c.t.day || cage.px !== s.px || cage.py !== s.py) cage = ",
+    "new": "      cage = ",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-gates-bearing-for-hers",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "const facing = Math.atan2(gx - e, gz - n), a = facing + CAGE_TURN;",
+    "new": "const facing = Math.atan2(gx - e, gz - n), a = CAGE_TURN;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cage-within-the-braziers",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "export const CAGE_R = 11.5;",
+    "new": "export const CAGE_R = 8;",
+    "tests": [
+      "test/set7_broker_world.test.js",
+      "test/gateclear.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-a-caged-window-opened",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "      else if (!doorOpen) say(now() < riteWindow(at.day).to ? BROKER_TEXT.held : BROKER_TEXT.lost);\n",
+    "new": "",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-plaques-trade-while-caged",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "subs: [doorOpen ? BROKER_TEXT.trade : BROKER_TEXT.caged]",
+    "new": "subs: [BROKER_TEXT.trade]",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-held-line-after-the-opening",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "say(now() < riteWindow(at.day).to ? BROKER_TEXT.held : BROKER_TEXT.lost)",
+    "new": "say(BROKER_TEXT.held)",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cages-box-kept-when-free",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "const h = doorOpen ? bodyH : CAGE_H + 0.05, w = doorOpen ? BROKER_HALF_W : BROKER_CAGE_HALF_W",
+    "new": "const h = CAGE_H + 0.05, w = BROKER_CAGE_HALF_W",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cages-walls-hiding-her",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "export const BROKER_CAGE_HALF_W = Math.hypot(CAGE_W / 2 + CAGE_WALL / 2, CAGE_D / 2 + CAGE_WALL / 2) + 0.05;",
+    "new": "export const BROKER_CAGE_HALF_W = BROKER_HALF_W;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-sale-on-a-cage",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    stands: () => !!at && doorOpen,",
+    "new": "    stands: () => !!at,",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-door-never-opened",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    if (!freed(at.day, at.px, at.py)) { shutSince ??= t; return; }",
+    "new": "    shutSince ??= t; return;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-opened-at-once-with-no-swing",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    openedAt = saw ? t : -Infinity;",
+    "new": "    openedAt = -Infinity;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-line-to-a-player-across-the-field",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "<= BROKER_FREED_SAY_M) say(BROKER_TEXT.freed);",
+    "new": "<= Infinity) say(BROKER_TEXT.freed);",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-line-to-a-page-just-opened",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "const saw = shutSince != null && t - shutSince >= BROKER_SHUT_SEEN_MS;",
+    "new": "const saw = shutSince != null;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-yesterdays-door-left-open",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    if (cageDay !== at.day) { cageDay = at.day; doorOpen = false;",
+    "new": "    if (cageDay !== at.day) { cageDay = at.day;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-no-walls",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "      col.addMesh(BROKER_CAGE_BUCKET, CAGE_WALLS.positions, CAGE_WALLS.indices, cageMat);\n",
+    "new": "",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-door-left-up-once-open",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    else if (doorOpen && doorUp) { col.removeBucket?.(BROKER_DOOR_BUCKET); doorUp = false; }",
+    "new": "",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-door-never-up",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    if (!doorOpen && !doorUp) { col.addMesh(BROKER_DOOR_BUCKET, CAGE_DOOR_WALL.positions, CAGE_DOOR_WALL.indices, cageMat); doorUp = true; }",
+    "new": "    if (!doorOpen && !doorUp) { doorUp = true; }",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-walls-stood-every-frame",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "    if (!(cageAt && f && cageAt[0] === f[0]",
+    "new": "    if (!(false && f && cageAt[0] === f[0]",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cage-stood-over-a-player",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "      if (!f || cageTraps(f, at.rest, feet())) return;",
+    "new": "      if (!f) return;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cages-footprint-missing-the-capsule",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "reach = CAGE_WALL / 2 + CAPSULE_RADIUS;",
+    "new": "reach = 0;",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cage-left-at-a-transition",
+    "file": "src/scenes/sigilBrokerPool.js",
+    "old": "      col?.removeBucket?.(BROKER_CAGE_BUCKET);\n      col?.removeBucket?.(BROKER_DOOR_BUCKET);\n",
+    "new": "",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-a-face-wound-in",
+    "file": "src/world/cageModel.js",
+    "old": "  side(0, 1, 5, 4); side(1, 2, 6, 5);",
+    "new": "  side(4, 5, 1, 0); side(1, 2, 6, 5);",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-a-gap-a-body-passes",
+    "file": "src/world/cageModel.js",
+    "old": "export const CAGE_GAP = 0.22;",
+    "new": "export const CAGE_GAP = 0.9;",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-back-wall-missing",
+    "file": "src/world/cageModel.js",
+    "old": "  slabTris(out, -hx - t, y0, -hz - t, hx + t, y1, -hz + t);\n",
+    "new": "",
+    "tests": [
+      "test/brokercage.test.js",
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-doors-slab-missing",
+    "file": "src/world/cageModel.js",
+    "old": "  slabTris(out, -dx, -CAGE_FOOT, hz - t, dx, CAGE_H, hz + t);\n",
+    "new": "",
+    "tests": [
+      "test/brokercage.test.js",
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-hinge-on-the-wrong-edge",
+    "file": "src/world/cageModel.js",
+    "old": "export const cageHinge = () => [-CAGE_DOOR_W / 2, CAGE_D / 2];",
+    "new": "export const cageHinge = () => [CAGE_DOOR_W / 2, CAGE_D / 2];",
+    "tests": [
+      "test/brokercage.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-the-cage-not-drawn",
+    "file": "src/scenes/world.js",
+    "old": "    sigilBroker?.draw(renderer);   // BROKER-CAGE",
+    "new": "    void sigilBroker;   // BROKER-CAGE",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-freed-by-nothing",
+    "file": "src/scenes/world.js",
+    "old": "freed: (day, px, py) => !!riteHost?.isCleared(day, px, py),",
+    "new": "freed: () => true,",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  },
+  {
+    "name": "BROKER-CAGE-her-site-the-gates-standing",
+    "file": "src/scenes/world.js",
+    "old": "site: () => gateOmen.cageSite(),",
+    "new": "site: () => gateOmen.standing(),",
+    "tests": [
+      "test/set7_broker_world.test.js"
+    ]
+  }
+]
