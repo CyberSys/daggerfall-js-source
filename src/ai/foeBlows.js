@@ -19,12 +19,8 @@ import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own t
 
 const M = MOBILE_TYPES;
 
-/** The shapes, and every number they carry. Metres, seconds, damage multipliers on the foe's own blow. */
-export const BLOW = Object.freeze({
-  lunge: Object.freeze({ windup: 0.7, len: 4.5, halfW: 0.6, mult: 1.5 }),
-  sweep: Object.freeze({ windup: 0.8, r: 3.2, halfArc: (65 * Math.PI) / 180, mult: 1.25 }),
-  slam: Object.freeze({ windup: 0.9, r: 2.0, ahead: 1.0, mult: 1.75 }),
-});
+export { BLOW } from './blowShapes.js';   // the shapes' one home - a leaf the ground's pass reads too
+import { BLOW } from './blowShapes.js';
 export const BLOW_TIER_LEVEL = 10;      // Mac: level 10 and up, or an elite
 export const BLOW_COOLDOWN_MIN = 8;     // seconds between one foe's blows
 export const BLOW_COOLDOWN_MAX = 15;

@@ -209,7 +209,7 @@
   {
     "name": "ATACT-B1-felled-stands",
     "file": "src/ai/cover.js",
-    "old": "  if (c0.sunk || c0.noCover) return Infinity;",
+    "old": "  if (FELLED.has(c0) || c0.noCover) return Infinity;",
     "new": "  if (c0.noCover) return Infinity;",
     "tests": [
       "test/audittact.test.js"
@@ -218,7 +218,7 @@
   {
     "name": "ATACT-B1-unflagged",
     "file": "src/scenes/treeHost.js",
-    "old": "      /** @type {any} */ (c).sunk = felled;",
+    "old": "      if (felled) FELLED.add(c); else FELLED.delete(c);",
     "new": "      void felled;",
     "tests": [
       "test/audittact.test.js"

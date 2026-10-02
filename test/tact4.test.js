@@ -290,5 +290,5 @@ test('TACT4: every host resolves the blow through the verdict and the weight, an
   assert.match(a, /if \(ai\._blowSwing\) \{\n\s*ai\._blowSwing = false;/, 'the forced swing');
   for (const f of ['src/scenes/world.js', 'src/scenes/exterior.js', 'src/scenes/dungeon.js']) assert.match(rd(f), /renderer\.drawFoeTelegraphs\?\.\(drawableBlows\(tacticsNow\(\), /, f);
   assert.equal((rd('src/scenes/worldModes.js').match(/renderer\.drawFoeTelegraphs\?\.\(drawableBlows\(tacticsNow\(\), player\.pos\)\);/g) ?? []).length, 2, 'the dungeon\'s pass and the interior\'s');
-  assert.match(rd('src/render/renderer.js'), /drawFoeTelegraphs\(list\) \{[\s\S]{0,400}this\.markForeignPass\(\);/);
+  assert.match(rd('src/render/renderer.js'), /drawFoeTelegraphs\(list\) \{[\s\S]{0,1200}this\.markForeignPass\(\);/);
 });

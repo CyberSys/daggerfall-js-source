@@ -6,7 +6,7 @@
 // so it only brightens what it lies on, depth-tested and never depth-written, lifted and offset off the ground.
 import { buildProgram } from './glProgram.js';
 import { FOG_FACTOR_GLSL } from './labGrass.js';   // AUDIT TACT D9: the renderer's one fog block
-import { BLOW } from '../ai/foeBlows.js';
+import { BLOW } from '../ai/blowShapes.js';   // the leaf - the brain stays off the renderer's boot graph
 
 /** The shapes as the shader's `uKind` says them. */
 export const BLOW_KIND = Object.freeze({ lunge: 0, sweep: 1, slam: 2 });

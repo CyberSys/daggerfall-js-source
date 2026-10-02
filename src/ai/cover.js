@@ -58,11 +58,11 @@ export function coverProxies(base, size, { tree = false } = {}) {
  *  { c: base, r, h, lift }, within `maxDist`; Infinity for none. A ray that STARTS inside a proxy is not blocked by it
  *  (a foe in a thicket still sees out of it, an arrow loosed from beside a trunk still flies). AUDIT TACT B2: and a
  *  SIGHT ray (`endAt`, its length) that ENDS inside one is not either - the law is two-way: one in a crown sees out of it AND
- *  is seen in it, never the one-way hiding place it was. A felled tree (`c.sunk`) and a person (`c.noCover`) are no
+ *  is seen in it, never the one-way hiding place it was. A felled tree (FELLED) and a person (`c.noCover`) are no
  *  cover at all. */
 export function rayCylinder(o, d, cyl, maxDist, endAt = null) {
   const c0 = cyl.c;
-  if (c0.sunk || c0.noCover) return Infinity;
+  if (FELLED.has(c0) || c0.noCover) return Infinity;
   const cx = c0[0], cy = c0[1] + (cyl.lift ?? 0), cz = c0[2], r = cyl.r, top = cy + cyl.h;
   const ox = o[0] - cx, oz = o[2] - cz;
   if (ox * ox + oz * oz <= r * r && o[1] >= cy && o[1] <= top) return Infinity;
@@ -97,6 +97,9 @@ export function rayCylinder(o, d, cyl, maxDist, endAt = null) {
 }
 
 const ZERO3 = Object.freeze([0, 0, 0]);
+/** AUDIT TACT B1: the felled trees' base arrays (scenes/treeHost.js sinkFelled marks them) - a WeakSet, so the batch's own
+ *  arrays carry no extra member a reader could trip on, and a tree regrown with the day is cover again. */
+export const FELLED = new WeakSet();
 const _lo = [0, 0, 0];   // AUDIT TACT D11: the ray in a set's frame - one scratch, not one a call
 /** AUDIT TACT D11: a broad-phase cell's key as a number (no string a cell a ray); cells within +-32768 of the frame's
  *  origin - 131 km at 4 m, past any pixel or room. */
