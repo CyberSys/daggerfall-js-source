@@ -104,6 +104,11 @@ export const RITE_BUCKET = 'wb:rite';
 /** AUDIT WB12d (G6): the sigil is drawn for an eye this near its heart - from further its few centimetres over the
  *  ground fought the land's depth (the travel view's above all), and the smoke marks the circle from there. */
 export const RITE_SIGIL_DRAW_M = 250;
+/** AUDIT WB12d (G19): the braziers' and the altar's flames at this share of a camp fire's (the camp's fire is a camp
+ *  fire's own, scenes/camps.js), and the flames in this many batches, each a share of their cycle on from the last -
+ *  a ring of fires flickering as one read as one fire. */
+export const RITE_FLAME_SCALE = 0.8;
+export const RITE_FLAME_PHASES = 3;
 /** The hub's broken words kept, by circle. */
 const BROKEN_KEPT = 8;
 
@@ -147,7 +152,7 @@ export function createRiteHost({
   // tents' and the fire's art; the flames; the smoke's pass; the collider stood for one heart
   let model = null, sigilModel = null, modelGen = -1, modelFailedGen = -1, mesh = null, sigilMesh = null, meshGen = -1, meshFailedGen = -1, artUp = false;
   let tent = null, tentTried = false;
-  let fire = null, fireTried = false, flames = null, flamesGen = -1, flamesList = NONE, anim = null;
+  let fire = null, fireTried = false, flamesGen = -1, flamesList = NONE, anim = null;
   let smokePass = null, smokeTried = false;
   let colliderGen = -1;
   /** made once a heart and a ground: the stone's and the tents' matrices, the casket's target */
@@ -180,7 +185,7 @@ export function createRiteHost({
   function leave() {
     if (C) { foes?.drop(C.site); unsprang(C.site); }
     if (C?.bared) { placeHeart(); bareSaid(); }   // the grass grows back where it stood - its heart where the scene has it now
-    if (flames) { renderer?.destroyBillboardBatch?.(flames); flames = null; flamesList = NONE; }
+    dropFlames();
     if (mesh) { renderer?.destroyMesh?.(mesh); mesh = null; }
     if (sigilMesh) { renderer?.destroyMesh?.(sigilMesh); sigilMesh = null; }
     if (colliderGen !== -1) { collider?.()?.removeBucket?.(RITE_BUCKET); colliderGen = -1; }
@@ -412,23 +417,29 @@ export function createRiteHost({
       const count = t.getFrameCount?.(FIRE_FLAT.record) ?? 1;
       for (let i = 0; i < count; i++) uploadRecordFrame?.(FIRE_FLAT.archive, FIRE_FLAT.record, i);
       const size = t.getSize(FIRE_FLAT.record);
-      fire = { count, size: { w: size.width * GLOBAL_SCALE * 0.8, h: size.height * GLOBAL_SCALE * 0.8 } };
+      const w = size.width * GLOBAL_SCALE, h = size.height * GLOBAL_SCALE;
+      fire = { count, size: { w: w * RITE_FLAME_SCALE, h: h * RITE_FLAME_SCALE }, camp: { w, h } };
     }).catch(() => {});
   }
-  /** The flames: one on each brazier, one on the altar - the smoke's own fire - and the camp's: one batch, stood again
-   *  with each make. */
+  /** The flames: one on each brazier, one on the altar - the smoke's own fire - and the camp's, a camp fire's size;
+   *  every other brazier its own batch, so the ring never flickers as one (AUDIT WB12d G19). Stood again with each make. */
   function mountFlames() {
     if (!fire || !renderer?.createBillboardBatch || flamesGen === C.gen) return;
-    if (flames) { renderer.destroyBillboardBatch?.(flames); flames = null; flamesList = NONE; }
-    const pos = C.layout.braziers.map(([x, z]) => { const p = sceneAt(x, z); return [p[0], p[1] + RITE_BRAZIER_H, p[2]]; });
-    const altar = sceneAt(0, 0);
-    pos.push([altar[0], altar[1] + RITE_ALTAR.h, altar[2]]);
-    pos.push(sceneAt(C.layout.fire[0], C.layout.fire[1]));
-    flames = renderer.createBillboardBatch(FIRE_FLAT.archive, FIRE_FLAT.record, fire.size, pos);
-    flames.frame = 0;
-    flamesList = Object.freeze([flames]);
+    dropFlames();
+    const top = (x, z, up) => { const p = sceneAt(x, z); return [p[0], p[1] + up, p[2]]; };
+    const ring = C.layout.braziers.map(([x, z]) => top(x, z, RITE_BRAZIER_H));
+    const sets = [
+      [fire.size, [...ring.filter((_, i) => i % 2 === 0), top(0, 0, RITE_ALTAR.h)]],
+      [fire.size, ring.filter((_, i) => i % 2 === 1)],
+      [fire.camp, [top(C.layout.fire[0], C.layout.fire[1], 0)]],
+    ];
+    flamesList = Object.freeze(sets.map(([size, pos]) => { const b = renderer.createBillboardBatch(FIRE_FLAT.archive, FIRE_FLAT.record, size, pos); b.frame = 0; return b; }));
     anim = fire.count > 1 ? new FlatAnim(FIRE_FLAT.archive, fire.count, false) : null;
     flamesGen = C.gen;
+  }
+  function dropFlames() {
+    for (const b of flamesList) renderer?.destroyBillboardBatch?.(b);
+    flamesList = NONE;
   }
   /** The smoke's strength now: fading in from the omen, thinning after the opening; 0 with no circle, and 0 at or under
    *  the pass's own threshold (AUDIT WB12d G14). */
@@ -474,8 +485,12 @@ export function createRiteHost({
       }
       return C;
     },
-    /** The flames' clock (the host's per-frame tick). */
-    tick(dt) { if (flames && anim) flames.frame = anim.tick(dt); },
+    /** The flames' clock (the host's per-frame tick): each batch a share of the cycle on from the last. */
+    tick(dt) {
+      if (!anim || !flamesList.length) return;
+      const f = anim.tick(dt);
+      for (let i = 0; i < flamesList.length; i++) flamesList[i].frame = (f + Math.round((i * fire.count) / RITE_FLAME_PHASES)) % fire.count;
+    },
     /** THE HUB'S WORD (net/wire.js validRiteOut): a circle's rite broken - kept by its circle, said by the frame. */
     onBroken(w) {
       if (!w || !Number.isSafeInteger(w.d) || !Number.isSafeInteger(w.px) || !Number.isSafeInteger(w.py)) return;

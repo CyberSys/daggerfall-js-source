@@ -764,6 +764,11 @@ The gate does not move; the rock yields, ROADS-CLEAR's shape
   sweep's shape), and a pixel building across the turn is asked as it
   publishes.
 
+The faithful's circle (WB12d, `11-Multiplayer/World-Bosses.md` 19 D) is a second
+clearing of the gate's day, RITE_CLEAR_M (20 m) about the circle the day's law
+places (`riteLocalOf`): the same refusals, so no boulder stands through the altar,
+the braziers or the faithful's tents (AUDIT WB12d G12).
+
 Online alone: the gate is online's, and online this mod is the room's, forced
 on (`systems/onlineLane.js`) - so every client that sees a gate stands the same
 rock and refuses the same pieces, and the ground the room shares (the flatten)

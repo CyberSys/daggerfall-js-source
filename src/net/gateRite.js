@@ -31,6 +31,9 @@ export const RITE_SUMMONER_HEALTH = 3;
 export const RITE_HELPERS_MAX = 64;
 /** A player at the circle says the rite's word this often while it holds. */
 export const RITE_WORD_MS = 5000;
+/** The rite at the omen, in the chat and the channel alike (AUDIT WB12d D3): said right after the omen's own line -
+ *  "nearby" the breach it just named - and before tonight's marks. */
+export const RITE_OMEN_LINE = 'The faithful work their rite nearby. Kill their Summoner before the breach opens.';
 
 const unit = (v) => v / 4294967296;
 

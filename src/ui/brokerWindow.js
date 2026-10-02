@@ -65,8 +65,8 @@ export const INSIGNIA_LINE = Object.freeze({
   aura: 'A ring of Dagon\'s fire at your feet',
 });
 export const INSIGNIA_CARD = Object.freeze({
-  title: ['Gatebreaker', 'Worn over your name in the breach\'s fire.', 'Paid from your account\'s breaches closed. Wear it here or on your account card.'],
-  aura: ['Dagon\'s Fire', 'A ring of Dagon\'s fire at your feet, seen by every player near you.', 'Paid from your account\'s breaches closed. Wear it here or on your account card.'],
+  title: ['Gatebreaker', 'Worn over your name in the breach\'s fire.', 'Paid from your account\'s embers. Wear it here or on your account card.'],   // AUDIT WB12d (A4): a broken rite's ember is the account's too, and closes no breach
+  aura: ['Dagon\'s Fire', 'A ring of Dagon\'s fire at your feet, seen by every player near you.', 'Paid from your account\'s embers. Wear it here or on your account card.'],
 });
 /** WB9g: an insignia row's button word - why not, or what a press will do. */
 export function insigniaLabel(row, { have, busy, pending }) {

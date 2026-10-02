@@ -59,7 +59,7 @@ export function riteLayout(facing) {
     tents,
     fire: dir(behind, RITE_FIRE_R),
     summoner: [sx, sz, facing],
-    /** n places round the ring, the first opposite the gate, the gap left toward it */
+    /** n places round the ring, centred opposite the gate, the gap left toward it */
     ring(n) {
       const out = [];
       for (let i = 0; i < n; i++) {
@@ -126,7 +126,8 @@ export function buildRiteModel(facing, heightAt = () => 0, { stone = true, sigil
   }
   if (stone) {
     // the braziers: hexagonal columns of the stone, sunk under the lowest ground at their rims - each face its own strip
-    // of the stone (AUDIT WB12d G19: six faces of one strip read as one face turned)
+    // of the stone, the cap a patch as wide (AUDIT WB12d G19: six faces of one strip read as one face turned, and a cap
+    // of a tenth of the art one flat colour)
     for (const [x, z] of L.braziers) {
       const R = RITE_BRAZIER_W;
       const rim = Array.from({ length: 6 }, (_, j) => h(x + Math.cos((j / 6) * 2 * Math.PI) * R, z + Math.sin((j / 6) * 2 * Math.PI) * R));
@@ -135,7 +136,7 @@ export function buildRiteModel(facing, heightAt = () => 0, { stone = true, sigil
         const a0 = (j / 6) * 2 * Math.PI, a1 = ((j + 1) / 6) * 2 * Math.PI, u = j * 0.15;
         const p = (a, y) => [x + Math.cos(a) * R, y, z + Math.sin(a) * R];
         f.quad(GATE_STONE_RECORD, p(a0, y0), p(a0, y1), p(a1, y1), p(a1, y0), [u, 0], [u, 1.5], [u + 0.3, 1.5], [u + 0.3, 0]);
-        f.tri(GATE_STONE_RECORD, [x, y1, z], p(a1, y1), p(a0, y1), [0.5, 0.5], [0.6, 0.5], [0.5, 0.6]);
+        f.tri(GATE_STONE_RECORD, [x, y1, z], p(a1, y1), p(a0, y1), [0.5, 0.5], [0.5 + Math.cos(a1) * 0.3, 0.5 + Math.sin(a1) * 0.3], [0.5 + Math.cos(a0) * 0.3, 0.5 + Math.sin(a0) * 0.3]);
       }
     }
     // the altar and the casket, each standing on the ground at its middle

@@ -11,7 +11,8 @@ import {
   RITE_SUMMONER_CAREER, riteOffset, riteLocalOf, riteNativeOf, riteNear, riteWindow, riteHolds, riteStands, riteFaithfulOf,
 } from '../src/net/gateRite.js';
 import { gateSpotLocal, gateYaw, gateTimes, PIXEL_M, isGateDay, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
-import { PIXEL_UNITS, mapPixelOfWire, validRiteIn, validRiteOut, parseClient, relaySupportsRite, RITE_RELAY_MIN, RITE_BY_MAX } from '../src/net/wire.js';
+import { PIXEL_UNITS, mapPixelOfWire, validRiteIn, validRiteOut, parseClient, relaySupportsRite, RITE_RELAY_MIN, RITE_BY_MAX, sanitizeName } from '../src/net/wire.js';
+import { ritePost } from '../src/net/gateHerald.js';
 import { RECEIPT_EARNED, receiptValid, mintReceipt, readReceipt, importReceiptKey } from '../src/net/gateReceipt.js';
 import { importPublicKeyB64 } from '../src/net/identityToken.js';
 import { createGuest, claimGate, gateRecordOf, insigniaPurse, buyInsignia } from '../server-account/src/accounts.js';
@@ -205,4 +206,29 @@ test('AUDIT WB12d (lens T F7) the Broker\'s sale spends the purse the card shows
   const sale = await buyInsignia({ db, nowS: T0 + 100 }, player, {}, 'title:gatebreaker');
   assert.equal(sale.ok, true, JSON.stringify(sale));
   assert.equal(sale.purse, 0);
+});
+
+test('AUDIT WB12d (lens T F14, F21, F22): the law\'s numbers are the bible\'s - a word believed from 60 m of the circle and no further, the faithful each their own career; the wire\'s edges - the map\'s last column and row a place, a day and an instant the hub\'s word must carry, its names made safe; the channel\'s names stripped of what Discord would read (mutants: the reach strict; the reach doubled; one career a day; the last column refused; the day unchecked; an instant of 0; the names raw; the post\'s names raw)', () => {
+  let edge = null;
+  for (const d of DAYS) {
+    const [x, z] = riteNativeOf(d, 300, 200);
+    if (Math.hypot(x + 60 * RITE_UNITS_PER_M - x, 0) === 60 * RITE_UNITS_PER_M) { edge = { d, x, z }; break; }
+  }
+  assert.ok(edge, 'a day whose circle sits on a whole unit');
+  assert.equal(riteNear(edge.d, 300, 200, edge.x + 60 * RITE_UNITS_PER_M, edge.z), true, 'at 60 m: at the circle');
+  assert.equal(riteNear(edge.d, 300, 200, edge.x + 60.05 * RITE_UNITS_PER_M, edge.z), false, 'past it: not');
+  let mixed = 0;
+  for (const d of DAYS) if (new Set(riteFaithfulOf(d).filter((m) => !m.summoner).map((m) => m.career)).size >= 3) mixed++;
+  assert.ok(mixed > DAYS.length / 2, `each of the faithful its own career (${mixed} of ${DAYS.length} days three or more)`);
+  assert.deepEqual(validRiteIn({ d: 200, px: 999, py: 499, s: 1, f: 0 }), { d: 200, px: 999, py: 499, s: 1, f: 0 }, 'the map\'s last column and row');
+  assert.equal(validRiteIn({ d: 200, px: 1000, py: 499, s: 1, f: 0 }), null);
+  const out = { k: 'br', d: 200, px: 300, py: 200, at: 5, by: ['Ann'], n: 1 };
+  for (const d of [-1, 1.5, '200', null]) assert.equal(validRiteOut({ ...out, d }), null, `day ${d}`);
+  assert.equal(validRiteOut({ ...out, at: 0 }), null, 'no instant');
+  assert.equal(validRiteOut({ ...out, at: 1 })?.at, 1);
+  const raw = 'Ann\u0007\u00e9  ';
+  assert.notEqual(sanitizeName(raw), raw);
+  assert.deepEqual(validRiteOut({ ...out, by: [raw] }).by, [sanitizeName(raw)], 'its names made safe');
+  const post = ritePost({ place: 'Copperham', by: ['**Ann**', '<@&123>Bran'], n: 2 }).content;
+  assert.equal(post, "**The faithful's rite is broken** near Copperham, by Ann and 123Bran.", 'no markdown, no mention');
 });

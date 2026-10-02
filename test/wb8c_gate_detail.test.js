@@ -248,7 +248,7 @@ test('WB8c tonight\'s marks before the gate opens: the chat\'s line (his aspect\
   assert.deepEqual(gateTip(c, { to: 'seal', ms: 60_000 }), { title: 'Dagon\'s Breach', lines: ['Near Copperham, Wrothgarian Mountains', 'Open - seals in 1:00', 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Rime-Wrought - Colossal, Unyielding'] });
   assert.deepEqual(gateTip(c, null, 123).lines.at(-1), 'Valkynaz Ruhn has fallen', 'no marks once he has fallen');
   const post = omenPost({ day }).content;
-  assert.ok(post.endsWith(' Valkynaz Ruhn comes **the Rime-Wrought** tonight, Colossal and Unyielding. The faithful work their rite nearby.'), post);   // WB12d: the rite, a line
+  assert.ok(post.endsWith('. The faithful work their rite nearby. Kill their Summoner before the breach opens. Valkynaz Ruhn comes **the Rime-Wrought** tonight, Colossal and Unyielding.'), post);   // WB12d: the rite, a line
   assert.ok(post.length < 2000);
   assert.ok(gateTimes(day).omenAt < gateTimes(day).openAt);
 });

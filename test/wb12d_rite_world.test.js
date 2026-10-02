@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import {
   createRiteHost, RITE_TEXT, RITE_SPRING_M, RITE_SIGHT_M, RITE_ALERT_M, RITE_CHEST_SEED_M, RITE_SMOKE_IN_MS, RITE_SMOKE_OUT_MS,
   RITE_SAY_REACH_M, RITE_RESAY_MS, RITE_ORPHAN_MS, RITE_RESTAND_MS, RITE_TEND_M, RITE_LIGHT_REACH_M, RITE_GLOW_RANGE, RITE_BARE_R,
-  RITE_BUCKET, RITE_GROUND_EVERY, RITE_SIGIL_DRAW_M,
+  RITE_BUCKET, RITE_GROUND_EVERY, RITE_SIGIL_DRAW_M, RITE_FLAME_SCALE, RITE_FLAME_PHASES,
 } from '../src/scenes/riteHost.js';
 import { riteLocalOf, riteFaithfulOf, RITE_REACH_M, RITE_WORD_MS, RITE_SUMMONER_CAREER, RITE_HELPERS_MAX } from '../src/net/gateRite.js';
 import { gateTimes, gateSpotLocal, gateModsOf, gateBossOf, marksLine, omenLine, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
@@ -26,9 +26,10 @@ import {
 import { riteChestItems, riteChestOpened, markRiteChest, riteMemory, RITE_REAGENTS, RITE_HEART, RITE_BRAND_SET, RITE_CHEST_SAVE_VENDOR, RITE_DAY_SAVE_VENDOR } from '../src/systems/riteChest.js';
 import { restoreModSaveRecords, modSaveRecords } from '../src/systems/modSaveData.js';
 import { spoilsList, createSpoilsPool, SPOILS_TEXT } from '../src/scenes/spoilsPool.js';
-import { gateClaimVerdict, GATE_CLAIM_TEXT } from '../src/net/gateClaims.js';
+import { gateClaimVerdict, GATE_CLAIM_TEXT, createGateClaims } from '../src/net/gateClaims.js';
+import { mintReceipt, importReceiptKey } from '../src/net/gateReceipt.js';
 import { createGateOmen, riteOmenLine } from '../src/systems/gateOmen.js';
-import { ritePost } from '../src/net/gateHerald.js';
+import { ritePost, omenPost } from '../src/net/gateHerald.js';
 import { isSigilStone } from '../src/systems/gateSpoils.js';
 import { COURT_STRIKE_TEXT } from '../src/scenes/gateCourt.js';
 import { properName } from '../src/systems/champions.js';
@@ -40,6 +41,8 @@ import { OnlineSession } from '../src/net/online.js';
 import { RELAY_VERSION, RITE_HZ_MAX } from '../src/net/wire.js';
 import { fakeSocketClass } from './fakeSocket.mjs';
 import { seededRng } from '../src/systems/wind.js';
+import { sigilParty } from '../src/systems/sigil.js';
+import { GLOBAL_SCALE } from '../src/player/activate.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const DAY = 700;
@@ -97,16 +100,16 @@ function rig(over = {}, { keep = false } = {}) {
   return r;
 }
 /** A renderer, a collider and the fire's art, recorded. */
-function art(r) {
+function art(r, { frames = 1 } = {}) {
   let n = 0;
   return {
     renderer: {
       createMesh: (m) => { const mesh = { id: ++n, m }; r.meshes.push(mesh); return mesh; }, destroyMesh: (m) => r.destroyed.push(m), drawMesh: (m, mat) => r.drawn.push(m),
       uploadTexture: (ar, rec, img) => r.uploads.push([ar, rec, img.width]),
-      createBillboardBatch: (a, rec, size, pos) => { const b = { pos }; r.batches.push(b); return b; }, destroyBillboardBatch: (b) => r.unbatched.push(b),
+      createBillboardBatch: (a, rec, size, pos) => { const b = { pos, size }; r.batches.push(b); return b; }, destroyBillboardBatch: (b) => r.unbatched.push(b),
     },
     collider: () => ({ addMesh: (k, pos, idx, m) => r.buckets.push({ k, pos, idx, m }), removeBucket: (k) => r.unbucketed.push(k) }),
-    getTexture: async () => ({ getFrameCount: () => 1, getSize: () => ({ width: 32, height: 40 }) }),
+    getTexture: async () => ({ getFrameCount: () => frames, getSize: () => ({ width: 32, height: 40 }) }),
   };
 }
 
@@ -115,17 +118,18 @@ test('WB12d the circle stands from the omen until its breach collapses - an earl
   r.set(T.omenAt - 1000);
   assert.equal(r.host.frame(), null, 'before the omen: nothing');
   assert.equal(r.host.smokes().length, 0);
-  r.set(T.omenAt + RITE_SMOKE_IN_MS / 2);
+  assert.deepEqual([RITE_SMOKE_IN_MS, RITE_SMOKE_OUT_MS], [8000, 30000], 'the bible\'s 8 s and 30 s');
+  r.set(T.omenAt + 4000);
   r.host.frame();
   assert.deepEqual(r.host.state().heart, [E, 0, N]);
   assert.equal(r.host.state().site, SITE_ID);
   assert.equal(SITE_ID, riteSiteId(PX, PY, DAY));
   assert.ok(Math.abs(r.host.smokes()[0].fade - 0.5) < 1e-9, 'rising');
-  r.set(T.omenAt + RITE_SMOKE_IN_MS + 1); r.host.frame();
+  r.set(T.omenAt + 8001); r.host.frame();
   assert.equal(r.host.smokes()[0].fade, 1);
-  r.set(T.openAt + RITE_SMOKE_OUT_MS / 2); r.host.frame();
+  r.set(T.openAt + 15_000); r.host.frame();
   assert.ok(Math.abs(r.host.smokes()[0].fade - 0.5) < 1e-9, 'thinning after the opening');
-  r.set(T.openAt + RITE_SMOKE_OUT_MS + 1); r.host.frame();
+  r.set(T.openAt + 30_001); r.host.frame();
   assert.equal(r.host.smokes().length, 0, 'gone - the circle still stands');
   assert.ok(r.host.state());
   r.set(T.wrathAt + GATE_COLLAPSE_MS);
@@ -143,10 +147,11 @@ test('WB12d the circle stands from the omen until its breach collapses - an earl
 
 test('WB12d the faithful: stood for a player within 100 m while the rite holds, online on a relay that keeps it and on built ground - the Summoner behind the altar, the rest on the ring facing it, one camp, chanting, the Summoner thrice a caster\'s health and called by his name; in no save; never twice; never while a peer holds them (mutants: sprung from anywhere; sprung twice; sprung offline; sprung on coarse ground; sprung after the opening; a peer\'s sprung again; the Summoner a caster\'s; a camp of strangers; saved)', async () => {
   const r = rig();
-  r.at(RITE_SPRING_M + 20);
+  assert.equal(RITE_SPRING_M, 100, 'the bible\'s 100 m');
+  r.at(101);
   r.host.frame();
   assert.equal(r.spawned.length, 0, 'far off');
-  r.at(RITE_SPRING_M - 10);
+  r.at(99);
   r.host.frame();
   await settle();
   assert.deepEqual(r.spawned.map((s) => s.career), FAITHFUL.map((m) => m.career));
@@ -263,6 +268,18 @@ test('AUDIT WB12d: a stand that stood nothing claims nothing - said by nobody ag
   open(); await settle();
   assert.equal(gone.length, FAITHFUL.length, 'landing after the breach opened: taken down, the circle still standing');
   assert.ok(oh.state());
+  // AUDIT WB12d (T): a stand landing after its circle went - a teleport while the rite still holds
+  let land;
+  const away = new Promise((res) => { land = res; });
+  const tp = rig({ foes: null });
+  const tf = [], tgone = [];
+  const th = createRiteHost({ now: () => tp.now(), omen: () => ({ site: SITE }), pixelTranslation: () => [0, 0, 0], groundAt: () => 0, feet: () => [E + 10, 0, N], online: () => true,
+    foes: { spawn: async (career, xz, opt) => { await away; const f = { mobileType: career, site: opt.site, ai: {}, entity: {} }; tf.push(f); return f; }, list: () => tf, drop: () => {}, remove: (f) => tgone.push(f), campId: () => 1 } });
+  th.frame();
+  th.destroyAll();
+  assert.ok(tp.now() < T.openAt, 'the rite still holds');
+  land(); await settle();
+  assert.equal(tgone.length, FAITHFUL.length, 'its circle gone: each one that landed, taken down');
 });
 
 test('WB12d every screen names the faithful - a copy too, the Summoner by his kind (his own name in the classic lines); a copy a Wabbajack changed keeps its kind\'s; a foe of another site is none of them; one woken wakes my own, a blow on one that never saw its striker too (mutants: the copies unnamed; another site\'s named; no wake; another site\'s woken)', async () => {
@@ -298,8 +315,11 @@ test('WB12d the word: to the circle\'s cell every 5 s while the rite holds, at o
   assert.equal(r.words[0].cell, worldRoom(PX, PY));
   r.host.frame();
   assert.equal(r.words.length, 1, 'not every frame');
-  r.step(RITE_WORD_MS); r.host.frame();
-  assert.equal(r.words.length, 2, 'every RITE_WORD_MS');
+  r.step(4999); r.host.frame();
+  assert.equal(r.words.length, 1, 'not before 5 s');
+  r.step(1); r.host.frame();
+  assert.equal(r.words.length, 2, 'every 5 s (the bible\'s)');
+  assert.equal(RITE_WORD_MS, 5000);
   r.struck.set(r.foes[3], 123);
   r.step(1); r.host.frame();
   assert.deepEqual(r.words.at(-1).w, { d: DAY, px: PX, py: PY, s: 1, f: 0 }, 'struck: at once');
@@ -466,6 +486,14 @@ test('WB12d the casket: sealed, named and said so until the rite is broken; then
   const lv = rig({ level: () => 30 });
   lv.host.onBroken(BROKEN()); lv.at(5); lv.host.frame();
   assert.ok(lv.piles[0].items[0].stackCount >= 600, `${lv.piles[0].items[0].stackCount}`);
+  // AUDIT WB12d (lens T F18): never on ground not yet built - seeded once its pixel is
+  fresh();
+  let built = false;
+  const g = rig({ groundAt: () => (built ? 0 : NaN) });
+  g.host.onBroken(BROKEN()); g.at(5); g.host.frame();
+  assert.equal(g.piles.length, 0, 'its pixel unbuilt: no pile');
+  built = true; g.host.frame();
+  assert.equal(g.piles.length, 1, 'built: seeded');
   fresh();
 });
 
@@ -514,11 +542,13 @@ test('AUDIT WB12d (G1, G4, G18, C10): the stone is made again when its ground mo
   const up = r.uploads.filter(([ar]) => ar === GATE_ARCHIVE);
   assert.deepEqual(up.map(([, rec, w]) => [rec, w]), [[GATE_STONE_RECORD, 64], [GATE_PLINTH_RECORD, 64], [RITE_SIGIL_RECORD, RITE_SIGIL_ART_SIZE]], 'its art up once, the sigil\'s own with it');
   assert.equal(new Set(up.map(([, rec]) => rec)).size, up.length, 'each art its own record - the gate\'s plinth never wears the sigil');
-  assert.equal(r.batches.length, 1, 'the flames');
-  const flames = r.batches[0].pos, L = riteLayout(FACING);
-  assert.equal(flames.length, RITE_BRAZIERS + 2, 'a flame on each brazier, on the altar - the smoke\'s own fire - and the camp\'s');
-  assert.deepEqual(flames[RITE_BRAZIERS].map((v) => +v.toFixed(6)), [+E.toFixed(6), +RITE_ALTAR.h.toFixed(6), +N.toFixed(6)], 'the altar\'s on its top, under the smoke');
-  assert.ok(Math.abs(flames.at(-1)[0] - (E + L.fire[0])) < 1e-9, 'the camp\'s at its fire');
+  assert.equal(r.batches.length, RITE_FLAME_PHASES, 'the flames, in their batches');
+  const [even, odd, camp] = r.batches, L = riteLayout(FACING);
+  assert.equal(even.pos.length + odd.pos.length + camp.pos.length, RITE_BRAZIERS + 2, 'a flame on each brazier, on the altar - the smoke\'s own fire - and the camp\'s');
+  assert.equal(odd.pos.length, RITE_BRAZIERS / 2, 'AUDIT WB12d (G19): every other brazier its own batch');
+  assert.deepEqual(even.pos.at(-1).map((v) => +v.toFixed(6)), [+E.toFixed(6), +RITE_ALTAR.h.toFixed(6), +N.toFixed(6)], 'the altar\'s on its top, under the smoke');
+  assert.ok(Math.abs(camp.pos[0][0] - (E + L.fire[0])) < 1e-9, 'the camp\'s at its fire');
+  assert.ok(camp.size.w === 32 * GLOBAL_SCALE && Math.abs(even.size.w - camp.size.w * RITE_FLAME_SCALE) < 1e-9 && odd.size.w === even.size.w && even.size.w < camp.size.w, 'the camp\'s fire a camp fire\'s size (scenes/camps.js), the braziers\' smaller');
   assert.equal(r.buckets.length, 1);
   const bk = r.buckets[0];
   assert.equal(bk.k, RITE_BUCKET);
@@ -531,13 +561,13 @@ test('AUDIT WB12d (G1, G4, G18, C10): the stone is made again when its ground mo
   assert.equal(r.meshes.length, 4, 'new ground: made again');
   assert.deepEqual(r.destroyed, [r.meshes[0], r.meshes[1]], 'the old ones freed');
   assert.ok(r.meshes[2].m.positions.some((v, i) => i % 3 === 1 && v > 0.4), 'on the new ground');
-  assert.equal(r.batches.length, 2, 'the flames stood again');
-  assert.deepEqual(r.unbatched, [r.batches[0]]);
+  assert.equal(r.batches.length, RITE_FLAME_PHASES * 2, 'the flames stood again');
+  assert.deepEqual(r.unbatched, r.batches.slice(0, RITE_FLAME_PHASES));
   assert.equal(r.buckets.length, 2, 'the collider stood again');
   t0 = [256, 0, 0]; h.frame();
   assert.equal(r.meshes.length, 4, 'a recentre: no new mesh');
   assert.ok(Math.abs(r.buckets.at(-1).m[12] - (E + 256)) < 1e-3, 'the collider with the heart');
-  assert.equal(r.batches.length, 3);
+  assert.equal(r.batches.length, RITE_FLAME_PHASES * 3);
   // a throw: not again until the ground moves
   let throws = 0;
   const bad = createRiteHost({ ...a, renderer: { ...a.renderer, createMesh: () => { throws++; throw new Error('no'); } }, now: () => r.now(), omen: () => ({ site: SITE }), pixelTranslation: () => [0, 0, 0], groundAt: () => lift });
@@ -549,7 +579,17 @@ test('AUDIT WB12d (G1, G4, G18, C10): the stone is made again when its ground mo
   r.set(T.wrathAt + GATE_COLLAPSE_MS); h.frame();
   assert.deepEqual(r.unbucketed.slice(removedBefore), [RITE_BUCKET], 'its collider taken down');
   assert.ok(r.destroyed.includes(r.meshes[2]) && r.destroyed.includes(r.meshes[3]), 'the meshes freed');
-  assert.ok(r.unbatched.includes(r.batches.at(-1)), 'the flames');
+  assert.ok(r.batches.slice(-RITE_FLAME_PHASES).every((b) => r.unbatched.includes(b)), 'the flames');
+  // AUDIT WB12d (G19): the batches a third of their cycle apart, whatever the clock
+  const q = rig();
+  const qa = art(q, { frames: 6 });
+  const qh = createRiteHost({ ...qa, now: () => q.now(), omen: () => ({ site: SITE }), pixelTranslation: () => [0, 0, 0], groundAt: () => 0 });
+  qh.frame(); await settle(); qh.frame();
+  for (const dt of [0.01, 0.2, 0.37, 1.1]) {
+    qh.tick(dt);
+    const f = q.batches.map((b) => b.frame);
+    assert.deepEqual(f.map((x) => (x - f[0] + 6) % 6), [0, 2, 4], `out of step (${f})`);
+  }
 });
 
 test('AUDIT WB12d (G14): the smoke\'s pass is built by the frame - before the renderer\'s own - and shows only above the one threshold the pass draws by; a pass asked to draw always draws (mutants: built in the draw; two thresholds; drawn with no pass)', () => {
@@ -623,6 +663,12 @@ test('WB12d the circle\'s stone: the sigil faces up and rides the land - over th
       strips.add(Math.min(...[0, 1, 2].map((k) => flat.uvs[(st.startIndex + t * 3 + k) * 2])).toFixed(4));
     }
     assert.equal(strips.size, 6, `a brazier's faces each their own strip (${[...strips]})`);
+    const cap = [];
+    for (const [t, tri] of tris(flat, st).entries()) {
+      if (!tri.every(([x, , z]) => Math.hypot(x - bx, z - bz) <= RITE_BRAZIER_W + 1e-5) || flat.normals[(st.startIndex + t * 3) * 3 + 1] < 0.99) continue;
+      for (let k = 0; k < 3; k++) cap.push(flat.uvs[(st.startIndex + t * 3 + k) * 2]);
+    }
+    assert.ok(cap.length === 18 && Math.max(...cap) - Math.min(...cap) >= 0.5, `its cap a patch of the stone as wide as its faces (${Math.max(...cap) - Math.min(...cap)})`);
   }
   const steep = (x, z) => 0.8 * x + 0.5 * z;
   const sm = buildRiteModel(facing, steep);
@@ -709,9 +755,10 @@ test('WB12d the smoke\'s pass: a plume of rows, blended premultiplied, without w
   assert.deepEqual([lightOf({ light: 0.3 }), lightOf({ light: 5 }), lightOf({ light: NaN }), lightOf(null)], [[0.3], [1], [1], [1]]);
   const { gl, calls } = fakeGl();
   const pass = new RiteSmokeRenderer(gl);
-  pass.draw([{ origin: [0, 0, 0], fade: 1 }, { origin: [1, 0, 0], fade: SMOKE_FADE_MIN }, { origin: [2, 0, 0], fade: 0.5 }, { origin: [NaN, 0, 0], fade: 1 }, { origin: [3, 0, 0], fade: 1 }], I, I, [0, 0, 0], 5);
+  pass.draw([{ origin: [NaN, 0, 0], fade: 1 }, { origin: [0, 0, 0], fade: 1 }, { origin: [1, 0, 0], fade: SMOKE_FADE_MIN }, { origin: [2, 0, 0], fade: 0.5 }, { origin: [3, 0, 0], fade: 1 }], I, I, [0, 0, 0], 1000);
   assert.equal(pass.drawn, SMOKE_MAX);
   assert.deepEqual(calls.filter((c) => c[0] === 'uniform3f' && c[1] === 'uOrigin').map((c) => c[2]), [0, 2], 'the faded and the placeless skipped');
+  assert.deepEqual(calls.filter((c) => c[0] === 'uniform1f' && c[1] === 'uTime').map((c) => c[2]), [1000 % SMOKE_CLOCK_PERIOD], 'its clock handed wrapped (AUDIT WB12d T)');
   assert.ok(calls.some((c) => c[0] === 'blendFunc' && c[1] === 10 && c[2] === 12), 'premultiplied');
   const draw = calls.findIndex((c) => c[0] === 'drawArrays');
   assert.deepEqual(calls.slice(0, draw).filter((c) => c[0] === 'depthMask').at(-1), ['depthMask', false]);
@@ -813,19 +860,26 @@ test('AUDIT WB12d (G3, G8, G9, G17): the smoke as its shaders draw it - its foot
 });
 
 test('WB12d the chest: gold for the opener\'s level, two to four of the rite\'s reagents - a Daedra\'s Heart rarely - and one chest in twenty a piece of Dagon\'s Brand, Magic, known on sight and bearing the set\'s sigil at Faint; the day the character\'s own, and the rite\'s memory beside it (mutants: no gold; the brand never; a heart every time; the day forgotten; the memory unsaved)', () => {
-  let brands = 0, hearts = 0;
-  for (let s = 1; s <= 600; s++) {
+  let brands = 0, hearts = 0, draws = 0;
+  const counts = new Set(), kinds = new Set();
+  for (let s = 1; s <= 6000; s++) {
     const it = riteChestItems(10, seededRng(s));
     assert.equal(it[0].group, 'Currency');
     assert.ok(it[0].stackCount >= 200 && it[0].stackCount <= 400, `${it[0].stackCount}`);
     const reagents = it.filter((x) => [...RITE_REAGENTS, RITE_HEART].some((g) => g.templateIndex === x.templateIndex));
     assert.ok(reagents.length >= 2 && reagents.length <= 4);
+    counts.add(reagents.length); draws += reagents.length;
+    for (const x of reagents) kinds.add(x.templateIndex);
     hearts += reagents.filter((x) => x.templateIndex === RITE_HEART.templateIndex).length;
     const brand = it.find((x) => x.sigil);
-    if (brand) { brands++; assert.equal(brand.sigil.set, RITE_BRAND_SET); assert.equal(brand.sigil.xp, 0); assert.equal(brand.rarity, 'magic'); assert.equal(brand.group, 'Armor'); assert.equal(brand.isIdentified, true); }
+    if (brand) { brands++; assert.equal(brand.sigil.set, RITE_BRAND_SET); assert.equal(brand.sigil.xp, 0); assert.deepEqual(brand.sigil.party, sigilParty(1), 'at Faint'); assert.equal(brand.rarity, 'magic'); assert.equal(brand.group, 'Armor'); assert.equal(brand.isIdentified, true); }
   }
-  assert.ok(brands > 15 && brands < 50, `${brands} brands in 600`);
-  assert.ok(hearts > 50 && hearts < 250, `${hearts} hearts`);
+  // AUDIT WB12d (T): the bible's own numbers - two to four, every reagent and the heart among them, a heart 8% of
+  // draws, one chest in twenty a Brand
+  assert.deepEqual([...counts].sort(), [2, 3, 4], 'two, three and four');
+  assert.equal(kinds.size, RITE_REAGENTS.length + 1, 'every reagent of the rite, and the heart');
+  assert.ok(Math.abs(hearts / draws - 0.08) < 0.01, `a heart in ${(100 * hearts / draws).toFixed(1)}% of draws`);
+  assert.ok(Math.abs(brands / 6000 - 0.05) < 0.01, `${brands} brands in 6000`);
   fresh();
   assert.equal(riteChestOpened(DAY), false);
   markRiteChest(DAY);
@@ -860,6 +914,7 @@ test('WB12d the spoils: a receipt of the rite alone pays its ember and nothing e
   const rite = spoilsList(4242, 20, { x: 'rite' });
   assert.equal(rite.length, 1);
   assert.ok(isSigilStone(rite[0].item));
+  assert.equal(rite[0].tier, helped[embers[0]].tier, 'its ember glows as a fight\'s');
   assert.equal(SPOILS_TEXT.rite, 'An ember from the broken rite is in your pack.');
   const mem = new Map(), took = [], said = [];
   const pool = createSpoilsPool({ ray: () => null, now: () => 0, take: (p) => took.push(p), say: (t) => said.push(t), store: { get: (k) => mem.get(k), set: (k, v) => mem.set(k, v) }, who: () => 'c' });
@@ -875,19 +930,36 @@ test('WB12d the spoils: a receipt of the rite alone pays its ember and nothing e
   assert.match(read('src/scenes/world.js'), /spoilsPool\.grant\(\{ day: c\.d, seed: c\.c, level: spoilsLevel\(playerEntity\.level \?\? 1, c\.l\), acct: c\.s, claims: c, text: c\.x === 'rite' \? SPOILS_TEXT\.rite : SPOILS_TEXT\.granted \}\)/);
 });
 
-test('WB12d the claim: a rite\'s own receipt is "Rite recorded." and closes no breach; refused its claims by a service from before acct46, it is kept for its week - for that refusal alone (mutants: let go; said a breach; kept on any refusal)', () => {
+test('WB12d the claim: a rite\'s own receipt is "Rite recorded." and closes no breach; refused its claims by a service from before acct46, it is kept for its week - for that refusal alone (mutants: let go; said a breach; kept on any refusal; the verdict blind to the receipt)', async () => {
   assert.equal(GATE_CLAIM_TEXT.rite, 'Rite recorded.');
   assert.equal(gateClaimVerdict({ ok: false, error: 'receipt', why: 'claims' }, { x: 'rite' }), 'keep');
   assert.equal(gateClaimVerdict({ ok: false, error: 'receipt', why: 'expired' }, { x: 'rite' }), 'done');
   assert.equal(gateClaimVerdict({ ok: false, error: 'receipt', why: 'claims' }, { x: 'dealt' }), 'done', 'a fighter\'s bad claims are bad');
   assert.equal(gateClaimVerdict({ ok: true, data: { recorded: true, rite: true, stones: 1 } }, { x: 'rite' }), 'done');
-  assert.match(read('src/net/gateClaims.js'), /say\(answer\.data\.rite === true \? GATE_CLAIM_TEXT\.rite : GATE_CLAIM_TEXT\.recorded\(n\)\)/);
-  assert.match(read('src/net/gateClaims.js'), /if \(gateClaimVerdict\(answer, live\(r\)\) === 'done'\)/, 'the verdict reads the receipt it answers');
+  // AUDIT WB12d (lens T): driven as the device's queue runs it (test/wb5b_gate_claim.test.js's harness), where these
+  // were two lines of its source
+  const { subtle } = globalThis.crypto;
+  const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
+  const priv = await importReceiptKey(Buffer.from(new Uint8Array(await subtle.exportKey('pkcs8', kp.privateKey))).toString('base64'), { subtle });
+  const nowS = Math.floor(Date.now() / 1000);
+  const run = async (x, answer) => {
+    const mem = new Map(), said = [];
+    const store = { get: (k) => (mem.has(k) ? JSON.parse(mem.get(k)) : null), set: (k, v) => mem.set(k, JSON.stringify(v)) };
+    const q = createGateClaims({ claim: async () => answer, store, nowS: () => nowS, nowMs: () => nowS * 1000, say: (t) => said.push(t), me: () => 'acct-me' });
+    const r = await mintReceipt({ d: DAY, b: 'ruhn', s: 'acct-me', c: 4242, x }, priv, { subtle, nowS });
+    q.add(r); await settle();
+    return { said, kept: q.kept().length };
+  };
+  assert.deepEqual(await run('rite', { ok: true, data: { recorded: true, rite: true, stones: 1, closed: 3 } }), { said: [GATE_CLAIM_TEXT.rite], kept: 0 }, 'its own line, no breach closed, let go');
+  assert.deepEqual(await run('dealt', { ok: true, data: { recorded: true, stones: 1, closed: 3 } }), { said: [GATE_CLAIM_TEXT.recorded(3)], kept: 0 });
+  assert.deepEqual((await run('rite', { ok: false, error: 'receipt', why: 'claims' })).kept, 1, 'a service from before acct46: kept');
+  assert.deepEqual((await run('dealt', { ok: false, error: 'receipt', why: 'claims' })).kept, 0, 'a fighter\'s refused for good');
 });
 
 test('WB12d the omen\'s order: right after the omen\'s line, before tonight\'s marks, once a day - AUDIT WB12d (D3): the Discord post\'s own sentence; (C8, L5) never once the hub says this breach\'s rite broken, nor on a relay that cannot keep it (mutants: the line unsaid; said after the marks; said over a broken rite; said to an old relay)', () => {
   assert.equal(riteOmenLine(), 'The faithful work their rite nearby. Kill their Summoner before the breach opens.');
-  assert.match(read('src/net/gateHerald.js'), /The faithful work their rite nearby\.`,/, 'Discord says it so');
+  const post = omenPost({ day: DAY, place: 'Copperham' }).content;
+  assert.ok(post.includes(`seals it at <t:${Math.floor(T.sealAt / 1000)}:t>. ${riteOmenLine()} ${gateBossOf(DAY).name} comes`), `Discord says it so, after the times and before the marks: ${post}`);
   const site = { ...SITE, ring: { cx: PX, cy: PY, r: 3 }, spot: [400, 400] };
   const run = (deps = {}) => {
     const said = [], seen = [];
@@ -986,6 +1058,28 @@ test('WB12d the session: a word down the circle\'s cell socket only to a relay t
     t += 1000;
     for (let i = 0; i < RITE_HZ_MAX; i++) assert.equal(s.sendRite(w, here), true);
     assert.equal(s.sendRite(w, here), false, 'RITE_HZ_MAX a second');
+  } finally { console.info = log; }
+  // AUDIT WB12d (T): a halo on a relay that keeps it says it for itself; a primary that is no cell is said none
+  const k = fakeSocketClass();
+  const h2 = new OnlineSession({ url: 'wss://relay.test', name: 'b', id: 'bbbb-0001', secret: 'secret-of-bbbb-0001', WebSocketImpl: k.FakeWS, now: () => t });
+  console.info = () => {};
+  try {
+    const here = worldRoom(PX, PY), there = worldRoom(PX + 16, PY);
+    h2.join(here, null);
+    k.sockets[0].open();
+    k.sockets[0].receive({ t: 'welcome', id: 'bbbb-0001', peers: [], host: 'bbbb-0001', world: null, v: RELAY_VERSION });
+    h2.setHalo([there]);
+    k.sockets[1].open();
+    k.sockets[1].receive({ t: 'welcome', id: 'bbbb-0001', peers: [], n: 1, v: RELAY_VERSION });
+    assert.equal(h2.sendRite({ d: DAY, px: PX + 16, py: PY, s: 1, f: 0 }, there), true, 'the halo\'s own welcome');
+    assert.equal(k.sockets[1].sent.filter((x) => JSON.parse(x).t === 'rite').length, 1, 'down the halo\'s socket');
+    const d = fakeSocketClass();
+    const dn = new OnlineSession({ url: 'wss://relay.test', name: 'c', id: 'cccc-0001', secret: 'secret-of-cccc-0001', WebSocketImpl: d.FakeWS, now: () => t });
+    dn.join('dungeon:m1', null);
+    d.sockets[0].open();
+    d.sockets[0].receive({ t: 'welcome', id: 'cccc-0001', peers: [], host: 'cccc-0001', world: null, v: RELAY_VERSION });
+    assert.equal(dn.sendRite({ d: DAY, px: PX, py: PY, s: 1, f: 0 }, 'dungeon:m1'), false, 'no cell: never a word the relay would strike as junk');
+    assert.equal(d.sockets[0].sent.filter((x) => JSON.parse(x).t === 'rite').length, 0);
   } finally { console.info = log; }
 });
 

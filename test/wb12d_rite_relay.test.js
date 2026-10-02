@@ -12,7 +12,7 @@ import { gateTimes, gateRoomKey, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js'
 import { BRAIN_TICK_MS, HIT_KINDS, COURT_CENTRE } from '../src/net/gateBrain.js';
 import { readReceipt } from '../src/net/gateReceipt.js';
 import { HERALD_RETRY_MS } from '../src/net/gateHerald.js';
-import { worldRoom, SOCIAL_ROOM, RITE_KEY, GATE_BRAIN_V, gateReceiptKey, RITE_TELL_RETRY_MS, RITE_INTERNAL_BROKEN, RITE_INTERNAL_DAY, RITE_HZ_MAX, RITE_RELAY_BURST, RITE_CIRCLES_MAX, RITE_HUB_CIRCLES_MAX, GATE_INTERNAL_FELL } from '../src/net/wire.js';
+import { worldRoom, SOCIAL_ROOM, RITE_KEY, GATE_BRAIN_V, gateReceiptKey, RITE_TELL_RETRY_MS, RITE_INTERNAL_BROKEN, RITE_INTERNAL_DAY, RITE_HZ_MAX, RITE_RELAY_BURST, RITE_CIRCLES_MAX, RITE_HUB_CIRCLES_MAX, GATE_INTERNAL_FELL, RITE_BY_MAX } from '../src/net/wire.js';
 import { fakeRooms } from './fakeRoom.mjs';
 
 const DAY = 200;
@@ -363,4 +363,77 @@ test('AUDIT WB12d (R2, L2, L3) relay: ONE FALL - a blow or a beat that lands whi
     await kill();
     assert.equal(mine(fighters[0]).r, 1, 'the hub busy at the kill: the beats\' answer stands');
   });
+});
+
+test('AUDIT WB12d (lens T F3, F12, F14) relay: the fall\'s time is its first word\'s; a circle told is told no more, however often the alarm comes; the hub keeps what it is told within bounds - RITE_HELPERS_MAX a circle however often told, no id over 128 characters - and says it to sockets that said hello alone, its first RITE_BY_MAX names and how many (mutants: the fall restamped; told at every alarm; the hub\'s helpers unbounded; a long id kept; said to the unhelloed; its names unbounded)', async () => {
+  await withRite(async ({ cell, hub, say, at, door, hubAnswers, step }) => {
+    let told = 0;
+    const undo = hubAnswers(async (req) => { if (new URL(req.url).pathname === RITE_INTERNAL_BROKEN) told++; return undefined; });
+    const a = await at('peer-0001');
+    await say(a, { s: 1, f: 1 });
+    const first = circle(cell.store.get(RITE_KEY)).at;
+    step(1000); await say(a, { s: 1, f: 1 });
+    assert.equal(circle(cell.store.get(RITE_KEY)).at, first, 'the fall\'s time its first word\'s');
+    assert.equal(told, 1);
+    for (let i = 0; i < 3; i++) { step(RITE_TELL_RETRY_MS); await cell.fire(); }
+    assert.equal(told, 1, 'told no more');
+    undo();
+    const h = hub.connect(); await hub.hello(h, 'peer-0009');
+    const u = hub.connect();
+    const long = 'x'.repeat(200);
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: PX + 1, py: PY, at: 5, h: [[long, 'Long'], ...Array.from({ length: RITE_HELPERS_MAX - 1 }, (_, i) => [`a${i}`, `A${i}`])] });
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: PX + 1, py: PY, at: 5, h: Array.from({ length: RITE_HELPERS_MAX }, (_, i) => [`b${i}`, `B${i}`]) });
+    const kept = Object.keys(circle(hub.store.get(RITE_KEY), PX + 1, PY).h);
+    assert.equal(kept.length, RITE_HELPERS_MAX, 'RITE_HELPERS_MAX a circle, however often told');
+    assert.ok(!kept.includes(long), 'no id over 128 characters');
+    const said = rites(h).filter((m) => m.px === PX + 1);
+    assert.equal(said.length, 1);
+    assert.equal(said[0].by.length, RITE_BY_MAX, 'its first RITE_BY_MAX names');
+    assert.equal(said[0].n, RITE_HELPERS_MAX - 1, 'and how many');
+    assert.deepEqual(rites(u), [], 'a socket that never said hello hears nothing');
+  });
+});
+
+test('AUDIT WB12d (lens T F15) relay: THE CHANNEL\'S POST of a broken rite - tried again HERALD_RETRY_MS on while Discord does not take it; owed while no circle stands at the agreed site yet, and posted when the true one breaks; let go once the breach collapses; armed at once by the hub\'s first hello after an eviction (mutants: no retry; none yet unretried; kept past the collapse; the hello blind to the rite)', async () => {
+  const after = { start: TT.openAt + 60_000 };   // the omen's post no longer owed: the rite's alone
+  await withRite(async ({ hub, door, posts, net, now, step }) => {
+    Object.assign(hub.env, { GATE_DISCORD_WEBHOOK: HOOK });
+    net.discordUp = false;
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: PX, py: PY, at: 5, h: [['a1', 'Ann']] });
+    await hub.fire();
+    assert.ok(hub.alarm.at != null && hub.alarm.at <= now() + HERALD_RETRY_MS, 'Discord down: tried again soon');
+    net.discordUp = true;
+    step(HERALD_RETRY_MS); await hub.fire();
+    assert.equal(posts.filter((p) => /is broken/.test(p.body.content)).length, 1, 'posted once Discord answers');
+  }, after);
+  await withRite(async ({ hub, door, posts, siteBy, now, step }) => {
+    Object.assign(hub.env, { GATE_DISCORD_WEBHOOK: HOOK });
+    await siteBy(1); await siteBy(2);
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: 120, py: 410, at: 5, h: [['acct-peer-0666', 'peer-0666']] });
+    await hub.fire();
+    assert.equal(posts.filter((p) => /is broken/.test(p.body.content)).length, 0, 'a circle the agreed site never names: not posted');
+    assert.ok(hub.alarm.at != null && hub.alarm.at <= now() + HERALD_RETRY_MS, 'owed while the breach stands');
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: PX, py: PY, at: 9, h: [['acct-peer-0001', 'peer-0001']] });
+    step(HERALD_RETRY_MS); await hub.fire();
+    const post = posts.find((p) => /is broken/.test(p.body.content));
+    assert.ok(post && /peer-0001/.test(post.body.content) && !/peer-0666/.test(post.body.content), post?.body.content);
+  }, after);
+  await withRite(async ({ hub, door, posts, net, set }) => {
+    Object.assign(hub.env, { GATE_DISCORD_WEBHOOK: HOOK });
+    net.discordUp = false;
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: PX, py: PY, at: 5, h: [['a1', 'Ann']] });
+    await hub.fire();
+    net.discordUp = true;
+    set(TT.wrathAt + GATE_COLLAPSE_MS + 1);
+    await hub.fire();
+    assert.equal(posts.filter((p) => /is broken/.test(p.body.content)).length, 0, 'no news once the breach collapsed');
+  }, after);
+  await withRite(async ({ hub, door, now }) => {
+    Object.assign(hub.env, { GATE_DISCORD_WEBHOOK: HOOK });
+    await door(RITE_INTERNAL_BROKEN, { d: DAY, px: PX, py: PY, at: 5, h: [['a1', 'Ann']] });
+    hub.alarm.at = null;   // the alarm lost
+    hub.wake();
+    const ws = hub.connect(); await hub.hello(ws, 'peer-0009', null, { name: 'n9', acct: 'acct-n9', asecret: 'secret-of-acct-n9' });
+    assert.ok(hub.alarm.at != null && hub.alarm.at <= now(), 'a rite owed: the alarm at once');
+  }, after);
 });

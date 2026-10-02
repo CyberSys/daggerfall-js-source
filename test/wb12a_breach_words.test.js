@@ -94,10 +94,10 @@ test('WB12a the names on screen: the plaque, the banner and the map\'s legend sa
   assert.equal(MARKS_TEXT.capped, 'No Drakes for this breach. The counting-houses strike them for two breaches a day.');
   assert.equal(profileGateLine({ gates: { closed: 3 } }), 'Breaches closed: 3');
   assert.match(read('src/ui/enhancedAccount.js'), /if \(gates\) row\('Breaches closed', gates\);/);
-  assert.equal(accountRefusalText('short'), 'Your account has too few breaches closed for that.');
+  assert.equal(accountRefusalText('short'), 'Your account has too few embers for that.');   // AUDIT WB12d (A4): a rite's ember counts
   assert.deepEqual([BROKER_TEXT.trade, BROKER_TEXT.steal, BROKER_TEXT.gone], ['Trades in Deadlands Embers', 'The Broker\'s eyes never leave her embers.', 'The Sigil Broker leaves with the breach.']);
   assert.equal(INSIGNIA_LINE.title, 'A title worn over your name');
-  assert.ok(INSIGNIA_CARD.title[1].includes('the breach\'s fire') && /breaches closed/.test(INSIGNIA_CARD.title[2]) && /breaches closed/.test(INSIGNIA_CARD.aura[2]));
+  assert.ok(INSIGNIA_CARD.title[1].includes('the breach\'s fire') && /your account's embers/.test(INSIGNIA_CARD.title[2]) && /your account's embers/.test(INSIGNIA_CARD.aura[2]));   // AUDIT WB12d (A4)
   assert.match(read('src/scenes/world.js'), /return \{ subject: 'Dagon\\'s Breach', body: state \? `Near \$\{near\}\. /);
   assert.match(read('src/systems/sigilSetPowers.js'), /Wrath of the Warden! \$\{struck\} \$\{struck === 1 \? 'foe' : 'foes'\} struck\./);
 });

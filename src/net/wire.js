@@ -350,7 +350,8 @@ export const worldFrameMaxFor = (key) => (String(key ?? '').startsWith('interior
 export const mintSharedStamp = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`;
 /** The least time between two of one host's world frames, ms; a sooner one is dropped. */
 export const WORLD_MIN_MS = 5000;
-/** The room's storage chunk for a world (a Durable Object value is capped at 128 KiB). */
+/** The room's storage chunk for a world: under 128 KiB, a key-value-backed Durable Object's most for a value (this Room is
+ *  SQLite-backed - server/wrangler.toml v1 - and holds 2 MB a value; AUDIT WB12d S2: a court's fight record is one). */
 export const WORLD_CHUNK = 96 * 1024;
 /** How a world frame begins on the wire - the one frame admitted past MAX_FRAME_BYTES, told before any parse. */
 export const WORLD_PREFIX = '{"t":"world"';

@@ -25,6 +25,7 @@
 import { gameDayAt, isGateDay, gateAt, gateTimes, gateBossOf, gateModsOf, GATE_EVERY_DAYS, GATE_COLLAPSE_MS } from './gateLaw.js';
 import { GATE_TOP_MAX, NAME_MAX } from './wire.js';
 import { readGateMods } from './gateMods.js';   // WB8c: tonight's marks in the omen's post
+import { RITE_OMEN_LINE } from './gateRite.js';
 
 /** How soon a post Discord did not take is posted again, ms. */
 export const HERALD_RETRY_MS = 30_000;
@@ -71,7 +72,7 @@ export function omenPost({ day, place = null, role = null }) {
   // WB13b: two sentences for the two times, and the marks in the chat's own sentence (net/gateLaw.js marksLine)
   const marks = ` ${boss.name} comes **${aspect.epithet}** tonight${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
   return {
-    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}). The Covenant seals it at ${stamp(t.sealAt, 't')}.${map}${marks} The faithful work their rite nearby.`,   // WB12d: the rite, a line
+    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}). The Covenant seals it at ${stamp(t.sealAt, 't')}.${map} ${RITE_OMEN_LINE}${marks}`,   // WB12d: the rite - AUDIT WB12d (D3): the chat's own sentences, right after the breach they say is near
     allowed_mentions: role ? { roles: [role] } : { parse: [] },
   };
 }

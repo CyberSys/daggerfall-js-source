@@ -20,6 +20,7 @@
 import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, gateModsOf, omenLine, riseLine, openLine, sealLine, wrathLine, marksLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
 import { gateModsWords } from '../net/gateMods.js';   // WB8c: tonight's marks on the card
 import { GATE_TOWN_MAX_PX } from './gateSite.js';
+import { RITE_OMEN_LINE } from '../net/gateRite.js';
 
 /** Is map pixel (px, py) within the omen's ring, give or take `slack` pixels? The compass carries the gate only here:
  *  inside the area the map drew, where the player has come looking. */
@@ -27,9 +28,9 @@ export const insideGateRing = (mark, px, py, slack = 1) => !!mark && Math.hypot(
 /** The gate's spot in the SCENE's x/z: its pixel's translation (the streaming host's `pixelTranslation`, the pixel's
  *  south-west corner) plus the spot, [east, north] metres - spawned dungeons' own sum (scenes/world.js, the sight line). */
 export const gateSceneXZ = (standing, t) => [t[0] + standing.spot[0], t[2] + standing.spot[1]];
-/** WB12d: the faithful's rite, said right after the omen's line while it holds (scenes/riteHost.js stands its circle).
- *  AUDIT WB12d (D3): the Discord post's own sentence - "nearby" the breach just named, the order alone. */
-export const riteOmenLine = () => 'The faithful work their rite nearby. Kill their Summoner before the breach opens.';
+/** WB12d: the faithful's rite, said right after the omen's line while it holds (scenes/riteHost.js stands its circle) -
+ *  AUDIT WB12d (D3): the Discord post's own sentences (net/gateRite.js RITE_OMEN_LINE). */
+export const riteOmenLine = () => RITE_OMEN_LINE;
 
 // ═══ WBX8: THE SKY BURNS ═════════════════════════════════════════════════════════════════════════════════════════
 // Mac (2026-09-26): "Improve the sky effect to be more like the /event dread command" - "When I say sky effect, I mean

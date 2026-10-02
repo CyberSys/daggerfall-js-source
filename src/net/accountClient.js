@@ -143,7 +143,7 @@ export const REFUSALS = Object.freeze({
   'no-aura': 'The account service does not know that aura. The game may need updating.',
   'no-insignia': 'The Broker does not sell that any more. The game may need updating.',
   owned: 'Your account already owns that.',
-  short: 'Your account has too few breaches closed for that.',   // WB12a; WB13b: the card says the rule
+  short: 'Your account has too few embers for that.',   // WB12a; WB13b: the card says the rule; AUDIT WB12d (A4): a rite's ember counts, and is no breach closed
   guest: 'Insignia need a registered account. Add a username and password first.',
   // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
   // and never a player; it has a sentence because every word the service says does.

@@ -56,7 +56,7 @@
 //   POST /v1/duel/loss   { winner }       -> { recorded, wins, losses }
 //   POST /v1/duel/record { id }           -> { id, wins, losses, gates }
 // WB5b, the gates closed. The caller is the account the receipt names:
-//   POST /v1/gate/claim  { receipt }      -> { recorded, closed }
+//   POST /v1/gate/claim  { receipt }      -> { recorded, stones, closed }   (WB12d: the row's embers; AUDIT WB12d A4)
 // MARKS1, Marks - an account's alone, behind MARKS_OPEN (marks.js); `rid` the act's own id:
 //   POST /v1/marks/balance {}                               -> { balance, today, bank }
 //   POST /v1/marks/exchange { marks, rid }                  -> { ok, marks, gold, balance, exchangedToday } | { repeat, ... }

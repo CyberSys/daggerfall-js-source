@@ -822,7 +822,9 @@ export async function gateRecordOf({ db }, playerId) {
 
 /**
  * THE CLAIM: `receipt` verified with the relay's public half and naming `player`, one row a (day, account). Answers
- * `{ recorded: true, closed }`, `{ recorded: false, why: 'claimed' | 'guest', closed }`, or `{ error }` -
+ * `{ recorded: true, day, stones, closed }` (WB12d: `stones` the row's embers, `rite` on a receipt of the rite alone,
+ * `struck` beside a Drakes strike), `{ recorded: false, why: 'claimed', stones, closed }` (AUDIT WB12d A1: the row's
+ * embers, a fighter's `r` made good), `{ recorded: false, why: 'guest', closed }`, or `{ error }` -
  * `no-gate-key` (this service holds no public half), `receipt` (not a receipt the relay signed, or expired - `why`
  * says which rung), `not-yours` (another account's).
  * @param {{ db: any, nowS: number, subtle: SubtleCrypto }} ctx

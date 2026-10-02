@@ -404,7 +404,9 @@ gets ONE key, and it can sign ONE thing (RAID3, 2026-09-27, made it two: a town 
 ```
 r1.<base64url({ d, b, s, c, x, i, e })>.<base64url(Ed25519 signature)>
     d the day   b the boss kind   s the account (the token's sub)   c the loot seed (32 bits, the relay's CSPRNG)
-    x how the account earned it (dealt / stood)   i issued   e expires (i + 7 days)
+    x how the account earned it (dealt / stood; WB12d: rite - the faithful's rite broken, no part in the fight)
+    l the level the fight admitted the account at (AUDIT WBX S2)   r 1 when it also broke the rite (WB12d)
+    i issued   e expires (i + 7 days)
 ```
 
 `net/gateReceipt.js` holds the law beside `identityToken.js`'s and mirrors its ladder (the version is the
@@ -435,7 +437,8 @@ player's roll is its own.
   gate's own kind: the boss's own source (`boss: true` - lootRarity.js SOURCE_MULT.boss, 2.5; AUDIT WBX S7: no `gate`
   kind was ever made), a Legendary chance of 10%, the ladder's own caps otherwise.
   And a **Sigil Stone**: the gate's trophy - its own item row, a gem by group but no ingredient, so it never stacks away
-  its name - worth a small fortune, one a kill.
+  its name - worth a small fortune, one a kill (WB12a named it the Deadlands Ember; WB12d pays one more to each who
+  broke the faithful's rite - section 19 D).
 - **The spew**: at the kill the boss's body bursts and each piece leaves his chest on its own arc - out and up toward
   the player's side of him, the seed choosing each angle and speed - and falls, bounces and comes to rest with the
   thrown torch's own physics (`droppedTorches.js stepProjectile`: the fixed 0.02 s step, gravity, the collider's ray,
@@ -1026,8 +1029,9 @@ THE SALE (`server-account/src/accounts.js buyInsignia`, POST `/v1/account/insign
 0040 - main's HOUSING took 0037-0039: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn)
 and paid for TWICE-CHECKED: the pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand
 with the sale's `takeFromPack`),
-and the service refuses a sale the account's own closed gates could not have paid for (gate_kills, one row a kill, less
-`insignia_spent`: 409 `short`, with the `purse` they can still pay and the `price`). ONE UPDATE is the sale - the id
+and the service refuses a sale the account's own embers could not have paid for (gate_kills' `stones` - one a row, two
+where its fighter broke the rite, WB12d - less `insignia_spent`: 409 `short`, with the `purse` they can still pay and
+the `price`). ONE UPDATE is the sale - the id
 joins the column and the price the spend only where the row does not hold it yet and its gates still cover it - so two
 sales pressed at once never spend the same stones, and a piece is never bought twice (409 `owned`); a guest row keeps
 none (403 `guest`), and the id is appended in the UPDATE itself (AUDIT WB9 I3). The Broker HOLDS the stones before it
@@ -1585,6 +1589,8 @@ where a line says why the door closes:
 | set power | Wrath of the Warden! The gate's fire bursts from you. | Wrath of the Warden! The breach's fire bursts from you. |
 | account refusal | ... closed enough Oblivion Gates ... Each gate closed pays one Sigil Stone. | ... closed enough of Dagon's Breaches ... Each breach closed pays its Deadlands Embers. |
 
+These are WB12a's lines. Section 20 (WB13b) rewrote every one of them, and its table is the game's.
+
 The relay's refusal WORDS (`the gate is closed`, `the gate is sealed`, `the gate is closing`, `the court is full`) are
 protocol, not prose, and keep their bytes; the sentences the client makes of them name the gate, the arch, and stay.
 
@@ -1643,91 +1649,226 @@ the Covenant, the faithful and their rite, the Warden, why the doors close, the 
 
 ### D. The faithful's rite (WB12d)
 
-**The site.** Each breach's faithful work their rite in a circle **90-180 m from where the breach will stand** -
-inside its own map pixel (the site keeps every guarantee the gate's scan gives: land, no town, no dungeon), never
-within 60 m of the arch (its banner) and never on its approach - at a bearing and distance the day's rolls give
-(`riteLocalOf(day)`, pure, so every client and the relay agree with no word sent).
+**The site.** Each breach's faithful work their rite in a circle **90-180 m from where the breach will stand**, at
+least 50 degrees off either way into the arch, at a bearing and distance the day's rolls give (`riteLocalOf(day)`,
+pure, so every client and the relay agree with no word sent). The circle stands on the side of the arch toward the
+heart of the gate's own map pixel, 140 m or more inside its edge (156 m the least over 200,000 days), so its ground is
+the pixel the gate's scan chose: land, no town, no dungeon. The scan judges whole pixels; water inside the gate's own
+pixel is not looked for, and with no map data here the real map's rate is unmeasured. No rock or tree of the World of
+Daggerfall stands within 20 m of the circle, and no grass grows on its burned earth.
 
 **The window: from the omen to the opening** (about 15 real minutes - three game hours). With the omen, a **pillar of
-smoke** rises from the circle, visible across the omen's ring. When the breach opens, the faithful still standing
-finish the rite and **pass into the breach** (gone, with a line to those near); the circle, its fires and its chest
-stay until the breach collapses.
+smoke** rises from the circle, seen across the omen's ring. When the breach opens, the faithful still standing **pass
+into the breach** (gone, with a line to those near), broken or not. The circle, its fires and its chest stay until the
+breach collapses: the Wrath's collapse, or an early kill's.
 
-**The look.** A ring of braziers round **Dagon's sigil burned into the earth** (the rune ring the breach's own art
-wears), an altar stone, the faithful's tents and a fire - made in code as the gate's art is, its fires lit as the
-court's braziers are.
+**The look.** **Dagon's sigil burned into the earth** - its own art: a seven-pointed star in a double ring of runes,
+every cut smouldering, ragged where the burn gave out, its first point toward the gate - inside a ring of six braziers
+cut from the gate's stone, each with a flame; an altar stone with the smoke's own fire on it; the faithful's casket;
+and behind them their tents and a camp fire (the game's own tent and fire flat, never the court's braziers). Every
+other brazier's flame is a third of its flicker from its neighbour's. One steady glow at the heart reaches past the
+braziers, and the camp fire has its own light. The altar, the casket and the braziers are solid.
 
 **The faithful.** **6-8 of Dagon's faithful and a Summoner** (the day's roll), robed casters - mages, battlemages,
 healers and nightblades (Daggerfall has no witch; covens are places, not mobiles) - named *Dagon's Faithful* and *the
-Summoner*. They chant at the circle until disturbed; one woken wakes them all (a camp's law). The Summoner has three
-times a caster's health. Online every player sees the same faithful: the first to come within reach springs them and owns them (the
-World of Daggerfall camps' law), every other sees them as the owner's.
+Summoner*, in every line that names a foe. They chant at the circle, seeing 12 m, until disturbed; one woken wakes
+them all (a camp's law). The Summoner has three times a caster's health. Online every player sees the same faithful:
+the first to come within 100 m springs them and owns them (the World of Daggerfall camps' law), every other sees them
+as the owner's. The faithful are in no save; what a character saw of them is (the slain, by kind, and the Summoner's
+fall), so a circle stood again - after a teleport, a reload, an owner who left - stands only the survivors, and never a
+fallen Summoner. An owner who leaves leaves them to the player at the circle after 10 s; a teleport or a closed page
+hands them to the players beside them, still chanting and still one camp.
 
-**Breaking the rite.** The rite is broken when **the Summoner falls before the breach opens**. Everyone who struck one
-of the faithful while standing at the circle is **one who helped**.
+**Breaking the rite.** The rite is broken when **the Summoner falls before the breach opens**, however he fell (a
+Wabbajacked Summoner's fall breaks it too). Everyone who struck one of the faithful while standing at the circle is
+**one who helped**.
 
 **The extra ember.** When the breach is **closed** (the Warden falls - not when the Covenant tears it shut), everyone
 who helped **takes one more Deadlands Ember** - whether or not they fought the Warden: a challenger's receipt says so
 (`r`), and one who helped but did not fight is minted a receipt of the rite alone (`x: 'rite'`) that pays that one
-ember and nothing else. The account's purse counts it (the claim's `stones`); a receipt of the rite alone is **not a
+ember and nothing else. The account's purse counts it (the row's `stones`); a receipt of the rite alone is **not a
 breach closed** (no Drakes strike, no "breaches closed"). The boss is unchanged.
 
 **How the relay knows.** Each player at the circle says the rite's word (`t: 'rite'`) to the circle's own cell every
-few seconds while the rite stands: the day, whether they struck the faithful, whether they saw the Summoner fall. The
-cell believes a word only from a socket whose pose stands within reach of the circle the day's law places, in the
-rite's window; it folds the helpers by account and, when the Summoner's fall is said, tells the hub once (the raids'
-cleanse door). The hub keeps the day's rite, says it to everyone online (and to every hello after), and the breach's
-room reads it at the kill. Honest limit, stated: as with a raid, a word is a player's own; the relay checks where and
-when it was said, not each blow - a lie can buy a liar one ember.
+5 s while the rite holds, at once on a change and once more a second after: the day, whether they struck the faithful,
+whether they saw the Summoner fall. The cell believes a word only from a socket whose pose stands within 60 m of the
+circle the day's law places in that pixel, from the omen until 2 s past the opening (a fall seen in the last second
+still counts). It keeps each circle said in it on its own, folds the helpers by account and, when the Summoner's fall
+is said, tells the hub - again as more helpers are said, retried every 5 s until it answers, let go once the breach
+collapses. The hub keeps each circle told, says a broken one once to everyone online and at every hello while the
+circle stands (the raids' cleanse door), and the breach's room asks it for the helpers from the opening on. At the kill
+it pays the circle at the gate's agreed site (two accounts said where the gate stands), or the most struck when none is
+agreed.
+
+**Honest limit, stated.** As with a raid, a word is its player's own: the relay checks where and when it was said, not
+each blow. A player at the circle can say they struck the faithful and buy themselves one ember. One can say the
+Summoner fell before he did: the rite reads broken for everyone then (its chest opens, and the omen's order goes
+unsaid to those who join), while the faithful still stand, and everyone who strikes them is still counted and paid. A
+word for a circle no breach stands by is a circle of its own and stands in no other's way.
 
 **The chest.** In the circle stands the faithful's chest. It opens **once the rite is broken**, for each character
 **once a day**: gold, two to four reagents of the rite (Sulphur, Ichor, Ectoplasm, Lich Dust, a Daedra's Heart
-rarely), and a small chance (one in twenty) at **a piece of Dagon's Brand** - a Magic piece
-of armour bearing the set's sigil.
+rarely), and a small chance (one in twenty) at **a piece of Dagon's Brand** - a Magic piece of armour bearing the set's
+sigil. Anything taken from it - a whole stack, a split, a swap - spends the character's day; the chest keeps its place
+and name until it is emptied, and wears *Opened* after.
 
-**The words** (as built - short, each one thing). At the omen: *"Dagon's faithful work their rite near N. Kill their
-Summoner before the breach opens for an ember more."* Near the circle: *"Chanting rises from the smoke."* Broken
-(everyone online): *"The faithful's rite near N is broken."* At the opening, unbroken (those near): *"The faithful
-finish their rite and pass into the breach."* The casket: *The Faithful's Chest*, *Sealed* until the rite is broken
-(*"Sealed by the faithful's rite."*). A receipt of the rite alone: *"Rite recorded."* and *"An ember from the broken
-rite is in your pack."* The Discord omen post ends *The faithful work their rite nearby.*; a broken rite is posted as
-***The faithful's rite near N is broken** by A, B and C.*
+**The words** (as built; each one thing, WB13b's rules):
 
-**As built (WB12d):**
-- `net/gateRite.js` is the law. The Summoner is a **Sorcerer** - a caster none of the faithful is, so every screen
-  knows him by his kind (a peer's copy carries no name). The word's reach is 60 m.
-- The relay (world141): the cell keeps who struck the faithful from a pose within reach, in the window, by account.
-  The Summoner's fall tells the hub, retried on the alarm until it answers. The hub says the broken rite once, and at
-  every hello while the circle stands. At the kill, fighters who helped carry `r`; helpers who did not fight are
-  minted the rite's own receipt.
-- acct46: `r` is two embers in the purse; the rite's own receipt one, with no breach closed and no Drakes.
-  **Deploy acct46 before world141**: an older service refuses the rite's own receipt, and the game keeps it for its
-  week.
-- `scenes/riteHost.js` stands the circle (`world/riteModel.js`: the sigil riding the land's highs, so no fold shows
-  through it; six lit braziers, the altar and the casket, cut from the gate's stone; the camp's tents and fire behind)
-  and the smoke (`render/riteSmoke.js`: 340 m tall and leaning, rising over 8 s from the omen, thinning over 30 s after
-  the opening, a dark line on the horizon from kilometres off).
-- The faithful spring for the first player within 100 m (site `px,py:rite`), chanting half-blind (12 m), one camp; a
-  blow on one wakes them all. The word goes to the circle's cell every 5 s from within 60 m, at once on a change; a
-  Summoner who walked away is no fall.
-- The casket (`systems/riteChest.js`) is a pile for a player within 40 m once the hub says the rite is broken: gold
-  (20-40 a level), two to four reagents (a Daedra's Heart 8% of draws), one chest in twenty a Magic piece of Dagon's
-  Brand at Faint. Open, its pile keeps the chest's name; anything taken and the day is the character's.
-- Pins `test/wb12d_rite_law.test.js` (6), `test/wb12d_rite_relay.test.js` (4), `test/wb12d_rite_world.test.js` (15);
-  mutants `tools/mutants/wb12d.json` (94).
+| moment | who hears it | line |
+|---|---|---|
+| the omen | chat, right after the omen's line and before tonight's marks; never once the rite is broken, nor on a relay that cannot keep it | *The faithful work their rite nearby. Kill their Summoner before the breach opens.* |
+| the rite broken | everyone online, once while the rite holds and its place is known (a player who joins after hears it at hello) | *The faithful's rite is broken near N, by A, B, C and 2 others.* |
+| the opening | a player near the faithful still standing, broken or not | *The faithful pass into the breach.* |
+| the casket | its name and state; a press while sealed | *The Faithful's Chest*, *Sealed* / *Opened*; *Sealed by the faithful's rite.* |
+| a receipt of the rite alone | the claim; its ember in the pack; on the court's floor; a guest | *Rite recorded.*; *An ember from the broken rite is in your pack.*; *Your ember from the broken rite falls to the floor.*; *Rite not recorded. Add a username within a week to keep it.* |
+| the classic lines | Info, the death alert, the corpse | *You see the Summoner.*; *The Summoner just died.*; *The Summoner (dead)* |
+| the Overworld | the camp's mark | *Dagon's Faithful, 7* |
+| Discord | the omen post, after its times; the rite broken | *The faithful work their rite nearby. Kill their Summoner before the breach opens.*; ***The faithful's rite is broken** near N, by A, B and 3 others.* |
+
+**As built (WB12d; AUDIT WB12d below):**
+- `net/gateRite.js` is the law: the site, the faithful (the Summoner a **Sorcerer**, a caster none of the faithful is,
+  so every screen knows him by his kind), the window (`riteHolds` from the omen to the opening; `riteStands` to the
+  collapse, an early kill's too; `riteHeard` 2 s past the opening), the word's reach (60 m) and beat (5 s), and at most
+  64 helpers a circle.
+- The relay (world141): the cell keeps up to 4 circles a day and the hub 8, each on its own. One fall at a time: the
+  breach's room asks the hub for the helpers every 15 s from the opening, waits 2 s at most at the kill, and keeps its
+  last answer. One tell in flight, its retry armed before it goes. The rite's bucket at the relay is twice the client's
+  burst. At the kill, fighters who helped carry `r`; helpers who did not fight are minted the rite's own receipt.
+- acct46: `r` is two embers in the purse; the rite's own receipt one, with no breach closed and no Drakes. Every claim's
+  answer carries the row's embers (`stones`).
+- `scenes/riteHost.js` stands the circle on the camps' law (site `px,py:rite.<day>`): the faithful spring within 100 m,
+  the word is said from within 55 m, again 1 s after a change; an orphaned circle is taken after 10 s and an empty
+  stand tried again after 5 s; the casket seeds within 40 m. The ground under the circle is read every 15 frames, and
+  the stone and the sigil are made again when it moves (a pixel built finer). The sigil is drawn for an eye within
+  250 m. (`world/riteModel.js`: the sigil riding the land's highs, its points never further apart than twice its reach;
+  six braziers, the altar and the casket, sunk at their lowest corners; `world/gateArt.js riteSigilArt`.)
+- `render/riteSmoke.js`: the pillar, 340 m tall and leaning the same way every day (no wind is read). Its foot is the
+  altar fire's width; its billows grow as they climb and the biggest bulge its outline; it is lit as the frame is, the
+  fire glowing in its first metres. It fades in over 8 s from the omen and thins over 30 s after the opening. Far off
+  each octave settles to a thick mean, and a clear day's distance fog leaves it 0.6 of itself, a dark line on the
+  horizon from kilometres off; weather's fog takes it whole.
+- The casket (`systems/riteChest.js`): gold (20-40 a level), two to four reagents (a Daedra's Heart 8% of draws), one
+  chest in twenty a Magic piece of Dagon's Brand at Faint. The day's memory (`RiteDay`) and the chest's (`RiteChest`)
+  are the character's save.
+- Pins `test/wb12d_rite_law.test.js` (9), `test/wb12d_rite_relay.test.js` (12), `test/wb12d_rite_world.test.js` (27),
+  `test/wb12d_rite_host.test.js` (8); mutants `tools/mutants/wb12d.json` (319); Chromium `tools/riteProbe.mjs`.
 
 ### Versions and the deploy
 
 The relay's law moves to **world141** (the words of `gateLaw.js` and `gateHerald.js`, the rite's word and the
 receipt's `r`); the brain's law stays 5. The account service moves to **acct46** (migration 0046's `stones` - the
-rite's ember in the purse - and the claim of `r` and of a rite alone). **Deploy acct46 first**: acct45 refuses the
-rite's own receipt. Each deploy drops connected players once, as every relay deploy does; a game from before it is
-refused at the breach and told to reload.
+rite's ember in the purse - and the claim of `r` and of a rite alone). **The order of the two deploys does not matter**
+(AUDIT WB12d A1): acct46 answers every claim with the row's embers, so a fighter's `r` that acct45 counted at one ember
+is made good when it is claimed again, and the game keeps an `r` receipt until a service that answers its embers has
+counted it; acct45 refuses the rite's own receipt, and the game keeps that for its week. Each deploy drops connected
+players once, as every relay deploy does. A game from before world141 still fights the breach (the brain's law is
+unchanged): it knows nothing of the rite, never says its word, and is paid nothing for it.
 
 ### What does not change
 
-Every mechanic of the fight; the schedule; the rotation of marks; the spoils' dice; the
-Broker's wares and prices; every id, key and column. The court is the Burning Court; the Deadlands are the Deadlands.
+Every mechanic of the Warden's fight; the schedule; the rotation of marks; the spoils' dice for the fight; the Broker's
+wares and prices; and the bytes of every id, key and column whose name A changed. The rite adds its own: the receipt's
+`r` and `x: 'rite'`, migration 0046's `stones`, the save's `RiteDay` and `RiteChest`, the relay's `rite` key. The court
+is the Burning Court; the Deadlands are the Deadlands.
+
+### AUDIT WB12d (2026-10-02, Mac: "Audit this. Its needs to be detailed and perfection. AAA grade")
+
+WB12d audited by seven lenses over a frozen tree (`2ab3847fe`): the account service (A), the relay on the real Room
+(R), the client's host - the faithful on the camps' law, the casket and the words it says (C), the law and the wire over
+200,000 days (L), the words and this record against the code (D), a mutation sweep of 113 mutants over the slice (T),
+and a real browser - the circle, the smoke and the sigil in headless Chromium by day, dusk, night and fog (G). Each
+finding was reproduced against the real modules before anything changed. The fixes went in four batches: the relay and
+the account service, the rite in the world, the rite drawn, and the record. A finding two lenses found is written once,
+under both names.
+
+| # | found | now |
+|---|---|---|
+| R1, L1 | **the relay checked a circle against the client's own pixel, never where the gate stands**, and the cell kept the day's first circle, the hub the first told: a word at a fake pixel took the record, the broadcast and the pay; one `s` there dropped the true fall; an `f` lie in the omen's first second broke the rite for everyone, and every client stopped standing the faithful | each circle on its own at the cell (4 a day) and the hub (8 a day); the hub stands by the gate's agreed site, kept with no herald too: the kill pays that circle, the channel names it; a client believes the word for its own circle alone and stands the faithful after it. The honest limit is stated in D |
+| R2, L2 | **the kill was re-entered while the hub was asked for the helpers**: every blow and beat ran it again, minting receipts on new seeds - 13 falls for 13 blows | one fall at a time; the helpers asked every 15 s from the opening and kept on the fight; the kill's own ask waits 2 s at most and keeps the last answer |
+| C1 | **a teleport poisoned the circle's site for the page's life**: its faithful never stood again for anyone online, after any fast travel, recall, death, load or ship | the site cleared by the sweep and reclaimed; leaving drops my own faithful without poisoning; what the character saw is in the save, so a circle stood again stands only the survivors, never a fallen Summoner |
+| C2 | an owner who left (a closed tab, fast travel, a death, a walk) left the circle empty for everyone until the opening | after 10 s the player at the circle stands the survivors; a teleport or a closed page hands them to the players beside them |
+| C3 | a handover went to the nearest peer however far, unplaced: the heir's cull took them, and they were a 'pack' | handed only within a camp's cull distance, still placed, chanting and one camp |
+| C4 | the casket's once a day was beaten by taking part of a stack or swapping a piece, and a pile gone untouched seeded again: endless chests | opened is any change in the pile, piece by piece and count by count, and the day is the character's at once |
+| C5 | a save kept the faithful, and a load stood them beside a fresh set: two Summoners, a reload farm | the faithful are in no save; a save's from before are known as the rite's and not stood |
+| G1 | the circle built on the far ring's coarse ground kept it once its pixel was built finer: 177 of 924 sigil points buried, the columns sunk, the flames in the air | its ground read every 15 frames; the stone, the sigil, the flames and the collider made again when it moves |
+| G2 | the game's grass grew through the sigil | none on the burned earth, placed again when the circle stands and when it goes |
+| G3 | up close the plume was a translucent orange funnel 9 m wide round the braziers | its foot the altar fire's width, swelling slowly, fading in over its first metre; the fire a glow in its first few |
+| A1, D11 | the deploy order: CI deploys world141 before acct46 while this page said the opposite, and an acct45 counted a fighter's `r` at one ember - the client let it go, and the ember was lost | the order no longer matters: every claim answers the row's embers (`stones`); an `r` row counted at one is made good when claimed again; the game keeps an `r` receipt until a service that answers its embers has counted it |
+| A2, F9 | a claim of a receipt of the rite alone answered the Drakes' strike: "No Drakes for this breach" after "Rite recorded." | a rite's own claim strikes nothing and answers no Drakes |
+| A3, D7 | a guest's rite receipt was told "Breach not recorded"; the relay's comment said a guest is handed no receipt | *Rite not recorded. Add a username within a week to keep it.*; the comment says the week it is kept |
+| A4 | the Broker's card and refusal said the title and the aura are paid from "breaches closed", which a rite's ember is not; the insignia law and the claim's answer named one stone a kill | *Paid from your account's embers.*; *Your account has too few embers for that.*; the comments name the row's `stones` |
+| R3 | a tell the hub refused was retried every 5 s forever (2,001 tells by the third hour) | let go once its breach collapses; the hub takes a late tell silently |
+| R4 | every word started its own tell: six `f` words said the rite broken six times | one tell in flight; a word that moves nothing tells nothing |
+| R5 | the retry was armed only after a failed tell: a reset mid-tell never told | armed before it goes |
+| R6 | the Discord post named only those known at the first tell | named when it is posted |
+| R7, L7 | the circle stood to the Wrath's collapse after an early kill | `riteStands` reads the kill: the circle goes with its breach |
+| R8, L4 | a fall said in the rite's last second could be lost, and the relay's bucket was the client's, so a stalled socket's bunched words were dropped | believed 2 s past the opening; the relay's burst twice the client's; the client says a change again a second later, from 55 m (the relay believes 60) |
+| S1 | two tells landing together each read a fresh day, and both said it | read and written with no await between |
+| S2 | the court's fight record with 64 rite receipts is 167 KB - over a Durable Object value's 128 KiB? | not so: the Room is SQLite-backed (`server/wrangler.toml` v1), whose values hold 2 MB; the world chunk's note now says the 128 KiB is the key-value backend's |
+| C6 | across a seam's promotion a halo socket lost its rite word (and its raid word) | each socket keeps its own |
+| C7, D1 | a page opened after the break heard "The faithful's rite in the wilds is broken", then the omen and its order | the broken word said once while the rite holds and its place is known; never the order once broken |
+| C8 | the omen's order was said over a broken rite | skipped once the hub says it broken |
+| C9, D8 | after a partial take the casket's target came back over the pile and swallowed presses, and the pile lost the chest's name | the casket's target gone while the pile holds anything; the pile keeps its name until it is emptied |
+| C10, G10 | the stone's GPU mesh leaked at every teleport and day | freed on leaving and on remaking |
+| C11 | a Wabbajacked Summoner lost his site: the rite could not break | the changed foe keeps his site and his part |
+| C12 | the near line again after each teleport | the near line is cut (D5); the opening's line once a day, in the save |
+| C13 | garbage every frame while the circle stood | none: fixed lights, the word made only when due, numeric keys |
+| C14 | the site id had no day: one day's lost site and claims carried into the next day's circle on the same pixel | the site is `px,py:rite.<day>` |
+| C15 | the faithful's bodies by class ("Sorcerer (dead)"), the Overworld's mark "Mage pack, 7" | *The Summoner (dead)*; *Dagon's Faithful, 7* |
+| L3 | the helpers asked once at the kill, with no bound: a 503 lost every `r` | asked from the opening, bounded at the kill (R2) |
+| L5, D9 | a WB12d client on an older relay said the omen's order and stood the faithful; its words never left; the casket stayed sealed | the order and the faithful only on a relay that keeps the rite |
+| L6 | the circle could stand in a neighbour pixel's shallows (7-11% of coast days on a synthetic coast) while this page said its ground was checked | it stands toward its pixel's heart, 140 m or more inside the pixel's edge (156 m the least over 200,000 days); this page says what is and is not checked |
+| L8 | `validRiteOut` cut the names to 8 before it dropped junk: 8 junk entries hid a real name | junk dropped first |
+| D2 | the classic lines named the Summoner by his class: "You see a Sorcerer.", "Sorcerer just died." | *You see the Summoner.*; *The Summoner just died.*; *The Summoner (dead)* |
+| D3 | the omen's order repeated the omen, explained a mechanic ("for an ember more"), came after the marks with its "nearby" dangling, and differed from the Discord post's | *The faithful work their rite nearby. Kill their Summoner before the breach opens.* - one sentence for the chat and the channel (`RITE_OMEN_LINE`), right after the omen and before the marks |
+| D4 | the broken line named the long place; Discord's named no count; the names reached clients unsaid | *The faithful's rite is broken near N, by A, B, C and 2 others.*, the post the same |
+| D5 | the near line said what the screen shows: "Chanting rises from the smoke." | cut |
+| D6 | a broken rite's survivors vanished at the opening without a word | *The faithful pass into the breach.*, broken or not |
+| D10 | this page said a game from before world141 is refused at the breach | it is not (the brain's law is 5); it fights, knows nothing of the rite, and this page says so |
+| D12 | world141's version row did not name WB12d | named |
+| D13 | this page said the circle's fires were lit as the court's braziers | the camp's own flame and tent, said so |
+| D14 | "while the rite stands", "tells the hub once", the honest limit understated | holds; again as more are said; the limit stated |
+| D15 | "What does not change" false after the rite; section 6's receipt without `l`, `r` and the rite; section 7's ember "one a kill" | each rewritten |
+| D16, G13 | Rendering.md said the plume leans downwind; no wind is read | the same lean every day, said so |
+| D17 | Active-Arcs had no entry for sections 19 and 20 | added |
+| D18 | the word-rule test never read the rite's lines | it does |
+| D19 | the record never said what was seen in a browser | Seen and Not seen, below |
+| D20 | a rite's helper's ember in the court spilled with the fight's line | *Your ember from the broken rite falls to the floor.* |
+| D21 | comments: the ring "first opposite the gate", the smoke "yesterday's fading beside it", the circle "until its breach collapses", the omen's "ONE line", the casket "said once", the smoke "rises over 8 s" | each says what the code does |
+| D22 | "half-blind", "the claim's stones", no late joiner and no *Opened*, 19 A's table with no pointer to WB13b, the Port-Ledger's "WB12a-d", a Testing row missing a test, relay test titles naming mutants that were not there | each mended |
+| F1-F7 | the sweep's 113 mutants left 102 alive on the frozen tree (85 of them real): the relay's `s` check, yesterday's helpers at today's kill, any day past the first, the Summoner's career in the tally, the site filter, the site regex, the Broker's sale against the purse | pinned in the first two batches. The sweep was run again on the finished tree: 29 died as they stood, 63 had moved and were re-aimed at the same behaviour, 8 were retired with the code they mutated (the near line, D5; the nearest three lights, G7; a broken rite stopping a stand, R1; a dead waker the tally no longer reaches) - and 37 lived. Each is pinned now: the bible's own numbers (a word from 60 m, every 5 s; the faithful within 100 m; the smoke in 8 s and out in 30; the chest's two to four, its heart 8%, its Brand one in twenty at Faint), the hub's bounds, the channel's retry, the wire's edges, a halo's own welcome. 69 dead; 4 recorded equivalent, none reachable: an older day's word, an older day's tell, the hello's replay outside the hub, an account with no subject |
+| F8 | `test/fakeRoom.mjs` stored by reference where the runtime copies | stores copies, and spends an alarm as its handler begins |
+| F10-F22 | the chest's save, the alarm's sooner rule, the hub told again, the swept prefixes, the rate gate, the post, the halo, the host's edges, the casket's, the near line, the chest's contents, numbers pinned only against themselves, the layout's seams | pinned with F1-F7's |
+| T, weak pins | pins that could not fail: the law's site checked against itself, "behind the altar" with no geometry, the claim's verdict as two lines of its source, relay test titles naming mutants that were not there | the law's own answer for one day written down; the Summoner's place measured behind the altar; the claim driven through the device's queue; the titles mended |
+| G4 | no collider: players, the faithful, arrows and the camera passed through the altar, casket and columns | solid |
+| G5 | the sigil lay up to 0.285 m over a 0.3 slope, a dark plank the faithful's feet sank into | a finer drape and a nearer reach: 0.19 m at most there, no two of its points further apart than twice its reach |
+| G6 | the sigil z-fought from the travel view | drawn for an eye within 250 m |
+| G7 | the nearest three of seven lights changed six times a lap | two steady lights |
+| G8 | the smoke unlit: a pale ghost at night | lit as the frame is, never under 6% |
+| G9 | the fog's floor held in weather's fog too: a third of the plume through a whiteout | the floor in a clear day's distance alone, 0.6 of it (0.35 left a pale line at 1.5 km); far off, each octave settles to a thick mean |
+| G11 | the sigil wore the plinth's flags, a paved plaza, its art unturned | its own art: Dagon's seven-pointed star in a double ring of runes, every cut smouldering, ragged at its rim; turned with the altar, its first point toward the gate |
+| G12 | WoD boulders through the altar and the tents | a 20 m clearing at the circle |
+| G14 | the smoke's pass built in its first draw drew nothing, so the host's foreign-pass mark never came: a stale VAO and one draw lost | built by the frame, before the renderer's, at one threshold |
+| G15 | looking up from inside the old funnel, two full-screen layers of noise | the foot narrowed (G3): an eye is inside the plume only at the altar |
+| G16 | the far ring cannot hide the smoke 4.5-6 km off | kept, as the gate's beacon keeps it: the far ring draws at the far plane, so it hides nothing behind it |
+| G17 | the plume a corkscrew, its noise one sheet sliding at 5.7 m/s - and, seen in Chromium, cells 34 m tall on a column 2 m wide: a searchlight's streaks | its rows and noise on the billows' own height, growing as they climb; its outline bulging with its own first octave and rising with it; its edge thin where its own surface turns from the eye; each octave its own whole climb |
+| G18 | a failed build retried every frame | not again until its ground moves |
+| G19 | a brazier's six faces one strip of the stone and its cap a tenth of the art; the flames in lockstep; the camp's fire 0.8 of a camp fire | each face its own strip, the cap a patch as wide; every other brazier's flame its own batch, a third of the flicker apart; the camp's fire a camp fire's |
+
+Seen in Chromium (`tools/riteProbe.mjs`, 14 checks, SwiftShader's WebGL2): the smoke's program compiles and links, its
+light a live uniform; from 30 m, the fire glowing over the altar and gone a few metres up, the smoke dark there; from
+400 m and 1.5 km on a clear day, a dark leaning plume whose billows grow as it climbs, 40% darker than the sky; at
+night, darker than its sky; in weather's fog, gone; from under it at the altar, soft folds and no hard ring; the sigil
+from above, burned earth ragged at its rim, the star's first point toward the gate, its cuts alight, the land past its
+rim. Not seen: the game's own art for the flames and the tents (this container has no ARENA2), a real map's coast under
+a circle, the faithful in a fight, and the hub's word and the chest on the deployed relay and service (world141 and
+acct46 are not deployed).
+
+Pinned in `test/wb12d_rite_relay.test.js` (12), `test/wb12d_rite_law.test.js` (9), `test/wb12d_rite_world.test.js`
+(27), `test/wb12d_rite_host.test.js` (8, the real foe pool and the world's camp law end to end) and
+`test/gateclear.test.js` (+1); mutants `tools/mutants/wb12d.json` (319, every one dead but 5 recorded equivalent).
+Re-aimed: discordgates', wb5b's, wb8c's and wb13b's omen and claim pins; the auditpace, auditpscale1, cursesync,
+discordgates, gateclear, loot7 and survtiers3 lists. world141 re-hashed in place (undeployed).
 
 ### Appendix - On the Burning Doors
 
