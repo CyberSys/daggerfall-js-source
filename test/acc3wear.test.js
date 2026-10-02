@@ -230,16 +230,16 @@ test('ACC3c: the card writes a CLASS and the skin carries the colour - walked ou
   for (const t of TITLES) assert.ok(TITLE_TEXT[t], `${t} has no word`);
 });
 
-test('ACC3c: the glyphs are NOT buttons - a glyph is true of an account rather than chosen by one', () => {
+test('ACC3c, GLYPH-WEAR: a glyph is a button now - Mac (2026-10-02): "can we make it where players can also equip/unequip their glyphs" - pressed off and on through the flow, and it says which way it will go', () => {
   const js = src('src/ui/enhancedAccount.js');
-  // The picker's own arm builds `button` elements; the glyph arm must
-  // build a span and hang nothing clickable on it. Read off the source
-  // because the difference is a promise to the player, not a detail.
+  // Read off the source, as the pin it replaces was: the glyph arm builds a button, hangs the flow's toggle on it, and
+  // says whether it is shown - the title's own picker shape.
   const wardrobe = js.slice(js.indexOf('function wardrobe()'), js.indexOf('function paint()'));
   assert.match(wardrobe, /el\('button', `acttitle/, 'a title is pressable');
-  assert.match(wardrobe, /el\('span', `acctglyph/, 'a glyph is not an element you press');
-  const glyphArm = wardrobe.slice(wardrobe.indexOf('acctglyph'));
-  assert.doesNotMatch(glyphArm, /onclick|addEventListener/, 'a control that cannot be operated is worse than a fact that never offered');
+  const glyphArm = wardrobe.slice(wardrobe.indexOf("'Glyphs'"));
+  assert.match(glyphArm, /el\('button', `acctglyph/, 'and so is a glyph');
+  assert.match(glyphArm, /onclick = \(\) => flow\.toggleGlyph\(g\.key\)/);
+  assert.match(glyphArm, /aria-pressed/);
 });
 
 // ── THE ROSTER ──────────────────────────────────────────────────────

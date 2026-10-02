@@ -93,8 +93,8 @@
   {
     "name": "WB9g-the-relay-reads-no-aura",
     "file": "server/src/index.js",
-    "old": "glyphs: c.g, au: c.au, rb: c.rb, mu, lv: c.lv,",
-    "new": "glyphs: c.g, rb: c.rb, mu, lv: c.lv,",
+    "old": "glyphs: c.g, gx: c.gx, au: c.au, rb: c.rb, mu, lv: c.lv,",
+    "new": "glyphs: c.g, gx: c.gx, rb: c.rb, mu, lv: c.lv,",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -102,8 +102,8 @@
   {
     "name": "WB9g-the-socket-row-drops-it",
     "file": "server/src/index.js",
-    "old": "glyphs: who.glyphs, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
-    "new": "glyphs: who.glyphs, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
+    "old": "glyphs: who.glyphs, gx: who.gx, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
+    "new": "glyphs: who.glyphs, gx: who.gx, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -329,7 +329,7 @@
   {
     "name": "WB9g-the-client-decides-the-aura",
     "file": "src/ui/accountFlow.js",
-    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };\n      self.busy = false;\n      self.note = want ? `Wearing ${want}.` : 'Aura removed.';",
+    "old": "      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };\n      self.busy = false;\n      self.note = want ? `Wearing ${want}.` : 'Aura removed.';",
     "new": "      self.wardrobe = { ...self.wardrobe, aura: want };\n      self.busy = false;\n      self.note = want ? `Wearing ${want}.` : 'Aura removed.';",
     "tests": [
       "test/wb9g_insignia.test.js"
@@ -347,7 +347,7 @@
   {
     "name": "WB9g-my-feet-never-told",
     "file": "src/ui/accountFlow.js",
-    "old": "      adoptIdentity(storage, { glyphs: r.data.glyphs, aura: auraStated(r.data), secret: asked });\n      changed();",
+    "old": "      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });\n      changed();",
     "new": "      changed();",
     "tests": [
       "test/wb9g_insignia.test.js"

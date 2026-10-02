@@ -36,7 +36,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { guestName, isHandleShaped, isGuestShaped } from './guestName.js';
-import { wardrobeOf, equipRefusal, canModerate, auraRefusal } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
+import { wardrobeOf, equipRefusal, canModerate, auraRefusal, glyphRefusal, glyphsHidden } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
 import { insigniaById, insigniaHeld } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - one law both ends
 import { ID_RE, nameIsIssuable } from '../../src/net/identityToken.js';
 import { PLAY_GRACE_S } from '../../src/net/playClock.js';   // ACC4: the widest gap one beat may credit - one home both ends
@@ -394,6 +394,22 @@ export async function equipAura({ db, nowS }, player, env, aura) {
   if (why) return { error: why };
   await db.prepare('UPDATE players SET aura = ?, last_seen = ? WHERE id = ?').bind(aura, nowS, player.id).run();
   return { ok: true, ...wardrobeOf({ ...player, aura }, env, nowS) };
+}
+
+/**
+ * GLYPH-WEAR - SHOW ONE GLYPH, OR HIDE IT. Mac: "players can also equip/unequip their glyphs". Refused for a glyph
+ * that is not true of the player now (`not-held`), as a title is. `on` true shows it, false hides it. The stored
+ * list is rewritten from what is hidden now, so a lapsed glyph drops out of it on the next write. Answers the
+ * wardrobe after the write.
+ */
+export async function equipGlyph({ db, nowS }, player, env, glyph, on) {
+  const why = glyphRefusal(glyph, player, env, nowS);
+  if (why) return { error: why };
+  const off = glyphsHidden(player, env, nowS).filter((g) => g !== glyph);
+  if (!on) off.push(glyph);
+  const glyphs_off = off.join(' ') || null;
+  await db.prepare('UPDATE players SET glyphs_off = ?, last_seen = ? WHERE id = ?').bind(glyphs_off, nowS, player.id).run();
+  return { ok: true, ...wardrobeOf({ ...player, glyphs_off }, env, nowS) };
 }
 
 /** WB9g: what the account's own closed gates could still pay for - one Sigil Stone a gate closed (gate_kills, WB5b),
