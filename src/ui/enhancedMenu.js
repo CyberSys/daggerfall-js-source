@@ -192,6 +192,7 @@ import { accountCard } from './enhancedAccount.js';
 import { skinCard } from './skinCard.js';   // DISC23-B2: the skin, on the profile
 import { saveTile, cloudStateOf, saveFromCard, newerBackup } from './saveTile.js';   // TILE1 (Mac: "a detailed tile based design for your saves... showing your portrait and character information"), and ACC2c's card-shaped save
 import { loadFace } from './facePortrait.js';
+import { timersMark, timersWindow, placeBeside } from './enhancedTimers.js';   // TIMERS1: the hourglass beside the profile mark, and its window
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
 import { serviceBase, storedSession } from '../net/accountClient.js';
@@ -274,6 +275,10 @@ let keyHandler = null;
 // menu startup and a new profile icon"): whether the account window is
 // open, and whether startup has already offered it once.
 let accountOpen = false;
+/** TIMERS1: the timers window over the pause face, and its live view (the tick it must stop). */
+let timersOpen = false;
+let timersView = null;
+const stopTimers = () => { timersView?.stop(); timersView = null; };
 let accountOffered = false;
 // ═══ TILE2/ACC2: WHAT THE CLOUD HOLDS, ASKED ONCE PER VISIT ═══════
 //
@@ -3366,17 +3371,31 @@ function renderHome() {
     // innermost: a tap outside it, or Escape, closes IT and leaves the pause window standing - never the game resumed
     // from under a half-made choice.
     home.append(profileMark());
+    // TIMERS1 (Mac: "an enhanced plus button on the pause menu next to the profile icon"): THE HOURGLASS - online only,
+    // where the host hands the clock and what it holds (hooks.timers); its window counts every shared moment down
+    if (hooks.timers?.()) {
+      const mark = timersMark(document, { onOpen: () => { timersOpen = true; render(); } });
+      home.append(mark);
+      globalThis.requestAnimationFrame?.(() => placeBeside(mark, home.querySelector?.('.px-profile'), home));
+    }
     if (accountOpen) {
       const acct = el('div', 'px-stage px-acctstage');
       acct.append(accountWindow());
       home.append(acct);
       closeOnOutsideTap(home, '.px-acctwin', () => { accountOpen = false; render(); });
     }
+    else if (timersOpen && hooks.timers?.()) {
+      const stage = el('div', 'px-stage px-timersstage');
+      timersView = timersWindow(document, { read: () => hooks.timers?.() ?? null, onClose: () => { timersOpen = false; render(); } });
+      stage.append(timersView.root);
+      home.append(stage);
+      closeOnOutsideTap(home, '.px-timerswin', () => { timersOpen = false; render(); });
+    }
     // OT1 (Mac: "tapping outside of any UI closes the UI"): a tap on the
     // scrim - outside the window, the clock and the foot - resumes,
     // the way Escape does; the front door has no scrim and no resume.
     // PROFILE2: the mark is inside too (a press on it opens the window), and with the window open the tap is its.
-    else closeOnOutsideTap(home, '.px-win, .px-clock, .px-foot, .px-profile', () => onAction('resume'));
+    else closeOnOutsideTap(home, '.px-win, .px-clock, .px-foot, .px-profile, .px-timersmark', () => onAction('resume'));
     // PX4 (Mac): NO FOOT AT PAUSE - no skin toggle, no About plaque;
     // About is a System-tab row instead, and the skin switch stays on
     // the boot face and the settings shell.
@@ -4351,6 +4370,7 @@ function render() {
 function renderInto() {
   if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }
   if (questTimer) { clearInterval(questTimer); questTimer = null; }
+  stopTimers();   // TIMERS1: a rebuild builds the window again, with its own tick
   app.innerHTML = '';
   // PX1/PX2: both doors open on the pixel home; every section keeps
   // its shell.
@@ -4536,6 +4556,7 @@ function onKey(e) {
   // the door, so the one press that means "not that" must close IT
   // rather than walk the screen out from under it.
   const back = accountOpen ? () => { accountOpen = false; render(); }
+    : timersOpen ? () => { timersOpen = false; render(); }   // TIMERS1: the window first, ahead of the pause face's resume
     // AUDIT 32 P12: an act under way on the Stores page is set down first (nothing spent, said) - never the window
     : profActUnderWay() ? () => { setDownProfAct(); render(); }
     : confirming ? () => { confirming = null; render(); }
@@ -4607,6 +4628,7 @@ export function mountEnhancedMenu(host, {
   // PROFILE2: and the profile window is a visit's too - the pause screen mounts this module again, and a window left
   // open on the door (or on the last pause) must not be standing over the next one before the player asks for it
   accountOpen = false;
+  timersOpen = false;   // TIMERS1: and the timers window the same
   // MAC1 (Mac, 2026-09-10: "after exiting game and then going back to
   // enhanced settings, the Build and Switch Arms options are gone and
   // require me to reattach the files"). The Morrowind store is COUNTED
@@ -4709,6 +4731,7 @@ export function mountEnhancedMenu(host, {
       if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }
       if (textKeyCapture) { globalThis.removeEventListener('keydown', textKeyCapture, true); textKeyCapture = null; }   // DISC28-A
       if (questTimer) { clearInterval(questTimer); questTimer = null; }
+      stopTimers();   // TIMERS1
       // FIX-F: and the rebind pane's own capture listener, which is on
       // the DOCUMENT and would outlive this screen exactly as the one
       // above would.

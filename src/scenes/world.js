@@ -406,7 +406,7 @@ import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
-import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
+import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidTypeName as raidKindName, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
 import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
@@ -11291,7 +11291,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7813), so exterior mode and a
+    // composer, dungeonContext.js:7814), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12634,6 +12634,25 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** F5-QUESTS (2026-09-26): THIS HOST'S PAUSE BAG, one arm for both doors that mount the pause window - hudCtx.togglePause
    *  and the F5 page (makeCharSheetWindow's `pause`, ui/charSheetDoor.js), which was handed the sheet's four
    *  doors and nothing else, so its Quests tab never listed a quest. */
+  // TIMERS1 (Mac: "a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything
+  // else"): what the pause face's timers window reads (systems/eventTimers.js) - the relay's clock and what this host
+  // already holds: the day's gate site and the relay's word of its kill, the seats list (the week's battles, the
+  // Season's zero), the day's raids in relay ms. Null offline - every row is a shared moment of the online world.
+  let _timersSeatAsk = -Infinity;
+  const timersSource = () => {
+    if (!online) return null;
+    const now = battleNowMs();
+    if (seatBook?.open !== false && now - _timersSeatAsk > 60_000) { _timersSeatAsk = now; seatBook?.read?.()?.catch?.(() => {}); }   // the list keeps its own five minutes
+    const relayOf = (minute) => { const ms = sharedWallMs(minute); return ms == null ? NaN : ms + _sharedOffsetMs; };
+    return {
+      now,
+      gate: { place: gateOmen?.current?.()?.site?.place ?? null, fellAt: (day) => gateLink?.fellAt?.(day) ?? null },
+      seats: seatBook?.open === true ? (seatBook.data?.seats ?? null) : null,
+      zero: seatBook?.open === true ? seatBook.zero : null,
+      raids: raidingPartiesOn() ? raidState().raids.map((r) => ({ name: r.locationName, region: REGION_NAMES[r.regionIndex] ?? '',
+        type: raidKindName(r.type), startMs: relayOf(r.startMinute), endMs: relayOf(r.endMinute), done: !!r.cleansed })) : null,
+    };
+  };
   const pauseDoorHooks = () => ({
     // PX25: the sheet's own doors, through this host's own arms. AUDIT 27h A4: each answers whether it opened one -
     // the page went down as a handoff (ui/pauseDoor.js), and a door that opened nothing resumes instead.
@@ -12652,6 +12671,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // door is guarded at worldQuickLoad itself - this is the
     // pane's read of the same signal, not a second gate.
     loadingPrevented: () => !!online,
+    timers: timersSource,   // TIMERS1: the hourglass's window (null offline - no hourglass)
     // SAV4: the slot window's seams - the pause SAVE/LOAD doors
     // open it with these (openClassicPauseFlow builds the doors).
     playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
@@ -14001,7 +14021,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10384-10448 -
+  // worldModes answers it in BOTH modes (worldModes.js:10386-10450 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20758,6 +20778,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // pause menu greys the Load pane the same way - see
     // worldModes.js's togglePause for the door itself.
     loadingPrevented: () => !!online,
+    timers: timersSource,   // TIMERS1: forwarded to a building's and a dungeon's pause face
     playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
     saveAs: (saveName) => worldQuickSave(saveName),
     loadKey: (key) => worldQuickLoad({ key }),

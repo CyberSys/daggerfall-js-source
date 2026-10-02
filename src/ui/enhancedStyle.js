@@ -2341,6 +2341,44 @@ ${badgeCss()}
 .px-over .px-profile { top: 10px; right: 12px; }
 .px-over .px-portrait { width: 48px; height: 48px; }
 .px-over .px-acctstage { padding: 24px 16px; grid-template-rows: 1fr; align-items: center; }
+/* TIMERS1 (Mac: "a new unique UI element for reset times ... an enhanced plus button on the pause menu next to the
+   profile icon"): THE HOURGLASS, beside the profile mark (ui/enhancedTimers.js placeBeside measures the mark - its
+   width is its caption's; 300px off the edge stands in until it has), and its window in the pause window's frame. */
+.px-timersmark { position: absolute; top: 12px; right: 300px; z-index: 4; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0 6px; background: none; border: 0; cursor: pointer; color: #d8cfae;
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; text-shadow: 2px 2px 0 rgba(0,0,0,0.8); }
+.px-timersmark:hover, .px-timersmark:focus-visible { color: #f3cf86; outline: none; }
+.px-hourglass { display: block; width: 27px; height: 36px; image-rendering: pixelated; filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.8));
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 12' shape-rendering='crispEdges'><rect x='0' y='0' width='9' height='1' fill='%23c08a3e'/><rect x='0' y='11' width='9' height='1' fill='%23c08a3e'/><rect x='1' y='1' width='1' height='2' fill='%23d8cfae'/><rect x='7' y='1' width='1' height='2' fill='%23d8cfae'/><rect x='2' y='1' width='5' height='1' fill='%23f3cf86'/><rect x='3' y='2' width='3' height='1' fill='%23f3cf86'/><rect x='2' y='3' width='1' height='1' fill='%23d8cfae'/><rect x='6' y='3' width='1' height='1' fill='%23d8cfae'/><rect x='3' y='4' width='1' height='1' fill='%23d8cfae'/><rect x='5' y='4' width='1' height='1' fill='%23d8cfae'/><rect x='4' y='3' width='1' height='4' fill='%23f3cf86'/><rect x='3' y='6' width='1' height='1' fill='%23d8cfae'/><rect x='5' y='6' width='1' height='1' fill='%23d8cfae'/><rect x='2' y='7' width='1' height='1' fill='%23d8cfae'/><rect x='6' y='7' width='1' height='1' fill='%23d8cfae'/><rect x='1' y='8' width='1' height='3' fill='%23d8cfae'/><rect x='7' y='8' width='1' height='3' fill='%23d8cfae'/><rect x='3' y='9' width='3' height='1' fill='%23f3cf86'/><rect x='2' y='10' width='5' height='1' fill='%23f3cf86'/></svg>") center / contain no-repeat; }
+.px-timersmark:hover .px-hourglass, .px-timersmark:focus-visible .px-hourglass { transform: rotate(180deg); transition: transform 240ms steps(4); }
+.px-timersstage { position: absolute; inset: 0; z-index: 5; display: grid; justify-items: center; align-items: center;
+  padding: 24px 16px; background: rgba(8,10,15,0.6); }
+.px-win.px-timerswin { height: auto; max-height: min(680px, 86dvh); width: min(560px, 94vw); background: #0a0c11; }
+.px-win.px-timerswin .px-body { padding: 20px 24px 22px; overflow-y: auto; }
+.px-timerswin .tm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.px-timerswin .tm-title { margin: 0; font-size: 22px; letter-spacing: 0.18em; text-transform: uppercase; color: #efe8d6; }
+.px-timerswin .tm-lead { margin: 6px 0 4px; font-size: 12px; color: var(--dim); }
+.px-timerswin .tm-section { margin: 16px 0 6px; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--brass); }
+.px-timerswin .tm-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 14px; position: relative;
+  border-bottom: 1px solid rgba(125,116,96,0.25); }
+.px-timerswin .tm-row::before { content: '\\25c6'; position: absolute; left: 0; top: 12px; font-size: 9px; color: var(--tm-kind, #9c937d); }
+.px-timerswin .tm-gate { --tm-kind: #e2554c; } .px-timerswin .tm-raid { --tm-kind: #f2c46b; } .px-timerswin .tm-battle { --tm-kind: #d98074; }
+.px-timerswin .tm-seat { --tm-kind: #c08a3e; } .px-timerswin .tm-reset { --tm-kind: #85a8a1; }
+.px-timerswin .tm-row.live { background: rgba(192,138,62,0.08); }
+.px-timerswin .tm-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.px-timerswin .tm-name { font-size: 15px; color: #efe8d6; }
+.px-timerswin .tm-where { font-size: 12px; color: #a89f88; overflow-wrap: anywhere; }
+.px-timerswin .tm-detail { font-size: 12px; color: var(--dim); overflow-wrap: anywhere; }
+.px-timerswin .tm-clock { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.px-timerswin .tm-count { font-size: 18px; color: #f3cf86; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+.px-timerswin .tm-row.live .tm-count { color: #9fe8b4; }
+.px-timerswin .tm-when { font-size: 11px; color: var(--dim); white-space: nowrap; }
+.px-timerswin .tm-empty { color: var(--dim); font-size: 13px; }
+@media (max-width: 560px) {
+  .px-timersword { display: none; }
+  .px-win.px-timerswin .px-body { padding: 16px 14px 18px; }
+  .px-timerswin .tm-count { font-size: 16px; }
+}
 .px-over .px-win.px-acctwin { align-self: center; max-height: min(640px, 86dvh); }
 @media (max-width: 480px) {
   /* On a phone the wordmark owns the top, so the mark loses its caption

@@ -724,6 +724,12 @@
    "why": "the world's half of a dead span"
   },
   {
+   "file": "src/systems/eventTimers.js",
+   "has": "const nextDay = Math.round(wallMsForClassicMinutes((gameDayAt(now) + 1) * GATE_DAY_MINUTES));",
+   "clock": "event",
+   "why": "the timers window's next game day (TIMERS1) - the gate's day turning over, as relay ms"
+  },
+  {
    "file": "src/systems/lootCodex.js",
    "has": "const _day = () => Math.max(0, Math.floor((Number(worldMinutes()) || 0) / 1440));",
    "clock": "event",
