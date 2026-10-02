@@ -259,5 +259,5 @@ test('WB9f the seams, by source: the court stands the spoils and their words whe
   assert.match(w, /itemName: \(item\) => lootPileName\(\[item\]\),/);
   const gc = read('src/scenes/gateCourt.js');
   assert.match(gc, /spoils\?\.frame\(onSpoilRest\);/);
-  assert.match(gc, /acct: claims\.s, keep \}\)\) \{/);
+  assert.match(gc, /acct: claims\.s, keep, claims \}\)\) \{/);   // WB12d: and its rite
 });

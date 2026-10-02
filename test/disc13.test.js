@@ -349,7 +349,8 @@ function shipLocationOf({ loc = null, travelOptions = false, ports = [], onShip 
   const line = rd('src/scenes/world.js').split('\n').find((l) => l.includes('shipLocation: () => {'));
   assert.ok(line, 'world.js answers shipLocation');
   const src = line.slice(line.indexOf('() => {'), line.lastIndexOf('; },') + 3);
-  const make = new Function('_questLoc', 'modSetting', 'hasPort', 'isOnShip', 'playerEntity', 'playerTravelPixel', `return (${src});`);
+  // SEAT2b part two (PIN MOVED): the host asks hasPortFor - HasPort, or a members' Harbour at a seat
+  const make = new Function('_questLoc', 'modSetting', 'hasPortFor', 'isOnShip', 'playerEntity', 'playerTravelPixel', `return (${src});`);
   return make(() => loc, (v, k) => (v === 'travel-options' && k === 'Enabled' ? travelOptions : undefined),
     (mapId) => ports.includes(mapId), () => onShip, { boardShipPosition: null }, () => ({ x: 0, y: 0 }))();
 }

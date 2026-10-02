@@ -34,9 +34,9 @@ matrix/draw path (GC spikes riding the beat).
 FOUND ON THE WAY, both real: a recenter injects 819.2 units into
 footsteps' stride accumulator (a spurious footstep at every map-pixel
 crossing, footsteps.js:166), and `_playerStill` reads one moving
-frame per crossing (world.js:13812-13814).
+frame per crossing (world.js:14124-14126).
 
-frame per crossing (world.js:23709-23734).
+frame per crossing (world.js:24392-24417).
 
 THE DISTANCE IS FOG-BOUND, NOT STREAM-BOUND. Linear fog ends at 2400
 units (weather.js:50-57, DFU's own number) while the default 7x7
@@ -46,13 +46,13 @@ at every distance, ~1.6M/frame, unculled. The travel map already
 builds a one-vertex-per-map-pixel relief of the whole province
 (overworldModel.js) - the natural far-land raw material, later.
 Chunk-edge normals degenerate to one-sided differences (no ghost
-rows, terrainSurface.js:274-277): a permanent lighting lattice at every
+rows, terrainSurface.js:307-310): a permanent lighting lattice at every
 819.2-unit seam, visible at grazing sun.
 
 THERE IS NO CULLING AND NO MEASUREMENT. Zero frustum tests anywhere;
 ~1045 drawMesh calls in a city with per-call useProgram + per-submesh
 double texture binds and a template-string key allocated per submesh
-per frame (renderer.js:3672 - thousands of strings/frame, the single
+per frame (renderer.js:3680 - thousands of strings/frame, the single
 largest GC source). No FPS counter, no draw counter; the proven
 measurement pattern is window.__renderer + probe monkeypatching
 (hudCrosshairProbe), exposed today by the dungeon host alone.

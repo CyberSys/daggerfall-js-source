@@ -84,7 +84,7 @@ const BANK_FIELD_LABEL = Object.freeze({
   [TRANSACTION_TYPE.Withdrawing_Letter]: 'Letter of credit for',
   [TRANSACTION_TYPE.Repaying_loan]: 'Amount to repay',
   [TRANSACTION_TYPE.Borrowing_loan]: 'Amount to borrow',
-  [MARKS_ENTRY]: 'Drakes to sell',   // MARKS1
+  [MARKS_ENTRY]: 'Silver to sell',   // MARKS1
 });
 const bank = {
   kind: 'bank',
@@ -125,14 +125,14 @@ const bank = {
           ] }] }],
         ] },
         // MARKS1 (PROF0 10.5): online, the Bank of the Empire buys Marks - 8 gold each, 300 a day, paid into this account
-        w.hooks.marks && w.hooks.marks.open() === true ? { type: 'group', title: 'Drakes', blocks: [
+        w.hooks.marks && w.hooks.marks.open() === true ? { type: 'group', title: 'Silver', blocks: [
           { type: 'stats', items: [
-            ['Drakes held', marksText(w.hooks.marks.balance() ?? 0)],
+            ['Silver held', marksText(w.hooks.marks.balance() ?? 0)],
             ['Sold today', `${(w.hooks.marks.today()?.exchanged ?? 0)} of ${MARKS_BANK.perDay}`],
-            ['The Bank pays', `${MARKS_BANK.goldPerMark} gold a Drake`],
+            ['The Bank pays', `${MARKS_BANK.goldPerMark} gold for each silver`],
           ] },
           { type: 'actions', layout: 'column', items: [
-            { label: w.hooks.marks.pending() ? 'Counting a sale...' : 'Sell Drakes', act: () => w._button('sellMarks'), disabled: !w.enabled('sellMarks') },
+            { label: w.hooks.marks.pending() ? 'Counting a sale...' : 'Sell silver', act: () => w._button('sellMarks'), disabled: !w.enabled('sellMarks') },
           ] },
         ] } : null,
         busy ? { type: 'field', label: BANK_FIELD_LABEL[w.transactionType] ?? 'Amount', value: w.value, active: true } : null,

@@ -31,8 +31,8 @@
   {
     "name": "DECOR2b-furniture-of-any-group",
     "file": "src/systems/decorFurnish.js",
-    "old": "export const isFurnishing = (item) => item?.group === 'Furniture' && FURNITURE_TEMPLATES.includes(item?.templateIndex);",
-    "new": "export const isFurnishing = (item) => FURNITURE_TEMPLATES.includes(item?.templateIndex);",
+    "old": "export const isFurnishing = (item) => item?.group === 'Furniture' && (FURNITURE_TEMPLATES.includes(item?.templateIndex) || STONE_DECOR_TEMPLATES.includes(item?.templateIndex));",
+    "new": "export const isFurnishing = (item) => (FURNITURE_TEMPLATES.includes(item?.templateIndex) || STONE_DECOR_TEMPLATES.includes(item?.templateIndex));",
     "tests": [
       "test/decor2b.test.js"
     ]
@@ -40,7 +40,7 @@
   {
     "name": "DECOR2b-furniture-of-any-template",
     "file": "src/systems/decorFurnish.js",
-    "old": "export const isFurnishing = (item) => item?.group === 'Furniture' && FURNITURE_TEMPLATES.includes(item?.templateIndex);",
+    "old": "export const isFurnishing = (item) => item?.group === 'Furniture' && (FURNITURE_TEMPLATES.includes(item?.templateIndex) || STONE_DECOR_TEMPLATES.includes(item?.templateIndex));",
     "new": "export const isFurnishing = (item) => item?.group === 'Furniture';",
     "tests": [
       "test/decor2b.test.js"
@@ -49,8 +49,8 @@
   {
     "name": "DECOR2b-a-pillow-given-looks",
     "file": "src/systems/decorFurnish.js",
-    "old": "  if (FURNISH_PILLOWS.has(t)) return null;\n",
-    "new": "",
+    "old": "  if (FURNISH_PILLOWS.has(t) || stoneDecorModel(t) !== null) return null;",
+    "new": "  if (stoneDecorModel(t) !== null) return null;",
     "tests": [
       "test/decor2b.test.js"
     ]
@@ -112,8 +112,8 @@
   {
     "name": "DECOR2b-the-row-unnamed",
     "file": "src/systems/decorFurnish.js",
-    "old": "name: itemLongName(item), model: null, flat,",
-    "new": "name: 'Furniture', model: null, flat,",
+    "old": "name: itemLongName(item), model, flat,",
+    "new": "name: 'Furniture', model, flat,",
     "tests": [
       "test/decor2b.test.js"
     ]
@@ -130,7 +130,7 @@
   {
     "name": "DECOR2b-a-pillows-picture-lost",
     "file": "src/systems/decorFurnish.js",
-    "old": "icon: flat ? { archive: flat[0], record: flat[1], dye: null } : null,",
+    "old": "icon: pic ? { archive: pic[0], record: pic[1], dye: null } : null,",
     "new": "icon: null,",
     "tests": [
       "test/decor2b.test.js"

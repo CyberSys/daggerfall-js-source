@@ -92,7 +92,7 @@ export function mapSides(l, prov, targetsFor) {
  *   - An ESCAPED test literal (`world\.js:N`) whose number the docs carry
  *     ONLY on struck lines holds too, because the literal exists to MATCH
  *     that struck row and the two must stay in step. That is `holdEscaped`,
- *     and it is what bit twice in one hour: `world.js:4117-4120` names a
+ *     and it is what bit twice in one hour: `world.js:4144-4147` names a
  *     seam FX1 deleted, citedrift.test.js quotes it in NO_LINE_LEFT, and
  *     each merge moved the quote away from the row it has to match.
  *

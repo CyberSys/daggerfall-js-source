@@ -37,7 +37,7 @@
 // The weight eases in fast (a catch is a grab) and out slower; a limb's own weight lets it go (a pull-up's hands) or
 // take hold (a lower's). The head's look and the shoulders' shrug are shares, never all of the rig.
 
-import { PARKOUR_BODY_RADIUS, PARKOUR_HANG_GAP, PARKOUR_UP_GAP, PARKOUR_HANG_DROP, PARKOUR_GRIP_LOW } from './parkour.js';
+import { PARKOUR_BODY_RADIUS, PARKOUR_HANG_GAP, PARKOUR_UP_GAP, PARKOUR_HANG_DROP, PARKOUR_GRIP_LOW, PARKOUR_LIP_FOLLOW } from './parkour.js';
 import { FEEL } from './climbFeel.js';   // the reach and the shimmy's span: the body's hands keep the camera's rhythm
 
 /** The constants of the pose. Metres, radians, seconds. */
@@ -256,7 +256,9 @@ export class ClimbPose {
     out.frame = fr;
     let along = d[0] * fr.right[0] + d[2] * fr.right[2];
     // a hold newly taken (off a move, a leap, another lip) is the shimmy's stone 0: the hands square over it
-    if (this.prevMode !== 'hang' || this.hangLip !== c.lipY) {
+    // AUDIT CLIMB-HANDS (found on the way): a lip the motor follows (a sloping one, a hull's - re-read every step) is the
+    // same hold going on; the shimmy restarted on every new height and the hands never left stone 0
+    if (this.prevMode !== 'hang' || !(Math.abs(c.lipY - this.hangLip) <= PARKOUR_LIP_FOLLOW)) {
       this.travel = 0; along = 0;
       for (const k of ['L', 'R', 'FL', 'FR']) this.settle[k] = { v: 0, prev: 0, cycle: null };
     }
@@ -573,7 +575,10 @@ export class ClimbPose {
     const now = wallFrame(m.hang?.normal ?? c.normal ?? [0, 0, 1]);
     out.frame = now;
     const lipY = m.hang?.lipY ?? c.lipY;
-    const way = m.way ? Math.sign(m.way[0] * was.right[0] + m.way[1] * was.right[2]) || 1 : 1;
+    // AUDIT CLIMB-HANDS (found on the way): the way read off the move's own path - the motor sets `way` on the move's
+    // EVENT (motor.js _pkMoveEvent), never on the move, so `m.way` was always undefined and the right hand led every corner
+    const toward = m.up ?? m.to;
+    const way = toward && m.from ? Math.sign((toward[0] - m.from[0]) * was.right[0] + (toward[2] - m.from[2]) * was.right[2]) || 1 : 1;
     const startC = { ...c, feet: m.from ?? c.feet }, endC = { ...c, feet: m.to ?? c.feet };
     const half = POSE.HANDS_APART / 2;
     for (const s of ['L', 'R']) {
@@ -737,6 +742,7 @@ export function climbRigInput(player, viewYaw) {
     track: typeof player.climbTrackPos === 'function' ? player.climbTrackPos() : null,   // the body's own way (not a carry's)
     floorGap: floorGapAt(player.collider, feet),
     mode: onWall ? (player.hanging ? 'hang' : 'climb') : (classic ? 'climb' : null),
+    classic,   // CLIMB-HANDS: DFU's own climb - the sprite lane keeps WeaponManager's empty screen for it (combat/climbHands.js)
     normal, lipY: player.climbHold?.lipY ?? null,
     move,   // the motor's own object, read only - its identity is the move's
     grip: Number.isFinite(player.grip) ? player.grip : 1,

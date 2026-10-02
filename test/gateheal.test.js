@@ -251,7 +251,7 @@ test('GATE-HEAL the round-up: a Healed column, last, whenever anyone healed anot
   const both = damageChartModel({ at: 1, top: [], n: 1, dm: [row('Ann', 900, { a: 100, hl: 50 })] }, at);
   assert.deepEqual(both.head.slice(-2), [DAMAGE_CHART_TEXT.host, DAMAGE_CHART_TEXT.heal]);
   assert.notEqual(m.key, damageChartModel({ at: 1, top: [], n: 2, dm: [row('Ann', 900), row('Bo', 100, { hl: 1235 })] }, at).key, 'a figure moved: the rows rewritten');
-  const css = DAMAGE_CHART_CSS, narrow = /@media \(max-width: 640px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+  const css = DAMAGE_CHART_CSS, narrow = /@media \(max-width: 640px\), \(max-height: 480px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';   // WB13c: a phone held sideways is narrow too
   assert.match(css, /\n\.wb-dmg-row > \.wb-dmg-heal \{ display: none; \}/);
   assert.match(css, /\n\.wb-dmg-healed \.wb-dmg-row > \.wb-dmg-heal \{ display: block; \}/);
   assert.match(narrow, /\.wb-dmg-healed \.wb-dmg-row > \.wb-dmg-share \{ display: none; \}/);
@@ -260,7 +260,7 @@ test('GATE-HEAL the round-up: a Healed column, last, whenever anyone healed anot
   const doc = fakeDoc();
   drawGateDamageChart(m, { doc });
   const root = doc.body.children[0];
-  assert.equal(root.className, 'wb-dmg-chart wb-dmg-healed');
+  assert.equal(root.className, 'wb-dmg-chart wb-dmg-healed wb-dmg-in', 'WB13c: coming in');
   const [, , head, first] = root.children;
   assert.equal(head.children.at(-1).textContent, 'Healed');
   assert.equal(root.children[4].children.at(-1).textContent, '1,234', 'Bo\'s row');

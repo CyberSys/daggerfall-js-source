@@ -119,7 +119,7 @@
   {
     "name": "HOME-MAGIC-owner-barred",
     "file": "src/scenes/worldModes.js",
-    "old": "const visitorMagicRefusal = () => (visitorDropRefusal() ? HOME_VISITOR_MAGIC_TEXT : null);",
+    "old": "const visitorMagicRefusal = () => (visitorDropRefusal() && !hallMemberHere() ? (interiorHome?.hall ? HALL_VISITOR_MAGIC_TEXT : HOME_VISITOR_MAGIC_TEXT) : null);",
     "new": "const visitorMagicRefusal = () => (interiorHome && mode === 'interior' ? HOME_VISITOR_MAGIC_TEXT : null);",
     "tests": [
       "test/homemagic.test.js"

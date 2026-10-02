@@ -13,11 +13,11 @@
 // server-account/migrations/0040_insignia.sql), signs the title and the aura worn into the token (`t`, `au`), and the
 // relay reads them out of it as it reads every badge.
 //
-// THE PRICE IS PAID TWICE-CHECKED. The stones are the pack's (the Sigil Stones the gate drops, one a kill), taken on
-// this side as any ware's are; and the service will not record a sale the account's own closed gates could not have
-// paid for - its gate_kills rows (one a kill, WB5b) less what its insignia already cost (`insignia_spent`). A stone is
-// never made anywhere but a kill, so an honest pack never holds more than that; a client that skips its own half still
-// cannot buy past its kills.
+// THE PRICE IS PAID TWICE-CHECKED. The embers are the pack's (the Deadlands Embers a breach pays - one a breach closed,
+// and one more to each who broke its faithful's rite, WB12d), taken on this side as any ware's are; and the service will
+// not record a sale the account's own embers could not have paid for - its gate_kills rows' `stones` (AUDIT WB12d A4: one
+// a row before the rite) less what its insignia already cost (`insignia_spent`). An ember is never made anywhere but a
+// breach, so an honest pack never holds more than that; a client that skips its own half still cannot buy past them.
 //
 // Pure: the offers, their prices, and the column's words. Not a DFU member. Ledger A (WB).
 import { TITLES, AURAS } from './identityToken.js';

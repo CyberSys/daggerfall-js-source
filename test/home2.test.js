@@ -33,7 +33,7 @@ test('HOME2 the law: every house type is a house - House1-6 and the for-sale hou
   assert.equal(HOME_BUY_ARM_MS, 5000);
   assert.deepEqual(homeOwnerRows('party'), [{ id: 'home-enter', label: 'Go in' }, { id: 'home-entry', label: 'Who may enter: My party' }, { id: 'home-sell', label: 'Sell it' }]);
   assert.equal(homeOwnerRows('nonsense')[1].label, 'Who may enter: Only me', 'an entry this build does not know reads as the default');
-  assert.deepEqual(['private', 'party', 'public'].map(homeNextEntry), ['party', 'public', 'private']);
+  assert.deepEqual(['private', 'party', 'public', 'guild'].map(homeNextEntry), ['party', 'public', 'guild', 'private']);   // GUILD1d (re-aimed by content): and the owner's guild, before round again
   assert.equal(homeNextEntry(undefined), 'party', 'no entry is the default, and moves on from it');
   assert.deepEqual([HOME_OFFER_BUY, HOME_OFFER_PASS], ['Y - buy it', 'N - just go in']);
 });
@@ -66,7 +66,7 @@ test('HOME2 the door, by source: the verbs listed in every mode but Steal and on
   assert.match(m, /const verbsSig = homeVerbsSig\(\);\n\s*if \(_doorTextKey === key && _doorTextGen === gen && _doorTextHomes === homesV && _doorTextVerbs === verbsSig\) return _doorText;/);
   assert.match(m, /const houseVerbs = homeDoorVerbs\(bd, home\);\n[\s\S]{0,1500}?const verbs = _doorText \? houseVerbs : null;\n\s*const homeLine = verbs \? null : home \?/);   // FIELD BUGS 2026-09-30b HOME-PLAQUE (PIN MOVED): the verbs read before the name
   assert.match(m, /if \(verbs\) _doorText = \{ \.\.\._doorText, actions: verbs \};\n\s*_doorTextKey = key; _doorTextGen = gen; _doorTextHomes = homesV; _doorTextVerbs = verbsSig;/);
-  assert.match(m, /function homeDoorVerbs\(bd, home\) \{\n\s*if \(!host\.onlineHomes \|\| getInteractionMode\(\) === 'steal'\) return null;\n\s*if \(home\?\.own\) return homeOwnerRows\(home\.entry\);\n\s*if \(home\) return homeVisitorRows\(home, homeDoorFor\(bd, home\)\);[^\n]*\n\s*const price = homeOfferPrice\(bd\);\n\s*return price \? homeBuyRows\(price, homeArmed\(bd\)\) : null;/);   // HOME-RENT re-aim: another's home lists a tenant's room or a room to rent
+  assert.match(m, /function homeDoorVerbs\(bd, home\) \{\n\s*if \(!host\.onlineHomes \|\| getInteractionMode\(\) === 'steal'\) return null;\n\s*if \(home\?\.own\) return homeOwnerRows\(home\.entry\);\n\s*if \(home\) return homeVisitorRows\(home, homeDoorFor\(bd, home\)\);[^\n]*\n\s*const price = homeOfferPrice\(bd\);\n\s*if \(!price\) return null;\n(?:\s*\/\/[^\n]*\n)*\s*const hall = homeHallBuyRow\(price, hallGuild\(\), hallArmed\(bd\)\);\n\s*return hall \? \[\.\.\.homeBuyRows\(price, homeArmed\(bd\)\), hall\] : homeBuyRows\(price, homeArmed\(bd\)\);/);   // HOME-RENT re-aim: another's home lists a tenant's room or a room to rent; GUILD1d re-aim: a hall's rows ride the visitor's, and a guildmaster's house for sale lists the guild's buy after its own
   assert.match(m, /const homeVerbsSig = \(\) => `\$\{host\.onlineHomes && getInteractionMode\(\) !== 'steal' \? 'v' : ''\}\|\$\{_homeArm && performance\.now\(\) - _homeArm\.at <= HOME_BUY_ARM_MS \? _homeArm\.id : ''\}`;/);
   // the press
   assert.match(m, /return activateStaticDoor\(entries\[key\], entries, false, \{ verb: plaqueActionFor\(key\) \}\);/);

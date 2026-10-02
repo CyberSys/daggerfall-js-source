@@ -82,8 +82,9 @@ RAID_TOWNS_SHA256 = ""
 # GATE_DISCORD_WEBHOOK` here) - that redeploys the Worker and drops
 # every player once. WITHOUT IT THE RELAY POSTS NOTHING and keeps
 # nothing for it.
-# The role: World Events (Mac, 2026-09-28).
-GATE_DISCORD_ROLE = "1554215379817988167"
+# The role: its id handed over 2026-10-02, before the WB12/WB13 merge (it was
+# 1554215379817988167, World Events, from 2026-09-28).
+GATE_DISCORD_ROLE = "1555589839825670258"
 
 # ═══ WB3: THE RELAY'S ONE SECRET ═══════════════════════════════════
 #

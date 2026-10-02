@@ -60,7 +60,7 @@ test('AUDIT ONLINE2 F2: A RECEIPT\'S LIFE IS THE RELAY\'S CLOCK - the raid and g
   const w = rd('src/scenes/world.js');
   assert.match(w, /const relayNowS = \(\) => \(_sharedClockHeard \? Math\.floor\(\(Date\.now\(\) \+ _sharedOffsetMs\) \/ 1000\) : null\);/);
   assert.match(w, /online\.onClock = \(offsetMs\) => \{ const was = _sharedOffsetMs; _sharedOffsetMs = offsetMs; _sharedClockHeard = true;/);
-  assert.match(w, /createGateClaims\(\{\n\s*claim: _accountGates\.claim,\n\s*me: _accountGates\.me,\n\s*nowS: relayNowS,/);
+  assert.match(w, /createGateClaims\(\{\n\s*claim: \(r\) => _accountGates\.claim\(r, gateSeatWord\(r\)\),\n\s*me: _accountGates\.me,\n\s*nowS: relayNowS,/);
   assert.match(w, /createRaidClaims\(\{\n\s*claim: _accountRaids\.claim,\n\s*me: _accountRaids\.me,\n\s*nowS: relayNowS,/);
   assert.equal(RAID_CLAIMS_KEY, 'raid4.raidClaims');
 });

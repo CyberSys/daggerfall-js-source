@@ -42,6 +42,7 @@
 import { mintId, accountKind, displayName, isMuted, overRate } from './accounts.js';
 import { isDeveloper, canModerate, titleWorn, glyphsOf, SPROUT_S } from './titles.js';
 import { guildActorOf } from './guilds.js';
+import { heraldryOfRow } from './halls.js';   // GUILD1e: a recruitment note's guild's banner
 import { guildMay } from '../../src/net/guildLaw.js';
 import {
   NOTES_LIVE_MAX, NOTE_DAY_S, BOARD_NOTES_SHOWN, BOARD_NOTICES_SHOWN, NOTES_PINNED_MAX, BOARD_OPS_MAX, BOARD_WINDOW_S,
@@ -76,7 +77,8 @@ function noteView(n, row, env, nowS, { mine = false, mod = false, reports = 0 } 
     // a recruitment note whose guild is gone - or whose author can no longer invite to it - keeps its words and loses
     // its button and its seal (0026_board.sql)
     button: n.button === 'guild' && !guildOk ? null : (n.button ?? null),
-    ...(guildOk ? { guild: { name: n.guild_name, tag: n.guild_tag } } : {}),
+    // GUILD1e: and its banner - the Guilds tab hangs a recruitment note as its guild's poster (PROF0 10.1)
+    ...(guildOk ? { guild: { name: n.guild_name, tag: n.guild_tag, heraldry: heraldryOfRow(n.guild_heraldry) } } : {}),
     at: n.at, expiresAt: n.expires_at, mine,
     ...(mod ? { hidden: n.hidden === 1, restored: n.hidden === 2, reports } : mine && n.hidden === 1 ? { hidden: true } : {}),
   };
@@ -98,7 +100,7 @@ export async function readBoard({ db, nowS }, reader, env, map) {
   await sweep(db, nowS);
   const mod = canModerate(reader, env);
   // the author's own notes always (AUDIT 28 N2: muted or hidden, they still hold the author's places)
-  const { results: notes = [] } = await db.prepare(`SELECT n.*, g.name AS guild_name, g.tag AS guild_tag, gm.rank AS author_rank,
+  const { results: notes = [] } = await db.prepare(`SELECT n.*, g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry, gm.rank AS author_rank,
       (SELECT COUNT(*) FROM board_reports r WHERE r.note_id = n.id) AS reports
     FROM board_notes n JOIN players p ON p.id = n.author LEFT JOIN guilds g ON g.id = n.guild_id
       LEFT JOIN guild_members gm ON gm.player = n.author AND gm.char_id = n.char_id AND gm.guild_id = n.guild_id
@@ -131,7 +133,7 @@ export async function readBoard({ db, nowS }, reader, env, map) {
 
 /** A note's row with its guild's name and tag and its author's rank in it now (a recruitment note's), for every answer
  *  that shows one. */
-const NOTE_ROW = `SELECT n.*, g.name AS guild_name, g.tag AS guild_tag, gm.rank AS author_rank FROM board_notes n
+const NOTE_ROW = `SELECT n.*, g.name AS guild_name, g.tag AS guild_tag, g.heraldry AS guild_heraldry, gm.rank AS author_rank FROM board_notes n
   LEFT JOIN guilds g ON g.id = n.guild_id LEFT JOIN guild_members gm ON gm.player = n.author AND gm.char_id = n.char_id AND gm.guild_id = n.guild_id`;
 
 /** An account's live notes, on every board. */

@@ -227,8 +227,8 @@
   {
     "name": "GOLDMARKET-book-one-cache",
     "file": "src/net/marketBook.js",
-    "old": ", (q.materials ?? []).join(','), q.currency ?? 'marks', (q.pieces ?? []).join(',')].join('|');",
-    "new": ", (q.materials ?? []).join(','), (q.pieces ?? []).join(',')].join('|');",
+    "old": ", (q.materials ?? []).join(','), q.currency ?? 'marks', (q.pieces ?? []).join(','),",
+    "new": ", (q.materials ?? []).join(','), (q.pieces ?? []).join(','),",
     "tests": [
       "test/goldmarket_client.test.js"
     ]
@@ -272,8 +272,8 @@
   {
     "name": "GOLDMARKET-tab-gold-buy-no-currency",
     "file": "src/ui/marketTab.js",
-    "old": "hubs: m.hubs, ...(gold ? { currency: 'gold' } : {}) }, m.mint)",
-    "new": "hubs: m.hubs }, m.mint)",
+    "old": "hubs: m.hubs, ...at(), ...(gold ? { currency: 'gold' } : {}) }, m.mint)",
+    "new": "hubs: m.hubs, ...at() }, m.mint)",
     "tests": [
       "test/goldmarket_client.test.js"
     ]

@@ -8,6 +8,7 @@
 // original-archive sizes while pixels come from the table archive,
 // which is exactly the dungeon convention already on record.
 
+import { isShopShelfModel } from '../systems/shopStock.js';   // AUDIT-SEATS: a castle's shelf-set models, a crown's Hall of Records
 import { IIL_LIGHT_ARCHIVE } from '../systems/improvedInteriorLighting.js';   // IIL1
 import { YesNoBoxWindow } from '../ui/yesNoBox.js';   // SOFTCAP3: the Master Skills offer
 import { FlatAnimator, armFlatAnim, MISSILE_FPS } from '../render/flatAnimation.js';   // FA1: the flats that move
@@ -225,7 +226,7 @@ import { createDroppedTorches } from './droppedTorches.js';
 import { createCamps } from './camps.js';   // SURV3: a fire on the dungeon floor (no tent below - the camp law says so)
 import { campWire, validCampRecord } from '../systems/survival/camp.js';   // SURV3: the room's memory carries the camps as the wire says them   // HT1: Handheld Torches' dropped lights in the dungeon   // AUDIT 24 (wave 39): EnemyBlood.ShowBloodSplash
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
-import { flashPlayerDamage } from '../ui/damageFlash.js';
+import { flashPlayerDamage, shakePlayerDamage } from '../ui/damageFlash.js';   // WB13d: the gate boss's elemental blows shake, unflashed
 import { resetVitalsDetector } from '../ui/hudVitals.js';   // BLOOD AUDIT 5: the load's detector reset   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { activeMemberships } from '../systems/guilds.js';   // F117
 import { avoidDeath, AVOID_DEATH_TEXT } from '../systems/guildServices.js';   // F117: Stendarr
@@ -281,7 +282,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2513); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2530); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -489,6 +490,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   let _waterArchive = null;   // WATER-D1: the climate ground archive whose record 0 is the water tile - the host names it after the build
   let _waterT = 0;            // WATER-D1: the scroll clock, in seconds of drawn frames
   const exitDoors = [];
+  /** AUDIT-SEATS (Seats-Arc 9.2): a castle block's shelf-set models - `{ aabb }` - which a crown's Hall of Records is read
+   *  from (scenes/worldModes.js); geometry in DFU's castle, as a palace's are. */
+  const castleShelves = [];
   let colliderTris = 0;
 
   const ensureRemap = async (id) => {
@@ -616,6 +620,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // A1: every placement's world AABB, computed once - the action
       // arms below and the automap reveal index both read it.
       const aabb = worldAabb(cpu.positions, matrix);
+      if (b.layout.castleBlock && isShopShelfModel(p.modelIdNum)) castleShelves.push({ aabb });   // AUDIT-SEATS: a crown's Hall of Records
       meshTopY = Math.max(meshTopY, boundsTopY(cpu.positions, matrix));   // OH-D
       let standable = null;   // DISC29-A: the effect or relay this model is, for triggerSurfaces below
       if (p.action) {
@@ -1933,7 +1938,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14814 / exterior.js:3775), set
+  // host's own townTalk sink (world.js:15133 / exterior.js:3775), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -2520,7 +2525,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // copied mount would have diverged the first time an arm grew.
   /** DR1: THE TWO SPELL WINDOWS THIS HOST MOUNTS NOW, and the one door
    *  they go through. `mountSpellWindow` is worldModes'
-   *  mountSpellWindow DUNGEON ARM (worldModes.js:1385,
+   *  mountSpellWindow DUNGEON ARM (worldModes.js:1423,
    *  `dungeonCtx?.showOverlay(win)`) resolved to what it actually
    *  calls here - this file's own pushDungeonWindow, which IS
    *  UserInterfaceManager.PushWindow. So a spell window raised over an
@@ -3062,7 +3067,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1118 against :1148; worldModes.js:7848 against :7875).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1118 against :1148; worldModes.js:8109 against :8129).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3886,8 +3891,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24568,
-              // exterior.js:5394 and worldModes.js:8566 already ran;
+              // playerArrowHitFoe is the one copy world.js:25320,
+              // exterior.js:5394 and worldModes.js:8829 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -4767,7 +4772,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2513). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2530). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5341,7 +5346,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:1887's restoreWorld goes through
+    // construction (exteriorFoes.js:1899's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -8127,7 +8132,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
      *  through the one door any foe's blow takes (resolveFoeMelee) with its three signs - the hit's sound, the flash,
      *  the cry - and fire's burning in the hit's place, unflashed (DFU's spell damage does not flash, ui/damageFlash.js).
      *  WB8b: his aspect's frost, lightning and venom as his fire - unflashed, each in its element's own cast
-     *  (systems/enemySpells.js SPELL_CAST_SOUND, by id). */
+     *  (systems/enemySpells.js SPELL_CAST_SOUND, by id). WB13d: and shaken as his physical blows are (his heaviest -
+     *  the Hellfire, the Nova, the Meteor, the Spokes - landed with no camera's answer at all). */
     strikePlayer(dmg, { fire = false, el = fire ? 'fire' : null } = {}) {
       if (!(dmg > 0)) return;
       const cast = GATE_STRIKE_CAST[el];
@@ -8135,6 +8141,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       else audio.playOneShot(el === 'fire' ? SOUND.Burning : hitSoundFor(null), PLAYER_HIT_VOLUME);
       hurtPlayer(dmg);
       if (!el) flashPlayerDamage(dmg);
+      else shakePlayerDamage(dmg);
       playPlayerVoice(audio, playerPainVoice(playerEntity, dmg));
     },
     // WORLD2: one simulation per room - the stream out and in, the hit in, the seat
@@ -8868,6 +8875,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     },
     textureTable: dungeon.textureTable,
     exitDoors,
+    castleShelves,   // AUDIT-SEATS: a castle's shelves, a crown's Hall of Records
     colliderTris,
     destroy() {
       _ctxDead = true;   // NT1 (F213): before anything frees - the warm-window continuations read it

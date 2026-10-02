@@ -322,8 +322,8 @@
   {
     "name": "AUDIT-PSCALE1-handover-from-anywhere",
     "file": "src/scenes/world.js",
-    "old": "    const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];",
-    "new": "    const near = online?.room ? (peersNear() ?? []) : [];",
+    "old": "    const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];\n    if (!near.length) return 0;\n    const heirOf = (f) => { if (f.entity?.team",
+    "new": "    const near = online?.room ? (peersNear() ?? []) : [];\n    if (!near.length) return 0;\n    const heirOf = (f) => { if (f.entity?.team",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

@@ -93,8 +93,8 @@
   {
     "name": "GATE-CLEAR-the-margin-ignored",
     "file": "src/world/gateClearance.js",
-    "old": "  const r = GATE_CLEAR_M + margin;",
-    "new": "  const r = GATE_CLEAR_M;",
+    "old": "  if (boxNear(gx, gz, x0, z0, x1, z1, GATE_CLEAR_M + margin)) return true;",
+    "new": "  if (boxNear(gx, gz, x0, z0, x1, z1, GATE_CLEAR_M)) return true;",
     "tests": [
       "test/gateclear.test.js"
     ]

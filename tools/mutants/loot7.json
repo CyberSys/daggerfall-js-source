@@ -300,8 +300,8 @@
   {
     "name": "LOOT7-death-line-unnamed",
     "file": "src/scenes/corpseMarker.js",
-    "old": "  const name = championName(entity, enemyDisplayName(mobileType));",
-    "new": "  const name = enemyDisplayName(mobileType);",
+    "old": "  const name = properName(entity) ?? championName(entity, enemyDisplayName(mobileType));",
+    "new": "  const name = properName(entity) ?? enemyDisplayName(mobileType);",
     "tests": [
       "test/loot7_champions.test.js"
     ]

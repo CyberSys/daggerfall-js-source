@@ -215,32 +215,32 @@ test('PROF5 tab: the five views - Materials (cheapest first, here or its region 
   const buttons = () => [...root.querySelectorAll('button')];
   assert.deepEqual(buttons().filter((b) => b.className.includes('market-view')).map((b) => b.textContent), MARKET_VIEWS.map(([, l]) => l));
   assert.match(text(), /On the road40 Mithril Ore from Wayrest - 32 minutes/);
-  assert.match(text(), /Mithril Ore x1208 Drakes eachheremedian 8\.5/);
+  assert.match(text(), /Mithril Ore x1208 silver eachheremedian 8\.5/);
   // AUDIT 30 U18: a row's courier is its pick's (twenty at most); U16: cheapest landed first - Wayrest's 7 and its courier's share under here's 8
-  assert.match(text(), new RegExp(`Mithril Ore x407 Drakes eachWayrest \\+${courierFee(20, ROAD)} courier for 20, ${arrivalText(courierSeconds(ROAD), 0)}median 8\\.5Mithril Ore x120`));
+  assert.match(text(), new RegExp(`Mithril Ore x407 silver eachWayrest \\+${courierFee(20, ROAD)} courier for 20, ${arrivalText(courierSeconds(ROAD), 0)}median 8\\.5Mithril Ore x120`));
   assert.ok(root.querySelector('.market-line'), 'the median\'s line');
-  assert.match(text(), /The Weavers' counterLinen Bolt2 Drakes a bolt/);
-  assert.match(text(), /Your Drakes: 1,240 Drakes/);
+  assert.match(text(), /The Weavers' counterLinen Bolt2 silver a bolt/);
+  assert.match(text(), /Your silver: 1,240 silver/);
   // picked: "Buy 20 for 140 Marks + C courier?"
   buttons().find((b) => b.textContent.startsWith('Mithril Ore x40')).onclick();
-  assert.match(text(), new RegExp(`Buy 20 Mithril Ore for 140 Drakes \\+ ${courierFee(20, ROAD)} courier\\?`));
+  assert.match(text(), new RegExp(`Buy 20 Mithril Ore for 140 silver \\+ ${courierFee(20, ROAD)} courier\\?`));
   await buttons().find((b) => b.textContent === 'Buy').onclick();
   assert.deepEqual(calls.at(-1), ['buy', { region: 17, listing: 'B', units: 20, max: 140 + courierFee(20, ROAD), hubs: HUBS }]);
   // Crafted
   await buttons().find((b) => b.textContent === 'Crafted').onclick();
   await new Promise((r) => setTimeout(r, 0));
-  assert.match(text(), /Silverthorn's Mithril LongswordMasterwork · made by Silverthorn · worn to 62%900 Drakes/);
+  assert.match(text(), /Silverthorn's Mithril LongswordMasterwork · made by Silverthorn · worn to 62%900 silver/);
   // My listings: the fee said, Cancel
   buttons().find((b) => b.textContent === 'My listings').onclick();
   await new Promise((r) => setTimeout(r, 0));
-  assert.match(text(), /Iron Ore - 5 of 10 left3 Drakes each/);
-  assert.match(text(), /Listing fee 1 Drake, kept if you cancel\. It stands on the boards of Daggerfall for 72 hours/);
+  assert.match(text(), /Iron Ore - 5 of 10 left3 silver each/);
+  assert.match(text(), /Listing fee 1 silver, kept if you cancel\. It stands on the boards of Daggerfall for 72 hours/);
   await buttons().find((b) => b.textContent === 'Cancel').onclick();
   assert.deepEqual(calls.at(-1)[0], 'cancel');
   // Orders: Fill from the Stores
   buttons().find((b) => b.textContent === 'Orders').onclick();
   await new Promise((r) => setTimeout(r, 0));
-  assert.match(text(), /Mithril Ore140 of 200 wanted at 8 Drakes eachmedian 8\.5/);
+  assert.match(text(), /Mithril Ore140 of 200 wanted at 8 silver eachmedian 8\.5/);
   await buttons().find((b) => b.textContent.startsWith('Fill 50')).onclick();
   assert.deepEqual(calls.at(-1), ['fill', { region: 17, order: 'O', units: 50, hubs: HUBS }]);
   assert.match(text(), /Post a buy order/);
@@ -248,7 +248,7 @@ test('PROF5 tab: the five views - Materials (cheapest first, here or its region 
   buttons().find((b) => b.textContent === 'History').onclick();
   await new Promise((r) => setTimeout(r, 0));
   assert.match(text(), /Mithril Ore21 sold this weekmedian 10/);
-  assert.match(text(), /Your tradesBought 11 Mithril Ore - 110 Drakes paid - just now/, 'AUDIT 30 U15: the Drakes the trade moved, and which way');
+  assert.match(text(), /Your tradesBought 11 Mithril Ore - 110 silver paid - just now/, 'AUDIT 30 U15: the silver the trade moved, and which way');
   assert.equal(medianLineNode([null, 5]), null, 'no line from one day');
 });
 
@@ -275,7 +275,9 @@ test('PROF5 wiring: the host builds the market book online, its answers told to 
   assert.match(w, /const marketBook = params\.has\('online'\)\n\s*\? createMarketBook\(\{ door: accountMarket\(/);
   assert.match(w, /now: \(\) => Date\.now\(\) \+ _sharedOffsetMs, marks: marksBook,\n\s*stores: \{ apply: \(st\) => profBook\?\.applyStore\(st\) \},/);   // AUDIT 30 U1: the Stores told too (AUDIT 31: its holds after)
   assert.match(w, /const market = marketBook && profBook\?\.state\.open === true && marksBook\?\.state\?\.open !== false && Number\.isInteger\(region\) \? \{/);   // AUDIT 30 U11
-  assert.match(w, /character: \(\) => characterIdOf\(playerEntity\), work, market,\n/);
+  // GUILD1e: the board's window built by the host's one builder (showNoticeWindow), which adds the book and the character
+  assert.match(w, /gate: \(\) => noticeGateCard\(\), answer: \(note\) => answerNote\(note\), work, market,\n/);
+  assert.match(w, /book: noticeBook, character: \(\) => characterIdOf\(playerEntity\),/);
   assert.match(w, /if \(heldProvenances\(\)\.has\(piece\.provenance\)\) return;\n\s*const it = mintPiece\(piece, piece\.provenance\);\n\s*if \(!it\) return;\n\s*if \(it\.maxCondition > 0\) it\.currentCondition = wearCondition\(it\.maxCondition, piece\.wear\);/);
   assert.match(w, /\.filter\(\(it\) => it\?\.provenance && asMinted\(it\) && !tradeRefusal\(it\) && !isLocked\(it\) && !pieceKept\(it\.provenance\)\)/);   // AUDIT 30 C2
   assert.match(w, /const r = await profBook\.stock\(material, qty\);\n\s*toldBalance\(r\?\.data\?\.balance\);/);   // AUDIT 32 B3: the Bank's book and the market's

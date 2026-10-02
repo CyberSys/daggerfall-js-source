@@ -122,7 +122,7 @@
   {
     "name": "MARKS1-14-the-gate-mints-nothing",
     "file": "server-account/src/index.js",
-    "old": "        return json(r.recorded ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);",
+    "old": "        return json(r.recorded && !r.rite ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);",
     "new": "        return json(answer, 200, origin);",
     "tests": [
       "test/marks1.test.js"

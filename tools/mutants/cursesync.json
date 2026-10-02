@@ -79,8 +79,8 @@
   {
     "name": "CS-cell-heir-party-only",
     "file": "src/scenes/world.js",
-    "old": "if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag)",
-    "new": "if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((f.isQuestFoe || f._keptTag)",
+    "old": "if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = f.site ? CAMP_CULL_DISTANCE : Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag)",
+    "new": "if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = f.site ? CAMP_CULL_DISTANCE : Infinity; for (const q of near) { if ((f.isQuestFoe || f._keptTag)",
     "tests": ["test/cursesync.test.js"]
   },
   {

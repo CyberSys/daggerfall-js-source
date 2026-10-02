@@ -415,7 +415,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const text = () => root.textContent;
   const buttons = () => [...root.querySelectorAll('button')];
   const press = (label) => buttons().find((b) => b.textContent.startsWith(label)).onclick();
-  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom']);
+  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason']);   // PIN MOVED (PROF11): the mason's bench
   assert.match(stationColdLine('loom'), /The loom is still/);
   assert.match(text(), /The Loom/);
   assert.match(text(), /The tailor's loom and tanning rack - 50 gold a craft, a cure or a weave/);
@@ -435,7 +435,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const shirt = buttons().find((b) => b.textContent.startsWith('Linen Short Shirt') && !b.textContent.includes(','));
   assert.match(shirt.textContent, /wants its inputs/);
   shirt.onclick();
-  await press('Buy 2 from the Weavers - 4 Drakes');
+  await press('Buy 2 from the Weavers - 4 silver');
   assert.deepEqual(bought, [['cloth:linen', 2, 'weavers']]);
   assert.deepEqual(GARMENT_WORDS(buttons()), ['Undyed', 'Blue', 'Grey', 'Red', 'Dark Brown', 'Purple', 'Light Brown', 'White', 'Aquamarine', 'Yellow', 'Green']);
   assert.equal(dyeWord(3), 'Dark Brown');
@@ -517,7 +517,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
   assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom\.' \}/);
-  assert.match(w, /const f = \(loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
+  // PIN MOVED (PROF11): a work at the mason's bench asks it first
+  assert.match(w, /const f = \(mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
   assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : 'smith';/);
   assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher' \}\)/);
   assert.match(w, /profBook\.track\('hunting'\)\.specs\?\.\[50\] !== 'tracker' \|\| _mode\(\) !== 'exterior'\) return null;\n\s*return trackerMarks\(exteriorFoes\.foes, enchantFeet\(\)\);/);
@@ -534,7 +535,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   const idx = src('server-account/src/index.js');
   assert.match(idx, /'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,/);
   const c = src('src/net/accountClient.js');
-  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\) \}\),/);
+  // SEAT2b part two (PIN MOVED): and the held town the station stands in (`seat`, its crafting halls' steps)
+  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\), \.\.\.\(seat == null \? \{\} : \{ seat \}\) \}\),/);
   for (const word of ['prof-hunt-cap', 'prof-hunt-high', 'prof-foe', 'prof-dye']) assert.doesNotMatch(accountRefusalText(word), /problem|could not be read/, word);
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/characters\/dyes\.js"/);
   assert.match(src('src/systems/foragingInstall.js'), /hudText\(brokeMessage\(item\.templateIndex, item\.name\)\);/);

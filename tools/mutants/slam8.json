@@ -44,8 +44,8 @@
   {
     "name": "K5-turn-in-plain-patch",
     "file": "server/src/index.js",
-    "old": "{ pose: posed ? m.p : a.pose }, posed ? { turn: ((a.turn | 0) + 1) & 0xffff, ...(still ? { kept: now } : {}) } : {}",
-    "new": "{ pose: posed ? m.p : a.pose, turn: posed ? ((a.turn | 0) + 1) & 0xffff : (a.turn | 0) }, posed && still ? { kept: now } : {}",
+    "old": "this._meter(ws, a, now, { pose: posed ? m.p : a.pose }, turned)",
+    "new": "this._meter(ws, a, now, { pose: posed ? m.p : a.pose, turn: posed ? ((a.turn | 0) + 1) & 0xffff : (a.turn | 0) }, posed && still ? { kept: now } : {})",
     "tests": [
       "test/slam8.test.js",
       "test/slam6.test.js",

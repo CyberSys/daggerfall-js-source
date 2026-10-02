@@ -76,7 +76,7 @@ mode = "smart"
 [vars]
 # Answered by /health so a deploy that did not happen cannot look like
 # one that did. Kept in step with ACCOUNT_VERSION in src/service.js.
-ACCOUNT_VERSION = "acct49"
+ACCOUNT_VERSION = "acct62"
 # WB5b: THE RELAY'S PUBLIC HALF, GATE_PUBLIC_KEY - the key an Oblivion
 # Gate's kill receipts verify with (src/net/gateReceipt.js) - is NOT a
 # var here. GATE-KEYS (2026-09-26): the account deploy mints the pair
@@ -158,6 +158,16 @@ BOARD_OPEN = "on"
 # SWITCH-ON (2026-09-29, Mac: "Fuck it lets switch everything on"): "on" - the professions and, with Marks and the
 # board, the market are everyone's, after PROF-SAVE and PROF-DELETE.
 PROFESSIONS_OPEN = "on"
+# SEAT1a (SEAT0 18: "The account service's config gains SEATS_OPEN (off, dev, on). At dev only accounts with the dev
+# glyph see seats, so each slice is played on the live servers before anyone else sees it"): the seats by this switch.
+# Shipped at "dev": the developers witness the seats, see the map's rings and the arrival lines first; opened to
+# everyone by this one line.
+SEATS_OPEN = "on"
+# SEASON1 (SEAT0 9.1, 18): the seat week Season 0 - the four-week open beta - begins (townSeatLaw.js seasonOf); 8-week
+# Seasons follow, each ending at its last Turning with its titles and the soft reset, and Season 0's end wipes the seats.
+# Empty: no Season is counted (every once-a-Season rule keeps its 8-week stand-in). Set it, to a week not yet past, when
+# the seats open to everyone - never move it once a Season has begun.
+SEASON_ZERO_WEEK = "2"
 # PENITENT (2026-09-29, Mac: "This new custom title/glyph is for the user
 # Diggleborf", whose ask it is: "Looking to do a Trinimac themed one, so
 # maybe "Penitent" for the title starting gold and ending a sky blue", with

@@ -46,6 +46,7 @@ import { installThunderlockSounds, SFX as TL_SFX } from '../systems/thunderlock.
 // same rig because this is the one surface every FPS-weapon host
 // already mounts - so wiring it here wires all four at once.
 import { fpsSpellCasting, loadSpellCastArt, drawSpellCastHands, magicAnimFilename } from './fpsSpellCasting.js';
+import { createClimbHands } from './climbHands.js';   // CLIMB-HANDS: the classic lane's hands on the wall
 // MW-D8: the classic sprite is still the DEFAULT and still the fallback,
 // and runs untouched otherwise. The Morrowind arm below is an opt-in
 // layer that either draws whole or does not draw at all - there is no
@@ -294,9 +295,9 @@ export async function autoBuildArms(entity, { dataCount = morrowindDataCount, me
  *                     The note that hosts without a HUD text layer
  *                     pass console is retired: every call site hands
  *                     over a real one - hudText.add
- *                     (dungeonContext.js:3208), townTalk.say
- *                     (exterior.js:2187, world.js:8287) and
- *                     worldModes' own interior sink (worldModes.js:503,
+ *                     (dungeonContext.js:3213), townTalk.say
+ *                     (exterior.js:2187, world.js:8521) and
+ *                     worldModes' own interior sink (worldModes.js:512,
  *                     which warns to console only where a host mounts
  *                     no townTalk at all), so the empty default below
  *                     is unreached,
@@ -402,6 +403,9 @@ export function sheetHolderOf(rig) {
 export const CLIMB_LOWER_TAU = Object.freeze({ down: 0.07, up: 0.14 });
 /** Lowered this far, the viewmodel is out of sight: no lane draws. */
 export const CLIMB_LOWER_GONE = 0.98;
+/** AUDIT CLIMB-HANDS: the classic lane's climbing hands (combat/climbHands.js) come up once the weapon is this far down -
+ *  half the screen's height under its rect, three frames into the climb: the weapon and the hands never overlap. */
+export const CLIMB_HANDS_AFTER = 0.5;
 /** One frame of the lowering: toward 1 while `climbing`, back to 0 after; snapped home within half a percent. */
 export function climbLowerStep(lower, climbing, dt) {
   const target = climbing ? 1 : 0;
@@ -483,6 +487,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   // is the mod without its textures - there is no classic shield art to
   // fall back to.
   const shield = createShieldWidget({ textures: shieldWidgetTextures, audio });
+  const climbHands = createClimbHands({ renderer });   // CLIMB-HANDS: Mac's two paintings on the wall, the sprite lane's (combat/climbHands.js)
   let _shieldTime = 0;   // SW1: Unity's Time.time, for the bob's phase
   // SW1: the sprite, uploaded once per index and kept. The door answers
   // a promise, so the first frame that wants a sprite asks for it and
@@ -1498,7 +1503,14 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // rather than cutting (CLIMB_LOWER_TAU): the hands leave the hilt for the stone and come back to it.
       const camNow = camera?.() ?? null;
       const climbing = _climbing = !!camNow?.climbing;
-      _climbLower = climbLowerStep(_climbLower, climbing, dt);
+      // AUDIT CLIMB-HANDS: THE WEAPON AND THE HANDS ARE NEVER ON THE SCREEN TOGETHER. The weapon stays down while a hand
+      // shows (it comes back once they are off the screen) and the hands come up once it is half down
+      // (CLIMB_HANDS_AFTER). The classic lane's alone: the Morrowind arms and the third-person body take the climb
+      // themselves, so there the law is handed no climb and never holds the weapon down (AUDIT CLIMB-HANDS, second round:
+      // the Morrowind body in third person too - `fpArm.active()` is first person's alone).
+      const handsLane = !fpArm.active() && !fpArm.thirdActive() && !eotbHidesWeapon();
+      _climbLower = climbLowerStep(_climbLower, climbing || (handsLane && climbHands.showing()), dt);
+      climbHands.update(dt, handsLane && _climbLower >= CLIMB_HANDS_AFTER ? (camNow?.climb ?? null) : null, camNow ?? {});   // CLIMB-HANDS: the hold, the shimmy, the free climb, the moves and the look off the wall
       const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !climbing && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool
       const strike = !paralyzed && c && canAttack
         ? playerWeapon.gesture(_dx, _dy, _held, dt, Math.max(c.clientWidth, c.clientHeight), { cancelHeld: activateHeld() })   // AUDIT 28 W12
@@ -1762,6 +1774,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     },
     widget,   // WW1: the clone, for the pins
     shield,   // SW1: the shield's component, for the pins
+    climbHands,   // CLIMB-HANDS: the classic lane's hands on the wall, for the pins
     handheld,   // HT1: Handheld Torches' component, for the pins and the pool
     /** AUDIT 66 F8: the host's teardown - every long-lived thing this
      *  rig owns is freed here, as the hosts free their pools. */
@@ -1825,6 +1838,11 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         if (toolArt) drawFpsWeapon(renderer, c, toolArt, tool.state ?? 'Idle', tool.frame ?? 0, { tint: fpTint });
         return;
       }
+      // CLIMB-HANDS (Mac, 2026-10-02: the two paintings "for the first person view (not morrowind)"): THE HANDS ON THE
+      // WALL. The classic sprite is lowered out of the screen for the climb (CLIMB4, below); the sprite lane's two fists
+      // (or a fist and the reaching arm, looked off the wall) come up in its place. Above every sheathe gate - the hands
+      // hold the stone whatever is drawn - and under the same vetoes the spell's hands take, and the held map's.
+      if (c && !paralyzed && !fpArm.active() && !eotbHidesWeapon() && !sheetWindowUp()) climbHands.draw(c, { tint: fpTint });
       // TORCH-VIS (2026-09-18, Mac: "if you only have the torch equipped and no weapon, it doesn't show you
       // holding it in first person (morrowind)"): THE TORCH IS NOT THE WEAPON'S TO HIDE, and a SHEATHED STANCE IS
       // NOT A STOWED LIGHT. `shown()` is the WEAPON's visibility - this file says so itself a few lines up, where
