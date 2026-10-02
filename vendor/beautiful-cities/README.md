@@ -72,11 +72,11 @@ Editor writes it:
 
 | dependency | manifest | in the port |
 |---|---|---|
-| RMB Resource Pack 0.2.1 | peer | not carried - the port's own stand-ins for the wall pieces, hills, rocks, bridges, domes and crop fields the blocks place |
-| Daggerfall Expanded Textures 0.6.5 (Ninelan) | peer | not carried - the port's own stand-ins (DS1's `detStandIns.js`, grown for the towns) |
-| DET Harvestable Crops | peer | not carried - stand-ins for the crop fields the composite farms lay out |
-| Diep - Rosy's Resources | peer | not carried - stand-ins |
-| New Paintings | peer | not carried - stand-ins |
+| RMB Resource Pack 0.2.1 | peer | not carried - the port's own stand-ins for the hills, rocks, towers' domes, temple platforms, foundations and the crop fields the composite farms lay out (Daggerfall's own crop billboards, sown as the pack's own field script sows them); Cliffworms' Items, archive 1210, are Detailed Ships' pictures of them (the same author's, carried with his leave). Not stood in: its stone bridges (two meshes each under transforms the published files do not settle), its wall piece `53210` (224 placements, every one against a classic wall that already stands) and its winter-smoke markers |
+| Daggerfall Expanded Textures 0.6.5 (Ninelan) | peer | not carried - the port's own stand-ins (DS1's `detStandIns.js`, grown for the towns: chimneys, pillars and beams, tapestries and banners, vanes, pots, stumps, rugs; its food, animals and tools drawn in code); not its chimney smoke, nor the few pieces no catalogue names |
+| DET Harvestable Crops | peer | not carried - the crop fields are Daggerfall's own crop billboards (above) |
+| Diep - Rosy's Resources | peer | not carried - its paintings as Daggerfall's own framed paintings, its small hangings and rugs drawn in code; not its fireplace dressing (`69465`), whose classic hearth stands |
+| New Paintings | peer | not carried - Daggerfall's own framed paintings, each hung as its placements hang it |
 | Windmills of Daggerfall (Kamer) | load after | vendored already (`vendor/windmills-kamer`) - and as the manifest orders, this mod's farms are the ones read: a farm block served from world data stands the mills its own records place, and Kamer's placements stand on Daggerfall's own farms only (`src/world/rmbLayout.js`) |
 | Fixed Desert Architecture | load after | not in the port - nothing to order against |
 | Finding My Religion | load after | not in the port - nothing to order against |

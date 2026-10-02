@@ -141,3 +141,114 @@ elsewhere.
   Beautiful Cities' 224 `House5` records whose one model is a wall piece
   (`53210`) and two `House2` with none have no exterior door and are no
   residence: nothing sells them.
+
+## The pieces the mods borrow - the port's own stand-ins
+
+Both mods place pieces of five peer mods the port does not carry - the RMB
+Resource Pack, Daggerfall Expanded Textures (DET), Diep's Rosy's Resources,
+New Paintings and DET Harvestable Crops - and eighteen beds of their own
+whose prefabs point at nothing. Daggerfall Unity without the peers draws
+nothing at all where they stand. Mac's answer for a peer the port lacks was
+"Build your own" (DS1), and the handover asked it again: "For anything
+missing I need you to curate, like textures". So every piece below is the
+PORT'S OWN, made for the places the author put it - read off the placements
+(thousands for most ids: where they stand, how they turn, what they stand
+beside, how far from a wall) and off the peers' catalogues' names - never a
+copy of a peer's file. The RMB Resource Pack's published files
+(`drcarademono/rmb-resource-pack`) were MEASURED where a size or a shape was
+needed (the rocks, the stalls, the docks), and nothing of them is carried.
+
+All of it stands behind the town mods' load - installed when a town pack
+opens, for the game or for a save's pinned town (`world/townStandIns.js`
+`installTownStandIns`) - and costs a game with neither mod nothing. DET's
+pieces and Cliffworms' pictures are shared with Detailed Ships: each id has
+one stand-in, on while either mod that places it is loaded.
+
+| piece | ids | placed | stand-in |
+|---|---|---|---|
+| the beds | `42069`-`42086` | 4,029 | Daggerfall's own bed (`42069 + 3k` a `41000`, `+1` a `41001`, `+2` a `41002`, read off where each stands) out of the player's ARCH3D, its three bedclothes (`TEXTURE.090` 5, 6, 7) recoloured in code blue, brown, grey, orange, purple or yellow - the green measured and moved, the sheet and the frame kept (an ALIAS, `world/customModels.js`; Roleplay & Realism rests on it as on its own) |
+| Rosy's and New Paintings' paintings | `69420`-`69464`, `79010`-`79030` (62) | 4,237 | Daggerfall's own six framed paintings (`TEXTURE.048`, which the climate swap changes region by region as it does a classic wall's) on a dark board two units deep, hung as each id hangs - upright, on its side turned up by the author's X rotation, or lying face down - a pixel a unit |
+| Rosy's small hangings and rugs | `69467`-`69469`, `69471`, `69472` | 586 | cloth drawn in code (`world/townPictures.js`): a hanging on its rod, either face out; a rug on the floor |
+| DET's timbers | `45081`, `45110` (shared with Detailed Ships), `45087`, `45111`-`45113`, `45129` | 44,526 | squared timbers four to ten units thick, a segment (85 units) long: every fireplace's mantel, every beamed hall's rafters |
+| DET's chimneys | `45074`, `45076`, `45077` | 14,440 | the sloped base, the stackable flue (53 units square, 114 tall - the step 3,334 stacks climb by) and the topper - a corbelled cap and two pots |
+| DET's tapestries and banners | `45008`-`45070`, `45134`-`45163` (36) | 1,286 | cloth drawn in code: the five regions' arms, the Eight Divines', fourteen patterns - two-sided on a rod, banners swallow-tailed |
+| DET's other town pieces | stumps, planters, column drums and heads, rugs, vanes | 174 | built in code, classic textures |
+| DET's flats | archives `10009`-`10028` (and the editor's old `1010`, `1021`, `1025`) | 8,916 | the player's own sprite of the same thing where Daggerfall has one (a cow, a horse, the Great Daenian dogs, sacks, crates, a goblet), drawn in code where it has none (`world/standInSprites.js`: fruit, cheeses, porridge, a cabbage, chickens and roosters, sheep, rats, doves, a monkey, firewood, an easel...) |
+| Cliffworms' Items | `1210_10`-`_12`, `_17`-`_20` | 665 | Detailed Ships' pictures of them - the same author's set, which the RMB Resource Pack carries too ("Cliffworms' Items"; his bottles, and classic pieces he moved there), shared (`systems/detailedShips.js` `detailedShipsArtOn`) |
+| the table clutter | archive `56790` (22 records) | 4,827 | no peer's catalogue names it; each record a piece of Daggerfall's own clutter of the kind its height says - tableware and books on the tables, jars, potions and books on shelves and ledges |
+| the temple gardens | archive `10035` (7 records) | 151 | no catalogue names it either; rows of one record each on three temples' grounds - each a garden plant of Daggerfall's own (`TEXTURE.301`): cabbages, greens, lavender, flowers, a berry bush |
+| the RMB Resource Pack's rocks | 23 ids | 245 | a boulder of the climate's rock (`302_3`), each the size of the pack's own mesh, measured |
+| its hills | 23 ids | 47 | a mound of the climate's grass or rock, by the catalogue's size |
+| its market stalls | 17 ids | 32 | a stall the pack's size (3.2 m across the counter, 4.9 m along it), its awning the cloth each prefab names (`TEXTURE.049` or `449`) |
+| its docks | `53140`-`53144` | 16 | measured off the pack's meshes: a plank deck whose top is the origin, five-sided piles 5 m below it and 1 m above, a ramp or five steps - which land where the author's do (GENRAS00's ramps at the long dock's two ends; TEMPASH3's three flights across the T-dock's wing) |
+| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks and drum-and-hemisphere domes, classic textures |
+| its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law: a grid 85 or 35 m a side, a plant every 4 m nudged up to half a metre, the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
+
+### Not stood in
+
+What follows draws nothing, as in DFU without the peers - each because no
+stand-in could be MADE for it from what is known, not because it was missed
+(`test/wd3_standins.test.js` pins this list against every placement of both
+packs):
+
+| ids | placed | why |
+|---|---|---|
+| `69465` | 4,786 | Rosy's fireplace dressing - the classic fireplace it dresses stands |
+| `52991` | 3,095 | the RMB Resource Pack's winter-smoke marker: an effect, no mesh |
+| `45181` | 568 | DET's chimney smoke, at the flues' tops: an effect |
+| `53210` | 224 | the pack's city-wall piece - every one against a classic wall that already stands |
+| `45179`, `45198`, `45205`, `45206`, `43756` | 286 | DET pieces no catalogue names, in few blocks |
+| `53129`, `53130` | 18 | the pack's wooden bridges: their rails are in its published files, their decks are not, so neither shape nor size can be read - six village streams stand bridgeless |
+| `53132`, `53134` | 13 | its stone bridges: two meshes each under transforms the published files do not settle |
+| `1210_13`, `_16`, `_24` | 75 | Cliffworms' items Detailed Ships does not carry - no picture of them is known |
+| `1230_2` ... `1230_22` (8) | 39 | one record to each of the eight temple blocks' variants, a metre up - by every sign each temple's own deity statue (archive 1230 is King of Worms' and Zoran's statues); only Kynareth's (`1230_30`, Detailed Ships') is known, and it is none of these |
+| `10025_1`, `1200_4`, `1200_9` | 11 | an uncatalogued DET flat; two of StarMadeKnight's NPC billboards |
+
+A record of a stand-in archive that has no picture (the eight statues, the
+three items) draws one clear pixel and is said once by name
+(`scenes/dataPipeline.js`) - it used to throw the whole interior.
+
+## Housing customisation with the mods
+
+Mac's own example ("For example housing customization") is held by the
+layout pins above, and by four more things the stand-ins needed:
+
+- **A built-in piece can always be taken out.** BASE-HIDE names a room's
+  own furniture `m<placement>:<model>` and `f<flat>:<archive>.<record>`, and
+  a flat's archive had three digits - the town mods' interiors lay DET's food
+  (`10021`) and the table clutter (`56790`), five. Online a room's whole
+  taken-out list was refused for it, offline the piece came back at the next
+  load. The name takes five digits now (`net/decorLaw.js`
+  `DECOR_BASE_KEY_RE`), and every flat and model both packs' interiors lay
+  is pinned to fit it.
+- **The decor preview and the ghost** draw a stand-in or an alias bed as the
+  room does - both ask the pipeline (`getGpuMesh`, `cpuModels`), which
+  builds an alias from the player's own ARCH3D.
+- **The decor catalogue** is what Daggerfall furnishes (above): a stand-in
+  never joins it.
+- **A bed is a bed.** Roleplay & Realism's rest-in-bed reads the classic
+  model under an alias (`classicModelIdOf`), so a town's coloured bed rests
+  the player as a classic one does - in DFU the null prefab is nothing to
+  rest on (Port-Ledger, WD3).
+
+## Proved
+
+- `test/wd3_pack.test.js` - the pack's rows, reader, refusals and bytes; the
+  vendored packs' form; with ARENA2 every one of the 8,547 files rebuilt
+  sha256-exact.
+- `test/wd3_door.test.js` - load priority, the packs on the door, the online
+  gate, pinned towns and the reading town, OtherNames, the windmills, the
+  Master Armorer, the decor catalogue, the loader.
+- `test/wd3_layoutPins.test.js` - the stamps, the pins, every record stamped
+  where it is made, the cached scenes and the discoveries, the load.
+- `test/wd3_online.test.js` - the service's layouts on the real service over
+  SQLite, the client's ask and the room's switches.
+- `test/wd3_standins.test.js` - every stand-in above, its install and gates;
+  with ARENA2 the coverage of both packs' every placement, the housing names,
+  and the alias beds built from the player's own ARCH3D.
+- Renders (the headless probe over the player's data): the beds in their six
+  colours, the paintings on the walls, the hearths' mantels and the chimneys,
+  the temples' tapestries and banners, the food and animals, the crops under
+  snow, the market stalls, the docks - a footbridge over a stream in Agibunu,
+  the T-dock and its moored boat in Bubyrydata - and the temple garden in
+  Atretturana.

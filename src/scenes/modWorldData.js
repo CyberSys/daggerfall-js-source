@@ -13,6 +13,7 @@ import { rebuildWorldDataPatch, canonicalSha256 } from '../formats/worldDataPatc
 import { openWorldDataPack, packFileSha256, readPackText } from '../formats/worldDataPack.js';
 import { modSetting, latchModLoaded, modLatchedOn } from '../systems/modSettings.js';
 import { configureLayoutPins } from '../systems/layoutPins.js';   // WD3: the layout a save's towns were made in
+import { installTownStandIns } from '../world/townStandIns.js';   // WD3: the peer mods' pieces the town packs place, the port's own
 
 // The glob sits INSIDE the loader (Vite rewrites it wherever it stands),
 // so a node test that imports a host reaching this module does not trip
@@ -94,6 +95,7 @@ async function loadPackFrom(vendor, url, isOn) {
     _packs.set(vendor, pack);
     quietLocationOverrides(true);   // a pack's 7,000 towns are counted once here, not logged one by one as they are read
     const n = registerWorldDataPack(pack, isOn, { priority: WORLD_DATA_PRIORITY[vendor] ?? 0 });
+    installTownStandIns();   // once, whichever pack opens first - for the game or for a pinned town, its blocks place them
     console.log(`[worlddata] ${vendor}: ${n} files on the door (${pack.mod?.title ?? vendor} ${pack.mod?.version ?? ''})`);
     return n;
   } catch (e) {

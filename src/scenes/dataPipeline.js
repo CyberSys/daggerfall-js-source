@@ -119,6 +119,7 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     const t = textureFiles.get(archive);
     return { width: t.getWidth(record), height: t.getHeight(record) };
   };
+  const _standInMisses = new Set();   // WD3: the stand-in records said once each
   const uploadRecord = (archive, record, { opaque = false, mips, removeMask = false, dye = null, dyeTarget = null } = {}) => {   // DYE-ICON: `dyeTarget` - the swatch the classic arm dyes (itemDye.js itemDyeTarget)   // DW3: `dye` - GetItemImage asks the replacement by the item's dye (ItemHelper.cs:458); the icon uploads under a per-dye variant and answers which   // REVIEW 2026-09-05: `mips: false` for item icons (ImageReader.cs:59 builds UI art with no chain); HM1: `removeMask` = ItemHelper's GetItemImage(removeMask: true), the item icons' door - 0xFF becomes the cutout before the upload
     const t = textureFiles.get(archive);
     const bitmap = t.getDFBitmap(record, 0);
@@ -172,6 +173,16 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     // palette index 0 transparent. This one door served both, so every
     // index-0 mortar run in a wall texture became a slit the model
     // shader discarded, and the room behind it showed through.
+    // WD3: A RECORD ITS STAND-IN ARCHIVE HAS NO PICTURE FOR. A mod-only archive answers every record under its highest
+    // (`recordCount`), and the town mods place records between the ones a mod supplies (1230_2, 1210_13 - none of their
+    // peers' pictures is carried): the stand-in's getColor32 has nothing, and a null upload threw the whole interior. DFU
+    // finds no material and the billboard draws nothing (MaterialReader answers null); here a clear pixel stands for it
+    // - its batch draws nothing - and the miss is said once, by name.
+    if (!swap && t.vendor) {
+      if (!_standInMisses.has(`${archive}_${record}`)) { _standInMisses.add(`${archive}_${record}`); console.warn(`[texture] ${archive}_${record}: no mod picture and no stand-in - nothing drawn, as in DFU`); }
+      renderer.uploadTexture(archive, record, { width: 1, height: 1, colors: new Uint8ClampedArray(4) }, variant !== undefined ? { opaque, mips, variant, replacement: true } : { opaque, mips, replacement: true });
+      return variant;
+    }
     const masked = swap ? null : removeMask ? changeMask(bitmap) : bitmap;   // HM1: a clone - the cached record keeps its mask for the doll
     const color32 = swap ?? t.getColor32(dyed ? changeDyeBitmap(masked, dye, dyeTarget) : masked, opaque ? -1 : 0);   // DYE-ICON: the mask first, then the dye (:467-474)
     // AUDIT RETRO1 A4: a replacement is flagged - TextureReader's retro arm (no mip chain) never reaches TryImportTexture's

@@ -92,11 +92,11 @@ asks the same ("For anything missing I need you to curate").
 | dependency | manifest | in the port |
 |---|---|---|
 | Windmills of Daggerfall (Kamer) | peer | vendored already (`vendor/windmills-kamer`): the four farms of this mod that carry Kamer's mill subrecord (model `41600`) stand the port's mill where they place it |
-| RMB Resource Pack 0.1.10 | peer | not carried - the port's own stand-ins for the hills, rocks, market stalls, bridges and docks the blocks place |
-| Daggerfall Expanded Textures 0.6.3 (Ninelan) | peer | not carried - the port's own stand-ins (DS1's `detStandIns.js`, grown for the towns: chimneys, pillars and beams, tapestries and banners, vanes, pots) |
-| DET Harvestable Crops | peer | not carried - stand-ins |
-| Diep - Rosy's Resources | peer | not carried - stand-ins |
-| New Paintings | peer | not carried - stand-ins |
+| RMB Resource Pack 0.1.10 | peer | not carried - the port's own stand-ins for the hills, rocks, market stalls and docks the blocks place (the docks measured off the pack's meshes, their ramps and steps landing where the author's do); Cliffworms' Items, archive 1210, are Detailed Ships' pictures of them (the same author's, carried with his leave). Not stood in: its wooden bridges (their rails are in the pack's published files, their decks are not, so neither shape nor size can be read) and its winter-smoke markers - the streams stand bridgeless and the chimneys smokeless, as in DFU without the pack |
+| Daggerfall Expanded Textures 0.6.3 (Ninelan) | peer | not carried - the port's own stand-ins (DS1's `detStandIns.js`, grown for the towns: chimneys, pillars and beams, tapestries and banners, vanes, pots, stumps, rugs; its food, animals and tools drawn in code); not its chimney smoke, nor the few pieces no catalogue names |
+| DET Harvestable Crops | peer | not carried - the temple gardens' rows (archive 10035, in no catalogue) stand as Daggerfall's own garden plants |
+| Diep - Rosy's Resources | peer | not carried - its paintings as Daggerfall's own framed paintings, its small hangings and rugs drawn in code; not its fireplace dressing (`69465`), whose classic hearth stands |
+| New Paintings | peer | not carried - Daggerfall's own framed paintings, each hung as its placements hang it |
 | Fixed Desert Architecture | load after | not in the port - nothing to order against |
 | Finding My Religion | load after | not in the port - nothing to order against |
 
