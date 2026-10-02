@@ -1276,14 +1276,23 @@ Every law in Home.md's Process section, and what it demands of this arc:
   developer's (titles.js canModerate; anyone else `not-moderator`); it voids the seat's battle of this week (a siege, a
   Tourney or a revolt) and writes a Chronicle row ("the siege of X was voided by the Moderators"); no red line; no pass
   opens to it and a receipt claimed after is refused; a battle already void answers `repeat`, a seat with none this week
-  `battle-none`. DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
-  the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED: after a capture (or a revolt that
-  stood) the Charter goes back to the guild that held it as the result kept it (migration 0067's
-  `town_seat_results.prior`: its Standing, the week it took the seat, its truce, Tithe and arrears - none kept, Standing
-  50 from this week), its Legacy back, the works' capture drop undone and a Fortifier's save unspent; the capturer's own
-  projects fall and its Edict for next week is void. DECIDED: after a hold (a forfeit, a revolt put down) the holder's
-  Standing goes back where it stood and its defence fifth is struck - and the challenger's bar is lifted, its influence
-  and Legacy back. DECIDED: after a Tourney the winner's Charter is gone and its fee stays burnt. DECIDED: Honours, Marks,
+  `battle-none`, a battle whose week its Turning has settled `battle-settled` (AUDIT 529 V5 - asked in the void's own
+  write too). DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
+  the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED (AUDIT 529 V1): a revolt voided
+  before its result lapses its holder's Charter now, as the Turning lapses a revolt nobody put down (its projects fall,
+  its Edict for next week void, the Chronicle's "the rebel captain held the palace door") - a void never saves a Charter
+  the Turning would lapse. DECIDED: after a capture (or a revolt that stood) the Charter goes back to the guild that held
+  it as the result kept it (migration 0067's `town_seat_results.prior`: its Standing, the week it took the seat, its
+  truce, Tithe and arrears - none kept, Standing 50 from this week), its Legacy back, the works' capture drop undone and
+  a Fortifier's save unspent; the capturer's own projects fall and its Edict for next week is void. DECIDED (AUDIT 529
+  V2): the holder's own building projects the capture (or the revolt's lapse) made fall begin again at the tier they were
+  raising, with their starter's marks and day, what they held taken back out of the seat's stockpile where it is still
+  there (a project short of it waits on the stockpile again) - given back, never refunded - and a revolt's voided Edict
+  for next week is proclaimed again (`prior`'s `projects`, `held`, `edict`). AUDIT 529 V3: where the result kept a seat
+  nobody held (its holder relinquished it before the battle), the capturer's Charter goes and none comes back. DECIDED:
+  after a hold (a forfeit, a revolt put down) the holder's Standing goes back where it stood (DECIDED, AUDIT 529 V4: a
+  result that kept none leaves it as it stands - never a guess past a Throne's -5, a paid forfeit or the cap) and its
+  defence fifth is struck - and the challenger's bar is lifted, its influence and Legacy back. DECIDED: after a Tourney the winner's Charter is gone and its fee stays burnt. DECIDED: Honours, Marks,
   Renown and Spoils already claimed stand (never clawed back), the Sellswords paid at the result stay paid, and the
   palace's decor a capture cleared is not given back; a voided forfeit is not the pair's forfeit of the Season.
 - **Rate limits.** Every seat endpoint is bounded per account per hour (the guild's `GUILD_OPS_MAX` shape): pledges
