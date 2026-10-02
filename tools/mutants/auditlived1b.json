@@ -742,8 +742,8 @@
   {
     "name": "AUDITLIVED1B-T4-ex-spawn-table-reads-the-characters-hour",
     "file": "src/scenes/exterior.js",
-    "old": "        skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,",
-    "new": "        skyMinutes: null,",
+    "old": "        skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,   // LIVED1: online the minute",
+    "new": "        skyMinutes: null,   // LIVED1: online the minute",
     "tests": [
       "test/auditlived1b_t.test.js"
     ]
