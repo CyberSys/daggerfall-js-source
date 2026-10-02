@@ -221,7 +221,7 @@ export function statFlip(front, entity) {
 
     let busy = false;
     btn.onclick = (e) => {
-      e.stopPropagation(); e.preventDefault();
+      e?.stopPropagation?.(); e?.preventDefault?.();   // a synthetic press (a key, a test) may carry neither
       if (busy) return;
       busy = true;
       flipped = !flipped;
@@ -273,7 +273,12 @@ export const STATS_CARD_CSS = `
 .pack-shell .statflip-front > * { flex: 1 1 auto; min-height: 0; }
 .pack-shell .statflip-back { position: relative; min-height: 280px; transform: rotateY(180deg); border-width: 2px; border-style: solid; }
 .pack-shell .statflip-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 12px 14px 46px;
-  text-align: left; scrollbar-width: thin; scrollbar-color: #7a7260 rgba(0,0,0,0.35); outline: 0; }
+  text-align: left; outline: 0; }
+/* CURSOR-EDGE: the standard scrollbar properties for Firefox alone - in Chromium they turn the ::-webkit-scrollbar dress
+   (and the kit's cursor over it) off */
+@supports not selector(::-webkit-scrollbar) {
+  .pack-shell .statflip-scroll { scrollbar-width: thin; scrollbar-color: #7a7260 rgba(0,0,0,0.35); }
+}
 
 /* THE BUTTON stands in the PAPERDOLL's own cell: bottom centre of the card, which is the middle column the figure
    holds (the worn map is 1fr | auto | 1fr) - never a corner, where it sat on the right weapon's slot. On the back it
