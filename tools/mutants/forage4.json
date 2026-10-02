@@ -20,7 +20,7 @@
   {
     "name": "FORAGE4-3-a-foe-never-interrupts",
     "file": "src/ui/huntWindow.js",
-    "old": "    if (this._interruptWhen?.()) { this._end(false); return; }   // FORAGE4: a foe near ends it, the rest forgiven\n",
+    "old": "    if (this._interruptWhen?.()) { this._end(false); return; }\n",
     "new": "",
     "tests": [
       "test/forage4_wait.test.js"

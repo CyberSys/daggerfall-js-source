@@ -1881,8 +1881,8 @@ pins restamped where the law moved. Relay change: yes - REDEPLOY.
 
 [TIME1-TIME3, 2026-10-01 (`Online-Time-Arc.md`): the clock below is the EVENT clock now - the world's business
 (gates, raids, prices, shelves, terms, every stamp) keeps it, unchanged, and the relay with it. The SKY a player
-sees - the hour, the date, the moons, the seasons - runs at its own rate (`net/skyLaw.js`), a day every thirty real
-minutes from 2026-10-03T16:22:30Z; the weather keeps this clock's pace and wears the sky's season. A quest's
+sees - the hour, the date, the moons, the seasons - runs at its own rate (`net/skyLaw.js`), a day every real
+hour from 2026-10-03T17:07:30Z (SKY-SLOW; designed at thirty minutes); the weather keeps this clock's pace and wears the sky's season. A quest's
 countdowns run on the character's own clock (LIVED1), its hours and dates on the sky.]
 
 **Mac: "Let's tackle slice 5 first."** Slice 5 of the persistent shared
@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8332` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8343` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:452`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.

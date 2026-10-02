@@ -2476,7 +2476,9 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   never nothing. Gentle acts: a plain net after the wait. DECIDED: E, not attack, is the act's key throughout - the
   gathering host hands an act E's level and attack's edge alone, and every other act's hold is E's.
 - **Where** (5.1): the cast stands just ahead of the look while the pack holds an unbroken Fishing-Net and the player
-  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground. Its prompt
+  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground, and never
+  while the hands are the ship's (HELM-NET, FIELD BUGS 2026-10-02, Cruor: "Gets in the way especially when trying to aim
+  bow guns" - the kind's host `busy`: a helm, laid guns, a boarding; a deck stood on still fishes). Its prompt
   says the ground's refusal first (in here, a settlement, the dark), the account's forty, the Stores' room; the start asks
   Foraging's full checks for the net, with its own lines ("You cannot fish with enemies nearby!").
 - **The service**: **acct41**, migration `0042_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The

@@ -22,8 +22,8 @@
   {
     "name": "CLIMBFIELD-E1-no-eave",
     "file": "src/player/parkour.js",
-    "old": "if (Math.abs(d - back) > PARKOUR_EDGE_INSET) return senseEave(collider, face, normal, lipY, opts, fit);",
-    "new": "if (Math.abs(d - back) > PARKOUR_EDGE_INSET) return null;",
+    "old": "    return senseEave(collider, face, normal, lipY, opts, fit);\n  }\n  return null;\n}",
+    "new": "    return null;\n  }\n  return null;\n}",
     "tests": [
       "test/climbfield.test.js"
     ]
@@ -31,8 +31,8 @@
   {
     "name": "CLIMBFIELD-E1-eave-up-every-wall",
     "file": "src/player/parkour.js",
-    "old": "  for (const d of seen.values()) if (Math.abs(d - back) > PARKOUR_EDGE_INSET) return senseEave(",
-    "new": "  for (const d of [Infinity]) if (Math.abs(d - back) > PARKOUR_EDGE_INSET) return senseEave(",
+    "old": "    if (Math.abs(d - back) <= PARKOUR_EDGE_INSET) continue;",
+    "new": "    if (false) continue;",
     "tests": [
       "test/climbfield.test.js"
     ]

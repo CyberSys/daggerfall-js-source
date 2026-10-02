@@ -133,7 +133,7 @@ test('REST-ROUNDS by source (LIVED1): every rest the four hosts drive spends its
   const hosts = { 'src/scenes/world.js': 4, 'src/scenes/worldModes.js': 3, 'src/scenes/dungeonContext.js': 2, 'src/scenes/exterior.js': 2 };   // the rest, the party mirror, a camp's cooking, the hunt, a meal
   for (const [f, want] of Object.entries(hosts)) {
     const s = src(f);
-    const bodies = [...s.matchAll(/advanceMinutes: \(n\) => ([^\n]*)/g)].map((m) => m[1]);
+    const bodies = [...s.matchAll(/advanceMinutes: \(n(?:, \{ quiet = false \} = \{\})?\) => ([^\n]*)/g)].map((m) => m[1]);   // the hunt's takes `quiet` too (AUDIT of FIELD BUGS 2026-10-02)
     assert.equal(bodies.length, want, `${f}: its time-passing deps take the minutes`);
     for (const b of bodies) assert.match(b, /(?:playerTicker|interiorTicker)\.advance\(n\)|_restAdvance\(n\)/, `${f}: ...and spend them on the character's clock: ${b.slice(0, 80)}`);
     assert.doesNotMatch(s, /sharedEnd/, `${f}: no session counter is handed over any more`);

@@ -7,7 +7,7 @@ don't want a band aid, I want a detailed way we can do this."*
 **Status: BUILT 2026-10-01 - TIME1, TIME2, TIME3 and TIME4** (Mac: *"And this is the way?"*, then *"Let's do it.
 This needs to be perfect"*: every recommendation below, OPEN's calls with them). It extends LIVED1 (`Lived-Time.md`),
 which gave every character a clock of their own; it keeps all of it. Offline is untouched: one clock, DFU's
-TimeScale 12, byte for byte. **The sky switches at 2026-10-03T16:22:30Z** (`net/skyLaw.js` `SKY_SEGMENTS`); a build
+TimeScale 12, byte for byte. **The sky switches at 2026-10-03T17:07:30Z** (`net/skyLaw.js` `SKY_SEGMENTS`); a build
 that goes live after that instant must move it to the next aligned one first (`node tools/skyCutover.mjs`), or the
 sky jumps once at the deploy (section 4). What was built beyond this design, and why, is in 6.3a and the Record.
 
@@ -52,7 +52,7 @@ The next one would have been the full moon. This page replaces the pattern with 
 
 | Clock | Rate online | Who moves it | What reads it |
 |---|---|---|---|
-| **The sky** (new) | TimeScale 48: a day every 30 real minutes | nobody; a function of wall time | what the world looks like, and every "what time of day, what date, which moon" |
+| **The sky** (new) | TimeScale 24: a day every real hour (SKY-SLOW; designed at 48) | nobody; a function of wall time | what the world looks like, and every "what time of day, what date, which moon" |
 | **The event clock** (WORLD5's shared clock, unchanged) | TimeScale 12: a day every 2 real hours | nobody; a function of wall time | what the world schedules, stocks, prices and meters for everyone; the relay's every read |
 | **Your clock** (LIVED1's, unchanged) | TimeScale 12 while you play | you: a rest, a loiter, a journey, a sentence | your body, magic, needs, contracts and standing; and, new, your quests' countdowns |
 
@@ -94,17 +94,25 @@ census test holds every reader to its clock (section 5).
 ## 3. The rate
 
 One constant, `SKY_MINUTES_PER_MS`; every number below follows from it. [As built: the rate is the last row of
-`SKY_SEGMENTS` in `net/skyLaw.js`, `48 / 60 / 1000`.]
+`SKY_SEGMENTS` in `net/skyLaw.js`, `24 / 60 / 1000` since SKY-SLOW (2026-10-02, below the table); it was 48.]
 
 | TimeScale | Sky day | Night, and the longest wait for dusk | Full-moon beast form (6.1's rule) | Moon cycle | Year | Season |
 |---|---|---|---|---|---|---|
 | 12 (today) | 2 h | 1 h | 2 h (DFU's whole day) | 64 h | 30 days | 7.5 days |
+| **24 (as built, SKY-SLOW)** | **1 h** | **30 min** | **30 min** | **32 h** | **15 days** | **3.75 days** |
 | 36 | 40 min | 20 min | 20 min | 21 h 20 min | 10 days | 2.5 days |
-| **48 (recommended)** | **30 min** | **15 min** | **15 min** | **16 h** | **7.5 days** | **45 h** |
+| 48 (the first call) | 30 min | 15 min | 15 min | 16 h | 7.5 days | 45 h |
 | 60 | 24 min | 12 min | 12 min | 12 h 48 min | 6 days | 36 h |
 | 72 | 20 min | 10 min | 10 min | 10 h 40 min | 5 days | 30 h |
 
-**Why 48.**
+**SKY-SLOW (2026-10-02): 24, not 48.** Players found the 48 sky zoomed by: the sun crossed in 15 minutes and the
+hours ran past while they played. The row was replaced before it went live (`node tools/skyCutover.mjs --scale
+24`), ahead of its 2026-10-03T16:22:30Z switch. At 24 a day is a real hour, midnight falls on the hour UTC, dawn at :15, noon at
+:30 and dusk at :45; a night, a full moon's change and the longest wait for dusk are 30 minutes each; full-moon
+nights come four real hours apart, then none for twenty-eight. Every wait the arc set out to shorten is still half
+of DFU's. The reasoning below is the first call's, at 48; its shape holds at 24 with every real figure doubled.
+
+**Why 48 (the first call).**
 
 - **No wait for the sun or the moon outlasts a night,** and a night is 15 minutes. No wait for an hour
   of the day outlasts a day, and a day is 30.
@@ -485,7 +493,7 @@ each other once TIME1 has landed.
 **DECIDED 2026-10-01** (Mac: *"Let's do it"*): the recommendation in each, as built. 5 stays open by its own
 terms; 9 is new and not built.
 
-1. **The rate.** Recommended: TimeScale 48, a day every 30 minutes with midnight on the hour and the half
+1. **The rate.** [SKY-SLOW, 2026-10-02: changed to TimeScale 24, a day every real hour - see section 3.] Recommended: TimeScale 48, a day every 30 minutes with midnight on the hour and the half
    hour. The alternatives are in section 3.
 2. **The full moon.** Recommended: the night, 15 minutes. The alternative is DFU's whole day on the
    faster sky, 30 minutes.
@@ -543,3 +551,6 @@ terms; 9 is new and not built.
   Ledger (LIVED1's row, ONLINE's, TIME's), Testing.md, two test titles held to their bodies (the tool's "already
   runs", the moon's alternating gaps) and five comments. The party lens found no disagreement between two players
   on this build; the mixed-build skew after the switch is section 4's. Each code fix has a pin and a mutant.
+- 2026-10-02: SKY-SLOW. The 48 sky zoomed by; the not-yet-live row was replaced with TimeScale 24 (a day every real
+  hour, midnight on the hour UTC) at the aligned instant 2026-10-03T17:07:30Z. The Online pane's sentence, the patch
+  notes and the pins (`test/time1_sky.test.js`, `test/time2_moon.test.js`, `test/time4_words.test.js`) moved with it.

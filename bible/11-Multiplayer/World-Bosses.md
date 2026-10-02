@@ -47,7 +47,7 @@ every player's machine can compute.
 
 [TIME1, 2026-10-01 (`bible/06-Systems/Online-Time-Arc.md` section 7): this clock is the EVENT clock now, and the
 gate keeps it - a gate every two real hours, the same real phases, the relay unchanged. The SKY a player sees runs
-at its own rate (a day every thirty real minutes), so the game-time column below is the event clock's and no
+at its own rate (a day every real hour since SKY-SLOW), so the game-time column below is the event clock's and no
 longer a time the player can read off their sky: it RETIRES from the words. The gate's lines say real local times
 alone (`systems/gateOmen.js` `omenTimeLine`, `openTimeLine`, `sealTimeLine`), and the panel always did.
 `net/gateLaw.js`'s own word functions stay in the relay's bundle until a relay deploy that happens anyway retires
