@@ -49,8 +49,8 @@ export const HANDS = Object.freeze({
   GRIP_H: 150,             // a fist's drawn height
   GRIP_APART: 52,          // each fist's centre from the screen's middle
   BOTTOM_SLACK: 34,        // the sleeve under the screen's bottom edge at rest: no lift may exceed it
-  REACH_W: 190,            // the reaching arm's drawn width
-  REACH_X_IN: -6,          // how far past the side edge the reaching arm's box stands (- inside it: the open hand whole)
+  REACH_W: 160,            // the reaching arm's drawn width - inside its own half of the screen (Mac: "it needs to sit on the left/right side of the screen respectively")
+  REACH_X_IN: -4,          // how far past the side edge the reaching arm's box stands (- inside it: the open hand whole)
   REACH_SLACK: 16,         // the reaching arm's sleeve under the bottom edge
   // coming onto the wall and off it (the classic sprite's CLIMB_LOWER_TAU, the other way round)
   ON_TAU: 0.07,
