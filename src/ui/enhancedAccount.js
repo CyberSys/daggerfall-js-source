@@ -60,6 +60,7 @@ export const GLYPH_LABEL = Object.freeze({
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
   penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
   herald: 'Herald',   // HERALD: the herald's trumpet and its banner
+  laurel: 'Arena Champion',   // ARENA4: the laurel, while its wearer is the season's #1
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins

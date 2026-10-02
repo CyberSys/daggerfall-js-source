@@ -65,7 +65,7 @@ function injectSkin(doc = document) {
  * @param {HTMLElement} host
  * @param {{
  *   board: () => any,
- *   act?: (kind: 'watch'|'fight'|'wager', data?: any) => ({ ok: boolean, text?: string } | void),
+ *   act?: (kind: 'watch'|'fight'|'wager'|'queue'|'unqueue'|'accept'|'decline'|'spectate', data?: any) => ({ ok: boolean, text?: string } | void),
  *   page?: string, onExit?: (() => void) | null,
  * }} deps `board` systems/arenaBoard.js arenaBoard's model, built fresh at each render; `act` the host's doors
  */
@@ -145,6 +145,8 @@ export function mountArenaWindow(host, deps) {
     if (h.title) id.append(chip(h.title, 'aw-titlechip'));
     if (h.banner) id.append(chip(ARENA_TEXT.teams.name[h.banner], `aw-bannerchip b-${h.banner}`));
     if (h.laurel) id.append(chip(W().laurelMark, 'aw-laurel'));
+    if (h.rating) id.append(chip(h.rating, 'aw-rating'));   // ARENA4: online, the season's rating and rank
+    if (h.rank) id.append(chip(h.rank, `aw-rankchip${h.champion ? ' champ' : ''}`));
     id.append(el('span', 'aw-rec', h.record));
   }
 
@@ -177,12 +179,38 @@ export function mountArenaWindow(host, deps) {
         if (c.wager) card.append(el('p', 'aw-wagerline', c.wager));
       }
       if (c.kind === 'ladder' && c.opponents) card.append(el('p', 'aw-opp', c.opponents));
+      // ARENA4: THE BOUTS ON THE SAND NOW - each its fighters (pennant, name, rating) and how many watch, and Watch
+      if (c.kind === 'players' && c.live?.length) {
+        const ul = el('ul', 'aw-live');
+        for (const b of c.live) {
+          const li = el('li', 'aw-liveb');
+          li.dataset.kind = b.kind;
+          const who = el('div', 'aw-livewho');
+          const side = (f) => { const x = el('span', 'aw-livef'); x.append(pennant(f?.banner ?? null), el('span', 'aw-fn', f?.name ?? '')); if (f?.rating != null) x.append(chip(String(f.rating), 'aw-rating')); return x; };
+          who.append(side(b.a));
+          if (b.b) who.append(el('span', 'aw-vs', W().vs), side(b.b));
+          const meta = el('div', 'aw-livemeta');
+          meta.append(el('span', 'aw-livet', b.title), chip(b.watching, 'aw-state'));
+          const acts = el('div', 'aw-acts');
+          for (const a of b.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { o: b.o })));
+          li.append(who, meta, acts);
+          ul.append(li);
+        }
+        card.append(ul);
+      }
+      // ARENA4: THE CHALLENGE - an offer names its fighter
+      if (c.kind === 'challenge' && c.offer) {
+        const vs = el('div', 'aw-offer');
+        vs.append(pennant(c.offer.banner), el('span', 'aw-fn', c.offer.name));
+        if (c.offer.rating != null) vs.append(chip(String(c.offer.rating), 'aw-rating'));
+        card.append(vs);
+      }
       for (const l of c.lines ?? []) card.append(el('p', 'aw-line', l));
       if (c.acts?.length) {
         const acts = el('div', 'aw-acts');
         for (const a of c.acts) {
           if (a.act === 'wager') acts.append(press(a, () => { wagerOpen = !wagerOpen; wagerSide = null; wagerStake = null; render(); }, wagerOpen ? 'on' : ''));
-          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { hour: c.hour }), a.act === 'fight' ? 'primary' : ''));
+          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' ? 'primary' : ''));
         }
         card.append(acts);
       }
@@ -263,6 +291,7 @@ export function mountArenaWindow(host, deps) {
     titles.append(el('h4', null, W().yourTitles));
     if (m.titles.length) { const row = el('div', 'aw-chips'); for (const x of m.titles) row.append(chip(x, 'aw-titlechip')); titles.append(row); } else titles.append(el('p', 'aw-line', W().noTitles));
     card.append(titles);
+    if (m.online) card.append(el('p', 'aw-line aw-online', m.online));   // ARENA4: online, the climb is the realm's
     wrap.append(list, card);
     body.append(wrap);
   }
@@ -304,7 +333,7 @@ export function mountArenaWindow(host, deps) {
     // the season: the two banners on one bar
     const st = el('section', 'aw-card aw-season');
     const top = el('div', 'aw-cardhead');
-    top.append(el('h3', null, W().standingHead), chip(W().seasonShort(m.season), 'aw-state'));
+    top.append(el('h3', null, W().standingHead), chip(m.seasonName ?? W().seasonShort(m.season), 'aw-state'));
     st.append(top);
     const split = el('div', 'aw-split');
     split.setAttribute('role', 'img');
@@ -366,6 +395,7 @@ export function mountArenaWindow(host, deps) {
     const bd = m[boardPicked];
     const card = el('section', `aw-card aw-board b-${boardPicked}`);
     card.append(el('h3', null, bd.title), el('p', 'aw-boardsub', bd.sub));
+    if (bd.champion) card.append(el('p', 'aw-line aw-gives aw-champline', bd.champion));   // ARENA4: the season's #1 and the laurel
     if (bd.rows.length) card.append(table(bd.cols, bd.rows, bd.pinned));
     if (bd.empty) card.append(el('p', 'aw-empty', bd.empty));
     body.append(card);

@@ -143,6 +143,10 @@ export const REFUSALS = Object.freeze({
   'no-aura': 'The account service does not know that aura. The game may need updating.',
   'no-insignia': 'The Broker does not sell that any more. The game may need updating.',
   owned: 'Your account already owns that.',
+  // ARENA4, the banners (server-account/src/arena.js arenaTeam)
+  'bad-banner': 'The arena knows only the Red Banner and the Blue. The game may need updating.',
+  joined: 'You already fight under a banner. Quit it at its own recruiter first.',
+  season: 'You quit the other banner this season. You may join it when the next season opens.',
   short: 'Your account has not closed enough Oblivion Gates to pay for that. Each gate closed pays one Sigil Stone.',
   guest: 'The Broker records insignia only on an account with a username and password. Give this account one first.',
   // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
@@ -889,6 +893,23 @@ export function accountRaids({ fetch, storage }) {
   return {
     claim: async (receipt, character, name = null, cid = null) => { const i = io(); return i ? claimRaidReceipt(i, receipt, character, name, cid) : { ok: false, error: 'no-session' }; },
     /** The signed-in account's id - the receipts this device may offer are its alone (AUDIT WB A9's law). */
+    me: () => storedSession(storage)?.id ?? null,
+  };
+}
+
+/**
+ * ARENA4: THE ARENA (server-account/src/arena.js) through the one door - a bout's receipt the relay signed, carried here
+ * by an account it names (`claim`); the boards, counted from the rows (`board` - the season's ratings, the climb, the
+ * banners, the Hall of Champions, and this account's own); a banner joined or quit (`team` - 'red', 'blue' or null).
+ * Every answer is `call`'s shape, waited for ACCOUNT_ACT_WAIT_MS at most; no session is `no-session`, never a throw.
+ * `me()` the signed-in account's id - the receipts this device may offer are its alone (AUDIT WB A9's law).
+ */
+export function accountArena({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    claim: (receipt) => post('/v1/arena/claim', { receipt }),
+    board: () => post('/v1/arena/board', {}),
+    team: (banner) => post('/v1/arena/team', { banner: banner ?? null }),
     me: () => storedSession(storage)?.id ?? null,
   };
 }

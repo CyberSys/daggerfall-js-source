@@ -1098,6 +1098,22 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-stake { min-width: 64px; }
 .aw-place { align-self: flex-start; }
 .aw-owed { margin: 0; padding: 6px 10px; font-size: 13px; color: var(--brass-hi); border-left: 2px solid var(--brass); background: rgba(243,207,134,0.06); }
+/* ARENA4: online - the bouts on the sand now, the challenge's offer, the rating and rank chips */
+.aw-live { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.aw-liveb { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 6px 8px;
+  border-left: 2px solid #3a352a; background: rgba(5,6,8,0.38); }
+.aw-liveb[data-kind="pvp"] { border-left-color: #e05a3a; }
+.aw-livewho { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.aw-livef { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
+.aw-livemeta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; grid-column: 1; font-size: 11px; color: var(--mute); }
+.aw-liveb .aw-acts { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+.aw-offer { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; padding: 8px 10px; border: 1px solid #e05a3a; background: rgba(224,90,58,0.08); }
+.aw-rating { color: #cfe3ff; border-color: #4a6a98; font-variant-numeric: tabular-nums; }
+.aw-rankchip { color: var(--brass-hi); border-color: #7a5424; }
+.aw-rankchip.champ { color: #d9f0a8; border-color: #6f8a32; }
+.aw-champline { padding: 4px 8px; border-left: 2px solid #6f8a32; background: rgba(111,138,50,0.1); }
+.aw-online { color: #cfe3ff; }
+@media (max-width: 520px) { .aw-liveb { grid-template-columns: minmax(0, 1fr); } .aw-liveb .aw-acts { grid-column: 1; grid-row: auto; } }
 /* the ladder: the ten tiers as a column, the one picked whole beside it */
 .aw-ladder { display: grid; grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
 .aw-tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: 3px; }

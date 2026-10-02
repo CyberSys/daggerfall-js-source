@@ -259,9 +259,131 @@ export function recordsPage({ ladder, league, gameMinutes }) {
 /** THE RULES PAGE: the arena's law in plain words, section by section. */
 export const rulesPage = () => W().rules.map((s) => ({ head: s.head, lines: [...s.lines] }));
 
-/** EVERY PAGE at once - the window's whole model. */
-export function arenaBoard(o) {
+// ── ONLINE (ARENA4) ──────────────────────────────────────────────────────────────────────────
+const O = () => ARENA_TEXT.online;
+/** A fighter the service or the hall bills, as a row or a card names one. */
+const billed = (b) => (b ? { name: b.n ?? b.name ?? '', rating: b.r ?? b.rating ?? null, banner: b.b ?? b.banner ?? null, title: b.t ?? b.title ?? null } : null);
+/** THE BOUTS PAGE'S ONLINE CARDS: the bouts on the sand to watch (the hall's list - each with its fighters and how many
+ *  watch, and Watch), and the challenge (the queue's state, the offer and its clock, the presses it allows). `hall`
+ *  net/arenaLink.js's hall state; `me` the service's own of this account. */
+export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) {
+  const live = (hall?.live ?? []).map((b) => ({
+    o: b.o, kind: b.kind, title: b.kind === 'pve' ? O().liveLadder(ARENA_TEXT.tiers[b.tier ?? 0] ?? '') : O().livePlayers,
+    a: billed(b.a), b: billed(b.b), watching: O().watching(b.sp ?? 0), acts: [{ act: 'spectate', label: W().watch, why: busy ? O().whyBusy : null }],
+  }));
+  const players = {
+    key: 'players', kind: 'players', title: O().liveTitle, state: String(live.length), fighters: [], live,
+    acts: [], lines: [live.length ? O().liveLine(live.length) : O().noLive],
+  };
+  const st = hall?.status !== 'open' ? 'off' : hall.queue ?? 'idle';
+  const why = st === 'off' ? O().whyOffline : guest ? O().whyGuest : busy ? O().whyBusy : null;
+  /** @type {string[]} */
+  const lines = [O().challengeLine];
+  if (me?.pvp) lines.push(O().ratingLine(me.pvp.rating, me.pvp.wins, me.pvp.losses));
+  let acts;
+  if (st === 'queued') { acts = [{ act: 'unqueue', label: O().leaveQueue, why: null }]; lines.push(O().queuedLine(hall.band ?? 0, hall.n ?? 0)); }
+  else if (st === 'offer' && hall.offer) {
+    acts = [{ act: 'accept', label: O().accept, why: null }, { act: 'decline', label: O().decline, why: null }];
+    const vs = billed(hall.offer.vs);
+    lines.push(O().offerLine(vs.name, vs.rating ?? '?'), O().offerClock(Math.max(0, Math.ceil(((hall.offer.until ?? 0) - now) / 1000))));
+  } else if (st === 'going') { acts = []; lines.push(O().goingLine(billed(hall.go?.vs)?.name ?? W().fighter)); }
+  else acts = [{ act: 'queue', label: O().findMatch, why }];
+  const challenge = { key: 'challenge', kind: 'challenge', title: O().challengeTitle, state: O().queueState[st], fighters: [], acts, lines, offer: st === 'offer' ? billed(hall.offer?.vs) : null };
+  return [players, challenge];
+}
+
+/** THE TEAM PAGE ONLINE, teamPage's own shape over the service's board: the season's points, the laurel, both banners
+ *  with their top ten (you pinned in yours). */
+export function teamPageOnline(board) {
+  const t = board.team, me = board.me ?? {};
+  const st = t.standings ?? { red: 0, blue: 0 };
+  const leader = st.red > st.blue ? 'red' : st.blue > st.red ? 'blue' : null;
+  const total = st.red + st.blue;
+  const rowOf = (r) => ({ name: r.name, home: '', banner: r.banner, title: r.title ?? null, wins: r.wins ?? 0, losses: 0, points: r.points ?? 0, rank: r.rank, you: !!r.you });
+  const banners = BANNERS.map((b) => {
+    const R = t.rosters?.[b] ?? { rows: [], pinned: null, total: 0 };
+    return { banner: b, name: T().name[b], motto: T().motto[b], lore: T().lore[b], points: st[b] ?? 0, laurel: t.laurel === b, fighters: t.members?.[b] ?? 0, rows: R.rows.map(rowOf), pinned: R.pinned ? rowOf(R.pinned) : null, total: R.total };
+  });
+  const lines = [leader ? T().leads(T().name[leader]) : T().level];
+  if (t.laurel) lines.push(T().laurel(T().name[t.laurel]));
+  if (me.banner) { lines.push(T().under(T().the[me.banner])); lines.push(T().given(me.points ?? 0)); } else { lines.push(T().none); lines.push(W().joinWhere); }
   return {
-    header: arenaHeader(o), bouts: boutsPage(o), ladder: ladderPage(o), team: teamPage(o), boards: boardsPage(o), records: recordsPage(o), rules: rulesPage(),
+    joined: me.banner ?? null, season: board.season, seasonName: O().seasonShort(board.season), day: board.day,
+    standings: { red: st.red, blue: st.blue, leader, redShare: total > 0 ? Math.round((st.red / total) * 1000) / 1000 : 0.5 },
+    laurel: t.laurel ?? null, laurelYou: !!me.banner && t.laurel === me.banner, given: me.points ?? 0,
+    boutsFor: (t.rosters?.[me.banner]?.rows ?? []).concat(t.rosters?.[me.banner]?.pinned ? [t.rosters[me.banner].pinned] : []).find((r) => r.you)?.wins ?? 0,
+    left: me.left ? { banner: me.left, season: me.leftSeason } : null, banners, lines, online: true,
+  };
+}
+
+/** The ladder's title a climb of `n` bouts won in order gives (every fourth bout a tier's champion), or null. Pure. */
+export function ladderTitleOfReached(n) {
+  const tiers = Math.floor(Math.max(0, n | 0) / (BOUTS_PER_TIER + 1));
+  return tiers > 0 ? ARENA_TEXT.titles[Math.min(LADDER_TIERS.length, tiers) - 1] : null;
+}
+
+/** THE LEADERBOARDS ONLINE, boardsPage's shape over the service's board: the realm's climb, its fastest Grand Champions,
+ *  the season's ratings (its #1 and the laurel) and the banners this season and the last. */
+export function boardsPageOnline(board) {
+  const row = (r, cells) => ({ rank: r.rank, name: r.name, home: '', banner: r.banner ?? null, you: !!r.you, cells });
+  const pveCells = (r) => [ladderTitleOfReached(r.reached) ?? W().noTitle,
+    r.reached >= LADDER_TIERS.length * (BOUTS_PER_TIER + 1) ? W().allTen : O().reached(r.reached + 1), W().wl(r.reached, r.losses)];
+  const map = (b, cells) => ({ rows: b.rows.map((r) => row(r, cells(r))), pinned: b.pinned ? row(b.pinned, cells(b.pinned)) : null, total: b.total });
+  const pvp = map(board.pvp, (r) => [String(r.rating), O().pvpCells(r.wins, r.losses, r.draws)]);
+  const pve = map(board.pve, pveCells);
+  const fast = map(board.fast, (r) => [W().days(r.days), O().seasonShort(board.season)]);
+  const t = board.team;
+  const teamRows = [
+    { rank: 1, name: O().seasonShort(board.season), banner: null, you: false, cells: [String(t.standings.red), String(t.standings.blue), t.standings.red === t.standings.blue ? T().level : W().leading(T().short[t.standings.red > t.standings.blue ? 'red' : 'blue']), board.me?.banner ? T().short[board.me.banner] : W().none] },
+  ];
+  if (board.season > 1) teamRows.push({ rank: 2, name: O().seasonShort(board.season - 1), banner: t.last?.winner ?? null, you: false, cells: [String(t.last?.red ?? 0), String(t.last?.blue ?? 0), t.last?.winner ? W().won(T().short[t.last.winner]) : W().levelShort, W().none] });
+  return {
+    pve: { title: W().boards.pve, sub: O().pveSub, cols: W().cols.pve, ...pve, empty: pve.rows.length ? '' : W().boards.fastNone },
+    fast: { title: W().boards.fast, sub: O().fastSub, cols: W().cols.fast, ...fast, empty: fast.rows.length ? '' : W().boards.fastNone },
+    pvp: { title: W().boards.pvp, sub: O().pvpSub, cols: W().cols.pvp, ...pvp, empty: pvp.rows.length ? '' : O().pvpNone, champion: board.champion ? O().champion(board.champion.name) : O().noChampion },
+    team: { title: W().boards.team, sub: O().teamSub, cols: W().cols.team, rows: teamRows, pinned: null, total: teamRows.length, empty: '' },
+  };
+}
+
+/** THE HEADER ONLINE: the season of the realm, the account's ladder title (the Arena Champion's or the Grand Champion's
+ *  first), its banner and the laurel, its rating and its rank. */
+export function arenaHeaderOnline({ board, name }) {
+  const me = board.me ?? {};
+  const L = arenaLadderRestore(me.ladder);
+  const T10 = ARENA_TEXT.titles[LADDER_TIERS.length - 1];
+  return {
+    name: name || W().you, title: me.champion ? O().championTitle : me.grand ? T10 : ladderTitle(L), banner: me.banner ?? null,
+    laurel: !!me.banner && board.team?.laurel === me.banner, season: O().seasonLine(board.season, board.day),
+    record: W().recordLine(L.record.wins, L.record.losses), purses: 0, owed: 0,
+    rating: me.pvp ? O().ratingChip(me.pvp.rating) : null, rank: me.rank ? O().rankChip(me.rank) : null, champion: !!me.champion, online: true,
+  };
+}
+
+/** EVERY PAGE at once - the window's whole model. ARENA4: online (`o.online` - the service's `board`, the hall's state),
+ *  the ladder is the account's (every bout refereed), the Team and Leaderboards pages the realm's, and the Bouts page
+ *  carries the bouts to watch and the challenge; offline, the save's as ARENA3 drew them. */
+export function arenaBoard(o) {
+  const on = o.online?.board ? o.online : null;
+  if (!on) {
+    const m = { header: arenaHeader(o), bouts: boutsPage(o), ladder: ladderPage(o), team: teamPage(o), boards: boardsPage(o), records: recordsPage(o), rules: rulesPage() };
+    if (o.online) m.bouts.cards = m.bouts.cards.map((c) => (c.kind === 'players' ? onlineCards({ hall: o.online.hall, me: null, guest: !!o.online.guest, busy: !!o.online.busy, now: o.online.now ?? 0 })[0] : c));
+    return m;
+  }
+  const oo = { ...o, ladder: on.board.me?.ladder ?? o.ladder };
+  const bouts = boutsPage(oo);
+  const cards = [];
+  for (const c of bouts.cards) {
+    if (c.kind === 'players') cards.push(...onlineCards({ hall: on.hall, me: on.board.me, guest: !!on.guest, busy: !!on.busy, now: on.now ?? 0 }));
+    else cards.push(c);
+  }
+  bouts.cards = cards;
+  const ladder = ladderPage(oo);
+  ladder.online = O().ladderOnline;
+  /** @type {Array<{ head: string, lines: string[] }>} */
+  const rules = rulesPage();
+  rules.push({ head: O().rules.head, lines: [...O().rules.lines] });
+  return {
+    header: arenaHeaderOnline({ board: on.board, name: o.name }), bouts, ladder, team: teamPageOnline(on.board), boards: boardsPageOnline(on.board),
+    records: recordsPage(o), rules, hall: (on.board.hall ?? []).map((h) => O().hallTheir(h.name)),
   };
 }

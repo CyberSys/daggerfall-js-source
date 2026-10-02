@@ -203,8 +203,8 @@ test('ACC3: the token carries the badge, and a body edited to claim one that is 
   assert.equal(claimsValid({ ...base, g: 'sprout' }), false, 'a string is not a list of glyphs');
   assert.equal(claimsValid({ ...base, g: [...GLYPHS, 'sprout'] }), false, 'more slots than there are glyphs');
   assert.equal(GLYPHS_MAX, GLYPHS.length, 'the bound is the vocabulary\'s own size, not a number somebody picked');
-  assert.deepEqual([...TITLES], ['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'gatebreaker', 'herald'], 'Mac\'s two, then TITLE-N\'s Dungeon Master and the Patreon tiers lowest first, then SHADOW-FANG\'s, then PENITENT\'s, then the Broker\'s (WB9g), then HERALD\'s');
-  assert.deepEqual([...GLYPHS], ['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'herald'], 'MOD1 added the moderator shield, TITLE-N a glyph per new title, SHADOW-FANG the wolf, PENITENT the sword in its lozenge, HERALD the trumpet, each last - the order is the order a name draws them in');
+  assert.deepEqual([...TITLES], ['founder', 'developer', 'dungeonmaster', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'gatebreaker', 'herald', 'grandchampion', 'arenachampion'], 'ARENA4 added the arena\'s two last (the Grand Champion, the Arena Champion); before them Mac\'s two, then TITLE-N\'s Dungeon Master and the Patreon tiers lowest first, then SHADOW-FANG\'s, then PENITENT\'s, then the Broker\'s (WB9g), then HERALD\'s');
+  assert.deepEqual([...GLYPHS], ['sprout', 'dev', 'mod', 'dm', 'disciple', 'apostle', 'hierophant', 'shadowfang', 'penitent', 'herald', 'laurel'], 'ARENA4 added the laurel last (the Arena Champion\'s wreath); before it MOD1 added the moderator shield, TITLE-N a glyph per new title, SHADOW-FANG the wolf, PENITENT the sword in its lozenge, HERALD the trumpet, each last - the order is the order a name draws them in');
 });
 
 // ── THE SERVICE, end to end ─────────────────────────────────────────
