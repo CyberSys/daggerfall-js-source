@@ -328,7 +328,9 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
           try { await pipeline.getTexture(sm.textureArchive); pipeline.uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }); }
           catch (e) { warnOnce(`tex:${sm.textureArchive}`, `[come-sail-away] TEXTURE.${sm.textureArchive} will not load - the boats' faces in it draw nothing`, e); }
           // GALLEON: her stern gallery's glass, lit at night as a town's windows are (the window style the host sets -
-          // its emission mask is the glass alone, galleonArt.js galleonGlow)
+          // its emission mask is the glass alone, galleonArt.js galleonGlow). AUDIT GN-R15: a pack's own picture over
+          // her stern windows (a loose 38131_6 or _21) glows by HER glass, as a pack's over a town's window glows by
+          // the classic picture's (scenes/dataPipeline.js's window arm cuts the mask from the classic bitmap)
           if (sm.textureArchive === GALLEON_ARCHIVE) { const glow = galleonGlow(sm.textureRecord); if (glow) renderer.uploadEmissionTexture?.(GALLEON_ARCHIVE, sm.textureRecord, toColor32(glow), { replacement: true }); }
         }
         meshes.set(key, renderer.createMesh(model));

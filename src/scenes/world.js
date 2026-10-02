@@ -6933,9 +6933,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // dungeon's and the ?exterior bench's own hosts (scenes/worldModes.js, scenes/dungeonContext.js, scenes/exterior.js)
   // have no broadside, and the naval host empties the sea whenever this host leaves the exterior (navalTransition).
   const navalOn = () => !!csaRuntime && csaOn() && getPref('naval') !== false;
-  // a hull's water under her keel (m), rowboat to carrack - how shoal a sea she can sail. AUDIT GN-G6: hull 2's is the new
-  // galleon's keel, 4.64 m down (it was 2.2, over the mod's galleon's 3.35 - her V sailed a carved floor 2.3 m deep)
-  const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 4.7, 2.8, 3.2]);
+  const NAVAL_DRAFT = Object.freeze([0.8, 1.4, 4.7, 2.8, 3.2]);   // a hull's water under her keel (m), rowboat to carrack - how shoal a sea she can sail. AUDIT GN-G6: hull 2's is the new galleon's keel, 4.64 m down (it was 2.2, under even the mod's galleon's 3.35 - her V sailed a carved floor 2.3 m deep)
   /** An action's bound key, as the HUD's hint names it - the player's own binding (primary, then secondary), in the
    *  words the Controls page shows it (AUDIT DEEP T1-12's reading, the travel view's hint); a pad's button is no key
    *  to print, so the hint names the action instead (CSA-L's helm panel, csaKeyLabel's law). */

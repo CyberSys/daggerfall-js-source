@@ -2049,13 +2049,15 @@ on the mod's own states (`bible/10-UI/Controls.md` HELM-KEYS has the keys):
   `has('MoveLeft')` answers `TurnLeft` too, `horizontal()` swings the rudder
   with them), and the keyboard look leaves them be there.
 - **In irons** (`IRONS_TELL_DEG` of the wind's eye, under `IRONS_TELL_WAY` of her
-  own way through the water - `MoveVectorCurrent`, never the sea's current, which
-  under the mod's default waves is half the wind and kept the tell off: AUDIT NAV2
-  F15 - her sails up): the helm is told once how she comes out, again only after
+  own way AHEAD through the water - `MoveVectorCurrent`'s forward, so sternway counts
+  too (GALLEON), never the sea's current, which under the mod's default waves is half
+  the wind and kept the tell off: AUDIT NAV2 F15 - her sails up): the helm is told
+  once how she comes out, again only after
   she has been out of them - under the Classic helm `IRONS_TEXT` (strike sail and
   row her round), under the Responsive one `IRONS_HELM_TEXT` (put the helm over, or
-  strike sail and row: her rudder answers at rest, and the helm alone brings her
-  40 deg off the wind's eye in about 10 s - AUDIT NAV2 F18);
+  strike sail and row: her rudder answers at rest, and the helm alone brought the
+  mod's galleon 40 deg off the wind's eye in about 10 s, the new galleon in 6.4 s -
+  AUDIT NAV2 F18);
   `helmPanelState().inIrons` and `.responsive` put the right advice, with the
   keys, on the panel's line while it lasts (`ui/enhancedHelm.js helmHint`).
 - **The panel teaches the arrows**: its line is the helm's hand at a glance,
@@ -2105,7 +2107,11 @@ GALLEON (2026-10-01): the Small Ship is Mac's galleon now (The new galleon, belo
 carried two lateens - and helmWay.js's header carries her figures, re-measured like for like (AUDIT NAV2 F20's pin
 holds them): under the mod's handling she takes 29.2 s to her full way of 8.75 m/s and 43.7 s (191 m) to lose it,
 0.75 deg/s at 1 m/s and 6.56 at her full way on the same 153 m circle; under the responsive helm 8.33 s to her full
-way and 14.6 s (64 m) to lose it, her rudder 8.49 deg/s at her full way on a 118 m circle (the rest as above). The
+way and 14.6 s (64 m) to lose it, her rudder 8.49 deg/s at her full way on a 118 m circle. AUDIT GALLEON T11, the rest
+of hers like for like: to 95% of her way in 7.92 s (27.72 s the mod's handling), struck to 2.5 m/s in 10.42 s (31.25
+s), head to wind with the helm held over 40 deg off its eye in 6.37 s (the mod's handling stays in irons: she swings
+to about 30 deg off it in a minute and lies there, no way on); her rudder at rest, at 4.5 and 9 m/s and two seconds
+from rest as the mod's galleon's above. The
 mod's galleon's figures above stand for the record - she is hull 2 again whenever the new galleon's model will not
 load.
 
@@ -2320,7 +2326,7 @@ main deck, and a boarding's musters stand on it; her castle is the walk's, up ei
 helm.
 
 **What it moved elsewhere.** Her guns are five a side where the mod's galleon had six, so every hull-2 class is a sixth
-lighter at the guns: a wary brig outguns no sound boat of the player's now (a crewless Large Galley 1.10 to one; a
+lighter at the guns: a wary brig outguns no sound armed boat of the player's now (a crewless Large Galley 1.10 to one; a
 Small Ship hurt to four fifths and alone at her guns, 1.37), and the navy cutter's odds on the corsair galley fell to
 1.23 (fought four to four). Her low gun deck (1.08 m over the sea) brought the aboard reach to her rail's height
 (`scenes/navalHost.js standsOn`); her canvas aback in the wind's eye drives her astern, so the in-irons tell reads her

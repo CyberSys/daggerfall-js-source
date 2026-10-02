@@ -865,18 +865,20 @@ to 24% in 180 s, then cruised away).
 - **FIGHTING POWER** (`fightingPower`) - AUDIT NAV2 F25, Mac: "Model crew losses": a MEASURE of her (her hull and its
   hurts, her men and whether they load her guns, her gunners' skill, the range she fights at, her turn), and of two
   ships the ODDS (`odds`): how many times sooner one makes the other strike than the other makes her (`strikeTime`: her
-  hull to STRUCK_AT or - one that strikes when her hands are down - her last man, whichever her fire does first; a volley
-  each reload, slower as her men fall, TURN_PER_VOLLEY of her turn between; each ball striking at the other's size,
-  `hitShare`; nothing from a battery that cannot lay at the range the other fights at, `layMin`). The Lanchester
+  hull to STRUCK_AT or - one that strikes when her hands are down - her last man, whichever her fire does first; a
+  volley each reload, slower as her men fall, TURN_PER_VOLLEY of her turn between; each ball striking at the other's
+  size, `hitShare`; nothing from a battery that cannot lay at the range the other fights at, `layMin`). The Lanchester
   product it replaces (`metalOf` x the gunners' hit share x the crew's share x the hull left) counted the hull a salvo
   takes and never the men, while every hurt kills men and, since HELM-WAY, a ship with no hands strikes: its favourite
-  lost four of the eight navy-pirate matchups (a sloop beat a cutter 6 of 8, a war galley 7 of 8). Now wherever the
-  odds lean WARY_ODDS or better the favourite wins six of eight, and every duel is fought to a strike (the table:
+  lost four of the eight navy-pirate matchups (a sloop beat a cutter 6 of 8, a war galley 7 of 8). Now wherever the odds
+  lean WARY_ODDS or better the favourite wins six of eight, and every duel is fought to a strike (the table:
   `01-Overview/Audit-NAV2.md`). A player's boat is sized off her build, her hurts and her hands (`myPowerOf`; single-
-  handed without a crew node; a player's boat never strikes by her men), a peer's off their word's (`peerPowerOf`,
-  AUDIT NAV2 F2). So a wary brig leaves a Large Boat, a Small Ship and a Carrack, and takes a crewless Large Galley (1.31
-  to one) but not a crewed one (1.12); she takes a galleon or a merchant carrack, never a coaster; a wary sloop takes
-  any merchantman; a sloop no longer runs from a cutter (0.95).
+  handed without a crew node; a player's boat never strikes by her men), a peer's off their word's (`peerPowerOf`, AUDIT
+  NAV2 F2). So a wary brig leaves a sound Large Boat, Small Ship, Carrack or Large Galley - crewless (1.10 to one) or
+  crewed (0.94) - and takes a sound Rowboat (it has no gun to size her against); she takes a merchant galleon (1.49),
+  never a merchant carrack (1.10) or a coaster; a wary sloop takes any merchantman; a sloop no longer runs from a cutter
+  (0.84). (AUDIT GALLEON G10/T8: these are the five-gun galleon's odds - the brig took a crewless Large Galley at 1.31
+  and a merchant carrack at 1.32 while hull 2 carried the mod's six; What five guns moved, below.)
 - **THE STERN CHASE** (`engageCourse`): a quarry running from her - her way along the line of sight, away, over
   CHASE_AWAY of the pursuer's own pace - with the pursuer abaft her beam (past ABAFT_DEG off her bow) is run down dead
   astern (the intercept of the quarry herself: the chasers bear) and, within CHASE_SHEER of the pursuer's range, by a
@@ -1674,16 +1676,23 @@ RECOIL inboard as its own ball leaves (`muzzle`, its index the port's) and is ha
 last word they run in to load and the shutters close. `scenes/navalHost.js gunDeckOf` reads it.
 
 **What five guns moved.** Every hull-2 class (the pirate brig, the merchant galleon, the navy cutter) is a sixth lighter
-at the guns. The pins that stood on the six moved to the five's truth: a wary brig outguns no sound boat of the
-player's now (a crewless Large Galley 1.10 to one, where it was her prize at 1.31) - the wary sloop's prize is the
-Large Galley, which cannot lay on her, and the brig's a Small Ship hurt to four fifths and alone at her guns (1.37);
-the navy cutter on the corsair galley 1.23 to one (1.47), fought four to four, so Mac's bar (AUDIT NAV2 F25) calls one
-of the cutter's four duels where it called two. Her low gun deck brought the aboard reach to her rail's height (her
-gun deck lies 1.08 m over the sea: a metre's reach of it read a swimmer against her side aboard); a boarding comes in
-on a sounded berth unswung by the lookout (`boardCourse` `berthing`: LOOKAHEAD_MIN held her 60 m off a prize lying
-31 m from a spit, her narrower hull needing to close 5 m nearer than the mod's to grapple) and sounds a berth as wide
-as the legs that reach it (`berthOpen`). Pins: `test/galleon_model.test.js`; the moved pins in `nav_a_guns`,
-`nav_h_host`, `navaudit_*`, `auditnav2_*`, `seapeace`, `deckwalk`, `livingcrew`, `fb1001b_peerboats`.
+at the guns. The pins that stood on the six moved to the five's truth: a wary brig outguns no sound armed boat of the
+player's now (a crewless Large Galley 1.10 to one, where it was her prize at 1.31; a Rowboat carries no gun and is any
+pirate's prize, as it was) - the wary sloop's prize is the Large Galley, which cannot lay on her, and the brig's a Small
+Ship hurt to four fifths and alone at her guns (1.37); a crewless Carrack is the brig's once under 57% of her hull
+(63.5% with six); the navy cutter on the corsair galley 1.23 to one (1.47), fought four to four, so Mac's bar (AUDIT
+NAV2 F25) calls one of the cutter's four duels where it called two. AUDIT GALLEON G10: the AI's own choices moved with
+the odds (the merge-base's against the head's, `classPower`): a wary brig no longer takes a merchant carrack (1.10, was
+1.32), so from level 5 the director's plunders pair her with the merchant galleon alone; a wary corsair galley takes a
+merchant galleon (1.29, was 1.08), so from level 7 the plunder roll that draws her - 18% of them - launches an encounter
+where it launched none; a war galley outguns a brig (1.06, was 0.89), so a wary brig runs from one, and their duels go
+seven to one for the galley (five to three with six); a crewed Large Galley of the player's outguns a wary brig too
+(1.06): she runs from it. Her low gun deck brought the aboard reach to her rail's height (her gun deck lies 1.08 m over
+the sea: a metre's reach of it read a swimmer against her side aboard); a boarding comes in on a sounded berth unswung
+by the lookout (`boardCourse` `berthing`: LOOKAHEAD_MIN held her 60 m off a prize lying 31 m from a spit, her narrower
+hull needing to close 5 m nearer than the mod's to grapple) and sounds a berth as wide as the legs that reach it
+(`berthOpen`). Pins: `test/galleon_model.test.js`; the moved pins in `nav_a_guns`, `nav_h_host`, `navaudit_*`,
+`auditnav2_*`, `seapeace`, `deckwalk`, `livingcrew`, `fb1001b_peerboats`.
 
 ## THE MERGE with main (2026-09-28)
 

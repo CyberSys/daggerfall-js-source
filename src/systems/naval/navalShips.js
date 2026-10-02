@@ -3,11 +3,13 @@
 // THE SHIPS: what each of Come Sail Away's five hulls carries into a fight, and the classes the Iliac Bay's
 // captains sail them as. The port's own numbers - DFU has no cannon, and the mod's hulls none either.
 //
-// THE GUNS SIT WHERE THE HULLS ARE. Every muzzle below was measured off the vendored prefabs themselves (the hull's
-// MeshCollider, `vendor/come-sail-away/Models/`, cast at from outside and from above at each station - the
-// scratch probe the arc page records): a broadside's guns stand 0.9 m over the deck they are mounted on, along the
-// waist where that deck runs clear, and a hair outside the planking at that height; a bow chaser on the forecastle,
-// a stern gun over the transom. The numbers are in the boat ROOT's frame (Unity's: +x starboard, +y up, +z the
+// THE GUNS SIT WHERE THE HULLS ARE. Every muzzle below was measured off the hull that carries it: the mod's four off
+// the vendored prefabs themselves (the hull's MeshCollider, `vendor/come-sail-away/Models/`, cast at from outside and
+// from above at each station - the scratch probe the arc page records), a broadside's guns 0.9 m over the deck they
+// are mounted on, along the waist where that deck runs clear, and a hair outside the planking at that height; hull 2's
+// off Mac's galleon (world/galleonModel.js GALLEON_BATTERIES - AUDIT GN-G11): each broadside gun in the middle of its
+// own port, 1.16 m over her gun deck, its muzzle 0.09 m outside her planking. A bow chaser on the forecastle, a stern
+// gun over the transom. The numbers are in the boat ROOT's frame (Unity's: +x starboard, +y up, +z the
 // bow), where SpawnBoat stands the hull - the root sits on the waterline. The port side is the starboard side
 // mirrored (x negated); `batteryMuzzles` makes it.
 //

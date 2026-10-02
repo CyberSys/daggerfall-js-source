@@ -148,7 +148,7 @@ test('SEA-PEACE the odds: a wary pirate takes a prize she outguns WARY_ODDS to o
 
 // PIN MOVED (AUDIT NAV2 F25): my boat sized as the new measure has her - her men and whether they load her guns - and a
 // wary brig's prize a Large Galley alone at her guns (a Large Boat's swivels she leaves be now: two men a ball)
-// PIN MOVED (GALLEON, 2026-10-01): the brig's five guns a side outgun no sound boat of mine - her prize my Small Ship
+// PIN MOVED (GALLEON, 2026-10-01): the brig's five guns a side outgun no sound armed boat of mine - her prize my Small Ship
 // hurt to four fifths of her hull and alone at her guns (1.37 to one), never with her crew loading them (1.13)
 test('SEA-PEACE the host sizes me up: my boat\'s power off her build and her hurts - single-handed without her crew - so a wary pirate leaves a sound Small Ship be and comes for a hurt one alone at her guns, never one with her crew aboard (mutants: the crewless boat at full rate, the hurt unread)', async () => {
   const big = await sea({ hull: HULL.SmallShip });

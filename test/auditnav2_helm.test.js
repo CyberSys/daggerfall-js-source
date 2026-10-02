@@ -128,8 +128,9 @@ test('AUDIT NAV2 F15 in irons with the mod\'s own waves (Waves.Enable, its defau
     let told = null, t = 0;
     h.run(CSA.IRONS_TELL_S + 3, () => { t += 0.25; if (told == null && h.s.out.hud.some((x) => /^In irons/.test(x))) told = t; });
     assert.ok(Math.hypot(...h.s.rt.state.velocityCurrent) >= CSA.IRONS_TELL_WAY, `${handling}: the current rides in her velocity (${Math.hypot(...h.s.rt.state.velocityCurrent)} m/s)`);
-    // PIN MOVED (GALLEON, 2026-10-01): her own way AHEAD nothing - the new galleon's square canvas, gaff and staysail come
-    // aback in the wind's eye (the mod's GetSailPower) and drive her astern, where the mod's lateens only stood idle
+    // PIN MOVED (GALLEON, 2026-10-01): her own way AHEAD nothing - the new galleon's gaff and staysail come aback in the
+    // wind's eye (the mod's GetSailPower; her square canvas is stowed there by the default assist - AUDIT GALLEON T6) and
+    // drive her astern, where the mod's lateens only stood idle
     assert.ok(h.s.rt.state.MoveVectorCurrent[2] < CSA.IRONS_TELL_WAY, `${handling}: her own way ahead nothing (${h.s.rt.state.MoveVectorCurrent[2]})`);
     assert.ok(told != null && told <= CSA.IRONS_TELL_S + 0.5, `${handling}: told after the dwell (${told})`);
     assert.equal(h.s.rt.helmPanelState().inIrons, true, `${handling}: the panel says it`);

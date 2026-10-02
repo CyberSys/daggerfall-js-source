@@ -324,11 +324,12 @@ export function createAnimator(node, component, animation) {
       if (!s) return;
       a.pending = { state: s, duration: normalizedTransitionDuration };
     },
-    /** Animator.Play(stateName, layer 0, normalizedTime) - straight into a state at `normalizedTime`, no blend: what is
-     *  playing and any transition under way are dropped at the next frame (a CrossFade to the state a transition already
-     *  heads for is no change, as in Unity - so a slow transition can only be cut short this way). AUDIT GN-G2: a gun's
-     *  shutter snapped open as its ball leaves (systems/naval/galleonGunDeck.js). */
-    Play(stateName, normalizedTime = 0) {
+    /** Animator.Play(stateName, layer, normalizedTime), Unity's arguments in Unity's order - straight into a state at
+     *  `normalizedTime`, no blend: what is playing and any transition under way are dropped at the next frame (a
+     *  CrossFade to the state a transition already heads for is no change, as in Unity - so a slow transition can only
+     *  be cut short this way). `layer` is read as the first (-1 or 0 alike: the port runs a controller's first layer, as
+     *  CrossFade does). AUDIT GN-G2: a gun's shutter snapped open as its ball leaves (systems/naval/galleonGunDeck.js). */
+    Play(stateName, layer = -1, normalizedTime = 0) {
       const s = stateByName.get(stateName) ?? stateByName.get(`${layer0?.name}.${stateName}`) ?? null;
       if (!s) return;
       a.pending = { state: s, duration: 0, play: true, time: normalizedTime };
