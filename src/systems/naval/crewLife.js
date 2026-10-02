@@ -342,7 +342,12 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
     let to = null;
     for (const turn of TALK_TURNS) {
       const a = from + turn;
-      const p = deck?.clamp?.(o.pos[0] + Math.sin(a) * CREW_TALK_REACH, o.pos[2] + Math.cos(a) * CREW_TALK_REACH);
+      // AUDIT GN-D-wall: his place on her main deck when `o` stands on it (a hand on a flight's foot tread too), else on
+      // the floor `o` stands on (her officer on her castle) - the nearest cell at any level stood a hand two and three
+      // treads up a flight to talk with one at its foot (the Carrack's forecastle stair, 7-13 s a run once her stair's
+      // kept file lay beside her hands' spots); off every floor of hers (a station's post), the nearest as before
+      const tx = o.pos[0] + Math.sin(a) * CREW_TALK_REACH, tz = o.pos[2] + Math.cos(a) * CREW_TALK_REACH;
+      const p = deck?.clamp?.(tx, tz, undefined, 0, o.station || offMain(o) ? o.pos[1] : main) ?? deck?.clamp?.(tx, tz);
       if (!p) { to = o.pos; break; }
       if (Math.hypot(p[0] - o.pos[0], p[2] - o.pos[2]) >= 1 && !members.some((x) => x !== m && x !== o && !x.gone && claims(x, p, 0.6))) { to = p; break; }
     }
@@ -359,7 +364,9 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
     for (const x of [m, m.mate]) {
       if (!x) continue;
       x.mate = null; x.talk = null; x.state = 'idle'; x.t = within(rng, CREW_IDLE_S); x.face = null; x.path = null;   // a walk to it given up with it (AUDIT NAV2 F46, F48)
-      if (offMain(x)) x.t = 0;   // AUDIT GN-D10: off her main deck - back down at once
+      // AUDIT GN-D10: off her main deck - back down at once; AUDIT GN-D-wall (F41's law): on a man - on at once (a talk
+      // the chanty ended while one walked past his mate to his place left the Carrack's two merged 5.8 s)
+      if (offMain(x) || onAMan(x)) x.t = 0;
     }
   }
   /** SHIP-WATCH: a man at a job where he stands, for WORK_S, facing his work. */

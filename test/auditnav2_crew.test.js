@@ -376,7 +376,7 @@ test('AUDIT NAV2 F41 NO TWO ON ONE SPOT: ten minutes on the Galley\'s deck and t
   assert.ok(most < 0.2, `he stood on the man at it ${most.toFixed(2)} s`);
 });
 
-test('AUDIT NAV2 F41 A TALK BEGUN ON ONE SPOT, AND A SHIPMATE IN THE WAY: two men on one point - the one who comes over stands off to talk, never in place; a walker waits while a shipmate who walks before him crosses his next step, and goes on after (was: they talked merged, both facing the bow; walkers passed through each other)', () => {
+test('AUDIT NAV2 F41 A TALK BEGUN ON ONE SPOT, AND A SHIPMATE IN THE WAY: two men on one point - the one who comes over stands off to talk, never in place; a walker waits while a shipmate who walks before him crosses his next step, and goes on after (was: they talked merged, both facing the bow; walkers passed through each other; AUDIT GALLEON D-wall: and a talk\'s place never a third man\'s) (mutants: the place on a third man)', () => {
   const deck = plainDeck();
   // the talk: every man but two stood at the rail aft (a muster's `ready` - nothing moves him), the two on one point
   const life = createCrewLife({ deck, roster: crewRoster({ hull: 3, seed: 2, shipClass: pirate }), seed: 2 });
@@ -405,6 +405,20 @@ test('AUDIT NAV2 F41 A TALK BEGUN ON ONE SPOT, AND A SHIPMATE IN THE WAY: two me
   while (!c.mate && tries++ < 400) { c.pos = [0, 2, 3.25]; c.path = null; c.state = 'idle'; c.t = 0; l3.step(0.01, {}); }
   assert.ok(c.mate === e && c.path, 'a talk across the hatch');
   assert.ok(Math.hypot(c.path.at(-1)[0] - e.pos[0], c.path.at(-1)[2] - e.pos[2]) > 0.9, `a place of his own: ${c.path.at(-1)}`);
+  // AUDIT GALLEON D-wall (2026-10-02): a third man's place pinned on its own - the real hulls' ten-minute runs reached
+  // it by chance of their spots (the Carrack's moved with her deck's walls, and it went unreached): a third man stands
+  // where the talk's first place falls (CREW_TALK_REACH fore of the man talked to) - the place is the next turn's
+  const l4 = createCrewLife({ deck, roster: crewRoster({ hull: 3, seed: 2, shipClass: pirate }), seed: 2 });
+  for (const m of l4.members) { m.pos = [-3.25, 2, -11 + m.i * 1.3]; m.state = 'ready'; m.path = null; }
+  const [f, , g, third] = l4.members;
+  assert.ok(g !== l4.lookout() && third !== l4.lookout(), 'never her lookout');
+  g.pos = [2, 2, -5]; g.state = 'idle'; g.t = 1e9;
+  third.pos = [2, 2, -3.4];
+  tries = 0;
+  while (!f.mate && tries++ < 400) { f.pos = [2, 2, -5]; f.path = null; f.state = 'idle'; f.t = 0; l4.step(0.01, {}); }
+  assert.ok(f.mate === g, 'a talk begun');
+  const place = f.path ? f.path.at(-1) : f.pos;
+  assert.ok(Math.hypot(place[0] - third.pos[0], place[2] - third.pos[2]) > 0.6 && Math.hypot(place[0] - g.pos[0], place[2] - g.pos[2]) > 1, `never on the third man: ${place.map((v) => v.toFixed(2))}`);
   // the shipmate in the way: #3 walks fore along x = 0.8; #1 (before him in the roster) crosses his line at z = -6.8
   // just as he comes to it
   const l2 = createCrewLife({ deck, roster: crewRoster({ hull: 3, seed: 4, shipClass: pirate }), seed: 4 });

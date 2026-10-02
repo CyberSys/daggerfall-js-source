@@ -250,7 +250,7 @@ test('AUDIT GALLEON D2 HER RAIL\'S SPOTS AND A LANDING ON HER MAIN DECK: a party
 
 // ── D3: aboard below her main deck ────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT GALLEON D3 ABOARD ON HER LOWER DECKS: a man standing anywhere below her main deck - between her guns, on a gun, on her mast\'s step, her lower deck and her hold - is aboard by the host\'s own aboard(), under her main deck a body\'s own reach of a floor of hers (CAPSULE_RADIUS), never the feet\'s own 0.5 m cell alone (it read the galleon\'s 245 of 6316 standable lower points, the Carrack\'s 207 and the Large Galley\'s 1316 ashore: no Sail ho!, no alarm, rest and journeys open, playerAfloat false); and round her hull below her main deck still as few as before read aboard - at most 0.5% of the points off her hull (mutants: the feet\'s own cell, a metre\'s reach)', async () => {
+test('AUDIT GALLEON D3 ABOARD ON HER LOWER DECKS: a man standing anywhere below her main deck - between her guns, on a gun, on her mast\'s step, her lower deck and her hold - is aboard by the host\'s own aboard(), under her main deck a body\'s own reach of a floor of hers (CAPSULE_RADIUS), never the feet\'s own 0.5 m cell alone (it read the galleon\'s 245 of 6316 standable lower points, the Carrack\'s 207 and the Large Galley\'s 1316 ashore: no Sail ho!, no alarm, rest and journeys open, playerAfloat false); and round her hull below her main deck none of the points off her hull read aboard (AUDIT GALLEON D-wall: a floor to stand aboard on looks up - at most 0.5% before it) (mutants: the feet\'s own cell, a metre\'s reach)', async () => {
   const misses = {};
   for (const hull of [HULL.SmallShip, HULL.Carrack, HULL.LargeGalley]) {
     const h = await sea({ hull });
@@ -284,7 +284,9 @@ test('AUDIT GALLEON D3 ABOARD ON HER LOWER DECKS: a man standing anywhere below 
         }
       }
       assert.ok(nOff > 50000, `the points round her (${nOff})`);
-      assert.ok(aboard / nOff < 0.005, `round her hull read aboard: ${aboard} of ${nOff} (${(100 * aboard / nOff).toFixed(2)}%)`);
+      // AUDIT GALLEON D-wall: none - a floor to stand aboard on looks up (her bottom's and her flare's undersides stood
+      // 1.03% of these aboard once each wall marked its own height in a cell; a reach of twice a body's reads 0.14%)
+      assert.equal(aboard, 0, `round her hull read aboard: ${aboard} of ${nOff} (${(100 * aboard / nOff).toFixed(2)}%)`);
     }
   }
   const [gA, gN, gF] = misses[HULL.SmallShip], [cA, cN, cF] = misses[HULL.Carrack], [lA, lN, lF] = misses[HULL.LargeGalley];
@@ -296,7 +298,7 @@ test('AUDIT GALLEON D3 ABOARD ON HER LOWER DECKS: a man standing anywhere below 
 
 // ── D4: her lookout's bow ─────────────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT GALLEON D4 HER LOOKOUT KEEPS HER MAIN DECK\'S BOW: her bow LOOKOUT_BACK from her main deck\'s stem, a cell of her main deck, on every hull - the Carrack\'s ran up her forecastle\'s stair, and her lookout kept his watch up there 1460 s of every 1740 (never where her hands idle); the galleon\'s, the Large Galley\'s and the small hulls\' where they were (mutants: her whole deck\'s extent, the bow at any level)', async () => {
+test('AUDIT GALLEON D4 HER LOOKOUT KEEPS HER MAIN DECK\'S BOW: her bow LOOKOUT_BACK from her main deck\'s stem, a cell of her main deck, on every hull - the Carrack\'s ran up her forecastle\'s stair, and her lookout kept his watch up there 1460 s of every 1740 (never where her hands idle); the galleon\'s (0.5 m further forward with her bow\'s cells, D-wall), the Large Galley\'s and the small hulls\' where they were (mutants: her whole deck\'s extent, the bow at any level)', async () => {
   const pool = await readyPool();
   for (let hull = 0; hull < HULL_NAMES.length; hull++) {
     const d = pool.deckOf(hull, 0), main = mainLevel(d), ext = deckExtentZ(d, main);
@@ -611,14 +613,140 @@ test('AUDIT GALLEON T4 A BOARDING\'S MUSTERS STAND ON HER MAIN DECK: world.js na
   }
 });
 
+// ── D-wall: a wall's height in a cell ─────────────────────────────────────────────────────────────────────────────
+
+/** A flat ground at 0 (x, z -4..4), a shelf at 1.5 over x -1..1, z -0.3..0.7 and, standing on the ground at z 0.2, one
+ *  flat wall face - a pentagon low at x 0 (0.2 m) and high at x 4 (2.6 m) under the shelf's end - cut into triangles
+ *  as a fan from corner `from` ('A' its foot at x 0, 'E' its top's knee at x 2): the same face, cut two ways. */
+function shelfDeck(from) {
+  const P = [], I = [];
+  const quad = (a, b, c, d) => { const n = P.length / 3; P.push(...a, ...b, ...c, ...d); I.push(n, n + 1, n + 2, n, n + 2, n + 3); };
+  quad([-4, 0, -4], [-4, 0, 4], [4, 0, 4], [4, 0, -4]);
+  quad([-1, 1.5, -0.3], [-1, 1.5, 0.7], [1, 1.5, 0.7], [1, 1.5, -0.3]);
+  const A = [0, 0, 0.2], B = [4, 0, 0.2], C = [4, 2.6, 0.2], E = [2, 1.5, 0.2], D = [0, 0.2, 0.2];
+  const ring = from === 'A' ? [A, B, C, E, D] : [E, D, A, B, C];
+  const n = P.length / 3;
+  for (const p of ring) P.push(...p);
+  for (let q = 1; q + 1 < ring.length; q++) I.push(n, n + q, n + q + 1);
+  return buildDeck([{ positions: Float64Array.from(P), indices: Uint32Array.from(I) }], { minX: -4, maxX: 4, minZ: -4, maxZ: 4 });
+}
+const deckBake = (d) => JSON.stringify({ y: Array.from(d.y, String), more: d.more && [Array.from(d.more.at), Array.from(d.more.y), Array.from(d.more.piece)], floors: d.floors && [Array.from(d.floors.at), Array.from(d.floors.y)], flights: d.flights && Array.from(d.flights) });
+
+test('AUDIT GALLEON D-wall A WALL\'S HEIGHT IN A CELL IS ITS OWN THERE: a near-vertical face walls each cell it stands over with its own part\'s height within the cell\'s square, never its whole triangle\'s - the same flat face cut two ways is the same deck (a fan from its foot walled the shelf over its low end 0-2.6 m, a fan from its knee 0-1.5 m: its part there is 0-0.53 m); a face on the line between two cells is the farther cell\'s, as a point on it is (Math.floor); and the new galleon\'s castle front, re-cut as Blender cuts it (a triangle from (-5.32, 6.18) to (-0.77, 8.77) whose sloping edge crosses her port flight 6.87 m up), walls none of her flight: her tread at 8.28 under it, her castle\'s roof and her flights her deck (they fell out of it, 168 cells, under the whole triangle\'s 6.18-8.77) (mutants: the whole triangle\'s height again, a face on a cell\'s far line its)', async () => {
+  // the same face cut two ways: one deck
+  const byFoot = shelfDeck('A'), byKnee = shelfDeck('E');
+  assert.equal(deckBake(byFoot), deckBake(byKnee), 'the same face cut two ways, the same deck');
+  const shelf = (d) => { const j = Math.floor((0.25 + 4) / d.cell) + Math.floor((0.25 + 4) / d.cell) * d.nx, out = []; for (let n = d.floors.at[j]; n < d.floors.at[j + 1]; n++) out.push(d.floors.y[n]); return out; };
+  assert.ok(shelf(byFoot).some((y) => Math.abs(y - 1.5) < 1e-6) && shelf(byKnee).some((y) => Math.abs(y - 1.5) < 1e-6), `the shelf over the wall's low end a floor however it is cut (${shelf(byFoot)} | ${shelf(byKnee)})`);
+  // a face on the line between two cells: the farther cell's (x 0 and z 0 are lines of the grid from -4)
+  const P = [], I = [];
+  const quad = (a, b, c, d) => { const n = P.length / 3; P.push(...a, ...b, ...c, ...d); I.push(n, n + 1, n + 2, n, n + 2, n + 3); };
+  quad([-4, 0, -4], [-4, 0, 4], [4, 0, 4], [4, 0, -4]);
+  quad([0, 0, -1], [0, 2, -1], [0, 2, 1], [0, 0, 1]);   // along x 0, z -1..1
+  quad([-3, 0, -2], [-3, 2, -2], [-1, 2, -2], [-1, 0, -2]);   // along z -2, x -3..-1
+  const lines = buildDeck([{ positions: Float64Array.from(P), indices: Uint32Array.from(I) }], { minX: -4, maxX: 4, minZ: -4, maxZ: 4 });
+  const ground = (x, z) => { const j = Math.floor((z + 4) / lines.cell) * lines.nx + Math.floor((x + 4) / lines.cell); for (let n = lines.floors.at[j]; n < lines.floors.at[j + 1]; n++) if (Math.abs(lines.floors.y[n]) < 1e-6) return true; return false; };
+  assert.equal(ground(0.25, 0.25), false, 'x 0..0.5: the wall along x 0 is its');
+  assert.equal(ground(-0.25, 0.25), true, 'x -0.5..0: the wall on its far line is not its');
+  assert.equal(ground(-2.25, -1.75), false, 'z -2..-1.5: the wall along z -2 is its');
+  assert.equal(ground(-2.25, -2.25), true, 'z -2.5..-2: the wall on its far line is not its');
+  // the new galleon's castle front as Blender cuts it
+  const F = facesOf(HULL.SmallShip);
+  let front = null;
+  for (const list of F.walls.values()) for (const w of list) if (Math.abs(w.x0 + 5.32) < 0.01 && Math.abs(w.x1 + 0.77) < 0.01 && Math.abs(w.y0 - 6.18) < 0.01 && Math.abs(w.y1 - 8.77) < 0.01 && Math.abs(w.z0 + 10.3) < 0.01 && Math.abs(w.z1 + 10.3) < 0.01) front = w;
+  assert.ok(front, 'her castle front\'s triangle from (-5.32, 6.18) to (-0.77, 8.77) at z -10.30');
+  const pool = await readyPool();
+  const d = pool.deckOf(HULL.SmallShip, 0), main = mainLevel(d);
+  assert.ok(Math.abs(d.heightAt(-4.11, -10.16) - 8.28) < 0.01 && d.walkable(-4.11, -10.16), `her port flight's tread over it: ${d.heightAt(-4.11, -10.16)}`);
+  assert.ok(front.y1 > d.heightAt(-4.11, -10.16) + DECK_STEP, 'the whole triangle\'s height walls that tread (the old marking\'s)');
+  assert.equal(cellsOf(d).filter((c) => c[1] > main + DECK_STEP).length, 174, 'her castle\'s roof and her flights her deck - 174 cells');
+});
+
+test('AUDIT GALLEON D-wall HER DECK AS SHE STANDS: her entry ports (her bulwark open from z -0.58 to 1.58 on both sides, her side 0.12 m over her deck there) are deck a cell further out than her bulwark lets it run, and a boarder put aboard from off her side comes down ACROSS from where he stood - of his own row of cells, the main-deck cell nearest him (the nearest of all drew a man 9 m off her side at z 2 to her entry port\'s corner at z 1.09); every hull\'s open deck is one walk (the room under the Carrack\'s forecastle, opened to her waist, stood four cells apart from every walk - her lookout\'s bow in one); a floor to stand aboard on looks up (her bottom\'s and her flare\'s undersides stood the water round her aboard, 1.03%) (mutants: the nearest of all, the cells apart kept, the floors either way up)', async () => {
+  const pool = await readyPool();
+  // her entry ports, and a landing across
+  const g = pool.deckOf(HULL.SmallShip, 0), gm = mainLevel(g);
+  for (const side of [1, -1]) {
+    const port = side > 0 ? 4.39 : -4.61, wall = side > 0 ? 3.89 : -4.11;
+    for (const z of [-0.16, 0.34, 0.84]) assert.ok(g.walkable(port, z), `her entry port's cell (${port}, ${z})`);
+    for (const z of [-0.66, 1.34, 2.34]) assert.ok(!g.walkable(port, z) && g.walkable(wall, z), `her bulwark's inset at z ${z}`);
+  }
+  const at = g.land(14, 2, gm + 1.8);
+  assert.ok(Math.abs(at[2] - 2) < 1e-9 && Math.abs(at[0] - 4.14) < 0.01 && Math.abs(at[1] - gm) < 1e-6, `across from him at z 2: ${at.map((v) => v.toFixed(3))}`);
+  const near = g.clamp(14, 2);
+  assert.ok(near[2] < 1.1, `the nearest of all her entry port's corner: ${near.map((v) => v.toFixed(3))}`);
+  const atPort = g.land(14, 0.3, gm + 1.8), off = g.land(-14, -15, gm + 1.8);
+  assert.ok(Math.abs(atPort[0] - 4.64) < 0.01 && Math.abs(atPort[2] - 0.3) < 1e-9, `at her entry port, its cell: ${atPort.map((v) => v.toFixed(3))}`);
+  assert.ok(Math.abs(off[1] - gm) <= NAVAL_DECK.DECK_FLOOR, `abeam her castle (no main deck in his row) her main deck nearest: ${off.map((v) => v.toFixed(2))}`);
+  // every hull's open deck one walk - side steps within DECK_JOIN or up a flight (deck.path's own)
+  for (let hull = 0; hull < HULL_NAMES.length; hull++) {
+    const d = pool.deckOf(hull, 0), { nx, y, flights } = d, seen = new Uint8Array(y.length);
+    const first = y.findIndex((v) => !Number.isNaN(v)), stack = [first];
+    let n = 0;
+    seen[first] = 1;
+    while (stack.length) {
+      const j = stack.pop(), i = j % nx;
+      n++;
+      for (const [b, bit] of [[i > 0 ? j - 1 : -1, flights?.[j - 1] & 1], [i < nx - 1 ? j + 1 : -1, flights?.[j] & 1], [j - nx, flights?.[j - nx] & 2], [j + nx, flights?.[j] & 2]]) {
+        if (b < 0 || b >= y.length || seen[b] || Number.isNaN(y[b])) continue;
+        if (!(Math.abs(y[b] - y[j]) <= NAVAL_DECK.DECK_JOIN) && !bit) continue;
+        seen[b] = 1; stack.push(b);
+      }
+    }
+    assert.equal(n, d.count, `${HULL_NAMES[hull]}: every cell of her open deck one walk (${n} of ${d.count})`);
+  }
+  const carrack = pool.deckOf(HULL.Carrack, 0), cm = mainLevel(carrack);
+  const life = createCrewLife({ deck: carrack, roster: [{ mobile: MOBILE.Warrior, gender: 'male' }], seed: 1 });
+  const from = carrack.nearest(0, 0, cm), walk = carrack.path([from[0], from[2]], [life.bow[0], life.bow[2]]);
+  assert.ok(walk && Math.hypot(walk.at(-1)[0] - life.bow[0], walk.at(-1)[2] - life.bow[2]) < 1e-6, `the Carrack's bow a walk's end (${life.bow.map((v) => v.toFixed(2))})`);
+  for (const [x, z] of [[-0.18, 14.01], [1.32, 14.01], [1.32, 14.51], [1.32, 15.01]]) {
+    assert.ok(!carrack.walkable(x, z) && Math.abs(carrack.heightAt(x, z, cm) - cm) < 1e-3 && carrack.pieceAt(x, z, cm) === 0, `the room under her forecastle at (${x}, ${z}): her deck's floor beside her walk`);
+  }
+  // a floor to stand aboard on looks up
+  for (const hull of [HULL.SmallShip, HULL.Carrack, HULL.LargeGalley]) {
+    const d = pool.deckOf(hull, 0), Fh = facesOf(hull);
+    let n = 0, down = 0;
+    for (let j = 0; j < d.y.length; j++) {
+      const i = j % d.nx, k = (j - i) / d.nx, x = d.minX + (i + 0.5) * d.cell, z = d.minZ + (k + 0.5) * d.cell, hs = heightsAt(Fh, x, z);
+      for (let q = d.floors.at[j]; q < d.floors.at[j + 1]; q++) { n++; if (!hs.some(([h, f]) => f.up && Math.abs(h - d.floors.y[q]) < 2e-3)) down++; }
+    }
+    assert.ok(n > 2000, `${HULL_NAMES[hull]}: her floors (${n})`);
+    assert.equal(down, 0, `${HULL_NAMES[hull]}: ${down} of her ${n} floors aboard a face looking down`);
+  }
+});
+
+test('AUDIT GALLEON D-wall A TALK\'S PLACE ON HER MAIN DECK: a hand coming over to talk with one on her main deck takes his place on it - a flight\'s foot tread within a step of it, never two and three treads up beside him (a deck 7 m square with a stair as wide up its fore side: 12.3 s of four ten-minute runs a hand stood 0.6-0.9 m up it to talk, the Carrack\'s forecastle stair 7-13 s a run); her deck\'s clamp asked at a level answers a cell within a step of it (mutants: the place at any level, the level unread)', () => {
+  const P = [], I = [];
+  const quad = (a, b, c, e) => { const n = P.length / 3; P.push(...a, ...b, ...c, ...e); I.push(n, n + 1, n + 2, n, n + 2, n + 3); };
+  const flat = (x0, x1, z0, z1, y) => quad([x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0]);
+  flat(-3.5, 3.5, -3.5, 3.5, 0);
+  for (let t = 0; t < 5; t++) flat(-3.5, 3.5, 3.5 + t * 0.5, 4 + t * 0.5, 0.3 * (t + 1));   // 0.3 m treads, 7 m wide
+  flat(-3.5, 3.5, 6, 9, 1.5);
+  const deck = buildDeck([{ positions: Float64Array.from(P), indices: Uint32Array.from(I) }], { minX: -5, maxX: 5, minZ: -5, maxZ: 10 });
+  const main = mainLevel(deck);
+  assert.ok(Math.abs(main) < 1e-6 && cellsOf(deck).filter((c) => c[1] > main + DECK_STEP).length > 50, 'her main deck at 0, her stair and raised deck over it her deck');
+  const at = deck.clamp(-1.25, 4.75, [0, 0, 0], 0, main), any = deck.clamp(-1.25, 4.75);
+  assert.ok(Math.abs(at[1] - main) <= DECK_STEP && any[1] > main + DECK_STEP, `clamp at her main level: ${at.map((v) => v.toFixed(2))} (any level ${any.map((v) => v.toFixed(2))})`);
+  let up = 0, talked = 0;
+  for (const seed of [1, 2, 3, 4]) {
+    const life = createCrewLife({ deck, roster: Array.from({ length: 8 }, () => ({ mobile: MOBILE.Warrior, gender: 'male' })), seed });
+    for (let t = 0; t < 600; t += DT) {
+      life.step(DT, {});
+      for (const m of life.members) { if (m.pos[1] > main + DECK_STEP) up += DT; if (m.state === 'talk') talked += DT; }
+    }
+  }
+  assert.ok(talked > 1000, `her hands talked (${talked.toFixed(0)} s)`);
+  assert.equal(Math.round(up * 10), 0, `a hand off her main deck ${up.toFixed(1)} s`);
+});
+
 // ── every hull and every rig ──────────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT GALLEON THE BAKES: every hull\'s deck - every rig of hers the one her rig 0 bakes - as the deck lens left it: the galleon\'s 828 cells (her hatchways out), her main deck\'s 654 and her castle and flights over it; the Carrack\'s 433 (her cargo hatch out); the Rowboat\'s 13, the Large Boat\'s 18 and the Large Galley\'s 4013 as they were', async () => {
+test('AUDIT GALLEON THE BAKES: every hull\'s deck - every rig of hers the one her rig 0 bakes - as the deck lens left it (PIN MOVED, AUDIT GALLEON D-wall: each wall its own height in a cell): the galleon\'s 838 cells (her hatchways out, her entry ports and her bow to her side), her main deck\'s 664 and her castle and flights over it; the Carrack\'s 511 (her cargo hatch out, the ground under her half deck\'s stairs and the room under her forecastle in); the Rowboat\'s 13 and the Large Boat\'s 18 as they were, the Large Galley\'s 4016', async () => {
   const pool = await readyPool();
   const counts = Array.from(HULL_NAMES, (_, hull) => pool.deckOf(hull, 0).count);
-  assert.deepEqual(counts, [13, 18, 828, 4013, 433]);
+  assert.deepEqual(counts, [13, 18, 838, 4016, 511]);
   const g = pool.deckOf(HULL.SmallShip, 0);
-  assert.equal(cellsOf(g).filter((c) => Math.abs(c[1] - mainLevel(g)) <= DECK_STEP).length, 654, 'the galleon\'s main deck');
+  assert.equal(cellsOf(g).filter((c) => Math.abs(c[1] - mainLevel(g)) <= DECK_STEP).length, 664, 'the galleon\'s main deck');
   for (let hull = 0; hull < HULL_NAMES.length; hull++) for (let v = 1; v < HULL_VARIANT_COUNTS[hull]; v++) assert.equal(pool.deckOf(hull, v), pool.deckOf(hull, 0));
   assert.ok(NAVAL_DECK.FLIGHT_JOIN > NAVAL_DECK.DECK_JOIN);
 });

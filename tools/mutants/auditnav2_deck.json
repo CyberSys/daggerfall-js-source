@@ -182,8 +182,8 @@
   {
     "name": "AUDIT-NAV2-F34-clamp-piece-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      const j = nearestCell(x, z, piece);",
-    "new": "      const j = nearestCell(x, z);",
+    "old": "      const j = nearestCell(x, z, piece, level);",
+    "new": "      const j = nearestCell(x, z, 0, level);",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]

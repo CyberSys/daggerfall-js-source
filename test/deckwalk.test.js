@@ -220,8 +220,11 @@ test('DECK-WALK THE REAL HULLS: the Small Ship\'s main deck at 6.20 m, the Large
   const p = await pool();
   // PIN MOVED (AUDIT GALLEON D7, 2026-10-02): her hatchways no deck (a part that opens is no floor of hers) - the
   // galleon's main deck 654 of her 828 cells (79%: her hatchways' 82 out of it), her castle and flights the 174 they
-  // were (21%); the Carrack's 400 of 433 (her cargo hatch out), her forecastle's 33 (8%)
-  for (const [hull, level, aftOf, raised, share] of [[2, 6.2, -10.3, 0.211, 0.789], [3, 10.25, null, 0, 0.8], [4, 3.64, -6.5, 0.077, 0.8]]) {
+  // were (21%); the Carrack's 400 of 433 (her cargo hatch out), her forecastle's 33 (8%). PIN MOVED (AUDIT GALLEON
+  // D-wall, 2026-10-02): a wall marks a cell with its own height there - the galleon's main deck 664 of 838 (her entry
+  // ports and her bow to her side, 10 more), her castle and flights the 174 they were; the Carrack's 465 of 511 (the
+  // ground under her half deck's stairs and the room under her forecastle), her forecastle 39 and her stair 7 (9%)
+  for (const [hull, level, aftOf, raised, share] of [[2, 6.2, -10.3, 0.208, 0.792], [3, 10.25, null, 0, 0.8], [4, 3.64, -6.5, 0.091, 0.909]]) {
     const d = p.deckOf(hull, 0);
     assert.equal(p.deckOf(hull, 0), d, 'baked once');
     assert.ok(d.count > 300, `hull ${hull}: ${d.count} cells`);

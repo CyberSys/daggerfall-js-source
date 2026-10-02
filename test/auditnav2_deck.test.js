@@ -171,14 +171,21 @@ test('AUDIT NAV2 F32 A SMALL HULL\'S DECK: kept off her walls and her open side,
   // Large Galley's every cell as it was. PIN MOVED (AUDIT GALLEON D7, 2026-10-02): a part that opens is no floor of
   // hers - the galleon's two hatchways (her covers' 44 cells at 6.378 and the inset's margin round them, 82) and the
   // Carrack's cargo hatch (her cargo doors' 80 at 3.639 and its margin, 116) are holes when open, no deck: the
-  // galleon's main deck 654 of 828, the Carrack's 399 and her stair's foot of 433, 33 up her stair as before
+  // galleon's main deck 654 of 828, the Carrack's 399 and her stair's foot of 433, 33 up her stair as before. PIN MOVED
+  // (AUDIT GALLEON D-wall, 2026-10-02): a wall marks a cell with its own height there, never its whole triangle's (her
+  // deck the same however her faces are cut): the galleon's side under her deck no longer walls her deck's edge at her
+  // entry ports (z -0.58 to 1.58, both sides: her side's parts there 2.9-6.1 m, under her 6.20 deck) nor at her bow (5
+  // cells), and her foremast's partner walls a cell its edges missed (one) - her main deck 664 of 838, her castle and
+  // flights the 174 they were; the Carrack's ground under her half deck's stairs (their stringers 2.2-3.1 m over it there)
+  // and the room under her forecastle (its bulkhead 1.8 m up) are her deck - 465 at her main level of 511, her
+  // forecastle 39 and her stair; the Large Galley's tent 4016
   const small = pool.deckOf(2, 0);
-  assert.equal(cellsOf(small).filter((c) => Math.abs(c[1] - mainLevel(small)) <= DECK_STEP).length, 654, 'the Small Ship\'s main deck, 654');
-  assert.equal(small.count, 828, 'the Small Ship\'s 828, her castle with it');
-  assert.equal(pool.deckOf(3, 0).count, 4013, 'the Large Galley\'s 4013');
+  assert.equal(cellsOf(small).filter((c) => Math.abs(c[1] - mainLevel(small)) <= DECK_STEP).length, 664, 'the Small Ship\'s main deck, 664');
+  assert.equal(small.count, 838, 'the Small Ship\'s 838, her castle with it');
+  assert.equal(pool.deckOf(3, 0).count, 4016, 'the Large Galley\'s 4016');
   const carrack = pool.deckOf(4, 0);
-  assert.equal(carrack.count, 433, 'the Carrack\'s 433');
-  assert.equal(cellsOf(carrack).filter((c) => Math.abs(c[1] - mainLevel(carrack)) <= DECK_STEP).length, 400, 'her main deck\'s 399 and her stair\'s foot');
+  assert.equal(carrack.count, 511, 'the Carrack\'s 511');
+  assert.equal(cellsOf(carrack).filter((c) => Math.abs(c[1] - mainLevel(carrack)) <= DECK_STEP).length, 465, 'her main deck\'s 465, her stair\'s foot among them');
   // her rail: a cell a point
   const w = deckDoors(pool);
   for (let hull = 0; hull < HULL_NAMES.length; hull++) {
@@ -315,6 +322,10 @@ test('AUDIT NAV2 F36 ABOARD IS STANDING ON HER: a floor of hers under the feet -
   // PIN MOVED (GALLEON-2, 2026-10-02): her keel 4.64 m down on Mac's second export (3.89 on his first) - the floor inside
   // her V lies within a step of -4.6, so the swimmer is taken 0.76 m under her keel
   assert.equal(at(0, -5.4, 0), false, 'a swimmer under her keel');
+  // AUDIT GALLEON D-wall (2026-10-02): a quay against her port quarter at 1.5 m, 0.3 m off her side under her main deck
+  // - her floors looking up now (her flare's underside no floor), it is a metre's reach of her gun deck that would read
+  // it aboard (the body's own reads none of the points round her hull, AUDIT GALLEON D3)
+  assert.equal(at(-5.61, 1.5, -15), false, 'a quay against her port quarter, under her main deck');
   // round her, off her hull at a quay's height and in the water: never aboard
   let slack = 0;
   for (let x = -12; x <= 12; x += 1) for (let z = -28; z <= 24; z += 1) {
