@@ -1095,13 +1095,13 @@ test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her smoke and her planks (#1
   assert.ok(cut > 5, `cut at the sea as she went (${cut})`);
   assert.equal(under, 0, 'no smoke born under the sea');
   // planks off a holed hull: TIMBER_PER_HIT at her waterline where she was struck, a heavy ball one more; none off her canvas
-  const strike = async (gun, y) => {
+  const strike = async (gun, y, z = 0) => {
     const g = await sea({ hull: 2, wind: [0, 0, 0] });
     const e = place(g, 'merchantGalleon', [150, 0, 0], { yaw: 0 });
     const hits = [];
     const hit = g.host._effects.hit;
     g.host._effects.hit = (p, ...rest) => { hits.push([...p]); hit(p, ...rest); };
-    g.host._shots.fireVolley({ id: 'v1', shooter: 'me:42', launches: [{ delay: 0, p0: [150 - hullBuild(e.ship.hull).halfWidth - 3, y, 0], v0: [60, 0.5, 0], gun, index: 0 }], resolve: true });
+    g.host._shots.fireVolley({ id: 'v1', shooter: 'me:42', launches: [{ delay: 0, p0: [150 - hullBuild(e.ship.hull).halfWidth - 3, y, z], v0: [60, 0.5, 0], gun, index: 0 }], resolve: true });
     g.run(0.3);
     return { g, hits, planks: g.host._effects.drawList().filter((p) => p.kind === 'timber'), shreds: g.host._effects.drawList().filter((p) => p.kind === 'shred') };
   };
@@ -1122,7 +1122,10 @@ test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her smoke and her planks (#1
   long.g.run(TIMBER_LIFE * 1.5 - 5 + 0.2, 0.5);
   assert.equal(alive().length, 0, 'gone by half again TIMBER_LIFE');
   assert.equal((await strike('heavy', 3)).planks.length, TIMBER_PER_HIT + 1, 'a heavy ball one more');
-  const rig = await strike('long', 16);   // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail, 13.2 to 19 m up amidships
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail, 13.2 to 19 m up amidships. PIN MOVED (AUDIT GALLEON
+  // R5/G9): its box is its canvas, hung forward of her main mast 0.42 to 1.44 m forward of her middle - the ball through
+  // it there; at her middle (0) a ball meets her main mast, aft of the canvas, and no box
+  const rig = await strike('long', 16, 0.9);
   assert.ok(rig.shreds.length > 0 && rig.planks.length === 0, 'through her canvas: shreds, no planks');
 });
 

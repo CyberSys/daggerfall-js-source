@@ -1627,11 +1627,13 @@ export function bearsWithin(ship, lead, enemy, want, window) {
   return (Math.abs(err) - window) / Math.abs(rate);
 }
 
-/** A hull's rig as one band of height over the sea: its lowest box's floor to its highest's roof (m). */
+/** A hull's rig as one band of height over the sea: its lowest box's floor to its highest's roof (m). AUDIT GN-R5: never
+ *  under her own roof - the Small Ship's canvas hangs below hers (her course, her gaff sail's foot, her jib), and a
+ *  chain lay through that band strikes her hull's box first; every other hull's rig stands over its roof. */
 export function rigBand(build) {
   let lo = Infinity, hi = -Infinity;
   for (const [mn, mx] of build.rig) { lo = Math.min(lo, mn[1]); hi = Math.max(hi, mx[1]); }
-  return [lo, hi];
+  return [Math.max(lo, build.top), hi];
 }
 
 /**
