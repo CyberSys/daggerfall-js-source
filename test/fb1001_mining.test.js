@@ -256,23 +256,28 @@ test('VEIN-CLEAR: a vein with no rock left to claim stands on stone outside ever
   const samples = new Float32Array(HEIGHTMAP_DIMENSION * HEIGHTMAP_DIMENSION).fill(0.5);
   const law = veins({ x: PX, y: PY, day: DAY, climate: WOODS, region: GLENUMBRA });
   assert.ok(law.length >= 2, 'two veins or more');
-  // ROCK-FOOT, ROCK-SHARE: a stone a metre across over each vein's own tile corner - where its stone tile and nature's
-  // ground stand - each one node's; the boulders claim first and take them, so no vein has a piece left
-  const rocks = law.map((v) => {
+  // ROCK-FOOT, ROCK-SHARE: a stone a metre across over each of the first veins' own tile corners - where its stone tile and
+  // nature's ground stand - each one node's, as many as there are boulders; the boulders claim first and take them, so
+  // those veins have no piece left (MORE-NODES: the Woodlands' four veins, three boulders)
+  const nb = boulders({ x: PX, y: PY, day: DAY, climate: WOODS }).length;
+  assert.ok(nb >= 2 && nb < law.length);
+  const covered = law.slice(0, nb);
+  const rocks = covered.map((v) => {
     const cx = Math.floor(v.u * 128) * (TERRAIN_SIZE / 128), cz = Math.floor(v.v * 128) * (TERRAIN_SIZE / 128);
     return [cx - 0.5, 0, cz - 0.5, cx + 0.5, 3, cz + 0.5];
   });
   const inside = (p) => rocks.some((r) => p[0] > r[0] && p[0] < r[3] && p[2] > r[2] && p[2] < r[5]);
   const stone = standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: new Uint8Array(128 * 128).fill(3), rocks });
-  assert.deepEqual(stone.filter((n) => n.what === 'boulder').map((n) => rocks.indexOf(n.rock)).sort(), law.map((_, i) => i), 'the boulders took the stones');
+  assert.deepEqual(stone.filter((n) => n.what === 'boulder').map((n) => rocks.indexOf(n.rock)).sort(), covered.map((_, i) => i), 'the boulders took the stones');
   const veinsStood = stone.filter((n) => n.what === 'vein');
   assert.equal(veinsStood.length, law.length, 'every vein stands - on the stone beside its own');
-  for (const v of veinsStood) assert.equal(v.rock, null);
+  for (const v of veinsStood) assert.equal(v.rock, null, 'no stone left for a vein');
   for (const v of veinsStood) assert.equal(inside(v.local), false, `vein ${v.slot} at ${v.local.map((c) => c.toFixed(1))} is outside the rock`);
   // no stone anywhere (grass): the last fallback, nature at the vein's own tile - inside its stone, so it stands nowhere
   const grass = standMineNodes({ px: PX, py: PY, day: DAY, climate: WOODS, region: GLENUMBRA, samples, tilemap: new Uint8Array(128 * 128).fill(2), rocks });
-  const g = grass.filter((n) => n.what === 'vein');
-  assert.equal(g.length, 0, `no vein stands inside a stone (${g.length} of ${law.length})`);
+  const g = grass.filter((n) => n.what === 'vein' && n.slot < nb);
+  assert.equal(g.length, 0, `no vein over a stone stands inside it (${g.length} of ${nb})`);
+  for (const v of grass.filter((n) => n.what === 'vein')) assert.equal(inside(v.local), false);
   for (const b of grass.filter((n) => n.what === 'boulder')) assert.equal(inside(b.local), false);
 });
 

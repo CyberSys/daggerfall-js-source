@@ -138,7 +138,7 @@ test('PROF1 law: how many nodes a pixel holds a day, by climate (PROF0 6); the t
   const C = mapsFile.CLIMATES;
   const row = (c) => { const n = NODE_COUNTS[c]; return [n.tree, n.herb, n.vein, n.boulder]; };
   assert.deepEqual([C.Woodlands, C.MountainWoods, C.Mountain, C.HauntedWoodlands, C.Swamp, C.Rainforest, C.Subtropical, C.Desert, C.Desert2].map(row),
-    [[6, 4, 2, 3], [5, 3, 3, 4], [2, 2, 6, 5], [4, 4, 2, 3], [3, 5, 1, 0], [6, 5, 1, 0], [4, 4, 2, 3], [0, 3, 5, 5], [0, 3, 5, 5]]);   // PIN MOVED (BOULDERS, acct47): the boulders 1/2/3 -> 3/4/5, the Swamp and the Rainforest none still
+    [[12, 8, 4, 3], [10, 6, 6, 4], [4, 4, 12, 5], [8, 8, 4, 3], [6, 10, 2, 0], [12, 10, 2, 0], [8, 8, 4, 3], [0, 6, 10, 5], [0, 6, 10, 5]]);   // PIN MOVED (BOULDERS, acct47): the boulders 1/2/3 -> 3/4/5, the Swamp and the Rainforest none still; (MORE-NODES, acct48): the trees, patches and veins doubled
   assert.equal(NODE_COUNTS[C.Ocean], undefined);
   assert.deepEqual(NODE_TIER_WEIGHTS, [40, 25, 15, 10, 6, 4]);
   assert.deepEqual([0, 0.4999, 0.5, 0.8124, 0.8125, 0.9999].map((u) => drawTier(u, 3)), [1, 1, 2, 2, 3, 3], 'herbs: 40 : 25 : 15 renormalised (8 : 5 : 3)');
@@ -154,7 +154,7 @@ test('PROF1 law: a pixel\'s patches are the clock\'s - the same for every asker;
   assert.equal(daySeason(T), SEASONS.Winter);
   const a = herbPatches({ x: 400, y: 200, day: T, climate: C.Woodlands, confirmed: true });
   assert.deepEqual(a, herbPatches({ x: 400, y: 200, day: T, climate: C.Woodlands, confirmed: true }), 'pure');
-  assert.equal(a.length, 4);
+  assert.equal(a.length, 8, 'PIN MOVED (MORE-NODES): the Woodlands\' eight');
   for (const p of a) {
     assert.ok(p.u >= 0.04 && p.u <= 0.96 && p.v >= 0.04 && p.v <= 0.96);
     assert.ok(herbInSeason(p.herb, SEASONS.Winter), 'winter: only what grows');

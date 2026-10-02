@@ -50,6 +50,7 @@ import { wearForagingTool } from '../systems/foragingInstall.js';
 import { materialCountLabel } from '../systems/profItems.js';
 import { accountRefusalText } from '../net/accountClient.js';
 import { DEFAULT_ACTIVATION_DISTANCE } from '../player/activate.js';
+import { nodeMarkCss } from '../ui/nodeMarks.js';   // GATHER-OW: a group's glyph in its profession's compass colour
 
 /** A node answers E within DFU's activation distance, and within this many degrees of the look. */
 export const NODE_REACH = DEFAULT_ACTIVATION_DISTANCE;
@@ -68,6 +69,17 @@ export const NODE_MARK_M = 150;
 export const NODE_MARK_MAX = 16;
 /** NODE-MARKS: a node's glow footprint about its base where its kind names none - metres across (`w`) and up (`h`). */
 export const NODE_MARK_SIZE = Object.freeze({ w: 1.8, h: 1.3 });
+/** GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being overwhelming, maybe a glyph marker
+ *  showing where a group of them are"): the Overworld marks each profession's group on a stood pixel - its nodes not
+ *  yet worked today - within this many metres of the player, the nearest GROUP_MAX of them, the list read again at most
+ *  every GROUP_REFRESH_MS. */
+export const GROUP_M = 3000;
+export const GROUP_MAX = 12;
+export const GROUP_REFRESH_MS = 500;
+/** GATHER-OW: a group's mark this far over its nodes' middle (m). */
+export const GROUP_LIFT_M = 2;
+/** GATHER-OW: a group's words - the profession and its count today. */
+export const groupLabel = (profession, n) => `${professionName(profession)} \u00d7${n}`;
 /** NODE-MARKS: the stood pixels walked for the marks - those within this many metres, past any kind's reach. */
 const MARK_WALK_M = 256;
 /** AUDIT NODE-MARKS (the independent pass): a place is any three numbers - the player's feet are the motor's
@@ -220,6 +232,7 @@ export function createGatherHost(deps) {
   const specs = (profession) => book.track(profession).specs ?? { 50: null, 100: null };
   /** NODE-MARKS: the marks' one list and the records it is refilled from; what a kind's mark is asked with */
   const _marks = [], _markPool = [];
+  let groupsAt = /** @type {number|null} */ (null), groupsList = /** @type {any[]} */ ([]);   // GATHER-OW: the Overworld's groups, as last read
   const markCtx = { specs };
 
   // ─── THE NODES ─────────────────────────────────────────────────────
@@ -771,6 +784,46 @@ export function createGatherHost(deps) {
       out.sort((a, b) => a.d - b.d);
       if (out.length > NODE_MARK_MAX) out.length = NODE_MARK_MAX;
       return out;
+    },
+    /**
+     * GATHER-OW: THE GROUPS FOR THE OVERWORLD - each profession's nodes on a stood pixel, those its kind would still mark
+     * (NODE-MARKS' own test: not worked today), as one mark at their middle with their count: `{ key, at, label, kind:
+     * 'gather <profession>', color }` - the travel view's own mark shape. Within GROUP_M of `pos`, the nearest
+     * GROUP_MAX; read again at most every GROUP_REFRESH_MS (the view asks every frame), and none with the professions
+     * shut or underground. Hunting's bodies are no group (they lie where they fell, nearby alone).
+     * @param {number[]} pos the player's feet, in the scene
+     */
+    overworldGroups(pos) {
+      const now = deps.nowMs();
+      if (groupsAt !== null && now - groupsAt < GROUP_REFRESH_MS && now >= groupsAt) return groupsList;
+      groupsAt = now;
+      groupsList = [];
+      if (book.state.open !== true || !isVec3(pos) || dungeon) return groupsList;
+      /** `${pixel}:${profession}` -> { profession, n, x, y, z } */
+      const byKey = new Map();
+      for (const s of nearPixels(pos, GROUP_M)) {
+        const tr = deps.pixelTranslation(s.entry.px, s.entry.py, _t);
+        const tx = tr[0], ty = tr[1], tz = tr[2];
+        for (const n of s.nodes) {
+          const k = kindOf(n);
+          if (!k || !(k.mark ? k.mark(n, markCtx) : !k.gone(n))) continue;
+          const profession = k.professions[0];
+          const key = `${pixelKey(s.entry.px, s.entry.py)}:${profession}`;
+          let g = byKey.get(key);
+          if (!g) byKey.set(key, g = { profession, n: 0, x: 0, y: 0, z: 0 });
+          g.n++; g.x += n.local[0] + tx; g.y += n.local[1] + ty; g.z += n.local[2] + tz;
+        }
+      }
+      const all = [];
+      for (const [key, g] of byKey) {
+        const x = g.x / g.n, y = g.y / g.n, z = g.z / g.n;
+        const d = Math.hypot(x - pos[0], z - pos[2]);
+        if (!(d <= GROUP_M)) continue;
+        all.push({ d, mark: { key: `gather:${key}`, at: [x, y + GROUP_LIFT_M, z], label: groupLabel(g.profession, g.n), kind: `gather ${g.profession}`, color: nodeMarkCss(g.profession) } });
+      }
+      all.sort((a, b) => a.d - b.d || (a.mark.key < b.mark.key ? -1 : 1));
+      groupsList = all.slice(0, GROUP_MAX).map((a) => a.mark);
+      return groupsList;
     },
     /** The page's teardown. */
     dispose() { this.leaveDungeon(); for (const s of stood.values()) unstand(s.entry); stood.clear(); act = null; hud.dispose(); },

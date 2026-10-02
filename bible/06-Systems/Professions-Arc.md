@@ -396,17 +396,21 @@ else Foraging's Fish (1605). A **trophy** is the species' own Deep Waters templa
 
 | Climate | Trees | Herb patches | Veins | Boulders (quarry) |
 |---|---|---|---|---|
-| Woodlands | 6 | 4 | 2 | 3 |
-| MountainWoods | 5 | 3 | 3 | 4 |
-| Mountain | 2 | 2 | 6 | 5 |
-| HauntedWoodlands | 4 | 4 | 2 | 3 |
-| Swamp | 3 | 5 | 1 | 0 |
-| Rainforest | 6 | 5 | 1 | 0 |
-| Subtropical | 4 | 4 | 2 | 3 |
-| Desert, Desert2 | 0 | 3 | 5 | 5 |
+| Woodlands | 12 | 8 | 4 | 3 |
+| MountainWoods | 10 | 6 | 6 | 4 |
+| Mountain | 4 | 4 | 12 | 5 |
+| HauntedWoodlands | 8 | 8 | 4 | 3 |
+| Swamp | 6 | 10 | 2 | 0 |
+| Rainforest | 12 | 10 | 2 | 0 |
+| Subtropical | 8 | 8 | 4 | 3 |
+| Desert, Desert2 | 0 | 6 | 10 | 5 |
 | Ocean | - | - | - | - (fishing only) |
 
 BOULDERS (FIELD BUGS 2026-10-01, Mac: "Fix the rest"; the service's acct47): the boulders were 1 / 2 / 3 / 1 / 0 / 0 / 1 / 3 - a rock field stood one or two a day in the woods. The fields' pieces now hold a node on each side (ROCK-SHARE, section 23), so the counts are raised; the Swamp and the Rainforest keep none (their Court writs ask no stone).
+
+MORE-NODES (2026-10-02, Mac: "increase all profession nodes", asked: "Double"; the service's acct48): the trees, the herb patches and the veins twice what they were, every climate (the table above). The day's sixty a profession (and the account's bound) are unchanged, so what doubles is how close the next node stands, not what a day yields. A signature region's veins stand in the slots after the climate's (a Mountain's thirteenth, Daggerfall's fifth and sixth in the woods).
+
+GATHER-OW (2026-10-02, Mac: "allow them to appear in the overworld without being overwhelming, maybe a glyph marker showing where a group of them are"; asked: "Groups nearby"): on the Overworld each profession's group on a stood pixel - its nodes not yet worked today, as NODE-MARKS would mark them - is one diamond in its compass colour at their middle, its count beside it ("Mining ×6"), the nearest twelve within 3 km (the land streams three pixels out), read again twice a second; the view's filters have a Gathering switch. Not a click of its own: a click there walks to the ground under it. None with the professions shut, nor underground; Hunting's bodies are no group. `scenes/gatherHost.js` overworldGroups, `systems/travelViewFilters.js`, `ui/travelViewHud.js`, `scenes/world.js` travelViewMarks.
 
 - **A node's tier** rolls on the climate's table, higher tiers rarer (tier 1: 40%, 2: 25%, 3: 15%, 4: 10%, 5: 6%,
   6: 4%); a region's signature (4.7) replaces one vein a pixel with its signature ore.

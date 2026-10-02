@@ -576,6 +576,7 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
   if (k === 'bounty') return k;   // BOUNTY-OVERWORLD: a held bounty's hunt
+  if (k === 'gather') return k;   // GATHER-OW: a profession's group of nodes
   return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
@@ -804,7 +805,7 @@ function drawMarks(marks, vw, vh, dpr) {
   for (const q of placed) {
     const { m, held, x, y, look } = q;
     g.globalAlpha = q.fade ? TV_UNDER_HUD_ALPHA : 1;   // OW-EDGES: faint where it would lie over the compass or the hotbar
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
+    const color = look === 'gather' ? (m.color ?? C.brass) : look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
@@ -820,6 +821,8 @@ function drawMarks(marks, vw, vh, dpr) {
       g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.lineWidth = 4; g.strokeStyle = C.bountyRim; g.stroke();
       g.lineWidth = 2; g.strokeStyle = color; g.stroke();
       g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.lineWidth = 1; g.strokeStyle = C.bountyRim; g.fill(); g.stroke();
+    } else if (look === 'gather') {   // GATHER-OW: a profession's group - a gem's diamond in its colour, a ring of dark
+      g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 5, y); g.lineTo(x, y + 7); g.lineTo(x - 5, y); g.closePath(); g.fill(); g.stroke();
     } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
       g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
     } else {

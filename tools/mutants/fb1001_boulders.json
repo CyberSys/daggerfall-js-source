@@ -128,8 +128,8 @@
   {
     "name": "BOULDERS-the-woods-one-again",
     "file": "src/net/nodeLaw.js",
-    "old": "  [CLIMATES.Woodlands]: counts(6, 4, 2, 3),",
-    "new": "  [CLIMATES.Woodlands]: counts(6, 4, 2, 1),",
+    "old": "  [CLIMATES.Woodlands]: counts(12, 8, 4, 3),",
+    "new": "  [CLIMATES.Woodlands]: counts(12, 8, 4, 1),",
     "tests": [
       "test/prof1_law.test.js",
       "test/fb1001_rockfoot.test.js"
@@ -138,8 +138,8 @@
   {
     "name": "BOULDERS-the-mountains-three-again",
     "file": "src/net/nodeLaw.js",
-    "old": "  [CLIMATES.Mountain]: counts(2, 2, 6, 5),",
-    "new": "  [CLIMATES.Mountain]: counts(2, 2, 6, 3),",
+    "old": "  [CLIMATES.Mountain]: counts(4, 4, 12, 5),",
+    "new": "  [CLIMATES.Mountain]: counts(4, 4, 12, 3),",
     "tests": [
       "test/prof1_law.test.js",
       "test/prof2_law.test.js",
@@ -263,6 +263,126 @@
     "new": "z >= FOOT_INSET_M;",
     "tests": [
       "test/fb1001_rockfoot.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-worked-node-counted",
+    "file": "src/scenes/gatherHost.js",
+    "old": "          if (!k || !(k.mark ? k.mark(n, markCtx) : !k.gone(n))) continue;\n",
+    "new": "          if (!k) continue;\n",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-never-read-again",
+    "file": "src/scenes/gatherHost.js",
+    "old": "if (groupsAt !== null && now - groupsAt < GROUP_REFRESH_MS && now >= groupsAt) return groupsList;",
+    "new": "if (groupsAt !== null) return groupsList;",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-read-every-frame",
+    "file": "src/scenes/gatherHost.js",
+    "old": "if (groupsAt !== null && now - groupsAt < GROUP_REFRESH_MS && now >= groupsAt) return groupsList;",
+    "new": "if (false) return groupsList;",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-middle-the-sum",
+    "file": "src/scenes/gatherHost.js",
+    "old": "const x = g.x / g.n, y = g.y / g.n, z = g.z / g.n;",
+    "new": "const x = g.x, y = g.y / g.n, z = g.z;",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-reach-unasked",
+    "file": "src/scenes/gatherHost.js",
+    "old": "        if (!(d <= GROUP_M)) continue;\n        all.push(",
+    "new": "        all.push(",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-cap-unasked",
+    "file": "src/scenes/gatherHost.js",
+    "old": "groupsList = all.slice(0, GROUP_MAX).map((a) => a.mark);",
+    "new": "groupsList = all.map((a) => a.mark);",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-shut-and-the-dungeon-unasked",
+    "file": "src/scenes/gatherHost.js",
+    "old": "if (book.state.open !== true || !isVec3(pos) || dungeon) return groupsList;",
+    "new": "if (!isVec3(pos)) return groupsList;",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-never-filtered",
+    "file": "src/systems/travelViewFilters.js",
+    "old": "  if (k === 'gather') return 'gathering';   // GATHER-OW\n",
+    "new": "",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-dot",
+    "file": "src/ui/travelViewHud.js",
+    "old": "  if (k === 'gather') return k;   // GATHER-OW: a profession's group of nodes\n",
+    "new": "",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-brass",
+    "file": "src/ui/travelViewHud.js",
+    "old": "const color = look === 'gather' ? (m.color ?? C.brass) : look === 'party'",
+    "new": "const color = look === 'gather' ? C.brass : look === 'party'",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "GATHER-OW-the-world-asks-none",
+    "file": "src/scenes/world.js",
+    "old": " for (const g of gatherHost?.overworldGroups(walkMode ? player.pos : cam.pos) ?? []) marks.push(g);",
+    "new": "",
+    "tests": [
+      "test/gatherow.test.js"
+    ]
+  },
+  {
+    "name": "MORE-NODES-the-woods-as-they-were",
+    "file": "src/net/nodeLaw.js",
+    "old": "  [CLIMATES.Woodlands]: counts(12, 8, 4, 3),",
+    "new": "  [CLIMATES.Woodlands]: counts(6, 4, 2, 3),",
+    "tests": [
+      "test/prof1_law.test.js",
+      "test/prof1_client.test.js",
+      "test/prof1_service.test.js"
+    ]
+  },
+  {
+    "name": "MORE-NODES-the-mountain-veins-as-they-were",
+    "file": "src/net/nodeLaw.js",
+    "old": "  [CLIMATES.Mountain]: counts(4, 4, 12, 5),",
+    "new": "  [CLIMATES.Mountain]: counts(4, 4, 6, 5),",
+    "tests": [
+      "test/prof2_law.test.js",
+      "test/prof2_client.test.js"
     ]
   }
 ]

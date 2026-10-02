@@ -49,17 +49,19 @@ export const NODE_KINDS = Object.freeze({ tree: 1, herb: 2, vein: 3, boulder: 4,
 
 const counts = (tree, herb, vein, boulder) => Object.freeze({ tree, herb, vein, boulder });
 /** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). BOULDERS (FIELD BUGS 2026-10-01, the
- *  service's acct47): the boulders 3 / 4 / 5 where they were 1 / 2 / 3 - a field's pieces hold one on each side now. */
+ *  service's acct47): the boulders 3 / 4 / 5 where they were 1 / 2 / 3 - a field's pieces hold one on each side now.
+ *  MORE-NODES (2026-10-02, Mac: "increase all profession nodes", "Double"; acct48): the trees, the herb patches and the
+ *  veins twice what they were - a day's sixty a profession is the bound, so it is the walk between nodes that halves. */
 export const NODE_COUNTS = Object.freeze({
-  [CLIMATES.Woodlands]: counts(6, 4, 2, 3),
-  [CLIMATES.MountainWoods]: counts(5, 3, 3, 4),
-  [CLIMATES.Mountain]: counts(2, 2, 6, 5),
-  [CLIMATES.HauntedWoodlands]: counts(4, 4, 2, 3),
-  [CLIMATES.Swamp]: counts(3, 5, 1, 0),
-  [CLIMATES.Rainforest]: counts(6, 5, 1, 0),
-  [CLIMATES.Subtropical]: counts(4, 4, 2, 3),
-  [CLIMATES.Desert]: counts(0, 3, 5, 5),
-  [CLIMATES.Desert2]: counts(0, 3, 5, 5),
+  [CLIMATES.Woodlands]: counts(12, 8, 4, 3),
+  [CLIMATES.MountainWoods]: counts(10, 6, 6, 4),
+  [CLIMATES.Mountain]: counts(4, 4, 12, 5),
+  [CLIMATES.HauntedWoodlands]: counts(8, 8, 4, 3),
+  [CLIMATES.Swamp]: counts(6, 10, 2, 0),
+  [CLIMATES.Rainforest]: counts(12, 10, 2, 0),
+  [CLIMATES.Subtropical]: counts(8, 8, 4, 3),
+  [CLIMATES.Desert]: counts(0, 6, 10, 5),
+  [CLIMATES.Desert2]: counts(0, 6, 10, 5),
 });
 /** How many nodes of `kind` a pixel of `climate` holds a day. */
 export const nodeCount = (climate, kind) => NODE_COUNTS[climate]?.[kind] ?? 0;

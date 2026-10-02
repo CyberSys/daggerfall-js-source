@@ -385,9 +385,9 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
   const rocks = law.map((v) => [v.u * TERRAIN_SIZE + 3, 0, v.v * TERRAIN_SIZE - 2, v.u * TERRAIN_SIZE + 9, 7, v.v * TERRAIN_SIZE + 2]);
   const quarry = boulders({ x: px, y: py, day, climate: MOUNTAIN }).map((b) => [b.u * TERRAIN_SIZE - 2, 0, b.v * TERRAIN_SIZE - 2, b.u * TERRAIN_SIZE + 2, 5, b.v * TERRAIN_SIZE + 2]);   // ROCK-FOOT: the boulders' own, claimed first
   const stood = standMineNodes({ px, py, day, climate: MOUNTAIN, region: WAYREST, confirmed: true, samples, tilemap, rocks: [...quarry, ...rocks] });
-  assert.equal(stood.filter((n) => n.what === 'vein').length, 7, 'the Mountain\'s six and Wayrest\'s one');
+  assert.equal(stood.filter((n) => n.what === 'vein').length, 13, 'the Mountain\'s twelve (PIN MOVED, MORE-NODES) and Wayrest\'s one');
   const first = stood.find((n) => n.signature);
-  assert.deepEqual([first.slot, first.material, first.rock], [6, 'ore:mithril', rocks[6]], 'Wayrest\'s signature, at its rock piece');
+  assert.deepEqual([first.slot, first.material, first.rock], [12, 'ore:mithril', rocks[12]], 'Wayrest\'s signature, at its rock piece');
   const r = await book.harvest({ node: first.key, kind: 'ore', climate: MOUNTAIN, region: WAYREST, act: { strikes: 4, glints: 4, clean: true }, at: NOON - 1 });
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.data.material, 'ore:mithril');

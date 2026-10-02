@@ -21607,7 +21607,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // OW6 (2026-09-29, the player: "If a camp is spawned, it should show in the overworld"): THE CAMPS - every group
     // standing about, a camp, a pack or a band stood: mine, and each peer's by the tags their frames carry
     // (world/campShared.js) - one mark where its living members stand, with its kind and its number; gone with its last
-    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp', pick: true });   // OW-ATTACK: pressable
+    for (const c of travelViewCamps()) marks.push({ key: `camp:${c.key}`, at: [c.at[0], c.at[1] + 2, c.at[2]], label: c.label, kind: 'camp', pick: true }); for (const g of gatherHost?.overworldGroups(walkMode ? player.pos : cam.pos) ?? []) marks.push(g);   // OW-ATTACK: pressable; GATHER-OW: each profession's group of nodes near me, a glyph (scenes/gatherHost.js overworldGroups)
     // BOUNTY-OVERWORLD (the player: "can the bounties also be shown on the overworld map"): EVERY BOUNTY I HOLD - its
     // hunt's pixel (the held map's black circle, scenes/bountyHost.js mapMarks), its foes and its distance, held at the
     // edge off the picture as the journey's end is, so the way to it is always shown

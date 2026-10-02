@@ -283,7 +283,7 @@ test('PROF1 faces: a patch stands where DFU\'s nature would - on grass, not wate
   const cliff = new Float32Array(hDim * hDim).map((_, i) => ((Math.floor(i / hDim) % 2) ? 1 : 0));
   assert.equal(natureStandsAt(cliff, grass, null, 10, 10), null, 'too steep');
   const stood = standPatches({ px: 400, py: 200, day: 20000, climate: 231, samples: flat, tilemap: grass });
-  assert.equal(stood.length, 4, 'Woodlands: four');
+  assert.equal(stood.length, 8, 'Woodlands: eight (PIN MOVED, MORE-NODES)');
   assert.equal(patchFlats(stood[0]).length, PATCH_FLATS);
   assert.deepEqual(standPatches({ px: 400, py: 200, day: 20000, climate: 223, samples: flat, tilemap: grass }), [], 'the sea stands none');
 });

@@ -1783,3 +1783,13 @@ each one line to change:
 - **A band met with the view down** (2026-09-29, at the merge of AUDIT OW5 and OW5b) - stood WHERE IT IS, about 140 m off
   (AUDIT OW5b B2, by CAMP-FAR's own 100-150 m: come across, not landed on); AUDIT OW5 had left it Mac's call. One line
   to change back: `bandStand`'s distances.
+
+## GATHER-OW - the professions' groups on the Overworld (2026-10-02, Mac)
+
+Mac: *"allow them to appear in the overworld without being overwhelming, maybe a glyph marker showing where a group of
+them are"*; asked, "Groups nearby". One mark a profession a stood pixel (`gather <profession>`): a diamond in the
+profession's compass colour (`ui/nodeMarks.js`) at the middle of its nodes not yet worked today, its count beside it,
+the nearest twelve within 3 km, read again twice a second (`scenes/gatherHost.js` overworldGroups); a sixth filter,
+Gathering (`systems/travelViewFilters.js`); drawn by `ui/travelViewHud.js` (look `gather`, `m.color`); fed beside the
+camps in `scenes/world.js` travelViewMarks. Not pickable - a click there falls to the ground and walks to it. See
+`06-Systems/Professions-Arc.md` (MORE-NODES, GATHER-OW). Pins `test/gatherow.test.js`.
