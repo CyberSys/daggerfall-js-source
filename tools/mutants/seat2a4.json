@@ -29,8 +29,8 @@
  {
   "name": "SEAT2a4-wire-hp",
   "file": "src/net/wire.js",
-  "old": "    case 'hp': return isId(m.id) && siegeHp(m.h) && siegeHp(m.m) && m.h <= m.m ?",
-  "new": "    case 'hp': return isId(m.id) && siegeHp(m.h) && siegeHp(m.m) ?",
+  "old": "    case 'hp': return isBody(m.id) && siegeHp(m.h) && siegeHp(m.m) && m.h <= m.m ?",
+  "new": "    case 'hp': return isBody(m.id) && siegeHp(m.h) && siegeHp(m.m) ?",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -38,8 +38,8 @@
  {
   "name": "SEAT2a4-wire-fell",
   "file": "src/net/wire.js",
-  "old": "    case 'fell': return isId(m.id) && isId(m.by) ?",
-  "new": "    case 'fell': return isId(m.id) ?",
+  "old": "    case 'fell': return isBody(m.id) && isBody(m.by) && (isId(m.id) || isId(m.by)) ?",
+  "new": "    case 'fell': return isBody(m.id) && (isId(m.id) || isId(m.by)) ?",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -65,8 +65,8 @@
  {
   "name": "SEAT2a4-wire-f-count",
   "file": "src/net/wire.js",
-  "old": "      if (!Array.isArray(m.b) || m.b.length < 3 || m.b.length > 4) return null;",
-  "new": "      if (!Array.isArray(m.b) || m.b.length > 4) return null;",
+  "old": "(m.v === 1 ? m.b.length !== 0 : m.b.length < 3 || m.b.length > 4)",
+  "new": "(m.v === 1 ? m.b.length !== 0 : m.b.length > 4)",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -182,8 +182,8 @@
  {
   "name": "SEAT2a4-clock",
   "file": "src/net/siegeLink.js",
-  "old": "export const siegeClockText = (ms) => { const t = Math.max(0, Math.ceil(ms / 1000));",
-  "new": "export const siegeClockText = (ms) => { const t = Math.max(0, Math.floor(ms / 1000));",
+  "old": "  const t = Math.max(0, Math.ceil(ms / 1000)), ss",
+  "new": "  const t = Math.max(0, Math.floor(ms / 1000)), ss",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
@@ -695,8 +695,8 @@
  {
   "name": "SEAT2a4-ses-watch",
   "file": "src/net/siegeSession.js",
-  "old": "      if (!s || s.side === 'watch') return false;\n      const f = s.state.roll[id];\n      return",
-  "new": "      if (!s) return false;\n      const f = s.state.roll[id];\n      return",
+  "old": "      if (!s || s.side === 'watch') return false;\n      if (isSiegeNpcId(id))",
+  "new": "      if (!s) return false;\n      if (isSiegeNpcId(id))",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]

@@ -414,8 +414,8 @@
  {
   "name": "SEAT1d-plan-lapse-besieged",
   "file": "src/net/townSeatLaw.js",
-  "old": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';",
-  "new": "  const keeps = (s) => s.holder;",
+  "old": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse' && stateOf.get(s.key) !== 'revolt';",
+  "new": "  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'revolt';",
   "tests": [
    "test/seat1d_client.test.js"
   ]

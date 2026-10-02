@@ -21,7 +21,7 @@ import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.
 import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
 import { marksText } from './marksLaw.js';   // AUDIT-SEATS L7: "1,200 Drakes"
-import { fortWork } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle
+import { fortWork, revoltDue, REVOLT } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle; part two (c): a seat at Standing 0 revolts
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
 const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
@@ -436,7 +436,8 @@ export const seatDefence = (own, standing, extra = 0, held = false, liegeReach =
  *   contested   an unheld seat whose two first claimants stand within 10% (`{ key, a, b }`) - a Tourney decides it;
  *   upkeep      SEAT1d: each held seat's week paid (`{ key, guild, amount, paid, owed, state }` - 'paid'; 'late', with
  *               the week in Neglect's arrears; 'neglect', its first short week; 'lapse', its second), in key order out
- *               of what the claims left - reckoned before the Rights, so a Charter that lapses is no siege's;
+ *               of what the claims left - reckoned before the Rights, so a Charter that lapses is no siege's; SEAT2b part
+ *               two (c): 'revolt' (nothing paid) where the holder's revolt this week was not put down (`revolted`);
  *   rights      a Right of Siege granted (`{ key, guild, total, defence }`) - one a guild and one a seat a week, the
  *               strongest first, a seat in truce (changed hands at the last Turning) never challenged; AUDIT-SEATS S3:
  *               a seat's `carried` Right (its siege void this week, 17) granted before any, `carried: true`;
@@ -444,12 +445,14 @@ export const seatDefence = (own, standing, extra = 0, held = false, liegeReach =
  *               state }` - 'law', its cost paid (a Bounty's the `setAside` its holder named, escrowed), or 'unpaid');
  *   standings   SEAT1d: every held seat's Standing after its week (`{ key, guild, standing, changes }`, standingWeek);
  *   held        a held seat no Right was granted against (`{ key, guild, standing }`), its Standing as standings says;
- *   legacy      what each guild carries into the next week at each seat (`{ key, guild, amount }`), 10% of its week.
+ *   legacy      what each guild carries into the next week at each seat (`{ key, guild, amount }`), 10% of its week;
+ *   revolts     SEAT2b part two (c): a held seat no Right was granted against whose Standing after its week is nought
+ *               (`{ key, guild }`) - it revolts at its holder's next siege window (7.7).
  * @param {{ week: number, seats: any[], treasuries: Map<string, number>, active?: number }} o
  */
 export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per }) {
   const purse = new Map(treasuries);
-  const claims = [], contested = [], rights = [], held = [], legacy = [], upkeep = [], edicts = [], standings = [];
+  const claims = [], contested = [], rights = [], held = [], legacy = [], upkeep = [], edicts = [], standings = [], revolts = [];
   const sorted = [...seats].sort((a, b) => a.key - b.key);
   for (const s of sorted) {
     for (const g of s.guilds) {
@@ -480,13 +483,16 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
   for (const s of sorted) {
     if (!s.holder) continue;
     const g = s.holder.guild, owed = Math.max(0, s.holder.owed ?? 0);
+    // SEAT2b part two (c) (7.7: "Fail, and the Charter lapses"): a Charter whose revolt this week was not put down lapses
+    // here - reckoned no further (no upkeep, no Right, no Edict, no Standing), as a struck seat's (AUDIT-SEATS S4)
+    if (s.holder.revolted) { stateOf.set(s.key, 'revolt'); upkeep.push({ key: s.key, guild: g, amount: 0, paid: 0, owed: 0, state: 'revolt' }); continue; }
     const amount = seatUpkeep(s.tier, extraOf(g), active), due = amount + owed, has = purse.get(g) ?? 0;
     const state = has >= due ? (owed > 0 ? 'late' : 'paid') : owed > 0 ? 'lapse' : 'neglect';
     if (state === 'paid' || state === 'late') purse.set(g, has - due);
     stateOf.set(s.key, state);
     upkeep.push({ key: s.key, guild: g, amount, paid: state === 'paid' || state === 'late' ? due : 0, owed: state === 'neglect' ? amount : 0, state });
   }
-  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse';
+  const keeps = (s) => s.holder && stateOf.get(s.key) !== 'lapse' && stateOf.get(s.key) !== 'revolt';
   // AUDIT-SEATS S3 (17: "At that Turning the carried Right is the challenger's one Right of Siege (5.2 step 4 grants it no
   // other), and the seat is granted no other challenge"): `carried` a Right whose siege was void this week (`{ guild,
   // total, defence }` - the Right as it was granted), granted again first where the holder keeps its Charter
@@ -533,8 +539,11 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     });
     standings.push({ key: s.key, guild: s.holder.guild, standing: w.standing, changes: w.changes });
     if (unchallenged) held.push({ key: s.key, guild: s.holder.guild, standing: w.standing });
+    // SEAT2b part two (c) (7.7: "A seat at Standing 0 revolts at its next siege window"): its Standing after the week at
+    // nought - DECIDED: where a Right of Siege is granted at it the siege takes the window (a siege held would raise it)
+    if (unchallenged && revoltDue(w.standing)) revolts.push({ key: s.key, guild: s.holder.guild });
   }
-  return { claims, contested, upkeep, rights, edicts, standings, held, legacy };
+  return { claims, contested, upkeep, rights, edicts, standings, held, legacy, revolts };
 }
 
 // ─── THE CHRONICLE'S WORDS (SEAT0 9.2) ─────────────────────────────
@@ -588,6 +597,11 @@ export function chronicleLine(row, seat, zero = null) {
     case 'siege-absent': return `${when}, neither side came to the siege of ${seat.name}; ${guildWords(d.guild)} keeps it.`;
     case 'tourney-won': return `${when}, ${guildWords(d.guild)} won the Tourney for ${c}.`;
     case 'tourney-unheld': return `${when}, the Tourney for ${seat.name} was fought, but neither guild could pay for ${c}.`;
+    // SEAT2b part two (c) (7.7; 9.2: "Anticlere rose against the Silver Hand. The rebel captain fell at the palace door,
+    // and the Charter held."): a revolt due at the Turning, put down, or standing at its window's end (the Charter lapsed)
+    case 'revolt': return `${when}, ${seat.name}'s Standing under ${guildWords(d.guild)} fell to nothing, and the town rose in revolt.`;
+    case 'revolt-down': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}. The rebel captain fell at the palace door, and the Charter held.`;
+    case 'revolt-stood': return `${when}, ${seat.name} rose against ${guildWords(d.guild)}, and the rebel captain held the palace door. ${c} lapsed.`;
     // AUDIT-SEATS S3 (17: "voids the siege: the holder keeps the seat for now, and the challenger's Right carries to the
     // holder's window the next week"): a battle no result reached by its week's Turning
     case 'siege-void': return d.battle === 'tourney'
@@ -672,6 +686,7 @@ export const seatHolderLine = (holder) => (holder
 /** This week's battle at a seat, in words - a Contested seat's Tourney, or a Right of Siege - or null. */
 export function seatBattleLine(battle) {
   if (!battle) return null;
+  if (battle.kind === 'revolt') return `The town rises against ${guildWords(battle.against)} this week - a Rebel Captain holds the palace door.`;   // SEAT2b part two (c)
   if (battle.kind === 'tourney') return `${GuildWords(battle.guild)} and ${guildWords(battle.against)} meet in a Tourney for the Charter this week.`;
   return `${GuildWords(battle.guild)} has won a Right of Siege against ${guildWords(battle.against)} this week.`;
 }
@@ -983,9 +998,13 @@ export const siegeStartMs = (week, day, hour) => seatWeekStartMs(week) + WEDNESD
 export const CROWN_SIEGE_SLOT = Object.freeze({
   daggerfall: Object.freeze({ day: 3, hour: 20 }), wayrest: Object.freeze({ day: 3, hour: 21 }), sentinel: Object.freeze({ day: 3, hour: 22 }),
 });
-/** How long a battle runs (6.2, 6.7): a palace siege 30 minutes, a crown's 45, a Tourney 20. */
-export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });
-export const battleLengthMs = (b) => (b.kind === 'tourney' ? BATTLE_LENGTH_MS.tourney : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);
+/** How long a battle runs (6.2, 6.7): a palace siege 30 minutes, a crown's 45, a Tourney 20. SEAT2b part two (c) (7.7:
+ *  "inside the window's two hours"): a revolt its whole window (net/fortLaw.js REVOLT.windowMs). */
+export const BATTLE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: 2 * 3600 * 1000 });
+export const battleLengthMs = (b) => (b.kind === 'tourney' || b.kind === 'revolt' ? BATTLE_LENGTH_MS[b.kind] : BATTLE_LENGTH_MS[b.tier] ?? BATTLE_LENGTH_MS.palace);
+/** SEAT2b part two (c): a battle fought in the holder's siege window - a siege, and a revolt (6.3: "a revolt takes the
+ *  holder's window"; 7.7: "at its next siege window" - DECIDED: a crown's is its Saturday slot, as its sieges' is). */
+export const atSiegeWindow = (b) => b?.kind === 'siege' || b?.kind === 'revolt';
 /** WHAT A BATTLE HOLDS OF ITS GUILDS' WEEK (6.3: "No guild fights twice at once") - DECIDED: a palace siege and a
  *  Tourney their two-hour window; a crown siege the hour its slot keeps from the next crown's (45 minutes and the 10 a
  *  side may arrive late), so a guild holding one crown and challenging another fights both. */
@@ -993,8 +1012,8 @@ export const BATTLE_BLOCK_MS = 2 * H;
 export const battleSpanMs = (b) => (b.kind === 'siege' && b.tier === 'crown' ? H : BATTLE_BLOCK_MS);
 /** The battle's first start in its week: a crown siege's slot, a Tourney's Wednesday 20:00, a siege's frozen window. */
 export function battlePreferredMs(week, b) {
-  if (b.kind === 'siege' && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom]) { const s = CROWN_SIEGE_SLOT[b.kingdom]; return siegeStartMs(week, s.day, s.hour); }
-  const w = b.kind === 'siege' && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;
+  if (atSiegeWindow(b) && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom]) { const s = CROWN_SIEGE_SLOT[b.kingdom]; return siegeStartMs(week, s.day, s.hour); }
+  const w = atSiegeWindow(b) && b.window && siegeWindowOk(b.window.day, b.window.hour) ? b.window : SIEGE_WINDOW_DEFAULT;
   return siegeStartMs(week, w.day, w.hour);
 }
 /** Every start a battle may take in `week`, in time order: each window hour of Wednesday to Saturday. */
@@ -1019,7 +1038,7 @@ export function placeBattles(week, battles) {
     && at < p.startsAt + battleSpanMs(p) && p.startsAt < at + battleSpanMs(b));
   // AUDIT-SEATS L5: the crown sieges first - their Saturday slots are fixed "whatever the holder's window" (6.3), and a
   // crown slot is among what the others move around - then the rest in key order
-  const crownFirst = (b) => (b.kind === 'siege' && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom] ? 0 : 1);
+  const crownFirst = (b) => (atSiegeWindow(b) && b.tier === 'crown' && CROWN_SIEGE_SLOT[b.kingdom] ? 0 : 1);   // SEAT2b part two (c): a crown's revolt at its slot too
   for (const b of [...battles].sort((x, y) => crownFirst(x) - crownFirst(y) || x.key - y.key)) {
     const want = battlePreferredMs(week, b);
     let at = null;
@@ -1063,6 +1082,8 @@ export function battleAnnouncement(b, seatName) {
   const when = battleWhenText(b.startsAt);
   const moved = b.moved ? ' (moved, so that no guild fights twice at once)' : '';
   if (b.kind === 'tourney') return `${GuildWords(b.attackerGuild)} and ${guildWords(b.defenderGuild)} meet in a Tourney for ${seatName}. Battle is joined ${when}${moved}.`;
+  // SEAT2b part two (c) (7.7): a revolt - its holder must fell the Captain inside the window's two hours
+  if (b.kind === 'revolt') return `${seatName} rises against ${guildWords(b.defenderGuild)}: a Rebel Captain and ${countWords(REVOLT.rebels)} rebels hold its palace door. The revolt begins ${when}${moved}: fell the Captain within two hours, or the Charter lapses.`;
   return `${GuildWords(b.attackerGuild)} has won the Right of Siege at ${seatName}. ${GuildWords(b.defenderGuild)} holds its Charter. Battle is joined ${when}${moved}.`;
 }
 /** A side's line: "Attackers: 7 of 10 signed (1 Sellsword)." */
@@ -1090,8 +1111,9 @@ export const SIGN_WHY = Object.freeze({
 /** The field a client derives from the town, settled for a battle (DECIDED, part three): the first one an attacker and a
  *  defender submitted alike (two sides whose interests differ agreeing on it), else - once the battle is joined, a side
  *  absent - the one most submitted, the earliest first. `rows` `[{ side, field, at }]` (`field` its JSON), oldest
- *  first. Null while nothing settles it. */
-export function settleField(rows, joined) {
+ *  first. Null while nothing settles it. SEAT2b part two (c): a revolt (`kind`) has the holder's side alone - its first
+ *  defender's field settles it (DECIDED: no other side's interest to weigh it against; the rising is the relay's). */
+export function settleField(rows, joined, kind = 'siege') {
   const seen = new Map();
   for (const r of rows ?? []) {
     const k = String(r.field);
@@ -1100,6 +1122,7 @@ export function settleField(rows, joined) {
     if (r.side === 'attack') v.attack = true; else if (r.side === 'defend') v.defend = true;
     v.n++;
     if (v.attack && v.defend) return k;
+    if (kind === 'revolt' && v.defend) return k;   // SEAT2b part two (c): a revolt has one side - its first defender's
   }
   if (!joined || !seen.size) return null;
   return [...seen.values()].sort((a, b) => b.n - a.n || a.at - b.at)[0].field;

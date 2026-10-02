@@ -165,7 +165,7 @@
  {
   "name": "AUDIT-SEATS-S3-void-history",
   "file": "server-account/src/seatTurning.js",
-  "old": "      stmts.push(history(key, 'siege-void', { battle: u.kind, guild: nameOr(u.attacker), holder: nameOr(u.defender), carried }));\n",
+  "old": "      if (u.kind !== 'revolt') stmts.push(history(key, 'siege-void', { battle: u.kind, guild: nameOr(u.attacker), holder: nameOr(u.defender), carried }));\n",
   "new": "",
   "tests": [
    "test/audit_seats_service.test.js"

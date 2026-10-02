@@ -388,6 +388,7 @@ test('AUDIT-SEATS R6 THE LATE PASS (server-account/src/seatSiege.js siegePass): 
   assert.equal((await ask(fighter, { key: KEY2 })).body.error, 'pass-late', 'a battle whose field never settled: nobody fought it');
   now = S + 7200 - 1;
   assert.equal((await ask(fighter, { key: SK })).body.late, undefined, 'inside the window: an ordinary pass');
+  assert.equal((await ask(fighter, { key: SK, week: W + 1 })).body.week, W, 'a week named that is not last week\'s is this week\'s');
   // after the Turning: last week's battle, asked by name - PIN MOVED (AUDIT-SEATS S3): fought, its result written before
   // its Turning (a battle no receipt ever reached is voided there, and its late receipt refused - seatTurning.js)
   raw.prepare("INSERT INTO town_seat_results (week, key, result, raised, winner, rid, at) VALUES (?, ?, 'attack', 1, 'attack', 'r6-result', ?)").run(W, SK, S + 1800);

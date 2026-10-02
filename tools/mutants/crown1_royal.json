@@ -469,8 +469,8 @@
  {
   "name": "CROWN1R-pass-kind",
   "file": "src/net/identityToken.js",
-  "old": "(c.sn !== 'siege' && c.sn !== 'tourney' && !royal)) return false;",
-  "new": "(c.sn !== 'siege' && c.sn !== 'tourney')) return false;",
+  "old": "(c.sn !== 'siege' && c.sn !== 'tourney' && c.sn !== 'revolt' && !royal)) return false;",
+  "new": "(c.sn !== 'siege' && c.sn !== 'tourney' && c.sn !== 'revolt')) return false;",
   "tests": [
    "test/crown1_royal_law.test.js",
    "test/crown1_royal_relay.test.js"

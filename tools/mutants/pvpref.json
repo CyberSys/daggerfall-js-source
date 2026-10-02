@@ -730,7 +730,7 @@
  {
   "name": "PVPREF-wire-any-to",
   "file": "src/net/wire.js",
-  "old": "  if (typeof m.to !== 'string' || !(ID_RE.test(m.to) || (work && m.k === 'blow'))) return null;\n  if (m.k === 'ask' || m.k === 'yes')",
+  "old": "  if (typeof m.to !== 'string' || !(ID_RE.test(m.to) || (work && m.k === 'blow') || npc)) return null;\n  if (m.k === 'ask' || m.k === 'yes')",
   "new": "  if (typeof m.to !== 'string') return null;\n  if (m.k === 'ask' || m.k === 'yes')",
   "tests": [
    "test/pvpref_law.test.js"

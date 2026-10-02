@@ -300,7 +300,7 @@ export function createSeatTab(host, ui) {
     const busy = ui.busy();
     out.append(el('p', 'notice-seat-battle', fightAnnouncement(f, seat.name)));   // AUDIT-SEATS G1: its start is the service's seconds (the law reads ms)
     const label = f.kind === 'tourney' ? ['The first contender', 'The second contender'] : ['Attackers', 'Defenders'];
-    out.append(el('p', 'notice-seat-mine', sideLine(label[0], f.sides.attack.n, f.max, f.sides.attack.swords)));
+    if (f.kind !== 'revolt') out.append(el('p', 'notice-seat-mine', sideLine(label[0], f.sides.attack.n, f.max, f.sides.attack.swords)));   // SEAT2b part two (c): a revolt's rising is the relay's own
     out.append(el('p', 'notice-seat-mine', sideLine(label[1], f.sides.defend.n, f.max, f.sides.defend.swords)));
     const mine = f.mine ?? null;
     if (!f.open) out.append(el('p', 'notice-seat-mine', 'The rosters are closed.'));

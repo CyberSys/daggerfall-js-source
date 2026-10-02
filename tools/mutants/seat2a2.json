@@ -62,8 +62,8 @@
  {
   "name": "SEAT2a2-law-lengths",
   "file": "src/net/siegeRef.js",
-  "old": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000 });",
-  "new": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 30 * 60_000, tourney: 20 * 60_000 });",
+  "old": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 45 * 60_000, tourney: 20 * 60_000, revolt: 2 * 3600 * 1000 });",
+  "new": "export const SIEGE_LENGTH_MS = Object.freeze({ palace: 30 * 60_000, crown: 30 * 60_000, tourney: 20 * 60_000, revolt: 2 * 3600 * 1000 });",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -112,8 +112,8 @@
  {
   "name": "SEAT2a2-law-start-side",
   "file": "src/net/siegeRef.js",
-  "old": "banners: field.banners.map(() => ({ side: kind === 'tourney' ? null : 'defend', raise: 0, by: null })),",
-  "new": "banners: field.banners.map(() => ({ side: null, raise: 0, by: null })),",
+  "old": "field.banners.map(() => ({ side: kind === 'tourney' ? null : 'defend', raise: 0, by: null })),",
+  "new": "field.banners.map(() => ({ side: null, raise: 0, by: null })),",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -122,8 +122,8 @@
  {
   "name": "SEAT2a2-law-tourney-length",
   "file": "src/net/siegeRef.js",
-  "old": "  const length = kind === 'tourney' ? SIEGE_LENGTH_MS.tourney : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);",
-  "new": "  const length = SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace;",
+  "old": "  const length = kind === 'tourney' ? SIEGE_LENGTH_MS.tourney : kind === 'revolt' ? SIEGE_LENGTH_MS.revolt : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);",
+  "new": "  const length = kind === 'revolt' ? SIEGE_LENGTH_MS.revolt : (SIEGE_LENGTH_MS[tier] ?? SIEGE_LENGTH_MS.palace);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -302,8 +302,8 @@
  {
   "name": "SEAT2a2-law-honour-felled",
   "file": "src/net/siegeRef.js",
-  "old": "export const honoured = (f, b) => (f.felled ?? 0) > 0 ||",
-  "new": "export const honoured = (f, b) => (f.felled ?? 0) > 1 ||",
+  "old": "export const honoured = (f, b) => b.kind !== 'revolt' && ((f.felled ?? 0) > 0 ||",
+  "new": "export const honoured = (f, b) => b.kind !== 'revolt' && ((f.felled ?? 0) > 1 ||",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -312,8 +312,8 @@
  {
   "name": "SEAT2a2-law-honour-half",
   "file": "src/net/siegeRef.js",
-  "old": "(f.stood ?? 0) * 1000 >= (Math.max(b.at, b.startMs) - b.startMs) / 2;",
-  "new": "(f.stood ?? 0) * 1000 > (Math.max(b.at, b.startMs) - b.startMs) / 2;",
+  "old": "(f.stood ?? 0) * 1000 >= (Math.max(b.at, b.startMs) - b.startMs) / 2);",
+  "new": "(f.stood ?? 0) * 1000 > (Math.max(b.at, b.startMs) - b.startMs) / 2);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -762,8 +762,8 @@
  {
   "name": "SEAT2a2-relay-here",
   "file": "server/src/index.js",
-  "old": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); list.push(f);",
-  "new": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = true; list.push(f);",
+  "old": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = !!this._siegeSocketOf(sub); f.sub = sub; list.push(f);",
+  "new": "      for (const [sub, f] of Object.entries(s.fighters)) if (f.side) { f.here = true; f.sub = sub; list.push(f);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"
@@ -772,8 +772,8 @@
  {
   "name": "SEAT2a2-relay-fan",
   "file": "server/src/index.js",
-  "old": "      this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);\n      if (events.some((e) => e.k === 'end'))",
-  "new": "      if (false) this._siegeFan([siegeFieldFrame(b, this._siegeCounts(s))]);\n      if (events.some((e) => e.k === 'end'))",
+  "old": "      this._siegeFan([...struck, siegeFieldFrame(b, this._siegeCounts(s))]);",
+  "new": "      this._siegeFan([...struck]);",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

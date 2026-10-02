@@ -374,8 +374,8 @@
  {
   "name": "SEAT2a3-pass-joined",
   "file": "server-account/src/seatSiege.js",
-  "old": "    const f = settleField(rows.map((r) => ({ side: r.side, field: r.field, at: Number(r.at) })), nowS >= b.starts_at);",
-  "new": "    const f = settleField(rows.map((r) => ({ side: r.side, field: r.field, at: Number(r.at) })), true);",
+  "old": "    const f = settleField(rows.map((r) => ({ side: r.side, field: r.field, at: Number(r.at) })), nowS >= b.starts_at, b.kind);",
+  "new": "    const f = settleField(rows.map((r) => ({ side: r.side, field: r.field, at: Number(r.at) })), true, b.kind);",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"
@@ -576,8 +576,8 @@
  {
   "name": "SEAT2a3-honours-h",
   "file": "server-account/src/seatSiege.js",
-  "old": "  if (c.h !== 1) return { ...out, honours: null };",
-  "new": "  if (c.h === 2) return { ...out, honours: null };",
+  "old": "  if (c.h !== 1 || b.kind === 'revolt') return { ...out, honours: null };",
+  "new": "  if (c.h === 2 || b.kind === 'revolt') return { ...out, honours: null };",
   "tests": [
    "test/seat2a_siege_service.test.js",
    "test/seat2a_siege_client.test.js"

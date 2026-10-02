@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8460` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8463` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11609,6 +11609,65 @@ Pinned: `test/seat2b_battle_law.test.js` (7), `test/seat2b_battle_relay.test.js`
 crown Throne, the pass's claims and identityToken.js's imports moved (PIN MOVED); the relay's version pins moved on to
 world148. Mutants: `tools/mutants/seat2b_battle.json` (64, all dead); fourteen older records re-aimed by content. Patch
 notes: `PATCH-NOTES-Seats.md` (Fortifications in battle).
+
+### SEAT2b part two (c) - the relay's own fighters: the Barracks' guards and the revolt
+
+2026-10-01, Mac: "Finish the seats"; "Let's pick up 482". Seats-Arc 6.1, 6.3, 7.5, 7.7, 9.2. Law (`src/net/siegeRef.js` -
+the Barracks' and the revolt's numbers net/fortLaw.js's, copied into the relay's leaf and pinned equal; the schedule's
+`src/net/townSeatLaw.js`), the pass (`src/net/identityToken.js` - `sn` 'revolt'), the relay (`server/src/index.js`
+`_siegeNpcBlow`, the room's beat), the wire (`src/net/wire.js` validSiegeIn, validSiegeOut), the service
+(`server-account/src/seatTurning.js`, `seatSiege.js`, `seatInfluence.js`; migration `0064_seat_revolts.sql`) and the client
+(`src/net/siegeLink.js`, `siegeSession.js`, the new `src/scenes/siegeNpcs.js`, the host's arms). `world148` re-hashed in
+place (undeployed); `acct61` (one deploy with parts (a) and (b)). With it SEAT2b is whole.
+
+- **"The gate's brain with adds"** (7.5; World-Bosses.md 17): bodies the relay owns - each a fighter's vitality of its
+  Renown, judged by the referee as a fighter is (a blow clipped to the weapon's bucket, a cast to its cap, the reach to
+  where its walk has carried it, on the field's ground), stepped at the battle's own beat. Each beat it is carried along
+  its walk, lands a blow in flight, keeps its mark three seconds or takes the nearest foe within its reach (`aggroM`) and
+  its leash of its post (`leashM`), winds a blow up on a mark within two metres - one beat, landing for its damage only
+  where the mark still stands within 3.5 m and unprotected, on the room's held vitality (a siege never touches the save's
+  health) - else walks at it a metre and a half short, or home with none. DECIDED (the bible names only the Captain's
+  vitality): a guard of Renown 30 (360) striking 20 every two seconds at 5 m/s; a rebel of Renown 20 (340) striking 14;
+  the Captain of Renown 50 (400, 7.7) striking 28 - every one of them outrun by a player.
+- **The Barracks' guards** (7.5: 2, 4, 6): at the Throne first, then the banners from the palace's end back to the Gate,
+  round again. DECIDED: a guard counts where it stands as a defender does (a banner or the Throne it stands at is
+  contested); it marks the nearest attacker within 12 m and follows none past 24 m from its post; felled, it rises with
+  the defenders' wave (the Walls' quicker) AT THEIR CAMP, whole and protected, and walks back to its post. A Tourney
+  fields none. The pass's `sx` already carried the Barracks' tier (part (b)).
+- **The revolt** (7.7): the Turning that leaves a held seat's Standing at nought, no Right granted there (DECIDED: a siege
+  takes the window - a siege held would raise it), places a revolt the next week at the holder's window (6.3: "a revolt
+  takes the holder's window"; DECIDED: a crown's at its Saturday slot, its sieges' window), two hours long - a battle row
+  of kind 'revolt' with no guild against the holder (`attacker` ''; migration 0064 widens the kind's CHECK, the table
+  rebuilt whole). The holder's members sign to defend it as for a siege; its pass is a defender's or a spectator's,
+  never an attacker's, with no works; its field settles on its first defender's (DECIDED: one side - no other interest
+  to weigh it against). In the room: a Rebel Captain (`n0`) at the palace door (the Throne's point) and twelve rebels on
+  a ring four metres about it, each holding its post (16 m reach, 30 m leash); no banner and no Throne; a felled rebel
+  never rises. The Captain's fall ends it `defend` - the holder's Standing back to 20 (never lowered) and the Chronicle's
+  "Anticlere rose against the Silver Hand. The rebel captain fell at the palace door, and the Charter held." (9.2); the
+  window out with him standing ends it `attack` - the Charter lapses (the seat unheld, its coming Edict void, a Neglect
+  lapse's statements). A revolt no result reached by the next Turning (nobody came, or no receipt was carried) lapses
+  the Charter there, reckoned no further (no upkeep, no Standing, no Right). DECIDED: a revolt earns no Honours (the
+  relay's receipts say `h` 0 and the service gives none) - a holder's own town risen against it is no war for the Spoils.
+  A Season's end resets every Standing halfway to 50, so none revolts at it.
+- **The wire**: a blow or a cast's `to` may name one, `n0`-`n12` (never a peer's id nor a work's); `hp` and `fell` name
+  one (a fighter felled by one, one felled by a fighter - never one by another); the field's frame carries `np` (each
+  `[id, kind's code, vitality, whole, x, z, tx, tz, down, its blow's landing]`, where it stands at the frame's moment)
+  and a revolt's `v` (its `b` empty). The measurement (6.1) counted six posing sockets for the guards; their state rides
+  the field's one frame a second instead, a lighter load than it measured.
+- **The client**: the fold keeps each one's place and walk (carried on at its pace), vitality, blow and flinch; the
+  HUD's works line counts the guards standing, a revolt's bar sets the holder against THE RISING with the Captain's
+  vitality and the rebels standing, its clock in hours, its result card PUTS DOWN THE REVOLT or THE REVOLT STANDS and
+  says no Honours; the session's foes include each one of the other side's standing (no heal reaches one), and the chat
+  says the Captain's fall and a fighter cut down by one. `scenes/siegeNpcs.js` draws them as Daggerfall's own sprites -
+  a guard the City Watch, the rebels a Rogue, a Barbarian and a Thief by turns, the Captain a Warrior a fifth taller -
+  walking, winding up, striking, flinching and falling, heard by their own clips, on the town's own billboard pass; its
+  bodies are the siege's melee, shaft and spell targets (never in `foes` - the gate host's law), found by the arms as a
+  peer's are.
+
+Pinned: `test/seat2b_guards_law.test.js` (9), `test/seat2b_guards_relay.test.js` (3, over the real Room),
+`test/seat2b_revolt_service.test.js` (3, through the real Worker), `test/seat2b_guards_client.test.js` (5); the relay's
+world148 row re-hashed in place. Mutants: `tools/mutants/seat2b_guards.json` (78, all dead); twenty-nine older records
+re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (Fortifications in battle; Revolts).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

@@ -696,6 +696,7 @@ import { CLASSIC_UPDATE_INTERVAL } from '../characters/weaponStates.js';   // DW
 import { RACES } from '../systems/races.js';   // DW-D: ArgonianInfiniteBreath
 import { stationSteps, harbourPortFor, coastalAt } from '../net/fortLaw.js';   // SEAT2b part two: a seat's crafting halls, its members' Harbour, a coast
 import { isWaterPixel } from '../ui/overworldModel.js';   // SEAT2b part two: a coast is the sea beside the town (the port's one water law)
+import { createSiegeNpcs } from './siegeNpcs.js';   // SEAT2b part two (c): the Barracks' guards and a revolt's rising, drawn
 import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../net/siegeSession.js';   // SEAT2a part four: a siege as this client fights it   // AUDIT-SEATS C1: the chat's `/leave`
 import { SIEGE_UNITS_PER_M, SIEGE_REACH, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM } from '../net/siegeRef.js';   // SEAT2b part two (b): a swing at the Gatehouse or the Ram
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
@@ -1165,6 +1166,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   let redChat = null;
   /** SEAT2a part four: the siege this client is in, made with the online session (net/siegeSession.js) - null offline. */
   let siegeSession = null;
+  /** SEAT2b part two (c): the relay's own fighters on this screen (scenes/siegeNpcs.js) - null offline. */
+  let siegeNpcs = null;
   /** AUDIT-SEATS C5: the battles' receipt carriers (net/siegeClaims.js) and the one HUD both draw through, kept here so the
    *  gate's frame can offer what they hold on their own clock - null offline. */
   let siegeClaims = null, royalClaims = null, siegeHud = null;
@@ -15841,6 +15844,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }), onLeave: () => leaveBattle() });
       siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk,
         nowMs: battleNowMs, here: (seat) => atSeat(seat) });
+      // SEAT2b part two (c): their feet on the town's ground, where the field's frame says they stand
+      siegeNpcs = createSiegeNpcs({ renderer, getTexture, uploadRecordFrame, audio, cam: () => cam.pos,
+        toScene: (x, z) => { const q = onlineToScene({ x, y: 0, z }); const y = heightAt(q[0], q[2]); return [q[0], Number.isFinite(y) ? y : player.feetAt()[1], q[2]]; } });
       // CROWN1 part two: A ROYAL TOURNEY - the same room's words, the same HUD; the bouts won carried to the service
       royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs });
       royalSession = createRoyalSession({ online, pass: (seat, field, watch) => seatBook.royalPass(seat, field, watch), claims: royalClaims, hud: siegeHud, movePlayer: siegeMoveTo,
@@ -16495,7 +16501,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  ring holds the body, and these hold the doors a map or a bed would open out of it. */
   function duelEnemyNear() { return !!duelMgr?.live; }
   /** A peer's body in THIS scene (peersNear's { id, feet, height }), or null. */
-  const duelBody = (peerId) => (peerId ? (peersNear()?.find((x) => x.id === peerId) ?? null) : null);
+  const duelBody = (peerId) => (peerId ? (peersNear()?.find((x) => x.id === peerId) ?? siegeNpcs?.body(peerId) ?? null) : null);   // SEAT2b part two (c): or one of a siege's relay-run fighters
   /** A peer's feet in the WORLD frame - their pose's own (net/online.js `shown`) - or null. */
   const duelWorldOf = (peerId) => { const q = peerId ? online?.peers.get(peerId)?.shown : null; return q && Number.isFinite(q.x) && Number.isFinite(q.y) && Number.isFinite(q.z) ? [q.x, q.y, q.z] : null; };
   /** Can I duel now: null, or the wire's word for why not. OUTDOORS ONLY (Mac's answer): the streaming world's exterior,
@@ -16689,7 +16695,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  outside a duel. A Royal Tourney's bout is blows alone (its referee takes no cast). */
   const siegeSpellMarks = () => {
     const bodies = battleFoeBodies(siegeSession);
-    return bodies.length ? bodies.map((b) => ({ ...b, name: peerName(b.id) ?? 'a foe' })) : null;
+    return bodies.length ? bodies.map((b) => ({ ...b, name: b.name ?? peerName(b.id) ?? 'a foe' })) : null;   // SEAT2b part two (c): a guard or a rebel by its own name
   };
   /** AUDIT-SEATS G5: A SPELL OF MINE MET A SIEGE'S FOE - its harm, counted on a stand-in of my own sheet
    *  (combat/siegeCombat.js siegeSpellNumbers), to the referee as a cast (it clips, and bounds the rate). */
@@ -19736,6 +19742,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     else if (key !== online.room) { if (!online.room || isWorldRoom(key) || isWorldRoom(online.room) || (isCellRoom(key) && online.inRoom(key)) || now - _onlineKeySince >= ROOM_HOLD_MS) { online.setLook(composeLook(playerEntity)); online.join(key, { ...pose, ...arm }); } }   // the look re-composed: the next room's hello carries the gear worn now (PROFILE2: through setLook, so a halo the join PROMOTES - no hello of its own - is told too)
     else online.sendPose({ ...pose, ...arm, ...poseFx() });   // PEERFX1: and my landed blows and the blows I took
     siegeSession?.tick();   // SEAT2a part four: the battle's pass, its `in`, its HUD, its window
+    if (siegeNpcs) { if (inSiegeRoom()) siegeNpcs.frame(siegeSession.npcs(), battleNowMs()); else siegeNpcs.leave(); }   // SEAT2b part two (c): the relay's own fighters, in its room alone
     royalSession?.tick();   // CROWN1 part two: the tourney's pass, its `in`, its HUD, its week
     // AUDIT-SEATS G5 (Seats-Arc 6.1: "Horses are dismounted on entry"): no rider in a siege's room - set on foot, said
     if (inSiegeRoom() && isRiding(player.transportMode)) { setTransportModeHere(TRANSPORT_MODES.Foot); townTalk.say(SIEGE_DISMOUNT_TEXT); }
@@ -24213,6 +24220,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (peerRiders) for (const b of peerRiders.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // RIDE: the others in the saddle; AUDIT FLICKER R3: off screen, a shadow still in reach
     if (peerWalkers) for (const b of peerWalkers.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // DISC23-B: and on foot, as they chose; AUDIT FLICKER R3: off screen, a shadow still in reach
     if (bandSprites) for (const b of bandSprites.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // OW-FOES: the bands near, as their monsters; AUDIT FLICKER R3: off screen, a shadow still in reach
+    if (siegeNpcs) for (const b of siegeNpcs.batches()) allBatches.push(b);   // SEAT2b part two (c): the guards, the rebels
     if (yards) for (const b of yards.batches()) { if (cullOn && billboardOutside(b)) { if (renderer.shadowReachBatch(b)) castBatches.push(b); continue; } allBatches.push(b); }   // HOME-YARD: the yards' flats, and the one being placed; AUDIT FLICKER R3: off screen, a shadow still in reach
     // NEAR-FIRST (2026-09-21): THE PIXELS ARE WALKED NEAREST FIRST. The
     // map's insertion order is the order the pixels streamed in, which

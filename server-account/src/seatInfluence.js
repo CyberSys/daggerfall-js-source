@@ -589,11 +589,19 @@ export async function battlesOf(db, week) {
       b.name AS bn, b.tag AS bt, b.heraldry AS bh, x.starts_at, x.ends_at, x.moved, x.state FROM town_seat_rights r JOIN guilds a ON a.id = r.guild_id
       LEFT JOIN guilds b ON b.id = r.against LEFT JOIN town_seat_battles x ON x.week = r.week AND x.key = r.key
     WHERE r.week = ?`).bind(week).all();
-  return new Map(results.map((r) => [Number(r.key), {
+  const out = new Map(results.map((r) => [Number(r.key), {
     kind: r.kind, guild: guildView(r.guild_id, r.an, r.at, r.ah), against: r.against ? guildView(r.against, r.bn, r.bt, r.bh) : null,
     startsAt: r.starts_at == null ? null : Number(r.starts_at), endsAt: r.ends_at == null ? null : Number(r.ends_at),
     moved: Number(r.moved ?? 0) === 1, state: r.state ?? null,
   }]));
+  // SEAT2b part two (c) (7.7): a revolt is no Right - its battle row alone names it, the holder it rises against `against`
+  const { results: revolts = [] } = await db.prepare(`SELECT x.key, x.defender, b.name AS bn, b.tag AS bt, b.heraldry AS bh, x.starts_at, x.ends_at, x.moved, x.state
+    FROM town_seat_battles x LEFT JOIN guilds b ON b.id = x.defender WHERE x.week = ? AND x.kind = 'revolt'`).bind(week).all();
+  for (const r of revolts) {
+    out.set(Number(r.key), { kind: 'revolt', guild: null, against: guildView(r.defender, r.bn, r.bt, r.bh), startsAt: Number(r.starts_at), endsAt: Number(r.ends_at),
+      moved: Number(r.moved ?? 0) === 1, state: r.state ?? null });
+  }
+  return out;
 }
 /** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's). */
 async function chronicleOf(db, key, max = SEAT_CHRONICLE_SHOWN) {

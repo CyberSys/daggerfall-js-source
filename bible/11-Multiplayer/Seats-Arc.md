@@ -704,7 +704,10 @@ its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stat
 for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
 Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
 the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world148`): the Walls' wave, the
-Gatehouse and its Rams in battle (6.2's note).
+Gatehouse and its Rams in battle (6.2's note). BUILT since (SEAT2b part two (c), `world148`, migration 0064): the Barracks'
+guards - at the Throne and the banners, counted there as defenders, marking the nearest attacker within 12 m and following
+none past 24 m from their posts, rising at the defenders' camp with their wave (DECIDED there: a guard of Renown 30
+striking 20 a blow on a one-beat wind-up) - and the revolt (7.7's note). With it SEAT2b is whole.
 
 ### 7.6 Edicts
 
@@ -758,6 +761,14 @@ A seat at Standing 0 revolts at its next siege window: a relay-run uprising (the
 gate record named for "later", `World-Bosses.md`) - a **Rebel Captain** (vitality as a siege fighter of Renown 50)
 and **12 rebels** at the palace door. The holder's side must fell the Captain inside the window's two hours. Fail,
 and the Charter lapses and the seat is unheld; succeed, and Standing returns to **20**.
+
+BUILT (SEAT2b part two (c), 2026-10-01, `world148`, `acct61`, migration 0064; `06-Systems/Online-Arc.md` SEAT2b part two
+(c)): the Turning that leaves a held seat at Standing 0 places its revolt the next week at the holder's window (a
+crown's at its Saturday slot; DECIDED: where a Right of Siege is granted there the siege takes the window), two hours
+long; the holder's members sign to defend it, its field their first one's. The relay raises the Captain (Renown 50, 400)
+at the palace door - the Throne's point - and his twelve rebels on a ring 4 m about it (DECIDED: Renown 20, striking 14;
+the Captain 28; a felled rebel never rises). The Captain felled: Standing to 20 (never lowered), the Chronicle's line
+above. The window out, or no result by the next Turning: the Charter lapses. DECIDED: a revolt earns no Honours.
 
 ### 7.8 Vassals and Pacts (crown politics)
 
@@ -1054,7 +1065,7 @@ bible updated in the same change, mutants recorded.
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
 | **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world144`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
 | **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct49`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world145`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct50`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
-| **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts - **PART ONE BUILT** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2b: the works, projects and the stockpile, seat writs and the Siege Camp, the drops, the Market Hall; PROF3, PROF4, PROF8 and PROF11 shipped or built beside it; the law `src/net/fortLaw.js`). Part two: the other works' effects, the relay's (the Walls' wave, the Gatehouse and Rams, the Barracks' guards, revolts) | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
+| **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts - **PART ONE BUILT** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2b: the works, projects and the stockpile, seat writs and the Siege Camp, the drops, the Market Hall; PROF3, PROF4, PROF8 and PROF11 shipped or built beside it; the law `src/net/fortLaw.js`). Part two BUILT 2026-10-01 - (a) the works at peace, (b) the Walls' wave, the Gatehouse and the Rams, (c) the Barracks' guards and revolts (Online-Arc SEAT2b part two (a)-(c)). **SEAT2b is whole.** | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
 | **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct51`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world146`), the service (`acct52`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct53`, migration `0056`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
 | **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct54`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct55`); the economy's Tides (`acct56`); the Orc Raids and the stormy sea (`acct57`); the banner ribbon (`acct58`, `world147`); **PART THREE SHIPPED** - the Hall of Records (`acct59`); the castles' copies and the board's book with AUDIT-SEATS | A Season's end set against a twin counting none; Season 0's wipe |

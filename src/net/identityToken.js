@@ -521,6 +521,9 @@ export function orderValid(c) {
  * agrees, part four). Its carrier is the account it names: the room refuses a pass whose `s` is not the hello's own.
  * CROWN1 part two: a Royal Tourney's pass is the same order - `sn` 'royal' at a crown, its side a contender's `duel` or a
  * spectator's `watch`, its window the week the Edict rules (to ROYAL_PASS_SPAN_S), its field the ring's centre alone.
+ * SEAT2b part two (c): a REVOLT's (Seats-Arc 7.7) - `sn` 'revolt', its side the holder's `defend` or a spectator's
+ * `watch` (the rising is the relay's own: nobody signs to attack), its field a siege's (the palace door the Throne's
+ * point, the defenders' camp where they rise), no works.
  */
 /** A pass's fields - never on another kind. SEAT2b part two (b): `sx` a siege's works, as the service froze them at the
  *  battle's first pass - `[walls, gatehouse (-1 none), rams, siegewright (0|1), barracks]` (net/siegeRef.js worksOf);
@@ -543,8 +546,9 @@ const coordOk = (v) => Number.isSafeInteger(v) && Math.abs(v) <= SIEGE_PASS_COOR
 export function siegePassValid(c) {
   if (!Number.isSafeInteger(c.sk) || c.sk < 0 || c.sk > 0xffffffff || !Number.isSafeInteger(c.sw) || c.sw < 0) return false;
   const royal = c.sn === 'royal';
-  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney' && !royal)) return false;
+  if (!SIEGE_PASS_SIDES.includes(c.sd) || (c.st !== 'palace' && c.st !== 'crown') || (c.sn !== 'siege' && c.sn !== 'tourney' && c.sn !== 'revolt' && !royal)) return false;
   if (royal ? c.st !== 'crown' || (c.sd !== 'duel' && c.sd !== 'watch') : c.sd === 'duel') return false;   // a contender is a Royal Tourney's alone
+  if (c.sn === 'revolt' && c.sd === 'attack') return false;   // SEAT2b part two (c): a revolt's rising is the relay's own
   if (!Number.isSafeInteger(c.sb) || c.sb <= 0 || !Number.isSafeInteger(c.se) || c.se <= c.sb || c.se - c.sb > (royal ? ROYAL_PASS_SPAN_S : SIEGE_PASS_SPAN_S)) return false;
   if (c.sx !== undefined && (c.sn !== 'siege' || !worksOf(c.sx, c.st, c.sn))) return false;   // SEAT2b part two (b): a siege's works, well made
   return siegeFieldValid(c.sf, c.st, c.sn);

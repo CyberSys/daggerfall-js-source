@@ -216,8 +216,8 @@
  {
   "name": "AUDIT-SEATS-R1-banners-flat",
   "file": "src/net/siegeRef.js",
-  "old": "    const p = presentAt(fighters, b.field.banners[i], ground);",
-  "new": "    const p = presentAt(fighters, b.field.banners[i]);",
+  "old": "    const p = presentAt(bodies, b.field.banners[i], ground);",
+  "new": "    const p = presentAt(bodies, b.field.banners[i]);",
   "tests": [
    "test/audit_seats_relay.test.js",
    "test/pvpref_law.test.js",
@@ -227,8 +227,8 @@
  {
   "name": "AUDIT-SEATS-R1-throne-flat",
   "file": "src/net/siegeRef.js",
-  "old": "    const p = presentAt(fighters, b.field.throne, ground);",
-  "new": "    const p = presentAt(fighters, b.field.throne);",
+  "old": "    const p = presentAt(bodies, b.field.throne, ground);",
+  "new": "    const p = presentAt(bodies, b.field.throne);",
   "tests": [
    "test/audit_seats_relay.test.js",
    "test/pvpref_law.test.js",
