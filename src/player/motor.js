@@ -2620,7 +2620,10 @@ export class PlayerMotor {
    *  own clock, so it is down before the body passes under anything. */
   _parkourBegin(move) {
     // CLIMB4: the move begins - and the speed the body came to it at (a catch's impact: the feel's dip, the sound's weight)
-    this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));
+    // AUDIT CLIMB-HANDS (found on the way): and on the move itself - the hands' landing and ClimbPose's pendulum read
+    // `m.speed`, and the speed was said on the event alone (every catch swung at a standstill's)
+    move.speed = Math.hypot(this.velY, this._airVelX, this._airVelZ);
+    this._pkMoveEvent(move, move.speed);
     this._pkUnsink();
     this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkLeap = null;  // CLIMB3: a leap's flight ends in what it caught

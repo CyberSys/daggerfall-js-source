@@ -182,7 +182,7 @@
   {
     "name": "CLIMB6-shimmy-never-restarts",
     "file": "src/player/climbPose.js",
-    "old": "    if (this.prevMode !== 'hang' || this.hangLip !== c.lipY) {",
+    "old": "    if (this.prevMode !== 'hang' || !(Math.abs(c.lipY - this.hangLip) <= PARKOUR_LIP_FOLLOW)) {",
     "new": "    if (this.prevMode === undefined) {",
     "tests": [
       "test/climb6.test.js"
