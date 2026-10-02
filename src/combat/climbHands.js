@@ -242,8 +242,9 @@ export class ClimbHands {
     const still = !m && c.mode === 'hang' && Math.hypot(d[0], d[2]) < 1e-5;
     this.swayW += ((still ? 1 : 0) - this.swayW) * (1 - Math.exp(-dt / HANDS.SWAY_TAU));
     if (this.swayW > 1e-4) {
-      const w = 2 * Math.PI * FEEL.SWAY_HZ * this.t;
-      for (const s of SIDES) { off[s][0] += this.swayW * HANDS.SWAY_X * Math.sin(w); off[s][1] += this.swayW * HANDS.SWAY_Y * Math.sin(w * 1.37); }
+      const swayX = this.swayW * HANDS.SWAY_X * Math.sin(2 * Math.PI * FEEL.SWAY_HZ * this.t);
+      const swayY = this.swayW * HANDS.SWAY_Y * Math.sin(2 * Math.PI * FEEL.SWAY_HZ * 1.37 * this.t);
+      for (const s of SIDES) { off[s][0] += swayX; off[s][1] += swayY; }
     }
     const fail = c.mode && Number.isFinite(c.grip) ? clamp01((PARKOUR_GRIP_LOW - c.grip) / PARKOUR_GRIP_LOW) : 0;
     if (fail > 0) {
@@ -282,8 +283,8 @@ export class ClimbHands {
     }
     if (a > 0.001) {
       const rw = HANDS.REACH_W, rh = rw * REACH_ART.h / REACH_ART.w;
-      const w = 2 * Math.PI * HANDS.SEARCH_HZ * this.t;
-      const sx = HANDS.SEARCH_X * Math.sin(w), sy = HANDS.SEARCH_Y * Math.sin(w * 1.6 + 0.7);
+      const sx = HANDS.SEARCH_X * Math.sin(2 * Math.PI * HANDS.SEARCH_HZ * this.t);
+      const sy = HANDS.SEARCH_Y * Math.sin(2 * Math.PI * HANDS.SEARCH_HZ * 1.6 * this.t + 0.7);
       // looked right, the arm sits in the LEFT half as painted, reaching across to the right; looked left, its mirror in
       // the right half (Mac, 2026-10-02: "look left and right are on the wrong side of the screen")
       const xl = HANDS.REACH_X_IN + sx;

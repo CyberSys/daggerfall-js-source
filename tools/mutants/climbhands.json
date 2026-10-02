@@ -313,8 +313,8 @@
   {
     "name": "AUDIT-CLIMBHANDS-sway-apart",
     "file": "src/combat/climbHands.js",
-    "old": "off[s][1] += this.swayW * HANDS.SWAY_Y * Math.sin(w * 1.37);",
-    "new": "off[s][1] += this.swayW * HANDS.SWAY_Y * Math.sin(w * 1.37 + (s === 'R' ? 2.5 : 0));",
+    "old": "off[s][1] += swayY;",
+    "new": "off[s][1] += s === 'R' ? -swayY : swayY;",
     "tests": [
       "test/climbhands.test.js",
       "test/auditclimbhands.test.js"
