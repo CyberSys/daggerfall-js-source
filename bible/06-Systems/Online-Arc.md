@@ -11756,6 +11756,45 @@ Pinned: `test/crownhall.test.js` (5; the placement over a real Collider); the co
 host's foreign passes, 23 to 24 call sites and 18 to 19 in world.js; the dungeon's activation families, 5 to 6;
 Systems.md's modules, 346). Mutants: `tools/mutants/crown_hall.json` (28, all dead). Patch notes: `PATCH-NOTES-Seats.md` (The palace hall).
 
+### AUDIT SEATS-2 - the Seats arc audited again, after SEAT2b part two, SEAT-HALL and CROWN-HALL
+
+2026-10-02, Mac: "Can we do a deep comprehensive audit on everything". Five lanes - the service, the relay, the shared
+law against Seats-Arc.md, the client, the design's coverage and record - each finding reproduced (a probe through the
+real Worker or the real Room, a node run of the law) before it was fixed and pinned.
+
+- **The law (L1-L7)**: the Market Hall's Tithe cap (7.5) is the cap the Seat tab offers, its words say and Standing is
+  judged on at the Turning (7.3) - `seatTitheCap`, standingWeek's `titheCap`; a revolt asks its defenders no bind in
+  the Right's week (it won none - a town that rose for its holder's absence could not be defended); a crown's Gatehouse
+  said standing from the first; the Bounty's camps "near the town" (its bailiwick, DECIDED in SEAT1d); the Apothecary
+  raised by no one until Alchemy's, Cooking's and Jewelcrafting's stations stand (`APOTHECARY_OPEN`); the window its
+  own five an hour (Appendix B); the Incursion's Tide says its double Drakes.
+- **The service (S1, S2, S4-S6)**: a capture counts a project whose day has come (`fortsDueStatements` - the pass had
+  frozen it; the capture dropped from the tier below and handed its held units to the taker), the Fortifier reading the
+  risen Walls; a crown's Tithe to 18 (migration 0051's CHECK widened in place - undeployed); a Season's wear lowers a
+  project with its work (its held units back to the stockpile, DECIDED: a lower tier asks other materials) and burns a
+  Ram sent to a Gatehouse the wear took (`campsWorn`); a lapsed Charter's project falls at every lapse - relinquish,
+  Neglect, a revolt at the Turning or by its receipt, an unregistered seat, a strike (`fortsLapsedStatements`); a seat
+  writ delivers only while its guild holds the seat (a stockpile's) or is pledged there this week (a camp's) -
+  `seat-not-held`, `seat-not-pledged`, nothing moved.
+- **The relay (R1-R3)**: the relay's own fighters are struck only from within their leash and a blow's reach
+  (`siegeNpcInReach` - a lone archer felled the Rebel Captain from 40 m in a second), and each marks whoever struck it
+  (`siegeNpcProvoked`); a work blow's field frame says them where they stand at the blow; the Throne's seconds held to
+  its hold, so a late beat's final frame still passes the wire. `world149` re-hashed in place (undeployed).
+- **The client (C1, C2, C4-C6)**: the seat halls read again each second where they were not known (a load in a palace or
+  a crown castle had found neither hall for the whole visit); a fallen guard or rebel keeps its fall (it was replayed
+  each second); the dead and a tab out of the seat draw no battle; the board's Hall of Records shown only over the
+  board that asked; a Charter Room chest pressed by a visitor says whose it is. C3 (the Charter Room's "Built in" tab)
+  did not reproduce: a palace builds no list of its own furniture.
+- **The record**: the crown's castle entrance (the field, the Gatehouse, the Royal Tourney's ring stand at the palace
+  door - `siegeFieldOf`'s `castle` is never passed), `/siege void`, heraldry on the tag frame, the siege HUD and the
+  Chronicle, the Festival's staging, Standing's trend and the request ids recorded as NOT YET; stale migrations,
+  versions, frames and statuses corrected; the patch notes said the castle's square and Gatehouse, now the palace's.
+
+Pinned: `test/audit_seats2.test.js` (3), `test/audit_seats2_service.test.js` (8), `test/audit_seats2_relay.test.js` (2),
+`test/audit_seats2_client.test.js` (2), `test/seat2b_revolt_service.test.js` (+1). Mutants: `tools/mutants/audit_seats2.json`
+(24, all dead), `tools/mutants/audit_seats2_service.json` (32, all dead); older records re-aimed by content, all still
+dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

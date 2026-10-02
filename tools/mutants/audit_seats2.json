@@ -180,28 +180,10 @@
     ]
   },
   {
-    "name": "AUDIT-SEATS2-C4-seat",
-    "file": "src/scenes/world.js",
-    "old": "      siegeHud?.hide(); siegeNpcs?.leave();   // AUDIT SEATS-2 C4: and no battle drawn",
-    "new": "      // AUDIT SEATS-2 C4: and no battle drawn",
-    "tests": [
-      "test/audit_seats2_client.test.js"
-    ]
-  },
-  {
-    "name": "AUDIT-SEATS2-C4-dead",
-    "file": "src/scenes/world.js",
-    "old": "      siegeHud?.hide(); siegeNpcs?.leave();   // AUDIT SEATS-2 C4: the dead",
-    "new": "      // AUDIT SEATS-2 C4: the dead",
-    "tests": [
-      "test/audit_seats2_client.test.js"
-    ]
-  },
-  {
     "name": "AUDIT-SEATS2-C5-board",
     "file": "src/scenes/world.js",
-    "old": "    if (townTalk.overlay !== board) return false;\n",
-    "new": "",
+    "old": "    if (townTalk.overlay !== board) return false;\n    if (!r?.data) return false;\n",
+    "new": "    if (!r?.data) return false;\n",
     "tests": [
       "test/audit_seats2_client.test.js"
     ]
@@ -211,6 +193,24 @@
     "file": "src/scenes/worldModes.js",
     "old": " else if (interiorSeatHall && !interiorHome) { say(CROWN_HALL_TEXT.chestShut(interiorSeatHall.name)); return; }",
     "new": "",
+    "tests": [
+      "test/audit_seats2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-SEATS2-C4-out",
+    "file": "src/scenes/world.js",
+    "old": "(seatOut() || townTalk.overlay instanceof DeathScreen || modes?.deathUp?.())) { siegeHud?.hide(); siegeNpcs?.leave(); }",
+    "new": "(seatOut() || townTalk.overlay instanceof DeathScreen || modes?.deathUp?.())) { void 0; }",
+    "tests": [
+      "test/audit_seats2_client.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-SEATS2-C4-dead",
+    "file": "src/scenes/world.js",
+    "old": "(seatOut() || townTalk.overlay instanceof DeathScreen || modes?.deathUp?.())) {",
+    "new": "(seatOut())) {",
     "tests": [
       "test/audit_seats2_client.test.js"
     ]

@@ -18645,8 +18645,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const openRecordsFromBoard = async (st) => {
     const board = townTalk.overlay;   // AUDIT SEATS-2 C5: the board that asked - a book read after it closed is shown over nothing else
     const r = st && seatBook ? await seatBook.records(st.key) : null;
-    if (!r?.data) return false;
     if (townTalk.overlay !== board) return false;
+    if (!r?.data) return false;
     townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero));
     return true;
   };
@@ -19658,13 +19658,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         chatNotice(SEAT_NOTICE);
         setMidScreenText(SEAT_MID_TEXT);
       }
-      peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt);
-      siegeHud?.hide(); siegeNpcs?.leave();   // AUDIT SEATS-2 C4: and no battle drawn - its HUD and the relay's own fighters out with the room
-      return;
+      peerBodies.destroy(); remotePlayers.sync([], onlineToScene); peerRiders?.destroy(); peerWalkers?.destroy(); peerCandlesFrame([], dt); return;
     }
     // AUDIT ONLINE D12: the dead broadcast nothing and see no one
     if (townTalk.overlay instanceof DeathScreen || modes?.deathUp?.()) {
-      siegeHud?.hide(); siegeNpcs?.leave();   // AUDIT SEATS-2 C4: the dead see no battle - nor its HUD frozen on its last word
       if (_deathWasOnline == null) _deathWasOnline = _onlineWorldSession();   // D-ONLINE1: the modal hosts' deaths (a dungeon's, a building's) are captured here, BEFORE the leave below clears online.room
       if (online.room) {
         // PCORPSE1: the body is left where it fell - one last pose, flagged, before the leave below takes the living figure
@@ -22772,6 +22769,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (oceanHoles) { _ohTime += gamePaused() ? 0 : dt * worldTimeScale(); oceanHoles.checkSettings(); ohAbyss?.update(); }
     csaDrawHelmPanel();   // CSA-L: the helm panel, once a frame in every mode
     spoilsRecoverFrame();   // WB5: a boss's spoils no save holds, back to their character as it stands up - before it can save, online or not
+    if (onlineOn && playerSpawned && (seatOut() || townTalk.overlay instanceof DeathScreen || modes?.deathUp?.())) { siegeHud?.hide(); siegeNpcs?.leave(); }   // AUDIT SEATS-2 C4: the dead and a tab out of the seat draw no battle - the online frame returns before its tick
     if (onlineOn && playerSpawned) { if (!online) onlineStart(); onlineFrame(now, dt); } else { if (_peerCandleLights.length) peerCandlesFrame([], dt);   /* PEERLIGHT2: offline, no one's candle stays lit */ if (!onlineOn && modes?.gateArenaDay?.() != null) { ejectFromCourt(COURT_TEXT.collapse); gateCourt?.leave(); /* AUDIT SS: and its floor into the pack - online, the frame's own court does it */ } if (player.arena) player.arena = modes?.gateArenaDay?.() != null ? courtRing() : null; siegeHud?.hide(); /* AUDIT-SEATS C1: no online frame (a load, a spawn), no battle's tick - its HUD hidden, never frozen; the next tick draws it again */ }   // DUEL1: no online frame, no duel's law to hold the body - the ring is the live duel's alone; WB3b: the court's is its floor's, and offline there is no court   // ONLINE1: the pose out, the peers in - after the look is paid, before the camera is read and any mode draws
     deadlandsAirFrame();   // WB6b: after the court's ways out have run, online or not - the frame it is gone is the frame its air falls silent
     setCourtRules(modes?.gateArenaDay?.() != null);   // WBX6: the Deadlands keep no regeneration - set before any magic round of this frame, cleared the frame the court is gone

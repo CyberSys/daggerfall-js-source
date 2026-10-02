@@ -24,7 +24,7 @@
 // ═════════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
-import { fortifierAt, fortsCaptureWithSave, fortTierAt, siegewrightAt } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two (b): the works a siege fights behind
+import { fortifierAt, fortsCaptureWithSave, fortTierAt, siegewrightAt, fortsLapsedStatements } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two (b): the works a siege fights behind
 import { mustChange } from './realm.js';
 import { gatherStandings } from './seatInfluence.js';   // AUDIT-SEATS S8: a Tourney's dead heat as the Turning counted it
 import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
@@ -216,7 +216,9 @@ async function applyResult(db, b, c, nowS, zero) {
     return run([...head('attack'),
       db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(K, b.defender),
       db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'").bind(K, W + 1),
-      history('revolt-stood', { guild: nameOf(b.defender) }), ...swords]);
+      history('revolt-stood', { guild: nameOf(b.defender) }),
+      ...fortsLapsedStatements(db, K, nowS),   // AUDIT SEATS-2 S5: its building projects fall with the Charter
+      ...swords]);
   }
   if (b.kind === 'tourney') {
     const higher = result === 'tie' ? await higherOf(db, b, nowS, zero) : null;

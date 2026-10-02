@@ -36,7 +36,6 @@ test('AUDIT SEATS-2 C1, C4, C5, C6 by source: the halls read again each second w
   assert.match(m, /seatHallsFrame\(performance\.now\(\)\);[^\n]*\n    decorTool\.frame\(/);
   assert.match(m, /\{ openHallChest\(\); return; \} else if \(interiorSeatHall && !interiorHome\) \{ say\(CROWN_HALL_TEXT\.chestShut\(interiorSeatHall\.name\)\); return; \}/);
   const w = src('src/scenes/world.js');
-  assert.match(w, /peerCandlesFrame\(\[\], dt\);\n      siegeHud\?\.hide\(\); siegeNpcs\?\.leave\(\);[^\n]*\n      return;\n    \}\n    \/\/ AUDIT ONLINE D12/);
-  assert.match(w, /if \(townTalk\.overlay instanceof DeathScreen \|\| modes\?\.deathUp\?\.\(\)\) \{\n      siegeHud\?\.hide\(\); siegeNpcs\?\.leave\(\);/);
-  assert.match(w, /const board = townTalk\.overlay;[^\n]*\n    const r = st && seatBook \? await seatBook\.records\(st\.key\) : null;\n    if \(!r\?\.data\) return false;\n    if \(townTalk\.overlay !== board\) return false;/);
+  assert.match(w, /if \(onlineOn && playerSpawned && \(seatOut\(\) \|\| townTalk\.overlay instanceof DeathScreen \|\| modes\?\.deathUp\?\.\(\)\)\) \{ siegeHud\?\.hide\(\); siegeNpcs\?\.leave\(\); \}[^\n]*\n    if \(onlineOn && playerSpawned\) \{ if \(!online\) onlineStart\(\); onlineFrame\(now, dt\); \}/);
+  assert.match(w, /const board = townTalk\.overlay;[^\n]*\n    const r = st && seatBook \? await seatBook\.records\(st\.key\) : null;\n    if \(townTalk\.overlay !== board\) return false;\n    if \(!r\?\.data\) return false;/);
 });

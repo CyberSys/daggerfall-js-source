@@ -48,6 +48,7 @@ import {
   SEAT_WITNESS_REPORTS_HOUR, SEAT_WITNESSES_AUDIT, seasonFloor, seasonZeroOf,
 } from '../../src/net/townSeatLaw.js';
 import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';   // AUDIT-SEATS S4: a struck Charter's fee refunded
+import { fortsLapsedStatements } from './seatForts.js';   // AUDIT SEATS-2 S5: a struck Charter's building projects fall with it
 
 /** Whether the seats are open to this account: the switch, and at `dev` the developers alone. */
 export function seatsOpenFor(player, env) {
@@ -190,6 +191,7 @@ export async function strikeSeat({ db, nowS }, dev, env, { key } = {}) {
     db.prepare(`INSERT INTO town_seat_history (key, week, kind, data, at)
       SELECT ?1, ?2, 'strike', json_set(?3, '$.refund', COALESCE((SELECT amount FROM marks_ledger WHERE actor = 'seats' AND rid = ?5), 0)), ?4`)
       .bind(key, week, JSON.stringify({ by: dev.handle ?? null, ...(h ? { guild: { name: h.name ?? '', tag: h.tag ?? '' } } : {}) }), nowS, rid),
+    ...fortsLapsedStatements(db, key, nowS),   // AUDIT SEATS-2 S5: a building project falls with the Charter
   ]);
   return { ok: true, key, reports: Number(gone?.meta?.changes ?? 0) };
 }

@@ -10,7 +10,12 @@
 -- write), the week it was last set (changed at most once a week), and the upkeep it owes from a week in Neglect (SEAT0
 -- 5.2 step 5: "a treasury short of it puts the seat in Neglect: Standing -10 and one week's grace; a second short week
 -- lapses the Charter").
-ALTER TABLE town_seat_holds ADD COLUMN tithe INTEGER NOT NULL DEFAULT 0 CHECK (tithe >= 0 AND tithe <= 15);
+-- AUDIT SEATS-2 S2: the CHECK's ceiling is 18 - TITHE_CAP.crown 15 and a tier-3 Market Hall's 3 (SEAT2b, 7.5: "the
+-- Tithe's cap +1%" a tier; seatForts.js titheCapAt over fortLaw.js marketHallTitheCap). It said 15, so a crown's holder
+-- with a Market Hall setting the Tithe its board allowed past 15 met a 500 (the CHECK failing the write). Widened here,
+-- in place: 0046-0065 are one undeployed release (acct61), so no database holds this column yet. The write asks each
+-- seat's own cap (seatHolding.js setTithe); this CHECK is the bound over every seat.
+ALTER TABLE town_seat_holds ADD COLUMN tithe INTEGER NOT NULL DEFAULT 0 CHECK (tithe >= 0 AND tithe <= 18);
 ALTER TABLE town_seat_holds ADD COLUMN tithe_week INTEGER;
 ALTER TABLE town_seat_holds ADD COLUMN owed INTEGER NOT NULL DEFAULT 0 CHECK (owed >= 0);
 

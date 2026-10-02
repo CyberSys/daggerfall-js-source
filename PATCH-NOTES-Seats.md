@@ -197,6 +197,16 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The Bounty** Edict's words now say "near the town".
 - **The Apothecary** can't be raised until the professions it serves are in.
 - **The Daedric Incursion's** words now say gate kills give double Drakes too.
+- **A captured seat's works.** A project whose day had come now counts when its seat is captured, as it did in the battle. The works drop from that tier, and its materials stay with the seat.
+- **A crown's Tithe** can now be set above 15% with a Market Hall, instead of failing.
+- **A Season's end** now lowers a project under way with its work. Its materials go back to the stockpile.
+- **A Charter lost** (given up, Neglect, a revolt, a strike) now stops its works' projects. Their materials go back to the stockpile.
+- **Seat writs** can only be delivered while the guild still holds the seat, or is still pledged there for a Siege Camp.
+- **Guards, rebels and the Rebel Captain** can't be shot from beyond their reach any more. One struck comes for whoever struck it.
+- **Loading into a palace or a crown castle** now finds its guild hall, a moment after the seats are read.
+- **A fallen guard or rebel** no longer replays its fall every second.
+- **The siege bar** is hidden when you die or another window takes your seat.
+- **A Charter Room chest** pressed by a visitor now says whose it is.
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.

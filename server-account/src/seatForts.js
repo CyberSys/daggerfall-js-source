@@ -218,17 +218,58 @@ export async function readForts({ db, nowS }, player, env, { key } = {}) {
 // ─── THE DROPS (7.5, 6.8, 9.1) ───────────────────────────────────────
 
 /**
+ * AUDIT SEATS-2 S1: THE PROJECTS DUE RAISED, AS STATEMENTS for a batch that moves the works (a capture, a lapse) -
+ * riseDue's rule written in SQL: each project at `key` (every seat's, `key` null) whose day has come by
+ * `nowS` stands at its tier, its held materials spent, the Chronicle saying so ('fort-raised', as riseDue's row). A due
+ * project is the work's tier wherever it is read (fortTierAt - the siege's frozen works, the map), but `tier` holds it only
+ * once something reads it through riseDue: a drop that ran first took the OLD tier down and handed the held materials to
+ * the stockpile, so the very project the pass counted fell. Idempotent - a second batch finds none due.
+ */
+export function fortsDueStatements(db, nowS, key = null) {
+  const due = 'building IS NOT NULL AND stands_at IS NOT NULL AND stands_at <= ?1 AND (?3 IS NULL OR key = ?3)';
+  return [
+    db.prepare(`INSERT INTO town_seat_history (key, week, kind, data, at) SELECT key, ?2, 'fort-raised', json_object('work', work, 'tier', building), ?1
+      FROM town_seat_forts WHERE ${due} ORDER BY key, work`).bind(nowS, weekAt(nowS), key),
+    db.prepare(`DELETE FROM town_seat_fort_held WHERE EXISTS (SELECT 1 FROM town_seat_forts
+      WHERE town_seat_forts.key = town_seat_fort_held.key AND town_seat_forts.work = town_seat_fort_held.work AND ${due})`).bind(nowS, null, key),
+    db.prepare(`UPDATE town_seat_forts SET tier = building, building = NULL, stands_at = NULL, builder = 0, siegewright = 0 WHERE ${due}`).bind(nowS, null, key),
+  ];
+}
+/**
  * THE CAPTURE'S STATEMENTS, for the result's own batch (seatSiege.js applyResult): every work at `key` a tier down - the
  * Walls kept where `fortifier` (a Fortifier saved them this Season) - every building project fallen, what it held back
- * to the stockpile.
+ * to the stockpile. AUDIT SEATS-2 S1: `nowS` - the projects whose day had come raised FIRST (fortsDueStatements), so the
+ * drop takes the tier the siege was fought behind a tier down and a stood project's materials stay spent.
  */
-export function fortsCapturedStatements(db, key, { fortifier = false } = {}) {
+export function fortsCapturedStatements(db, key, { fortifier = false, nowS = null } = {}) {
   return [
+    ...(nowS != null ? fortsDueStatements(db, nowS, key) : []),
     db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT key, material, qty FROM town_seat_fort_held WHERE key = ? AND qty > 0
       ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`).bind(key),
     db.prepare('DELETE FROM town_seat_fort_held WHERE key = ?').bind(key),
     db.prepare(`UPDATE town_seat_forts SET tier = CASE WHEN ?2 = 1 AND work = 'walls' THEN tier ELSE MAX(0, tier - 1) END,
       building = NULL, stands_at = NULL, builder = 0, siegewright = 0, guild_id = NULL WHERE key = ?1`).bind(key, fortifier ? 1 : 0),
+  ];
+}
+/**
+ * AUDIT SEATS-2 S5: A CHARTER LAPSED (Neglect twice, a revolt that stood - by its receipt or at the Turning - a seat the
+ * registry no longer confirms, a relinquishing, a strike): every building project at `key` falls with it, what it held
+ * back to the stockpile (the seat's), its Marks spent - as at a capture (7.5: "a building project falls with the
+ * Charter"); the standing tiers stay (16: "its fortifications stay"). The projects whose day had come by `nowS` raised
+ * first, as at a capture. For the lapse's own batch, AFTER its DELETE of the hold: each fall statement asks that the seat
+ * is held by none (`NOT EXISTS`), so a DELETE that moved nothing (a relinquishing whose rank went between) drops nothing.
+ * Before, only a capture made a project fall - a lapsed seat's project kept building for nobody, and the next holder
+ * inherited it with its starter's Builder and Siegewright marks.
+ */
+export function fortsLapsedStatements(db, key, nowS) {
+  const unheld = 'NOT EXISTS (SELECT 1 FROM town_seat_holds WHERE key = ?1)';
+  return [
+    ...fortsDueStatements(db, nowS, key),
+    db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT key, material, qty FROM town_seat_fort_held WHERE key = ?1 AND qty > 0 AND ${unheld}
+      ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`).bind(key),
+    db.prepare(`DELETE FROM town_seat_fort_held WHERE key = ?1 AND ${unheld}`).bind(key),
+    db.prepare(`UPDATE town_seat_forts SET building = NULL, stands_at = NULL, builder = 0, siegewright = 0, guild_id = NULL
+      WHERE key = ?1 AND building IS NOT NULL AND ${unheld}`).bind(key),
   ];
 }
 /**
@@ -239,7 +280,9 @@ export function fortsCapturedStatements(db, key, { fortifier = false } = {}) {
  * whose save it is, or null.
  */
 export async function fortifierAt(db, week, key, nowS, seasonWeek) {
-  const walls = Number((await db.prepare("SELECT tier FROM town_seat_forts WHERE key = ? AND work = 'walls'").bind(key).first())?.tier ?? 0);
+  // AUDIT SEATS-2 S1: the Walls standing at the capture - a project whose day has come counted (fortTierAt), as the drop
+  // now raises it first (fortsCapturedStatements' `nowS`): Walls that stood only by a due project were "none" to save
+  const walls = await fortTierAt(db, key, 'walls', nowS);
   if (walls <= 0) return null;
   if (await db.prepare('SELECT 1 FROM town_seat_fortifier WHERE season = ? AND key = ?').bind(seasonWeek, key).first()) return null;
   const { results = [] } = await db.prepare(`SELECT r.account, t.spec50, t.spec100, t.respec_rank, t.respec_to, t.respec_at FROM town_seat_rosters r
@@ -269,7 +312,7 @@ export async function siegewrightAt(db, week, key, nowS) {
 /** The capture's statements with the Fortifier's save written beside them (its Season's one), and the Chronicle's word. */
 export function fortsCaptureWithSave(db, key, { nowS, seasonWeek, fortifier = null, history }) {
   return [
-    ...fortsCapturedStatements(db, key, { fortifier: !!fortifier }),
+    ...fortsCapturedStatements(db, key, { fortifier: !!fortifier, nowS }),   // AUDIT SEATS-2 S1: the due raised first
     ...(fortifier ? [
       db.prepare('INSERT OR IGNORE INTO town_seat_fortifier (season, key, account, at) VALUES (?, ?, ?, ?)').bind(seasonWeek, key, fortifier, nowS),
       history('walls-kept', {}),
@@ -281,6 +324,9 @@ export function fortsCaptureWithSave(db, key, { nowS, seasonWeek, fortifier = nu
  * a camp that won no Right of Siege is burnt whole"): the week's camps read, each guild's Ram Kits (fortLaw.js campSpent)
  * set on the battle the Turning placed for `next` where its Right was won and a Gatehouse stands (`tierOf` the seat's
  * tier), and every camp of the week emptied.
+ * (The Gatehouse's `tier` is the Turning's own: its gather read every held seat's works through fortTiersOf at the
+ * Turning's clock, which raised a project whose day had come - and a Right is won only at a held seat. At a Season's end
+ * the wear comes after, in the same batch: campsWorn.)
  */
 export async function campsSpent(db, week, next, rights, tierOf) {
   const { results = [] } = await db.prepare('SELECT key, guild_id, material, qty FROM town_seat_camps WHERE week = ? AND qty > 0').bind(week).all();
@@ -301,8 +347,41 @@ export async function campsSpent(db, week, next, rights, tierOf) {
   out.push(db.prepare('DELETE FROM town_seat_camps WHERE week = ?').bind(week));
   return out;
 }
-/** A Season's end (9.1): every seat's works a tier down; a building project keeps building. */
-export const fortsSeasonStatements = (db) => [db.prepare('UPDATE town_seat_forts SET tier = MAX(0, tier - 1) WHERE tier > 0')];
+/**
+ * A Season's end (9.1): every seat's works a tier down; a building project keeps building.
+ * AUDIT SEATS-2 S4: A PROJECT UNDER WAY GOES DOWN WITH ITS WORK. A project always raises the tier above the one standing
+ * (fundFort begins `tier + 1`), but the wear lowered `tier` alone, and the rise then set tier = building: a work at tier 2
+ * raising 3 wore to 1 and rose to 3 - tier 2 skipped and the Season's wear erased. Now every work standing above nought
+ * goes a tier down and its project, if one is under way, with it - still the tier above the one standing (building - 1 >
+ * tier - 1, so none falls to or below its work). DECIDED: a lowered project's needs are another tier's (the Walls' third
+ * asks steel, its second iron), so what it held goes back to the stockpile and its delivery is reckoned again - the next
+ * read moves the lower tier's needs back in and gives it its days from there (`stands_at` cleared); its Marks stay
+ * spent, the Season's cost. A project at a work standing at nought keeps building and holding - there is no tier to wear
+ * (fortLaw.js fortDropped). A project whose day had come by the Turning stood before this: the Turning's gather read every
+ * held seat's works through fortTiersOf at its clock (riseDue), and a lapsed seat's stood or fell in its lapse's own
+ * statements (fortsLapsedStatements) - no other seat has a project.
+ */
+export const fortsSeasonStatements = (db) => {
+  const lowered = 'EXISTS (SELECT 1 FROM town_seat_forts f WHERE f.key = town_seat_fort_held.key AND f.work = town_seat_fort_held.work AND f.tier > 0 AND f.building IS NOT NULL)';
+  const wear = [db.prepare('UPDATE town_seat_forts SET tier = MAX(0, tier - 1) WHERE tier > 0')];   // SEAT2b's wear, after its projects are lowered
+  return [
+    db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT key, material, qty FROM town_seat_fort_held WHERE qty > 0 AND ${lowered}
+      ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`),
+    db.prepare(`DELETE FROM town_seat_fort_held WHERE ${lowered}`),
+    db.prepare('UPDATE town_seat_forts SET building = building - 1, stands_at = NULL WHERE tier > 0 AND building IS NOT NULL'),
+    ...wear,
+  ];
+};
+/**
+ * AUDIT SEATS-2 S4: THE CAMPS' RAMS AFTER A SEASON'S WEAR, for the Turning's batch after fortsSeasonStatements: a palace's
+ * battle placed for `next` keeps the Ram Kits its challenger's camp sent it (campsSpent) only where a Gatehouse still stands
+ * once the works are worn - the rest burnt (rams 0), as campsSpent burns a camp's kits at a palace with no gate. campsSpent
+ * read the Gatehouse before the wear: a tier-1 Gatehouse worn to nought took a camp's Rams onto a battle with no gate, and
+ * a gate standing again before that battle's first pass (its lowered project re-supplied) let them through. A crown's
+ * gate always stands (6.2).
+ */
+export const campsWorn = (db, next) => db.prepare(`UPDATE town_seat_battles SET rams = 0 WHERE week = ? AND rams > 0 AND tier <> 'crown'
+  AND NOT EXISTS (SELECT 1 FROM town_seat_forts f WHERE f.key = town_seat_battles.key AND f.work = 'gatehouse' AND f.tier >= 1)`).bind(next);
 
 // ─── THE MARKET HALL (7.5: "the town's boards list 25% more; the Tithe's cap +1%") ───
 

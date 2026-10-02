@@ -417,8 +417,9 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
         AND NOT EXISTS (SELECT 1 FROM guild_members WHERE player = ?1 AND guild_id = w.guild_id AND rank IN (${TAKERS_SQL}))
         AND ${spendableSql('?1', '?3', 'w.material')} >= ?4   -- GOLD-MARKET: never gold's units
         AND (w.seat IS NOT NULL OR COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13)
+        AND ${SEAT_WRIT_LIVE_SQL('?15')}   -- AUDIT SEATS-2 S6: a seat writ's seat still its guild's to feed
         AND COALESCE((SELECT balance FROM marks WHERE account = ?1), 0) + ?5 <= ?14`)
-      .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, Number(w.left_units), GUILD_STORES_MAX, MARKS_MAX),
+      .bind(me, rid, character, units, pay, tax, nowS, day, nonce, id, region, Number(w.left_units), GUILD_STORES_MAX, MARKS_MAX, seatWeek(nowS)),
     // the writ drawn down, a filled one closed
     db.prepare(`UPDATE guild_writs SET left_units = left_units - ?3, escrow = escrow - pay * ?3,
         state = CASE WHEN left_units = ?3 THEN 'filled' ELSE state END, closed_at = CASE WHEN left_units = ?3 THEN ?4 ELSE closed_at END
@@ -459,11 +460,37 @@ export async function supplyGuildWrit(ctx, player, env, { character, region, wri
   if (Number(now.left_units) < units) return { error: 'writ-short' };
   if (Number(now.left_units) !== Number(w.left_units)) return { error: 'writ-moved' };   // another delivered between
   if (!(await deliverMay(db, me, w.guild_id))) return { error: 'writ-own-guild' };   // made an Officer between
+  const lost = await seatWritLost(db, w, nowS);   // AUDIT SEATS-2 S6: the seat no longer its guild's to feed
+  if (lost) return lost;
   const held = await storeOf(db, me, character, w.material);
   if (held.own + held.bought < units) return { error: held.own + held.bought + (held.gold ?? 0) >= units ? 'stores-gold' : 'stores-short' };   // GOLD-MARKET
   if ((await balanceOf(db, me)) + pay > MARKS_MAX) return { error: 'marks-full' };
   return { error: 'guild-stores-full' };
 }
+
+/**
+ * AUDIT SEATS-2 S6: A SEAT WRIT FEEDS ONLY A SEAT ITS GUILD STILL HAS A CLAIM ON. The seat was asked at posting alone, so a
+ * holder's stockpile writ (`camp` 0) went on filling the seat's stockpile after its guild lost the Charter (a capture, a
+ * lapse) - feeding the new holder's works, and its deliveries counting as the old holder's influence there - and a
+ * challenger's Siege Camp writ (`camp` 1) filled a camp in a week its guild never pledged the seat. Now a delivery is
+ * refused - nothing moved, minted or burnt - where a stockpile writ's guild no longer holds its seat ('seat-not-held') or a
+ * camp writ's is not pledged there this seat week ('seat-not-pledged'); the poster withdraws it for its escrow as any.
+ * Asked in the batch's decision (SEAT_WRIT_LIVE_SQL - so a seat lost between the read and the write moves nothing), and
+ * after a decision that wrote nothing, for the word.
+ */
+async function seatWritLost(db, w, nowS) {
+  if (w.seat == null) return null;
+  if (Number(w.camp) === 1) {
+    const pledged = await db.prepare('SELECT 1 FROM town_seat_pledges WHERE week = ? AND key = ? AND guild_id = ?').bind(seatWeek(nowS), Number(w.seat), w.guild_id).first();
+    return pledged ? null : { error: 'seat-not-pledged' };
+  }
+  const held = await db.prepare('SELECT 1 FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(Number(w.seat), w.guild_id).first();
+  return held ? null : { error: 'seat-not-held' };
+}
+/** AUDIT SEATS-2 S6: the same, in a write over `guild_writs w` - `week` the seat week's parameter. */
+const SEAT_WRIT_LIVE_SQL = (week) => `(w.seat IS NULL
+          OR (w.camp = 0 AND EXISTS (SELECT 1 FROM town_seat_holds WHERE key = w.seat AND guild_id = w.guild_id))
+          OR (w.camp = 1 AND EXISTS (SELECT 1 FROM town_seat_pledges WHERE week = ${week} AND key = w.seat AND guild_id = w.guild_id)))`;
 
 /** AUDIT 31 S6: whether this account may deliver to a writ of guild `g` - none of its characters of a rank that takes the
  *  guild Stores out (writLaw writDeliverMay). */

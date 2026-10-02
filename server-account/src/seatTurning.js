@@ -40,7 +40,7 @@ import { activeIn, edictsOf } from './seatHolding.js';
 import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, frozen into its battle
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
 import { incursionStatements } from './seatIncursion.js';   // AUDIT-SEATS: a Daedric Incursion's Marks
-import { fortsSeasonStatements, campsSpent, fortTiersOf } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent; part two: a holder's Shrine
+import { fortsSeasonStatements, campsSpent, fortTiersOf, fortsLapsedStatements, campsWorn } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent; part two: a holder's Shrine; AUDIT SEATS-2 S5, S4: a lapse's projects fallen, the worn gate's Rams
 import { shrineStanding, marketHallTitheCap } from '../../src/net/fortLaw.js';   // SEAT2b part two (7.5): the Shrine's Standing a week
 import { swordsSettled } from './seatSiege.js';   // AUDIT-SEATS S3: a void battle's Sellsword escrow home
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
@@ -281,6 +281,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
       stmts.push(history(u.key, 'neglect', { guild: names.get(u.guild), owed: u.owed }));
     } else {
       stmts.push(db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(u.key, u.guild));
+      stmts.push(...fortsLapsedStatements(db, u.key, atS));   // AUDIT SEATS-2 S5: its building projects fall with it
       stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'").bind(u.key, next));
       stmts.push(history(u.key, u.state === 'revolt' ? 'revolt-stood' : 'lapse', { guild: names.get(u.guild) }));   // SEAT2b part two (c): a revolt's lapse
     }
@@ -367,6 +368,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
   // Edict void; no fee refunded (a strike's own batch refunds it, townSeats.js strikeSeat)
   for (const h of unregistered) {
     stmts.push(db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(Number(h.key), h.guild_id));
+    stmts.push(...fortsLapsedStatements(db, Number(h.key), atS));   // AUDIT SEATS-2 S5: its building projects fall with it
     stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'").bind(Number(h.key), next));
     stmts.push(history(Number(h.key), 'unregistered', { guild: names.get(h.guild_id) ?? { name: '', tag: '' } }));
   }
@@ -405,6 +407,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
     for (const h of stood) stmts.push(history(h.key, 'season-end', { guild: names.get(h.guild), season: ending.n, kept: keptWholeSeason(ending, h.since) }));
     // SEAT2b (9.1: "fortifications decay one tier"): every seat's works a tier down (Season 0's are wiped below)
     if (!wipe) stmts.push(...fortsSeasonStatements(db));
+    if (!wipe) stmts.push(campsWorn(db, next));   // AUDIT SEATS-2 S4: and the camps' Rams where the wear left no gate
   }
   // SEASON1 (18): SEASON 0'S END - the Edicts proclaimed for the next week void (none was paid), then the seats wiped
   if (wipe) {
@@ -484,6 +487,8 @@ export async function relinquishSeat({ db, nowS }, player, env, { character, key
       AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?3 AND guild_id = ?2 AND rank = ?4)`).bind(key, a.me.guild_id, Number(a.me.rid), GUILD_RANK_MASTER),
     db.prepare(`INSERT INTO town_seat_history (key, week, kind, data, at) SELECT ?1, ?2, 'relinquish', ?3, ?4 WHERE changes() > 0`)
       .bind(key, weekAt(nowS), JSON.stringify({ guild: names.get(a.me.guild_id) }), nowS),
+    // AUDIT SEATS-2 S5: its building projects fall with the Charter (the tiers stay) - nothing where the DELETE moved none
+    ...fortsLapsedStatements(db, key, nowS),
   ]);
   return gone?.meta?.changes ? { ok: true } : { error: 'seat-not-held' };
 }

@@ -270,8 +270,8 @@ test('SEAT2b THE FORTIFIER\'S SAVE: a Fortifier on the defending roster saves st
   assert.equal(await fortifierAt(db, W, ANTICLERE.key, T0, W + 13), null, 'no Walls standing, nothing to save');
   const src = (f) => readFileSync(new URL(`../server-account/src/${f}`, import.meta.url), 'utf8');
   assert.match(src('seatSiege.js'), /const fortifier = await fortifierAt\(db, W, K, nowS, seasonWeek\);\n\s*stmts\.push\(\.\.\.fortsCaptureWithSave\(db, K, \{ week: W, nowS, seasonWeek, fortifier, history \}\)\);/, 'the capture asks it');
-  assert.match(src('seatTurning.js'), /stmts\.push\(\.\.\.\(await campsSpent\(db, week, next, plan\.rights, \(k\) => registry\.get\(k\)\?\.tier \?\? 'palace', \{ nowS: atS, seasonEnd: !!ending \}\)\)\);/, 'the Turning spends the camps');   // PIN MOVED (AUDIT SEATS-2)
-  assert.match(src('seatTurning.js'), /if \(!wipe\) stmts\.push\(\.\.\.fortsSeasonStatements\(db, atS\)\);/, 'a Season\'s end wears the works');   // PIN MOVED (AUDIT SEATS-2)
+  assert.match(src('seatTurning.js'), /stmts\.push\(\.\.\.\(await campsSpent\(db, week, next, plan\.rights, \(k\) => registry\.get\(k\)\?\.tier \?\? 'palace'\)\)\);/, 'the Turning spends the camps');
+  assert.match(src('seatTurning.js'), /if \(!wipe\) stmts\.push\(\.\.\.fortsSeasonStatements\(db\)\);/, 'a Season\'s end wears the works');
 });
 
 test('SEAT2b THE CAMPS SPENT: a camp whose guild won the Right sends its Ram Kits to next week\'s battle where a Gatehouse stands (a crown\'s own, or one raised); a palace with none, and a camp that won nothing, send none; every camp of the week emptied (mutants: the gate; the Right; the emptying)', async (t) => {
