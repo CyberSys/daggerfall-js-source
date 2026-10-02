@@ -194,8 +194,8 @@
   {
     "name": "SEAT1c-law-holder-line",
     "file": "src/net/townSeatLaw.js",
-    "old": "  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`",
-    "new": "  ? `Held since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`",
+    "old": "  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}${standingTrendWords(standingTrend(holder))}.`",
+    "new": "  ? `Held since ${seatWeekName(holder.since)}. Standing ${holder.standing}${standingTrendWords(standingTrend(holder))}.`",
     "tests": [
       "test/seat1c_client.test.js"
     ]

@@ -679,9 +679,21 @@ export function hallOfRecordsChapters(rows, seat, zero = null) {
   return out;
 }
 
-/** The Seat tab's holder line: "Held by the Silver Hand <SH> since week 3. Standing 55." */
+/** STANDING-TREND (7.9: "Standing and its trend"): which way the holder's Standing moved since the last Turning began -
+ *  its Standing now less the `was` the standings read names (seatInfluence.js standingWas) - or null where none is named. */
+export function standingTrend(holder) {
+  const now = Number(holder?.standing), was = holder?.was;
+  return typeof was === 'number' && Number.isFinite(was) && Number.isFinite(now) ? now - was : null;
+}
+/** The trend in words, after the Standing: ", up 7 since the last Turning", ", down 3 ...", ", steady ..."; '' for none. */
+export function standingTrendWords(trend) {
+  if (trend == null) return '';
+  return `, ${trend > 0 ? `up ${trend}` : trend < 0 ? `down ${0 - trend}` : 'steady'} since the last Turning`;
+}
+/** The Seat tab's holder line: "Held by the Silver Hand <SH> since week 3. Standing 55." - STANDING-TREND: and its trend
+ *  where the read names one ("Standing 55, up 7 since the last Turning."). */
 export const seatHolderLine = (holder) => (holder
-  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}.`
+  ? `Held by ${guildWords(holder.guild)} since ${seatWeekName(holder.since)}. Standing ${holder.standing}${standingTrendWords(standingTrend(holder))}.`
   : 'No guild holds this Charter.');
 /** This week's battle at a seat, in words - a Contested seat's Tourney, or a Right of Siege - or null. */
 export function seatBattleLine(battle) {
@@ -869,6 +881,9 @@ export const BOUNTY_MARKS = 20;
 export const BOUNTY_CAMPS_DAY = 5;
 /** The Festive buff (SEAT0 7.6): +5 to every attribute for a game day, in the town while the Festival is proclaimed. */
 export const FESTIVE = Object.freeze({ attributes: 5, gameDays: 1 });
+/** FESTIVAL-STAGE (7.6: "music, banners, lanterns"): whether a Festival rules at a seat this week - its holder's Edict
+ *  as the seats' book dresses it (net/townSeatBook.js dressed). */
+export const festivalRules = (seat) => seat?.holder?.edict === 'festival';
 /** Edicts and Tithe changes an account may ask an hour (Appendix B: edicts 5). */
 export const SEAT_EDICTS_HOUR = 5;
 /** Who may set the Tithe and proclaim an Edict: the Guildmaster and the Officers (SEAT0 7.9: "for the holder's

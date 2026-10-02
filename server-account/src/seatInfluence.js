@@ -509,6 +509,7 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
   const own = holder ? list.find((s) => s.guild === holder.guild.id) : null;
   // SEAT1d: the holder's own view - its Standing, Tithe, Edicts and upkeep; its defence at its Overreach
   const holding = holder ? await holdingOf(db, key, nowS) : null;
+  const was = await standingWas(db, key, week - 1, holder);   // STANDING-TREND: the last Turning settled the week before this one
   const { results: tiers = [] } = holder ? await db.prepare('SELECT tier, region FROM town_seat_holds WHERE guild_id = ?').bind(holder.guild.id).all() : { results: [] };
   const held = holder ? !!(await db.prepare("SELECT 1 FROM town_seat_aftermath WHERE week = ? AND key = ? AND guild_id = ? AND what = 'bonus'").bind(week, key, holder.guild.id).first()) : false;   // SEAT2a: a held siege's x1.2
   // CROWN2 (7.8): a vassal's - its liege's half-reach here, as the Turning reckons it: a fealty sworn (not breaking) that
@@ -565,7 +566,7 @@ export async function readStandings({ db, nowS }, player, env, { key, character 
     reckoningAt: Math.floor((start + SEAT_WEEK_MS - SEAT_RECKONING_MS) / 1000), turningAt: Math.floor((start + SEAT_WEEK_MS) / 1000),
     standings,
     ...(towers ? { towers } : {}),   // SEAT2b part two: the Watchtowers' word, the holder's members'
-    holder: holder && holding ? { ...holder, edict: holding.edict } : holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),
+    holder: holder ? { ...holder, ...(holding ? { edict: holding.edict } : {}), ...(was != null ? { was } : {}) } : holder, defence, battle: (await battlesOf(db, week)).get(key) ?? null, chronicle: await chronicleOf(db, key),   // STANDING-TREND: the holder's `was`, its Standing at the last Turning
     fight: await fightOf(db, key, player, character, nowS),   // SEAT2a: the week's battle placed, its sides, the reader's place; the holder's window
     royal: seat.tier === 'crown' ? await royalView(db, key, nowS) : null,   // CROWN1 part two: the Royal Tourney ruling here this week, its prize and ladder
     ...(holding && mine?.guild === holder?.guild.id ? { holding } : {}),
@@ -607,10 +608,24 @@ export async function battlesOf(db, week) {
   }
   return out;
 }
-/** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's). */
+/** A seat's Chronicle, newest first - `{ kind, week, data }`, at most `max` (SEAT_CHRONICLE_SHOWN, the Seat tab's).
+ *  STANDING-TREND: never the Turning's Standing rows (they are the trend's, standingWas). */
 async function chronicleOf(db, key, max = SEAT_CHRONICLE_SHOWN) {
-  const { results = [] } = await db.prepare('SELECT kind, week, data FROM town_seat_history WHERE key = ? ORDER BY seq DESC LIMIT ?').bind(key, max).all();
+  const { results = [] } = await db.prepare("SELECT kind, week, data FROM town_seat_history WHERE key = ? AND kind <> 'standing' ORDER BY seq DESC LIMIT ?").bind(key, max).all();
   return results.map((r) => { let data = {}; try { data = JSON.parse(r.data); } catch { /* none */ } return { kind: r.kind, week: Number(r.week), data }; });
+}
+
+/**
+ * STANDING-TREND (7.9: "Standing and its trend"): the Standing `holder` held as week `week`'s Turning began - its
+ * 'standing' row, written by that Turning (seatTurning.js settleWeek) - or null where that Turning reckoned no Standing
+ * for this holder (a Charter it claimed, a seat taken since, a week it never settled).
+ */
+export async function standingWas(db, key, week, holder) {
+  if (!holder) return null;
+  const row = await db.prepare("SELECT data FROM town_seat_history WHERE key = ? AND week = ? AND kind = 'standing' ORDER BY seq DESC LIMIT 1").bind(key, week).first();
+  let d = null;
+  try { d = row ? JSON.parse(row.data) : null; } catch { /* none */ }
+  return d && d.guild === holder.guild.id && Number.isFinite(d.was) ? d.was : null;
 }
 
 /**
