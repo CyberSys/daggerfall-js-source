@@ -4,25 +4,34 @@
 // Mac's export names two pictures (Wood.png and floorboards.png) and carries neither, and a ship wears more than two
 // woods. So she is painted here, from noise, the moment the boats load - combat/bloodArt.js's law and world/gateArt.js's:
 // pixels and numbers, no renderer and no GL in this file, an atlas of the port's own under a pseudo-archive far above
-// any classic one (GALLEON_ARCHIVE). Square-pixelled at Daggerfall's own texel density - a texel is 3 to 5 cm, as a
-// 64-texel classic wall is two metres - so she sits in the pixel world and not over it; deterministic, on fixed seeds,
-// so every client's galleon is the same ship.
+// any classic one (GALLEON_ARCHIVE). Deterministic, on fixed seeds, so every client's galleon is the same ship.
+// AUDIT GN-R12: HER TEXELS, AS SHE WEARS THEM (each picture's median over the area of every mesh she draws that wears it,
+// test/auditgalleon_prefab.test.js R12): her planking - decks, rails and stairs, ceilings, beams, her ports' throats - at
+// Daggerfall's own density, 3.1 cm a texel square (two metres a 64-texel tile, as a classic wall), her bottom 3.1 by 3.5
+// where it slopes from its plan; her liveries a little coarser and not square - her side 4.4 cm along her by 4.5 up (its
+// lowest slice 5.1 by 4.6, where she turns under), her castle 4.1 by 5.2, her stern 4.3-4.4 by 5.2; her spars 3.1-3.3 cm
+// along and 0.8-3.3 round (a prism wraps its picture once round whatever its girth: a yard 1.6 cm, the gaff 1.2); her
+// gilt and gratings finer (1.6 cm), as her iron along a gun's barrel (1.3 round it); her rope finest (0.2-0.4 cm round,
+// 0.8 along); her canvas coarsest (each sail one picture, 8-19 cm across and 5-25 up: the fore course's 18.6 by 6.8, the
+// jib's 8.0 by 25.3); a shutter's face 1.4 by 2.4, a door's 2.4 by 4.0.
 //
 // THE LIVERY IS A GALLEON'S, READ ON HER HEIGHT. The hull's side is one picture whose rows are her height, keel to
 // rail (HULL_SIDE_Y0..HULL_SIDE_Y1 - world/galleonModel.js lays v on it), so the bands run round her whatever face
 // they fall on: the tarred and weeded bottom, a tallow waterline, the main wale, the gunport strake in oxblood with a
 // gilt pin-stripe either side, the upper wale, oiled topsides with a painted line, and a dark cap rail. The stern
 // castle wears the same red in gilt-framed panels on its own band (CASTLE_Y0..CASTLE_Y1) under a balustered rail, and
-// her stern its gallery of leaded windows. Everything else tiles: the deck's pine, the hold's ceiling planks and the
-// beams over it, the spars' grain and their iron hoops, the guns' iron, canvas, rope, gilt, the hatches' gratings, the
-// gunport lids' red, a planked door.
+// her stern its gallery of leaded windows. Everything else tiles - the deck's pine, the hold's ceiling planks and the
+// beams over it, the spars' grain and their iron hoops, the guns' iron, rope, gilt, the hatches' gratings, the ports'
+// throats - but for three pictures each worn once over a whole face: a sail's canvas, a gunport shutter's red, a door.
 //
 // GALLEON-2 (2026-10-02, Mac: "textures should be 64x64"): EVERY PICTURE IS 64 x 64, Daggerfall's own texture's size.
-// The tiling ones were that or smaller (the smaller painted at 64 now, their tiles stretched to keep the texel); the
-// whole-face ones (a sail's canvas, a door, a gunport lid) are painted at 64 over their face. And the three liveries
-// that ran a picture keel to rail - the hull's side, the castle's and the stern's - are painted as before and CUT into
-// 64-texel slices by height (`BANDS`): each slice its own record, square-pixelled at the density it had, and
-// world/galleonModel.js cuts each face they lie on at the slices' heights, so a band runs round her as it did.
+// The tiling ones were that or smaller; the smaller are painted at 64 now - the spar's, the iron's and the gilt's tiles
+// doubled with their pictures, so over a face and along a spar their texel is the size it was (round a prism it halved:
+// a prism wraps its picture once round), the rope's tile left as it was (64 texels round it now, where it had 16). The
+// whole-face ones are painted at 64 over their face. And the three liveries that ran a picture keel to rail - the hull's
+// side, the castle's and the stern's - are painted as before and CUT into 64-texel slices by height (`BANDS`): each slice
+// its own record, at the density it had, and world/galleonModel.js cuts each face they lie on at the slices' heights, so
+// a band runs round her as it did.
 //
 // Each picture is `{ width, height, data }`, RGBA top-down (a PNG's order): textureReplacement.js's vendored-art door
 // (`addVendorTextures`, a `build` that returns one) takes it into the port's color32 order. Not a DFU member. Ledger A
@@ -55,11 +64,13 @@ export const BANDS = Object.freeze({
 });
 /** How far each tiling picture repeats (metres a tile, u then v) - world/galleonModel.js projects by these; a
  *  livery's (by its BANDS name) its u alone. GALLEON-2: the spar's, the iron's and the gilt's doubled with their
- *  pictures, so a texel is the size it was. */
+ *  pictures, so a texel is the size it was over a face and along a spar (AUDIT GN-R12: a prism takes no tile round it -
+ *  its u wraps once round - so round a yard, a boom or a gun's barrel the texel halved; and a gun's barrel takes the
+ *  iron a metre along, galleonModel.js gunGeometry). AUDIT GN-R8: the throats' planks two metres, as the strake's. */
 export const GALLEON_TILE = Object.freeze({
   hullSide: [2.8, 0], hullBottom: [2, 2], hullInner: [2, 2], deck: [2, 2], trim: [2, 2], castle: [2.6, 0], sternWindows: [2.6, 0],
   spar: [2, 2], iron: [2, 2], canvas: [0, 0], rope: [0, 0.5], gilt: [1, 1], grate: [1, 1], lid: [0, 0], door: [0, 0],
-  beams: [2, 2], dark: [1, 1], underDeck: [2, 2],
+  beams: [2, 2], dark: [2, 2], underDeck: [2, 2],
 });
 
 /** The palette - Daggerfall's own muted earths, and the livery's three: oxblood, gilt, tar. */
@@ -328,8 +339,8 @@ export function sternWindowsGlowLivery() {
   return out;
 }
 
-/** Masts, yards and the bowsprit: grain running up the spar, an iron hoop on each tile. 64 x 64, two metres round and
- *  two long (a prism's spar wraps it once round). */
+/** Masts, yards and the bowsprit: grain running up the spar, an iron hoop on each tile. 64 x 64, two metres long; on a
+ *  baked mast two metres across too, and round a built spar (a prism) once round whatever its girth (AUDIT GN-R12). */
 export function sparArt() {
   const S = GALLEON_TEX_SIZE, img = picture(S, S);
   const n = noise(0x5b1, S, S, 32, 4);
@@ -338,7 +349,8 @@ export function sparArt() {
   return img;
 }
 
-/** Gun iron: blackened, speckled, a little rust. 64 x 64, two metres a tile. */
+/** Gun iron: blackened, speckled, a little rust. 64 x 64, two metres a tile over a face; a metre along a gun's barrel
+ *  and once round it (AUDIT GN-R12). */
 export function ironArt() {
   const S = GALLEON_TEX_SIZE, img = picture(S, S);
   const n = noise(0x1e1, S, S, 16, 16);
@@ -442,10 +454,16 @@ export function underDeckArt() {
   return img;
 }
 
-/** The dark of a port's throat and a hold's corners. 64 x 64, a metre a tile. */
+/** A gunport's throat - its sill, lintel and cheeks: the strake's oxblood planks run through her side, shaded as the
+ *  inside of a port is. 64 x 64, two metres a tile (3.1 cm a texel), seamless both ways: eight rows of planks fill it
+ *  (a seam under each, the next one's lit edge over it - the wrap is one more of those), their butts wrap round it and
+ *  the noise is the picture's own tileable lattice. AUDIT GN-R11: it was a block pattern worn by nothing - its 8-texel
+ *  blocks repeated every 3 inside an 8-block tile, so it never tiled - and its doc named the throats, which wore the
+ *  lid's picture (AUDIT GN-R8). */
 export function darkArt() {
   const S = GALLEON_TEX_SIZE, img = picture(S, S);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) put(img, x, y, ((x >> 3) + (y >> 3)) % 3 ? C.black : [28, 24, 22]);
+  const n = noise(0xd4c, S, S, 8, 8);
+  planks(img, { ph: 8, lenMin: 20, lenMax: 44, seed: 0xd4b, base: (x, y) => shade(mix(C.oxblood, C.oxbloodLit, 0.25 * n(x, y)), 0.72), tone: 0.08, grain: 0.1, seamCol: [44, 13, 10], trenail: [62, 19, 15] });
   return img;
 }
 

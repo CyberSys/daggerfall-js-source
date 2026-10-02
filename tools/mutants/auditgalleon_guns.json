@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-GN-G1-port-shutters-unmirrored",
     "file": "src/world/galleonModel.js",
-    "old": "lidComps(s > 0 ? 'galleon:gunportLid' : 'galleon:gunportLidPort')",
-    "new": "lidComps('galleon:gunportLid')",
+    "old": "lidComps(s > 0 ? `galleon:gunportLid${i}` : `galleon:gunportLidPort${i}`)",
+    "new": "lidComps(`galleon:gunportLid${i}`)",
     "tests": [
       "test/auditgalleon_guns.test.js"
     ]

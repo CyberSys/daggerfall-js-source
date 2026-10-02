@@ -25,6 +25,7 @@ import { loadComeSailAwayModels, CSA_MODEL_URLS, GALLEON_MODEL_URL } from '../sr
 import { animatorOf, colliderBounds } from '../src/systems/comeSailAwayBoat.js';
 import { HULL, hullBuild } from '../src/systems/naval/navalShips.js';
 import { quatEuler } from '../src/world/unityAnimator.js';
+import { CAPSULE_HEIGHT } from '../src/player/motor.js';
 import { scene, MODELS } from './csaScene.mjs';
 import { sea } from './navalSea.mjs';
 
@@ -279,7 +280,10 @@ test('GALLEON HER HELM: a wheel on the castle\'s roof before the helmsman\'s pla
   assert.ok(wheel && rudder && wheel.parent === boat.RudderObject && rudder.parent === boat.RudderObject, 'both under her RudderObject');
   assert.deepEqual([...boat.DriveTrigger.parent.localPosition], [...HELM.hub], 'the helm\'s trigger at the wheel');
   assert.deepEqual([...boat.DrivePosition.localPosition], [...HELM.stand]);
-  near(HELM.stand[1], MEASURED.castleRoofY, 1e-9, 'the helmsman on her roof');
+  // PIN MOVED (AUDIT GALLEON P1, 2026-10-02): DrivePosition is where Come Sail Away pins the helmsman's capsule CENTRE
+  // (world.js csaSetPlayerPosition: his feet half a height under it), so it stands half a capsule over her roof - on
+  // the roof itself it put his feet 0.9 m under it, through it into her great cabin, and his eye under the wheel's hub
+  near(HELM.stand[1], MEASURED.castleRoofY + CAPSULE_HEIGHT / 2, 1e-9, 'the helmsman on her roof: his capsule\'s centre half its height over it');
   assert.ok(HELM.stand[2] < HELM.hub[2], 'behind the wheel');
   const wind = () => { s.rt.state.windVectorCurrent = [0, 0, 1.5]; s.rt.state.windVectorTarget = [0, 0, 1.5]; };   // astern
   s.helm(boat);

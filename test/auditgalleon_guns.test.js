@@ -18,7 +18,9 @@ import { scene, MODELS } from './csaScene.mjs';
 import { sea, freshPool } from './navalSea.mjs';
 import * as ships from '../src/systems/naval/navalShips.js';
 const { HULL } = ships;
-import { MEASURED, LID_OPEN_DEG } from '../src/world/galleonModel.js';
+import { MEASURED, LID_OPEN_DEG, LID } from '../src/world/galleonModel.js';
+import { TEX } from '../src/world/galleonArt.js';
+import { hullTriangles, halfBreadth } from '../tools/galleonLidFit.mjs';
 import { createGalleonGunDeck, RUN_OUT_X, RUN_IN_X, RECOIL, KICK_S, HOLD_S } from '../src/systems/naval/galleonGunDeck.js';
 import { PEER_LAY_S } from '../src/scenes/navalHost.js';
 import { navalWireRecord, validNavalRecord } from '../src/systems/naval/navalWire.js';
@@ -26,6 +28,8 @@ import { Boat, animatorOf } from '../src/systems/comeSailAwayBoat.js';
 import { createComeSailAwayPool } from '../src/scenes/comeSailAwayPool.js';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+/** Her hull's own triangles, as baked (her side's half-breadth under a point: tools/galleonLidFit.mjs). */
+const HULL_TRIS = hullTriangles(JSON.parse(readFileSync(new URL('../src/assets/galleon/galleon.json', import.meta.url), 'utf8')));
 const near = (a, b, eps, what) => assert.ok(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 const nodesOf = (boat) => [...boat.GameObject.walk()];
 const animatorsOf = (boat) => nodesOf(boat).flatMap((n) => n.getComponents('Animator').map((c) => c.animator).filter(Boolean));
@@ -70,7 +74,20 @@ test('AUDIT GALLEON G1: every gunport shutter on both her sides stands outboard 
   for (const lid of lids) {
     const sgn = lid.name.includes('Starboard') ? 1 : -1;
     const pts = meshInHull(boat, lid);
-    assert.ok(pts.every((p) => sgn * p[0] >= MEASURED.hullOuterX - 0.12), `${lid.name} shut: outboard of her planking (min ${Math.min(...pts.map((p) => sgn * p[0])).toFixed(3)})`);
+    // PIN MOVED (AUDIT GALLEON P6, 2026-10-02): fitted to her side - a shut shutter's board lies on her planking (its
+    // inner face 3 mm off it, bent to it: tools/galleonLidFit.mjs), so it is held to her side's own half-breadth under
+    // each vertex, not to one plumb bound 12 cm inside her widest (5.739): port 4's foot follows her side where it falls
+    // in under the sill toward the bow, to 5.390; the hinge's iron eyes sit on their pin on her side, let into it by
+    // their radius
+    const g = MODELS.geometry(lid.getComponent('MeshFilter').m_Mesh.mesh);
+    const iron = g.subMeshes[g.slots.findIndex((sl) => sl.record === TEX.iron)];
+    // (a MeshBench geometry draws each corner its own vertex, in index order: a sub-mesh's index run is its vertices)
+    const isEye = (v) => v >= iron.startIndex && v < iron.startIndex + iron.primitiveCount * 3;
+    pts.forEach((p, v) => {
+      const side = halfBreadth(HULL_TRIS, p[1], p[2], sgn);
+      if (side == null) return;
+      assert.ok(sgn * p[0] >= side - (isEye(v) ? LID.eyeR : 0) - 1e-3, `${lid.name} shut: outboard of her planking at (${p[1].toFixed(3)}, ${p[2].toFixed(3)}): ${(sgn * p[0]).toFixed(3)} vs her side ${side.toFixed(3)}`);
+    });
     // its board hangs outboard of its hinge, its painted face out (the starboard side's board on the port side stood
     // inboard of it, into her planking, its inner face to the sea)
     const out = bodyOutboard(boat, lid, sgn);
