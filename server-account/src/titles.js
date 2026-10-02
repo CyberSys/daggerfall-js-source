@@ -225,9 +225,8 @@ export function auraRefusal(aura, player) {
   return aurasHeld(player).includes(aura) ? null : 'not-held';
 }
 
-/** THE GLYPHS THAT ARE TRUE OF THIS PLAYER. Not held and not worn -
- *  true, which is why nothing equips one and why the order is fixed
- *  rather than a preference. */
+/** THE GLYPHS THAT ARE TRUE OF THIS PLAYER, in a fixed order. GLYPH-WEAR: a player may take one off (glyphsHidden),
+ *  which hides it and nothing more - this list is still what is true, and what the rights read. */
 export function glyphsOf(player, env, nowS) {
   const on = [];
   if (Number.isFinite(player?.created_at) && nowS - player.created_at < SPROUT_S) on.push('sprout');
@@ -235,6 +234,27 @@ export function glyphsOf(player, env, nowS) {
   if (isModerator(player, env)) on.push('mod');   // MOD1: the blue shield
   for (const t of Object.keys(TIER_LISTS)) if (holdsTier(t, player, env)) on.push(TIER_GLYPH[t]);   // TITLE-N: each title's own glyph
   return on;
+}
+
+/** GLYPH-WEAR (2026-10-02, Mac: "can we make it where players can also equip/unequip their glyphs"): THE GLYPHS THIS
+ *  PLAYER HAS TAKEN OFF - the stored choice (`glyphs_off`, 0046), read against what is true now, so a glyph that has
+ *  lapsed is not "hidden" and one granted later shows until it is taken off. In glyphsOf's order. */
+export function glyphsHidden(player, env, nowS) {
+  const off = typeof player?.glyphs_off === 'string' ? player.glyphs_off.split(' ') : [];
+  return glyphsOf(player, env, nowS).filter((g) => off.includes(g));
+}
+
+/** GLYPH-WEAR: THE GLYPHS THIS PLAYER SHOWS - what is true of them, less what they took off. Paint alone: a right that
+ *  rides a glyph (the relay's /red and /dm, canModerate, the staff commands) reads glyphsOf, never this. */
+export function glyphsShown(player, env, nowS) {
+  const off = glyphsHidden(player, env, nowS);
+  return glyphsOf(player, env, nowS).filter((g) => !off.includes(g));
+}
+
+/** GLYPH-WEAR: may this player show or hide this glyph - the refusal word, or null. Only a glyph true of them now. */
+export function glyphRefusal(glyph, player, env, nowS) {
+  if (typeof glyph !== 'string' || !GLYPHS.includes(glyph)) return 'no-glyph';
+  return glyphsOf(player, env, nowS).includes(glyph) ? null : 'not-held';
 }
 
 /** The title this player WEARS: the stored one, but only while they
@@ -263,6 +283,7 @@ export const wardrobeOf = (player, env, nowS) => ({
   titles: titlesHeld(player, env),
   title: titleWorn(player, env) ?? null,
   glyphs: glyphsOf(player, env, nowS),
+  glyphsOff: glyphsHidden(player, env, nowS),   // GLYPH-WEAR: the ones taken off - `glyphs` stays all that is true
   auras: aurasHeld(player),
   aura: auraWorn(player) ?? null,
   insignia: insigniaHeld(player?.insignia),

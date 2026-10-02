@@ -4320,3 +4320,27 @@ stroked glyph in it.
   (`auditbounty1.test.js` holds the credit). `tools/mutants/herald.json` (12, all dead); seven older records re-aimed
   by content (`penitent.json` 4, `shadowfang.json` 2, `soc1.json`'s version record) and PATREON-LINK's two config
   records, all dead.
+
+## MOD2 and GLYPH-WEAR — a second moderator, and glyphs a player can take off (2026-10-02, acct50, world143)
+
+Mac: "Please give tabbyvish the moderator title/glyph for ingame", then "Before we merge this, can we make it where
+players can also equip/unequip their glyphs".
+
+- **MOD2**: `MODERATOR_HANDLES = "Asynian,tabbyvish"` - MOD1's grant (the blue shield, `/mute` and `/unmute`). There is
+  no moderator title in `TITLES`, only the glyph.
+- **A glyph is still TRUE of a player** (ACC3) and still derived at every read. The one stored thing is the choice:
+  `players.glyphs_off` (migration 0046), the glyphs taken off, space-separated. `titles.js` `glyphsHidden` reads it
+  against `glyphsOf` now, so a lapsed glyph is not "hidden" and a newly granted one shows until taken off;
+  `glyphsShown` is the rest. `POST /v1/account/glyph { glyph, on }` shows or hides one (`not-held` 403, `no-glyph` 400)
+  and answers the wardrobe, which carries `glyphsOff` beside `glyphs`.
+- **HIDING IS PAINT ALONE.** The token still signs every true glyph as `g`, because rights ride glyphs: the relay's
+  `/red`, `/dm` and live events read `dev`/`dm` off the attachment, and the client's staff commands read the mint's
+  `glyphs`. The hidden ones ride beside as `gx` (`claimsValid`: a non-empty list of `g`'s own, absent for none).
+  `badged` (wire.js) leaves `gx` out of every row the relay stamps, so a roster, a join and a traveller are shown only
+  what the player shows. The board's and the letters' badges read `glyphsShown`.
+- **My own screen**: the mint answers `glyphsOff`; `adoptIssued` (world.js) hands my name the shown glyphs and the
+  staff rights the whole list; `adoptIdentity` stores the shown glyphs, so a hidden Shadow Fang is no wolf skin on my
+  screen, as it is none on anybody else's.
+- **The card**: each glyph on the account card is a button now - full strength while shown, faded while hidden.
+  Others see the change from the next hello, as a title. A relay before world143 shows every glyph.
+- Pins: `test/glyphwear.test.js`; `test/titlen.test.js` (MOD2's list).

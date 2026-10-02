@@ -15368,8 +15368,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   const adoptIssued = (who) => {
     renownXpAdopt(who?.xp);   // RENOWN4: the total, before the level - so no frame draws the new level over the old total
     who = { ...who, level: renownAdopt(who?.level) };   // RENOWN1: the highest level this page has known, never a stale token's lower one
-    online?.adoptIdentity?.(who);
-    for (const link of chatLinks?.values?.() ?? []) link.adoptIdentity?.(who);
+    // GLYPH-WEAR: my own name wears what the room is shown - less the glyphs I took off - while the staff rights below
+    // read every glyph that is true (hiding one is paint alone)
+    const off = Array.isArray(who?.glyphsOff) ? who.glyphsOff : [];
+    const shown = { ...who, glyphs: Array.isArray(who?.glyphs) ? who.glyphs.filter((g) => !off.includes(g)) : who?.glyphs };
+    online?.adoptIdentity?.(shown);
+    for (const link of chatLinks?.values?.() ?? []) link.adoptIdentity?.(shown);
     _staffGlyphs = Array.isArray(who?.glyphs) ? who.glyphs : [];   // STAFF1: the service's own word on my glyphs, each issue
     if (!isStaff(_staffGlyphs)) setStaffPowers({ god: false, fly: false });   // ...and a title taken away takes its switches with it
   };
@@ -16937,7 +16941,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  through their own readers, never a word the vocabulary does not hold. */
   const insigniaSelf = (answer, secret) => {
     online?.adoptIdentity?.({ title: _insignia.title, glyphs: online.glyphs, level: online.lv, aura: _insignia.aura });
-    adoptSessionIdentity(appStorage(), { glyphs: answer?.glyphs, aura: _insignia.aura, secret });
+    adoptSessionIdentity(appStorage(), { glyphs: answer?.glyphs, glyphsOff: answer?.glyphsOff, aura: _insignia.aura, secret });   // GLYPH-WEAR: less the ones taken off
   };
   async function insigniaBuy(offer) {
     if (_insignia.busy) return { ok: false, text: 'The Broker is already writing up a sale.' };

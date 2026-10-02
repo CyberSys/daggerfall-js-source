@@ -135,7 +135,7 @@ import {
   createGuest, openSession, resolveSession, closeSession, closeAllSessions,
   devicesOf, accountView, displayName, accountKind,
   register, login, recover, changePassword, setEmail, overRate,
-  accountWardrobe, equipTitle, equipAura, buyInsignia, insigniaPurse, creditPlay, muteAccount, isMuted, mutedUntil,
+  accountWardrobe, equipTitle, equipAura, equipGlyph, buyInsignia, insigniaPurse, creditPlay, muteAccount, isMuted, mutedUntil,
   duelRecordOf, reportDuelLoss, gateRecordOf, claimGate, legalRefusal,
   ACCOUNT_MAX, ACCOUNT_WINDOW_S,
 } from './accounts.js';
@@ -143,7 +143,7 @@ import { mintToken, mintOrder, mintRenownOrder, mintGuildOrder, mintGuildOutOrde
 import { ACCOUNT_VERSION, MAX_BODY_BYTES, ROUTES, OPEN_ROUTES, PATREON_OPEN_ROUTES, savePathOf, realmPathOf, SAVE_MAX_BYTES, SHOT_MAX_BYTES, maintaining } from './service.js';
 import { listSaves, putCard, putBlob, getBlob, deleteSave, saveCardOf } from './saves.js';
 import { signingKey, gatePublicKey } from './signing.js';
-import { titleWorn, glyphsOf, auraWorn } from './titles.js';
+import { titleWorn, glyphsOf, glyphsHidden, auraWorn } from './titles.js';
 import { sendLetter, inboxOf, readLetter, deleteLetter } from './letters.js';   // MAIL1: the letters' routes
 import { reportRenownXp, renownTrackOf, renownTracksOf, renownCharacterOk } from './renownTracks.js';   // RENOWN1: Renown's track - RENOWN-CHAR: a character's again
 import { claimRaid, raidRecordOf } from './raids.js';   // RAID4: the towns defended
@@ -563,6 +563,10 @@ const service = {
           g: glyphsOf(who.player, env, nowS),
           au: auraWorn(who.player),   // WB9g: the aura worn, the title's law - absent for none
         };
+        // GLYPH-WEAR: the glyphs taken off ride BESIDE `g`, never out of it - `g` is what is true and what the relay's
+        // rights read (/red, /dm); `gx` is paint, which every face that draws a badge leaves out. Absent for none.
+        const gx = glyphsHidden(who.player, env, nowS);
+        if (gx.length) wardrobe.gx = gx;
         // MOD1: A MUTE RIDES THE TOKEN, so a reconnect cannot shed one -
         // every room reads it off the signature at the hello. Only while
         // it runs: a mute that has ended is simply absent.
@@ -600,6 +604,7 @@ const service = {
           kind: accountKind(who.player),
           title: wardrobe.t ?? null,
           glyphs: wardrobe.g,
+          glyphsOff: wardrobe.gx ?? [],   // GLYPH-WEAR: the ones my own name leaves out
           mutedUntil: mu ?? 0,
           level: lv ?? null,
           xp: track ? track.xp : null,
@@ -951,6 +956,12 @@ const service = {
       if (path === '/v1/account/aura' && request.method === 'POST') {
         // WB9g: WEAR ONE AURA, OR NONE - the title's door at the feet. 403 for `not-held`, as the title's.
         const r = await equipAura(ctx, who.player, env, body.aura ?? null);
+        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
+      }
+
+      if (path === '/v1/account/glyph' && request.method === 'POST') {
+        // GLYPH-WEAR: SHOW ONE GLYPH, OR HIDE IT - `{ glyph, on }`. 403 for `not-held`, as the title's.
+        const r = await equipGlyph(ctx, who.player, env, body.glyph, body.on !== false);
         return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
       }
 
