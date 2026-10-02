@@ -24,7 +24,7 @@ import { PRIVATEERS_HOLD_BLOCK, HOLD_MODELS, HOLD_FLATS, holdModelMatrix, holdFi
 import { rollLootRarity, pileSource, dungeonRarityTier, stampWonWeapons } from '../systems/lootRarity.js';   // WOD3: LR1 over the camps' piles; SIGIL1: their weapons' sigils
 import { SKY_CLEAR } from '../render/renderer.js'; import { centreFromFeet } from '../characters/enemyAnchor.js';   // REVIEW 2026-09-05: one line, so the cites below it hold
 import { Arch3dFile } from '../formats/arch3dFile.js';
-import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2)
+import { requestLook, releaseLook, makeLookGate, bindCursorToggle, setCursorActive, cursorActive, holdCursor } from '../player/pointerLock.js';   // U45: bindCursorToggle is PlayerMouseLook.cursorActive; releaseLook: the chat's open (AUDIT CHAT C2); HERB-CURSOR: an act's free cursor
 import { attachTouch } from '../ui/touch.js';
 import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks the same hooks
 import { BlocksFile } from '../formats/blocksFile.js';
@@ -8423,7 +8423,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         step: (n) => plaqueStep(n),
         active: () => walkMode && modeNow() === 'exterior' && !townTalk.overlayActive && !modes?.deathUp?.() && !modes?.transitioning && !travelView?.active,   // AUDIT 32 H10: never from under the travel view (its ray is the hidden head's - AUDIT OW5 V2's law for E)
         activeDungeon: () => walkMode && modeNow() === 'dungeon' && !modes?.dungeonCtx?.uiOverlayActive && !modes?.deathUp?.() && !modes?.transitioning,   // PROF2: a dungeon's veins
-        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); },
+        onSettle: () => { profBook.settle(profMint, profMintCraft).catch(() => {}); }, pointer: (want) => { if (want === 'look') { if (cursorActive()) { setCursorActive(false); requestLook(canvas); } return null; } const off = holdCursor(); return () => { if (off() && !cursorActive() && !gamePaused() && !pointerSurfaces.size && !(modes?.modalWindowUp?.() ?? false) && !overlayOpen() && !travelView?.active) requestLook(canvas); }; },   // HERB-CURSOR (FIELD BUGS 2026-10-02 part three): the Basket's glints are clicked with the cursor, held free while it plays and the look taken back after (never under a window, the travel view or the player's own freed mouse); a vein's or a body's act is aimed by the look - a mouse the player freed is taken back
       });
       setProfessionsPages({
         book: profBook, name: (k) => materialLabel(k), withdraw: (k, n) => profBook.withdraw(k, n, profMint),
@@ -13200,7 +13200,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // AUDIT 58 (f3/input) - THE ONE READER. This host builds the mode
   // machine unconditionally, and that machine used to register a
   // SECOND bindCursorToggle over the same module-global flag
-  // (player/pointerLock.js:89-303), so ONE Enter flipped it twice and
+  // (player/pointerLock.js:89-325), so ONE Enter flipped it twice and
   // `cursorActive()` could never rise here at all - the large HUD's
   // eleven panels were unreachable by mouse in this host, and the
   // second flip fired a releaseLook/requestLook pair inside one event.

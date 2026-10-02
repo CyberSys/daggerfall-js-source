@@ -351,3 +351,50 @@ Mines' N0000033, CORNER-TOP in the reporter's pit, and no fall at B1's three yaw
 
 - Using the Fishing-Net from the hotbar at the helm finds no cast and says Foraging's general line about where nets
   work, which tells a player already at sea to stand at sea. A helm-specific line would be polish.
+
+## Part three - the Basket's cursor
+
+A #bug-reports thread through Mac (a screenshot, 2026-10-02), and Mac's ask under it:
+
+> miö, "Herbalism minigame bugged": *"Doesn't make mouse appear when the minigame starts, so cant click on the
+> targets."*
+>
+> Mac: "Also check the other minigames"
+
+| | Report | Reporter | What it was | Done |
+|---|---|---|---|---|
+| 1 | "Doesn't make mouse appear when the minigame starts, so cant click on the targets" | miö | the Basket's glints stand about the crosshair (`ui/profReticle.js` `BASKET_SPREAD`, up to about 40 px off it at HUD scale 1), drawn as targets with "tap the glint" under them. The mouse stayed locked to the look, so moving it toward a glint turned the view and the glint turned with it: no glint could be put under the pointer. A press anywhere while a glint showed did find it (ACT-CLICK), but nothing on the screen said so, and a press during the gap spends the next glint (AUDIT 29 C9) | fixed (HERB-CURSOR) |
+| 2 | "Also check the other minigames" | Mac | every act read for what it needs of the mouse: the mine's points and the knife's line are aimed by the look itself, and a cursor the player had freed (Enter, FreeMouse) left them unaimable; the chop's ring, the hand and the steady hold, and the net need neither; the stations (the heat, the stitch, the plane, the chisel) are Stores-page sections, under the pause window's free cursor | fixed (HERB-CURSOR); the rest checked, unchanged |
+
+## HERB-CURSOR: the act says what it needs of the mouse (1, 2)
+
+**The law** (`scenes/gatherHost.js` `ACT_POINTER`, by the act machine's kind): the Basket `cursor`, the mine and the
+trace `look`, every other act nothing. The host asks its `pointer` seam as an act starts, in the press's own frame (the
+gesture a lock asks for), and calls the release the seam answered as the act ends, however it ends: its end, Escape,
+walking off, a window over it, the professions shut, the page gone (`syncPointer`, after every change of the act).
+
+**The hold** (`player/pointerLock.js` `holdCursor`). Not the player's toggle (`cursorActive` - its freed mouse is the
+large HUD's, the hotbar's mouse mode and the pad's pointer mode, none of them the Basket's): a hold of its own. Taken,
+it lets the lock go; while any stands, `requestLook` refuses (a click's relock arm, a window's close, the look gate,
+PL3's net), and a lock the browser grants late is let go (AUDIT OW5 V1's listener). The release is once-only and says
+whether it let go of the last. A host's boot clears any left over, as it resets the toggle (PL3).
+
+**The world's seam** (`scenes/world.js`, line-neutral). `cursor`: the hold, and at its release the look requested back
+unless something else holds the mouse - the player's own freed cursor, a paused window, a surface (the chat, the
+friends panel), a modal window, an enhanced overlay, the travel view. `look`: a cursor the player freed is taken back
+(`setCursorActive(false)`, `requestLook`); no release.
+
+Unchanged: the Basket's rules. Any press while a glint shows finds it, and a press in the gap spends the next (5, 8;
+AUDIT 29 C9). A pad's trigger and a finger's tap strike as before (ACT-TOUCH). The cursor is now free to click the
+glint itself.
+
+## Pins and mutants (part three)
+
+- `test/fb1002_herbcursor.test.js` (6): the law; the hold (refused requests, the last release, once-only, the late
+  lock, the boot's reset); the report, answered (the Basket's search through the real host and herbKind: the cursor
+  asked in the press's frame, held through the three glints, every clicked glint found, the look handed back once);
+  every end (Escape, walking off, a window, the professions shut, the page gone); the other acts (a vein asks the look,
+  the hand or the steady hold asks nothing); the world's seam, by source.
+- `tools/mutants/fb1002_herbcursor.json` (16), all dead.
+- PIN MOVED: `test/chat1.test.js`'s source pin on world.js's `pointerLock.js` import (holdCursor joined it). The cites
+  the change moved were re-resolved (`tools/citeShift.mjs`, 4: `player/pointerLock.js:89-303` -> `89-325`).

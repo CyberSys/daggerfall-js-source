@@ -96,6 +96,26 @@ export function toggleCursorActive(canvas) {
   return _cursorActive;
 }
 
+// HERB-CURSOR (FIELD BUGS 2026-10-02 part three, "Herbalism minigame
+// bugged": "Doesn't make mouse appear when the minigame starts, so cant
+// click on the targets"): A CURSOR AN ACT HOLDS FREE. The Basket's
+// glints stand about the crosshair, where no look reaches them - the
+// mouse turned the view and the glints turned with it. Its act frees
+// the mouse while it plays. Not the player's toggle above (its freed
+// mouse is the large HUD's, the hotbar's, the pad's pointer mode): a
+// hold of its own, which requestLook honours as it honours the toggle.
+// The release answers whether it was the last, for the host to take
+// the look back.
+const _cursorHolds = new Set();
+export const cursorHeld = () => _cursorHolds.size > 0;
+/** The cursor held free, the lock let go; answers the release - once-only, true when it let go of the last hold. */
+export function holdCursor() {
+  const hold = {};
+  _cursorHolds.add(hold);
+  releaseLook();
+  return () => _cursorHolds.delete(hold) && _cursorHolds.size === 0;
+}
+
 /** FREEMOUSE: the action the port added beside DFU's, for the players
  *  who want a key that is ONLY the mouse. Named here because this is
  *  the one module that reads it. */
@@ -139,6 +159,7 @@ export function bindCursorToggle(canvas, isWindowUp = () => false, actionsOf = n
   // is a fresh PlayerMouseLook (cursorActive is an instance field,
   // :32) - so the bind is the reset.
   setCursorActive(false);
+  _cursorHolds.clear();   // HERB-CURSOR: and an act's hold the last host never let go
   let lastRealEscape = -Infinity;   // ESC-LOCK (1), below
   const onKey = (e) => {
     // ESC-LOCK (1): a real Escape the browser DID hand the page is noted first, whatever is up - the loss that follows
@@ -292,8 +313,9 @@ export const RELOCK_GRACE_MS = 150;
 
 export function requestLook(canvas) {
   // The precedence above: a cursor the player activated is not taken
-  // back by the next gesture, only by the toggle.
-  if (_cursorActive) return;
+  // back by the next gesture, only by the toggle. HERB-CURSOR: nor
+  // one an act holds free, until it lets go.
+  if (_cursorActive || _cursorHolds.size) return;
   _lastRequestAt = nowMs();
   if (!_errBound && typeof document !== 'undefined') {
     document.addEventListener('pointerlockerror', () => {
@@ -303,7 +325,7 @@ export function requestLook(canvas) {
     // a free cursor asked for between (the travel view risen on the frame after a window closed, over the look gate's
     // relock: its release found no lock yet to let go) had the lock land under it - no cursor over the Overworld, a drag
     // turned the traveller's head, a click picked where the Begin button had been. Only this module asks for the lock.
-    document.addEventListener('pointerlockchange', () => { if (_cursorActive && document.pointerLockElement) releaseLook(); }, false);
+    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && document.pointerLockElement) releaseLook(); }, false);
     _errBound = true;
   }
   try {
