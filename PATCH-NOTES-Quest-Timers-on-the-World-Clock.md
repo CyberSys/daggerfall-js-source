@@ -11,7 +11,8 @@
 - **Time logged off never counts**, and neither does a tab left in the background.
 - **Countdowns are back** in the journal, the quest tracker, the quest rail and the map markers, along with the
   "running out of time" warnings. Quest text says the real number of days again.
-- **Bounties lapse again** a day after you take them. That day is your character's own time, so resting uses it up.
+- **Bounties lapse again** a day after you take them, on the world's clock: about two real hours, whether you rest,
+  play or log off.
 - **Quest letters wait for morning again**, as well as for you to be in town.
 - **Vampire, werewolf, Thieves Guild and Dark Brotherhood quests** keep Daggerfall's waits again. These waits count
   your character's own time, so resting does bring them sooner.
