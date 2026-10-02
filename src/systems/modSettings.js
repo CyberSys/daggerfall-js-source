@@ -827,7 +827,7 @@ export const MOD_SETTINGS = Object.freeze({
           + 'attacking and casting, on foot and on horseback. Its attack and death animations aren’t included. '
           + 'Off keeps you in first person unless you use the Morrowind body.',
       }),
-      'Camera.StartInThirdPerson': Object.freeze({ default: true, description: 'Determines the POV when starting or loading a game' }),
+      'Camera.StartInThirdPerson': Object.freeze({ default: false, description: 'Determines the POV when starting or loading a game' }),
       'Camera.FrontalPlaneOffset': Object.freeze({ default: Object.freeze([0.0, 0.5]), tuple: 'float', description: 'Moves the camera position on the X and Y axes' }),
       'Camera.LongitudinalDistance': Object.freeze({ default: 2.0, min: 1, max: 10, float: true, description: 'Moves the camera position nearer or further to the player' }),
       'Camera.MinimumDistance': Object.freeze({ default: 0.8, min: 0, max: 1, float: true, description: 'Prevents the camera from moving too close to the player. Value is a fraction of the Z offset.' }),

@@ -94,6 +94,7 @@ import {
   isForbiddenEquip, isBrokenItem, getEquipSlot, bodyPartForSlot,   // getEquipSlot - Mac (2026-09-18): Wear only where a slot would take it; bodyPartForSlot - AC-COMPARE: GetBodyPartForEquipSlot, the part a worn panel stands for
 } from '../systems/equip.js';
 import { armourBadge, armourPlaque, compareBlock } from './armourCard.js';   // AC-COMPARE: the doll's numbers on the map, the overall figure, the card's comparison
+import { statFlip } from './statsCard.js';   // STATS-CARD: the paperdoll's flip side, its Stats button
 import {
   itemWeight, isEnchanted, totalWeight, addItem, goldStack,
   goldPiecesOf, GOLD_PIECE_WEIGHT_KG,   // E4: the counter and its per-coin weight
@@ -1885,7 +1886,7 @@ function equippedList() {
   const plaque = armourPlaque(deps.entity);
   plaque.style.gridArea = '1 / 2';
   map.append(plaque);
-  wrap.append(map);
+  wrap.append(statFlip(map, deps.entity));   // STATS-CARD: the worn map is the card's front; a Stats button turns it over
   const byLabel = new Map();
   for (const row of worn.rows) {
     if (!byLabel.has(row.label)) byLabel.set(row.label, []);

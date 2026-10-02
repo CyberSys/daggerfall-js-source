@@ -83,7 +83,7 @@ export const FRAME_ROLES = {
     'body .notice-win'],
   // the talk panel is a .px-win whose own ground rule outweighs .px-win's
   windowGround: ['.talk-shell .talk-panel'],
-  panel: ['.port-host .port-card', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
+  panel: ['.port-host .port-card', '.pack-shell .statflip-back', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
     '.shell .card', '.shell .dcard', '.notice', '.inputbox', '.lv-note', '.cr-shell .cr-entry',
     '.cr-shell .cr-sharebox', '.shell .ft-rail', '.shell .look-panel',
     // PLUS3: the trade counter's item-detail readout and the trade/tavern confirm boxes - the same
@@ -112,7 +112,7 @@ export const FRAME_ROLES = {
     'body .bounty-card'],   // BOUNTY1: the notice read whole, the reward box
   // panels that carry a brass edge on the left as their own mark
   panelAccent: ['.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
-  button: ['.port-host .port-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
+  button: ['.port-host .port-btn', '.pack-shell .statflip-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
     '.px-setwrap .step', '.shell .step', '.wizard .bigbtn', '.wizard .reflexbtn', '.lv-pick .lv-arrow',
     '.lv-pick .lv-press', '.shell .look-arrow', '.cr-shell .cr-rm', '.px-winclose', '.talk-head .act', '.talk-say .act',
     '.px-qwhere .act', '.px-qentry-where .act', '.cr-shell .cr-where .act',   // GUIDE2: the journal's way there
@@ -150,7 +150,7 @@ export const FRAME_ROLES = {
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
   warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',
     'body .dfnaval-scuttle'],   // NAV-F: scuttling a prize - she and what is left in her go down
-  tile: ['.port-host .port-tile', '.port-host .port-iconcell', '.pack-shell .itemrow', '.pack-shell .equipped .wornrow', '.pack-shell .wornsock', '.wizard .racegrid button',
+  tile: ['.port-host .port-tile', '.pack-shell .sf-chip', '.port-host .port-iconcell', '.pack-shell .itemrow', '.pack-shell .equipped .wornrow', '.pack-shell .wornsock', '.wizard .racegrid button',
     '.wizard .facegrid button', '.shell .ft-tile', '.shell .ft-seg', '.shell .ft-mchip', '.shell .ft-tile-more',   // FT18: a condensed tile's parts toggle
     '.sb-shell .sb-chip', '.cr-shell .sb-chip', '.piletab',
     // PLUS3: the shop's shelf rows and the tavern's food & drink rows - the same `.itemrow` the pack
@@ -161,10 +161,10 @@ export const FRAME_ROLES = {
     '.hmpick',
     'body .dfdecor-chip',   // PLUS-DRESS: the decorator's filters and modes - pickable cells, the chosen one brass
     'body .dfnaval-choice'],   // NAV-F: the captor's three choices - the one taken brass
-  chip: ['.hud-qspell', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
+  chip: ['.hud-qspell', '.pack-shell .sf-tile', '.pack-shell .sf-pill', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
     '.shell .subbtn .count', '.hb .hb-caption',
     'body .dfnaval-chip', 'body .dfnaval-gun'],   // NAV-F: the plate's fire/brace chips and the battery rose - readouts, never pressed
-  well: ['.trade-shell .packcol', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
+  well: ['.trade-shell .packcol', '.pack-shell .sf-sec', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
     '.port-host .port-field', '.port-host .port-canvas', '.port-host .port-picture img', '.port-host .port-pictureword', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',
     '.talk-face', '.pack-shell .figure-doll', '.pack-shell .wornmap-doll.noart', '.shell .look-pic',
     '.shell .dcard code', '.px-setwrap .dcard code', '.px-meter', '.shell .swatch', '.px-setwrap .swatch',
@@ -188,12 +188,12 @@ export const FRAME_ROLES = {
     // remotehead already wears, just never scoped for the trade counter's own copy of that markup
     '.trade-shell .remotehead',
     'body .dfsocial-head', 'body .dfchat-tabs', 'body .dfsocial-tabs'],
-  headerRule: ['.shell .ft-drawer-label', '.pack-shell .card h3', '.hmcard h3', '.hmcard h2', '.lv-crown', '.talk-modes', '.talk-cats',
+  headerRule: ['.shell .ft-drawer-label', '.pack-shell .sf-sec h4', '.pack-shell .card h3', '.hmcard h3', '.hmcard h2', '.lv-crown', '.talk-modes', '.talk-cats',
     'body .dfsocial-sec', 'body .dfpeer-name', 'body .dfdecor-head',   // PLUS-DRESS: the Social panel's section heads (the Guild tab's), the F-menu's name
     'body .dfnaval-sechead'],   // NAV-F: the plunder window's three heads
   footer: ['.port-host .port-foot', '.dlg-shell .dlg-acts', '.trade-shell .trade-footer', '.pack-shell .pack-dock', '.pack-shell .packbar', '.talk-say'],
   footerRule: ['.lv-foot', '.wizard .actionbar'],
-  rule: ['.port-host .port-stat', '.px-stat', '.px-sys .row', '.shell .row', '.px-setwrap .row', '.hmresult', '.hmpair', '.cr-shell .cr-head',
+  rule: ['.port-host .port-stat', '.pack-shell .sf-row', '.pack-shell .sf-th', '.px-stat', '.px-sys .row', '.shell .row', '.px-setwrap .row', '.hmresult', '.hmpair', '.cr-shell .cr-head',
     'body .dfprofile-head', 'body .dfsocial-letterhead',
     'body .dfsocial-row'],   // PLUS-DRESS: a friend's, a party seat's, a guild member's row - an engraved line under each
   // rules that sit ABOVE their content
@@ -216,7 +216,7 @@ export const FRAME_ROLES = {
   // On/off switches already carry their own green and red (.ft-seg-switch).
   chosen: ['.ft-seg:not(.ft-seg-switch) .ft-segb[aria-pressed="true"]', '.ft-seg.ft-seg-switch .ft-segb:not(.off)[aria-pressed="true"]'],
   chosenLocked: ['.ft-seg.locked:not(.ft-seg-switch) .ft-segb[aria-pressed="true"]'],
-  qrow: ['.port-host .port-row', '.pick-shell .pick-row', '.px-qrow', '.talk-row'],
+  qrow: ['.port-host .port-row', '.pack-shell .sf-tr', '.pick-shell .pick-row', '.px-qrow', '.talk-row'],
   // everything in the online lane's panels that was rounded
   square: ['body .dfsocial', 'body .dfprofile-card', 'body .dfchat-box', 'body .dfsocial-btn', 'body .dfsocial-close',
     'body .dfprofile-close', 'body .dfsocial-field', 'body .dfchat-input',

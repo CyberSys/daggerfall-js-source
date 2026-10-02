@@ -150,6 +150,7 @@ import { legalRepOf } from '../systems/court.js';   // REP5: the law, region by 
 import { banishmentLeft, KNOWN_CRIMINAL_BELOW, pardonPrice, challengeFine } from '../systems/standing.js';
 import { legalStandingWord } from '../systems/legalBands.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
+import { hudLocked, setHudLocked, resetHudLayout, hudBarsSplit, setHudBarsSplit } from './hudLayout.js';   // HUD-MOVE: Lock UI and Reset UI
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
@@ -1955,6 +1956,55 @@ function hudScaleRow() {
   return row;
 }
 
+/** HUD-MOVE: LOCK UI and RESET UI. Locked (the default) the HUD stands still and takes no pointer; unlocked, every
+ *  piece - the vitals, the hotbar, the chat, the compass, the Overworld's panel and the rest - is outlined in play and
+ *  moves with a drag of the freed mouse. Reset puts every piece back where the game stands it. */
+function hudLayoutRows() {
+  const lockRow = el('div', 'row');
+  const main = el('button', 'row-main');
+  const locked = hudLocked();
+  main.append(el('div', 'row-name', 'Lock UI'), el('div', 'row-note', locked
+    ? 'On: the HUD stays where it is. Turn it off (or press Alt+U in game) to move the health bars, hotbar, chat, compass, Overworld panel and the rest.'
+    : 'Off: in play, free the mouse and drag any outlined piece. Double-click a piece to put it back. Lock it again (or press Alt+U) when you are done.'));
+  const flip = () => { setHudLocked(!hudLocked()); render(); };
+  main.onclick = flip;
+  lockRow.append(main);
+  const ctl = el('div', 'ctl');
+  const b = el('button', `act rowact${locked ? ' primary' : ''}`, locked ? 'On' : 'Off');
+  b.setAttribute('aria-pressed', String(locked));
+  b.onclick = flip;
+  ctl.append(b, el('span', 'tier live'));
+  lockRow.append(ctl);
+
+  // the three bars: moved as one piece, or each on its own
+  const barsRow = el('div', 'row');
+  const bmain = el('button', 'row-main');
+  const split = hudBarsSplit();
+  bmain.append(el('div', 'row-name', 'Move bars separately'), el('div', 'row-note', split
+    ? 'On: the health, magicka and fatigue bars each move on their own while the UI is unlocked.'
+    : 'Off: the health, magicka and fatigue bars move together as one piece.'));
+  const bflip = () => { setHudBarsSplit(!hudBarsSplit()); render(); };
+  bmain.onclick = bflip;
+  barsRow.append(bmain);
+  const bctl = el('div', 'ctl');
+  const bb = el('button', `act rowact${split ? ' primary' : ''}`, split ? 'On' : 'Off');
+  bb.setAttribute('aria-pressed', String(split));
+  bb.onclick = bflip;
+  bctl.append(bb, el('span', 'tier live'));
+  barsRow.append(bctl);
+
+  const resetRow = el('div', 'row');
+  const rmain = el('div', 'row-main');
+  rmain.append(el('div', 'row-name', 'Reset UI'), el('div', 'row-note', 'Puts every HUD piece you moved back in its usual place.'));
+  resetRow.append(rmain);
+  const rctl = el('div', 'ctl');
+  const rb = el('button', 'act rowact', 'Reset');
+  rb.onclick = () => { resetHudLayout(); rb.textContent = 'Done'; setTimeout(() => { rb.textContent = 'Reset'; }, 1200); };
+  rctl.append(rb, el('span', 'tier live'));
+  resetRow.append(rctl);
+  return [lockRow, barsRow, resetRow];
+}
+
 /** EE13: the outdoors test door - a season, a weather, a random town.
  *  A TEST door, not a setting: it navigates and stores nothing. */
 function outdoorsTestRow() {
@@ -2055,6 +2105,7 @@ function portRowsControls() {
 function portRowsInterface({ pause = false } = {}) {
   const out = [];
   out.push(hudScaleRow());
+  if (isEnhanced()) out.push(...hudLayoutRows());   // HUD-MOVE: the Enhanced Plus HUD's own - Classic draws none of it
   // FOEBAR1: the target bar's face is a two-way choice, not a switch - the
   // stick-position row's shape: a row whose button names the OTHER option.
   {
