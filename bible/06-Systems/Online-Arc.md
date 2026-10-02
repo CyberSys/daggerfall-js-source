@@ -10493,7 +10493,7 @@ Pinned: `test/seat1a_service.test.js` (4), `test/seat1a_client.test.js` (8); re-
 
 ### SEAT1b - influence: the pledge, the Watch, gate kills, homes, Renown's region, Tribute, the standings
 
-Rides the undeployed `acct47` (migration 0049 - `acct45` and 0048 until main's PATREON-LINK, `acct44` and 0047 until main's MARKET-ANY) and a relay deploy, `world142` (the Watch's tick - `world138` until main's HERALD, LOOT7, WB11 and CLIMB5 took 138-141, `world136` until main's GATE-UX and KEPT-KILL took 136 and 137). Behind `SEATS_OPEN`
+Rides the undeployed `acct47` (migration 0049 - `acct45` and 0048 until main's PATREON-LINK, `acct44` and 0047 until main's MARKET-ANY) and a relay deploy, `world143` (the Watch's tick - `world138` until main's HERALD, LOOT7, WB11 and CLIMB5 took 138-141, `world136` until main's GATE-UX and KEPT-KILL took 136 and 137). Behind `SEATS_OPEN`
 with the rest of the seats. Influence is counted per guild, per seat, per seat week, summed on read from one row an
 event (Seats-Arc 4.1-4.2, 12: "summed on read, capped on write"); every number is Appendix B's, in
 `src/net/townSeatLaw.js`.
@@ -10549,12 +10549,12 @@ and the Turning that spends it; the sources' table admits their rows already, an
 
 Pinned: `test/seat1b_service.test.js` (7), `test/seat1b_client.test.js` (9); re-aimed by content in
 `test/wb5b_gate_claim.test.js` and `test/seat1a_client.test.js` (the claim's region, the book's door), the relay
-version pins (`world142`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (55, all dead); six
+version pins (`world143`) and `test/accountworker.test.js` (the schema). `tools/mutants/seat1b.json` (55, all dead); six
 RENOWN1, AUDIT RENOWN1 and WB5b records re-aimed by content, all dead.
 
 ### SEAT1c - the Turning: the Charters claimed, Contested, the Rights of Siege, the Legacy, the Charter on the map
 
-Rides the undeployed `acct47` (migration 0050 - `acct45` and 0049 until main's PATREON-LINK, `acct44` and 0048 until main's MARKET-ANY) and a relay deploy, `world143` (the titles' vocabulary - `world139` until main's HERALD, LOOT7, WB11 and CLIMB5, `world137` until that merge). Behind
+Rides the undeployed `acct47` (migration 0050 - `acct45` and 0049 until main's PATREON-LINK, `acct44` and 0048 until main's MARKET-ANY) and a relay deploy, `world144` (the titles' vocabulary - `world139` until main's HERALD, LOOT7, WB11 and CLIMB5, `world137` until that merge). Behind
 `SEATS_OPEN` with the rest of the seats.
 
 - **The settle** (`server-account/src/seatTurning.js`, Seats-Arc 5.2): never a job that runs - any seat request from an
@@ -10596,7 +10596,7 @@ Rides the undeployed `acct47` (migration 0050 - `acct45` and 0049 until main's P
   bounded claim beside them (`ts`: [the seat key, the Season], required beside a seat title and refused beside any
   other), and four glyphs (`tower`, `crownDF`, `crownWR`, `crownSN`); the relay carries `ts` from the signature to the
   socket's row (`_named`, the hello's attachment) and `badged` stamps it beside a seat title, `readBadge` reads it back
-  (`world143`). The service derives both at a mint (`seatTurning.js` seatBadgeOf - `townSeatLaw.js` seatGlyphsOf and
+  (`world144`). The service derives both at a mint (`seatTurning.js` seatBadgeOf - `townSeatLaw.js` seatGlyphsOf and
   seatTitleOf): every member of a guild holding a palace seat wears the tower, a crown's member its kingdom's crown; a
   guildmaster account may choose "Warden" (a palace seat) or "Protector" (a crown) in the wardrobe (`seatTitlesOf`,
   `titles.js` titlesHeld's `seatTitles`), and a token wears it, with its claim, only when minted for that guildmaster
@@ -10611,7 +10611,7 @@ Tourney names are fought in SEAT2a (until then they are the Chronicle's, and a C
 stockpile's deliveries (the Writs source) and the Siege Camp ride SEAT2b with the fortifications that spend them.
 
 Pinned: `test/seat1c_service.test.js` (5), `test/seat1c_client.test.js` (5), `test/seat1c_titles.test.js` (4); re-aimed
-by content in the relay version pins (`world143`), the vocabulary's (`test/acc3titles.test.js`, `test/penitent.test.js`),
+by content in the relay version pins (`world144`), the vocabulary's (`test/acc3titles.test.js`, `test/penitent.test.js`),
 the badge's paths (`test/acc3badge.test.js`, `test/nameadopt.test.js`, `test/wb9g_insignia.test.js`), and in
 `test/seat1a_service.test.js` (the list's holder and battle), `test/seat1a_client.test.js` (the mark's new fields, the
 dressed seat, the arrival), `test/seat1b_service.test.js` (the standings' shape) and `test/accountworker.test.js` (the
@@ -10710,7 +10710,7 @@ re-aimed by content (PIN MOVED), all dead.
 ### PVP-REF - the refereed blow and step: a siege's room, its referee, and the forty-fighter measurement
 
 2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue". Rides a new undeployed relay,
-`world144` (`world140` until main's HERALD, LOOT7, WB11 and CLIMB5 took 138-141, `world138` until main's GATE-UX and KEPT-KILL took 136 and 137) - no account change. The room admits the developers alone (a verified token carrying the `dev` glyph) until
+`world145` (`world140` until main's HERALD, LOOT7, WB11 and CLIMB5 took 138-141, `world138` until main's GATE-UX and KEPT-KILL took 136 and 137) - no account change. The room admits the developers alone (a verified token carrying the `dev` glyph) until
 SEAT2a schedules its battles and signs its sides. Seats-Arc 6.1.
 
 - **The law** (`src/net/siegeRef.js`, a LEAF - the relay bundles every byte it imports, so DFU's tables are COPIED and
@@ -10741,7 +10741,7 @@ SEAT2a schedules its battles and signs its sides. Seats-Arc 6.1.
 - **The wire** (`net/wire.js`): the client's `siege` frame - `in` (become a fighter), `blow`, `cast` (`h` 1 a heal) -
   projected and bounded (`validSiegeIn`: a peer id, a template 0-65535 or -1, a material 0-9, damage above nought to 10,000, a
   melee or a shaft - a spell is a cast's), on its own bucket (`siegeGate`, 8 a second) and strikes; the relay's - `st` (every
-  fighter's `[id, hp, max, down]`), `hp`, `fell`, `up`, `back`, `no`. `relaySupportsSiege` reads `world144`.
+  fighter's `[id, hp, max, down]`), `hp`, `fell`, `up`, `back`, `no`. `relaySupportsSiege` reads `world145`.
 - **The room** (`server/src/index.js`): the Worker mints no object for a `siege:` key the law does not shape; the
   hello refuses an account without the developer's glyph ("the siege is not open"); one fighter an account (a second
   socket replaces the first, the gate's AUDIT WB A1 law widened); the fighters kept BY ACCOUNT and checkpointed
@@ -10766,7 +10766,7 @@ side-mate's alone, a blow never a side-mate's); the wave by the seat's tier; the
 Tourney stands on is CROWN1's.
 
 Pinned: `test/pvpref_law.test.js` (5), `test/pvpref_relay.test.js` (4), `test/pvpref_measure.test.js` (1); the relay
-version pins and `test/relayversion.test.js`'s world144 LAW row (its graph adds `src/net/siegeRef.js`). The suite's two
+version pins and `test/relayversion.test.js`'s world145 LAW row (its graph adds `src/net/siegeRef.js`). The suite's two
 catches: the account Worker bundles `wire.js`, so `siegeRef.js` joins `.github/workflows/account-deploy.yml`'s paths
 (`test/accountdeploy.test.js` walks the graph); and `test/chat1.test.js`'s AUDIT CHAT A3 pin, which read the pose arm
 straight from `still` to the meter, names the siege step between them (PIN MOVED - a channel is never a siege's room).
@@ -10826,7 +10826,7 @@ write refuses it the same).
 ### SEAT2a (part two) - the battle in the relay: the pass, the sides, the banners, the Throne, the receipts
 
 2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Rides a new undeployed
-relay `world145` - no account change; the service mints the pass and reads the receipt in part three. Seats-Arc 6.2,
+relay `world146` - no account change; the service mints the pass and reads the receipt in part three. Seats-Arc 6.2,
 6.4-6.8, 17.
 
 - **The pass** (`net/identityToken.js`, the `siege` order - `{o, s, sk, sw, sd, st, sn, sb, se, sf, i, e}`): FACT, the
@@ -10868,7 +10868,7 @@ session and HUD, its blows sent to the referee, the camp's respawn, the spectato
 
 Pinned: `test/seat2a_battle.test.js` (7), `test/seat2a_relay.test.js` (4 - the slice's gate: a headless 10v10 siege run
 to both endings, the forfeit and the absence besides); the order kinds' pins in `test/guild1c.test.js` and
-`test/renown1.test.js`, PVP-REF's out-kinds (PIN MOVED), and the relay pins (`world145`). `tools/mutants/seat2a2.json` (86, all
+`test/renown1.test.js`, PVP-REF's out-kinds (PIN MOVED), and the relay pins (`world146`). `tools/mutants/seat2a2.json` (86, all
 dead) - five survived the first run and were killed by sharper pins (a palace's field with a fourth banner, an attacker
 gone before the start, a Tourney's defenders' banner, the pass's two hours, a blow after the end); two hung the harness on
 an alarm that re-armed for ever, which now fails instead of spinning, and the keeping week is pinned. Seven older records
@@ -10878,7 +10878,7 @@ all still dead.
 ### SEAT2a (part three) - what the service says of a battle: the pass, the result, Honours, the blackout
 
 2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Rides a new undeployed
-`acct50` (migration 0053_seat_siege_results.sql); the relay's `world145` row re-recorded (identityToken.js's field check
+`acct50` (migration 0053_seat_siege_results.sql); the relay's `world146` row re-recorded (identityToken.js's field check
 drawn out as `siegeFieldValid`, the same law - never shipped under the first hash). Seats-Arc 6.2, 6.5-6.8, 17.
 
 - **The pass** (`/v1/seats/siege/pass`, `server-account/src/seatSiege.js` siegePass): this week's battle at a seat, from
@@ -10928,7 +10928,7 @@ racing requests reach it) and the claim's read of a written result (the result's
 ### SEAT2a (part four) - the client's siege: the room, the HUD, blows, the camp, the receipt
 
 2026-10-01, Mac: "Finish the seats"; "Or we could go ahead and do sieges"; "Continue" ("Hurry up"). Client only; the
-relay's `world145` row re-recorded once more (wire.js grew the client's projection `validSiegeOut` - the relay's law
+relay's `world146` row re-recorded once more (wire.js grew the client's projection `validSiegeOut` - the relay's law
 unchanged, never shipped under an earlier hash). Seats-Arc 6.2, 6.8, 19. With it SEAT2a is whole.
 
 - **The field from the town** (`src/systems/siegeField.js`, scenes/world.js on each seat town's build, beside its banner
@@ -11002,7 +11002,7 @@ Edicts' list and Standing's rows (`test/seat1d_client.test.js`).
 
 ### CROWN1 (part two, the relay) - the Royal Tourney's room, its bouts and its ladder
 
-2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Relay and law; `world146`. Seats-Arc 7.6: "a duel ladder all
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Relay and law; `world147`. Seats-Arc 7.6: "a duel ladder all
 week in the crown's city, at the castle's entrance square: DUEL1's ring, but every blow refereed by PVP-REF in a
 siege:-shaped room - a defender-resolved duel cannot award a title - the relay keeping the ladder".
 
@@ -11166,7 +11166,7 @@ records re-aimed by content (SEAT1c's list and its defence's two, SEAT2a part th
 
 2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service, law and client; `acct54`, no migration
 (`town_seat_titles` admitted `crowned` and `keeper` at CROWN1 part two; the token's vocabulary has carried both since
-`world143`, so the relay does not move). Seats-Arc 9.1, 18.
+`world144`, so the relay does not move). Seats-Arc 9.1, 18.
 
 - **The calendar** (`townSeatLaw.js` `seasonOf`, `seasonZeroOf`): Season 0 - the four-week open beta - from the seat week
   the account service's new `SEASON_ZERO_WEEK` names, then 8-week Seasons. DECIDED: 9.1 begins Season 0 "at the first
@@ -11304,7 +11304,7 @@ SURVTIERS3's two cites of world.js's seed, which the cite shift moved).
 
 ### SEASON1 (part two, the banner ribbon) - a Keeper's guild wears its colours under the name
 
-2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service, relay and client; `acct58`, `world147`, migration
+2026-10-01, Mac: "Finish the seats"; "Continue"; "Hurry up". Service, relay and client; `acct58`, `world148`, migration
 `0058_season_ribbons.sql` (`town_seat_ribbons`: a Season, a guild, the Turning's time). Seats-Arc 9.1. With it SEASON1
 part two is whole.
 
@@ -11325,7 +11325,7 @@ part two is whole.
   have been refused as 'bad token'. Found by the
   mapping, not the field: no account wears all of them today. AUDIT B8's pin (test/shadowfang.test.js) now wears them
   all; the verifier's 1024 still bounds the whole.
-- **The relay** (`world147`; `server/src/index.js` `_named` and the hello's attached row, `wire.js` `badged`): the
+- **The relay** (`world148`; `server/src/index.js` `_named` and the hello's attached row, `wire.js` `badged`): the
   ribbon off the verified token alone onto every row that names its wearer - the welcome, a join, a roster - never off
   a frame; `readRibbon` is the client's reader.
 - **The page** (`online.js` `adoptIdentity`'s `ribbon`, `ribbonOf`; the peer's off its introduction and its newest
@@ -11339,7 +11339,7 @@ Pinned: `test/season1_ribbon.test.js` (4 - the law; through the real Worker a Se
 wearing it against a twin counting no Season; the token and the relay; the page). `tools/mutants/ribbon.json` (48: 47
 dead, 1 recorded equivalent - the mint's character gate, which a member row's own id shape already answers; one
 survived the first run, the re-stood peer's memory, now pinned; the token's bound held from both sides). PIN MOVED: the relay and account version pins
-(`world147`, `acct58`); the relay's law row and bundle graph (`heraldryLaw.js`); identityToken.js's imports;
+(`world148`, `acct58`); the relay's law row and bundle graph (`heraldryLaw.js`); identityToken.js's imports;
 WB9g's two relay source pins; the account schema's tables (`town_seat_ribbons`); AUDIT B8's widest token; ACC1d's
 token shape (a body of 641 the malformed one) and SOC4's name point (the ribbon's own line before the scale) - the
 full suite's two failures on the merged head (17252 tests), both now moved. Ten older
@@ -11383,7 +11383,7 @@ record and SURVTIERS3's two cites of world.js's seed (the cite shift moved them)
 2026-10-01, Mac: "We need to do a comprehensive audit on everything and finish the not done". Five review lanes over
 everything PR #482 built from GUILD1d to SEASON1 (the account service, the relay and the wire, the shared law against
 the design, the client and the world's wiring, the design's coverage); every finding verified before it was fixed, each
-fix pinned and mutated. `acct60` (with PROF11 and SEAT2b part one, below); `world147` re-recorded (undeployed); the
+fix pinned and mutated. `acct60` (with PROF11 and SEAT2b part one, below); `world148` re-recorded (undeployed); the
 service lane's migration `0059_audit_seats.sql`.
 
 **The open items, finished** (`test/seats_finish.test.js`, 7):
@@ -11589,7 +11589,7 @@ Pinned: `test/seat2b_peace_law.test.js` (5), `test/seat2b_peace_service.test.js`
 (`src/net/siegeRef.js` - its numbers net/fortLaw.js's, copied into the relay's leaf and pinned equal), the pass
 (`src/net/identityToken.js` `sx`), the relay (`server/src/index.js` `_siegeWorkBlow`, the room's beat), the service
 (`server-account/src/seatSiege.js` siegePass; migration `0063_seat_works_battle.sql`) and the client
-(`src/net/siegeLink.js`, `siegeSession.js`, `ui/siegeHud.js`, the host's melee arm). `world148`; `acct61` (the account
+(`src/net/siegeLink.js`, `siegeSession.js`, `ui/siegeHud.js`, the host's melee arm). `world149`; `acct61` (the account
 service's own unbumped - one deploy with part (a)).
 
 - **The works frozen at the door** (`town_seat_battles.works`): at the battle's first pass the service reads each work's
@@ -11628,7 +11628,7 @@ service's own unbumped - one deploy with part (a)).
 Pinned: `test/seat2b_battle_law.test.js` (7), `test/seat2b_battle_relay.test.js` (3, over the real Room),
 `test/seat2b_battle_service.test.js` (2, through the real Worker), `test/seat2b_battle_client.test.js` (4); SEAT2a's
 crown Throne, the pass's claims and identityToken.js's imports moved (PIN MOVED); the relay's version pins moved on to
-world148. Mutants: `tools/mutants/seat2b_battle.json` (64, all dead); fourteen older records re-aimed by content. Patch
+world149. Mutants: `tools/mutants/seat2b_battle.json` (64, all dead); fourteen older records re-aimed by content. Patch
 notes: `PATCH-NOTES-Seats.md` (Fortifications in battle).
 
 ### SEAT2b part two (c) - the relay's own fighters: the Barracks' guards and the revolt
@@ -11638,7 +11638,7 @@ the Barracks' and the revolt's numbers net/fortLaw.js's, copied into the relay's
 `src/net/townSeatLaw.js`), the pass (`src/net/identityToken.js` - `sn` 'revolt'), the relay (`server/src/index.js`
 `_siegeNpcBlow`, the room's beat), the wire (`src/net/wire.js` validSiegeIn, validSiegeOut), the service
 (`server-account/src/seatTurning.js`, `seatSiege.js`, `seatInfluence.js`; migration `0064_seat_revolts.sql`) and the client
-(`src/net/siegeLink.js`, `siegeSession.js`, the new `src/scenes/siegeNpcs.js`, the host's arms). `world148` re-hashed in
+(`src/net/siegeLink.js`, `siegeSession.js`, the new `src/scenes/siegeNpcs.js`, the host's arms). `world149` re-hashed in
 place (undeployed); `acct61` (one deploy with parts (a) and (b)). With it SEAT2b is whole.
 
 - **"The gate's brain with adds"** (7.5; World-Bosses.md 17): bodies the relay owns - each a fighter's vitality of its
@@ -11687,7 +11687,7 @@ place (undeployed); `acct61` (one deploy with parts (a) and (b)). With it SEAT2b
 
 Pinned: `test/seat2b_guards_law.test.js` (9), `test/seat2b_guards_relay.test.js` (3, over the real Room),
 `test/seat2b_revolt_service.test.js` (3, through the real Worker), `test/seat2b_guards_client.test.js` (5); the relay's
-world148 row re-hashed in place. Mutants: `tools/mutants/seat2b_guards.json` (78, all dead); twenty-nine older records
+world149 row re-hashed in place. Mutants: `tools/mutants/seat2b_guards.json` (78, all dead); twenty-nine older records
 re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (Fortifications in battle; Revolts).
 
 ### SEAT-HALL - the palace as the holder's guild hall: the Charter Room

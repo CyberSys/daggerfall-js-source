@@ -413,7 +413,7 @@ referees up to 256 fighters against one foe.
   `FOES_ROOM_BYTES_PER_S`, the busiest socket's 4% of `HIT_ROOM_BYTES_PER_S`. **The sizes stand.**
 
 BUILT (PVP-REF, 2026-10-01; `06-Systems/Online-Arc.md` PVP-REF): `src/net/siegeRef.js` (the law, its DFU tables
-pinned equal to `characters/weapons.js` and `combat/formulas.js`), the relay's siege room (`world144` - the
+pinned equal to `characters/weapons.js` and `combat/formulas.js`), the relay's siege room (`world145` - the
 developers alone until SEAT2a). The bucket's bonuses DECIDED there: Strength 100's stock modifier, the heaviest swing,
 an expert's proficiency and a racial bonus at level 30 (a fighter's character level is not on the wire) - a Daedric
 Dai-Katana 124, an Iron Dagger 80, a fist 112. A heal is bounded on a window of its own, three a 5 s (DECIDED there:
@@ -445,13 +445,13 @@ a spell's reach 60 m.
 - **Respawns**: in waves, every **20 seconds** (palace) or **30** (crown), at the side's camp, with **3 seconds** of
   protection.
 
-BUILT (SEAT2a part two, 2026-10-01; `06-Systems/Online-Arc.md` SEAT2a part two): the relay's battle (`world145`) - the
+BUILT (SEAT2a part two, 2026-10-01; `06-Systems/Online-Arc.md` SEAT2a part two): the relay's battle (`world146`) - the
 room admits by the service's pass (`net/identityToken.js`'s `siege` order, the field it signs), from ten minutes before
 the start (DECIDED there: the door opens as the signing closes); the banners, the Throne, the clock and the waves at the
 camp as written (`net/siegeRef.js` battleStep, a beat a second). DECIDED there: until SEAT2b raises the Gatehouse, a
 crown's Throne opens on its 3 of 4 banners alone.
 
-BUILT (SEAT2b part two (b), 2026-10-01, `world148`, migration 0063; `06-Systems/Online-Arc.md` SEAT2b part two (b)): the
+BUILT (SEAT2b part two (b), 2026-10-01, `world149`, migration 0063; `06-Systems/Online-Arc.md` SEAT2b part two (b)): the
 Gatehouse, the Rams and the Walls in the battle - the works frozen at the battle's first pass and carried on every pass
 (`sx`); the Gatehouse at the Throne's point (DECIDED: the castle's entrance is the Throne's), struck by attackers' melee
 blows at a tenth and by a crewed Ram's 500 every ten seconds; the Throne barred until the breach (the crown's 3 of 4 AND
@@ -670,7 +670,7 @@ Season number, both integers), from which the client words the title ("Warden of
 order: the five ids and the claim reach the relay (a new `RELAY_VERSION` and LAW row) before the account service
 mints them - once, never per town or per Season.
 
-BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world143`; the
+BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world144`; the
 Warden's and the Protector's minted now, the tower and the crowns on every member; the Season's titles (SEASON1) and
 the champion's (CROWN1) are minted too, both slices shipped (AUDIT-SEATS: this said they waited). The tower wears the Warden's bronze - the token carries no guild
 colours. BUILT (CROWN1 part two): the champion's - the account's own, kept for good in `town_seat_titles` (SEASON1's
@@ -716,8 +716,8 @@ the Watchtowers' word to the holder's members; the Forge's and the Workshop's st
 its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stations); the Harbour a Travel Options port
 for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
 Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
-the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world148`): the Walls' wave, the
-Gatehouse and its Rams in battle (6.2's note). BUILT since (SEAT2b part two (c), `world148`, migration 0064): the Barracks'
+the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world149`): the Walls' wave, the
+Gatehouse and its Rams in battle (6.2's note). BUILT since (SEAT2b part two (c), `world149`, migration 0064): the Barracks'
 guards - at the Throne and the banners, counted there as defenders, marking the nearest attacker within 12 m and following
 none past 24 m from their posts, rising at the defenders' camp with their wave (DECIDED there: a guard of Renown 30
 striking 20 a blow on a one-beat wind-up) - and the revolt (7.7's note). With it SEAT2b is whole.
@@ -751,7 +751,7 @@ DECIDED: the ledger names the guild a Tithe reached, not the seat, so a guild's 
 Charters and each conscripted seat pays its share at its rate; a seat that pays nothing (its guild took no Tithe) loses
 no Standing. The Royal Tourney is part two (migration `0054` admits its id already).
 
-BUILT (CROWN1 part two, the relay, `world146`; Online-Arc CROWN1 part two): the Royal Tourney's room
+BUILT (CROWN1 part two, the relay, `world147`; Online-Arc CROWN1 part two): the Royal Tourney's room
 `royal:<crown>:<week>` by the service's pass, one bout at a time in DUEL1's ring (its numbers pinned equal) - a
 challenge, its accept, the marks, the countdown, the bout's two alone, the ring held by the step, a fall's end, a draw,
 a walkover - every blow the referee's; the room's ladder (the same two three times a UTC day) and the winner's signed
@@ -775,7 +775,7 @@ gate record named for "later", `World-Bosses.md`) - a **Rebel Captain** (vitalit
 and **12 rebels** at the palace door. The holder's side must fell the Captain inside the window's two hours. Fail,
 and the Charter lapses and the seat is unheld; succeed, and Standing returns to **20**.
 
-BUILT (SEAT2b part two (c), 2026-10-01, `world148`, `acct61`, migration 0064; `06-Systems/Online-Arc.md` SEAT2b part two
+BUILT (SEAT2b part two (c), 2026-10-01, `world149`, `acct61`, migration 0064; `06-Systems/Online-Arc.md` SEAT2b part two
 (c)): the Turning that leaves a held seat at Standing 0 places its revolt the next week at the holder's window (a
 crown's at its Saturday slot; DECIDED: where a Right of Siege is granted there the siege takes the window), two hours
 long; the holder's members sign to defend it, its field their first one's. The relay raises the Captain (Renown 50, 400)
@@ -895,7 +895,7 @@ the guild's guildmaster at that Turning (DECIDED: a Charter lapsing at that Turn
 earns none; "held all 8 weeks" is held from the Season's first week), Legacy cleared, Standing halfway back toward 50
 (rounded toward it), the Charters standing, and the Chronicle's line at every seat held; a Pact to its Season's end and
 the once-a-Season rules (Honours, a forfeit's Standing) over the Season itself; the Season on every seat title's claim
-(`ts`) and on the Seat tab. BUILT (SEASON1 part two, the banner ribbon, `acct58`, `world147`, migration 0058): the
+(`ts`) and on the Seat tab. BUILT (SEASON1 part two, the banner ribbon, `acct58`, `world148`, migration 0058): the
 banner ribbon - each guild a keeper's title names written at the Turning that ends the Season (`town_seat_ribbons`, its
 Turning's time), and through the next Season the named character of every member at that Turning wears the guild's
 field and border as two colour indexes on the token (`rb`; `server-account/src/seatRibbons.js` `ribbonOf`), which the
@@ -1074,14 +1074,14 @@ bible updated in the same change, mutants recorded.
 | **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
 | **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
 | **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
-| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world143`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
+| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world144`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
 | **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
-| **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world144`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
-| **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct49`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world145`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct50`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
+| **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world145`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
+| **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct49`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world146`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct50`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
 | **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts - **PART ONE BUILT** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2b: the works, projects and the stockpile, seat writs and the Siege Camp, the drops, the Market Hall; PROF3, PROF4, PROF8 and PROF11 shipped or built beside it; the law `src/net/fortLaw.js`). Part two BUILT 2026-10-01 - (a) the works at peace, (b) the Walls' wave, the Gatehouse and the Rams, (c) the Barracks' guards and revolts (Online-Arc SEAT2b part two (a)-(c)). **SEAT2b is whole.** | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
-| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct51`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world146`), the service (`acct52`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
+| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct51`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world147`), the service (`acct52`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
 | **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct53`, migration `0056`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
-| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct54`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct55`); the economy's Tides (`acct56`); the Orc Raids and the stormy sea (`acct57`); the banner ribbon (`acct58`, `world147`); **PART THREE SHIPPED** - the Hall of Records (`acct59`); the castles' copies and the board's book with AUDIT-SEATS | A Season's end set against a twin counting none; Season 0's wipe |
+| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct54`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct55`); the economy's Tides (`acct56`); the Orc Raids and the stormy sea (`acct57`); the banner ribbon (`acct58`, `world148`); **PART THREE SHIPPED** - the Hall of Records (`acct59`); the castles' copies and the board's book with AUDIT-SEATS | A Season's end set against a twin counting none; Season 0's wipe |
 
 ## 14. What remains to measure
 

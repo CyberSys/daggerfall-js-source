@@ -175,7 +175,7 @@ test('CROWN1 THE WIRE\'S ROYAL FRAMES: a challenge and an accept name the other;
   assert.equal(ROYAL_LADDER_MAX, ROYAL_LADDER_SHOWN, 'pinned equal');
   assert.deepEqual(validSiegeOut({ k: 'won', rc: 't1.abc.def' }), { k: 'won', rc: 't1.abc.def' });
   assert.equal(validSiegeOut({ k: 'won', rc: 's1.abc.def' }), null, 'a bout\'s receipt alone');
-  assert.deepEqual([ROYAL_RELAY_MIN, relayRunsRoyal('world146'), relayRunsRoyal('world145'), relayRunsRoyal('x')], [146, true, false, false]);
+  assert.deepEqual([ROYAL_RELAY_MIN, relayRunsRoyal('world147'), relayRunsRoyal('world146'), relayRunsRoyal('x')], [147, true, false, false]);   // PIN MOVED (main's FRIENDS-SYNC took world142): world146 until that merge
 });
 
 test('CROWN1 THE BOUT\'S RECEIPT: `t1` - the winner, the loser, the crown, the week, the bout - signed by the relay\'s key, verified rung for rung, read unsigned by the client; never a siege\'s `s1`, nor it a `t1` (mutants: each field; the TTL; the version; the disjointness)', async () => {

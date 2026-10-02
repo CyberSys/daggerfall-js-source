@@ -562,8 +562,8 @@
  {
   "name": "SEAT2a2-wire-min",
   "file": "src/net/wire.js",
-  "old": "export const SIEGE_BATTLE_RELAY_MIN = 145;",
-  "new": "export const SIEGE_BATTLE_RELAY_MIN = 144;",
+  "old": "export const SIEGE_BATTLE_RELAY_MIN = 146;",
+  "new": "export const SIEGE_BATTLE_RELAY_MIN = 145;",
   "tests": [
    "test/seat2a_battle.test.js",
    "test/seat2a_relay.test.js"

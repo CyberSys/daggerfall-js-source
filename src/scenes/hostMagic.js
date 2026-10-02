@@ -1330,6 +1330,20 @@ export function createPlayerMagic({
     missileCount: () => missiles.length,   // M5 probe surface
     readied: () => readiedSpell,
     readiedIndex: () => readiedSpell?.index ?? null,
+    // CAST-USE (AUDIT part five CU2): the ready's STORED price - 0 for a free one (an item's, a trap's) - which the HUD's
+    // ready line prints, never a price recomputed off the record
+    readiedCost: () => (readiedSpell ? readiedCost : 0),
+    // CAST-USE (AUDIT part five CU1): a mode flip hands the ready on to the engine that fires where the player now stands
+    // (the street's and the dungeon context's are two) - DFU's one EntityEffectManager keeps readySpell, its freeness and
+    // its price across a transition. A ready left on the other engine was stranded (the street's fired at the first
+    // click back outside) or destroyed with the dungeon's, the item's condition spent and no spell cast.
+    handReadyTo(other) {
+      if (!readiedSpell || !other?.takeReady) return false;
+      other.takeReady({ sp: readiedSpell, free: readiedFree, cost: readiedCost });
+      readiedSpell = null; readiedFree = false; readiedCost = 0; pendingClickCast = false;
+      return true;
+    },
+    takeReady({ sp = null, free = false, cost = 0 } = {}) { readiedSpell = sp; readiedFree = !!sp && !!free; readiedCost = sp ? cost : 0; },
     allyInReach,   // AUDIT ALLY-CAST A5: the plaque's question, answered by THIS engine's pick and collider
     setReadiedByIndex(index, spellsByIndex) {
       // S1: a MADE spell has no SPELLS.STD index (it carries a

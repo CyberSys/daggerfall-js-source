@@ -1,0 +1,83 @@
+[
+  {
+    "name": "UI1-no-dress-laid",
+    "file": "src/ui/cursor.js",
+    "old": "      document.head.append(st);\n",
+    "new": "",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI1-laid-at-every-install",
+    "file": "src/ui/cursor.js",
+    "old": "    if (!document.getElementById('df-cursor-scrollbars')) {",
+    "new": "    if (true) {",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI2-the-media-gate-dropped",
+    "file": "src/ui/enhancedStyle.js",
+    "old": "@media (any-pointer: fine) {   /* AUDIT part five UI2: a touch screen keeps its overlay scrollbar - no cursor to keep */\n::-webkit-scrollbar { width: 10px; height: 10px; } }",
+    "new": "::-webkit-scrollbar { width: 10px; height: 10px; }",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI3-a-fixed-2x-again",
+    "file": "src/ui/cursor.js",
+    "old": "    out.width = w * k; out.height = h * k;",
+    "new": "    out.width = w * 2; out.height = h * 2;",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI3-the-whole-image-drawn",
+    "file": "src/ui/cursor.js",
+    "old": "    ctx.drawImage(src, 0, 0, w, h, 0, 0, out.width, out.height);",
+    "new": "    ctx.drawImage(src, 0, 0, width, height, 0, 0, out.width, out.height);",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI3-the-full-size",
+    "file": "src/ui/cursor.js",
+    "old": "    const [w, h] = drawnExtent(rgba, width, height);",
+    "new": "    const [w, h] = [width, height];",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI3-the-hotspot-moved",
+    "file": "src/ui/cursor.js",
+    "old": "`url(${out.toDataURL()}) 0 0, auto`",
+    "new": "`url(${out.toDataURL()}) 4 4, auto`",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI4-a-signed-on",
+    "file": "src/ui/heldMap.js",
+    "old": "const on = Math.abs(tilt ? dy : dx), off",
+    "new": "const on = (tilt ? dy : dx), off",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  },
+  {
+    "name": "UI4-the-freeing-moves-own-travel-dropped",
+    "file": "src/ui/heldMap.js",
+    "old": "this._sheet?.orbitBy?.(tilt ? held : dx, tilt ? dy : held);",
+    "new": "this._sheet?.orbitBy?.(tilt ? held : 0, tilt ? 0 : held);",
+    "tests": [
+      "test/fb1001_uiaudit.test.js"
+    ]
+  }
+]

@@ -163,7 +163,7 @@ test('SHADOW-FANG token and relay: a token may carry the title and the glyph and
   assert.deepEqual(r.claims.g, ['shadowfang']);
   assert.equal(claimsValid({ v: 1, s: 'acct-sf', n: 'SirMcMobdon', k: 'linked', i: nowS, e: nowS + 60, g: [...GLYPHS] }), true, 'every glyph at once still fits');
   // AUDIT B8: THE WIDEST TOKEN STILL PASSES THE HELLO - every glyph, the longest title, the longest name and account
-  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 640-character body since world147; 512 before) and the verifier's 1024; and
+  // id, a mute and the Renown cap - inside wire.js's TOKEN_RE (a 640-character body since world148; 512 before) and the verifier's 1024; and
   // (the merge) GUILD1c's three guild claims at their shapes' bounds (guildLaw.js GUILD_ID_RE, GUILD_TAG_RE, GUILD_MEMBER_RE)
   const TOKEN_RE = new RegExp(/const TOKEN_RE = \/(.+)\/;/.exec(rd('src/net/wire.js'))[1]);
   const longest = TITLES.reduce((a, t) => (t.length > a.length ? t : a), '');
@@ -173,7 +173,7 @@ test('SHADOW-FANG token and relay: a token may carry the title and the glyph and
   assert.ok(TOKEN_RE.test(wide), `the widest token passes the hello (${wide.split('.')[1].length} of 640)`);
   assert.ok(wide.length <= 1024);
   assert.ok((await verifyToken(wide, pub, { subtle, nowS })).ok);
-  // SEASON1 part two (world147): AND EVERY OPTIONAL CLAIM AT ONCE - the longest seat title with its claim at its bounds,
+  // SEASON1 part two (world148): AND EVERY OPTIONAL CLAIM AT ONCE - the longest seat title with its claim at its bounds,
   // the longest aura, the realm's word and a Season's banner ribbon beside the rest. The old 512 refused this one.
   const seatT = SEAT_TITLES.reduce((a, t) => (t.length > a.length ? t : a), '');
   const aura = AURAS.reduce((a, x) => (x.length > a.length ? x : a), '');

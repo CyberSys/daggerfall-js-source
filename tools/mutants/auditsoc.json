@@ -168,7 +168,7 @@
   {
     "name": "A7-replaced-socket-never-leaves",
     "file": "server/src/index.js",
-    "old": "if (isSocialRoom(a.key) && b.acct && b.acct !== m.acct) {",
+    "old": "if (isSocialRoom(a.key) && b.acct && b.acct !== (m.acct ? (who.subject || m.acct) : null)) {",
     "new": "if (false) {",
     "tests": [
       "test/auditsoc.test.js"
