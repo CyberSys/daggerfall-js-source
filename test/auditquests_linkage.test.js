@@ -318,6 +318,14 @@ test('AUDIT QUESTS 3: a DIRTIED quest survives save -> restore -> save for the w
     let again;
     try { again = JSON.parse(JSON.stringify(b.getSaveData())); } catch (e) { drift.push(`${f}: re-save threw ${e.message}`); continue; }
 
+    // TIME3: `ownSecondsAt` is the one field that is the SAVE's, not the quest's - the clock the saver's countdowns
+    // stood on as it took the envelope (quest/questStamps.js) - so each save writes its own: A's 4242, B's 0
+    for (const [env, at] of [[saved, 4242], [again, 0]]) {
+      for (const qd of env.quests ?? []) {
+        if (qd.ownSecondsAt !== at) drift.push(`${f}: ownSecondsAt ${qd.ownSecondsAt}, the saver's clock ${at}`);
+        delete qd.ownSecondsAt;
+      }
+    }
     if (JSON.stringify(saved) !== JSON.stringify(again)) {
       const keys = Object.keys(saved).filter((k) => JSON.stringify(saved[k]) !== JSON.stringify(again[k]));
       drift.push(`${f}: differs at ${keys.join(', ')}`);

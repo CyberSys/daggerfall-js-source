@@ -45,6 +45,7 @@ const FACTION_RACE_KEYS = Object.freeze({
   4: 'Argonian', 5: 'WoodElf', 6: 'HighElf', 7: 'DarkElf',
 });
 import { dateFromSeconds, dateString, dayName, monthName, birthSignName, SEASON_NAMES, seasonValue, CLASSIC_EPOCH_IN_SECONDS } from '../gameDate.js';
+import { skySecondsOfEvent } from '../skyCalendar.js';   // TIME3: a journal date (the event clock's) on the sky's calendar
 import { REGION_TEMPLES, LOCATION_TYPES } from '../../formats/mapsFile.js';
 import { factionRaceFromRace } from '../../characters/staticNpc.js';
 import { rulerTitle } from '../../world/buildingNames.js';   // AUDIT 68 S30-ruler-divine-tables-dup: GetRulerTitle's one home
@@ -348,7 +349,9 @@ export function questMacroSource(quest) {
     // %qdt %qdat - the CURRENT log step's date (the journal sets
     // currentLogMessageId while rendering; -1 falls to quest start)
     questDate() {
-      return dateString(dateFromSeconds(quest.getCurrentLogMessageTime()));
+      // TIME3: the step's stamp is the event clock's (quest.js, worldSeconds) and the calendar the player reads is the
+      // sky's: the date is the sky's at the instant the step was logged - offline the one clock, the stamp itself
+      return dateString(dateFromSeconds(skySecondsOfEvent(quest.getCurrentLogMessageTime())));
     },
     // %oth - by the questor's race (DFU's fix over classic's region
     // race); the seam speaks TEXT.RSC 201+oathId.
@@ -962,9 +965,11 @@ const pgender = (hooks) => hooks?.playerGender?.() === 'female';
 /** hooks.nowSeconds is EPOCH-RELATIVE (classic minutes x 60), so the
  *  epoch goes back on before the date is read - otherwise %year answers
  *  1 where DFU's WorldTime.Now.Year answers 405. The epoch is exactly
- *  404 x 360-day years, so every other field is unmoved by this. */
+ *  404 x 360-day years, so every other field is unmoved by this.
+ *  TIME3: the date and the time are the SKY's (hooks.skySeconds, the
+ *  same epoch) - the quest's own clock where a host gives none. */
 const nowDate = (hooks) => {
-  const sec = hooks?.nowSeconds?.();
+  const sec = (hooks?.skySeconds ?? hooks?.nowSeconds)?.();
   return sec == null ? null : dateFromSeconds(CLASSIC_EPOCH_IN_SECONDS + sec);
 };
 /** GetSuffix (DaggerfallDateTime.cs:641-651), on the ONE-based day. */

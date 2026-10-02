@@ -67,7 +67,7 @@ test('RESTX2: a TIMED rest online paces on the timer - one frame is not eight ho
   assert.equal(r?.textId, REST_TEXT.wakeUp, 'seven more: "You wake up."');
   assert.equal(d.hours, 8);
   assert.equal(d.minutes, 480, 'every minute of the eight hours was spent through advanceMinutes - RESTX1 spent none');
-  assert.equal(d.quests, 0, 'the quest tick alone stays off the online path');
+  assert.equal(d.quests, 48, 'TIME3: the quest machine rides every sub-tick online too - a rest\'s hours are the quests\' to charge');
 });
 
 test('RESTX2 (LIVED1): the host is handed each sub-tick\'s minutes alone - its advance moves the character\'s own clock, so the session keeps no counter and hands no end, online or off, and a leap of the world\'s clock is not in them', () => {
@@ -134,11 +134,11 @@ test('RESTX2: OFFLINE is untouched - the timer paces, the minutes pass, and the 
   for (let f = 0; f < 5; f++) assert.equal(s.tick(1 / 60), null);
   assert.equal(d.minutes, MINUTES_PER_TICK);
   assert.ok(d.quests >= 1, 'offline the quest machine still rides the rested minutes');
-  // the QUEST tick is the one thing gated on the lane: cross-player state ticks against no locally simulated minute
+  // TIME3: and online the same - the quest's clock is the character's, which the rest moves (it was the one thing gated)
   const on = deps({ sharedMinutes: ONLINE });
   const so = new RestSession('timed', 8, on);
   so.tick(HOUR);
-  assert.equal(on.quests, 0);
+  assert.equal(on.quests, 6);
   assert.equal(on.minutes, 60);
 });
 
@@ -163,7 +163,8 @@ test('RESTX2 by source: the free lane and the shared-clock lane are gone from th
   const loop = src.slice(src.indexOf('while (this._takeSubTick()) {'), src.indexOf('this._minutesOfHour += MINUTES_PER_TICK;'));
   assert.doesNotMatch(src, /_onlineSimMinutes\s*[+=]/, 'LIVED1: the session keeps no minute counter of its own');
   assert.match(loop, /this\.deps\.advanceMinutes\(MINUTES_PER_TICK\);/, 'the ONE place time is spent, in every lane - the host\'s advance moves the character\'s own clock');
-  assert.match(loop, /if \(!Number\.isFinite\(this\.deps\.sharedMinutes\?\.\(\)\)\) this\.deps\.tickQuests\?\.\(\);/, 'the quest tick alone is gated');
+  assert.match(loop, /\n\s*this\.deps\.tickQuests\?\.\(\);/, 'TIME3: the quest tick rides every lane - the character\'s clock, which the rest moves');
+  assert.doesNotMatch(loop, /sharedMinutes\?\.\(\)\)\) this\.deps\.tickQuests/, 'and RESTX2\'s gate is gone');
   assert.match(src, /if \(this\.mode === 'timed'\) \{\s*\n(?:\s*\/\/[^\n]*\n)*\s*this\.deps\.tickVitals\(\);/, 'F1\'s guard is gone: the tally is unconditional');
   // THE FOUR HOSTS: the two exterior hosts' encounter roll reads the character's own clock, which the rest moves
   for (const host of ['src/scenes/world.js', 'src/scenes/exterior.js']) {

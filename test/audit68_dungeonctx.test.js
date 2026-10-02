@@ -176,6 +176,7 @@ function exhaustionHarness() {
     hurtEntity: () => {}, fatigueLossMultiplierFor: () => 1, makeWindowStack, pauseWhileOpen,
     activeOverlay: null, _ctxDead: false, opts: {},   // opts: CSA-J's OnPlayerDeath door, none here
   };
+  state.advanceOwnMinutes = (n) => { state.classicMinutesRef.value += n; };   // TIME3: the collapse's hour is a counted raise of the same clock
   const i = D.indexOf('let _exhausted');
   const decl = D.slice(i, D.indexOf('function drainFatigue(', i));
   const api = mount(`
@@ -413,6 +414,7 @@ test('AUDIT 68 S19-rest-alert-decay-wrong-clock (LIVED1): the rest decays the al
   let own = 5000 + ALERT_DECAY_MINUTES;   // the character's clock: eight hours of rested night since the alert
   const state = {
     classicMinutesRef: { get value() { return own; }, set value(v) { own = v; } },   // the dungeon's clock view: the character's own
+    advanceOwnMinutes: (n) => { own += n; },   // TIME3: the rest's minutes, a counted raise of the same clock
     playerEntity: { level: 1, restAsks: 1 },
     claimMagicRounds: (a, b) => ({ from: a, to: b }), runMagicRoundsFor: () => 0, playerSinks: {}, hudText: { add: () => {} },
     sharedClockOn: () => false, worldMinutes: () => own,   // AUDIT LIVED1 A: the arm hands its rounds the world's sky

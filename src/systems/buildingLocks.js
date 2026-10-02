@@ -48,7 +48,7 @@ export const buildingLockValue = (quality) => Math.trunc((quality ?? 0) / 2);
  *   isHouseOwned(buildingKey)     - DaggerfallBankManager.IsHouseOwned
  *                                   (H1 WIRED IT: banking.js:176 over
  *                                   playerEntity.houses, handed in at
- *                                   scenes/worldModes.js:4776, so
+ *                                   scenes/worldModes.js:4777, so
  *                                   :69 - PlayerActivate.cs:1261-1262,
  *                                   the ladder's first test - now has
  *                                   a real answer instead of false)
@@ -201,7 +201,7 @@ export function classicBuildingOpen(buildingType, hour) {
  * Offline they are identical. Online, and only for a shop, a closure is
  * covered by ONLINE_SHIFT. Suns Rest is part of the classic shop closure,
  * so it is covered by the same policy rather than becoming a real-time
- * two-hour outage (a game day is 120 real minutes at TimeScale 12).
+ * outage (a sky day is 30 real minutes online since TIME1; it was 120).
  *
  * `online` is injectable for node tests. Production defaults to the shared
  * clock standing (worldTick.sharedClockOn) - the one predicate every

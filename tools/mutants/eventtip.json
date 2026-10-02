@@ -29,8 +29,8 @@
   {
     "name": "EVENT-TIP-withdraws-at-its-start",
     "file": "src/ui/eventMapMarks.js",
-    "old": "lines.push(`Withdraws at ${clockText(r.endMinute)}`);",
-    "new": "lines.push(`Withdraws at ${clockText(r.startMinute)}`);",
+    "old": "lines.push(local ? `Withdraws at ${local} your time` : `Withdraws at ${clockText(r.endMinute)}`);",
+    "new": "lines.push(local ? `Withdraws at ${local} your time` : `Withdraws at ${clockText(r.startMinute)}`);",
     "tests": [
       "test/eventtip.test.js"
     ]
@@ -227,7 +227,7 @@
   {
     "name": "EVENT-TIP-the-host-hands-no-raids",
     "file": "src/scenes/world.js",
-    "old": "      raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '' }) : []),\n",
+    "old": "      raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '', localTime: sharedClockOn() ? eventLocalTime : null }) : []),   // TIME1: online the withdrawal in local time\n",
     "new": "",
     "tests": [
       "test/eventtip.test.js"
@@ -236,8 +236,8 @@
   {
     "name": "EVENT-TIP-raids-with-the-mod-off",
     "file": "src/scenes/world.js",
-    "old": "raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '' }) : []),",
-    "new": "raids: () => raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '' }),",
+    "old": "raids: () => (raidingPartiesOn() ? raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '', localTime: sharedClockOn() ? eventLocalTime : null }) : []),",
+    "new": "raids: () => raidMapMarks(raidState().raids, worldMinutes(), { regionName: (r) => REGION_NAMES[r] ?? '', localTime: sharedClockOn() ? eventLocalTime : null }),",
     "tests": [
       "test/eventtip.test.js"
     ]

@@ -18,7 +18,16 @@
 //                                 NAMES them once at construction -
 //                                 the headless charter (AUDIT-QUEST F1)
 //   classicSeconds()            - the classic game clock in seconds
-//                                 (the ticker's minutes * 60)
+//                                 (the ticker's minutes * 60) - TIME3:
+//                                 the quest's clock, the CHARACTER's
+//                                 own online (playerTicker.ownMinutes;
+//                                 the one clock offline)
+//   skySeconds()                - TIME3: the sky (skyMinutes() * 60) -
+//                                 a quest's hour, date and season
+//   worldSeconds()              - TIME3: the event clock (worldMinutes()
+//                                 * 60) - the journal's dates
+//   raisedSeconds()             - TIME3: the session's raises
+//                                 (raisedMinutes() * 60), charged whole
 //   playerEntity                - { name, level, gender, ... }
 //   playerRaceName()            - the birth race name (%ra)
 //   getReputation(factionId)    - factionRep.getReputation over the
@@ -191,12 +200,12 @@ export const QUEST_CTX_CONTRACT = Object.freeze([
   'offerReward', 'onQuestEnded', 'onQuestStarted', 'ownMinutes', 'partySize', 'playSong',
   'playSound', 'playVideo', 'playerEntity', 'playerHasItem',
   'playerRaceName', 'questClockStepMax', 'questFoeInstances', 'questWhere',   // GUIDE4: the host's two questions for the lens's look
-  'raiseTime', 'regionPriceAdjustment', 'releaseQuestItem',
+  'raiseTime', 'raisedSeconds', 'regionPriceAdjustment', 'releaseQuestItem',
   'relinkQuestTopics', 'removeItemFromPlayer', 'removeNpcQuestor',
   'removeProgressRumors', 'removeQuestInfoTopics', 'removeQuestRumors',
   'removeQuestorPostMessage', 'setPlayerCrime', 'sharedClock', 'showPopup',
-  'showPrompt', 'showPromptMulti', 'spawnCityGuards',
-  'undiscoverBuilding', 'waitOnline', 'world',
+  'showPrompt', 'showPromptMulti', 'skySeconds', 'spawnCityGuards',
+  'undiscoverBuilding', 'waitOnline', 'world', 'worldSeconds',
 ]);
 
 export const QUEST_CTX_REQUIRED = Object.freeze(['data']);
@@ -236,12 +245,17 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
   const machine = new QuestMachine({
     world: ctx.world ?? null,
     nowSeconds: () => ctx.classicSeconds?.() ?? 0,
+    // TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): the sky, the event clock and the session's raises beside the
+    // character's clock above - null where a host names none (the machine falls back to the one clock)
+    skySeconds: () => ctx.skySeconds?.() ?? null,
+    worldSeconds: () => ctx.worldSeconds?.() ?? null,
+    raisedSeconds: () => ctx.raisedSeconds?.() ?? null,
     // AUDIT LIVED1b D1 (A1, O6): the character's clock, for the stamps a quest makes on it (TrainPc's training time) -
     // AUDIT LIVED1 D gave the machine the hook and world.js the member, and the deps below are built key by key, so the
     // member never reached the machine: TrainPc stamped the world's minute, the guild's gate read the character's
     // (refused for 84 days of their time behind the world, open at once ahead of it)
     ownMinutes: () => ctx.ownMinutes?.() ?? null,
-    questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock charges played time (the host's step); a host that says nothing charges every clock, DFU's own
+    questClockStepMax: () => ctx.questClockStepMax?.() ?? Infinity,   // WORLD7: online, a quest clock bounds the LIVED part of a gap to the host's step, a raise charged whole (TIME3); a host that says nothing charges every clock, DFU's own
     sharedClock: () => !!ctx.sharedClock?.(),   // GUARD-ONLINE: online, a guarded quest's window is the player's arrival's (quest/onlineGuard.js)
     getQuestSourceLines: (name) => ctx.data.getQuestSourceLines(name),
     playerLevel: () => ctx.playerEntity?.level ?? 0,
@@ -411,7 +425,8 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
     lookedLast = true;
     // AUDIT GUIDE L6: a kept line whose macros read the world as it is (a clock's days, %di) is read again each game
     // hour - the card's opening says what the journal says now
-    const hour = Math.floor((ctx.classicSeconds?.() ?? 0) / 3600);
+    // TIME3: on either clock's hour - a clock's days run on the character's, %di and the dates on the sky's
+    const hour = `${Math.floor((ctx.classicSeconds?.() ?? 0) / 3600)}|${Math.floor((ctx.skySeconds?.() ?? 0) / 3600)}`;
     if (textHour !== hour) { if (textHour != null) lens.rereadText(); textHour = hour; }
     // AUDIT GUIDE L4: the look AND its listeners: a face that throws costs the news, never the frame
     try {
@@ -445,7 +460,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
      * (and, GUIDE1, the step each was written at), and the TIGHTEST
      * RUNNING clock on the quest's resources (Clock carries
      * `remainingTimeInSeconds` in game seconds beside
-     * `clockEnabled`/`clockFinished`, quest/clock.js:118,164). The
+     * `clockEnabled`/`clockFinished`, quest/clock.js:125,164). The
      * archive is the notebook's filed entries; `ended` the completed
      * quests the machine still holds, with their verdict.
      *

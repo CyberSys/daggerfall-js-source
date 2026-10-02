@@ -45,6 +45,14 @@ The online world's clock runs at TimeScale 12 (`ONLINE_MINUTES_PER_MS`): a game 
 a game-day event, so its times are clock times every player can read off the game's own clock, and real times
 every player's machine can compute.
 
+[TIME1, 2026-10-01 (`bible/06-Systems/Online-Time-Arc.md` section 7): this clock is the EVENT clock now, and the
+gate keeps it - a gate every two real hours, the same real phases, the relay unchanged. The SKY a player sees runs
+at its own rate (a day every thirty real minutes), so the game-time column below is the event clock's and no
+longer a time the player can read off their sky: it RETIRES from the words. The gate's lines say real local times
+alone (`systems/gateOmen.js` `omenTimeLine`, `openTimeLine`, `sealTimeLine`), and the panel always did.
+`net/gateLaw.js`'s own word functions stay in the relay's bundle until a relay deploy that happens anyway retires
+them.]
+
 | game time | real time | what |
 |---|---|---|
 | 17:00 | T - 15 min | **the omen**: the sky over the site burns; the map ring and the chat line |
@@ -100,6 +108,10 @@ the clock's moments - the relay sends none of them. Nothing is said, and no gate
 read and the hub has welcomed the player (or eight seconds on the relay's clock alone), and then `OMEN_SETTLE_MS` more,
 so the hub's word of a kill lands first; a line is said only past the last one said for its day, so a clock that
 steps back never says one twice (AUDIT WB C4):
+
+[TIME1: the three lines that named a game time now say this machine's local time alone - *An Oblivion Gate opens
+there at 14:32 your time - it is marked on your map.*, *... stands open until 14:42 your time.*, *... It collapses at
+14:52 your time.* The table below is the words as they stood before.]
 
 | when | line |
 |---|---|

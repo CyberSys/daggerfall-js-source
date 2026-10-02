@@ -51,7 +51,7 @@ import { equipTableOf } from './equip.js';
 import { registerPlayerDamageMod, registerPlayerDeathSave, registerPlayerHurtListener, playerEntity } from '../characters/playerEntity.js';
 import { registerPlayerKillListener } from './playerKills.js';
 import { registerAbsorptionChance } from './absorption.js';
-import { registerMagicRoundHook, worldMinutes } from './worldTick.js';
+import { registerMagicRoundHook, skyMinutes } from './worldTick.js';   // TIME1: a moon power answers to the sky's night
 import { setsDueling } from './sigilSets.js';
 import { addGoldPieces } from './inventory.js';
 import { isNight } from '../world/worldClock.js';
@@ -203,7 +203,7 @@ export function lootBlow(weapon, damage, attacker, target, info) {
       case 'sanctified': if (group === p.group) pct += p.pct; break;
       case 'flow': pct += p.pct * flowStacks(now); break;
       case 'venom': flat += Math.floor(p.flat * (share(target) < 0.5 ? 2 : 1) * elementShare(target, 'poison')); break;
-      case 'moon': if (isNight(worldMinutes())) pct += p.pct + (group === 'animal' ? p.beast : 0); break;
+      case 'moon': if (isNight(skyMinutes())) pct += p.pct + (group === 'animal' ? p.beast : 0); break;
       case 'rage': if (share(attacker) < p.below / 100) pct += p.pct; break;
       case 'execute': if (share(target) < p.below / 100) pct += p.pct; break;
       case 'firstblood': if (!_struck.has(target)) pct += p.pct; break;

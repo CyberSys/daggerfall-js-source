@@ -10,6 +10,13 @@ It answers RESTX1's open door (Mac, 2026-09-15: *"We can dive deeper in how we w
 at a later time but for now this is the solution"*) and OL3's recorded alternative (*"the shared
 world keeps ONE clock, so per-player deadlines would be a different design"*). This is that design.
 
+[NEXT, PROPOSED 2026-10-01: `Online-Time-Arc.md` (TIME) splits the world's clock below in two - a faster SKY
+(a day every 30 real minutes) and this page's world clock kept as the EVENT clock - and leaves the
+character's clock as it is. Nothing here changes until it is built. BUILT 2026-10-01 (TIME1-TIME4): where this
+page says the world's clock for the sun, the moons, the calendar or a season, read the SKY; for the world's
+business (prices, shelves, gates, raids, stamps), the event clock, unchanged. The quest clocks below moved to the
+character's clock (OPEN 1, answered).]
+
 ## The problem, stated whole
 
 DFU has one clock, and the player owns it. Every "and then time passes" moves it: a night's sleep,
@@ -84,7 +91,8 @@ character's.
   powers and regional conditions (the shared day's rolls);
 - shops, gates, guild halls and NPC schedules (OL4, OL5), the day's shelf stock;
 - gates, raids, bosses, the broker, respawns (WORLD8), campfires, dropped torches;
-- **quest clocks** (WORLD7's played time; OPEN 1 below).
+- **quest clocks** (WORLD7's played time; OPEN 1 below). [TIME3: now the CHARACTER's clock - the time lived one
+  played step at most, the time raised whole - and the journal's dates the event clock's; `Online-Time-Arc.md` 6.3a.]
 
 ### Reads the character's clock (changed online; offline identical)
 
@@ -181,7 +189,8 @@ the day. The sun is the world's - night falls in about 23 minutes."* (`worldNigh
 with main's VAMP-HOOD (`01-Overview/Field-Bugs-2026-09-29.md`): a raised hood opens the map by day,
 online and offline; bare-headed, the map door says DFU's line, the nightfall, then the hood's hint.]
 
-A world day is two real hours, so the wait is at most one. The vampire's thirst is theirs: rests and
+A world day is two real hours, so the wait is at most one. [TIME1: the sun is the sky's now, a day every half
+hour, so the wait is at most fifteen minutes and the line says so at that rate ("about 8 minutes").] The vampire's thirst is theirs: rests and
 journeys make them hungry, as DFU has it. A vampire must still be fed within their own day to rest.
 
 ## Party
@@ -240,7 +249,8 @@ it.
   AUDIT LIVED1b F3).
 - **Copy to offline:** the offline world's clock is the character's, so every marker of theirs stays
   in tune - and the WORLD's stamps the envelope carries (a quest clock's sample, a CreateFoe's last
-  wave, the rumours' limits, the spawned dungeons' ledger, a fire's hours; AUDIT LIVED1b: a journal
+  wave [TIME3: a quest's countdowns are the character's own in an envelope taken since TIME3, and stay;
+  only its journal dates move], the rumours' limits, the spawned dungeons' ledger, a fire's hours; AUDIT LIVED1b: a journal
   step's date (R3) and a cached building's stock days, by whole days (D2)) are rebased onto it by the
   distance between the two clocks at the save; `worldMinutes` goes (`systems/offlineCopy.js
   offlineCopyOf`, AUDIT LIVED1 E). The raids' schedule is the shared day's and means nothing on another
@@ -280,7 +290,7 @@ it.
   - the ticker's `ownMinutes`, and `advance` online;
   - RaiseSkills on the character's clock;
   - the turn's fortnight;
-  - the rest deps' composed quest stand-down.
+  - the rest deps' composed quest stand-down [retired by TIME3: the rest ticks the quests online too].
 - `systems/restSession.js`: one sub-tick law.
 - The four hosts:
   - `world.js`, `exterior.js`, `worldModes.js` and `dungeonContext.js`: every personal read on the
@@ -299,7 +309,9 @@ No relay change. The servers keep the save opaque, and `RELAY_VERSION` does not 
 ## OPEN - Mac's calls
 
 1. **Quest clocks on the character's clock?** LIVED1 leaves WORLD7: a quest's timer charges played
-   time, and a rest or a journey charges it nothing.
+   time, and a rest or a journey charges it nothing. [PROPOSED by `Online-Time-Arc.md` 6.3 (TIME3): yes,
+   with a quest's hour and date reads on the sky. ANSWERED AND BUILT 2026-10-01 (Mac: "Let's do it"): the
+   recommendation below, with a party's copy on its holder's clock (6.3a).]
    - **Recommended:** a quest's COUNTDOWNS (the Clock resource: "you have N days") charge the
      character's own time, so a journey spends a quest's days as in DFU, and a loiter fast-forwards a
      quest's wait ("come back in three days"). This is FB-2026-09-25's open "loiter fast-forward for
