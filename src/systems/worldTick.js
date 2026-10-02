@@ -124,7 +124,7 @@ export const FACTION_POWER_INTERVAL_MINUTES = 10080;
 export const REGION_CONDITIONS_INTERVAL_MINUTES = 54720;
 // V2d: the same loop's racial-quest arms (:472 rides the 38-day
 // minute, :475-476 adds the 84-day cure minute).
-import { startRacialOverrideQuest, CURE_QUEST_INTERVAL_MINUTES, ONLINE_RACIAL_INTERVAL_MINUTES, racialArmIdle } from './racialQuests.js';
+import { startRacialOverrideQuest, CURE_QUEST_INTERVAL_MINUTES } from './racialQuests.js';
 import { CLASSIC_GAME_START_TIME } from './gameDate.js';
 import { RACES } from './races.js';
 
@@ -923,7 +923,7 @@ function tickPlayerMinutesOnce({
   // threshold stamped a clock three days out; this is where the clock
   // runs down and the invitation quest starts - and only OUTSIDE, so
   // the letter never finds the player in a dungeon.
-  handleStartingCrimeGuildQuests(entity, { nowClassicMinutes: next, inside, online: sharedClockOn() });   // TIMEFREE: the short wait online
+  handleStartingCrimeGuildQuests(entity, { nowClassicMinutes: next, inside });
 
   // SURV1 - THE NEEDS, one world minute at a time over the minutes this
   // tick crossed (the same [last, now] the per-minute loop above walks),
@@ -1005,7 +1005,6 @@ export function runCalendarArms(entity, lastMinutes, nowMinutes, { rolls = Math.
   // minutes), the faction powers and the regional conditions the WORLD's (the shared day's rolls). Offline all of
   // them walk the one clock in DFU's order within a minute, exactly as before.
   const worldArms = arms !== DAY_ARMS.own, ownArms = arms !== DAY_ARMS.world;
-  const timeFree = sharedClockOn();   // TIMEFREE: online the curse's quests come on the short wait, not 38 and 84 days
   for (let i = lastMinutes; i < nowMinutes; i++) {
     if (ownArms && i % NORMALIZE_INTERVAL_MINUTES === 0 && !entity.preventNormalizingReputations) {
       normalizeReputations(entity, entity.factionRep ?? null);
@@ -1059,17 +1058,12 @@ export function runCalendarArms(entity, lastMinutes, nowMinutes, { rolls = Math.
       // (V2d; a no-op without a live override or a registered host).
       // LIVED1: the curse's quests are the character's - online they
       // ride the same cadence on their own minutes.
-      if (ownArms && !timeFree) startRacialOverrideQuest(entity, false, { rolls });
+      if (ownArms) startRacialOverrideQuest(entity, false, { rolls });
     }
     // :475-476, the FOURTH arm - every 84 days, the CURE quest roll
     // ($CUREVAM at (10,100)<30, $CUREWER at (1,100)<30 once).
-    if (ownArms && !timeFree && i % CURE_QUEST_INTERVAL_MINUTES === 0) {
+    if (ownArms && i % CURE_QUEST_INTERVAL_MINUTES === 0) {
       startRacialOverrideQuest(entity, true, { rolls });
-    }
-    // TIMEFREE: online both arms roll on the short wait, each only while it has nothing running (racialQuests.js)
-    if (ownArms && timeFree && i % ONLINE_RACIAL_INTERVAL_MINUTES === 0) {
-      if (racialArmIdle(false)) startRacialOverrideQuest(entity, false, { rolls });
-      if (racialArmIdle(true)) startRacialOverrideQuest(entity, true, { rolls });
     }
   }
 }

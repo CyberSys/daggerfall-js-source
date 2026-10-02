@@ -15565,7 +15565,6 @@ export async function bootWorld(canvas, renderer, params, status) {
     startQuest: (name) => questBridge.machine.startQuestByName(name),
     startQuestObject: (q) => questBridge.machine.startQuestImmediate(q),
     findQuests: (name) => [...questBridge.machine.quests.values()].filter((q) => q.questName === name),
-    activeQuestNames: () => [...questBridge.machine.quests.values()].filter((q) => !q.questComplete && !q.questTombstoned).map((q) => q.questName), // TIMEFREE
     tombstoneQuestsByName: (name) => {
       for (const q of [...questBridge.machine.quests.values()]) {
         if (q.questName === name && !q.questTombstoned) questBridge.machine.tombstoneQuest(q);

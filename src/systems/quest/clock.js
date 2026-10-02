@@ -116,151 +116,6 @@ export function clockCounts(quest, clock) {
   return false;
 }
 
-/**
- * TIMEFREE (2026-10-02, Mac: "we recently adjusted quest timing for online and im really getting tired of it ... Is
- * there a way we can overhaul online quests to not use time and edit anything questwise to make since that depends on
- * time?"; asked what a waiting step does online, "Short real wait"). ONLINE, A QUEST'S CLOCK IS NOT TIME.
- *
- * A Daggerfall clock is one of two things, and the script says which by what its end does:
- *  - a DEADLINE - its end loses the quest ("you have 14 days": its end alone ends the quest with no reward), costs a
- *    standing, or shuts a reward that waits on it NOT having run out ("return before the time is up and be paid": a
- *    `not _clock_` reader pays). Online a deadline never runs out (AUDIT TIMEFREE: but a CLOSING is no deadline).
- *  - a DELAY - everything else: Brisienna's letter (7-14 days), the tutorial's pages, "come back in three days", a
- *    reward that comes after a wait. Online a delay runs out after ONLINE_DELAY_SECONDS of the character's own clock
- *    (about two real minutes of play) or its own remainder, whichever is sooner - the beat still lands, nobody waits days.
- * WORLD5 stood every clock down and the main quest never began (a delay is half of them); this asks each clock which it
- * is. The reading is the script's own tasks: what the end does, what starts from it, what a `when` reads of it, and
- * who started the clock; the run-time half is the quest's success (Clock isDeadline). Offline none of it - DFU's clock.
- */
-export const ONLINE_DELAY_SECONDS = 24 * 60;
-/** The actions that mean the quest is going somewhere good - GivePc (`give pc nothing` too: it is the success), TrainPc
- *  (it sets the success), StartQuest (the next part of a line), GetItem (AUDIT TIMEFREE T4: a quest item handed to the
- *  player - S0000002's letter43 three to seven days on, the main quest's next page). */
-const PROGRESS = new Set(['GivePc', 'TrainPc', 'StartQuest', 'GetItem']);
-const NEGATED = new Set(['whenNot', 'andNot', 'orNot']);
-
-/** What firing the task `name` comes to: the action types reached - its own actions, the tasks it starts (`start
- *  task`, `setvar`) and the tasks a positive `when`/`and`/`or` of anything reached sets off, transitively - whether any
- *  of them lowers a standing, and whether any SETTLES the quest well: a reward handed over (`give pc X` or `give pc
- *  nothing` - the forms that mark the quest a success; `notify` and `silently` hand over a letter), TrainPc (it marks
- *  the success too) or the next quest started. A clock it starts is NOT followed: Brisienna's invitation (a delay)
- *  starts her fortnight (a deadline), and each is asked on its own - followed, the invitation read as the deadline and
- *  never came. */
-function reached(quest, name, { conditional = true, alone = false } = {}) {
-  const seen = new Set([name]);
-  const queue = [name];
-  const types = new Set();
-  let lowers = false, settles = false;
-  const visit = (next) => { if (next && !seen.has(next)) { seen.add(next); queue.push(next); } };
-  while (queue.length) {
-    const n = queue.shift();
-    for (const a of quest.tasks.get(n)?.actions ?? []) {
-      if (a.isTriggerCondition) continue;
-      const type = a.constructor?.typeName;
-      if (type) types.add(type);
-      if ((type === 'ChangeReputeWith' || type === 'LegalRepute') && Number(a.amount) < 0) lowers = true;
-      if ((type === 'GivePc' && (a.isNothing || (!a.textId && !a.silently))) || type === 'TrainPc' || type === 'StartQuest') settles = true;
-      if (type === 'StartTask') visit(a.taskSymbol?.name);   // (a clock it starts is not followed: that clock is asked on its own)
-    }
-    if (!conditional) continue;   // (the starter's own reach: what it does, not what a later `when` may)
-    for (const [tn, t] of quest.tasks) {
-      if (seen.has(tn)) continue;
-      const reader = t.actions.find((a) => a.isTriggerCondition && a.evaluations?.some((e) => !NEGATED.has(e.op) && new QuestSymbol(e.task).name === n));
-      if (!reader) continue;
-      // AUDIT TIMEFREE T3: `alone` follows a `when` only if the end ALONE sets it off - the engine's own reading of the
-      // condition (WhenTask._checkEvals), with what this end has set so far true and every other task not set:
-      // `when _firsttimer_ and not _S.03_` fires on the time-out alone; `when _S.01_ and _S.02_ and _delay_` waits on
-      // the story too, and is a beat after it, not a loss
-      if (alone && !reader._checkEvals?.call({ evaluations: reader.evaluations, _isTaskSet: (sym) => seen.has(sym.name) })) continue;
-      visit(tn);
-    }
-  }
-  return { types, lowers, settles };
-}
-
-/** The reading alone: whether the end of the clock `name` loses the quest, costs a standing, or shuts a reward. */
-function readsAsDeadline(quest, name) {
-  const { types } = reached(quest, name);
-  const progresses = [...PROGRESS].some((t) => types.has(t));
-  // its end costs a standing - Brisienna's fortnight, a questor's patience. AUDIT TIMEFREE T2: what the end itself DOES
-  // (its task and the tasks that starts), not what a later `when` may: K0C00Y05's letter comes after a few hours, and
-  // only `when _S.09_ and _S.04_` - the player's own misstep - costs the knight's favour; read whole, the letter never came
-  if (reached(quest, name, { conditional: false }).lowers) return true;
-  // its end loses the quest - by the end alone (AUDIT TIMEFREE T3: S0000016's minute before the main quest's endings
-  // reaches `end quest` only through `when _S.01_ and _S.02_ and _delay_`; read whole, the endings never played online)
-  if (reached(quest, name, { alone: true }).types.has('EndQuest') && !progresses) return true;
-  for (const [tn, t] of quest.tasks) {   // ...or shuts a reward that waits on it not having run out
-    if (!t.actions.some((a) => a.isTriggerCondition && a.evaluations?.some((e) => NEGATED.has(e.op) && new QuestSymbol(e.task).name === name))) continue;
-    // AUDIT TIMEFREE T2: the reader's own reward, not one a chain of later `when`s reaches - M0B11Y18's "not yet" line
-    // (`when _S.18_ and not _S.02_`: say 1054) pays nothing; read whole, the traitor's arrival never came. T4: and a
-    // reward it SETTLES (`give pc`, the next quest) outranks what the end leads to - O0B00Y11 pays the heist only
-    // `when ... not _S.01_`, and its end, which hands the haul back as the posse comes, is still the loss of that pay
-    if (reached(quest, tn, { conditional: false }).settles) return true;
-  }
-  return false;
-}
-
-/** The tasks that start the clock `name` (`start timer _name_`), but the quest's headless start-up block - whose
- *  symbol is a number (quest/task.js) - which starts the quest's own lifetime clocks, not a closing. */
-function startersOf(quest, name) {
-  const out = [];
-  for (const [tn, t] of quest.tasks) {
-    if (/^\d+$/.test(tn)) continue;
-    if (t.actions.some((a) => a.constructor?.typeName === 'StartStopTimer' && a.isStartTimer && a.targetSymbol?.name === name)) out.push(tn);
-  }
-  return out;
-}
-
-/** AUDIT TIMEFREE T1: A CLOSING CLOCK. A clock that ends the quest and nothing else reads as a deadline - but when the
- *  task that STARTS it has already settled the quest (the reward handed over, the next quest started - what the starter
- *  DOES, not what a later `when` may: S0000500's traitor scene leads to the reward only once the contact is met, and
- *  its escape is a real deadline) or is itself a deadline running out (the failure already dealt), its end is no loss:
- *  it is the script closing the quest a while after the outcome. M0B40Y05's `_end_` (`Clock _end_ 00:00`, started by
- *  `give pc _gold_`), Brisienna's `_oneday_` (started by meeting her - whose `start task` starts the main quest - and by
- *  her fortnight running out), the main quest's S0000007 `_delay_`. Read as deadlines they never ran out online and
- *  those quests stood open for ever. (The run-time half - a quest already a success - is the Clock's `isDeadline`.) */
-function closes(quest, name) {
-  for (const tn of startersOf(quest, name)) {
-    if (reached(quest, tn, { conditional: false }).settles) return true;
-    if (tn !== name && quest.resources?.get?.(tn)?.isClock && readsAsDeadline(quest, tn)) return true;
-  }
-  return false;
-}
-
-/** TIMEFREE: whether `clock` is a deadline (see above) as the script reads - the run-time half aside. Answers false for
- *  a clock with no name or no quest. */
-export function clockIsDeadline(quest, clock) {
-  const name = clock?.symbol?.name;
-  if (!name || !quest?.tasks) return false;
-  return readsAsDeadline(quest, name) && !closes(quest, name);
-}
-
-/** TIMEFREE: the clocks whose end is a PENALTY the reading above cannot see - the end does not lose the quest or cost
- *  a standing, it sends something after the player: the cure quests' hunters (`when _huntstart_ create foe`),
- *  U0C00Y00's monster slipping away to its hideout, M0B11Y18's mark leaving the house. AUDIT TIMEFREE T6: and
- *  Brisienna's month (`_remindpc_`), whose end only words a reminder and starts her fortnight - the first half of her
- *  deadline; a delay, it sent "you are late" two minutes after the invitation. (Not a rule: S0000011's `_S.11_` has the
- *  same shape - a letter and a long clock - and its letter is the main quest's next page.) Deadlines, by hand. */
-export const ONLINE_DEADLINES = Object.freeze({
-  $CUREWER: Object.freeze(['huntstart']),
-  $CUREVAM: Object.freeze(['huntstart']),
-  U0C00Y00: Object.freeze(['escapetime']),
-  M0B11Y18: Object.freeze(['S.05']),
-  _BRISIEN: Object.freeze(['remindpc']),
-});
-
-/** AUDIT TIMEFREE T1: the closing after a FAILURE the reading cannot tell from a story beat (a starter that costs a
- *  standing is as often the plot - S0000500's traitor - as the loss): R0C11Y03's turn after the item went to the
- *  chemist, whose own end costs the questgiver and ends the quest. Frozen, the failed quest stood open for ever. A delay,
- *  by hand. (N0B20Y02's week of the mage's revenge and N0B10Y03's hour after the unguarded hall end the quest only
- *  `when` the failure AND the clock stand - T3's reading already calls them delays.) */
-export const ONLINE_CLOSINGS = Object.freeze({
-  R0C11Y03: Object.freeze(['2ndparton']),
-});
-
-/** TIMEFREE: whether the quest's clocks run time-free - online (the shared clock standing), the quest's own word. */
-export const questTimeFree = (quest) => !!quest?.hooks?.sharedClock?.();
-
 export class Clock extends QuestResource {
   constructor(parentQuest, line = null) {
     super(parentQuest);
@@ -274,10 +129,6 @@ export class Clock extends QuestResource {
     this._lastWorldTimeSample = 0;
     this._lastRaisedSample = null;   // TIME3: the session's raised seconds at that sample - transient: a restore is a resume
     this.travelTimePending = false;   // Q1: the flag&16 / flag&1-hack arms pend Place resolution (Q3)
-    this._deadline = null;   // TIMEFREE: asked on first need (isDeadline)
-    this._closesOnSuccess = false;   // AUDIT TIMEFREE T1: a task started it, so a success makes it a closing
-    this.declaredAtOnce = false;   // AUDIT TIMEFREE T3: `Clock _x_ 00:00`, no travel arm (setResource)
-    this.startedAfterSuccess = false;   // AUDIT TIMEFREE T5: started once the quest was already a success (saved)
     if (line !== null) this.setResource(line);
   }
 
@@ -305,9 +156,6 @@ export class Clock extends QuestResource {
     const roll = this.parentQuest?.rolls ?? Math.random;
     const fromRange = (min, max) => min + Math.floor(roll() * (max + 1 - min));   // Random.Range(min, max+1)
 
-    // AUDIT TIMEFREE T3: a clock declared at an explicit zero with no travel arm (`Clock _end_ 00:00`) is the script's
-    // "at once" - never a deadline, whatever its end does (S0000106's start-up favour, M0B40Y05's close)
-    this.declaredAtOnce = (currentTimeValue === 1 && timeValue0 === 0) || (currentTimeValue === 2 && timeValue0 === 0 && timeValue1 <= 0);
     let clockTimeInSeconds = 0;
     if (currentTimeValue === 0) {
       // "clock _symbol_": random between 1 minute and 1 week
@@ -321,7 +169,6 @@ export class Clock extends QuestResource {
     // flag&16: 2.5x cautious travel time of the quest's Places; the
     // flag&1 + maxRange>0 + zero-time HACK forces the same check.
     if ((this.flag & 16) === 16 || ((this.flag & 1) === 1 && this.maxRange > 0 && clockTimeInSeconds === 0)) {
-      this.declaredAtOnce = false;   // (a travel clock: 2.5 trips, not "at once")
       const travel = this.parentQuest?.travelSeconds?.();
       if (travel != null) clockTimeInSeconds = travel;
       else { this.travelTimePending = true; clockTimeInSeconds = 0; }
@@ -333,30 +180,10 @@ export class Clock extends QuestResource {
 
   get isClock() { return true; }
 
-  /** TIMEFREE: this clock is a deadline. The script's reading is asked once (the tasks do not change after the parse);
-   *  AUDIT TIMEFREE T1's run-time half is asked every time: once the quest is a SUCCESS (`give pc`, `give pc nothing`,
-   *  `train pc` set it), no clock is a loss any more, and a deadline a task started is the script closing the quest -
-   *  S0000009's two days after the contact, whose reward a `when` on the same click pays. A clock the start-up block
-   *  started stays a deadline: A0C41Y18 is a success from its first lines and keeps its finger and its gold for its
-   *  1001 days, as DFU does. AUDIT TIMEFREE T5: and so does one started AFTER the success - a new limit, not a close:
-   *  M0B11Y18 pays for the raid, then offers the traitor's hunt and "will wait =gettraitor_ days"; closed on the
-   *  success, that hunt ended a couple of minutes after the player took it. */
-  get isDeadline() {
-    const q = this.parentQuest;
-    if (this._deadline == null) {
-      const name = this.symbol?.name;
-      const atOnce = this.declaredAtOnce && !/^_2.*_$/.test(this.symbol?.original ?? '');   // (a `_2place_` clock's zero is its trip, StartTimer's)
-      this._deadline = (ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
-        || (!(ONLINE_CLOSINGS[q?.questName] ?? []).includes(name) && !atOnce && clockIsDeadline(q, this));
-      this._closesOnSuccess = this._deadline && !(ONLINE_DEADLINES[q?.questName] ?? []).includes(name)
-        && !!q?.tasks && startersOf(q, name).length > 0;
-    }
-    return this._deadline && !(this._closesOnSuccess && q?.questSuccess && !this.startedAfterSuccess);
-  }
-
   /** Q2 - Clock.cs Tick: whole world-seconds since the last sample
    *  come off the remainder; at zero the SAME-NAMED task starts and
-   *  the clock finishes. The world clock is the quest's nowSeconds (TIME3: online the character's own)
+   *  the clock finishes. The world clock is the quest's nowSeconds (TIME3: online the character's own, charged only as
+   *  it moves with the world - QCLOCK-WORLD)
    *  seam (classic game seconds, machine-injected). */
   /** ExpandMacro (Clock.cs): =symbol_ answers days remaining (the
    *  ShowQuestJournalClocksAsCountdown setting picks remaining vs
@@ -364,9 +191,6 @@ export class Clock extends QuestResource {
    *  seconds/86400. */
   expandMacro(macroType) {
     if (macroType !== 5) return false;   // DetailsMacro
-    // TIMEFREE: online a clock is no count of days - "within =queston_ days", "I have =x_ days to get", "you only have
-    // =x_ days" read "within a few days", "I have a few days" - the scripts' day lines read whole with it
-    if (questTimeFree(this.parentQuest)) return 'a few';
     const secs = this.parentQuest?.hooks?.world?.showClocksAsCountdown?.()
       ? this.remainingTimeInSeconds : this.startingTimeInSeconds;
     return String(Math.ceil(secs / 86400));
@@ -376,17 +200,20 @@ export class Clock extends QuestResource {
    *  played step) never negative and never more than one step. ONE arithmetic - tick subtracts it, and
    *  liveRemainingSeconds reads it - so a reader can never disagree with the charge.
    *  TIME3: online the quest's clock is the character's own (LIVED1), and the gap has two parts: the time RAISED since
-   *  the sample (a rest, a loiter, a journey, a sentence - the session's count, raisedSeconds) is charged whole, as DFU
-   *  charges a RaiseTime, and the time lived with the world is charged one played step at most (WORLD7: the rest is
-   *  time away, forgiven). Never more than the clock moved, never less than nothing. A sample with no count beside it,
-   *  or one from another session, charges the lived step alone - a resume. */
+   *  the sample (a rest, a loiter, a journey, a sentence - the session's count, raisedSeconds) and the time lived with
+   *  the world, the event clock's own movement while they play. QCLOCK-WORLD (2026-10-02, Mac: "go back to the quest
+   *  timer tied to the online world clock"; asked, "Shared world clock" - resting, waiting and travel spend no quest
+   *  days): online only the lived part is charged, one played step at most (WORLD7's law: the rest is time away,
+   *  forgiven), and a raise never. [SUPERSEDES TIME3's raise charged whole, and TIMEFREE's quests without time.]
+   *  Offline the one clock's raw gap stands, DFU's own arithmetic. Never more than the clock moved, never less than
+   *  nothing. */
   chargeSeconds(caller) {
     const now = wholeSeconds(caller);
     const step = caller.questClockStepMax?.() ?? Infinity;
     const raw = now - this._lastWorldTimeSample;
-    const raised = Number.isFinite(step) ? Math.min(raisedSince(caller.raisedSeconds?.(), this._lastRaisedSample), Math.max(raw, 0)) : 0;
-    const difference = Number.isFinite(step) ? Math.min(Math.max(raw - raised, 0), step) + raised : raw;
-    return Math.trunc(difference);
+    if (!Number.isFinite(step)) return Math.trunc(raw);
+    const raised = raisedSince(caller.raisedSeconds?.(), this._lastRaisedSample);
+    return Math.trunc(Math.min(Math.max(raw - raised, 0), step));   // QCLOCK-WORLD: the lived step, never the raise
   }
 
   /** QT-LIVE1 (Mac, 2026-09-21: "The time doesn't print out live?"): the remainder AS OF NOW. The machine ticks off
@@ -396,10 +223,6 @@ export class Clock extends QuestResource {
    *  taking it: the field less the charge, floored at zero. A clock that is not running answers its field. */
   liveRemainingSeconds(caller) {
     if (!this.clockEnabled || this.clockFinished) return this.remainingTimeInSeconds;
-    if (questTimeFree(this.parentQuest)) {   // TIMEFREE: a deadline stands still; a delay is never more than the short wait
-      return this.isDeadline ? this.remainingTimeInSeconds
-        : Math.max(0, Math.min(this.remainingTimeInSeconds, ONLINE_DELAY_SECONDS) - this.chargeSeconds(caller));
-    }
     return Math.max(0, this.remainingTimeInSeconds - this.chargeSeconds(caller));
   }
 
@@ -417,16 +240,8 @@ export class Clock extends QuestResource {
     // to every running clock (Brisienna's fourteen days became forty-four played, for exactly the character Mac
     // brought over). Online a backward sample is a resume: nothing charged, the sample moved. Offline the raw gap
     // stands, DFU's own arithmetic (a backward jump there is a load, whose sample is the save's).
-    // TIMEFREE: online a deadline is charged nothing and never runs out (the sample still moves - a clock taken
-    // offline resumes from where it stood, never charged the online span); a delay's remainder is cut to the short wait
-    // once, then charged as any clock - so a delay's beat lands within about two real minutes of play.
-    const timeFree = questTimeFree(this.parentQuest);
-    const frozen = timeFree && this.isDeadline;
-    if (!timeFree) this.remainingTimeInSeconds -= this.chargeSeconds(caller);
-    else if (!frozen) this.remainingTimeInSeconds = Math.min(this.remainingTimeInSeconds, ONLINE_DELAY_SECONDS) - this.chargeSeconds(caller);
-    // AUDIT TIMEFREE T7: a frozen deadline never fires - not even one armed at nothing (a travel clock whose places
-    // cannot be found answers 0 seconds, DFU's own sum, and fired on its first tick: online, the quest ended at once)
-    if (this.remainingTimeInSeconds <= 0 && !frozen) {
+    this.remainingTimeInSeconds -= this.chargeSeconds(caller);
+    if (this.remainingTimeInSeconds <= 0) {
       this._triggerTask(caller);
       this.clockEnabled = false;
       this.clockFinished = true;
@@ -466,7 +281,6 @@ export class Clock extends QuestResource {
     }
     if (!this.clockFinished) {
       this.clockEnabled = true;
-      this.startedAfterSuccess = !!this.parentQuest?.questSuccess;   // AUDIT TIMEFREE T5
       this._lastWorldTimeSample = wholeSeconds(this.parentQuest);
       this._lastRaisedSample = this.parentQuest.raisedSeconds?.() ?? null;   // TIME3
     }
@@ -494,7 +308,6 @@ export class Clock extends QuestResource {
       maxRange: this.maxRange,
       clockEnabled: this.clockEnabled,
       clockFinished: this.clockFinished,
-      startedAfterSuccess: this.startedAfterSuccess,   // AUDIT TIMEFREE T5 (the port's; absent from a save before it - false)
     };
   }
 
@@ -512,7 +325,6 @@ export class Clock extends QuestResource {
     this.maxRange = dataIn.maxRange;
     this.clockEnabled = dataIn.clockEnabled;
     this.clockFinished = dataIn.clockFinished;
-    this.startedAfterSuccess = dataIn.startedAfterSuccess === true;   // AUDIT TIMEFREE T5
     this.travelTimePending = false;
   }
 }

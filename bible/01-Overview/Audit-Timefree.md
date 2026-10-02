@@ -1,5 +1,9 @@
 # AUDIT TIMEFREE - online quests that are not time, and the wear, read before they merge (2026-10-02)
 
+> **REVERTED (quest half) by QCLOCK-WORLD, 2026-10-02** (Mac: "go back to the quest timer tied to the online world
+> clock"; `06-Systems/Online-Time-Arc.md` 6.3c). The quest reading below - deadlines, delays, the short wait - is
+> no longer the code; its pins and campaigns are DELETED. WEAR-ONE stands.
+
 Mac: *"Audit this and ensure its perfect"*, of TIMEFREE (`06-Systems/Online-Time-Arc.md` 6.3b - a quest clock online
 is a deadline that never runs out or a delay that lands on the short wait) and WEAR-ONE (`05-Combat/Physical-Combat-Overhaul.md`
 - the port's wear back to DFU's amount). Two lenses:
@@ -10,9 +14,9 @@ is a deadline that never runs out or a delay that lands on the short wait) and W
   marks), every machine the hosts build, the party resync, the save, the curse arms' walk, the crime guilds' clock,
   the bounties' board and party share, the letter's town hold, the words in the quest texts, the wear's callers.
 
-Every finding was checked against the script and the code before it was fixed. Pins: `test/audit_timefree.test.js`
-(and `test/timefree.test.js`'s split); each fix carries an `AUDIT TIMEFREE <ID>` comment. Campaign
-`tools/mutants/audit_timefree.json`: 14, all dead; `tools/mutants/timefree.json` re-aimed, 10, all dead.
+Every finding was checked against the script and the code before it was fixed. Pins: `test/audit_timefree.test.js` [DELETED by QCLOCK-WORLD]
+(and `test/timefree.test.js`'s split); each fix carries an `AUDIT TIMEFREE <ID>` comment. Campaign [DELETED by QCLOCK-WORLD]
+`tools/mutants/audit_timefree.json`: 14, all dead; `tools/mutants/timefree.json` re-aimed, 10, all dead. [DELETED by QCLOCK-WORLD]
 
 ## Fixed
 
@@ -67,7 +71,7 @@ and read what ships beside main.
 - **Checked again and fine**: the bounty's time left has one reader (the board window, which drops the line when it is
   null); main's new tests pass beside TIMEFREE (the full suite, below).
 
-Pins: `test/audit_timefree.test.js` (the three ticked runs).
+Pins: `test/audit_timefree.test.js` (the three ticked runs). [DELETED by QCLOCK-WORLD]
 
 ## Left, said so
 

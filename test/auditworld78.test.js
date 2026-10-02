@@ -60,7 +60,7 @@ test('AUDIT WORLD7/8 A1/A2/A11: the Clock - a backward sample online charges not
   now.t += 60; nan.tick(q);
   assert.equal(nan.remainingTimeInSeconds, 3540, 'and the remainder is a number');
   const src = rd('src/systems/quest/clock.js');
-  assert.match(src, /const raw = now - this\._lastWorldTimeSample;\s*\n\s*const raised = Number\.isFinite\(step\) \? Math\.min\(raisedSince\(caller\.raisedSeconds\?\.\(\), this\._lastRaisedSample\), Math\.max\(raw, 0\)\) : 0;\s*\n\s*const difference = Number\.isFinite\(step\) \? Math\.min\(Math\.max\(raw - raised, 0\), step\) \+ raised : raw;/);
+  assert.match(src, /const raw = now - this\._lastWorldTimeSample;\s*\n\s*if \(!Number\.isFinite\(step\)\) return Math\.trunc\(raw\);\s*\n\s*const raised = raisedSince\(caller\.raisedSeconds\?\.\(\), this\._lastRaisedSample\);\s*\n\s*return Math\.trunc\(Math\.min\(Math\.max\(raw - raised, 0\), step\)\);/);
   assert.match(src, /this\._lastWorldTimeSample = Number\.isFinite\(dataIn\.lastWorldTimeSample\) \? dataIn\.lastWorldTimeSample : wholeSeconds\(this\.parentQuest\);/);
 });
 
@@ -115,7 +115,7 @@ test('AUDIT WORLD7/8 A3/A6: CreateFoe - a marker ahead of the world online is a 
   const src = rd('src/systems/quest/actions.js');
   assert.match(src, /else if \(this\._lastTick == null\) \{ if \(Number\.isFinite\(step\) && \(gameSeconds - this\.lastSpawnTime > step \|\| gameSeconds < this\.lastSpawnTime\)\) this\.lastSpawnTime = gameSeconds; this\._lastTick = gameSeconds; \}/);
   assert.match(src, /else if \(Number\.isFinite\(step\) && gameSeconds < this\._lastTick\) \{ this\.lastSpawnTime = gameSeconds; this\._lastTick = gameSeconds; \}/);
-  assert.match(src, /else \{ const raised = Number\.isFinite\(step\) \? Math\.min\(raisedSince\(raisedNow, this\._lastRaised\), gameSeconds - this\._lastTick\) : 0; const forgiven = Math\.max\(0, gameSeconds - this\._lastTick - raised - step\); if \(forgiven > 0\) this\.lastSpawnTime \+= forgiven; this\._lastTick = gameSeconds; \}/, 'the in-flight path forgives too (TIME3: the lived part past a step - never a raise)');
+  assert.match(src, /else \{ const raised = Number\.isFinite\(step\) \? Math\.min\(raisedSince\(raisedNow, this\._lastRaised\), gameSeconds - this\._lastTick\) : 0; const forgiven = Math\.max\(0, gameSeconds - this\._lastTick - raised - step\) \+ raised; if \(forgiven > 0\) this\.lastSpawnTime \+= forgiven; this\._lastTick = gameSeconds; \}/, 'the in-flight path forgives too (QCLOCK-WORLD: the lived part past a step, and the raise whole)');
 });
 
 test('AUDIT WORLD7/8 A4/A10/C7/C9: the records and the residue - the machine ticks off the frame loop (a hidden tab runs no frames and charges one step on return), the record and the constant say so; the stand-down wording is gone or stamped superseded; the pre-WORLD8 memory sentence and the Ledger\'s WORLD5 sentence corrected', () => {

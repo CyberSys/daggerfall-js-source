@@ -48,10 +48,6 @@ export const DARK_BROTHERHOOD_TALLY_TARGET = 15;
 
 /** :1282/:1295 - `currentMinutes + 4320`, three classic days. */
 export const CRIME_GUILD_LETTER_DELAY_MINUTES = 4320;
-/** TIMEFREE (2026-10-02, Mac: online quests "to not use time"): online the letter comes on the quest clocks' short wait
- *  - twenty-four of the character's minutes, about two real minutes of play (quest/clock.js ONLINE_DELAY_SECONDS) -
- *  not three days later. The caller says it is online (the tick, which owns the shared clock's word). */
-export const CRIME_GUILD_LETTER_ONLINE_MINUTES = 24;
 
 /** The four entity fields, defaulted the way PlayerEntity.cs:90-93
  *  declares them (all zero). A classic import overwrites them. */
@@ -150,11 +146,9 @@ export function setCrimeGuildQuestHost(host) { const prev = _host; _host = host 
  * worse than waiting. So the pending letter simply stays pending until
  * a host can honour it.
  */
-export function handleStartingCrimeGuildQuests(entity, { nowClassicMinutes, inside = false, online = false } = {}) {
+export function handleStartingCrimeGuildQuests(entity, { nowClassicMinutes, inside = false } = {}) {
   if (!entity || !_host?.startQuest || inside) return [];
   const started = [];
-  // TIMEFREE: online a pending letter is due the short wait after the tally reached it - the stamp is three days on
-  if (online) nowClassicMinutes += CRIME_GUILD_LETTER_DELAY_MINUTES - CRIME_GUILD_LETTER_ONLINE_MINUTES;
   if (entity.thievesGuildRequirementTally !== INVITE_SENT
     && (entity.timeForThievesGuildLetter ?? 0) > 0
     && entity.timeForThievesGuildLetter < nowClassicMinutes) {

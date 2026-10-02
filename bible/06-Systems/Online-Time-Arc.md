@@ -360,6 +360,31 @@ The machine gets two clocks where DFU has one: `nowSeconds` becomes the characte
   fired and its edge kept (AUDIT TIME; the edge in the second round, or the next tick re-fired the task and
   restarted its waves), and a wave's interval and count stay this holder's.
 
+### 6.3c Quest timers on the world's clock (QCLOCK-WORLD, 2026-10-02) [SUPERSEDES 6.3b, and 6.3a's raise charged whole]
+
+Mac: "Before we merge. I want to go back to the quest timer tied to the online world clock instead of the changes we
+just made". Asked which: TIME3's (a rest spends a quest's days) or the shared world clock's, played time only -
+"Shared world clock". So TIMEFREE's quest half is reverted whole (deadlines run out again, delays wait their days,
+bounties lapse, letters wait for morning, the curse quests and the crime-guild letters keep their waits; WEAR-ONE
+stays), and online a quest's countdowns are WORLD7's again:
+
+- **The time lived with the world is charged, one played step at most; a raise is charged nothing**
+  (`quest/clock.js chargeSeconds`: the character's clock still, so 6.3a's seams stand - the session's raises,
+  `raisedSeconds`, are what the charge takes OUT of the gap now, not what it adds whole). A rest, a loiter, a journey,
+  a sentence, training spend no quest days; the hours played do, at the event clock's TimeScale 12 (a quest day is two
+  real hours of play). Time logged off is never counted; a hidden tab is still one step.
+- **CreateFoe's interval keeps the same law** (`quest/actions.js`): the raise is forgiven whole with the lived part past
+  a step.
+- **Offline nothing changes**: the one clock's raw gap, DFU's own - a rest spends a quest's days.
+- What 6.3a built stays: the hour, date and season on the sky; the journal's dates on the event clock; a party copy on
+  its holder's clock (a member's play spends their copy, a rest spends neither); the save's move onto the character's
+  clock. QFAIL-FREE (a failed quest online costs its faction nothing) stays.
+
+Pins: `test/time3_quests.test.js` (the Clock, the wave, the party's copies and the rest re-aimed - a rest spends
+nothing, the same mechanics driven by lived play), `test/world7.test.js`, `test/world5.test.js`,
+`test/auditworld78.test.js` (the charge's source); `ui/enhancedMenu.js` says it at the door. `tools/mutants/time3.json`
+re-aimed (61, all dead): TIME3's law back - the raise charged whole - is a mutant now.
+
 ### 6.4 Weather keeps its pace
 
 The six zones roll and evolve on the event clock's days and hours, as today: a roll every two real
@@ -374,7 +399,7 @@ temple's cure days and Heart's Day keep their share of the year, in shorter, mor
 year number climbs about 49 a real year. TIME1 reads every date reader its census finds for one that
 counts years, before the years run faster.
 
-### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online]
+### 6.3b Quests are not time (TIMEFREE, 2026-10-02) [SUPERSEDES 6.3a's countdowns online] [SUPERSEDED BY 6.3c - REVERTED]
 
 Mac: "we recently adjusted quest timing for online and im really getting tired of it ... Is there a way we can overhaul
 online quests to not use time and edit anything questwise to make since that depends on time?" Asked what a waiting step
@@ -394,7 +419,7 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   success (a new limit - T5). Penalties the reading cannot see are deadlines by hand (`ONLINE_DEADLINES`: the cure
   quests' hunters, U0C00Y00's escape, M0B11Y18's mark leaving, Brisienna's month - T6), and one closing after a
   failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03). Of the 399 vendored clocks, 262 are deadlines and 137
-  delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js`).
+  delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js` - DELETED by 6.3c).
 - **Online a deadline never runs out**: charged nothing, its sample still moving, so a quest taken offline resumes it
   where it stood. QFAIL-FREE stays as the net under anything else that ends a quest unfinished.
 - **Online a delay lands on the short wait**: its remainder is cut once to `ONLINE_DELAY_SECONDS` (24 minutes of the
@@ -569,13 +594,17 @@ terms; 9 is new and not built.
   (`PATCH-NOTES-A-Faster-Sky.md`). The mutant campaigns are `tools/mutants/time1.json`-`time3.json`, all dead.
 - 2026-10-02: TIMEFREE (6.3b) - online quests are not time: deadlines never run out, delays land on the short wait,
   no countdowns, bounties never lapse, the curse quests and crime-guild letters on the short wait.
-  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead), `PATCH-NOTES-Time-Free-Quests.md`.
+  `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead), `PATCH-NOTES-Time-Free-Quests.md`. [DELETED by 6.3c]
 - 2026-10-02: AUDIT TIMEFREE (`01-Overview/Audit-Timefree.md`): every vendored clock read by hand, the main quest's
   whole; nineteen misread clocks corrected (T1-T6) - among them Brisienna's close, the main quest's endings and
-  letter43, quests that never closed after their reward. `test/audit_timefree.test.js`,
-  `tools/mutants/audit_timefree.json` (14, all dead).
+  letter43, quests that never closed after their reward. `test/audit_timefree.test.js`, [DELETED by 6.3c]
+  `tools/mutants/audit_timefree.json` (14, all dead). [DELETED by 6.3c]
 - 2026-10-02: AUDIT TIMEFREE II: the real machine ticked online and offline (Brisienna, K'avar's letter, a deadline
   across the switch); main merged in; the patch notes' words corrected.
+- 2026-10-02: QCLOCK-WORLD (6.3c): TIMEFREE's quest half reverted before the merge, and online a quest's countdowns
+  charge the time played with the world's clock and never a raise - a rest, a wait or a journey spends no quest days.
+  `test/time3_quests.test.js` re-aimed, `tools/mutants/time3.json` (61, all dead),
+  `PATCH-NOTES-Quest-Timers-on-the-World-Clock.md`.
 - 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
   the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
   now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the

@@ -48,7 +48,7 @@ export const VAMPIRISM_CURE_QUEST = '$CUREVAM';
 export const VAMPIRE_INITIAL_QUEST = 'P0A01L00';
 
 // { startQuest(name), startQuestObject(quest), findQuests(name) ->
-//   array, activeQuestNames() -> names (TIMEFREE), tombstoneQuestsByName(name), tombstoneQuestsByPrefix(p),
+//   array, tombstoneQuestsByName(name), tombstoneQuestsByPrefix(p),
 //   getVampireClanQuest(clanFactionId, level) -> quest|null (the
 //   host reads the clan rep itself - it owns the faction store) }
 let _host = null;
@@ -101,20 +101,6 @@ export function startRacialOverrideQuest(entity, isCureQuest, { rolls = Math.ran
   }
 
   return null;
-}
-
-/** TIMEFREE (2026-10-02, Mac: online quests "to not use time"): online the curse's quests do not wait 38 and 84 days
- *  of the character's time - 76 and 168 hours of play. Each arm rolls on the quest clocks' short wait instead (twenty-
- *  four of the character's minutes, about two real minutes of play) whenever it has nothing running: no P0 quest for
- *  the vampire's initiation and clan line, no cure quest for either cure - so they come one at a time, never stacked. */
-export const ONLINE_RACIAL_INTERVAL_MINUTES = 24;
-const CURE_QUESTS = Object.freeze([LYCANTHROPY_CURE_QUEST, VAMPIRISM_CURE_QUEST]);
-/** TIMEFREE: whether the arm (`isCureQuest`) has nothing running - the host's live quests (none answers false: no
- *  host, no arm). */
-export function racialArmIdle(isCureQuest) {
-  const live = _host?.activeQuestNames?.();
-  if (!Array.isArray(live)) return false;
-  return !live.some((n) => (isCureQuest ? CURE_QUESTS.includes(n) : String(n).startsWith(VAMPIRE_QUEST_PREFIX)));
 }
 
 /** EndVampireQuests (:375-386): the cure tombstones EVERY active
