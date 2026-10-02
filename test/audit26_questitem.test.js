@@ -67,7 +67,7 @@ test('F070: the trade window\'s Repair arm applies the SAME queue law as the liv
   const wm = src('scenes/worldModes.js');
   // The KEYED flow's call: one new item on top of every job at this shop.
   // WD3: and the shop's town rides with its key (`mapId`) - a key names a building only in its town's layout
-  const calls = wm.match(/updateRepairTimes\(\[\.\.\.repairJobsAt\(playerEntity, bk, now\), it\], \{ commit: true, nowMinutes: now, buildingKey: bk, mapId: homeTownOf\(interiorBuilding\) \}\);/g) ?? [];
+  const calls = wm.match(/updateRepairTimes\(\[\.\.\.repairJobsAt\(playerEntity, bk, now, homeTownOf\(interiorBuilding\)\), it\], \{ commit: true, nowMinutes: now, buildingKey: bk, mapId: homeTownOf\(interiorBuilding\) \}\);/g) ?? [];
   assert.equal(calls.length, 1, 'the keyed choice flow still books against the whole queue');
   // D7 - the NATIVE arm is ConfirmTrade's own shape (:1057-1074): the
   // window's Repair remoteItems IS PlayerEntity.OtherItems, so `staged`

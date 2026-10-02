@@ -282,7 +282,7 @@ test('WD3 the load: the save\'s towns in the layouts its things were made in, be
   const body = W.slice(at, W.indexOf('\n  async function worldQuickLoad', at));
   assert.match(body, /const records = homeLayoutsOnline \? \(_serverLayoutRecords \?\? \[\]\) : layoutRecordsOf\(\{\n {6}houses: playerEntity\.houses, rooms: playerEntity\.rentedRooms,/);
   assert.match(body, /repairs: \(playerEntity\.otherItems \?\? \[\]\)\.map\(\(it\) => it\?\.repairData\)\.filter\(Boolean\),\n {6}anchor: playerEntity\.anchorPosition,/);
-  assert.match(body, /for \(const v of \[\.\.\.pin\.in\]\) if \(!\(await ensureWorldDataPack\(v\)\)\) pin\.in\.delete\(v\);/);
+  assert.match(body, /for \(const v of \[\.\.\.pin\.in\]\) if \(!\(await ensureWorldDataPack\(v\)\)\) \{ pin\.in\.delete\(v\); dropped\+\+; \}/);
   assert.match(body, /const changed = setLayoutPins\(pins\);/);
   assert.match(body, /if \(built\.has\(pixelKey\)\) \{[\s\S]{0,120}destroyPixel\(px, py, \{ collectLoose: false \}\);\n {8}queue\.push\(\{ px, py \}\);/);
   assert.match(body, /const forgotten = homeLayoutsOnline && _serverLayoutRecords === null \? 0 : pruneDiscoveryLayouts\(\);/);
