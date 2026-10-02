@@ -1001,7 +1001,7 @@ The hand-off is RIDE's: `isRiding` is true only once the art is up, so while
 it loads or has failed, and in a build without it, DISC12's enemy sprite
 still stands for them. A beast is never nothing.
 
-The modal passes (`worldModes.js:8565` the dungeon, `:8774` the interior)
+The modal passes (`worldModes.js:8624` the dungeon, `:8833` the interior)
 draw only `host.extraBillboards`. That was `remotePlayers.batches()` alone,
 so a beast drawn by the rider layer would have been nothing indoors and
 underground. It hands over both layers' batches now (`world.js:20017`). A
@@ -1071,13 +1071,13 @@ the scene the picture takes in:
 
 **Hosts.** Every Morrowind body in the port goes through `drawThird`. The
 local player's goes through `mwView.mwViewDrawBody` (`mwView.js:395`,
-`:339`), which four files call: `world.js:23660`, `exterior.js:5233`,
-`worldModes.js:8527` and `:8635` (the dungeon and the interior passes),
+`:339`), which four files call: `world.js:23678`, `exterior.js:5233`,
+`worldModes.js:8585` and `:8694` (the dungeon and the interior passes),
 and `dungeon.js:1096`. `dungeonContext.js`, the fourth motor host, builds
 the dungeon for those hosts and draws no body of its own. The other players'
 bodies go through `peerBodies.js:695` (`PeerBodies.draw`, and INVIS-LOOK's `drawVeiled`, by `_drawBodies`). The open world
-calls it at `world.js:24179`, and the modal passes reach it through
-`host.drawPeerBodies` (`worldModes.js:8557`, `:8666`). The fix therefore
+calls it at `world.js:24197`, and the modal passes reach it through
+`host.drawPeerBodies` (`worldModes.js:8615`, `:8725`). The fix therefore
 sits in one place and reaches every host.
 
 The pins are `test/prbow1_bow.test.js`: seven tests, all failing on the

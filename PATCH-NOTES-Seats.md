@@ -175,7 +175,7 @@ The first part of guild town control is in. It is open to the developers first, 
 - **The board.** A board placed in the Charter Room is the guild's own board, as in a guild hall.
 - **Keep clear of the court.** No piece can stand within **2 m** of anyone in the palace or of a quest's spot.
 - **Lost with the Charter.** When the seat changes hands or its Charter lapses, everything in the Charter Room goes. Nothing is refunded.
-- **Not yet:** a crown's castle is not yet a guild hall.
+- **The crown's castle.** A guild holding a crown seat has its castle's throne room as its hall. The guild's two banners hang on the wall behind the throne. A roster board and a Stores chest stand a few paces into the room: members open the guild's notes and Stores there. The throne room takes no decorations.
 
 ## Fixes (online)
 - **Leaving a battle.** You can now leave a siege or a Royal Tourney: the bar's **Leave** button, the result card's **Close**, `/leave` in chat, walking out of the seat's town, or dying.

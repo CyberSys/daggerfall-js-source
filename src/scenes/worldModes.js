@@ -284,6 +284,8 @@ import {
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
 import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
+import { crownRulerFactionId, crownRulerHere, crownHallPlan, CROWN_HALL_TEXT } from '../systems/crownHall.js';   // CROWN-HALL: the castle as the crown's holder's hall
+import { bannerKeyOf } from './hallBanners.js';   // CROWN-HALL: the throne room's cloth, keyed as the street's
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
@@ -3637,6 +3639,56 @@ export function createWorldModes(host) {
   /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open. */
   function openHallChest() {
     if (!host.guildHall?.openStores?.()) say(HALL_CHEST_SHUT);
+  }
+  /** CROWN-HALL (Seats-Arc 7.2: "Crown: the castle is the hall - its throne room carries the holder's banners, the roster
+   *  board and the Stores chest, and no decor"): this castle's throne-room pieces, stood once a visit about its ruler
+   *  (systems/crownHall.js) - `{ loc, banners, pieces }`, each piece `{ key, gpu, matrix, aabb }` - or null: no crown
+   *  here, none held, no ruler stands in it, or the seats shut. The holder, its banner and membership are read live. */
+  let crownHall = null;
+  /** CROWN-HALL: the crown seat this dungeon is the castle of, as the host dresses it, or null. */
+  const crownHere = () => (mode === 'dungeon' && dungeonLoc ? host.seatHall?.crown?.((dungeonLoc.mapTableData?.mapId ?? 0) >>> 0) ?? null : null);
+  /** CROWN-HALL: STAND THE THRONE ROOM - at the dungeon's mount; the models asked of the pipeline, kept only while the same
+   *  visit stands. */
+  async function standCrownHall(ctx, loc) {
+    crownHall = null;
+    if (!crownHere()) return;
+    const ruler = crownRulerHere(ctx.people, crownRulerFactionId(townTalk?.factionDict, loc?.regionIndex));
+    const plan = ruler ? crownHallPlan(ruler, (o, d, m) => ctx.collider?.raycast?.(o, d, m) ?? Infinity) : null;
+    if (!plan) return;
+    const pieces = [];
+    for (const [key, at] of [['crown:board', plan.board], ['crown:chest', plan.chest]]) {
+      if (!at) continue;
+      const gpu = await getGpuMesh(at.model);
+      const cpu = cpuModels.get(at.model);
+      if (!gpu || !cpu) continue;
+      const matrix = trs(at.pos[0], at.pos[1], at.pos[2], 0, at.yawDeg, 0);
+      pieces.push({ key, gpu, matrix, aabb: worldAabb(cpu.positions, matrix) });
+    }
+    if (dungeonCtx !== ctx || dungeonLoc !== loc) return;   // a visit left meanwhile stands nothing
+    crownHall = { loc, banners: plan.banners, pieces };
+  }
+  /** CROWN-HALL: the throne room's pieces this frame, while the crown is still held - else none. */
+  const crownHallLive = () => (crownHall && crownHall.loc === dungeonLoc && crownHere() ? crownHall : null);
+  /** CROWN-HALL: DRAWN - the board and the chest on the dungeon's own pass, the holder's banners through the street's cloth. */
+  function drawCrownHall(frame) {
+    const h = crownHallLive();
+    if (!h) return;
+    for (const p of h.pieces) renderer.drawMesh(p.gpu, p.matrix, null);
+    const heraldry = crownHere()?.heraldry ?? null;
+    if (heraldry && h.banners.length) host.drawDungeonBanners?.({ ...frame, banners: h.banners.map((b, i) => ({ ...b, key: bannerKeyOf(heraldry), heraldry, phase: i })) });
+  }
+  /** CROWN-HALL: PRESSED - the roster board the holder's notes to its members (GUILD1e's board), the chest its Stores
+   *  (GUILD1d's chest); to anyone else each says whose it is. */
+  function openCrownPiece(key) {
+    const c = crownHere();
+    if (!c) return;
+    if (key === 'crown:board') {
+      if (!c.member) { say(hallBoardShutLine(c.name)); return; }
+      if (!host.guildHall?.openBoard?.(c.name)) say(HALL_BOARD_COLD);
+      return;
+    }
+    if (!c.member) { say(CROWN_HALL_TEXT.chestShut(c.name)); return; }
+    openHallChest();
   }
   /** DECOR1d: WHERE THE PLAYER MAY DECORATE - a room whose placed pieces are theirs (decorOwnerHere), and what kind of
    *  room it is: their online home (the account service's), their house or their ship (the save's). GUILD1d: and a
@@ -7560,6 +7612,9 @@ export function createWorldModes(host) {
       // castle shelves, while the seats are open - geometry in DFU's castle, as a palace's are
       ctx.addActivationTargets(() => (castleRecordsHere() ? ctx.castleShelves.map((s, i) => ({ key: `records:${i}`, aabb: s.aabb, distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE })) : NO_TARGETS));
       ctx.addActivationNamer((key) => (typeof key === 'string' && key.startsWith('records:') ? { title: HALL_OF_RECORDS_TEXT } : null));
+      // CROWN-HALL (7.2): the throne room's roster board and Stores chest, while the crown is held
+      ctx.addActivationTargets(() => crownHallLive()?.pieces.map((p) => ({ key: p.key, aabb: p.aabb, distance: RAY_DISTANCE, reach: DEFAULT_ACTIVATION_DISTANCE })) ?? NO_TARGETS);
+      ctx.addActivationNamer((key) => (key === 'crown:board' ? { title: CROWN_HALL_TEXT.board } : key === 'crown:chest' ? { title: CROWN_HALL_TEXT.chest } : null));
       // AUDIT 64 F13: THE DUNGEON'S STATIC NPCs. RDBLayout.AddFlat gives
       // an NPC-archive flat (334/346/357/175-184) a StaticNPC
       // (RDBLayout.cs:1226-1231) and DaggerfallBillboard.cs:318-319/:343-349
@@ -7674,6 +7729,7 @@ export function createWorldModes(host) {
       _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same transition as the tavern latch above
       dungeonLoc = dfLocation;
       host.profDungeonEntered?.(ctx);   // PROF2: the day's veins on this dungeon's walls (bible/06-Systems/Professions-Arc.md 23)
+      standCrownHall(ctx, dfLocation).catch(() => {});   // CROWN-HALL: the throne room's pieces, about its ruler
       player.collider = ctx.collider;
       player.spawn(spawn[0], spawn[1], spawn[2]);
       cam.pos = player.eyeAt();   // EV1: the interpolated render eye
@@ -7844,6 +7900,7 @@ export function createWorldModes(host) {
     // alone stands these keys)
     if (key.startsWith('spoil')) { quickLootSpend(); host.takeSpoil?.(key); return true; }   // AUDIT WB9 (spoils F2): a P or J that armed this press is spent on it
     if (key.startsWith('records:')) { openCastleRecords(); return true; }   // AUDIT-SEATS: a crown's Hall of Records, in its castle
+    if (key.startsWith('crown:')) { openCrownPiece(key); return true; }   // CROWN-HALL: the throne room's board and chest
     // U26: droppedLoot: is the player's own pile - the same three-way
     // arm the standalone dungeon scene carries, kept in step here.
     if (key.startsWith('loot:') || key.startsWith('corpse:') || key.startsWith('droppedLoot:') || key.startsWith('droppedTorch:') || key.startsWith('camp:') || key.startsWith('hearth:')) {   // AUDIT-WH2 L2-F1: hearth: - HEARTH1's fourth host, stood and named down here since it shipped and never answered
@@ -7928,6 +7985,7 @@ export function createWorldModes(host) {
     dungeonCtx = null;
     dungeonLoc = null;
     pendingDungeonWagonOpen = false;   // DISC21-B: a Yes pending was this dungeon's, never the next one's
+    crownHall = null;   // CROWN-HALL: the throne room's pieces leave with the castle
     host.horseCart?.()?.handleExteriorTransition();   // HCC: OnTransitionExterior / OnTransitionDungeonExterior [IL_9ae4] - the interior access closes, the following horse resumes
     setMode('exterior');
     host.unlockOn?.();   // AUDIT 62 F16/F28: the lock never outlives a mode change
@@ -8559,6 +8617,7 @@ export function createWorldModes(host) {
       for (const d of dungeonCtx.drawList) if (!d._batched) renderer.drawMesh(d.mesh, d.matrix, dungeonCtx.texRemap);
       for (const d of dungeonCtx.dynamicDraws) renderer.drawMesh(d.gpu, d.object.matrix, dungeonCtx.texRemap);
       host.drawModeMeshes?.();   // CSA-C: a boat on the dungeon's water
+      drawCrownHall({ proj, view, eye: mwv.eye });   // CROWN-HALL: the throne room's board, chest and banners - opaque, before the flats
       if (isGateArena(dungeonLoc)) host.drawGateBackdrop?.({ proj, view, eye: mwv.eye });   // WB6a: the Deadlands' sea and sky - after the court's solid geometry, so they burn only where they show (PERF2's law), before its flats, so a flat blended over the sky lands on it
       dungeonCtx.flatAnims.tick(dt);   // FA1
       dungeonCtx.bloodMarks?.draw?.(camRight, UP_Y);   // BLOOD1a: the dungeon's own marks, on this host's pass   // BLOOD1b: and its chunks, on this host's own basis
@@ -11062,6 +11121,7 @@ export function createWorldModes(host) {
         dungeonCtx.overlayWindow?.()?.dispose?.();   // the same OnPop, for the dungeon context's own slot
         dungeonCtx.destroy(); dungeonCtx = null; dungeonLoc = null;
         pendingDungeonWagonOpen = false;   // DISC21-B: nor a loaded or teleported player's next dungeon's
+        crownHall = null;   // CROWN-HALL: nor its throne room's pieces
       }
       pendingDungeonExit = false;   // WB6c: nor its exit - a way home asked through the fire (or a wagon prompt's No) that a death, a collapse or a load overtook would have walked the player out of the NEXT dungeon on its first frame
       player.collider = baseCollider();

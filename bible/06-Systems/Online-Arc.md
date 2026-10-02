@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7489` read, on one physical line:
+`src/scenes/worldModes.js:7541` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -11697,13 +11697,40 @@ interiorSeatHall, `src/scenes/world.js` seatHall). `acct61` (one deploy with SEA
 - **The room falls with the Charter**: migration 0065's triggers clear a seat's pieces whenever it changes hands (its
   hold's guild written to another) or lapses (its hold's row deleted - Neglect, a revolt, a relinquishing, a strike, a
   Season's wipe, the guild gone), nothing given back, as a work's building project falls.
-- **NOT YET**: the crown's hall (7.2: "the castle is the hall - its throne room carries the holder's banners, the roster
-  board and the Stores chest, and no decor"). A castle is an RDB dungeon room, which the decorator never stands in and
-  where no furniture anchor or banner pass exists yet.
+- **The crown's hall**: CROWN-HALL's, below.
 
 Pinned: `test/seathall_service.test.js` (5, through the real Worker), `test/seathall_client.test.js` (5); sixteen older
 source pins re-aimed (PIN MOVED (SEAT-HALL)). Mutants: `tools/mutants/seat_hall.json` (40, all dead). Patch notes:
 `PATCH-NOTES-Seats.md` (The palace hall).
+
+### CROWN-HALL - the crown's castle as its holder's hall: the throne room
+
+2026-10-02, Mac: "Build that next" (the crown's hall, after SEAT-HALL's palace). Seats-Arc 7.2: "Crown: the castle is
+the hall - its throne room carries the holder's banners, the roster board and the Stores chest, and no decor". Law
+(`src/systems/crownHall.js`), the dungeon host (`src/scenes/worldModes.js` crownHall) and the world host
+(`src/scenes/world.js` seatHall.crown, drawDungeonBanners). Client alone: no service or relay change. Behind SEATS_OPEN.
+
+- **The throne room** is where the crown's ruler holds court. The ruler is the region's Province faction's first child,
+  when that child is an Individual - MacroHelper.GetLordNameForFaction's own law (talk.js lordNameForFaction) - and the
+  castle's static NPC carrying that faction id stands in it (Gothryd, Eadwyre, Akorithi). DECIDED: every piece is
+  placed about that person in the dungeon's own collider, so no castle's layout is written down here; a castle where
+  the ruler stands nowhere, or no floor is found under them, stands none of it and says nothing.
+- **The banners**: the holder's heraldry (seatBannerOf), two cloths on the wall behind the throne - the nearest surface
+  round the ruler, looked for 2.4 m over the floor (over a throne's back), within 6 m - a pace and a half either side,
+  0.15 m off the wall, the cloth's top 3.2 m over the floor or a hand under a lower ceiling; none where the cloth has
+  no room. Drawn through the street's cloth (render/bannerPass.js) under the dungeon's light, no wind indoors.
+- **The roster board and the Stores chest**: Daggerfall's own board model (41739, GUILD1e's hall board) and chest
+  (41811), standing on the floor a few paces into the room, one each side of the aisle and facing it - the first spot
+  where a clear line runs to it from the throne (0.6 m to spare) and its floor is within 0.6 m of the throne room's.
+  Pressed by a member of the holder: the board opens the guild's notes (the Notice Board's Guilds tab), the chest its
+  Stores (the Guild tab); by anyone else, each says whose it is.
+- **No decor**: the decorator stands in no dungeon (decorRoomHere's interior gate).
+- **Live**: the pieces stand once a visit; the holder, its banner and membership are read each frame and press, so a
+  Charter changing hands while a visitor stands there changes them at once, and a Charter lapsed hides them.
+
+Pinned: `test/crownhall.test.js` (5; the placement over a real Collider); the counts it moved (PIN MOVED: the world
+host's foreign passes, 23 to 24 call sites and 18 to 19 in world.js; the dungeon's activation families, 5 to 6;
+Systems.md's modules, 346). Mutants: `tools/mutants/crown_hall.json` (28, all dead). Patch notes: `PATCH-NOTES-Seats.md` (The palace hall).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

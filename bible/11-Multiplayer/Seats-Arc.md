@@ -619,8 +619,14 @@ BUILT (SEAT-HALL, 2026-10-02; Online-Arc SEAT-HALL): the palace interior as the 
 guild Stores chest and its beds the members', the hall's board where a keeper stands it, the court as DFU stands it; the
 Charter Room in the palace's largest room, furnished by the holder's Officers from DECOR's catalogue off their own
 records, at most 100 pieces over the seat, the 2 m rule in the decorator's bar, its pieces cleared whenever the seat
-changes hands or lapses. NOT YET: the crown's throne room (banners, roster board, Stores chest) - a castle is a dungeon
-room with no furniture anchor or banner pass.
+changes hands or lapses. The crown's throne room is CROWN-HALL's, below.
+
+BUILT (CROWN-HALL, 2026-10-02; Online-Arc CROWN-HALL): the crown's castle as its holder's hall - the throne room found by
+its ruler (the region's Province faction's first child, an Individual, standing among the castle's people), the
+holder's two banners on the wall behind the throne, Daggerfall's board and chest a few paces into the room, one each
+side of the aisle: the board the guild's notes and the chest its Stores, to the holder's members; no decor. DECIDED:
+placed by the dungeon's own collider about the ruler, so no castle's layout is written down; a castle where the ruler
+stands nowhere, or no floor is found under them, stands none of it.
 
 ### 7.3 Standing - the town's favour
 

@@ -476,7 +476,7 @@ import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown a
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
 import { createTownSeatBook, parseSeatCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed
-import { seatArrivalLine, seatHallOf } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is
+import { seatArrivalLine, seatHallOf, seatBannerOf } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
@@ -8580,7 +8580,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2766 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6781
+  // that context through modes.dungeonCtx - so worldModes.js:6833
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13837,7 +13837,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10297-10361 -
+  // worldModes answers it in BOTH modes (worldModes.js:10356-10420 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20103,6 +20103,15 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (lootLines.draw(finds, proj, view, eye, performance.now() / 1000, { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();
     },
     peerLights: (o) => peerTorchLights(o),   // PEERLIGHT1: the others' torches, for the dungeon's and the interior's light lists   // MWBODY1: the others' bodies, after the player's own
+    // CROWN-HALL: a crown's banners in its throne room - the street's cloth (render/bannerPass.js) under the dungeon's own
+    // light, no wind indoors; `banners` the dungeon host's records, `eye` its view's
+    drawDungeonBanners: ({ banners, proj, view, eye }) => {
+      if (banners?.length && bannerPass?.draw(banners, proj, view, new Float32Array(eye), performance.now() / 1000, {
+        light: { sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor, sunScale: renderer._sunScale, moonDir: renderer._moonDir, moonScale: renderer._moonScale, moonCol: renderer._moonColor },
+        wind: 0,
+        fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog, focus: renderer._focus },
+      })) renderer.markForeignPass();
+    },
     drawVeiledPeerBodies: () => drawVeiledPeerBodies(),   // INVIS-LOOK: and the concealed ones, after the opaque world
     // PEER-PLAQUE1: the plaque names another player in a building and underground too - the SAME pick and the SAME
     // words the street uses, over the mode's own eye (peersNear's feet are in whichever scene stands, onlineToScene)
@@ -20362,6 +20371,15 @@ export async function bootWorld(canvas, renderer, params, status) {
         const mine = guildBook?.guild ?? null;
         const member = seatHallOf(seat, mine?.id ?? null);
         return { key: seat.key, name: g.name ?? '', member, keeper: member && hallMay(Number(mine?.rank), 'decorate') };
+      },
+      // CROWN-HALL (7.2: "Crown: the castle is the hall"): a crown seat's castle, as its visitor stands in it - `{ key,
+      // name, member, heraldry }` (the holder's guild's name; whether this character is of it; its banner), or null: no
+      // crown here, none held, or the seats shut to this account
+      crown: (mapId) => {
+        const seat = seatHere(mapId);
+        const g = seat?.tier === 'crown' ? seat.holder?.guild ?? null : null;
+        if (!g?.id) return null;
+        return { key: seat.key, name: g.name ?? '', member: seatHallOf(seat, guildBook?.guild?.id ?? null), heraldry: seatBannerOf(seat) };
       },
     },
     guildHall: {
