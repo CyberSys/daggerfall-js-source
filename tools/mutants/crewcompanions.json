@@ -416,8 +416,8 @@
   {
     "name": "PD-my-swing-lands",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const live = foes.filter((f) => !f.dead && f.companion == null);",
-    "new": "    const live = foes.filter((f) => !f.dead);",
+    "old": "    const live = dropFateHeld(foes.filter((f) => !f.dead && f.companion == null));",
+    "new": "    const live = dropFateHeld(foes.filter((f) => !f.dead));",
     "tests": [
       "test/crewcompanions.test.js"
     ]

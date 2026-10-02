@@ -146,7 +146,7 @@ import { drawPixelGround } from './pixelGround.js';
 import { sheetModel } from './enhancedCharSheet.js';
 import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages, profActUnderWay, setDownProfAct } from './profPages.js';   // PROF1: the Professions and Stores pages, online
 import { REVENANT_PAGE_SECTIONS, revenantPageShown, drawRevenantsPage } from './revenantPage.js';
-import { COMPANION_PAGE_SECTIONS, companionPageShown, drawCompanionsPage } from './companionRoster.js';   // COMPANION-ROSTER: the sworn and the slots
+import { COMPANION_PAGE_SECTIONS, companionPageShown, drawCompanionsPage, resetCompanionRoster } from './companionRoster.js';   // COMPANION-ROSTER: the sworn and the slots
 import { swornBodyOf } from '../systems/revenantCompanions.js';   // COMPANION-ROSTER: a sworn one's live health
 import { enemyDisplayName } from '../characters/enemyBasics.js';   // REVENANT-PAGE: a revenant's kind   // REVENANT-PAGE: the foes that have earned your name
 import { affiliations } from '../systems/affiliations.js';
@@ -4669,6 +4669,7 @@ export function mountEnhancedMenu(host, {
   questShowHidden = false;
   statsSec = 'character';
   resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
+  resetCompanionRoster();   // COMPANION-ROSTER: nor an armed Release
   statsAllSkills = false;
   sysSec = 'save';
   category = CATEGORIES[0].id;

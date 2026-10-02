@@ -45,7 +45,7 @@ import { lootRarityOn } from './lootRarity.js';
 import { registerPlayerBlowLanded } from './sigilSetPowers.js';
 import { registerPlayerHurtListener } from '../characters/playerEntity.js';   // REVENANT-HARM: a death no blow names
 import { registerPlayerStruckListener } from '../combat/formulas.js';   // REVENANT-HARM: a foe's blow leaves its mark (its poison's ticks come later)
-import { markPlayerHarm, playerHarmMark, HARM_MARK_STRUCK_MS } from './harmMark.js';
+import { markPlayerHarm, playerHarmMark, clearPlayerHarm, HARM_MARK_STRUCK_MS } from './harmMark.js';
 import { playerDoor } from './playerDoor.js';
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
@@ -54,10 +54,10 @@ import { ownMinutes } from './worldTick.js';
 import { tieredGear } from './eliteFoes.js';
 import { goldStack } from './inventory.js';
 import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
-import { KNIGHT_CITY_WATCH, MOBILE_TYPES } from '../characters/mobileTypes.js';
+import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { firstName, monsterName, BANK_TYPES, GENDERS } from '../characters/nameHelper.js';
 import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
-import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
+import { personalityFor, isPersonality, personalityLabel, voiceLine, beastBody, possessive, MUTE_KINDS } from './revenantPersonality.js';   // REVENANT-VOICE: who it is, and how it talks
 
 // ── the numbers ─────────────────────────────────────────────────────
 /** A revenant is a foe of this level or more (LOOT7's champion floor, ELITE-FLOOR's). */
@@ -108,14 +108,9 @@ export const REVENANT_STORE_PREFIX = 'dagger.revenant.';
 /** How many deeds a record remembers. */
 const HISTORY_MAX = 12;
 
-/** Kinds that do not speak - beasts and the mindless: they bare their teeth where another would taunt. */
-const VOICELESS = new Set([
-  MOBILE_TYPES.Rat, MOBILE_TYPES.GiantBat, MOBILE_TYPES.GrizzlyBear, MOBILE_TYPES.SabertoothTiger, MOBILE_TYPES.Spider,
-  MOBILE_TYPES.Slaughterfish, MOBILE_TYPES.SkeletalWarrior, MOBILE_TYPES.Zombie, MOBILE_TYPES.GiantScorpion,
-  MOBILE_TYPES.Dragonling, MOBILE_TYPES.Dragonling_Alternate, MOBILE_TYPES.FireAtronach, MOBILE_TYPES.IronAtronach,
-  MOBILE_TYPES.FleshAtronach, MOBILE_TYPES.IceAtronach, MOBILE_TYPES.Dreugh,
-]);
-export const revenantSpeaks = (mobileType) => !VOICELESS.has(mobileType);
+/** Kinds that do not speak - beasts and the mindless: they bare their teeth where another would taunt (the set is the
+ *  voice's, systems/revenantPersonality.js MUTE_KINDS - who it is leans by it too). */
+export const revenantSpeaks = (mobileType) => !MUTE_KINDS.has(mobileType);
 
 // ── the words ───────────────────────────────────────────────────────
 // `{p}` is the player's first name. An epithet starting "the" follows the given name ("Grushnak the Butcher"); any
@@ -147,7 +142,9 @@ export const revenantOn = () => lootRarityOn();
 const nowMinutes = () => { try { return Math.floor(ownMinutes()); } catch { return 0; } };
 const firstWord = (s) => String(s ?? '').trim().split(/\s+/)[0] || 'stranger';
 const pick = (list, rolls) => list[Math.min(list.length - 1, Math.floor(rolls() * list.length))];
-const fill = (s, { p = '', n = '' } = {}) => s.replace(/\{p\}/g, p).replace(/\{n\}/g, n);
+// AUDIT (2026-10-02): `{p}'s` the possessive the trophies spell ("Varis' Shadow"); a function replacement, so a `$` in
+// a typed name is a letter, never a pattern
+const fill = (s, { p = '', n = '' } = {}) => s.replace(/\{p\}'s/g, () => possessive(p)).replace(/\{p\}/g, () => p).replace(/\{n\}/g, () => n);
 const joinName = (given, epithet) => (/^the /.test(epithet) ? `${given} ${epithet}` : `${given}, ${epithet}`);
 
 /** A small stable hash (FNV-1a) of a string - a name's seed. */
@@ -185,7 +182,7 @@ export function revenantGivenName(id, mobileType, gender = 'male') {
 /** A deed's epithet - from rank 3 the risen ones, whatever the deed - never the one it wears now. */
 export function revenantEpithet(deed, rank, playerName, rolls = Math.random, current = null) {
   const pool = rank >= 3 ? REVENANT_EPITHETS.risen : (REVENANT_EPITHETS[deed] ?? REVENANT_EPITHETS.slew);
-  const p = firstWord(playerName);
+  const p = capFirst(firstWord(playerName));   // a name in a title is a name - "Bane of Stranger"
   const choices = pool.map((e) => fill(e, { p })).filter((e) => e !== current);
   return pick(choices.length ? choices : pool.map((e) => fill(e, { p })), rolls);
 }
@@ -256,8 +253,19 @@ function ensureMirror(player) {
   let kept = [];
   try { const raw = appStorage()?.getItem(storeKey(id)); if (raw) kept = JSON.parse(raw)?.list ?? []; } catch { /* a bad mirror is no mirror */ }
   const live = _state.list.map((r) => ({ id: r.id, out: r.out, outAt: r.outAt }));
+  // AUDIT (2026-10-02): A SWORN ONE'S PACK IS THE SAVE'S. The mirror outlives a load (a revenant remembers), but a pack
+  // is inventory: the save's own copy says what is in it (none, where the save never knew it sworn) - else a load handed
+  // back the items the save's own pack also held, or lost ones it never had. And one the save holds sworn with a pack,
+  // released after it, comes back as the save had it: its pack is no one's to lose.
+  const saved = new Map(_state.list.filter((r) => !r.gone).map((r) => [r.id, r]));
   _state.list = mergeRevenants(_state.list, kept);
   for (const l of live) { const r = revenantById(l.id); if (r) { r.out = l.out; r.outAt = l.outAt; } }   // a live stand is this session's, not the mirror's
+  for (let i = 0; i < _state.list.length; i++) {
+    const r = _state.list[i], s = saved.get(r.id);
+    if (r.gone) continue;
+    if (s?.sworn && s.companion?.items?.length && !r.sworn && r.fate === 'released') { _state.list[i] = { ...s, rev: (r.rev | 0) + 1 }; continue; }
+    if (r.companion) r.companion.items = s?.companion?.items ? s.companion.items.slice() : [];
+  }
   _state.mirrorId = id;
 }
 function persist() {
@@ -307,7 +315,11 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
   ensureMirror(player);
   const pName = player?.name ?? '';
   let r = entity.revenant?.id ? revenantById(entity.revenant.id) : null;
-  if (r && !r.defeated) {
+  // AUDIT (2026-10-02): a judged one - executed, released, sworn - does no deed (a poison of its own finishing the player
+  // after it knelt raised it again, under its own id); and a forgotten one's id is never worn again
+  if (r && (r.defeated || r.sworn)) return null;
+  if (!r && entity.revenant?.id) entity.revenant = null;
+  if (r) {
     r.rank = Math.min(REVENANT_MAX_RANK, r.rank + 1);
     r.epithet = revenantEpithet(deedName, r.rank, pName, rolls, r.epithet);
   } else {
@@ -326,7 +338,7 @@ export function revenantDeed(player, entity, deedName, { mobileType = entity?.mo
     // past the cap: the weakest, oldest living one is forgotten - a tombstone, so no older save raises it again
     const living = livingRevenants();
     if (living.length > REVENANT_MAX) {
-      const drop = living.filter((x) => x !== r).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];
+      const drop = living.filter((x) => x !== r && !x.out).sort((x, y) => x.rank - y.rank || x.born - y.born)[0];   // AUDIT (2026-10-02): never one standing in the world
       if (drop) bury(drop);
     }
   }
@@ -359,6 +371,8 @@ function armDeathCheck(entity) {
     _blowKiller = null;
     if (!(entity.health <= 0) || !killer || killer.isPlayer || !(killer.health > 0)) return;   // a foe I slew is no revenant - a fall after the fight names nobody dead
     const rec = playerDoor()?.foes?.()?.find((x) => x?.entity === killer) ?? null;
+    if (rec && (rec.yielded || rec.executing || rec.sparing)) return;   // AUDIT (2026-10-02): a beaten one kneeling claims no kill
+    clearPlayerHarm();   // answered: a second death (a Resurrect's, a fall) is not this foe's again
     revenantDeed(entity, killer, 'slew', { mobileType: rec?.mobileType ?? killer.mobileType, gender: rec?.gender ?? 'male', rec, archive: rec?.archive ?? rec?.mobileArchive ?? null });
   });
 }
@@ -565,7 +579,8 @@ const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 /** What a returning revenant greets the player with: its words (a speaker's) or what it does (a beast's). */
 function tauntParts(r, playerName, rolls) {
   const last = [...(r.history ?? [])].reverse().find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
-  return voiceParts(r, r.rank >= 3 ? 'taunt_risen' : last === 'fled' ? 'taunt_fled' : 'taunt_slew', playerName, rolls);
+  // AUDIT (2026-10-02): the risen's taunt counts its kills ("I've killed you so often...") - one that only ever ran has none
+  return voiceParts(r, r.rank >= 3 && (r.kills | 0) >= 2 ? 'taunt_risen' : last === 'fled' ? 'taunt_fled' : 'taunt_slew', playerName, rolls);
 }
 /** REVENANT-VOICE: one moment in its voice - a speaker's words (quoted, its line `Name: "..."`), a beast's deed in its
  *  temperament (the narrator's, its line `Name circles you...`). `r` a record, or what a special foe is before it is
@@ -658,18 +673,18 @@ export function revenantTauntEvent(r, playerName, { rolls = Math.random, archive
   return revenantEvent('taunt', r, { speech: t.speech, body: t.body, line: t.line, archive });
 }
 /** A special foe breaking and running. */
-export function revenantFleeEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random } = {}) {
+export function revenantFleeEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random, playerName = '' } = {}) {
   const src = liveSource(entity, base, gender);
-  const v = voiceParts(src, 'flee', '', rolls);
+  const v = voiceParts(src, 'flee', src.id ? playerName : '', rolls);   // a revenant knows the player's name; a stranger does not
   return revenantEvent('flee', src, { speech: v.speech, body: v.speech ? null : v.body, line: v.speech ? `${src.name} breaks and runs! "${v.speech}"` : v.line, archive });
 }
 /** Run down before it got away: it turns and fights. */
-export function revenantCorneredEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random } = {}) {
+export function revenantCorneredEvent(entity, base, { gender = 'male', archive = null, rolls = Math.random, playerName = '' } = {}) {
   const src = liveSource(entity, base, gender);
-  const v = voiceParts(src, 'cornered', '', rolls);
+  const v = voiceParts(src, 'cornered', src.id ? playerName : '', rolls);
   return revenantEvent('cornered', src, {
     speech: v.speech, body: v.speech ? 'Cornered - it turns to fight.' : v.body,
-    line: `${src.name} is cornered and turns to fight!`, archive,
+    line: v.speech ? `${src.name} is cornered and turns to fight! "${v.speech}"` : v.line, archive,
   });
 }
 /** Out of reach - a revenant now, or a stronger one. */
@@ -702,7 +717,12 @@ export function revenantRiseEvent(r, playerName, { rolls = Math.random } = {}) {
  *  moment says more than its words), and its one text line. */
 export function revenantMomentEvent(kind, r, playerName, { body = null, line = null, rolls = Math.random, archive = null } = {}) {
   const v = voiceParts(r, kind, playerName, rolls);
-  return revenantEvent(kind, r, { speech: v.speech, body: v.speech ? body : v.body, line: line ?? v.line, archive });
+  // AUDIT (2026-10-02): what the moment says (`body` - its trophy, where it will wait, what to do) is kept for a beast
+  // after its deed, and on the text line after either's
+  return revenantEvent(kind, r, {
+    speech: v.speech, body: v.speech ? body : [v.body, body].filter(Boolean).join(' '),
+    line: line ?? [v.line, body].filter(Boolean).join(' '), archive,
+  });
 }
 
 // THE FACE (`setRevenantPresenter`, `revenantSay`) is a leaf's - systems/revenantVoice.js - so the HUD's card asks it
@@ -726,9 +746,11 @@ export function takeRevenantNotice(player) {
 // ── the save ────────────────────────────────────────────────────────
 registerModSaveData(REVENANT_SAVE, {
   newSaveData: () => ({ v: 1, list: [] }),
-  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0 })) }),
-  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.mirrorId = null; },
-  newGame: () => { _state.list = []; _state.mirrorId = null; },
+  // AUDIT (2026-10-02): one standing as the save is made comes back later (REVENANT_LOST_MINUTES), not at once beside
+  // the street's copy of it - the street's save leaves it out (scenes/exteriorFoes.js snapshotWorld)
+  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0, dueAt: r.out ? Math.max(r.dueAt, nowMinutes() + REVENANT_LOST_MINUTES) : r.dueAt })) }),
+  restoreSaveData: (rec) => { _state.list = mergeRevenants(rec?.list ?? [], []); _state.mirrorId = null; clearPlayerHarm(); },   // the last game's harm is no one's death in this one
+  newGame: () => { _state.list = []; _state.mirrorId = null; clearPlayerHarm(); },
 });
 
 /** Tests only: forget everything. */

@@ -188,7 +188,7 @@ test('REVENANT ITS DROP AND ITS WORDS: gold by level and rank and gear on chance
   N.grantRevenantLoot(e, 8, () => 0.5);
   assert.equal(e.items.length, n, 'once');
   const r = { name: 'Grushnak the Butcher', given: 'Grushnak', mobileType: MOBILE_TYPES.Orc, rank: 1, kills: 1, history: [{ deed: 'slew', at: 0 }], personality: 'witty' };
-  assert.equal(N.revenantTaunt(r, 'Ayla Stormwind', () => 0), 'Grushnak the Butcher: "Ah, Ayla! Back from the dead? Even Arkay sent you back."', 'REVENANT-VOICE: the witty one\'s, for the kill');
+  assert.equal(N.revenantTaunt(r, 'Ayla Stormwind', () => 0), 'Grushnak the Butcher: "Ah, Ayla! Back from the dead? Even Arkay sent you back - he must have found you tiresome too."', 'REVENANT-VOICE: the witty one\'s, for the kill');
   assert.equal(N.revenantTaunt({ ...r, history: [{ deed: 'fled', at: 0 }] }, 'Ayla', () => 0), 'Grushnak the Butcher: "Missed me, Ayla? Clearly. You missed a great deal."', '...for the flight');
   assert.equal(N.revenantTaunt({ ...r, personality: 'craven' }, 'Ayla', () => 0), 'Grushnak the Butcher: "I-I killed you once! I can do it again! Probably!"', 'another personality, another voice');
   assert.equal(N.revenantTaunt({ ...r, mobileType: MOBILE_TYPES.SabertoothTiger, personality: 'craven' }, 'Ayla', () => 0), 'Grushnak the Butcher circles you with a nervous whine. It remembers the taste of you.', 'a beast does not talk - its temperament shows');

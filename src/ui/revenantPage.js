@@ -158,7 +158,7 @@ export function drawRevenantsPage(detail, rerender, { el, divider, player = null
   detail.append(divider(`Revenants (${living.length} of ${REVENANT_MAX})`));
   if (!living.length) {
     detail.append(el('p', 'px-note', revenantOn()
-      ? 'No foe has earned your name yet. An elite or a champion that kills you - or breaks, runs and gets away - will remember you, and come back for you.'
+      ? (all.length ? 'None hunts you now. ' : 'No foe has earned your name yet. ') + 'An elite or a champion that kills you - or breaks, runs and gets away - will remember you, and come back for you.'   // AUDIT (2026-10-02): the sworn and the fallen below are revenants too
       : 'Revenants come with Loot rarity, which is off.'));
   } else {
     const list = el('div', 'rvn-list');

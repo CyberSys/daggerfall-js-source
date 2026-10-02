@@ -473,6 +473,9 @@ export function createPlayerMagic({
   // applySpellToTarget) lands through HERE with its own membership-routed sinks, where it kept a copy of this
   // landing that dropped the Soul Trap line and the Calm/Charm flag.
   function applySpellToFoe(spell, casterLevel, foe, caster = null, ctx = undefined, sinks = foeSinks(foe, !caster || caster.entity === playerEntity)) {   // AUDIT WORLD2 B7: a foe's spell is not the player's blow (AUDIT 68 X4: every host's sinks read the second arg)
+    // REVENANT-FATE (the 2026-10-02 audit): one held by its fate - kneeling, burning, gathering into a portal - takes no
+    // spell: its blow was already refused (the kill door), and a Wabbajack, a paralysis or a drain landed all the same
+    if (foe?.yielded || foe?.executing || foe?.sparing || foe?.leaving) return null;
     const r = applySpell(spell, casterLevel, foe.entity, sinks, rolls, caster, ctx);
     // STRIKE-SHARED (2026-09-29): ANOTHER PLAYER'S strike spell, landed here on the foe I own (`ctx.peerCaster` its id).
     // The trap's line is its caster's and not mine to speak, and a new trap is marked with whose it is - its soul goes

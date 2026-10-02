@@ -24,10 +24,11 @@
 import { revenantById, revenantOn, revenantYielded, revenantExecuted, revenantSpared, revenantMomentEvent, revenantPortrait, revenantRankNumeral } from './revenant.js';
 import { revenantTrophy, trophyKindWords } from './revenantTrophy.js';
 import { PERSONALITIES } from './revenantPersonality.js';
-import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer } from './revenantCompanions.js';
+import { retinueHasRoom, swornPlace, REVENANT_RETINUE_MAX, setRetinuePlayer, holdSworn } from './revenantCompanions.js';
 import { companionsWithYou, COMPANION_SLOTS } from './companionSlots.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { DISSOLVE_EMBER, DISSOLVE_ARCANE } from './dissolve.js';
+import { clearPlayerHarm } from './harmMark.js';   // AUDIT (2026-10-02): a beaten one's harm is no one's death
 
 /** How long a beaten revenant kneels before it slips away (ms). */
 export const REVENANT_YIELD_MS = 90000;
@@ -54,6 +55,7 @@ export function beginYield(player, f, { now = Date.now(), rolls = Math.random } 
   f._fleeRolled = true;
   if (f.entity) f.entity.health = 1;
   if (f.ai) { f.ai.target = null; f.ai.fleeLeft = 0; }
+  clearPlayerHarm(f.entity);   // its poison still ticking in the player names no one when it kills now
   setRetinuePlayer(player);
   const r = revenantYielded(player, f.entity);
   if (!r) return null;
@@ -66,6 +68,10 @@ export function beginYield(player, f, { now = Date.now(), rolls = Math.random } 
  *  'slip' when it has waited too long or the player walked off, else null. */
 export function yieldStep(f, feet, dtMs = 0) {
   if (!f?.yielded) return null;
+  // AUDIT (2026-10-02): its choice open on the screen (the host's word: the window not yet done) - the foes' clock runs
+  // under a window (WINFOE1), its wait does not; nor does the walk-away, the player stands at the window
+  const j = f.yielded.judging;
+  if (typeof j === 'function' ? j() : j) return null;
   f.yielded.held = (f.yielded.held ?? 0) + Math.max(0, Number(dtMs) || 0);
   if (f.yielded.held > REVENANT_YIELD_MS) return 'slip';
   if (feet && f.ai?.feet && Math.hypot(feet[0] - f.ai.feet[0], feet[2] - f.ai.feet[2]) > REVENANT_YIELD_REACH) return 'slip';
@@ -107,7 +113,16 @@ export function finishExecution(player, f) {
   revenantExecuted(player, f.entity);
   const items = [...(Array.isArray(f.entity?.items) ? f.entity.items : []), ...(f.trophy ? [f.trophy] : [])];
   f.trophy = null;
+  if (f.entity) f.entity.items = [];   // AUDIT (2026-10-02): handed to the pile - never a save's dead record's to carry twice
   return items;
+}
+/** AUDIT (2026-10-02): HELD BY ITS FATE - kneeling, burning, gathering into its portal, or a companion stepping out
+ *  through one: no swing's, no spell's, nobody's target (characters/enemyTargets.js reads the same four). */
+export const fateHeld = (f) => !!(f && (f.yielded || f.executing || f.sparing || f.leaving));
+/** The held taken out of a list in place (a swing's candidates) - answers the list. */
+export function dropFateHeld(list) {
+  for (let i = list.length - 1; i >= 0; i--) if (fateHeld(list[i])) list.splice(i, 1);
+  return list;
 }
 
 /** SPARE chosen: sworn - at the player's side while a slot is free, else away. Answers { r, state, event }, or null
@@ -120,6 +135,7 @@ export function beginSpare(player, f, { now = Date.now(), rolls = Math.random } 
   if (!r) return null;
   f.yielded = null;
   f.sparing = { at: now };
+  if (state === 'with') holdSworn(r.id, SPARING_MS);   // AUDIT (2026-10-02): its companion steps out once the kneeling one is through
   const body = state === 'with'
     ? `Sworn to you. ${r.given} walks at your side now.`
     : `Sworn to you. Your companions are full - ${r.given} waits until you call it.`;

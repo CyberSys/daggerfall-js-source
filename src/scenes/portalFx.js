@@ -29,6 +29,7 @@ export const PORTAL_BACK = 0.35;
 export const PORTAL_SOUND = 349;
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const NONE = Object.freeze([]);   // no portal standing: the frame's batches() allocates nothing
 
 /**
  * One frame of the vortex as RGBA rows from the BOTTOM up (a world billboard's color32 order, v = 0 its foot) -
@@ -108,7 +109,7 @@ export function createPortalSet({ renderer, audio = null, now = () => performanc
     batch.conceal = { mode: 3, alpha: 0, t: 0, phase: 0 };
     const p = { at: now(), feet: at, short, batch, origin: batch.origin };
     list.push(p);
-    if (!quiet) { try { audio?.play3d?.(PORTAL_SOUND, at, 0.9, { maxDistance: 24 }); } catch { /* silent */ } }
+    if (!quiet) { try { audio?.play3dId?.(PORTAL_SOUND, at, 0.9, { maxDistance: 24 }); } catch { /* silent */ } }   // a sound ID (DAGGER.SND's), not an index - AUDIT 58's law
     return p;
   }
   /** One frame: each portal's size, frame and glow; the closed ones freed. `viewEye` the camera (it stands behind). */
@@ -136,7 +137,7 @@ export function createPortalSet({ renderer, audio = null, now = () => performanc
     open,
     tick,
     /** The portals' batches, drawn with the pool's. */
-    batches: () => list.map((p) => p.batch),
+    batches: () => (list.length ? list.map((p) => p.batch) : NONE),
     /** The floating origin moved: every portal with it (exteriorFoes.js offsetAll). */
     offsetAll(o) { for (const p of list) { p.feet[0] += o[0]; p.feet[1] += o[1]; p.feet[2] += o[2]; } },
     /** How many stand (tests, the pool's sweep). */

@@ -566,7 +566,7 @@ void main() {
   // blended too and takes the spectral threshold.
   if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
     // ELITE FOES: the rim - a cut-out texel beside the silhouette is the halo's - and the embers rising off it
-    if (uEliteGlow != 0.0 && uConceal.x == 0.0) {   // negative: an elite's corpse - the rim alone
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0) {   // negative: an elite's corpse - the rim alone; DISSOLVE: none round a body burning away or through a portal
       if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), fogFactorAt(vBBWorld)), 1.0); return; }
       float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
       if (em > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), fogFactorAt(vBBWorld)), 1.0); return; }
@@ -606,7 +606,7 @@ void main() {
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3: a player struck flashes red for a moment (z the strength, fading)
   lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES: the sprite warmed toward gold (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: over any concealment, never instead of it
-  lit = dissolveLit(lit, uv);   // DISSOLVE: the edge it burns along blazes
+  lit = dissolveLit(lit, uv, uDissolve.yzw);   // DISSOLVE: the edge it burns along blazes
   if (uConceal.x == 4.0) lit = vec3(0.0);   // EOTB-IL: Eye Of The Beholder's shade - Color.black at the batch's alpha (UpdateMaterial, IL_4f69)
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;
@@ -5727,7 +5727,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       this._bbColumnOn = 0;
       gl.uniform3f(this.bbUTip, 0, 0, 0);   // PROF4: every flat stands until a felled tree says otherwise
       this._bbTipOn = false;
-      this._bbDissolveOn = false;   // DISSOLVE
+      gl.uniform4f(this.bbUDissolve, 0, 0, 0, 0);   // DISSOLVE: every flat whole until a burning one says otherwise - the shadow below is only true if this is sent
+      this._bbDissolveOn = false;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row

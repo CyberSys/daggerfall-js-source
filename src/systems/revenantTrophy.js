@@ -15,6 +15,7 @@ import { createWeapon, randomMaterial, WEAPONS_ENUM } from '../combat/enemyEquip
 import { mintCondition, setItemFields, templateByIndex } from './itemTemplates.js';
 import { applyRarity } from './lootRarity.js';
 import { MOBILE_TYPES as M } from '../characters/mobileTypes.js';
+import { possessive } from './revenantPersonality.js';   // one possessive for every title
 
 const W = WEAPONS_ENUM;
 /** The weapons each kind would wield (characters/mobileTypes.js ids), by template. */
@@ -79,7 +80,7 @@ export function trophyName(r, templateIndex) {
   const nouns = TROPHY_NOUNS[templateIndex] ?? [templateByIndex(templateIndex)?.name ?? 'Blade'];
   const noun = nouns[hashStr(`noun:${r?.id ?? ''}`) % nouns.length];
   const given = String(r?.given ?? r?.name ?? 'Nameless').trim() || 'Nameless';
-  return `${given}${/s$/i.test(given) ? "'" : "'s"} ${noun}`;
+  return `${possessive(given)} ${noun}`;
 }
 /** ITS RARITY: never Common - Magic, Rare or Legendary, the better ones likelier with its rank. */
 export function trophyRarity(rank = 1, rolls = Math.random) {

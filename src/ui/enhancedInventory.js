@@ -2466,7 +2466,12 @@ function fateCol() {
   };
   return fateColumn(fate, fatePick, {
     el,
-    trophyTile: (row, item) => { markItemFrame(row, item); row.append(tileWithWear(itemLine(item, deps.entity), row, SLOT_BOX.loot)); },
+    trophyTile: (row, item) => {
+      markItemFrame(row, item); row.append(tileWithWear(itemLine(item, deps.entity), row, SLOT_BOX.loot));
+      // AUDIT (2026-10-02): its card on the hover, as a looted weapon's - its powers read before the choice, not after
+      row.onmouseenter = () => { if (getPref('plusItemHover') !== false) showTip(item, 'remote', row); };
+      row.onmouseleave = hideTip;
+    },
     portrait: (face, p) => {
       if (!p || !Number.isInteger(p.archive)) return false;
       try {
@@ -2476,7 +2481,7 @@ function fateCol() {
         return true;
       } catch { return false; }
     },
-    onPick: (id) => { fatePick = id; render(); },
+    onPick: fatePickAt,
     onChoose: choose,
   });
 }
@@ -3499,6 +3504,13 @@ function render() {
 // four lines of hooks above). A host that hands no sheet door gets a
 // key that falls through, which is the honest refusal every other
 // optional hook here gives.
+/** REVENANT-FATE: a row picked (or `null`, stepped out) - the confirm brought into view on a short screen, where the
+ *  window scrolls (the 2026-10-02 audit: a phone in landscape cut it off). */
+function fatePickAt(id) {
+  fatePick = id;
+  render();
+  if (id) host?.querySelector?.('.fate-confirm')?.scrollIntoView?.({ block: 'nearest' });
+}
 function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
@@ -3507,7 +3519,7 @@ function onKey(e) {
   // first (window capture runs before the menu's own document listener), so it answers for the menu here
   if (menuEl && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
   // REVENANT-FATE: K and S pick, a second press or Enter confirms, Back steps out of a pick (and then closes, below)
-  if (deps?.fate && !e.repeat && fateKey(e, deps.fate, fatePick, { onPick: (id) => { fatePick = id; render(); }, onChoose: (id) => { const f = deps.fate; fatePick = null; onExit(); try { f?.choose?.(id); } catch (err) { console.warn('[fate]', err?.message ?? err); } } })) { e.preventDefault(); e.stopPropagation(); return; }
+  if (deps?.fate && !e.repeat && fateKey(e, deps.fate, fatePick, { onPick: fatePickAt, onChoose: (id) => { const f = deps.fate; fatePick = null; onExit(); try { f?.choose?.(id); } catch (err) { console.warn('[fate]', err?.message ?? err); } } })) { e.preventDefault(); e.stopPropagation(); return; }
   // AUDIT LOOT F7: THE CODEX OVER THE PACK HAS THE KEYS (after the menu's own Escape - the two never stand together:
   // the Codex's press puts the menu away). Its window's capture listener was laid after this one, so Back closed the
   // pack under it, and the pack's Inventory key left the Codex standing over the world: Back puts the Codex away and

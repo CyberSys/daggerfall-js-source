@@ -101,7 +101,7 @@
   {
     "name": "REVENANT-out-over-a-load",
     "file": "src/systems/revenant.js",
-    "old": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0 })) }),",
+    "old": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r, out: false, outAt: 0, dueAt: r.out ? Math.max(r.dueAt, nowMinutes() + REVENANT_LOST_MINUTES) : r.dueAt })) }),",
     "new": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => (r.gone ? r : { ...r })) }),",
     "tests": [
       "test/revenant.test.js"

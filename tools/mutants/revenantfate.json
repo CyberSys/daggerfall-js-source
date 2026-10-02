@@ -29,8 +29,8 @@
   {
     "name": "REVENANT-FATE-kneeling-in-the-save",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "!f.transient && !f.yielded && !f.executing && !f.sparing).map(",
-    "new": "!f.transient).map(",
+    "old": "!f.transient && !f.yielded && !f.executing && !f.sparing && !f.entity?.revenant).map(",
+    "new": "!f.transient && !f.entity?.revenant).map(",
     "tests": [
       "test/revenant_fate.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "REVENANT-TROPHY-the-name-without-its-owner",
     "file": "src/systems/revenantTrophy.js",
-    "old": "  return `${given}${/s$/i.test(given) ? \"'\" : \"'s\"} ${noun}`;",
+    "old": "  return `${possessive(given)} ${noun}`;",
     "new": "  return noun;",
     "tests": [
       "test/revenant_fate.test.js"
@@ -191,7 +191,7 @@
   {
     "name": "REVENANT-COMPANION-the-wake-never-comes",
     "file": "src/systems/revenantCompanions.js",
-    "old": "        if (stateOf(r) === 'resting' && now >= (r.companion?.until ?? 0)) {",
+    "old": "        if (stateOf(r) === 'resting' && now >= restUntil(r, now)) {",
     "new": "        if (false) {",
     "tests": [
       "test/revenant_companions.test.js"

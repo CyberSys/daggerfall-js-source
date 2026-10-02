@@ -217,7 +217,7 @@ import { ELITE_FOE_MULTIPLIER, ELITE_HEALTH_SCALE, ELITE_DAMAGE_SCALE, ELITE_LOO
 import { ENEMY_BASICS, enemyDisplayName } from '../characters/enemyBasics.js';
 import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
 import { revenantFleeStep, revenantFleeHealth, revenantDeed, revenantSlain, revenantSay, revenantFleeEvent, revenantCorneredEvent, revenantEscapeEvent, revenantSlainEvent } from '../systems/revenant.js';
-import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it (the open world's law, one home)
+import { revenantMayYield, beginYield, yieldStep, slipEvent, kneelPose, beginExecution, executionStep, finishExecution, beginSpare, spareDone, fateDissolve, fateModel, dropFateHeld } from '../systems/revenantFate.js';   // REVENANT-FATE: beaten, it yields - kill it or spare it (the open world's law, one home)
 import { setBatchDissolve } from '../systems/dissolve.js';   // DISSOLVE
 import { createPortalSet } from './portalFx.js';   // COMPANION-PORTAL   // REVENANT-DUNGEON: a special foe of mine alone may run, and get away
 import { bloodDecalDeps } from '../combat/bloodSwitch.js';   // BLOOD1a
@@ -285,7 +285,7 @@ const q3 = (v) => Math.round(v * 1000) / 1000; const GENDER_BIT = ['male', 'fema
 const HIT_POS_MAX = 1e6;
 // AUDIT FOES FOE5: the most damage one peer's blow may claim. The host TRUSTS the number (it never recomputes - the
 // striker's own calc is the game's), so without a bound any joiner could one-shot every foe in the room and empty it
-// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2657); the dungeon
+// through the kill door. The exterior twin has carried this bound since WORLD6b (exteriorFoes.js:2678); the dungeon
 // had none. Past anything a legal swing, shaft or blast can roll.
 const HIT_DMG_MAX = 10000;
 /** REST-SYNC: a joiner's ask is answered - or given up on - inside this long: its rest breaks once, at the next hour. */
@@ -1488,6 +1488,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   function yieldDungeonFoe(f) {
     if ((!foeDeps || !f.ai?._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai?.target)) && f.ai?.detected) setEnemyAlert(playerEntity, false);
     const ev = beginYield(playerEntity, f, { now: Date.now() });
+    // AUDIT (2026-10-02): a FLYER beaten kneels on the floor below, never in the air out of the player's reach
+    if (f.ai?.flies) { const g = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]); if (g && g[1] < f.ai.feet[1]) f.ai.feet[1] = g[1]; }
     audio.play3d(SOUND.BodyFall, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.8, { maxDistance: 16 });
     fateSay(ev);
   }
@@ -1500,6 +1502,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     if (!f?.yielded || f.dead) return false;
     const at = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
     if (id === 'kill') {
+      renownFoeStruck(f);   // AUDIT (2026-10-02): the execution is my blow - a kneel past RENOWN_ASSIST_MS paid nothing
       const ev = beginExecution(playerEntity, f, { now: Date.now() });
       audio.play3d(SOUND.SwingLowPitch, at, 1, { maxDistance: 16 });
       opts.shakeCamera?.(1.4);
@@ -1516,11 +1519,18 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     return false;
   }
   /** One frame of a judged or kneeling foe (its pose held, its beats played) - 'gone' when it left the place. */
+  /** AUDIT (2026-10-02): the portal's hand-offs, run AFTER the foe loop - a lift takes its record out of `foes`, and a
+   *  splice under the loop's own iteration skipped the next foe for that frame (no step, no draw: a flicker). */
+  const _leftDone = [];
+  function runLeftDone() {
+    for (let i = 0; i < _leftDone.length; i += 2) { const f = _leftDone[i]; try { _leftDone[i + 1](); } catch { questPoolOps.removeFoe(f); } }
+    _leftDone.length = 0;
+  }
   function dungeonFateFrame(f, dt, playerFeet, eye) {
     const now = Date.now();
     if (f.leaving) {
       f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
-      if (now - f.leaving.at >= 900) { const done = f.leaving.done; f.leaving = null; try { done(); } catch { questPoolOps.removeFoe(f); } }
+      if (now - f.leaving.at >= 900) { _leftDone.push(f, f.leaving.done); f.leaving = null; }   // handed off after the foe loop (runLeftDone)
     } else if (f.executing) {
       const st = executionStep(f, now);
       f._mout = kneelPose(f, eye, now);
@@ -1530,9 +1540,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         audio.play3d(SOUND.Hit2, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 1, { maxDistance: 20 });
         audio.play3d(SOUND.Burning, [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]], 0.7, { maxDistance: 20 });
         opts.shakeCamera?.(3);
-        setBatchHitFlash(f.batch, 1);
+        f._hfAt = performance.now() / 1000;   // the red flash, on foeHitFlash's own clock (the frame's write reads it)
       } else if (st === 'done') {
-        const feet = [f.ai.feet[0], f.ai.feet[1], f.ai.feet[2]];
+        const feet = floorLanding(collider, [f.ai.feet[0], f.ai.feet[1] + 0.1, f.ai.feet[2]]);   // AUDIT (2026-10-02): its pile on the floor, never in the air
+        // AUDIT (2026-10-02): ITS SOUL - the kill door's X5 trap and V3 Star, which the yield ran ahead of (the open world's law)
+        const trap = attemptSoulTrap(f.entity, f.mobileType, playerEntity.items, Math.random());
+        if (trap.alert && trap.alert !== 'trapNoneEmpty' && SOUL_TRAP_TEXT[trap.alert]) hudText.add(SOUL_TRAP_TEXT[trap.alert]);
+        if (f.mobileType < 128 && isAzurasStarEquipped(playerEntity) && fillEmptyTrap(playerEntity.items, f.mobileType, { azurasStarOnly: true })) hudText.add(SOUL_TRAP_TEXT.trapSuccess);
         reportPlayerKill(f.entity, { kind: 'melee' });
         renownFoeDied(f);
         raiseEnemyDeath(f.entity, { luck: liveStat(playerEntity, 'luck') });
@@ -1544,7 +1558,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       }
     } else if (f.sparing) {
       f._mout = f.mobile?.heldPose ? f.mobile.heldPose('idle', 0, f.ai.yaw, f.ai.feet, eye ?? f.ai.feet) : f._mout;
-      if (spareDone(f, now)) questPoolOps.removeFoe(f);
+      if (spareDone(f, now)) { questPoolOps.removeFoe(f); f._swornAway = true; }
     } else if (yieldStep(f, playerFeet, dt * 1000) === 'slip') escapeDungeonFoe(f, { slip: true });
     else f._mout = kneelPose(f, eye, now);
     return f.dead ? 'gone' : 'held';
@@ -2026,7 +2040,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15253 / exterior.js:3775), set
+  // host's own townTalk sink (world.js:15279 / exterior.js:3775), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3699,7 +3713,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // Backstabbing skill, tallied inside CalculateBackstabChance
     // (FormulaHelper.cs:975-990 - the tally was ported nowhere).
     for (const f of foes) if (!f.dead) f._backFacing = foeDeps.isBackFacing(f.ai.yaw, f.ai.feet, playerFeet);
-    const live = foes.filter((f) => !f.dead && f.companion == null);   // CREW-COMPANIONS: my companion is never the swing's (exteriorFoes' SHIPMATES filter)
+    const live = dropFateHeld(foes.filter((f) => !f.dead && f.companion == null));   // REVENANT-FATE (the 2026-10-02 audit): one held by its fate is no swing's. CREW-COMPANIONS: my companion is never the swing's (exteriorFoes' SHIPMATES filter)
     // WB4b: THE COURT'S BOSS, a body the swing meets as it meets a foe - the same resolveHit and formula, against his
     // stand-in, by his body's SURFACE (bossSight); never in `foes`: what lands goes to the relay (landOnBoss)
     const boss = gateBossBody();
@@ -3975,11 +3989,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           }
           for (const f of foes) {
             if (f.dead || f.companion != null) continue;   // AUDIT CC-B1: the player's shaft flies past a companion (the street's and a building's spare him already)
+            if (f.yielded || f.executing || f.sparing) continue;   // REVENANT-FATE (the 2026-10-02 audit): a shaft flies past one held by its fate, as a blow does
             if (missileHitsFoe(m.pos, f)) {   // ROAD-H tail: DaggerfallMissile.cs:339's SphereCast meets the foe's CAPSULE (REVIEW 2026-09-05 had its centre as a point)
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:25445,
+              // playerArrowHitFoe is the one copy world.js:25471,
               // exterior.js:5394 and worldModes.js:8834 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -4860,7 +4875,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const i = data.i | 0, dmg = Number(data.dmg);
     const xs = data.xs === 1;   // REST-SYNC: a shared encounter, by the room's number - not a layout index
     const f = xs ? (_sharedById.get(i) ?? null) : foes[i];
-    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2657). The number is a peer's
+    // AUDIT FOES FOE5: BOUNDED, as the exterior twin's applyHit is (exteriorFoes.js:2678). The number is a peer's
     // word and the host trusts it without recomputing, so an unbounded one let any joiner one-shot every foe in the
     // room - and, through the kill door, empty it. 10000 is past anything a legal swing, shaft or blast can roll.
     if (!f || (!xs && i >= _layoutFoes) || f.dead || !Number.isFinite(dmg) || dmg < 0 || dmg > HIT_DMG_MAX) return false;
@@ -5291,6 +5306,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         health: f.entity.health, dead: !!f.dead,
         died: f.dead && Number.isFinite(f._diedAt) ? f._diedAt : null,   // WORLD8: when it fell, the relay's clock - the hour's respawn reads it
         ...(f.abyssDestroyed ? { abyssDestroyed: true } : {}),   // AUDIT OH-F B1: Object.Destroy'd - in DFU's save not at all
+        ...(f.dead && (f.escaped || f.executed || f._swornAway) ? { noBody: true } : {}),   // REVENANT-FATE (the 2026-10-02 audit): fled, burnt away or sworn - gone with no body, so a load lays none
         feet: [...f.ai.feet], yaw: f.ai.yaw, anchor: 1,   // REVIEW 2026-09-05: feet under the enemyAnchor law (a pre-fix save carries no stamp)
         items: (f.entity.items ?? []).map((it) => ({ ...it })),
         // CH4 (the senses verify pass): SerializableEnemy carries
@@ -5434,7 +5450,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // InstantiatePrefab's a fresh GameObject per saved record, so
     // EnemyEntity's `PickpocketByPlayerAttempted` default is the loaded
     // truth for every enemy. The re-minting pools match that by
-    // construction (exteriorFoes.js:2024's restoreWorld goes through
+    // construction (exteriorFoes.js:2044's restoreWorld goes through
     // spawnFoe), but this host patches the LIVE foes in place, so a
     // same-dungeon reload kept a raised latch and a failed pickpocket
     // could never be retried - falsifying the law
@@ -5442,6 +5458,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // A PRE-PASS over the WHOLE live pool, not a line in the loop
     // below: that loop visits only the indices the record carries.
     for (const f of foes) if (f?.entity) f.entity.pickpocketAttempted = false;
+    // REVENANT-FATE (the 2026-10-02 audit): a judgement in flight is the replaced game's - a same-dungeon load patched the
+    // foe whole and left it kneeling, or burning (its pile dropped after the load)
+    for (const f of foes) { if (!f) continue; f.yielded = null; f.executing = null; f.sparing = null; f.trophy = null; f.yieldEvent = null; }
     if (truncate) clearOwnPuppets();   // QUEST-PARTY phase 3c: the save holds none (collectWorld), so its indices are this pool's without them - they stand again from their owners' next frames
     const _now = _wallNow();
     const settling = [];   // AUDIT OH-F B1: the restore's rebuilds - RestoreEnemyData is whole before the mod loop runs
@@ -5451,6 +5470,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // AUDIT OH-F B1: an enemy Object.Destroy'd (the drowned dungeon's flame foe) is in no DFU save - the load stands
       // the saved set alone (SerializableStateManager.RestoreEnemyData), so it stays gone: no corpse, no loot, no respawn
       if (sf.abyssDestroyed) { if (!f.abyssDestroyed) { f.abyssDestroyed = true; questPoolOps.removeFoe(f); } return; }
+      // REVENANT-FATE (the 2026-10-02 audit): one gone with no body (fled, burnt away, sworn) - out again with none: a save
+      // of it had laid its corpse, its whole pack lootable (an executed one's twice over: its pile is the save's too)
+      if (sf.noBody && sf.dead && !(wire && respawnDue(sf.died, _now))) { if (!f.dead) questPoolOps.removeFoe(f); if (Number.isFinite(sf.died)) f._diedAt = sf.died; return; }
       // WORLD8: a foe the room remembers dead past the hour is not applied dead - it is due back. A fresh build stands
       // as it is (the memory's record is skipped whole); a live one already dead here (this host stayed) is rebuilt
       if (wire && sf.dead && respawnDue(sf.died, _now)) {   // AUDIT WORLD7/8 B8: the ROOM's species first (WORLD3's roster law) - a fresh rebuild as the record's kind, alive
@@ -6565,8 +6587,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // ESCAPED - retired through the quest pool's door, no corpse, a revenant made; run down, it is CORNERED and fights on
       const _flee = f.fleeing || (!f._fleeRolled && revenantFleeHealth(f.entity)) ? revenantFleeStep(f, _pf, { mayRun: !onlineRoom() || !_roomFoe, onMe: () => !foeDeps || !f.ai._armedTargeting || foeDeps.isLocalPlayerTarget(f.ai.target) }) : null;   // asked only of a foe running or under the line
       if (_flee === 'escape') { escapeDungeonFoe(f); continue; }
-      if (_flee === 'start') revenantSay(revenantFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
-      else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive }), (l) => hudText.add(l));
+      if (_flee === 'start') revenantSay(revenantFleeEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive, playerName: playerEntity?.name }), (l) => hudText.add(l));
+      else if (_flee === 'cornered') revenantSay(revenantCorneredEvent(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType)), { gender: f.gender, archive: f.mobileArchive, playerName: playerEntity?.name }), (l) => hudText.add(l));
       if (_flee === 'start' || _flee === 'run') _tgt = null;
       // CH3 (characters-8): a past-threshold landing bills the
       // player's fall formula - trunc(5 x (drop - 5)) - through the
@@ -6891,6 +6913,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // U26: the player's own dropped piles ride the SAME pass as the
     // sprite mobiles - they are billboards at a world position with
     // no animation, exactly like a corpse.
+    if (_leftDone.length) runLeftDone();   // COMPANION-PORTAL: the portal has them - out of the pool, after the loop
     droppedLoot.tickFlats(dt);   // FA1 slice 3
     portals.tick(eye);   // COMPANION-PORTAL
     const _dropBatches = [...droppedLoot.batches(), ...portals.batches()];   // COMPANION-PORTAL: the portals ride the drops' pass
@@ -7190,7 +7213,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       const f = liveFoeFor(foes, key, 'mobileFoe');
       if (!f) return null;
       const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
-      return t ? { title: t } : null;
+      return t ? { title: f.yielded ? `${t} - beaten` : t } : null;   // REVENANT-FATE (the 2026-10-02 audit): a kneeling revenant says so, as the street's does
     }
     if (key.startsWith('door:') || key.startsWith('act:')) {
       const o = actions.objects.get(key) ?? null;
@@ -8181,7 +8204,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // AUDIT OH-F B1: the drowned dungeon's destroy rides the SAVE, not the room - the relay's door (net/wire.js
       // validSharedFoe) has no field for it, and one there is a relay deploy. Every client destroys the same flame
       // foes on its own build (PrepareAbyssDungeon), and the hour's respawn refuses a destroyed foe on each.
-      for (const f of w.foes) delete f.abyssDestroyed;
+      for (const f of w.foes) { delete f.abyssDestroyed; delete f.noBody; }   // REVENANT-FATE: the room's door has no field for it either
       w.loot = lootRecords([..._lootSeen]);
       // AUDIT WORLD34 C2: the memory's action records are the SHARED half, as an act's are (AUDIT WORLD3 B1) - the
       // save record carried the picker's per-player latch, so one host's failed pick silenced every joiner's attempt

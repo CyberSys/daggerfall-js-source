@@ -83,7 +83,7 @@ export const FRAME_ROLES = {
     'body .notice-win'],
   // the talk panel is a .px-win whose own ground rule outweighs .px-win's
   windowGround: ['.talk-shell .talk-panel'],
-  panel: ['body .rvncard', '.pack-shell .fate-confirm', '.port-host .port-card', '.pack-shell .statflip-back', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
+  panel: ['body .rvncard', '.pack-shell .fate-confirm', '.px-sys .rvn-row', '.px-sys .cmp-row',   // REVENANT-PAGE / COMPANION-ROSTER: a row is a card, never a press (the 2026-10-02 audit: the tile's hover and its sink) '.port-host .port-card', '.pack-shell .statflip-back', '.pack-shell .packdetail .card', '.pack-shell .card', '.hmcard', '.px-sys .card', '.px-sys .dcard',
     '.shell .card', '.shell .dcard', '.notice', '.inputbox', '.lv-note', '.cr-shell .cr-entry',
     '.cr-shell .cr-sharebox', '.shell .ft-rail', '.shell .look-panel',
     // PLUS3: the trade counter's item-detail readout and the trade/tavern confirm boxes - the same
@@ -149,8 +149,9 @@ export const FRAME_ROLES = {
   // PLUS-DRESS: a press that COSTS something - leave or disband a guild, remove a member, challenge a player - the
   // button in blood rather than brass (the low-health frame's red). Each is a button above as well; this is its edge.
   warn: ['body .dfsocial-btn.warn', 'body .dfprofile-duel',
-    'body .dfnaval-scuttle'],   // NAV-F: scuttling a prize - she and what is left in her go down
-  tile: ['.px-sys .rvn-row', '.px-sys .cmp-row', '.port-host .port-tile', '.pack-shell .sf-chip', '.port-host .port-iconcell', '.pack-shell .itemrow', '.pack-shell .equipped .wornrow', '.pack-shell .wornsock', '.wizard .racegrid button',
+    'body .dfnaval-scuttle',   // NAV-F: scuttling a prize - she and what is left in her go down
+    '.pack-shell .fate-confirm .act.warn', '.px-sys .cmp-acts .act.warn'],   // REVENANT-FATE: Execute; COMPANION-ROSTER: Release, confirmed
+  tile: ['.port-host .port-tile', '.pack-shell .sf-chip', '.port-host .port-iconcell', '.pack-shell .itemrow', '.pack-shell .equipped .wornrow', '.pack-shell .wornsock', '.wizard .racegrid button',
     '.wizard .facegrid button', '.shell .ft-tile', '.shell .ft-seg', '.shell .ft-mchip', '.shell .ft-tile-more',   // FT18: a condensed tile's parts toggle
     '.sb-shell .sb-chip', '.cr-shell .sb-chip', '.piletab',
     // PLUS3: the shop's shelf rows and the tavern's food & drink rows - the same `.itemrow` the pack

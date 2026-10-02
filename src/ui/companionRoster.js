@@ -19,7 +19,7 @@
 // well, the rank and the personality chips, the acts buttons (Release the warn) - this sheet writes geometry and the
 // words' colours alone.
 
-import { retinue, revenantsWithYou, revenantsAway, callRevenant, callRefusal, sendRevenantAway, releaseRevenant, REVENANT_RETINUE_MAX } from '../systems/revenantCompanions.js';
+import { retinue, revenantsWithYou, revenantsAway, callRevenant, callRefusal, sendRevenantAway, releaseRevenant, restUntil, REVENANT_RETINUE_MAX } from '../systems/revenantCompanions.js';
 import { companionsWithYou, companionRoster, COMPANION_SLOTS } from '../systems/companionSlots.js';
 import { revenantPortrait, revenantRankNumeral } from '../systems/revenant.js';
 import { PERSONALITIES } from '../systems/revenantPersonality.js';
@@ -60,6 +60,8 @@ export const COMPANION_PAGE_CSS = `
 .px-sys .cmp-state.is-away { color: #b8b0a0; }
 .px-sys .cmp-state.is-resting { color: #e0a54a; }
 .px-sys .cmp-sub { font-size: 11px; color: #8b8578; }
+.px-sys .cmp-hp { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; max-width: 260px; }
+.px-sys .cmp-hpn { font-size: 11px; color: #b8b0a0; font-variant-numeric: tabular-nums; }
 .px-sys .cmp-mood { display: inline-block; margin-right: 6px; padding: 0 5px; border-width: 1px; border-style: solid; font-size: 9px; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: #e9c46a; vertical-align: 1px; }
 .px-sys .cmp-why { font-size: 11px; color: #e0a54a; }
 .px-sys .cmp-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -112,18 +114,24 @@ function row(el, r, { now, rerender, meter, here, kindName }) {
   head.append(el('span', `cmp-state${state === 'with' ? '' : ` is-${state}`}`, state === 'with' ? 'At your side' : state === 'resting' ? 'Recovering' : 'Away'));
   text.append(head);
   const P = PERSONALITIES[r.personality];
-  const sub = el('span', 'cmp-sub', [`Rank ${revenantRankNumeral(r.rank)}`, kindName?.(r.mobileType) ?? null, P?.blurb ?? null].filter(Boolean).join(' · '));
+  // AUDIT (2026-10-02): its chip says who it is - the blurb is a foe's ("...your death included"), never an ally's row's
+  const sub = el('span', 'cmp-sub', [`Rank ${revenantRankNumeral(r.rank)}`, kindName?.(r.mobileType) ?? null].filter(Boolean).join(' · '));
   if (P) sub.insertBefore(el('span', 'cmp-mood', P.label), sub.firstChild ?? null);
   text.append(sub);
   if (state === 'with') {
     const body = here?.(r.id);
     const hm = body?.maxHealth ?? r.companion?.maxHealth ?? null, h = body?.health ?? r.companion?.health ?? hm;
-    if (hm > 0 && typeof meter === 'function') text.append(meter(Math.max(0, Math.round(h)), Math.round(hm), 'health'));
-  } else if (state === 'resting') text.append(el('span', 'cmp-sub', restWords(r.companion?.until ?? now, now)));
+    if (hm > 0 && typeof meter === 'function') {   // AUDIT (2026-10-02): the green of the bar over its head, with its numbers (a tone the kit has)
+      const hp = el('div', 'cmp-hp');
+      hp.append(meter(Math.max(0, Math.round(h)), Math.round(hm), 'verdigris'), el('span', 'cmp-hpn', `${Math.max(0, Math.round(h))} / ${Math.round(hm)}`));
+      text.append(hp);
+    }
+  } else if (state === 'resting') text.append(el('span', 'cmp-sub', restWords(restUntil(r, now), now)));
   if (_notice?.id === r.id) text.append(el('span', 'cmp-why', _notice.text));
   const acts = el('div', 'cmp-acts');
   if (_confirm === r.id) {
-    text.append(el('span', 'cmp-confirm', `Release ${r.name}? Its oath is given back - it leaves you for good.`));
+    const n = r.companion?.items?.length ?? 0;   // AUDIT (2026-10-02): its pack comes back to the player's - say so
+    text.append(el('span', 'cmp-confirm', `Release ${r.name}? Its oath is given back - it leaves you for good${n ? `, and hands you back its pack (${n === 1 ? 'one item' : `${n} items`})` : ''}.`));
     const yes = el('button', 'act warn', 'Release');
     yes.onclick = () => { _confirm = null; _notice = null; releaseRevenant(r.id); rerender(); };
     const no = el('button', 'act', 'Keep');
@@ -195,7 +203,11 @@ export function drawCompanionsPage(detail, rerender, { el, divider, meter = null
   if (!withYou.length && !away.length) {
     detail.append(el('p', 'px-note', 'No revenant is sworn to you. Beat one of your revenants and it will yield - spare it, and it is yours.'));
   }
-  detail.append(el('p', 'cmp-foot', `Sworn to you: ${retinue().length} of ${REVENANT_RETINUE_MAX}. Release one to make room for another.`));
+  const n = retinue().length;   // AUDIT (2026-10-02): the release's advice only where it is the way on
+  if (n) detail.append(el('p', 'cmp-foot', `Sworn to you: ${n} of ${REVENANT_RETINUE_MAX}.${n >= REVENANT_RETINUE_MAX ? ' Release one to make room for another.' : ''}`));
 }
+/** A visit's asks forgotten (an armed Release, a refusal's words) - the pause menu's every mount (AUDIT 2026-10-02:
+ *  an armed Release outlived the visit, as no armed press may). */
+export function resetCompanionRoster() { _confirm = null; _notice = null; }
 /** Tests: forget the page's asks. */
-export function _resetCompanionRosterForTests() { _confirm = null; _notice = null; }
+export const _resetCompanionRosterForTests = resetCompanionRoster;

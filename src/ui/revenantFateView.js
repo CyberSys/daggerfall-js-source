@@ -14,7 +14,8 @@ export const FATE_STYLE_ID = 'revenant-fate-style';
 export const FATE_FACE_BOX = 40;
 /** The fate side's own geometry and words' colours - the kit paints the frame, the rows, the wells and the buttons. */
 export const FATE_CSS = `
-.pack-shell .loot-win.fate { width: 380px; }
+.pack-shell .loot-win.fate { width: 380px; max-height: min(700px, 92dvh); overflow-y: auto; }   /* AUDIT (2026-10-02): the loot window's phone cap (40dvh) squeezed the rows to nothing under the confirm */
+.pack-shell .fatecol .fatelist { flex: 0 0 auto; min-height: auto; }
 .pack-shell .fatecol .remotehead { flex-direction: column; align-items: center; gap: 2px; }
 .pack-shell .fatecol .remotewho h3 { margin: 0; text-align: center; }
 .pack-shell .fatecol .remotewho .meta { text-align: center; }
@@ -25,7 +26,7 @@ export const FATE_CSS = `
 .pack-shell .fate-opt { display: grid; grid-template-columns: ${FATE_FACE_BOX + 8}px 1fr auto; align-items: center; gap: 10px; text-align: left; min-height: ${FATE_FACE_BOX + 12}px; }
 .pack-shell .fate-opt .itemname > span:first-child { font-size: 14px; }
 .pack-shell .loot-win .fate-opt.itemrow .itemname > span:first-child { color: #e9e4d9; }   /* the verb's row, not the weapon's: its rarity is the trophy's own word (below) */
-.pack-shell .loot-win .fate-opt .itemname small:not(.fate-verb) { text-transform: none; letter-spacing: 0.02em; }   /* a sentence, not a tag */
+.pack-shell .loot-win .fate-opt .itemname small:not(.fate-verb) { text-transform: none; letter-spacing: 0.02em; color: #b8b0a0; }   /* a sentence, not a tag - and legible (the loot meta's dim lost to it) */
 .pack-shell .fate-opt .fate-trophy { color: #e9e4d9; font-weight: 600; }
 .pack-shell .fate-opt[data-rarity="magic"] .fate-trophy { color: #6f9ee8; }
 .pack-shell .fate-opt[data-rarity="rare"] .fate-trophy { color: #e4c34f; }
@@ -44,7 +45,8 @@ export const FATE_CSS = `
 .pack-shell .fate-confirm .acts { display: flex; justify-content: center; gap: 8px; }
 .pack-shell .fate-confirm .act.warn { color: #ff8a78; }   /* the cost said in its word's colour - the kit paints the button */
 .pack-shell .fate-keys { margin: 2px 10px 8px; font-size: 10px; letter-spacing: 0.08em; color: #8b8578; text-align: center; }
-:root[data-plus-theme="stone"] .pack-shell .fate-body, :root[data-plus-theme="stone"] .pack-shell .fate-opt small:not(.fate-verb) { color: #efe8d8; }
+:root[data-plus-theme="stone"] .pack-shell .fate-body, :root[data-plus-theme="stone"] .pack-shell .loot-win .fate-opt .itemname small:not(.fate-verb) { color: #efe8d8; }
+:root[data-plus-theme="stone"] .pack-shell .fatecol .remotewho .meta, :root[data-plus-theme="stone"] .pack-shell .fate-keys, :root[data-plus-theme="stone"] .pack-shell .fate-opt .fate-key { color: #d9d0bd; }   /* AUDIT (2026-10-02): legible on the light stone */
 @media (max-width: 520px) { .pack-shell .loot-win.fate { width: auto; } }
 `;
 /** The fate side's styles, once per document. */
@@ -101,7 +103,7 @@ export function fateColumn(fate, picked, { el, trophyTile = null, portrait = nul
     } else mid.append(el('small', null, o.detail));
     row.append(mid);
     row.append(el('span', 'fate-key', o.key));
-    row.title = o.detail;
+    if (!(o.id === 'kill' && fate.trophy && trophyTile)) row.title = o.detail;   // the trophy's row has its item card on the hover
     row.onclick = () => { if (o.disabled) return; if (picked === o.id) onChoose(o.id); else onPick(o.id); };
     list.append(row);
   }
@@ -119,7 +121,7 @@ export function fateColumn(fate, picked, { el, trophyTile = null, portrait = nul
     box.append(acts);
     col.append(box);
   }
-  col.append(el('p', 'fate-keys', 'K kill · S spare · Esc leave it kneeling'));
+  col.append(el('p', 'fate-keys', fate.options.filter((o) => !o.disabled).map((o) => `${o.key} ${o.label.toLowerCase()}`).concat('Esc leave it kneeling').join(' · ')));   // a key it cannot take is not offered
   return col;
 }
 
@@ -131,7 +133,8 @@ export function fateKey(e, fate, picked, { onPick, onChoose }) {
   const k = String(e?.key ?? '').toLowerCase();
   const byKey = fate.options.find((o) => o.key.toLowerCase() === k && !o.disabled);
   if (byKey) { if (picked === byKey.id) onChoose(byKey.id); else onPick(byKey.id); return true; }
-  if (k === 'enter' && picked) { onChoose(picked); return true; }
+  // AUDIT (2026-10-02): Enter on a focused button is that button's (Back, the other row) - never the pick's confirmation
+  if (k === 'enter' && picked && !e?.target?.closest?.('button')) { onChoose(picked); return true; }
   if (k === 'escape' && picked) { onPick(null); return true; }
   return false;
 }

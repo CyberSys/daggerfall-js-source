@@ -72,7 +72,9 @@ export function createInventoryWindow(deps = {}) {
   // the line is said and no window is built - the caller mounts nothing.
   // REVENANT-FATE: a beaten revenant's choice is the loot window's fate side on the enhanced skin; the classic's canvas
   // window has no room for one, so there it is a keyed box - its name, its plea, K kill, S spare, Esc leave it
-  if (deps.fate && !(isEnhanced() && typeof document !== 'undefined')) return classicFateWindow(deps.fate);
+  // AUDIT (2026-10-02): before the beast's refusal - it refuses the pack, never the judgement (the classic box always
+  // came first; the enhanced skin's loot window was refused in beast form)
+  if (deps.fate) return isEnhanced() && typeof document !== 'undefined' ? enhancedInventoryOverlay(deps) : classicFateWindow(deps.fate);
   const sup = racialSuppressInventory(deps.entity);
   if (sup) { messageBox(sup.text); return null; }
   // `document` for the reason every fork before this one gives: node
@@ -86,8 +88,11 @@ export function createInventoryWindow(deps = {}) {
 
 /** REVENANT-FATE on the classic skin: the choice as a keyed box (talkWindow.js ChoiceWindow). */
 function classicFateWindow(fate) {
-  const lines = [fate.name, fate.sub ?? '', '', fate.plea?.speech ? `"${fate.plea.speech}"` : (fate.plea?.body ?? ''), ''].filter((l, i, a) => l !== '' || (i > 0 && a[i - 1] !== ''));
-  const options = fate.options.filter((o) => !o.disabled).map((o) => ({ code: `Key${o.key}`, label: `${o.key} - ${o.label}: ${o.detail}`, action: () => fate.choose(o.id) }));
+  // AUDIT (2026-10-02): the details ride the box's wrapped lines (an option's label is never wrapped - a Spare's whole
+  // sentence ran off the screen), and a choice it cannot take says why instead of vanishing
+  const lines = [fate.name, fate.sub ?? '', '', fate.plea?.speech ? `"${fate.plea.speech}"` : (fate.plea?.body ?? ''), '',
+    ...fate.options.map((o) => `${o.label}: ${o.detail}`)].filter((l, i, a) => l !== '' || (i > 0 && a[i - 1] !== ''));
+  const options = fate.options.filter((o) => !o.disabled).map((o) => ({ code: `Key${o.key}`, label: `${o.key} - ${o.label}`, action: () => fate.choose(o.id) }));
   options.push({ code: 'Escape', label: 'Esc - Leave it kneeling', action: () => {} });
   return new ChoiceWindow({ lines, options });
 }

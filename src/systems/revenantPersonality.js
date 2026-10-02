@@ -46,7 +46,7 @@ const LINES = deepFreeze({
   brutal: {
     taunt_slew: ["I broke you once, {p}. I'll break you slower this time.", 'Your skull still owes me a crack, {p}.', 'I remember the sound you made when you fell. Make it again.'],
     taunt_fled: ["You cut me, {p}. I've come for the meat you owe.", 'I bled for you. Now you bleed for me.', 'I ran to sharpen my blade. Feel how sharp.'],
-    taunt_risen: ['Every time you fall, I come back hungrier.', "I've buried you before, {p}. The hole's still open."],
+    taunt_risen: ['Every time you fall, I come back hungrier.', "I've buried you before, {p}. The hole's still open.", 'Again and again I break you, {p}. I never tire of it.'],
     flee: ['Not here. Not like this!', "I'll come back and tear you apart!"],
     cornered: ["Fine. I'll gut you where I stand!", 'Cornered beasts bite hardest!'],
     escape: ['Next time, I take your head, {p}.', 'Heal up. I want you whole when I break you.'],
@@ -64,9 +64,9 @@ const LINES = deepFreeze({
     release: ["Free? Then I go where the fighting is. Don't follow.", "Hmph. Next time we meet, maybe I'll kill you."],
   },
   witty: {
-    taunt_slew: ['Ah, {p}! Back from the dead? Even Arkay sent you back.', 'Last time went so well for me. Shall we?', 'You again? I did enjoy our first dance, {p}.'],
+    taunt_slew: ['Ah, {p}! Back from the dead? Even Arkay sent you back - he must have found you tiresome too.', 'Last time went so well for me. Shall we?', 'You again? I did enjoy our first dance, {p}.'],
     taunt_fled: ['Missed me, {p}? Clearly. You missed a great deal.', "I left early last time. Rude of me. I've come to finish the conversation.", "Remember me? I'm the one you couldn't catch."],
-    taunt_risen: ['We really must stop meeting like this, {p}. You keep losing.', 'Your persistence is touching. Futile, but touching.'],
+    taunt_risen: ['We really must stop meeting like this, {p}. You keep losing.', 'Your persistence is touching. Futile, but touching.', "I'd say you look well, {p}, but we both know how this ends."],
     flee: ['A strategic withdrawal! Write it down!', 'Lovely chat. Must dash!'],
     cornered: ["Ah. Well, that's inconvenient.", "Fine. I'll do this the tedious way."],
     escape: ['Do keep the scar I gave you, {p}. A keepsake.', 'Until next time. Do practise.'],
@@ -86,7 +86,7 @@ const LINES = deepFreeze({
   humorous: {
     taunt_slew: ['{p}! My favourite corpse! Ha!', "Back again? You're like a bad penny - you keep turning up!", 'Last time you fell so hard, I think you dented the road!'],
     taunt_fled: ["Ha! You're the one who chased me! I'm faster now - I've been practising!", "Remember me? I'm the one who got away! Best day of my life!", 'I ran so fast last time I lost a boot. Want to see where?'],
-    taunt_risen: ["Round three! Or is it four? I've lost count - you haven't!", "I've killed you so often I've started a tally on my arm!"],
+    taunt_risen: ["Round three! Or is it four? I've lost count - you haven't!", "I've killed you so often I've started a tally on my arm!", 'You again! Should I start charging you rent on my blade?'],
     flee: ["Look behind you! ...Hah, no, I'm leaving!", 'Time for my legs to do the fighting!'],
     cornered: ["Nowhere to run? Then I'll run at you!", 'Oh, bother. Fine, fine - fisticuffs!'],
     escape: ["Tag! You're it, {p}!", 'Catch me next time! Bring snacks!'],
@@ -106,7 +106,7 @@ const LINES = deepFreeze({
   arrogant: {
     taunt_slew: ['Kneel, {p}. You did it so well last time.', 'Did you truly think you could best me twice?', 'I remember your fall, {p}. It was beneath me - as are you.'],
     taunt_fled: ['I did not flee, {p}. I declined to waste my time.', 'You wounded my pride. That was your mistake.', 'I have returned to correct your little victory.'],
-    taunt_risen: ['Each time I rise, you shrink.', 'You are a footnote in my legend, {p}.'],
+    taunt_risen: ['Each time I rise, you shrink.', 'You are a footnote in my legend, {p}.', 'Kneel now, {p}, and spare us both the tedium of your death.'],
     flee: ['You are not worth the effort!', 'This is beneath me!'],
     cornered: ['You dare corner me? Then witness true power!', 'Very well. I shall end you myself.'],
     escape: ["Savour this, {p}. It is the last time you'll see my back.", 'I allow you to live. For now.'],
@@ -126,7 +126,7 @@ const LINES = deepFreeze({
   cold: {
     taunt_slew: ['You died by my hand once. The arithmetic has not changed.', 'I counted your heartbeats as they stopped, {p}.', 'Again, then. Quietly.'],
     taunt_fled: ['I withdrew to learn. I have learned.', 'Your blade was a lesson. I have studied it.', 'I left. I returned. That is all.'],
-    taunt_risen: ['Each death is a lesson. Yours are many.', 'You keep returning. So do I. Only one of us improves.'],
+    taunt_risen: ['Each death is a lesson. Yours are many.', 'You keep returning. So do I. Only one of us improves.', 'I know how you fight now, {p}. That is why you keep dying.'],
     flee: ['Withdrawal is optimal.', 'Not now.'],
     cornered: ['Then we end it here.', 'Acceptable.'],
     escape: ['We will resume this later.', 'I will find you when you are tired.'],
@@ -146,14 +146,14 @@ const LINES = deepFreeze({
   zealous: {
     taunt_slew: ['The gods gave me your life once, {p}. They hunger again!', 'I offered your blood at the altar. It was not enough!', 'Your death was a prayer answered. Pray with me again!'],
     taunt_fled: ['I fled to seek a sign. You are the sign, {p}!', 'The Divines spared me so I could strike you down!', 'My wounds were a test. I have passed. Have you?'],
-    taunt_risen: ['I am reborn each time in holy fire!', 'The heavens will not let me die until you do!'],
+    taunt_risen: ['I am reborn each time in holy fire!', 'The heavens will not let me die until you do!', 'Every death of yours is a prayer answered, {p}!'],
     flee: ['The gods call me away!', 'This is not my appointed hour!'],
     cornered: ['Then I will die a martyr - and take you with me!', 'Witness my faith!'],
     escape: ['Fate binds us, {p}. We will meet again.', 'The heavens shelter the faithful!'],
     slain: ['Into the light... I go...', 'My gods... receive me...'],
     rise: ['You rise, {p}? The gods enjoy a long sacrifice.', "Pray, {p}. Pray I don't find you."],
     yield: ['I submit to the will of the gods... and to you.', 'If I am to die, let it be swift and holy.', 'The gods have humbled me. Judge me, {p}.'],
-    executed: ['The light... takes me...', 'I go to my reward!', 'Forgive them... not...'],
+    executed: ['The light... takes me...', 'I go to my reward!', 'My god... will not... forgive you...'],
     spared: ['Mercy! A sign from the heavens! I will follow you, {p}!', 'The gods have spared me through your hand. I am yours.', 'A miracle! My blade is consecrated to your cause!'],
     slip: ['The gods have opened a door! Farewell!', 'Your doubt is my deliverance!'],
     arrive: ['The faithful answer!', 'I come, as the gods command!'],
@@ -166,7 +166,7 @@ const LINES = deepFreeze({
   unhinged: {
     taunt_slew: ['Hee-hee! {p}! You died! I watched! Again, again!', "The voices said you'd come back! They're never wrong, {p}!", 'I kept your scream. In a jar. Want to hear it?'],
     taunt_fled: ["I ran! And ran! And ran! Now I'm here! Hello!", "Do you hear it, {p}? The buzzing? It's you. It's always been you.", 'I counted the stars while I healed. There were nine. NINE!'],
-    taunt_risen: ["We keep dying! Isn't it wonderful?", 'Over and over and over and OVER, {p}!'],
+    taunt_risen: ["We keep dying! Isn't it wonderful?", 'Over and over and over and OVER, {p}!', "I count your deaths in my sleep, {p}! I've run out of fingers!"],
     flee: ['Not yet! Not YET! Hahaha!', 'The walls are talking! I must go!'],
     cornered: ['Trapped! Like old times! Hahaha!', "Then we'll dance, {p}! DANCE!"],
     escape: ["Bye-bye! Don't forget me! You can't!", "I'll be in your dreams, {p}! Every night!"],
@@ -186,7 +186,7 @@ const LINES = deepFreeze({
   honourable: {
     taunt_slew: ['You fought well, {p}, and you fell well. Let us do it properly again.', 'I bear you no hatred. Only unfinished business.', 'Draw, {p}. Let the better blade decide.'],
     taunt_fled: ['I fled our duel, {p}. That shame ends today.', 'I owe you a fair fight. I have come to pay.', 'You gave me my scars honestly. I return them the same way.'],
-    taunt_risen: ['Each time we cross blades, you grow stronger. So do I.', 'No tricks, no ambush. Just steel, {p}.'],
+    taunt_risen: ['Each time we cross blades, you grow stronger. So do I.', 'No tricks, no ambush. Just steel, {p}.', 'Once more, {p}. I take no joy in it, but I will not hold back.'],
     flee: ['Forgive me - I must withdraw!', 'Another day, {p}!'],
     cornered: ['So be it. I face you with honour.', 'No more running. Have at you!'],
     escape: ['Live well until we meet again, {p}.', 'I will return when I am worthy.'],
@@ -206,7 +206,7 @@ const LINES = deepFreeze({
   craven: {
     taunt_slew: ['I-I killed you once! I can do it again! Probably!', 'Stay back! Remember what happened last time!', 'Ha! It\'s you! The one I... the one I beat! Yes!'],
     taunt_fled: ["I wasn't running! I was... getting help!", 'You again? I mean - you again! Fear me!', "I've brought friends this time! ...They're hiding."],
-    taunt_risen: ['I keep winning! So stop coming back!', 'Leave me alone! I mean - die!'],
+    taunt_risen: ['I keep winning! So stop coming back!', 'Leave me alone! I mean - die!', "I-I've beaten you before! I can do it again! ...Probably!"],
     flee: ['Run! RUN!', 'Not my face! Not my face!'],
     cornered: ["No! No! Fine - I'll bite!", "Keep away! I'm warning you!"],
     escape: ["Ha! Can't catch me! ...Please don't try.", "Safe! Safe! I'm safe!"],
@@ -226,7 +226,7 @@ const LINES = deepFreeze({
   weary: {
     taunt_slew: ['I took your life once, {p}. It brought me no peace.', 'Must we do this again? Yes... I suppose we must.', 'I have dreamt of your fall every night since.'],
     taunt_fled: ['I ran, and the running never ended. Let it end here.', 'My scars ache when you are near, {p}.', 'Old wounds, old grudges. Here we are.'],
-    taunt_risen: ['So many deaths. So much blood. Let this be the last.', 'I am so tired of killing you, {p}.'],
+    taunt_risen: ['So many deaths. So much blood. Let this be the last.', 'I am so tired of killing you, {p}.', 'Must we, {p}? I have buried you enough times already.'],
     flee: ['Not today... not today...', 'I have no more fight in me.'],
     cornered: ['Then let it be over.', 'So it ends here, then.'],
     escape: ['Another day of this. Another day.', 'We will meet again. We always do.'],
@@ -249,7 +249,7 @@ const LINES = deepFreeze({
 /** @type {Readonly<Record<VoiceEvent, string>>} */
 const BEAST = deepFreeze({
   taunt_slew: 'Circles you {manner}. It remembers the taste of you.',
-  taunt_fled: 'Circles you {manner}, scarred and patient. It knows your scent.',
+  taunt_fled: 'Circles you {manner}, scarred. It knows your scent.',
   taunt_risen: 'Stalks you {manner}. It has come back again, and again.',
   flee: 'Breaks and bolts {manner}!',
   cornered: 'Cornered, it turns on you {manner}.',
@@ -285,6 +285,9 @@ const BEASTS = new Set([0, 3, 4, 5, 6, 11, 20, 34, 40, 41]);   // rat, bat, bear
 const UNDEAD = new Set([15, 17, 18, 19, 23, 28, 30, 32, 33]);   // skeleton, zombie, ghost, mummy, wraith, vampires, liches
 const DAEDRA = new Set([1, 25, 26, 27, 29, 31, 35, 36, 37, 38]);   // imp, frost/fire daedra, daedroth, seducer, lord, atronachs
 const ORCISH = new Set([7, 12, 16, 21, 24]);   // orcs, the giant
+// AUDIT (2026-10-02): the kinds that never speak (systems/revenant.js revenantSpeaks) - beasts, and the mindless dead and
+// atronachs: a skeleton is never a wit nor a preacher, so it leans as a beast does
+export const MUTE_KINDS = Object.freeze(new Set([0, 3, 4, 5, 6, 11, 15, 17, 20, 34, 35, 36, 37, 38, 40, 41]));
 /** @type {Readonly<Record<string, readonly PersonalityId[]>>} */
 const LEANS = deepFreeze({
   beast: ['brutal', 'brutal', 'craven', 'humorous', 'cold', 'unhinged', 'weary', 'honourable'],
@@ -294,7 +297,7 @@ const LEANS = deepFreeze({
   other: ['brutal', 'witty', 'humorous', 'arrogant', 'unhinged', 'craven', 'honourable', 'weary', 'zealous'],
   person: PERSONALITY_IDS,
 });
-const leanOf = (mobileType) => (mobileType >= 128 ? 'person' : BEASTS.has(mobileType) ? 'beast' : UNDEAD.has(mobileType) ? 'undead'
+const leanOf = (mobileType) => (mobileType >= 128 ? 'person' : BEASTS.has(mobileType) || MUTE_KINDS.has(mobileType) ? 'beast' : UNDEAD.has(mobileType) ? 'undead'
   : DAEDRA.has(mobileType) ? 'daedra' : ORCISH.has(mobileType) ? 'orcish' : 'other');
 
 /** WHO IT IS: one personality per revenant id - the same on every read, every client and every load - leaning by kind.
@@ -307,7 +310,9 @@ export function personalityFor(id, mobileType) {
 export const personalityLabel = (id) => (isPersonality(id) ? PERSONALITIES[id].label : null);
 
 // ── what it says ────────────────────────────────────────────────────
-const fill = (s, p) => s.replace(/\{p\}/g, p);
+const fill = (s, p) => s.replace(/\{p\}/g, () => p);   // AUDIT (2026-10-02): a `$` in a typed name is a letter, never a pattern
+/** A name's possessive, one rule for every title ("Varis' Rod", "Grushnak's Shadow"). */
+export const possessive = (name) => `${name}${/s$/i.test(name) ? "'" : "'s"}`;
 /** Every line a personality has for a moment (the page's, the tests'). */
 export const voiceLines = (personality, event) => LINES[isPersonality(personality) ? personality : 'brutal']?.[event] ?? [];
 /**

@@ -305,6 +305,46 @@ just popping in and out."
 
 ## 15. Online (REVENANT-FATE)
 
-The choice is the owner's (a revenant is its character's memory). The foe record carries `yd` (kneeling) and `ex`
-(being executed), so every puppet kneels, and burns away, as its owner's does; the hover says it is beaten
-(`world152`, re-recorded).
+The choice is the owner's (a revenant is its character's memory). The foe record carries `yd` (kneeling), `ex`
+(being executed) and `sp` (spared, rising into its portal), so every puppet kneels, burns away and goes as its owner's
+does; the hover says it is beaten (`world152`, re-recorded). A foe adopted by a peer (the owner's death) stands as
+itself - its owner's judgement goes with the owner - and a foe mid-judgement is never handed over.
+
+## 16. The audit (2026-10-02, Mac: "Audit everything and ensure perfection")
+
+Five audits - the records and their words, the kill-or-spare flow, the sworn, the UI, the burn and the portals - and
+every finding fixed (`test/revenant_audit.test.js`, `tools/mutants/revenantaudit.json`):
+
+- **Records.** A judged revenant (executed, released, sworn) does no deed - its poison finishing the player after it
+  knelt raised it again under its own id, or ranked up a sworn companion. A kneeling one claims no kill and clears its
+  harm mark; a load, a new game and an answered death clear it too. The cap never buries one standing in the world, and
+  a forgotten id is never worn again. One standing as the save is made is left out of the street's save and comes due
+  again after `REVENANT_LOST_MINUTES` (a nameless copy stood beside it).
+- **A sworn one's pack is the save's.** The mirror outlives a load, but a pack is inventory: the save's copy says what
+  is in it (a load duplicated or lost items). A release hands the pack back - gold to the purse.
+- **Words.** The risen's tally taunt only with kills to count (two or more); a revenant's flight and cornering know the
+  player's name, and the cornered line says its words; a beast's moment keeps what the moment says (a spared beast
+  waiting away "fell in at your side"); a mute kind (a skeleton, a zombie, an atronach) leans as a beast does, never a
+  wit; a `$` in a name is a letter; every personality has three risen taunts; one possessive for every title
+  ("Varis' Shadow", "Varis' Rod").
+- **The fate.** The window holds the wait (the foes' clock runs under a window - WINFOE1 - so a revenant slipped away
+  behind its own choice); a choice on one gone is said. One held by its fate is no swing's, spell's or shaft's (its
+  poison, its drain, its training and a Wabbajack all landed). The execution is the player's blow (Renown past the
+  assist window) and takes the soul (the trap and Azura's Star). A flyer kneels on the ground and its pile lies there.
+  The executed hand their pack to the pile once. Underground, a foe gone with no body (fled, executed, sworn) is saved
+  bodiless (`noBody`) - a load laid its corpse, its pack lootable - and a same-dungeon load ends a judgement in flight.
+  The dungeon's hover says "beaten".
+- **The sworn.** Past the slots (a load standing the save's crew beside the mirror's sworn) the most lately sworn steps
+  away. A rest never reads longer than a rest (an older save's clock). A spared one's companion waits for its portal
+  (two of it stood for the oath's length). A fall, a sending-away, a release and a load end its member, and the spells
+  it wore with it. Opposite acts in one pause cancel their words; a load forgets the words owed.
+- **The UI.** Enter on a focused button is that button's; the window fits a phone (the rows had collapsed under the
+  confirm) and brings the confirm into view; the judgement opens in beast form; the Classic box keys short with its
+  details wrapped and a refused choice saying why; an armed Release never outlives the visit; Execute and Release are
+  edged in blood; the rows are cards, not presses; the trophy has its item card on the hover; the companion's bar is the
+  green it wears overhead, with its numbers.
+- **The burn and the portals.** The frame's reset sends the zero (the last burning flat's share stayed live in GL under
+  every flat after it - a dungeon's lone execution could take every flat away); no elite rim round a body dissolving;
+  the burst's red flash on the hit flash's own clock; a body more gone than whole casts no shadow; the lane's edge
+  decoded into its linear light; the portal's sound by its ID; the leave hand-offs wait for the foe loop (a splice under
+  it skipped a foe for a frame).

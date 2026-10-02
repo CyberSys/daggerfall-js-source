@@ -231,7 +231,9 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   // merged beside DW-F: the billboard block carries the water column's switch and sampler (two more)
   // PROF4 (bible/06-Systems/Professions-Arc.md 25): and the felled tree's tip, set standing (one more)
   // ELITE FOES: and a batch's glow (uEliteGlow, one more on the billboards' every call)
-  assert.deepEqual(counts, ['billboards 101 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
+  // DISSOLVE (the 2026-10-02 audit): and the burn, set whole (one more - a reset that sends nothing left the last burning
+  // flat's share live under every flat after it)
+  assert.deepEqual(counts, ['billboards 102 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);

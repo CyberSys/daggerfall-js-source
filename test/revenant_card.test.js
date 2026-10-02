@@ -205,7 +205,7 @@ test('REVENANT-CARD ENHANCED PLUS: the kit dresses it by role - a panel with an 
   assert.ok(FRAME_ROLES.well.includes('body .rvncard-face') && FRAME_ROLES.well.includes('.px-sys .rvn-face'));
   assert.ok(FRAME_ROLES.chip.includes('body .rvncard-rank') && FRAME_ROLES.chip.includes('.px-sys .rvn-rank'));
   assert.ok(FRAME_ROLES.headerRule.includes('body .rvncard-name'));
-  assert.ok(FRAME_ROLES.tile.includes('.px-sys .rvn-row'));
+  assert.ok(FRAME_ROLES.panel.includes('.px-sys .rvn-row') && !FRAME_ROLES.tile.includes('.px-sys .rvn-row'), 'a row is a card, never a press');
   assert.doesNotMatch(C.REVENANT_CARD_CSS.replace(/border-left-color: #[0-9a-f]+/g, ''), /background(-color)?:\s*#/i, 'no ground of its own - the theme\'s');
   const h = read('src/ui/hud.js');
   assert.match(h, /drawRevenantCards\(\{ hidden: cursorActive \|\| !hudRenderEnabled\(\), dt \}\);/);
@@ -309,7 +309,7 @@ test('REVENANT-DUNGEON, REVENANT-WIRE, the single-location host: a special foe o
   assert.equal(validFoeRecord({ ...base, nm: 7 }), null);
   const x = read('src/scenes/exteriorFoes.js');
   assert.match(x, /\.\.\.\(!onWatch && typeof f\.entity\?\.revenant\?\.name === 'string' && f\.entity\.revenant\.name \? \{ nm: /, 'the owner sends it');
-  assert.match(x, /\$\{r\.z \?\? 0\},\$\{r\.nm \?\? ''\}(?:,\$\{r\.yd \?\? 0\},\$\{r\.ex \?\? 0\})?`;/, 'a changed name is sent again (REVENANT-FATE: and a kneel or a burning begun)');
+  assert.match(x, /\$\{r\.z \?\? 0\},\$\{r\.nm \?\? ''\}(?:,\$\{r\.yd \?\? 0\},\$\{r\.ex \?\? 0\},\$\{r\.sp \?\? 0\})?`;/, 'a changed name is sent again (REVENANT-FATE: and a kneel, a burning or an oath begun)');
   assert.match(x, /if \(typeof r\.nm === 'string' && r\.nm && f\.entity\.revenant\?\.name !== r\.nm\) f\.entity\.revenant = \{ id: null, name: r\.nm, rank: 0 \};/, 'the puppet called so');
   // the single-location host
   const e = read('src/scenes/exterior.js');
@@ -340,7 +340,7 @@ test('REVENANT AAA: the one flee law - a roll once under the line, a run, an esc
   assert.equal(N.revenantFleeStep(foe(), [0, 0, 0], { rolls: () => 0, mayRun: false }), null, 'a room\'s shared foe never runs');
   assert.equal(N.revenantFleeStep(foe(), [0, 0, 0], { rolls: () => 0, onMe: () => false }), null, 'nor one fighting another');
   const cor = N.revenantCorneredEvent(orc(), 'Mighty Orc Warlord');
-  assert.equal(cor.kicker, 'Cornered'); assert.ok(cor.speech); assert.match(cor.line, /is cornered and turns to fight!$/);
+  assert.equal(cor.kicker, 'Cornered'); assert.ok(cor.speech); assert.match(cor.line, /is cornered and turns to fight! "[^"]+"$/, 'AUDIT (2026-10-02): and says its words on the text line too');
 });
 
 test('REVENANT AAA: a returning revenant is CLAIMED by the roll that stands it - no second copy while its stand loads; a stand that stood nobody frees it (mutants: no claim; the claim never freed)', () => {

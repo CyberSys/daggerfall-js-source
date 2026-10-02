@@ -391,8 +391,8 @@ import { createNavalCrew, CREW_RANGE, CREW_KEEP } from './navalCrew.js';   // LI
 import { asleepHour } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the crews' sleeping hours
 import { crewRoster, crewCount } from '../systems/naval/crewLife.js';
 import { createCrewAshore } from './crewAshore.js';   // CREW-COMPANIONS: the party ashore, stood in every place
-import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength } from '../systems/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
-import { registerCompanionCount, registerCompanionRoster } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
+import { revenantParty, setRetinuePlayer, setRetinueListener, setRetinueBodies, revenantsWithYou, isRevenantCompanionKey, revenantIdOfKey, applySwornStrength, sendRevenantAway, forgetSwornMember } from '../systems/revenantCompanions.js';   // REVENANT-COMPANION: the sworn, stood by the same layer
+import { registerCompanionCount, registerCompanionRoster, companionsWithYou, COMPANION_SLOTS } from '../systems/companionSlots.js';   // COMPANION-SLOTS: the crew's hands ashore counted with the sworn
 import { PERSONALITIES } from '../systems/revenantPersonality.js';   // REVENANT-COMPANION: the party card's word for one
 import { hullBuild } from '../systems/naval/navalShips.js';   // LIVING CREW: a room's boat's crew, her hull's own
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: the player's own crew, spared his blows and wearing their bars
@@ -6556,10 +6556,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pool = [exteriorFoes, modes?.interiorPool?.(), _dungeonPool()].find((p) => p?.fateFor && p.foes?.includes(rec)) ?? null;
     const model = pool?.fateFor(rec) ?? null;
     if (!model || !inventoryDoorReady()) return false;
+    // AUDIT (2026-10-02): a choice made on one gone (nothing can take it now - its wait holds under the window - but a
+    // choice is never silent): said
+    const choose = model.choose;
+    model.choose = (id) => { if (!model.live() || !choose(id)) townTalk.say(`${model.given ?? 'It'} is gone.`); };
     const w = makeInventoryWindow({ fate: model, loot: { items: () => [], playerOwned: false } });   // a body's door: the loot window, its fate side alone
     if (!w) return false;
     const mounted = !!modes?.mountWindow?.(w);
     if (!mounted) (w.dispose?.bind(w) ?? w._closeSilently?.bind(w))?.();   // a slot already held: the window built for it put away again
+    else if (rec.yielded) rec.yielded.judging = () => !w.done;   // AUDIT (2026-10-02): its wait holds while its choice stands open
     return mounted;
   };
   /** PROF-MENU: a profession node's acts as a list (ListPickerWindow: a tap, the pad or the mouse), where no plaque lists
@@ -7664,7 +7669,17 @@ export async function bootWorld(canvas, renderer, params, status) {
   // sending-away's and a release's are said as the layer's next frame takes the body out (the menu closed); the crew's
   // hands in the slots by name; a sworn one's live health off its body
   const _revenantDepartures = [];
-  setRetinueListener((kind, r) => { if (kind === 'arrive') noteRevenantArrival(r.id); else _revenantDepartures.push({ kind, r }); });
+  // AUDIT (2026-10-02): opposite acts in one pause cancel - a call after a sending-away (the body never left) says neither
+  // word, nor leaves an arrival waiting for the next door; a release carries its pack's count for its words
+  setRetinueListener((kind, r, extra) => {
+    const sentAt = _revenantDepartures.findIndex((d) => d.kind === 'dismiss' && d.r.id === r.id);
+    if (kind === 'arrive') { if (sentAt >= 0) _revenantDepartures.splice(sentAt, 1); else noteRevenantArrival(r.id); return; }
+    _revenantArrivals.delete(r.id);
+    _revenantDepartures.push({ kind, r, items: extra?.items ?? 0 });
+  });
+  /** AUDIT (2026-10-02): the sworn's layer lifted for a load - its bodies, the words still to say, and every member (so
+   *  no spell the last game's body wore stands with the loaded one). */
+  const clearSworn = () => { revenantAshore.clear(); _revenantArrivals.clear(); _revenantDepartures.length = 0; forgetSwornMember(); };
   setRetinueBodies((id) => revenantAshore.bodies().find((b) => b.revenantCompanion === id && !b.dead)?.entity ?? null);
   registerCompanionRoster('crew', () => (navalOn() ? (naval?.companions?.party ?? []).map((c) => ({ name: c.name, role: c.role })) : []));
   /** REVENANT-COMPANION: A SWORN ONE'S WORD IN A FIGHT, now and then and never a chatter - as it goes in (BARK_BATTLE), over
@@ -7747,7 +7762,18 @@ export async function bootWorld(canvas, renderer, params, status) {
   function revenantAshoreTick() {
     if (gamePaused()) return;   // the sworn wait out a window too (AUDIT CC-A10's law: no knock, no stand, no catch-up under one)
     try { revenantAshore.frame(); } catch (e) { console.warn('[companions] the sworn', e?.message ?? e); }
-    while (_revenantDepartures.length) { const d = _revenantDepartures.shift(); revenantSay(revenantMomentEvent(d.kind, d.r, playerEntity?.name), (l) => townTalk.say(l)); }   // COMPANION-ROSTER: its parting words, as it goes
+    while (_revenantDepartures.length) {   // COMPANION-ROSTER: its parting words, as it goes
+      const d = _revenantDepartures.shift();
+      const body = d.items ? `It hands you back its pack (${d.items === 1 ? 'one item' : `${d.items} items`}).` : null;
+      revenantSay(revenantMomentEvent(d.kind, d.r, playerEntity?.name, body ? { body } : {}), (l) => townTalk.say(l));
+    }
+    // AUDIT (2026-10-02): THE SLOTS HOLD. Every way in checks them, but a load stands the crew the save had ashore beside
+    // the sworn the mirror has with the player (and the naval arc switched back on counts its hands again): past the
+    // slots, the one most lately sworn steps away to wait
+    if (companionsWithYou() > COMPANION_SLOTS) {
+      const last = revenantsWithYou().sort((a, b) => (b.swornAt ?? 0) - (a.swornAt ?? 0))[0];
+      if (last && sendRevenantAway(last.id)) townTalk.say(`Your companions are full - ${last.name} steps away to wait.`);
+    }
     try { revenantCompanionBarks(); } catch { /* a bark is no frame's business */ }
   }
   /** CREW-COMPANIONS: a boat of mine's hands to take ashore (two at most) or send back aboard - a picker of her roster,
@@ -8807,7 +8833,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2876 mounts the same one, gated on
+  // and dungeonContext.js:2890 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6856
@@ -8905,7 +8931,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:573-578) never looks the record up in `foes`, and
+    // (exteriorFoes.js:574-579) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1629-1647) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -11426,7 +11452,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7930), so exterior mode and a
+    // composer, dungeonContext.js:7953), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -11559,7 +11585,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     travelOptions?.clearTravelDestination();
     if (worldTimeScale() !== 1) resetTimeScale();
     crewAshore.clear();   // AUDIT CC-A8: the party out of every pool before the save lands - a dungeon's patches its foes by number, and a companion in the list took another's record
-    revenantAshore.clear();   // REVENANT-COMPANION: the sworn too
+    clearSworn();   // REVENANT-COMPANION: the sworn too
     // AUDIT-MACL F2: THE LATCH GOES UP BEFORE THE FIRST AWAIT, and MAC-L4
     // is why it has to be said out loud. This guard and the latch below
     // it used to be separated by straight-line code alone - one
@@ -20883,7 +20909,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // CSA-J (the audit): the same-dungeon load's three doors - SaveLoadManager's OnStartLoad AHEAD of the save's player
     // (:1378, before the restore at :1497: Come Sail Away's StopSailing hands a lent ship back, and after the restore it
     // took the loaded character's own), the records, and OnLoad once the load has landed (:1554 - the boats' visibility)
-    modStartLoad: () => { crewAshore.clear(); revenantAshore.clear(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
+    modStartLoad: () => { crewAshore.clear(); clearSworn(); if (csaRuntime) csaCall(() => csaRuntime.OnStartLoad()); },   // AUDIT WK-P4: a same-dungeon load lifts the party first too, as worldQuickLoad does (AUDIT CC-A8)
     modSaveLoad: (modData) => { restoreModSaveRecords(modData, csaModLoadFailed); },   // WA1: ...and a same-dungeon load hands back
     modLoaded: () => { if (csaRuntime) csaCall(() => csaRuntime.OnLoad()); },
     // PX17c: the pause window's journal seams ride into the interior
@@ -25434,7 +25460,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // BowDamage's non-player arm. Both pools are candidates; the
       // shooter is excluded inside the flight module.
       foeTargets: [...[...exteriorFoes.foes, ...cityGuards.guards]
-        .filter((t) => !t.dead && t.ai).map((t) => ({ feet: t.ai.feet, ref: t })), ...duelArrowTargets()],   // DUEL1: and my duel opponent's body, while we fight
+        .filter((t) => !t.dead && t.ai && !t.yielded && !t.executing && !t.sparing).map((t) => ({ feet: t.ai.feet, ref: t })), ...duelArrowTargets()],   // DUEL1: and my duel opponent's body, while we fight
       onFoeHit: (m, t) => (t?.duel ? undefined : exteriorFoes.arrowHitFoe(m, t)),   // DUEL1: a foe's shaft stops on a duellist and deals them nothing
       // AUDIT 39 (#64): and the PLAYER's shaft lands too. It used to
       // fly, spend its Arrow and tally Archery against a guard or an

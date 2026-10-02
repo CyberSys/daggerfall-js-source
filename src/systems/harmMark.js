@@ -24,5 +24,10 @@ export function markPlayerHarm(entity, { ms = HARM_MARK_SPELL_MS, now = Date.now
 export function playerHarmMark(now = Date.now()) {
   return _mark && now <= _mark.until ? _mark.entity : null;
 }
+/** AUDIT (2026-10-02): the mark forgotten - a load, a new game, a death already answered, or (`entity` given) that foe
+ *  judged (a beaten revenant kneels: its harm is no one's death now). */
+export function clearPlayerHarm(entity = null) {
+  if (!entity || _mark?.entity === entity) _mark = null;
+}
 /** Tests only. */
 export function _resetHarmMarkForTests() { _mark = null; }

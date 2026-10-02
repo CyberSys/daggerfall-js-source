@@ -977,10 +977,11 @@ export function validFoeRecord(r) {
   // REVENANT-WIRE: `nm` its REVENANT's name, the owner's own (systems/revenant.js) - so every puppet is called what its owner
   // calls it; printable, bounded, absent for a foe that is none
   if (r.nm !== undefined) { if (typeof r.nm !== 'string' || !r.nm.length || r.nm.length > REVENANT_NAME_MAX || /[\u0000-\u001f\u007f]/.test(r.nm)) return null; out.nm = r.nm; }
-  // REVENANT-FATE: `yd` a beaten revenant kneeling (its fate its owner's to choose), `ex` one being executed - so every
-  // puppet kneels, and burns away, as its owner's does; 1 or absent
+  // REVENANT-FATE: `yd` a beaten revenant kneeling (its fate its owner's to choose), `ex` one being executed, `sp` one
+  // spared rising into its portal - so every puppet kneels, burns away and goes as its owner's does; 1 or absent
   if (r.yd !== undefined) { if (r.yd !== 1) return null; out.yd = 1; }
   if (r.ex !== undefined) { if (r.ex !== 1) return null; out.ex = 1; }
+  if (r.sp !== undefined) { if (r.sp !== 1) return null; out.sp = 1; }
   // AUDIT PSCALE1: `n` how many players fight the foe (systems/partyScale.js foeFighters) - 2..PARTY_MAX, absent for one
   if (r.n !== undefined) { if (!Number.isInteger(r.n) || r.n < 2 || r.n > PARTY_MAX) return null; out.n = r.n; }
   // AUDIT CONTRIB P1: `e` the HEIR - on a dying owner's last frame, the survivor that owner names to take this foe over

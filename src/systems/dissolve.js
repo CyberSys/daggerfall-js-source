@@ -17,11 +17,16 @@ export const DISSOLVE_ARCANE = Object.freeze([0.62, 0.4, 1.0]);
 /** Put a dissolve on a batch (null: whole). Written only when it changes, as the hit flash's. */
 export function setBatchDissolve(batch, share, colour = DISSOLVE_EMBER) {
   if (!batch) return;
-  if (!(share > 0)) { if (batch.dissolve) batch.dissolve = null; return; }
+  if (!(share > 0)) {
+    if (batch.dissolve) { if (batch.dissolve[4]) batch.noShadow = undefined; batch.dissolve = null; }
+    return;
+  }
   const s = Math.min(1, share);
-  const d = batch.dissolve;
-  if (d && d[0] === s && d[1] === colour[0] && d[2] === colour[1] && d[3] === colour[2]) return;
-  batch.dissolve = [s, colour[0], colour[1], colour[2]];
+  const d = batch.dissolve ?? (batch.dissolve = [0, 0, 0, 0, 0]);
+  // AUDIT (2026-10-02): more gone than whole, it casts no shadow - the shadow replays cut by the texture's alpha alone,
+  // so a body burnt away (or not yet through its portal) kept its whole shadow. [4] says the dissolve took it.
+  if (s > 0.5) { if (!batch.noShadow) { batch.noShadow = true; d[4] = 1; } } else if (d[4]) { batch.noShadow = undefined; d[4] = 0; }
+  d[0] = s; d[1] = colour[0]; d[2] = colour[1]; d[3] = colour[2];   // in place: a frame's burn allocates nothing
 }
 
 /** The GLSL: `dissolveCut(uv)` the grain's threshold test (discard where gone), `dissolveEdge(uv)` how much of the edge
@@ -40,7 +45,7 @@ float dissolveEdge(vec2 uv) {
   float k = 1.0 - smoothstep(0.0, 0.09, dissolveGrain(uv) - dissolveCutAt(uDissolve.x));
   return k * min(1.0, uDissolve.x * 8.0);
 }
-vec3 dissolveLit(vec3 lit, vec2 uv) {
+vec3 dissolveLit(vec3 lit, vec2 uv, vec3 edge) {   // edge: uDissolve.yzw in the program's own light (the lane's decoded)
   float k = dissolveEdge(uv);
-  return k > 0.0 ? mix(lit, uDissolve.yzw * 1.6, k) : lit;
+  return k > 0.0 ? mix(lit, edge * 1.6, k) : lit;
 }`;
