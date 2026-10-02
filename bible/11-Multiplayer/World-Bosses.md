@@ -1626,6 +1626,21 @@ the Covenant, the faithful and their rite, the Warden, why the doors close, the 
   handed over: *"A Mages Guild courier finds you: 'On the Burning Doors', with the Guild's compliments."* Once a
   character (its save's own record, as the Broker's and the codex's are).
 
+**As built (WB12c):**
+- `systems/portBooks.js` writes the book into the BOK format's bytes:
+  - the title in the large face a title page sets (FONT0004) and the conjurer centred on the first page, then one
+    page per section, its head centred over its paragraph;
+  - its price is 463, the classic law for its title, worked out without moving the classic generator.
+- The text is the appendix below, word for word, and a pin holds the two together.
+- The one door (`ui/bookDoor.js`) reads a port book with no file asked for. It hands the reader over a microtask
+  later, as a fetched file lands, so the pack has closed first.
+- The shops' book draw and the library shelves' include it (1 in 93, as any book). Houses, dungeon loot, biographies
+  and quests keep the classic draw.
+- `systems/breachBook.js` gives it with the first ember through the breach's spoils (the court's floor, a receipt
+  outside it, or the crash's records), with the courier's line in chat. A town's thanks don't bring it. A character
+  who closed breaches before this gets it with their next ember.
+- Pinned in `test/wb12c_burning_doors.test.js` (7); mutants in `tools/mutants/wb12c.json` (19).
+
 ### D. The faithful's rite (WB12d)
 
 **The site.** Each breach's faithful work their rite in a circle **90-180 m from where the breach will stand** -
@@ -2494,3 +2509,10 @@ developed"*):
 - The Slam, the Leap and the Nova recover longer, in a spent pose.
 - world141 re-hashed in place. The brain's law stays 5.
 - Pins `test/wb13f_rhythm.test.js` (5), with WB4 re-pinned; mutants `tools/mutants/wb13f.json` (14).
+
+**WB12c (2026-10-02) - On the Burning Doors.** Section 19 above:
+- The Mages Guild's account of the breaches, the port's first book of its own (id 417), in the classic format.
+- Sold by booksellers, general stores and pawnshops, and found on library shelves, at the odds of any other book.
+- A character's first Deadlands Ember brings a copy by courier.
+- No relay or account change.
+- Pins `test/wb12c_burning_doors.test.js` (7); mutants `tools/mutants/wb12c.json` (19).

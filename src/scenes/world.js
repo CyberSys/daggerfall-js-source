@@ -227,6 +227,7 @@ import { createDeadlandsAir } from './deadlandsAir.js';   // WB6b: and their air
 import { createGateVeil } from '../ui/gateVeil.js';   // WB6c: the step through the gate - a vortex of fire in and out
 import { gateScoreSongs, createCourtScore, GATE_SONGS, SCORE_SILENCE } from '../systems/gateScore.js';   // WB7: the Warden's score - the court's own music
 import { createSpoilsPool, spoilsStore, recoverSpoils, spoilsLevel, SPOILS_TEXT } from './spoilsPool.js';
+import { breachBookFor, BREACH_BOOK_TEXT } from '../systems/breachBook.js';   // WB12c: the first ember brings the Guild's book
 import { bossPlace } from '../world/gateBoss.js';   // AUDIT WBX F3: where he fell - a charge's head, a leap's flight - frozen by the link's fold   // WB5: a fallen boss's spoils, spewed, glowing and taken
 import { itemIconColor32 } from '../ui/itemIconColor32.js';   // WBX3: a spoil's own picture on the court's floor
 import { setCourtRules } from '../systems/courtRules.js';   // WBX6: the court's laws, switched by the frame
@@ -16544,6 +16545,12 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** WB5: a spoil into the pack - the gold to the purse, an item to the items (the one door the spew, the gather and
    *  a crash's recovery all take). */
   const takeSpoil = (p) => { if (p.kind === 'gold') addGoldPieces(playerEntity, p.gold); else if (p.item) addItem(playerEntity.items, p.item); };
+  /** WB12c: a breach's spoil into the pack - and the first ember brings On the Burning Doors (systems/breachBook.js). */
+  const takeGateSpoil = (p) => {
+    takeSpoil(p);
+    const book = p.kind === 'item' ? breachBookFor(p.item) : null;
+    if (book) { addItem(playerEntity.items, book); chatNotice(BREACH_BOOK_TEXT); }
+  };
   /** WB5: THE SPOILS ON THE COURT'S FLOOR (scenes/spoilsPool.js) - this player's alone, off their receipt's seed.
    *  AUDIT WBX2 M1: made online or not - it is also the keeper of the crash's records, which a save that lands clears
    *  (AUDIT WBX S3), and the crash's door hands a record back offline too: made online alone, a boot offline gave the same
@@ -16552,7 +16559,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, gl: renderer.gl, getTexture, uploadRecordFrame, audio,
     ray: (from, dir, len) => { const c = modes?.dungeonCtx?.collider; const h = c?.raycastHit ? c.raycastHit(from, dir, len) : { dist: c?.raycast?.(from, dir, len) ?? Infinity, normal: null }; return Number.isFinite(h?.dist) ? h : null; },
     now: () => Date.now() + _sharedOffsetMs,
-    take: takeSpoil,
+    take: takeGateSpoil,
     say: (text) => setMidScreenText(text),
     store: _spoilsStore,
     who: () => characterIdOf(playerEntity),
@@ -16636,7 +16643,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const who = characterIdOf(playerEntity);
     if (who === _spoilsAskedFor) return;
     _spoilsAskedFor = who;
-    try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec), inSave: _spoilsInSave })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
+    try { if (recoverSpoils(_spoilsStore, takeGateSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec), inSave: _spoilsInSave })) setMidScreenText(SPOILS_TEXT.gathered); } catch (e) { console.warn('[gate] spoils', e?.message ?? e); }   // AUDIT WBX S3: in the pack now - the next save clears it
     try { if (recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => raidSpoils.adopt(rec), key: RAID_SPOILS_KEYS.store, inSave: _spoilsInSave })) setMidScreenText(RAID_SPOILS_TEXT.recovered); } catch (e) { console.warn('[raid] spoils', e?.message ?? e); }   // RAID4b: a town's thanks, the same door
     _spoilsInSave = null;   // AUDIT RESCUE-SAVE A1: the boot's load alone - a load in the session is its own pack
   };

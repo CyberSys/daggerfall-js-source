@@ -156,8 +156,8 @@
   {
     "name": "AUDWB-A6-two-stores",
     "file": "src/scenes/world.js",
-    "old": "recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
-    "new": "recoverSpoils(spoilsStore(appStorage()), takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
+    "old": "recoverSpoils(_spoilsStore, takeGateSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
+    "new": "recoverSpoils(spoilsStore(appStorage()), takeGateSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
     "tests": [
       "test/auditwb_spoils.test.js"
     ],

@@ -42,7 +42,7 @@ import { rand } from '../formats/dfRandom.js';   // F209: StockHouseContainer's 
 import { randomMaterial, randomArmorMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { groupTemplates, GROUP_TEMPLATE_INDICES, itemBaseValue, ITEM_TEMPLATES, mintCondition, rollPaintingMessage, setItemFields, templateByIndex, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from './itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
 import { customItemsForGroup } from './itemTemplates.js';   // AUDIT-RR F3: GetCustomItemsForGroup - the shelf's second loop (DaggerfallLoot.cs:255-287); FORAGE1: every mod's, from its one home
-import { createRandomBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
+import { createRandomBook, createShelfBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
 import { isLeather, isPlate } from './armorMaterials.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -296,7 +296,8 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
         // the 4 Books enum names - then `value = bookFile.Price`. A2:
         // that last term is what made the bookseller sell every title
         // at the template's flat 2500 instead of its own 300..800.
-        add(createRandomBook(rolls));
+        // WB12c: the shelf's draw - the port's own books among the classic ones
+        add(createShelfBook(rolls));
       }
       continue;
     }
