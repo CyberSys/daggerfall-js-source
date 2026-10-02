@@ -31,9 +31,10 @@ const warmedBy = (s, word) => !!s.warmed && (word === 'cold' || word === 'freezi
 /** NEED-TIER (2026-10-02, Mac: "the debuffs you get from Climates and Calories no longer show the severity (how much
  *  hunger your character has etc)"): a felt need's stage on its own ladder - read off the chips' table, mildest first;
  *  the temperature's two ways each a ladder of their own - so the tile's foot can say "2/3" where its word has no room. */
+const COLD_WORDS = Object.freeze(['cold', 'freezing', 'deadly cold']);   // AUDIT NEED-TIER: the cold way named, not the table's second half by place
 const NEED_LADDERS = Object.freeze({
   hunger: Object.keys(HUD_NEED_WORDS.hunger), thirst: Object.keys(HUD_NEED_WORDS.thirst), sleep: Object.keys(HUD_NEED_WORDS.sleep), wet: Object.keys(HUD_NEED_WORDS.wet),
-  warm: Object.keys(HUD_NEED_WORDS.temp).slice(0, 3), cold: Object.keys(HUD_NEED_WORDS.temp).slice(3),
+  warm: Object.keys(HUD_NEED_WORDS.temp).filter((w) => !COLD_WORDS.includes(w)), cold: COLD_WORDS,
 });
 const needLadder = (key, stage) => (key === 'temp' ? (NEED_LADDERS.cold.includes(stage) ? NEED_LADDERS.cold : NEED_LADDERS.warm) : NEED_LADDERS[key]);
 

@@ -28,6 +28,7 @@ import { conditionBasedPricesOn, randomConditionLootItems } from '../systems/rri
 import { isHumanoid } from '../systems/survival/loot.js';   // MOD: the same humanoid test SURV2's corpse food already draws its line with
 import { rollCorpseLoot, lootRarityOn, rarityRank, RARITIES, rarityEligible, applyRarity, lastPass } from '../systems/lootRarity.js';   // RF2: and the port's, after it; LOOT7: a champion's guarantee
 import { championOf } from '../systems/champions.js';   // LOOT7: the champions' traits register at import
+import { isGoldPieces } from '../systems/inventory.js';   // PLAIN-LOOT: a plain foe's gold all of it
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../systems/statMods.js';   // RF2: the player's live luck for the roll   // AUDIT 58: ItemHelper's EquipItem half - a foe's equip table is what DamageEquipment's struck side reads
 import { GLOBAL_SCALE } from '../world/meshReader.js';
 import { swingSoundFor, hitSoundFor, ENEMY_HIT_VOLUME } from '../systems/soundClips.js';
@@ -109,18 +110,23 @@ export const hasBowAttack = (basics) =>
  *  affinity Human - so an Orc or a Knight is cut and a Zombie or a
  *  Daedra Lord is not. */
 const HUMANOID_LOOT_ITEM_SCALE = 0.25;   // MOD: keep a quarter of the item chance (drop 75%)
-/** MOD (Mac, 2026-10-02: "reduce the loot dropped by non elite enemies by 50%"): a foe that is no elite keeps HALF its
- *  item chance - the loot-table roll and the worn kit both, over the humanoid cut; gold untouched, as that cut leaves it.
- *  "Elite" is any of the three: an ELITE FOE (`eliteFoe`), an Elite Dungeon's foe (`elite`), a LOOT7 champion. */
-const PLAIN_FOE_LOOT_ITEM_SCALE = 0.5;
+/** PLAIN-LOOT (Mac, 2026-10-02: "reduce the loot dropped by non elite enemies by 50%"): a foe that is no elite leaves
+ *  HALF of what it carries - every piece the chain put on its body (the table's, the worn kit's droppable cut, the trio
+ *  and the port's extras) kept on its own coin, after the humanoid cut; its gold all of it, as that cut leaves it.
+ *  A coin per piece and not a scale on the table's chance (AUDIT PLAIN-LOOT): DFU's ladder halves its chance at every
+ *  step and rolls it truncated to whole percent, so a scaled chance compounded down the ladder and a 1-3% one fell to
+ *  0 - the scale had kept 33-50% of the table, and nothing of a level-1 humanoid's. "Elite" is any of the three: an
+ *  ELITE FOE (`eliteFoe`), an Elite Dungeon's foe (`elite`), a LOOT7 champion. */
+const PLAIN_FOE_LOOT_KEEP = 0.5;
 const eliteLooted = (entity) => !!(entity?.eliteFoe || entity?.elite || championOf(entity));
 // ELITE: `lootDropMult` scales every item category's chance (gold untouched, as the humanoid cut);
 // `lootQualityMult` scales the rarity ladder's odds. Both 1 everywhere but an elite dungeon.
 export function spawnEnemyLoot(entity, mobileType, basics, player, { rolls = Math.random, lootDropMult = 1, lootQualityMult = 1, where = null } = {}) {
-  const itemChanceScale = (isHumanoid(entity) ? HUMANOID_LOOT_ITEM_SCALE : 1) * (eliteLooted(entity) ? 1 : PLAIN_FOE_LOOT_ITEM_SCALE) * lootDropMult;
+  const itemChanceScale = (isHumanoid(entity) ? HUMANOID_LOOT_ITEM_SCALE : 1) * lootDropMult;
   entity.items = generateItems(enemyLootTableKey(mobileType, basics?.lootTableKey ?? '-'), { level: effectiveLevel(player), gender: player.gender }, undefined, { itemChanceScale, mobileType });
   const eq = equipEnemy(entity, mobileType, effectiveLevel(player), rolls, { player });   // SOFTCAP2: a mentor's foes carry the GROUP's loot and gear
   addEnemyLootExtras(entity.items, basics, rolls);
+  if (!eliteLooted(entity)) entity.items = entity.items.filter((it) => isGoldPieces(it) || rolls() < PLAIN_FOE_LOOT_KEEP);   // PLAIN-LOOT: half of it, on the host's stream as the kit's cut is
   // RRI2: EnemyEntity.OnLootSpawned (EnemyEntity.cs:399) fires here, after
   // the trio and with the kit already in Items - the mod's
   // RandomConditionEnemyItems (RoleplayRealismItemsMod.cs:222-245) wears
@@ -193,8 +199,7 @@ export function equipEnemy(entity, mobileType, playerLevel, rolls = Math.random,
   const all = equipmentItems(eq);   // everything AddItem put in Items - RRI2: an assigner's unequipped sidearm and arrow pile ride here too
   const worn = eq.worn ?? all;
   eq.worn = worn;
-  const kept = isHumanoid(entity) ? all.filter(() => rolls() < HUMANOID_LOOT_ITEM_SCALE) : all;
-  const droppable = eliteLooted(entity) ? kept : kept.filter(() => rolls() < PLAIN_FOE_LOOT_ITEM_SCALE);   // MOD: a plain foe leaves half of that
+  const droppable = isHumanoid(entity) ? all.filter(() => rolls() < HUMANOID_LOOT_ITEM_SCALE) : all;
   entity.items.push(...droppable);
   // AUDIT 58: AND IT PUTS THEM ON. ItemHelper.cs:1382/:1392/:1400 and
   // :1421-1450 pair every roll with

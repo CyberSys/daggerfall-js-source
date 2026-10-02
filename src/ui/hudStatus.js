@@ -247,7 +247,7 @@ export function statusTiles({ spells = [], powers = [], afflictions = [], needs 
   for (const a of afflictions) tile({ key: a.key, kind: 'debuff', name: a.name, glyph: a.glyph });
   // NEED-TIER: and how bad, at its foot ("2/3" - Hungry of Peckish, Hungry, Starving), as a spell's rounds are: the glyph
   // is one picture for every stage and the name goes where there is no room, so the foot is what says it there
-  for (const c of needs) tile({ key: `need:${c.key}`, kind: c.level === 'danger' ? 'danger' : 'warn', name: String(c.text ?? ''), glyph: needGlyph(c), foot: c.tier > 0 && c.of > 1 ? `${c.tier}/${c.of}` : null });
+  for (const c of needs) tile({ key: `need:${c.key}`, kind: c.level === 'danger' ? 'danger' : 'warn', name: String(c.text ?? ''), glyph: needGlyph(c), foot: c.tier ? `${c.tier}/${c.of}` : null });
   return out;
 }
 
