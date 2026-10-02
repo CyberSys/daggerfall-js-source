@@ -265,8 +265,8 @@
   {
     "name": "SEAT2b2-turning-no-shrine-standing",
     "file": "server-account/src/seatTurning.js",
-    "old": "shrine: shrineStanding((await fortTiersOf(db, key, atS)).shrine ?? 0),",
-    "new": "shrine: 0,",
+    "old": "return { shrine: shrineStanding(f.shrine ?? 0), titheCap:",
+    "new": "return { shrine: 0, titheCap:",
     "tests": [
       "test/seat2b_peace_service.test.js"
     ]

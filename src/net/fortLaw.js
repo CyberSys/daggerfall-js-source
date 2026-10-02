@@ -64,9 +64,13 @@ export const fortTierRow = (id, t) => (Number.isSafeInteger(t) && t >= 1 ? fortW
  * town is coastal and its Walls' tier now. A Gatehouse at a crown, or at a palace whose Walls stand at tier 3; a
  * Harbour at a coastal seat; the rest anywhere.
  */
+/** AUDIT SEATS-2 L5: the Apothecary's steps wait on Alchemy's, Cooking's and Jewelcrafting's stations - until they stand
+ *  it is raised by no one (a holder's Drakes and stone paid for nothing). */
+export const APOTHECARY_OPEN = false;
 export function fortMayRaise(id, seat) {
   const w = fortWork(id);
   if (!w) return false;
+  if (id === 'apothecary' && !APOTHECARY_OPEN) return false;
   if (w.where === 'gate') return seat?.tier === 'crown' || (seat?.tier === 'palace' && Number(seat?.walls ?? 0) >= 3);
   if (w.where === 'coast') return !!seat?.coastal;
   return true;
@@ -247,11 +251,13 @@ export const FORT_EFFECT_WORDS = Object.freeze({
  * "Walls: tier 1 - the defenders' wave 3 s faster. Raising tier 2: 320 Cut Stone, 200 Iron Ingots still wanted." -
  * `nameOf` a material's name for a count, `whenOf` a moment's words (ms).
  */
-export function fortWorkLine(id, w, { nameOf = (k, n) => `${k}`, whenOf = (ms) => new Date(ms).toISOString() } = {}) {
+export function fortWorkLine(id, w, { nameOf = (k, n) => `${k}`, whenOf = (ms) => new Date(ms).toISOString(), seatTier = null } = {}) {
   const work = fortWork(id);
   if (!work) return '';
   const t = Math.max(0, Number(w?.tier ?? 0) || 0);
-  const head = t > 0 ? `${work.name}: tier ${t} - ${FORT_EFFECT_WORDS[id](t)}.` : `${work.name}: none raised.`;
+  // AUDIT SEATS-2 L3 (6.2: "a crown's Gatehouse stands from the first"): a crown's stands at tier 0, its vitality said
+  const head = t > 0 ? `${work.name}: tier ${t} - ${FORT_EFFECT_WORDS[id](t)}.`
+    : id === 'gatehouse' && seatTier === 'crown' ? `${work.name}: standing - ${FORT_EFFECT_WORDS.gatehouse(0)}.` : `${work.name}: none raised.`;
   if (w?.building == null) return head;
   if (w.standsAt != null) return `${head} Tier ${w.building} stands ${whenOf(Number(w.standsAt) * 1000)}.`;
   const held = new Map(w.held ?? []);

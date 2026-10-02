@@ -396,8 +396,8 @@
  {
   "name": "SEAT2a-svc-unbound",
   "file": "server-account/src/seatBattles.js",
-  "old": "    if (then !== me.guild_id) return { error: 'sign-unbound' };\n",
-  "new": "",
+  "old": "    if (then !== me.guild_id && b.kind !== 'revolt') return { error: 'sign-unbound' };",
+  "new": "    if (false) return { error: 'sign-unbound' };",
   "tests": [
    "test/seat2a_service.test.js"
   ]

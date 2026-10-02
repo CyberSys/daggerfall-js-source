@@ -41,7 +41,7 @@ import { windowOf } from './seatBattles.js';   // SEAT2a: the holder's window, f
 import { royalTurning } from './seatRoyal.js';   // CROWN1 part two: a Royal Tourney's champion named
 import { incursionStatements } from './seatIncursion.js';   // AUDIT-SEATS: a Daedric Incursion's Marks
 import { fortsSeasonStatements, campsSpent, fortTiersOf } from './seatForts.js';   // SEAT2b: a Season's wear, the Siege Camps spent; part two: a holder's Shrine
-import { shrineStanding } from '../../src/net/fortLaw.js';   // SEAT2b part two (7.5): the Shrine's Standing a week
+import { shrineStanding, marketHallTitheCap } from '../../src/net/fortLaw.js';   // SEAT2b part two (7.5): the Shrine's Standing a week
 import { swordsSettled } from './seatSiege.js';   // AUDIT-SEATS S3: a void battle's Sellsword escrow home
 import { gameDayAt, gateTimes } from '../../src/net/gateLaw.js';
 import { guildActorOf } from './guilds.js';
@@ -49,7 +49,7 @@ import { mustChange } from './realm.js';
 import { utcDay } from '../../src/net/marksLaw.js';
 import { GUILD_RANK_MASTER } from '../../src/net/guildLaw.js';
 import { seatWeekOf, seatWeekStartMs, seatKeyOk, turningPlan, seatGlyphsOf, seatTitleOf, SEAT_WEEK_MS, STANDING_START, placeBattles, atSiegeWindow, CROWN_SEAT_REGIONS, conscriptionDue,
-  fealtyReckoning, fealtyTribute, seasonEndingAt, seasonStanding, seasonTitles, seasonOf, seasonRibbons, keptWholeSeason } from '../../src/net/townSeatLaw.js';
+  fealtyReckoning, fealtyTribute, TITHE_CAP, seasonEndingAt, seasonStanding, seasonTitles, seasonOf, seasonRibbons, keptWholeSeason } from '../../src/net/townSeatLaw.js';
 import { tideAt } from '../../src/net/tideLaw.js';   // SEASON1 part two: the Tides
 import { MARKS_MAX } from '../../src/net/marksLaw.js';
 
@@ -189,7 +189,7 @@ export async function settleWeek(db, week, nowS, zero = null) {
         // (a Festival's cost)
         tide: tideAt(week, seat.region, counted), tideNext: tideAt(next, seat.region, !!seasonOf(next, zero)),
         // SEAT2b part two (7.5: "Standing +1 a week" a tier): the Shrine standing at the Turning's clock (its due raised first)
-        shrine: shrineStanding((await fortTiersOf(db, key, atS)).shrine ?? 0),
+        ...(await (async () => { const f = await fortTiersOf(db, key, atS); return { shrine: shrineStanding(f.shrine ?? 0), titheCap: marketHallTitheCap(TITHE_CAP[h.tier] ?? 0, f.market ?? 0) }; })()),   // AUDIT SEATS-2 L1: and the Market Hall's Tithe cap, Standing's measure
         revolted: revolted.has(key),   // SEAT2b part two (c)
       };
     }

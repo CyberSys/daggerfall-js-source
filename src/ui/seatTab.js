@@ -20,7 +20,7 @@ import {
   seatInfoLine, seatWeekLine, seatStandingLine, seatNoStandingsLine, seatMineLines, seatTributeLine, seatMay,
   SEAT_PLEDGE_WORDS, SEAT_PLEDGE_REGIONS_MAX, TRIBUTE_MARKS_PER_INFLUENCE,
   seatHolderLine, seatBattleLine, seatClaimLine, chronicleLine, SEAT_RELINQUISH_WORDS,
-  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, TITHE_CAP, SEAT_LEVER_RANKS, BOUNTY_MARKS,
+  seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, seatTitheCap, SEAT_LEVER_RANKS, BOUNTY_MARKS,
   politicsRows, POLITICS_ACTS, seasonLine, guildWords,
   sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
 } from '../net/townSeatLaw.js';
@@ -161,7 +161,7 @@ export function createSeatTab(host, ui) {
   function holdingNode(h) {
     const out = el('div', 'notice-seat-levers');
     const busy = ui.busy();
-    const cap = TITHE_CAP[seat.tier] ?? 0;
+    const cap = seatTitheCap(seat);   // AUDIT SEATS-2 L1: the Market Hall's point a tier, as the service's titheCapAt
     if (h.titheWeek !== data.week) {
       const n = /** @type {HTMLInputElement} */ (el('input', 'notice-input notice-seat-tithe'));
       n.type = 'number'; n.min = '0'; n.max = String(cap); n.step = '1';

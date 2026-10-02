@@ -21,7 +21,7 @@ import { KINGDOMS, MARCHES, kingdomOf, isMarch, isFreeLand } from './kingdomLaw.
 import { TIDE_EFFECTS } from './tideLaw.js';   // SEASON1 part two: the Tides' numbers (9.3)
 import { HERALDRY_COLOURS } from './heraldryLaw.js';
 import { marksText } from './marksLaw.js';   // AUDIT-SEATS L7: "1,200 Drakes"
-import { fortWork, revoltDue, REVOLT } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle; part two (c): a seat at Standing 0 revolts
+import { fortWork, revoltDue, REVOLT, marketHallTitheCap } from './fortLaw.js';   // SEAT2b: a work's name in the Chronicle; part two (c): a seat at Standing 0 revolts
 
 /** A heraldry colour key's hex (heraldryLaw.js's palette), or null. */
 const heraldryHex = (key) => HERALDRY_COLOURS.find((c) => c.key === key)?.hex ?? null;
@@ -533,7 +533,7 @@ export function turningPlan({ week, seats, treasuries, active = CROWN_SCALE.per 
     }
     const unchallenged = !seatTaken.has(s.key);
     const w = standingWeek({
-      tier: s.tier, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
+      tier: s.tier, titheCap: s.holder.titheCap ?? null, standing: s.holder.standing, tithe: s.holder.tithe ?? 0, watched: s.holder.watched ?? true, gates: s.holder.gates ?? 0,
       writs: s.holder.writs ?? 0, unchallenged, upkeep: stateOf.get(s.key), edict: law, conscripted: !!s.holder.conscripted, brokeFealty: !!s.holder.brokeFealty,
       tide: s.holder.tide ?? 'calm', shrine: s.holder.shrine ?? 0,   // SEAT2b part two: the Shrine's Standing
     });
@@ -825,9 +825,9 @@ export const UNREST_BONUS = 0.25;
 export const seatInUnrest = (standing) => standing != null && standing < STANDING_UNREST;
 /** A challenger's influence at a seat in Unrest - the holder's own never rises. */
 export const unrestInfluence = (influence, standing) => (seatInUnrest(standing) ? Math.floor(Math.max(0, influence) * (1 + UNREST_BONUS) + 1e-9) : influence);
-/** The Tithe's rows: at or below half its cap +2 a week, above three quarters of it -3. */
-export function titheStanding(tier, pct) {
-  const cap = TITHE_CAP[tier] ?? 0;
+/** The Tithe's rows: at or below half its cap +2 a week, above three quarters of it -3. AUDIT SEATS-2 L1: its cap the
+ *  seat's own (`cap` - a Market Hall's point a tier, seatTitheCap), else the tier's. */
+export function titheStanding(tier, pct, cap = TITHE_CAP[tier] ?? 0) {
   if (pct <= cap / 2) return STANDING_CHANGES.titheLow;
   if (pct > (cap * 3) / 4) return STANDING_CHANGES.titheHigh;
   return 0;
@@ -901,10 +901,10 @@ export const SEAT_HALL_TEXT = Object.freeze({
  * fealty at this Turning (7.8). SEAT2b part two: `shrine` the Shrine's row (7.5: "Standing +1 a week" a tier - fortLaw.js
  * shrineStanding of its tier, the caller's: this law reads no works).
  */
-export function standingWeek({ tier, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm', shrine = 0 }) {
+export function standingWeek({ tier, titheCap = null, standing, tithe = 0, watched = true, gates = 0, writs = 0, unchallenged = false, upkeep = 'paid', edict = null, conscripted = false, brokeFealty = false, tide = 'calm', shrine = 0 }) {
   const changes = [];
   const add = (row, d) => { if (d) changes.push([row, d]); };
-  const t = titheStanding(tier, tithe);
+  const t = titheCap == null ? titheStanding(tier, tithe) : titheStanding(tier, tithe, titheCap);   // AUDIT SEATS-2 L1: the Market Hall's cap
   add(t > 0 ? 'titheLow' : 'titheHigh', t);
   if (unchallenged) add('unchallenged', STANDING_CHANGES.unchallenged);
   add('gate', Math.min(STANDING_CHANGES.gateWeekMax, STANDING_CHANGES.gate * Math.max(0, gates)));
@@ -933,7 +933,7 @@ export const EDICT_WORDS = Object.freeze({
   curfew: 'The guards are stronger at night and every crime costs twice the reputation. Standing -2.',
   festival: 'Music and banners; everyone in the town is Festive, +5 to every attribute for a day. Standing +10.',
   levy: 'A tenth of what is gathered near the town goes to its stockpile. Standing -2.',
-  bounty: 'Camps in the region yield double, and the treasury pays 20 Drakes a camp cleared, from what is set aside.',
+  bounty: 'Camps near the town yield double, and the treasury pays 20 Drakes a camp cleared, from what is set aside.',
   conscription: 'The kingdom\'s palace seats held by other guilds pay the crown 2% of their week\'s Tithe, a March\'s 1%. Standing -5 at every seat that pays.',
   'royal-tourney': 'A duel ladder all week at the castle\'s square, every blow refereed; the week\'s champion takes the prize and the title Champion of the kingdom for good.',
 });
@@ -949,11 +949,14 @@ export function edictLine(edict, tier, tide = 'calm') {   // SEASON1 part two: `
  * (`{ standing, tithe, edict, next, upkeep, owed }`): the Edict proclaimed for next week, Unrest's cost, the upkeep the
  * Turning will ask, and Neglect's debt. (The Tithe and this week's Edict are everyone's - seatRuleLine.)
  */
+/** AUDIT SEATS-2 L1 (7.5: "the Tithe's cap +1%" a Market Hall tier): a held seat's Tithe cap, its works as the seats'
+ *  list dresses them (`forts.market`) - the service's titheCapAt, read on the client. */
+export const seatTitheCap = (seat) => marketHallTitheCap(TITHE_CAP[seat?.tier] ?? 0, seat?.forts?.market ?? 0);
 export function seatHoldingLines(seat, h) {
   if (!h) return [];
   const out = [h.next ? `Proclaimed for next week: ${EDICTS[h.next]?.name ?? h.next}.` : 'No Edict is proclaimed for next week.'];
   if (seatInUnrest(h.standing)) out.push(`Unrest: challengers earn a quarter more influence at ${seat.name}.`);
-  out.push(`Upkeep at the Turning: ${Number(h.upkeep ?? 0).toLocaleString('en-US')} Drakes from the treasury (the Tithe at most ${TITHE_CAP[seat.tier]}%).`);
+  out.push(`Upkeep at the Turning: ${Number(h.upkeep ?? 0).toLocaleString('en-US')} Drakes from the treasury (the Tithe at most ${seatTitheCap(seat)}%).`);
   if (h.owed > 0) out.push(`Neglect: ${Number(h.owed).toLocaleString('en-US')} Drakes of upkeep are owed with it, or the Charter lapses.`);
   return out;
 }

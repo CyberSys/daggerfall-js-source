@@ -55,7 +55,7 @@ export function drawSeatWorks(host, { forts, seat, port = false, lever = false, 
   for (const w of FORT_WORKS) {
     const row = works[w.id] ?? { tier: 0, building: null };
     if (!row.tier && row.building == null && !fortMayRaise(w.id, { tier: seat.tier, coastal: port, walls })) continue;
-    const li = el('p', 'notice-seat-works-line', fortWorkLine(w.id, row, { nameOf, ...(whenOf ? { whenOf } : {}) }));
+    const li = el('p', 'notice-seat-works-line', fortWorkLine(w.id, row, { nameOf, seatTier: seat.tier, ...(whenOf ? { whenOf } : {}) }));
     box.append(li);
     const next = Number(row.tier ?? 0) + 1;
     if (lever && row.building == null && next <= fortMaxTier(w.id) && fortMayRaise(w.id, { tier: seat.tier, coastal: port, walls })) {

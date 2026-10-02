@@ -55,7 +55,7 @@ export async function setWindow({ db, nowS }, player, env, { character, key, day
   // Turning"): the Reckoning locks the window as it locks the pledges, so the window the Turning freezes is the one the
   // challengers saw standing all through it
   if (seatPhaseOf(nowS * 1000) !== 'muster') return { error: 'window-reckoning' };
-  if (await overRate({ db, nowS }, `seat-lever:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };
+  if (await overRate({ db, nowS }, `seat-window:${player.id}`, SEAT_EDICTS_HOUR, 3600)) return { error: 'seats-rate' };   // AUDIT SEATS-2 L6 (Appendix B: "windows 5, edicts 5"): the window's own five
   const r = await db.prepare(`INSERT INTO town_seat_windows (key, guild_id, day, hour, set_by, at)
     SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE EXISTS (SELECT 1 FROM town_seat_holds WHERE key = ?1 AND guild_id = ?2)
       AND EXISTS (SELECT 1 FROM guild_members WHERE rowid = ?7 AND guild_id = ?2 AND rank IN (${LEVERS_SQL}))
@@ -110,7 +110,7 @@ export async function signBattle({ db, nowS }, player, env, { character, key } =
     const turningS = Math.floor(seatWeekStartMs(week) / 1000);
     if (Number(me.joined_at) > turningS - SEAT_MEMBER_WAIT_S) return { error: 'sign-new-member' };
     const then = (await db.prepare('SELECT guild_id FROM town_seat_binds WHERE week = ? AND account = ?').bind(week - 1, player.id).first())?.guild_id ?? null;
-    if (then !== me.guild_id) return { error: 'sign-unbound' };
+    if (then !== me.guild_id && b.kind !== 'revolt') return { error: 'sign-unbound' };   // AUDIT SEATS-2 L2: a revolt won no Right - its week asks no bind (7.7)
     if (bound != null && bound !== me.guild_id) return { error: 'sign-bound-elsewhere' };
     const r = await db.prepare(`INSERT INTO town_seat_rosters (week, key, account, char_id, guild_id, side, sellsword, fee, at)
       SELECT ?1, ?2, ?3, ?4, ?5, ?6, 0, 0, ?7

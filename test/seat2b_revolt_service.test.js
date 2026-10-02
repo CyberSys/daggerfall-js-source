@@ -99,3 +99,16 @@ test('SEAT2b part two (c) A REVOLT NOBODY PUT DOWN: no result by the next Turnin
   assert.ok(!s.history().includes('siege-void'));
   assert.equal(s.battle().state, 'void');
 });
+
+test('AUDIT SEATS-2 L2: a revolt won no Right - a holder\'s member of seven days signs to defend it with no bind in the week before (a town that rose for its holder\'s absence), where a siege still asks one (mutant: the revolt asked the Right\'s bind)', async (t) => {
+  const s = await revoltWeek(t);
+  s.raw.prepare('DELETE FROM town_seat_binds WHERE account = ?').run(s.d1.id);
+  const r = await s.call('/v1/seats/siege/sign', { character: s.d1.character, key: ANTICLERE.key }, s.d1);
+  assert.deepEqual(r.body, { ok: true, side: 'defend', sellsword: false }, JSON.stringify(r.body));
+  // the same member at a siege: the Right's week's bind still asked
+  s.raw.prepare('DELETE FROM town_seat_rosters').run();
+  s.raw.prepare('DELETE FROM town_seat_binds WHERE account = ?').run(s.d1.id);
+  s.raw.prepare("UPDATE town_seat_battles SET kind = 'siege', attacker = ? WHERE key = ?").run(s.gid, ANTICLERE.key);
+  s.raw.prepare("UPDATE town_seat_battles SET defender = 'other-guild' WHERE key = ?").run(ANTICLERE.key);
+  assert.equal((await s.call('/v1/seats/siege/sign', { character: s.d1.character, key: ANTICLERE.key }, s.d1)).body.error, 'sign-unbound');
+});
