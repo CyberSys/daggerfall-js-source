@@ -54,12 +54,13 @@ test('CLIMB-HANDS looking away: past LOOK_FROM_DEG both fists drop out and the r
   const right = settle(new ClimbHands(), hang(), { yaw: 85 * DEG });
   assert.ok(right.reach, 'turned right: the reach');
   assert.deepEqual([right.reach.side, right.reach.flip], ['R', false]);
-  assert.ok(right.reach.x >= 0 && right.reach.x + right.reach.w <= NATIVE_W / 2, 'looked right: the whole arm in the LEFT half, reaching across (Mac: "look left and right are on the wrong side of the screen")');
+  assert.ok(right.reach.x >= 0 && right.reach.x < 10 && right.reach.x + right.reach.w / 2 < NATIVE_W / 2, 'looked right: at the LEFT edge, reaching across (Mac: "look left and right are on the wrong side of the screen")');
+  assert.equal(right.reach.w, 190, 'the size it was drawn at before (Mac: "they need to be the originasl size")');
   assert.ok(Math.abs(right.reach.w / right.reach.h - REACH_ART.w / REACH_ART.h) < 1e-9);
   assert.equal(right.grips.length, 0, 'the angled arm alone - no fist (Mac: "Only use the angled arm")');
   const left = settle(new ClimbHands(), hang(), { yaw: -85 * DEG });
   assert.deepEqual([left.reach.side, left.reach.flip], ['L', true], 'turned left: mirrored');
-  assert.ok(left.reach.x >= NATIVE_W / 2 && left.reach.x + left.reach.w <= NATIVE_W, 'looked left: the whole arm in the right half');
+  assert.ok(left.reach.x + left.reach.w <= NATIVE_W && left.reach.x + left.reach.w > NATIVE_W - 10 && left.reach.x + left.reach.w / 2 > NATIVE_W / 2, 'looked left: at the right edge');
   assert.equal(left.grips.length, 0);
   // on the free climb too, and a move in flight keeps the hold's hands
   assert.ok(settle(new ClimbHands(), climb(), { yaw: 90 * DEG }).reach);
