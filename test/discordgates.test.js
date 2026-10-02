@@ -269,7 +269,7 @@ test('DISCORD-GATES relay: NO WEBHOOK, NO HERALD - nothing posted, no owe, the s
       const a = await join('a');
       assert.equal(r.alarm.at, now() - 10 + ACCOUNT_SWEEP_MS, 'the sweep\'s, untouched');
       await site(a, DAY, 100, 200, 'Copperham');
-      assert.deepEqual(r.store.get('gatesite'), { d: DAY, c: [[100, 200, 'Copperham', ['acct-peer-a']]] }, 'kept for the rite');
+      assert.deepEqual(r.store.get('gatesite'), { d: DAY, c: [[100, 200, 'Copperham', ['acct-a']]] }, 'kept for the rite');   // PIN MOVED (the merge with main's FRIENDS-SYNC): the hub's account is the signed-in player's, never the browser profile's
       set(TT.omenAt); await r.fire();
       set(TT.openAt + 1000); await fell(DAY, ['Ann'], 1); await r.fire();
       assert.equal(r.store.has('herald'), false);
