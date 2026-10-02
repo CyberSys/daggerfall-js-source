@@ -399,6 +399,7 @@ import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';  
 import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
 import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
+import { laneNetwork, laneWay, packetsAt, LANE_MAX_PX, LANE_PATH_PX } from '../systems/naval/seaLanes.js';   // SEA-LANES: the Bay's packets
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
 import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
@@ -6726,7 +6727,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (!csaIsPortTown(p.x + dx, p.y + dy)) continue;
         const summary = travelLocationSummaryAt(mapDict, p.x + dx, p.y + dy);
         const loc = summary ? maps.getLocation(summary.regionIndex, summary.locationIndex ?? summary.mapIndex) : null;
-        if (loc?.exterior?.exteriorData) town = { id: summary.id, loc, x: p.x + dx, y: p.y + dy };
+        if (loc?.exterior?.exteriorData) town = { id: summary.id, loc, x: p.x + dx, y: p.y + dy, name: maps.getRegion(summary.regionIndex)?.mapNames?.[summary.mapIndex] ?? null };
       }
       _navalHarbourAt = { key, town };
     }
@@ -6734,7 +6735,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!t) return null;
     const r = locationWorldRect(t.loc, t.x, t.y);
     const [ax, az] = state.localFromWorld(r.minX, r.minZ), [bx, bz] = state.localFromWorld(r.maxX, r.maxZ);
-    return { key: `port:${t.id}`, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };
+    return { key: `port:${t.id}`, name: t.name, rect: { minX: Math.min(ax, bx), maxX: Math.max(ax, bx), minZ: Math.min(az, bz), maxZ: Math.max(az, bz) } };   // SHIP-TAGS: her name, the words a ship bound there is read by
   };
   /** DECK-WALK: a point in a hull's deck frame (her mesh node's, systems/naval/navalDeck.js) to the world, where her
    *  node stands, rolls and pitches now - and back; into `out` when given. */
@@ -7063,6 +7064,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (on !== _navalWasOn) { _navalWasOn = on; naval.setEnabled(on); if (!on) { navalFlames.clear(); closeNavalPlunder(); closeNavalYard(); drawNavalHud(null); drawNavalTags([]); } }
     if (!on) return;
     if (csa.seaBoats.length || csaRuntime.isSailing()) installNavalSounds(audio);   // once: the first sea (the loader keeps its promise)
+    if (_mode() === 'exterior' && !gamePaused() && !_loading) laneShips();   // SEA-LANES: the Bay's packets about the player, stood and steered before the frame poses them
     naval.frame(dt * worldTimeScale(), { paused: gamePaused() || _loading, outdoors: _mode() === 'exterior', brace: csaRuntime.isSailing() && (held(keys, 'Crouch') || navalTouchBrace()) });   // the brace: ducking behind the rail - the Crouch action at the helm (AUDIT NAV1: or the plate's Brace under a finger)
     // AUDIT NAV1 (the frame's cost, #12): the sea's ships stand in the world's collider where this frame posed them - the
     // sync in the mod's own step runs before the sea's, so their decks and hulls stood a frame behind the hulls drawn;
@@ -21876,6 +21878,53 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       tvRaid.chase.delete(id); seaRaidSpend(id);   // OW6: spent, and said to the others
       if (step.state === 'contact') raidContact();
     }
+  }
+  // ── SEA-LANES (2026-10-02, Mac: "ships should be more persistant and actively engage with multiple docks and multiple
+  // pathways around daggerfall"): THE BAY'S PACKETS (systems/naval/seaLanes.js) - the lanes between the map's ports, a
+  // lane's packets where the shared clock puts them, handed to the naval host each LANE_LIST_MS within LANE_LIST_M of the
+  // player; it stands and steers them (scenes/navalHost.js liners).
+  const LANE_LIST_MS = 2000, LANE_LIST_M = 1600;
+  let _laneAt = -Infinity, _laneNet = null;
+  const _laneWays = new Map();
+  /** A map pixel of the open sea - the ocean's water, never a lake's - the lanes' and the roadsteads' water. */
+  const laneOpen = (px, py) => px >= 0 && py >= 0 && px < 1000 && py < 500 && tvWater(px, py) && maps.getClimateIndex(px, py) === CLIMATES.Ocean;
+  const laneOpenNative = (x, z) => { if (!(x >= 0 && z >= 0 && x < 1000 * RAID_NATIVE_PIXEL && z < 500 * RAID_NATIVE_PIXEL)) return false; const p = pixelOfNative(x, z); return laneOpen(p.x, p.y); };
+  /** The lanes of the whole map - every client's the same - made once. */
+  function laneNet() {
+    if (!_laneNet) {
+      const ports = [];
+      for (const id of new Set(PORT_LOCATION_IDS)) {
+        const summary = mapDict?.get(id & 0x000fffff);
+        if (!summary) continue;
+        const at = getPixelFromPixelID(summary.id);
+        ports.push({ id: summary.id, name: maps.getRegion(summary.regionIndex)?.mapNames?.[summary.mapIndex] ?? null, px: at.x, py: at.y });
+      }
+      _laneNet = laneNetwork(ports, laneOpen);
+    }
+    return _laneNet;
+  }
+  function laneShips() {
+    const t = performance.now();
+    if (t - _laneAt < LANE_LIST_MS || !naval?.enabled || !mapDict) return;
+    _laneAt = t;
+    const here = playerTravelPixel(), feet = player.feetAt(), ms = raidNowMs();
+    const list = [];
+    for (const lane of laneNet()) {
+      const near = (p) => Math.hypot(p.road.x - here.x, p.road.y - here.y) <= LANE_PATH_PX / 2 + 2;
+      if (!near(lane.a) && !near(lane.b) && Math.hypot((lane.a.road.x + lane.b.road.x) / 2 - here.x, (lane.a.road.y + lane.b.road.y) / 2 - here.y) > LANE_MAX_PX) continue;
+      let way = _laneWays.get(lane.key);
+      if (way === undefined) { way = laneWay(lane, laneOpen, laneOpenNative); _laneWays.set(lane.key, way); }
+      if (!way) continue;
+      for (const p of packetsAt(lane, way, ms)) {
+        const [x, z] = state.localFromWorld(p.at.x, p.at.z);
+        if (Math.hypot(x - feet[0], z - feet[2]) > LANE_LIST_M) continue;
+        const [ax, az] = state.localFromWorld(p.ahead.x, p.ahead.z);
+        const [dx, dz] = state.localFromWorld(p.at.x + p.dir.x, p.at.z + p.dir.z);
+        list.push({ id: p.id, seed: p.seed, classId: p.cls.id, phase: p.phase, pos: [x, 0, z], ahead: [ax, 0, az], yaw: Math.atan2(dx - x, dz - z),
+          port: p.port ? { key: `port:${p.port.id}`, name: p.port.name } : null, to: p.to?.name ?? null, from: p.from?.name ?? null, until: p.until });
+      }
+    }
+    naval.liners(list, { now: ms / 1000 });
   }
   /** NAV-R: the naval host stands the raiders - the sea fight on and Warm Ashes' raiders sailing. */
   const navalRaidersOn = () => navalOn() && !!naval?.enabled && warmAshesOn();

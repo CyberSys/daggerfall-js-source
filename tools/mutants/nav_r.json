@@ -137,8 +137,8 @@
   {
     "name": "NAV-R-the-director-takes-her",
     "file": "src/scenes/navalHost.js",
-    "old": "boarding?.shipId === e.id || !!e.raider || !!e.takenBy",
-    "new": "boarding?.shipId === e.id || !!e.takenBy",
+    "old": "boarding?.shipId === e.id || !!e.raider || !!e.liner || !!e.takenBy",
+    "new": "boarding?.shipId === e.id || !!e.liner || !!e.takenBy",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]

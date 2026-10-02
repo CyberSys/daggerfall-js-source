@@ -218,19 +218,21 @@
   {
     "name": "NAVP-letgo-drops-at-once",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;\n    else drop(e);\n",
+    "old": "    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;\n    else if (e.ship.damage.state === SHIP_STATES.afloat) retire(e);   // SHIP-FADE: out of her stander's word, she fades as theirs did\n    else drop(e);\n",
     "new": "    drop(e);\n",
     "tests": [
-      "test/navaudit_presentation.test.js"
+      "test/navaudit_presentation.test.js",
+      "test/shipfade.test.js"
     ]
   },
   {
     "name": "NAVP-letgo-keeps-afloat",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;\n    else drop(e);\n",
+    "old": "    if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;\n    else if (e.ship.damage.state === SHIP_STATES.afloat) retire(e);   // SHIP-FADE: out of her stander's word, she fades as theirs did\n    else drop(e);\n",
     "new": "    e.lost = true;\n",
     "tests": [
-      "test/navaudit_presentation.test.js"
+      "test/navaudit_presentation.test.js",
+      "test/shipfade.test.js"
     ]
   },
   {
@@ -1079,10 +1081,11 @@
   {
     "name": "NAVP-tags-hostile-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "hostile: s.damage.state === SHIP_STATES.afloat && hostile(s, me, law),",
-    "new": "hostile: s.damage.state === SHIP_STATES.afloat,",
+    "old": "    const isHostile = afloat && hostile(s, me, law);",
+    "new": "    const isHostile = afloat;",
     "tests": [
-      "test/navaudit_presentation.test.js"
+      "test/navaudit_presentation.test.js",
+      "test/shipstance.test.js"
     ]
   },
   {

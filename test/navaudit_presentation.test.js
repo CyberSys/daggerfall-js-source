@@ -183,7 +183,7 @@ test('AUDIT NAV1 (the presentation) ONLINE: a ship another player stands goes do
   o.host.applyWord('a-player', peerWord(WIRE_CLASS.pirateBrig), (p) => p);
   o.run(0.3);
   o.host.applyWord('a-player', { s: [], v: [], b: [] }, (p) => p);
-  assert.equal(o.host._sea.has('a-player:4'), false, 'an afloat ship out of the word goes');
+  assert.equal(o.host._sea.get('a-player:4')?.retiring, true, 'an afloat ship out of the word goes - fading as she does on her stander\'s screen (SHIP-FADE, 2026-10-02: PIN MOVED)');
   o.host.applyWord('a-player', peerWord(WIRE_CLASS.pirateBrig, 2, 0), (p) => p);
   o.run(1);
   o.host.clearPeers();

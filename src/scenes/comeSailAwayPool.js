@@ -106,6 +106,8 @@ export function lanternLightUpdate(light, { dt, cityLightsOn, playerPosition }) 
   }
 }
 
+/** SHIP-FADE: under this share of a fading ship, her flats (her crew, her lanterns) stand down. */
+export const FADE_FLATS = 0.5;
 /** AUDIT NAV1 (the frame's cost, #13): a boat's mesh narrower on the screen than this (pixels, its sphere's width at the
  *  drawing buffer's height) is not drawn. */
 export const CULL_DETAIL_PX = 1;
@@ -378,6 +380,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function syncFlats() {
     const seen = new Set();
     for (const boat of drawn()) {
+      if ((boat.fade ?? 1) < FADE_FLATS) continue;   // SHIP-FADE: a ship half faded stands no flat - her crew and lanterns go first
       const { nodes, mats } = walkOf(boat);   // AUDIT PRE-MERGE 0928 R5
       for (let i = 0; i < nodes.length; i++) {
         const n = nodes[i], m = mats[i];
@@ -438,6 +441,11 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       r.drawMesh(gpu, m, texRemap); n++;
     };
     for (const boat of drawn()) {
+      // SHIP-FADE (2026-10-02): a ship fading in or out of the world draws her share of her fragments (the renderer's
+      // dissolve), put back whole after her; one faded away draws nothing
+      const fade = Math.max(0, Math.min(1, boat.fade ?? 1));
+      if (fade <= 0) continue;
+      if (fade < 1) r.setDissolve?.(fade);
       const { nodes, mats } = walkOf(boat);   // AUDIT PRE-MERGE 0928 R5
       const still = [];   // AUDIT NAV1 (#13): this frame's parts that hang in her hull's frame
       for (let i = 0; i < nodes.length; i++) {
@@ -465,6 +473,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       const frame = batch ? nodeMats.get(boat.MeshObject) : null;
       if (batch && frame) one(batch.mesh, frame);
       for (const c of still) if (!batch || !frame || !batch.nodes.has(c.node)) one(c.gpu, c.m);
+      if (fade < 1) r.setDissolve?.(1);
     }
     return n;
   }

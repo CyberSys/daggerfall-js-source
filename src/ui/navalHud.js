@@ -355,6 +355,7 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-card.navy .dfnaval-card-name { color: #f1d0c6; }
 .dfnaval-card.merchant .dfnaval-card-name { color: #f6e3a6; }
 .dfnaval-card.hostile .dfnaval-card-name { color: #ffb4a6; }
+.dfnaval-card.friendly .dfnaval-track.hull .dfnaval-fill { background: linear-gradient(180deg, #b9f0c4 0 2px, #5fc27c 2px 4px, #2f9152 4px 8px, #216b3b 8px 10px, #134526 10px); }
 .dfnaval-card-sub { margin: 2px 0 6px; font-size: 11px; letter-spacing: 0.05em; color: #c9bfa4; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-card .dfnaval-track { margin: 0 8px 4px; height: 10px; }
 .dfnaval-card .dfnaval-track.sail { height: 5px; }
@@ -382,6 +383,8 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-card-state { min-height: 14px; margin-top: 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-card-state.board { color: ${T.gold}; }
 .dfnaval-card-state.sinking { color: #ff8a76; }
+.dfnaval-card-state.friendly { color: #9fe0a8; }
+.dfnaval-card-state.hostile { color: #ff9c8a; }
 .dfnaval-hud.aside .dfnaval-card { top: auto; left: auto; right: var(--nc-card-right, ${18 + NAVAL_PLATE_W + PLATE_GAP}px); bottom: var(--nc-foot, ${NAVAL_PLATE_BOTTOM}px);
   transform: scale(var(--hud-scale, 1)); transform-origin: 100% 100%; box-sizing: border-box; width: 300px; max-width: var(--nc-card-max, 300px); padding: 4px 10px 5px; }
 .dfnaval-hud.touch.aside .dfnaval-card { right: calc(var(--nc-card-right, ${18 + NAVAL_PLATE_W + PLATE_GAP}px) + env(safe-area-inset-right, 0px));
@@ -420,6 +423,11 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-tag-bar { position: relative; width: ${NAVAL_TAG_BAR_W}px; height: 4px; background: #140d0a; box-shadow: 0 0 0 1px #050608; }
 .dfnaval-tag-bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #f2a597 0 1px, #b53a2e 1px); }
 .dfnaval-tag.target .dfnaval-tag-bar { box-shadow: 0 0 0 1px #050608, 0 0 0 2px ${T.brassHi}; }
+.dfnaval-tag.friendly .dfnaval-tag-bar > i { background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
+.dfnaval-tag-line { font-size: 9px; letter-spacing: 0.06em; color: #c9bfa4; text-shadow: ${OUTLINED}; }
+.dfnaval-tag-line:empty { display: none; }
+.dfnaval-tag.friendly .dfnaval-tag-line { color: #bfe6c3; }
+.dfnaval-tag.hostile .dfnaval-tag-line { color: #f0b9ae; }
 .dfnaval-tag-state { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-tag-state:empty { display: none; }
 .dfnaval-crew { position: absolute; left: 0; top: 0; width: ${CREW_BAR_W}px; height: 4px; background: #0b1409; box-shadow: 0 0 0 1px #050608;
@@ -496,7 +504,9 @@ function cardState(t, board, key) {
     if (mine && board.kind === 'heave') return { text: board.heaving ? 'Colours struck - heaving to' : `Colours struck - ${key}: heave to`, kind: 'board' };
     return { text: 'Colours struck', kind: '' };
   }
-  return { text: t.hostile ? 'Hostile' : '', kind: '' };
+  // SHIP-STANCE, SHIP-TAGS: how she stands to me, and where she is bound
+  const stance = t.hostile ? 'Hostile' : t.friendly ? 'Friendly' : '';
+  return { text: [stance, t.bound].filter(Boolean).join(' - '), kind: t.hostile ? 'hostile' : t.friendly ? 'friendly' : '' };
 }
 
 /**
@@ -543,7 +553,7 @@ export function navalHudText(model, keys = {}, { touch = false } = {}) {
   const t = model.target;
   const st = t ? cardState(t, model.board, boardKey) : null;
   const card = t ? {
-    id: t.id ?? t.name, name: t.name, faction: t.faction, hostile: !!t.hostile,
+    id: t.id ?? t.name, name: t.name, faction: t.faction, hostile: !!t.hostile, friendly: !!t.friendly && !t.hostile,
     sub: [t.classLine, t.captain ? `Captain ${t.captain}` : null, `${t.distance} m`].filter(Boolean).join(' - '),
     hull: pct(t.hull), sail: t.sail == null ? null : pct(t.sail),
     state: st.text, stateKind: st.kind,
@@ -874,7 +884,7 @@ export function drawNavalHud(model, { covered = false, doc = globalThis.document
     setVar('--nc-card-scale', aside ? '' : String(Math.round(kc * 1000) / 1000));
     const hit = t.card ? cardLoss(t.card, dt) : '';
     if (!t.card) { for (const x of parts.cardChunks) stowChunk(x); loss = null; }
-    cls('cardc', parts.card, t.card ? `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}${hit}` : 'dfnaval-card fight');
+    cls('cardc', parts.card, t.card ? `dfnaval-card ${t.card.faction}${t.card.hostile ? ' hostile' : ''}${t.card.friendly ? ' friendly' : ''}${hit}` : 'dfnaval-card fight');
     put('cardn', parts.cardName, c.name);
     put('cards', parts.cardSub, c.sub);
     show('cardhull', parts.cardHull, !!t.card);
@@ -896,6 +906,14 @@ let tagSlots = [];
 export function tagState(t) {
   return t.state === 'afloat' && !t.boarded ? '' : cardState(t, null, '').text;
 }
+/** SHIP-TAGS (2026-10-02, Mac: "Improve the enemy and friendly UI substationally"): a tag's second line within
+ *  TAG_DETAIL_M of the eye - her class (a crown's ship by her crown) and where she is bound - and none past it, where a
+ *  name and a bar are what can be read. */
+export const TAG_DETAIL_M = 400;
+export function tagLine(t) {
+  if (!((t.distance ?? Infinity) <= TAG_DETAIL_M)) return '';
+  return [t.line, t.bound].filter(Boolean).join(' - ');
+}
 /** A tag's opacity by her distance: whole to `from` (TAG_FADE_FROM), TAG_FADE_TO at the tags' `reach`. */
 export const tagAlpha = (d, reach, from = TAG_FADE_FROM) => 1 - (1 - TAG_FADE_TO) * Math.max(0, Math.min(1, ((d ?? 0) - from) / Math.max(1, reach - from)));
 /**
@@ -915,11 +933,11 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
   }
   while (tagSlots.length < want.length) {
     const n = el(doc, 'div', 'dfnaval-tag');
-    const name = el(doc, 'span', 'dfnaval-tag-name'), bar = el(doc, 'span', 'dfnaval-tag-bar'), fill = el(doc, 'i'), state = el(doc, 'span', 'dfnaval-tag-state');
+    const name = el(doc, 'span', 'dfnaval-tag-name'), line = el(doc, 'span', 'dfnaval-tag-line'), bar = el(doc, 'span', 'dfnaval-tag-bar'), fill = el(doc, 'i'), state = el(doc, 'span', 'dfnaval-tag-state');
     bar.append(fill);
-    n.append(name, bar, state);
+    n.append(name, line, bar, state);
     tagRoot.append(n);
-    tagSlots.push({ n, name, fill, state, k: {} });
+    tagSlots.push({ n, name, line, fill, state, k: {} });
   }
   tagSlots.forEach((slot, i) => {
     const t = want[i];
@@ -927,12 +945,13 @@ export function drawNavalTags(points, { covered = false, doc = globalThis.docume
     if (slot.k.on !== on) { slot.k.on = on; slot.n.style.display = on ? '' : 'none'; }
     if (!t) return;
     const set = (key, v, write) => { if (slot.k[key] !== v) { slot.k[key] = v; write(v); } };
-    set('cls', `dfnaval-tag ${t.faction}${t.hostile ? ' hostile' : ''}${t.target ? ' target' : ''}`, (v) => { slot.n.className = v; });
+    set('cls', `dfnaval-tag ${t.faction}${t.hostile ? ' hostile' : ''}${t.friendly && !t.hostile ? ' friendly' : ''}${t.target ? ' target' : ''}`, (v) => { slot.n.className = v; });
     set('name', t.name, (v) => { slot.name.textContent = v; });
+    set('line', tagLine(t), (v) => { slot.line.textContent = v; });
     set('hull', pct(t.hull), (v) => { slot.fill.style.width = `${v}%`; });
     set('state', tagState(t), (v) => { slot.state.textContent = v; });
     set('at', `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) scale(${scale}) translate(-50%, -100%)`, (v) => { slot.n.style.transform = v; });
-    set('a', String(Math.round(tagAlpha(t.distance, reach) * 100) / 100), (v) => { slot.n.style.opacity = v; });
+    set('a', String(Math.round(tagAlpha(t.distance, reach) * Math.max(0, Math.min(1, t.fade ?? 1)) * 100) / 100), (v) => { slot.n.style.opacity = v; });   // SHIP-FADE: with her
   });
 }
 

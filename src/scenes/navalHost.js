@@ -98,6 +98,22 @@ export const HARBOUR_LEAVE = 2600;
 export const HARBOUR_ROLL = Object.freeze([2, 4]);
 export const HARBOUR_NAVY = 0.25;
 export const HARBOUR_SALT = 0x4a7b;
+/** SHIP-FADE (2026-10-02, Mac: "Ships should just disappear into the void. If theyre going out to open sea, they should
+ *  fade away"): the seconds a ship takes to come into the world (every ship stood) and to leave it - one let go by her
+ *  range (the director's, a raider sailing on, a harbour left behind, a lane's packet sailing out of sight, a peer's
+ *  ship out of their word), never one sunk, taken or handed over: she dissolves as she sails on, and is gone when she
+ *  has. One of mine fired on as she fades comes about and stays (she fights). */
+export const SHIP_FADE_S = 4;
+/** SEA-LANES (2026-10-02, Mac: "ships should be more persistant and actively engage with multiple docks and multiple
+ *  pathways around daggerfall"): a lane's packet within LINER_STAND_M of the player is stood (systems/naval/seaLanes.js,
+ *  the world's feed), and let go past LINER_DROP_M; at most LINERS_MAX under way by the Ships at sea (few, some, many) -
+ *  one lying in a harbour I know stands while a berth is free, as the harbour's own do. */
+export const LINER_STAND_M = 1200;
+export const LINER_DROP_M = 1700;
+export const LINERS_MAX = Object.freeze({ 0: 0, 1: 1, 2: 2, 4: 3 });
+/** SEA-LANES: a packet come within this of her lane's place ahead, or past it, along her lane (she outsails her
+ *  schedule) steers on along her lane, twice this beyond herself - never back for it. */
+export const LINER_AHEAD_M = 150;
 /** AUDIT SHIP-LIFE B3: the level a harbour's ships are drawn at - the port's, never a player's (two players' levels
  *  drew two fleets into one port's berths). */
 export const HARBOUR_LEVEL = 10;
@@ -1065,7 +1081,7 @@ export function createNavalHost(deps) {
     const num = n ?? nextNumber();
     const id = owner ? `${owner}:${num}` : `${myId()}:${num}`;
     const ship = createSeaShip({ id, seed: spec.seed, classId: spec.classId, variant: spec.variant ?? 0, pos: spec.pos, yaw: spec.yaw ?? 0, names, owner, errand: spec.errand ?? null });
-    const entry = { id, n: num, owner, gen: Math.max(0, Math.min(NAVAL_GEN_MAX, spec.gen | 0)), region, orphan: null, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, grappleAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null };
+    const entry = { id, n: num, owner, gen: Math.max(0, Math.min(NAVAL_GEN_MAX, spec.gen | 0)), region, orphan: null, ship, boat: null, fires: null, fireLoop: null, sinkLoop: null, target: null, seen: clock, charged: null, ramAt: -Infinity, myBlowAt: -Infinity, grappleAt: -Infinity, hunter: !!spec.hunter, phase: random() * 6.28, lifeDt: 0, lifeN: num % FAR_LIFE_EVERY, list: null, wake: false, deck: null, prize: null, lost: false, sinkUnder: null, colours: null, fade: 0, retiring: false };   // SHIP-FADE: she comes into the world
     sea.set(id, entry);
     return entry;
   }
@@ -1078,6 +1094,20 @@ export function createNavalHost(deps) {
     entry.deck = null;
     if (entry.boat) deps.pool.remove(entry.boat);
     sea.delete(entry.id);
+  }
+  /** SHIP-FADE: a ship let go by her range - she sails on and dissolves over SHIP_FADE_S, then is dropped (fadeStep). */
+  function retire(entry) {
+    entry.retiring = true;
+  }
+  /** SHIP-FADE: a ship's share in the world stepped - up to whole as she comes in, down as she retires, and dropped when
+   *  she has faded away. */
+  function fadeStep(entry, dt) {
+    const s = entry.ship;
+    if (entry.retiring && !entry.owner && ((s.damage.state === SHIP_STATES.afloat && (s.mode === 'engage' || s.mode === 'board')) || boarding?.shipId === entry.id)) entry.retiring = false;   // fired on as she faded: she stays and fights
+    const k = dt / SHIP_FADE_S;
+    entry.fade = entry.retiring ? Math.max(0, (entry.fade ?? 1) - k) : Math.min(1, (entry.fade ?? 1) + k);
+    if (entry.boat) entry.boat.fade = entry.fade;
+    if (entry.retiring && entry.fade <= 0) drop(entry);
   }
   /** A number of mine for a ship: the next not standing in my sea (sixteen bits, as the word carries it). */
   function nextNumber() {
@@ -1370,6 +1400,89 @@ export function createNavalHost(deps) {
     return standing;
   }
 
+  // ── SEA-LANES: the Bay's packets, stood as ships (systems/naval/seaLanes.js) ──────────────────────────────────────
+  /** A packet of mine busy at sea - fighting, running, boarded or going down: never let go of while she is. */
+  const linerBusy = (e) => e.ship.mode === 'engage' || e.ship.mode === 'board' || e.ship.mode === 'flee' || e.ship.boarded || boarding?.shipId === e.id
+    || e.ship.damage.state !== SHIP_STATES.afloat;
+  /** The packets spent this voyage (sunk, taken, boarded): never stood again till their next. */
+  const spentLiners = new Set();
+  /**
+   * SEA-LANES: the packets about the player, where the shared clock puts them (the world host's feed): `list`
+   * `[{ id, seed, classId, phase, pos, ahead, yaw, port: { key, name } | null, to, from, until }]` in the scene, `now` the
+   * shared clock's second. Mine stand and go - a packet under way within LINER_STAND_M (LINERS_MAX of them by the Ships
+   * at sea), one lying in a harbour I know at a free berth of it; past LINER_DROP_M, or out of the list, she sails on and
+   * fades (SHIP-FADE) unless she fights - and each steers her lane: under way for her place LANE_LEAD_S on (on past it
+   * along her lane where she has outsailed it, LINER_AHEAD_M), out of her berth through the harbour's mouth first; at
+   * her port, into a berth of it (SHIP-LIFE's arrive and moored) where I know it, else lying off it on her ring.
+   */
+  function liners(list, { now = null } = {}) {
+    if (!enabled) return;
+    const me = deps.feet();
+    const byId = new Map(list.map((l) => [l.id, l]));
+    for (const e of [...sea.values()]) {
+      if (e.owner || !e.liner) continue;
+      const l = byId.get(e.liner.id);
+      if ((!l || dist2d(e.ship.pos, me) > LINER_DROP_M) && !linerBusy(e)) retire(e);   // SHIP-FADE: she sails on out of sight
+      else if (e.retiring && l && dist2d(e.ship.pos, me) <= LINER_DROP_M) e.retiring = false;
+    }
+    const density = launchesTraffic() ? trafficDensity(me) : 0;
+    const max = LINERS_MAX[density] ?? Math.min(3, density);
+    let under = [...sea.values()].filter((e) => !e.owner && e.liner && !e.retiring && e.ship.errand?.kind !== 'moored').length;
+    for (const l of [...list].sort((a, b) => dist2d(a.pos, me) - dist2d(b.pos, me))) {
+      if (!(density > 0) || dist2d(l.pos, me) > LINER_STAND_M || spentLiners.has(l.id)) continue;
+      if ([...sea.values()].some((x) => x.liner?.id === l.id || x.ship.seed === l.seed)) continue;   // stood, or her copy in my sea (a peer's)
+      const cls = classById(l.classId);
+      if (!cls) continue;
+      // lying at a port whose harbour I know: at a free berth of it, as the harbour's own ships are stood
+      const h = l.phase === 'dwell' && l.port ? harbours.get(l.port.key) : null;
+      const berth = h?.harbour && cls.hull !== HULL.LargeGalley ? h.harbour.berths.findIndex((_, i) => berthFree(h.key, i)) : -1;
+      let e = null;
+      if (berth >= 0) {
+        const b = h.harbour.berths[berth];
+        e = launch({ seed: l.seed, classId: cls.id, pos: [b.pos[0], deps.seaY(), b.pos[1]], yaw: b.yaw, errand: { kind: 'moored', harbour: h.key, berth, until: Infinity, path: null, i: 0 } });
+        if (e) { e.ship.sails = 0; e.ship.sailsWant = 0; }
+      } else {
+        if (l.phase !== 'sail' || under >= max) continue;
+        if (!deps.isWater(l.pos[0], l.pos[2], cls.hull)) continue;   // her place not yet water deep enough for her hull here
+        e = launch({ seed: l.seed, classId: cls.id, pos: [l.pos[0], deps.seaY(), l.pos[2]], yaw: l.yaw });
+        if (e) under++;
+      }
+      if (e) e.liner = { id: l.id };
+    }
+    for (const e of sea.values()) {
+      if (e.owner || !e.liner) continue;
+      const l = byId.get(e.liner.id);
+      if (l) steerLiner(e, l, now);
+    }
+  }
+  /** SEA-LANES: a packet of mine steered by her lane (liners) - no fight of hers being fought. */
+  function steerLiner(e, l, now) {
+    const s = e.ship;
+    Object.assign(e.liner, { phase: l.phase, to: l.to, from: l.from, port: l.port });
+    if (linerBusy(e)) return;
+    const r = s.errand;
+    if (l.phase === 'sail') {
+      // under way: out of her berth through the harbour's mouth first (SHIP-LIFE's depart), then her lane
+      if (r?.kind === 'moored') { s.errand = { kind: 'depart', harbour: r.harbour, berth: r.berth, path: null, i: 0 }; s.course = null; return; }
+      if (r?.kind === 'depart') { s.course = null; return; }
+      s.errand = null;
+      const [ax, az] = [l.ahead[0], l.ahead[2]], ux = Math.sin(l.yaw), uz = Math.cos(l.yaw);
+      const past = (s.pos[0] - ax) * ux + (s.pos[2] - az) * uz;   // how far along her lane she stands past it
+      s.course = past > -LINER_AHEAD_M ? [ax + ux * (Math.max(0, past) + 2 * LINER_AHEAD_M), az + uz * (Math.max(0, past) + 2 * LINER_AHEAD_M)] : [ax, az];
+      return;
+    }
+    // at her port: into a berth of it where I know it (until her dwell ends on the shared clock), else lying off it
+    s.course = null;
+    const h = l.port ? harbours.get(l.port.key) : null;
+    if (r && (r.kind === 'arrive' || r.kind === 'moored') && r.harbour === h?.key) {
+      if (r.kind === 'moored' && Number.isFinite(l.until) && now != null) r.until = s.clock + Math.max(0, l.until - now);
+      return;
+    }
+    const berth = h?.harbour && s.hull !== HULL.LargeGalley ? h.harbour.berths.findIndex((_, i) => berthFree(h.key, i)) : -1;
+    if (berth >= 0) { s.errand = { kind: 'arrive', harbour: h.key, berth, path: null, i: 0 }; return; }
+    if (r?.kind !== 'lurk') s.errand = { kind: 'lurk', harbour: null, at: [l.pos[0], l.pos[2]], path: null, i: 0, spin: (s.seed % 1000) / 1000 };
+  }
+
   // ── NAV-R: Warm Ashes' raiders, stood as ships (systems/naval/navalRaiders.js) ─────────────────────────────────────
   /** A raider of mine busy at sea - fighting, running, boarded or going down: never let go of while it is. */
   const raiderBusy = (e) => e.ship.mode === 'engage' || e.ship.mode === 'board' || e.ship.mode === 'flee' || e.ship.boarded || boarding?.shipId === e.id
@@ -1391,7 +1504,8 @@ export function createNavalHost(deps) {
       else if (e.owner && e.ship.cls.faction === 'pirate') peers.set(e.ship.seed, e.owner);
     }
     const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent, held });
-    for (const id of plan.drop) { const e = raiderEntry(id); if (e) drop(e); }
+    for (const id of plan.drop) { const e = raiderEntry(id); if (e) { if (held.has(id)) drop(e); else retire(e); } }   // SHIP-FADE: one sailing on fades; one yielded into a peer's copy of her goes at once (that copy stands where she does)
+    for (const e of sea.values()) if (!e.owner && e.raider && e.retiring && !plan.drop.includes(e.raider.id)) e.retiring = false;   // SHIP-FADE: back in range as she faded - she stays
     const level = deps.level?.() ?? 1;
     for (const id of plan.stand) {
       const r = list.find((x) => x.id === id);
@@ -2708,6 +2822,7 @@ export function createNavalHost(deps) {
     tendClaims();
     buildOne();
     const eye = deps.look?.()?.origin ?? deps.feet();   // AUDIT NAV1 (#17): her rigging's life by her range from it
+    for (const e of [...sea.values()]) fadeStep(e, total);   // SHIP-FADE
     for (const e of sea.values()) poseShip(e, total, seaY, eye);
     if (clock - lastHailCheck >= SAIL_HO_CHECK_S) { lastHailCheck = clock; hailSails(boat); }   // AUDIT NAV1 (#14)
     // the ram and the aim, on the hulls as this frame stands them (AUDIT NAV1: both read the last frame's, a ship's way
@@ -2795,7 +2910,7 @@ export function createNavalHost(deps) {
   function harbourFrame(seaY) {
     const near = deps.harbourNear?.() ?? null;
     const sound = () => findHarbour({ rect: near.rect, isWater: (x, z, h) => deps.isWater(x, z, h) });
-    if (near && !harbours.has(near.key)) harbours.set(near.key, { key: near.key, harbour: sound(), rolled: false, at: clock });
+    if (near && !harbours.has(near.key)) harbours.set(near.key, { key: near.key, name: near.name ?? null, harbour: sound(), rolled: false, at: clock });
     else if (near) { const h = harbours.get(near.key); if (!h.harbour && clock - h.at >= HARBOUR_RETRY_S) { h.harbour = sound(); h.at = clock; } }   // AUDIT SHIP-LIFE B7
     const feet = deps.feet();
     const day = where().day ?? 0;
@@ -2804,7 +2919,7 @@ export function createNavalHost(deps) {
       const departed = departedOf(h.key, day);
       const d = Math.hypot(h.harbour.mouth[0] - feet[0], h.harbour.mouth[1] - feet[2]);
       if (d > HARBOUR_LEAVE) {
-        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') drop(e);
+        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE
         h.rolled = false;
         continue;
       }
@@ -2817,6 +2932,9 @@ export function createNavalHost(deps) {
         const faction = r() < HARBOUR_NAVY ? 'navy' : 'merchant';
         let cls = classFor(faction, HARBOUR_LEVEL, r());   // AUDIT SHIP-LIFE B3: the port's level, never a player's
         if (cls?.hull === HULL.LargeGalley) cls = classFor(faction, 1, r());   // a galley rows in and out, never moors
+        // SHIP-FADE: one of these still fading out at her berth (the port left and come back to within SHIP_FADE_S) stays
+        const back = [...sea.values()].find((x) => !x.owner && x.retiring && x.ship.seed === seed && x.fromHarbour === h.key);
+        if (back) { back.retiring = false; continue; }
         // AUDIT SHIP-LIFE B3: her seed anyone's already (another's copy of her, whatever class it drew) - not stood again
         if (!cls || departed.has(seed) || [...sea.values()].some((x) => x.ship.seed === seed && x.ship.damage.state !== SHIP_STATES.sunk) || !berthFree(h.key, i)) continue;
         const b = h.harbour.berths[i];
@@ -2870,7 +2988,7 @@ export function createNavalHost(deps) {
         // given up is let go once out of sight - and only a ship afloat counts against the density; NAV-R: a raider is
         // its own law's to despawn (raiders()), and counts in the density. AUDIT NAV2 F23: she fights only AFLOAT - two
         // struck to each other kept each other for ever, each the other's taker by a stale target
-        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.takenBy || !!e.ship.lashed || (!!e.fromHarbour && e.ship.errand?.kind === 'moored'), afloat, berthed: e.ship.errand?.kind === 'moored' });   // AUDIT SHIP-LIFE B2: a harbour's moored ship is the harbour's to drop (past HARBOUR_LEAVE), never the director's   // SHIP-LIFE: a harbour's own, apart from the sea's density
+        if (!e.owner) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, engaged: (afloat && (e.ship.mode === 'engage' || e.ship.mode === 'board')) || boarding?.shipId === e.id || !!e.raider || !!e.liner || !!e.takenBy || !!e.ship.lashed || (!!e.fromHarbour && e.ship.errand?.kind === 'moored'), afloat, berthed: e.ship.errand?.kind === 'moored' });   // SEA-LANES: a packet is her lane's to let go, and counts in the density   // AUDIT SHIP-LIFE B2: a harbour's moored ship is the harbour's to drop (past HARBOUR_LEAVE), never the director's   // SHIP-LIFE: a harbour's own, apart from the sea's density
         else if (e.orphan == null && dist2d(e.ship.pos, feet) <= DESPAWN_BEYOND) ships.push({ id: e.id, pos: e.ship.pos, classId: e.ship.cls.id, theirs: true, afloat, berthed: atBerth(e.ship) });   // AUDIT SHIP-LIFE B1: another's moored ship is no more the sea's traffic than mine
       }
       // AUDIT NAV2 F27: and a ship is in a fight while an engaged ship of mine targets her - SEA-PEACE's prize her taker
@@ -2886,7 +3004,7 @@ export function createNavalHost(deps) {
         seedBase: seedBaseOf(w.px ?? 0, w.py ?? 0, w.day ?? 0, SEED_SALT ^ idSalt(myId())),
         distress, relieving,   // SEA-EASE: THE RELIEF
       });
-      for (const id of out.despawn) { const e = sea.get(id); if (e) drop(e); }
+      for (const id of out.despawn) { const e = sea.get(id); if (e) retire(e); }   // SHIP-FADE: she sails out of the world
       if (out.spawn) {
         const e = launch(out.spawn);
         // SHIP-LIFE: a ship crossing the player's waters near a port goes somewhere - the hunter and a pair already at
@@ -2943,6 +3061,8 @@ export function createNavalHost(deps) {
       const slipped = e.raider.chased && e.ship.mode === 'cruise';
       if (slipped || e.ship.boarded || boarding?.shipId === e.id || e.ship.damage.state !== SHIP_STATES.afloat) spendRaider(e, slipped);
     }
+    // SEA-LANES: a packet of mine sunk, struck, taken or boarded is spent for her voyage
+    for (const e of sea.values()) if (!e.owner && e.liner && (e.ship.boarded || boarding?.shipId === e.id || e.ship.damage.state !== SHIP_STATES.afloat)) spentLiners.add(e.liner.id);
     // AUDIT NAV1 (the presentation): a ship another player stands goes down on my clock as well as theirs - her sinking
     // run on between their words; one their word has let go of (`lost`, letGo) finishes going down, then is gone
     for (const e of [...sea.values()]) {
@@ -3127,6 +3247,7 @@ export function createNavalHost(deps) {
       const pos = toScene(w.pos);
       if (!e) e = launch({ seed: w.seed, classId: w.classId, variant: w.variant, pos: [pos[0], deps.seaY(), pos[2]], yaw: w.yaw, gen: w.gen, region: w.region }, owner, w.n);
       if (!e) continue;
+      e.retiring = false;   // SHIP-FADE: said again - she stays
       e.gen = w.gen;
       e.seen = clock;
       e.lost = false;
@@ -3193,6 +3314,7 @@ export function createNavalHost(deps) {
    */
   function letGo(e) {
     if (e.ship.damage.state === SHIP_STATES.sinking) e.lost = true;
+    else if (e.ship.damage.state === SHIP_STATES.afloat) retire(e);   // SHIP-FADE: out of her stander's word, she fades as theirs did
     else drop(e);
   }
   /** A room change, a leave: every peer's ships go (the pool's puppets' own clear - exteriorFoes clearPuppets). */
@@ -3254,9 +3376,36 @@ export function createNavalHost(deps) {
     e.mastTop = Number.isFinite(top) ? sp.lift + top : reach;
     return e.mastTop;
   }
+  /** SHIP-STANCE (2026-10-02, Mac: "Friendly ships should have green Healthbars unless provoked"): how a ship of the
+   *  sea stands to me - `hostile` (navalAI.js hostile: she would take me, a crown hunts me, or I provoked her), else
+   *  `friendly` while she flies a lawful flag (a merchantman, a crown's ship) and sails; a pirate not after me now is
+   *  neither - an enemy's red still. */
+  function stanceOf(s, me = meContact(), law = { notoriety: (c) => notoriety.get(c), now: clock }) {
+    const afloat = s.damage.state === SHIP_STATES.afloat;
+    const isHostile = afloat && hostile(s, me, law);
+    return { hostile: isHostile, friendly: afloat && !isHostile && !!NAVAL_FACTIONS[s.cls.faction]?.lawful };
+  }
+  /** SHIP-TAGS: where a ship of mine is bound, in words - her lane's port (SEA-LANES), her errand's harbour, a crown's
+   *  patrol - or '' while she fights, runs, lurks, or keeps a cruise of her own. */
+  function boundOf(e) {
+    const s = e.ship;
+    if (s.damage.state !== SHIP_STATES.afloat || (s.mode !== 'cruise' && s.mode !== 'answer')) return '';
+    const r = s.errand;
+    const port = (k) => (k != null ? harbours.get(k)?.name ?? null : null);
+    if (r?.kind === 'moored') return port(r.harbour) ? `moored at ${port(r.harbour)}` : 'moored';
+    if (r?.kind === 'depart') return port(r.harbour) ? `leaving ${port(r.harbour)}` : '';
+    if (r?.kind === 'patrol') return port(r.harbour) ? `patrolling off ${port(r.harbour)}` : 'on patrol';
+    if (r && (r.kind === 'arrive' || r.kind === 'voyage') && port(r.harbour)) return `bound for ${port(r.harbour)}`;
+    if (e.liner?.phase === 'dwell') return e.liner.port?.name ? `lying off ${e.liner.port.name}` : '';
+    if (e.liner?.to) return `bound for ${e.liner.to}`;
+    if (e.relief) return 'coming to your aid';
+    if (r?.kind === 'voyage') return 'bound out to sea';
+    return '';
+  }
   /** The ships the tags stand over: NAVAL_TAG_MAX within NAVAL_TAG_RANGE of the eye and past NAVAL_TAG_NEAR, nearest
-   *  first, each `{ id, name, faction, hostile, hull, state, boarded, target, distance, point }` - `point` TAG_LIFT
-   *  over her highest spar where she stands (settling as she goes down). */
+   *  first, each `{ id, name, faction, hostile, friendly, line, bound, hull, state, boarded, target, distance, point }` -
+   *  `point` TAG_LIFT over her highest spar where she stands (settling as she goes down); SHIP-STANCE's `friendly`,
+   *  SHIP-TAGS' `line` (her class, her crown's) and `bound` (boundOf). */
   function tagsModel() {
     if (!enabled) return [];
     const eye = deps.look?.()?.origin ?? deps.feet();
@@ -3271,10 +3420,12 @@ export function createNavalHost(deps) {
     return near.slice(0, NAVAL_TAG_MAX).map(({ e, d }) => {
       const s = e.ship;
       const root = e.boat.GameObject.position;
+      const stance = stanceOf(s, me, law);
       return {
         id: e.id, name: s.names?.name ?? classLine(s.cls, s.names?.crown), faction: s.cls.faction,
-        hostile: s.damage.state === SHIP_STATES.afloat && hostile(s, me, law), hull: s.damage.hullShare(), state: s.damage.state,
+        hostile: stance.hostile, friendly: stance.friendly, line: classLine(s.cls, s.names?.crown), bound: boundOf(e), hull: s.damage.hullShare(), state: s.damage.state,
         boarded: !!s.boarded, target: e.id === lastCardId, distance: Math.round(d), point: [root[0], root[1] + mastTop(e) + TAG_LIFT, root[2]],
+        fade: e.fade ?? 1,   // SHIP-FADE: her tag comes and goes with her
       };
     });
   }
@@ -3408,7 +3559,7 @@ export function createNavalHost(deps) {
       id: e.id, name: s.names?.name ?? 'A ship', captain: s.names?.captain ?? null, classLine: classLine(s.cls, s.names?.crown), faction: s.cls.faction,
       hull: s.damage.hullShare(), sail: s.damage.maxSail > 0 ? s.damage.sailShare() : null, state: s.damage.state, boarded: !!s.boarded,
       distance: Math.round(dist2d(s.pos, from)),
-      hostile: hostile(s, meContact(), { notoriety: (c) => notoriety.get(c), now: clock }),   // SEA-PEACE: sized up as I stand
+      ...stanceOf(s), bound: boundOf(e),   // SEA-PEACE: sized up as I stand; SHIP-STANCE: as her tag - a struck ship neither; SHIP-TAGS
     };
   }
 
@@ -3647,6 +3798,7 @@ export function createNavalHost(deps) {
       return out;
     },
     raiders, raiderShipOf, raiderHeld,   // NAV-R; THE MERGE (OW6): the raiders I hold, for the raider word
+    liners,   // SEA-LANES: the Bay's packets
     /** Whether a hostile ship is near - Come Sail Away's time scale refuses to run with one (AreEnemiesNearby). */
     hostileNear: () => hostileNearMe(),
     /** SEA-HUNT: whether the player stands aboard - at a helm, on a boat of theirs or on a sea ship's deck (aboardShip). */

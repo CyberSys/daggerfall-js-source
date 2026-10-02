@@ -210,10 +210,11 @@
   {
     "name": "SHIPLIFE-HOST-moored-kept-far",
     "file": "src/scenes/navalHost.js",
-    "old": "        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') drop(e);",
-    "new": "        if (false) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') drop(e);",
+    "old": "        if (h.rolled) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
+    "new": "        if (false) for (const e of [...sea.values()]) if (!e.owner && e.fromHarbour === h.key && e.ship.errand?.kind === 'moored') retire(e);   // SHIP-FADE",
     "tests": [
-      "test/shiplife.test.js"
+      "test/shiplife.test.js",
+      "test/shipfade.test.js"
     ]
   },
   {
