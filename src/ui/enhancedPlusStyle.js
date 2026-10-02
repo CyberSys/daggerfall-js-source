@@ -286,7 +286,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .lvl-opt.is-on .lvl-key { color: rgb(243,239,44); border-color: ${FRAME_TONES.brass}; }
 .lvl-opt-title { font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
 .lvl-opt.is-on .lvl-opt-title { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
-.lvl-tag { margin-left: auto; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: #7d7460; white-space: nowrap; }
+.lvl-tag { margin-left: auto; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #9c937d; white-space: nowrap; }
 .lvl-opt-body { margin: 0; font-size: 14px; line-height: 1.5; color: #c5bda2; text-shadow: 1px 1px 0 #050608; }
 .lvl-opt-foot { margin-top: auto; padding-top: 10px; border-top: 2px solid rgba(5,6,8,0.5); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16);
   display: flex; justify-content: flex-end; }
@@ -294,7 +294,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .lvl-opt.is-on .lvl-pick { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
 .lvl-lock { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: ${FRAME_TONES.brass}; }
 .lvl-opt:disabled { cursor: default; opacity: 0.55; }
-.lvl-hint { margin-top: 16px; text-align: center; font-size: 12px; letter-spacing: 0.06em; color: #7d7460; }
+.lvl-hint { margin-top: 16px; text-align: center; font-size: 12px; letter-spacing: 0.06em; color: #9c937d; }
 @media (max-width: 560px) {
   .lvl-shell { padding: 8px; } .lvl-shell .px-win { max-height: 96dvh; } .lvl-shell .px-body { padding: 10px 8px; } .lvl-card { padding: 14px 12px 12px; }
   .lvl-card h2.lvl-title { font-size: 20px; }
@@ -341,7 +341,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .rest-shell .vitals-line { display: flex; justify-content: space-between; gap: 10px; margin: 0; }
 .rest-shell .vitals-line .rv { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px;
   background: rgba(0,0,0,0.22); box-shadow: 0 0 0 1px rgba(5,6,8,0.6), inset 0 2px 0 rgba(0,0,0,0.3); }
-.rest-shell .rv-k { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #a89f88; }
+.rest-shell .rv-k { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #a89f88; }
 .rest-shell .rv-v { font-size: 16px; color: #efe8d6; text-shadow: 1px 1px 0 #050608; font-variant-numeric: tabular-nums; }
 .rest-shell .card .acts { margin-top: 20px; padding-top: 16px; border-top: 2px solid rgba(5,6,8,0.5);
   box-shadow: inset 0 1px 0 rgba(163,152,128,0.2); justify-content: center; }
@@ -437,9 +437,9 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 .pack-shell .wornpair > .wornrow .worntile { font-size: 16px; line-height: 1; }
 .pack-shell .wornpair > .wornrow .worntext { width: 100%; align-items: center; gap: 1px; }
 .pack-shell .wornpair > .wornrow:not(.wornempty) .wornslot { display: none; }
-.pack-shell .wornpair > .wornrow .wornslot { font-size: 9px; letter-spacing: 0.06em; line-height: 1.15;
+.pack-shell .wornpair > .wornrow .wornslot { font-size: 11px; letter-spacing: 0.06em; line-height: 1.15;
   white-space: normal; text-align: center; }
-.pack-shell .wornpair > .wornrow .wornname { font-size: 10px; line-height: 1.15; text-align: center;
+.pack-shell .wornpair > .wornrow .wornname { font-size: 11px; line-height: 1.15; text-align: center;
   white-space: normal; overflow-wrap: anywhere; max-width: 100%;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .pack-shell .wornpair > .wornrow.wornempty .wornname { display: none; }   /* the open diamond and the slot word carry an empty */
@@ -452,7 +452,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
   .pack-shell .wornpair > .wornrow .worntext { align-items: flex-start; gap: 3px; }
   .pack-shell .wornpair > .wornrow:not(.wornempty) .wornslot { display: block; }
   .pack-shell .wornpair > .wornrow .wornslot, .pack-shell .wornpair > .wornrow .wornname { text-align: left; }
-  .pack-shell .wornpair > .wornrow .wornslot { font-size: 10px; letter-spacing: 0.12em; white-space: nowrap;
+  .pack-shell .wornpair > .wornrow .wornslot { font-size: 11px; letter-spacing: 0.12em; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
   .pack-shell .wornpair > .wornrow .wornname { font-size: 12px; }
 }
@@ -495,7 +495,7 @@ body .dfchat-form .dfchat-close { min-width: 32px; padding: 4px 8px; }
 body.draglock .pack-shell .wornsock { touch-action: none; }
 .pack-shell .wornshelf.dragover { outline: 2px solid var(--brass); outline-offset: 3px; }
 .pack-shell .shelflabel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
 `;
 
 
@@ -532,7 +532,7 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   font-size: 12px; letter-spacing: 0.12em; text-indent: 0.12em; text-transform: uppercase; color: #e6dec6;
   text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.45); cursor: pointer; }
 .hmroot .hmtool .hmtoolicon { width: 22px; height: 22px; filter: drop-shadow(1px 1px 0 #050608); }
-.hmroot .hmtool .dlg-key { min-width: 18px; height: 16px; padding: 0 4px; font-size: 10px; letter-spacing: 0.04em; text-indent: 0; }
+.hmroot .hmtool .dlg-key { min-width: 18px; height: 16px; padding: 0 4px; font-size: 11px; letter-spacing: 0.04em; text-indent: 0; }
 .hmroot .hmtool:hover, .hmroot .hmtool:focus-visible, .hmroot .hmtool.on { outline: none; color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
 .hmroot .hmtool:disabled { color: #6c6552; text-shadow: none; cursor: default; opacity: 0.7; }
 .hmroot .hmfloor { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 92px; padding: 0 6px;
@@ -700,7 +700,7 @@ export const SIGIL_BLOCK_CSS = `/* the block on the card */
 .sigil-rune svg { width: 100%; height: 100%; image-rendering: pixelated; }
 .sigilbox[data-stage="dormant"] .sigil-rune { color: #7d8b88; filter: drop-shadow(1px 1px 0 #050608); animation: none; }
 .sigil-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.sigil-word { font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: #9fded2; }
+.sigil-word { font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: #9fded2; }
 .sigil-stage { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sigil);
   text-shadow: 1px 1px 0 #050608, 0 0 8px rgba(var(--sigil-rgb),0.6); }
 .sigilbox[data-stage="dormant"] .sigil-word, .sigilbox[data-stage="dormant"] .sigil-stage { color: #8d9a97; text-shadow: 1px 1px 0 #050608; }
@@ -783,12 +783,12 @@ export const SET_BLOCK_CSS = `.setbox { position: relative; margin: 8px 0 10px; 
 .setbox.compact .set-place { height: 6px; }
 .pack-shell .card .setbox.compact p.set-stage, .setbox.compact p.set-stage { margin: 0 0 2px; font-size: 11px; color: #d6cab3; }
 .setbox.compact .set-tier { margin: 3px 0 0; gap: 6px; align-items: baseline; }
-.setbox.compact .set-at { width: 15px; height: 15px; font-size: 10px; align-self: flex-start; }
+.setbox.compact .set-at { width: 15px; height: 15px; font-size: 11px; align-self: flex-start; }
 .setbox.compact .set-tier-body { flex: 1 1 auto; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
 .setbox.compact .set-tier-name { font-size: 11px; }
 .setbox.compact .set-tier-text { flex: 1 0 100%; font-size: 12px; line-height: 1.3; }
 /* a power's recovery, on its name's line, in the dashed frame the HUD's recovering chip wears */
-.setbox.compact .set-tier-every { flex: 0 0 auto; margin-left: auto; padding: 0 3px; font-size: 10px;
+.setbox.compact .set-tier-every { flex: 0 0 auto; margin-left: auto; padding: 0 3px; font-size: 11px;
   line-height: 13px; color: var(--set-hi); border: 1px dashed var(--set-lo); font-variant-numeric: tabular-nums; }`;
 /** SET7: the Sigil Broker's window (ui/brokerWindow.js) - every rule the window's own class; the window lays it itself on the classic skin (AUDIT SET U1), with the kit made for its roles alone. */
 export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerWindow.js) - the Info box's kind: a stone window over the world, the
@@ -829,7 +829,7 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
 .broker-card { flex: 1 1 45%; min-width: 0; margin: 0; padding: 12px 14px; border: 2px solid; align-self: flex-start; }
 .broker-card h3 { margin: 0 0 6px; font-family: inherit; font-size: 16px; color: var(--rar, #efe8d6); }   /* AUDIT SET U14: the window's pixel face, as the pack's own card (.pack-shell .card h3) - never the display serif */
 .broker-card ul.rarity { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13px; line-height: 1.45; color: #e6dccb; }
-.broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10.5px; color: #b9ab93; }
+.broker-card ul.rarity li:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: 11px; color: #b9ab93; }
 .broker-card .setbox p.set-role { margin: 1px 0 6px; font-size: 11px; color: #b9ab93; font-style: italic; text-align: left; }
 .broker-card .setbox p.set-stage { margin: 0 0 4px; font-size: 12px; color: #e8dcc6; text-align: left; }
 .broker-card .boundline { margin: 8px 0 0; font-size: 12px; letter-spacing: 0.04em; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }   /* SS4: the pack card's own line, on both skins' Broker sheets */
@@ -926,7 +926,7 @@ export const BOUNTY_CSS = `/* ── BOUNTY1: THE BOUNTY BOARD ── */
 .bounty-poster { margin: 0 0 8px; font-size: 12px; color: #b9ab93; font-style: italic; text-align: right; }
 .bounty-mapline { margin: 0 0 10px; font-size: 12px; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
 .bounty-reward { display: flex; flex-direction: column; gap: 2px; margin: 0 0 8px; padding: 6px 8px; background: rgba(0,0,0,0.3); }
-.bounty-reward-head { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: #b9ab93; }
+.bounty-reward-head { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #b9ab93; }
 .bounty-gold { font-size: 14px; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
 .bounty-itemhint { font-size: 12px; color: #d8ccb6; }
 .bounty-progress, .bounty-mates, .bounty-why { margin: 0 0 8px; font-size: 12px; color: #9fe8b4; }
@@ -977,7 +977,7 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-snippet { margin: 0; font-size: 12px; line-height: 1.45; white-space: pre-wrap; overflow: hidden; display: -webkit-box;
   -webkit-line-clamp: 5; -webkit-box-orient: vertical; }
 .notice-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 11px; color: #5a4630; }
-.notice-new { padding: 0 5px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #fff4dc; background: #9b2d1f; }
+.notice-new { padding: 0 5px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #fff4dc; background: #9b2d1f; }
 .notice-pin { position: absolute; top: 5px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #f5d9a0, #9a6a2a 60%, #3c2610); box-shadow: 1px 2px 0 rgba(0,0,0,0.5); }
 .notice-seal { position: absolute; right: 10px; bottom: 6px; width: 18px; height: 18px; border-radius: 50%;
@@ -1024,7 +1024,7 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .notice-tab { cursor: pointer; background: none; border: 0; font: inherit; }
 .notice-card.seal-court, .notice-read.seal-court { --seal: #6b3fa0; }
 .notice-writ { cursor: default; }
-.notice-writ .writ-kind { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: #5b3c86; }
+.notice-writ .writ-kind { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #5b3c86; }
 .notice-writ .writ-need { margin: 0; font-size: 15px; color: #1d150b; }
 .notice-writ .writ-pay, .notice-writ .writ-left { margin: 0; font-size: 12px; color: #4a3a25; }
 .notice-writ .writ-take { display: flex; align-items: center; gap: 8px; margin-top: auto; font-size: 11px; color: #5a4630; }
@@ -1066,7 +1066,7 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   color: var(--bone, #e9e4d9); background: rgba(10,8,6,0.6); border: 1px solid rgba(192,138,62,0.25); cursor: pointer; }
 .prof-mat.on { border-color: var(--brass, #c08a3e); background: rgba(192,138,62,0.16); }
 .prof-count { color: #f3cf86; font-variant-numeric: tabular-nums; }
-.prof-split { grid-column: 1 / -1; font-size: 10px; color: #9d917d; }
+.prof-split { grid-column: 1 / -1; font-size: 11px; color: #9d917d; }
 .prof-matbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 4px; font-size: 12px; color: #d9cfbd; }
 .prof-smelt { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; align-items: center; gap: 4px 8px;
   padding: 4px 0; border-bottom: 1px solid rgba(192,138,62,0.18); font-size: 12px; color: #d9cfbd; }
@@ -1194,7 +1194,7 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .market-price { color: #f3cf86; white-space: nowrap; }
 .market-where, .market-quality, .market-units, .market-state { color: #b9ab93; font-size: 11px; }
 .market-median { color: #cdbd9f; font-size: 11px; white-space: nowrap; }
-.market-mine, .market-mod { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; }
+.market-mine, .market-mod { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe0b8; }
 .market-line { width: 60px; height: 16px; }
 .market-line polyline { fill: none; stroke: #f3cf86; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
 .market-bar, .market-counterrow, .market-order, .market-listing, .market-histrow { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center;
@@ -1249,7 +1249,7 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 /* AUDIT 31 U2: every field under its visible name; U14: a field as tall as a button beside it, a form's select never
    clipped, an armed Decline marked */
 .work-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.work-label-text { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #cdbd9f; }
+.work-label-text { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #cdbd9f; }
 .work-label-wide { flex: 1 1 150px; }
 .work-label .work-select, .work-label .work-text { width: 100%; }
 /* in the label's column a field's own flex-basis is its HEIGHT - a select 150px tall; the label takes the row's basis */
@@ -1296,7 +1296,7 @@ ${rarityVarsCss()}
    UI/Hotbar border itself instead of it being an icon within an icon") - the sprite, fitted to the slot's 52px room
    (ui/iconFit.js), stands straight on the slot's own ground under the tier's border, in no second box. The stack's
    count takes the slot's last corner. */
-.pack-shell .pack-dock .itemrow .count { right: 4px; bottom: 3px; z-index: 2; font-size: 10px; line-height: 1; color: #efe8d6;
+.pack-shell .pack-dock .itemrow .count { right: 4px; bottom: 3px; z-index: 2; font-size: 11px; line-height: 1; color: #efe8d6;
   pointer-events: none; text-shadow: -1px 0 0 #050608, 1px 0 0 #050608, 0 -1px 0 #050608, 0 1px 0 #050608, 1px 1px 0 #050608; }
 .pack-shell .pack-dock .itemrow.hasbar .count { bottom: 7px; }
 .pack-shell .pack-dock .itemrow[data-locked] .count { right: 16px; }   /* the padlock keeps the corner (LOCK1) */
@@ -1541,7 +1541,7 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
 /* THE GATE (WB2, WB4): the boss's bar is a vital - the stone bevel, the fire banded from a lit top with a lit edge,
    the phase marks cut in, brass clasps, the ward a brass cage around it - and the words are the HUD's: the pixel
    face, outlined. The fire's own colours stay his. */
-body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
+body .wb-boss-bar { ${PIXEL_FONT_CSS} letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
 /* WB9a: the night's marks under his health - each chip its sign and name over its line, in the HUD's pixel face */
 body .wb-boss-marks { gap: 14px; margin: 3px 0 4px; }
@@ -1549,7 +1549,7 @@ body .wb-boss-chip { text-shadow: ${OUTLINED}; }
 body .wb-boss-chip-head { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; }
 body .wb-boss-chip-icon { filter: drop-shadow(1px 1px 0 #050608); }
 body .wb-boss-chip-name { font-size: 11px; }
-body .wb-boss-chip-text { font-size: 10px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
+body .wb-boss-chip-text { font-size: 11px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
 body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
@@ -1564,9 +1564,13 @@ body .wb-boss-track::before { left: -6px; }
 body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
-body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+body .wb-gate-banner { ${PIXEL_FONT_CSS} font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the burning ground's warning was
+   the one gate surface this dress never reached - Cormorant, bold, over the HUD's pixel words. The trio's 500 is its
+   weight here (the four rules above wrote 400 to undo the serif's bold; FONT3's reading weight took that 400 off). */
+body .wb-ground-warn { ${PIXEL_FONT_CSS} font-size: 17px; letter-spacing: 0.16em; text-shadow: ${OUTLINED}; }
 /* WB9a: the marks' card - a stone panel in the brass frame, the pixel face outlined; each aspect keeps its own colour */
-body .wb-marks-card { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
+body .wb-marks-card { ${PIXEL_FONT_CSS} letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);
   border: 2px solid; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
@@ -1577,21 +1581,21 @@ body .wb-marks-text { font-size: 11px; color: #d8cfae; opacity: 1; }
 body .wb-marks-tip { font-size: 11px; font-style: normal; color: #b9ab86; opacity: 1; }
 /* GATE-UX: the damage chart - the marks' card's stone panel and brass frame, the pixel face outlined, the bars the
    fire's one hue banded from a lit top; my row a brass ring and its words */
-body .wb-dmg-chart { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.04em; color: #efe8d6; text-shadow: ${OUTLINED};
+body .wb-dmg-chart { ${PIXEL_FONT_CSS} letter-spacing: 0.04em; color: #efe8d6; text-shadow: ${OUTLINED};
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);
   border: 2px solid; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
 body .wb-dmg-title { font-size: 11px; letter-spacing: 0.2em; color: ${FRAME_TONES.brassHi}; }
 body .wb-dmg-sub { font-size: 13px; color: #efe8d6; }
-body .wb-dmg-head { font-size: 9px; letter-spacing: 0.1em; color: #b9ab86; border-bottom-color: rgba(154,144,121,0.45); }
+body .wb-dmg-head { font-size: 11px; letter-spacing: 0.1em; color: #b9ab86; border-bottom-color: rgba(154,144,121,0.45); }
 body .wb-dmg-name { font-size: 12px; }
-body .wb-dmg-lv { font-size: 10px; color: #d8cfae; opacity: 1; }
-body .wb-dmg-you { font-size: 10px; color: ${FRAME_TONES.brassHi}; }
+body .wb-dmg-lv { font-size: 11px; color: #d8cfae; opacity: 1; }
+body .wb-dmg-you { font-size: 11px; color: ${FRAME_TONES.brassHi}; }
 body .wb-dmg-num { font-size: 11px; }
 body .wb-dmg-track { background: rgba(5,6,8,0.72); box-shadow: 0 0 0 1px #050608; border-radius: 0; }
 body .wb-dmg-fill { background: linear-gradient(180deg, #ffc08a 0 1px, #ff7a3a 1px 2px, #d8341a 2px); border-radius: 0; }
 body .wb-dmg-mine { outline: 1px solid ${FRAME_TONES.brassHi}; background: rgba(192,138,62,0.14); }
-body .wb-dmg-more { font-size: 10px; font-style: normal; color: #b9ab86; opacity: 1; }
+body .wb-dmg-more { font-size: 11px; font-style: normal; color: #b9ab86; opacity: 1; }
 /* AUDIT MERGE-PLUS D3: STONE'S LIGHT GROUND. The lane's newer surfaces joined the window and panel roles above, and
    Stone paints those a light grey their words were never chosen for - they had kept their own dark ground on every
    theme until then (the F-menu's Cancel read at 2.3:1, a refused row's reason at 4.1:1). On Stone the lane's dim
@@ -1631,18 +1635,18 @@ export const ARMOUR_CSS = `
   font-variant-numeric: tabular-nums; background: rgba(5,6,8,0.8); border: 1px solid rgba(192,138,62,0.8);
   border-radius: 1px 1px 7px 7px; text-shadow: 1px 1px 0 #050608; }
 .pack-shell .equipped .wornrow[data-sigil] > .wornac { right: 17px; }
-.pack-shell .equipped .wornac.nil { color: #7d7460; border-color: rgba(125,116,96,0.5); }
+.pack-shell .equipped .wornac.nil { color: #9c937d; border-color: rgba(125,116,96,0.5); }
 /* HOOD-SAID (FIELD BUGS 2026-09-30): a raised hood's chip, in the part plate's dress and its corner, round-topped like
    the hood it names, stepping off a family's count */
 .pack-shell .equipped .wornhood { position: absolute; right: 3px; top: 3px; z-index: 2; height: 15px; padding: 0 4px;
-  display: flex; align-items: center; font-size: 10px; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase;
+  display: flex; align-items: center; font-size: 11px; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase;
   color: #efe8d6; background: rgba(5,6,8,0.8); border: 1px solid rgba(192,138,62,0.8); border-radius: 7px 7px 1px 1px;
   text-shadow: 1px 1px 0 #050608; }
 .pack-shell .equipped .worncount ~ .wornhood { right: 20px; }
 .pack-shell .wornmap .wornac-total { position: absolute; left: 4px; top: 4px; z-index: 2; display: flex; flex-direction: column;
   align-items: center; gap: 1px; padding: 2px 5px 3px; white-space: nowrap; background: rgba(5,6,8,0.8);
   border: 2px solid rgba(192,138,62,0.8); box-shadow: 0 0 0 1px #050608; text-shadow: 1px 1px 0 #050608; }
-.pack-shell .wornac-total .k { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #a89f88; }
+.pack-shell .wornac-total .k { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #a89f88; }
 .pack-shell .wornac-total .v { font-size: 16px; line-height: 1; color: #f3cf86; font-variant-numeric: tabular-nums; }
 .card .cmp { margin: 8px 0 0; padding-top: 6px; border-top: 2px solid rgba(5,6,8,0.45); box-shadow: inset 0 1px 0 rgba(163,152,128,0.16); }
 .card .cmp .cmp-head, .pack-shell .card .cmp p.cmp-head { margin: 0 0 4px; font-size: 11px; letter-spacing: 0.1em;
@@ -1650,7 +1654,7 @@ export const ARMOUR_CSS = `
 .inv-tip .cmp dl.stats { border-top: 0; box-shadow: none; padding-top: 2px; }
 .pack-shell .packtip.packdetail .card .cmp .stats { margin-top: 2px; }
 .card .cmp .cmp-d { margin-left: 6px; font-variant-numeric: tabular-nums; }
-.card .cmp .cmp-sep { margin-left: 4px; color: #7d7460; }
+.card .cmp .cmp-sep { margin-left: 4px; color: #9c937d; }
 .card .cmp .cmp-sep + .cmp-d { margin-left: 4px; }
 .card .cmp .cmp-d.up { color: #74d9a0; }
 .card .cmp .cmp-d.down { color: #d98074; }

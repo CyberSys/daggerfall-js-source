@@ -637,6 +637,7 @@ import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShort
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
+import { drawEnhancedTextLayer, hideEnhancedTextLayer } from '../ui/enhancedTextLayer.js';   // FONT3: a draw list's words in the enhanced face (Come Sail Away's position reading)
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 import { drawEnhancedStatusLine } from '../ui/enhancedHudText.js';   // FONT1: the online status line in the skin's own face
 import { rrRidingOn, rrRidingSetting, BED_MODELS, bedSleepingOn } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's switches; CSA-G: the boat's bed is RR1's BedActivation
@@ -6017,6 +6018,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   for (const type of ['pointermove', 'pointerdown']) addEventListener(type, csaTrackMouse, true);   // capture: a press's own place, before any slot takes it
   let _csaMapWindow = null;
+  const CSA_MAP_TEXT_LAYER = 'enhanced-csa-map-text';   // FONT3: the position reading's words, in the enhanced face under that skin
   /** GameManager.PauseGame(true, true) for the position reading: a window in the mode's slot - the world held and the
    *  HUD hidden as any window holds them, every key handed to it - that draws OnGUI's map (DECLARED). */
   function csaMapOpen() {
@@ -6029,7 +6031,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       hidesHud: true,   // AUDIT PRE-MERGE 0928 U8: PauseGame(true, true) takes the HUD away, the large one too (windowStack.hidesHud - the street's, the building's and the dungeon's drawHud read it)
       click() {}, hover() {}, wheel() {}, tick() {},
       draw() { csaDrawMap(); },
-      dispose() { if (_csaMapWindow === win) _csaMapWindow = null; },
+      dispose() { if (_csaMapWindow === win) _csaMapWindow = null; hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER); },   // FONT3: the words' DOM layer goes with the window
     };
     if (modes?.mountWindow?.(win)) _csaMapWindow = win;
   }
@@ -6067,26 +6069,32 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** A draw list the runtime answers (OnGUI's): each quad its picture stretched and tinted, each text
    *  DaggerfallFont.DrawText's two passes - the shadow, then the text. */
-  function csaDrawList(draws) {
+  function csaDrawList(draws, layerId = null) {
     const pics = draws.some((d) => d.kind === 'quad') ? csaMapPictures() : null;
     const font = townTalk.font;
     const rgba = (c) => [c.r, c.g, c.b, c.a];
+    // FONT3: under the enhanced skin a list that names a layer says its words in the pixel face (ui/enhancedTextLayer.js)
+    // - the pictures stay on the canvas. The debug values name none and keep the bitmap face, as F8's lines do.
+    const words = layerId && isEnhanced() && typeof document !== 'undefined' ? [] : null;
     for (const d of draws) {
       if (d.kind === 'quad') {
         const tex = d.tex === 'map' ? pics?.map : pics?.line;
         if (tex) renderer.drawScreenQuad(tex, d.rect, undefined, rgba(d.color));
+      } else if (words) {
+        words.push({ text: d.text, x: d.x, y: d.y, cell: (font?.fnt?.fixedHeight ?? 7) * d.scale, color: rgba(d.color), shadow: rgba(d.shadow), shadowPos: d.shadowPos });
       } else if (font) {
         drawText(renderer, font, d.text, d.x + d.shadowPos[0], d.y + d.shadowPos[1], d.scale, rgba(d.shadow));
         drawText(renderer, font, d.text, d.x, d.y, d.scale, rgba(d.color));
       }
     }
+    if (words) drawEnhancedTextLayer(layerId, words, canvas);
   }
   /** OnGUI's map, while the reading has it up - drawn by its window, the slot's last. */
   function csaDrawMap() {
     if (!csaRuntime) return;
     csaCall(() => {
       const draws = csaRuntime.mapOverlay({ screenRect: { x: 0, y: 0, width: canvas.width, height: canvas.height }, screen: [canvas.width, canvas.height], unscaledTime: performance.now() / 1000 });
-      if (draws) csaDrawList(draws);
+      if (draws) csaDrawList(draws, CSA_MAP_TEXT_LAYER);
     });
   }
   /** CSA-K: the others' words standing them on this boat of mine (the pack's refusal; OWS2: and a landfall's pack). */
@@ -8434,7 +8442,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2761 mounts the same one, gated on
+  // and dungeonContext.js:2762 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6614
@@ -11021,7 +11029,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7791), so exterior mode and a
+    // composer, dungeonContext.js:7795), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {

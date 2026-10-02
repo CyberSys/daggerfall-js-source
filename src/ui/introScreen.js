@@ -5,15 +5,21 @@ import { IntroTheme, MENU_THEME_GAIN } from '../systems/introTheme.js';
 import { brandMark } from './brandMark.js';
 import { createIntroLandscape } from './introLandscape.js';
 import { introFrameAt, introEase, INTRO_CREDITS, TITLE_READY_TIME, MENU_FADE_SECONDS } from './introCue.js';
+import { PIXELIFY_FIVE_FACE, PIXEL_FONT_CSS } from './pixelifyFive.js';   // FONT3: the film's words in the enhanced face
+import { injectEnhancedFonts } from './enhancedStyle.js';   // FONT3: the one request, made when the film mounts
 
 export const INTRO_CREDIT_URLS = Object.freeze({
   interkarma: new URL('../assets/intro/interkarma.webp', import.meta.url).href,
   nexus: new URL('../assets/intro/nexus.webp', import.meta.url).href,
 });
 
-const STYLE = `
+// FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the film's words - the credits,
+// Begin, Continue, the footer - were Georgia and the system face, the front door's last words outside the skin's. They
+// are the pixel face (the trio, ui/pixelifyFive.js), with the five's own face carried here because this sheet mounts
+// before the skin's; the one font request is made at mount (injectEnhancedFonts, which ?nofonts still skips).
+const STYLE = `${PIXELIFY_FIVE_FACE}
 #intro{position:fixed;inset:0;z-index:30;overflow:hidden;background:#06090b;color:#e5d5ab;
- font-family:Georgia,'Times New Roman',serif;isolation:isolate;touch-action:manipulation;}
+ ${PIXEL_FONT_CSS}isolation:isolate;touch-action:manipulation;}
 #intro *{box-sizing:border-box} #intro [hidden]{display:none!important}
 .intro-film{position:absolute;inset:0;overflow:hidden;opacity:0;background:radial-gradient(ellipse at 65% 42%,#6d6250 0,#233541 36%,#080e17 76%)}
 .intro-landscape{position:absolute;inset:0;display:block;width:100%;height:100%;will-change:transform}
@@ -39,8 +45,8 @@ const STYLE = `
 .intro-skip{position:absolute;right:max(20px,env(safe-area-inset-right));top:max(16px,env(safe-area-inset-top));z-index:3;min-height:44px;padding:10px 16px;background:#04060899;border:1px solid #b1a17a42;font-size:11px!important;letter-spacing:.15em;text-transform:uppercase}
 .intro-continue{position:absolute;left:50%;bottom:max(13dvh,60px);transform:translateX(-50%);white-space:nowrap;min-height:48px;padding:12px 28px;background:none;border:0;font-size:12px!important;letter-spacing:.25em;text-transform:uppercase;opacity:0}
 .intro-continue:before,.intro-continue:after{content:'◆';display:inline-block;font-size:7px;vertical-align:middle;color:#bfa878;margin:0 18px}
-.intro-footer{position:absolute;bottom:max(18px,env(safe-area-inset-bottom));left:20px;right:20px;text-align:center;font:10px/1.5 system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#898a82;pointer-events:none}
-@media(max-width:600px){.intro-credit img{max-width:80vw;max-height:24dvh}.intro-credit[data-credit=nexus] img{max-width:72vw}.intro-credit p{font-size:10px;letter-spacing:.18em}.intro-continue{bottom:23dvh;font-size:10px!important;letter-spacing:.16em}.intro-title{width:94vw}.intro-letterbox{border-width:4dvh 0}.intro-footer{font-size:9px}}
+.intro-footer{position:absolute;bottom:max(18px,env(safe-area-inset-bottom));left:20px;right:20px;text-align:center;font-size:11px;line-height:1.5;letter-spacing:.18em;text-transform:uppercase;color:#898a82;pointer-events:none}
+@media(max-width:600px){.intro-credit img{max-width:80vw;max-height:24dvh}.intro-credit[data-credit=nexus] img{max-width:72vw}.intro-credit p{font-size:11px;letter-spacing:.18em}.intro-continue{bottom:23dvh;font-size:10px!important;letter-spacing:.16em}.intro-title{width:94vw}.intro-letterbox{border-width:4dvh 0}.intro-footer{font-size:9px}}
 @media(max-height:450px){.intro-continue{bottom:7dvh}.intro-title{width:min(74vw,1000px)}.intro-footer{bottom:6px}.intro-gate{gap:12px}}
 `;
 
@@ -66,6 +72,7 @@ export async function runIntro({ theme, onReveal, doc = document, freezeAt = nul
   const host = make(doc, 'section'); host.id = 'intro';
   host.setAttribute('aria-label', 'Daggerfall Online introduction');
   const style = make(doc, 'style'); style.textContent = STYLE; host.append(style);
+  injectEnhancedFonts(doc);   // FONT3: the film's words are the skin's face - ask for it now, not when the menu mounts
   const film = make(doc, 'div', 'intro-film');
   const canvas = make(doc, 'canvas', 'intro-landscape'); canvas.setAttribute('aria-hidden', 'true');
   const cloud = make(doc, 'div', 'intro-cloud');

@@ -950,14 +950,14 @@ does the pack's USE arm.
                         worldModes.js:2472 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1254, world.js:4603,
+                        dungeonContext.js:1255, world.js:4604,
                         exterior.js:2628. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12310, dungeonContext.js:8355. A seam
+    / NOTEBOOK          world.js:12318, dungeonContext.js:8359. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5058 and
+questJournal.js from charSheetNav:53, world.js:5059 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7939` and `dungeonContext.js:1872` answer the same
+`worldModes.js:7939` and `dungeonContext.js:1873` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:12730`,
+the other half went stale unnoticed. (The rest cite named `world.js:12738`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:12736` now.)
+deleted the second and the cite is `world.js:12744` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10283` named a line that is 8950, `:1626` one that is
+read: `world.js:10291` named a line that is 8950, `:1627` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:10017-10049` and `dungeonContext.js:1676` were
+that is 8907. `world.js:10025-10057` and `dungeonContext.js:1677` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -17148,7 +17148,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2761` became
+second pass moved them a second time - `dungeonContext.js:2762` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -18657,3 +18657,98 @@ gradient and its padding `14px 16px 16px`; with the fix, none and `0px`.
   skin's) names one, and the classic sheet keeps every rule of the board's window and nothing else; the toasts' sheet
   names none of the board's. `audit31_tabs` and `audit30_client` follow the new classes. Mutants:
   `tools/mutants/toast_split.json` (18, all dead). Patch notes: `PATCH-NOTES-Notifications-Fixed.md`.
+
+## FONT3 - THE ENHANCED FACE, READABLE AND EVERYWHERE (2026-10-02, Mac: "So I want to improve the readability of our ingame font as im recieving a lot of complaints, additionally we need to ensure everything recieves our enhanced font")
+
+Two asks, one face. The face stays Pixelify Sans with Silkscreen's five (FIX-D); what changed is how it is drawn and
+where it reaches. Two read-only audits went first (the DOM sheets, then every canvas text path); everything below is
+what they found, measured where it could be.
+
+**Why it read badly - measured, not guessed.** Pixelify Sans is drawn on a grid of about 91 units in a 1000-unit em
+(x-height 450, cap 700), so at the sizes the skin uses most (11-15px) one design pixel is about one screen pixel and
+the stroke at weight 400 is THINNER than one: Chromium greys it rather than lighting it. Rendered white on black and
+counted, the share of a glyph's inked pixels that reach full brightness at 400 was 16% at 10px, 37% at 11px, 24% at
+12px, 29% at 13px; at 500 it was 24%, 34%, 28%, 32%. 10px was the worst size measured, and the skin set 86 rules at 8 to
+10.5px. The face's sidebearings leave about one pixel between letters, which the greying closes. And the pixel skin's
+own dim word, `#7d7460`, read at 3.7:1 on the slate panel - under WCAG AA's 4.5 - in 90 rules (the launcher had
+already refused it for small text, AUDIT INSTALL); `--dim` (`#8b8578`) read at 4.7:1.
+
+**The reading pair, in the one trio.** `PIXEL_READ_CSS` (`ui/pixelifyFive.js`) is `font-weight: 500; letter-spacing:
+0.5px` - 500 is the request's own second weight, so nothing new is fetched - and `PIXEL_FONT_CSS` ends with it, so
+every surface that wears the trio gets it and a rule that writes its own weight AFTER the trio keeps it. `ui/touch.js`
+was the one place a weight stood BEFORE the trio (the entry field's 600 would have been lost); it was turned round.
+The gate's four Plus-dress rules wrote `font-weight: 400` after the trio to undo Cormorant's bold; the 400 came off.
+
+**The floor: 11px.** Every enhanced sheet (the 25 that set the pixel face) was walked by a codemod and every text size
+from 8 to under 11px raised to 11 - 86 rules: the hotbar's key letters and counts (and the phone's 8/9px pair), the
+inventory's quickslot marks and counts, the Features rail, the party frames, the chat's tags and times (their calc()
+base), the naval HUD, the Plus dress's item and market lines. Left as they were, on purpose: a pseudo-element glyph
+(the ◆ and the rarity pips), the broker insignia's word (an emblem, sized to its sign) and the province map's SVG
+labels (6-7 user units, scaled by the SVG). A wholesale 12px floor was measured and refused: about 200 rules, many of
+them chips in fixed boxes this lane could not see in a browser without ARENA2.
+
+**The dim, lifted.** `#7d7460` as a WORD's colour is `#9c937d` (5.7:1) - its rules and borders keep the old tone - so
+the order holds: bone, `#a89f88` mid (6.6:1), then the dim. `--dim` is `#a39d8f` (6.4:1), with every `var(--dim,
+#8b8578)` fallback moved with it. The quietest counts (`#5f5b53`, 2.6:1) take the old dim, `#8b8578`.
+
+**One face - closed where the leak starts.** The body of the game's sheet was `var(--data)`, Barlow, the LAUNCHER's
+face, and PX1/FONT1 set the pixel stack root by root, so every surface whose root they missed - and every rule under a
+root that named `--data` or `--display` again - still drew Barlow or Cormorant: the Features and Overhauls panes, the
+About credits, the Load pane's cloud heading and initials, the chargen skills and questions, the picked item's tier
+lines, the controller bindings' headings (`.card h3`). Now the body wears the whole trio and `:root` re-points
+`--data` and `--display` at the pixel stack inside `ENHANCED_CSS` (and `--brand`, Grenze Gotisch that no request ever
+loaded, at Jacquard 12); `ENHANCED_TOKENS` keeps its values for the landing page, the one page that reads it alone.
+Form controls inherit (`select, input, textarea { font: inherit; }` - the Test Room's select was the browser's). And
+the inherited trio puts the smoothing and the ligatures off under every hand-written stack the DOM audit listed
+(`.pack-shell`, `.hmroot`, the prof prompts, the drag ghost, the broker/bounty/notice shells): U63's "fi"-reads-"A"
+cannot come back through a root that forgot it.
+
+The surfaces named one by one:
+- **The death screen** (`ui/enhancedDeath.js`): YOU DIED and its line were the display serif (DEATH2's choice; the
+  Discord ask was "make it enhanced style"). The pixel face, named outright; the line upright (the face has no
+  italic), the count at the keys' own tone.
+- **The gate's burning ground** (`ui/gateGroundView.js` `.wb-ground-warn`): the one gate surface the Plus dress never
+  reached - `body .wb-ground-warn` in the trio.
+- **The prison countdown** (`ui/prisonScreen.js`): the screen's one line was the bitmap face; under the enhanced skin
+  it is the mid-screen label's DOM face at the label's native row (the horse's name is the same seam), and the window's
+  `dispose` - which townTalk's drop and replace both call - takes it down.
+- **A draw list's words** (`ui/enhancedTextLayer.js`, new): Come Sail Away's position reading hands the host a list of
+  quads and texts in canvas pixels. Under the enhanced skin a list that names a layer says its texts in a fixed DOM
+  layer in the trio - a node per line, MOVED, the bitmap line's own top-left and colour and shadow step, set at 0.9 of
+  the bitmap cell so DFU's 20px line spacing at scale 3 keeps clear - and the map window's dispose hides it. The wind
+  widget's debug values name no layer and stay bitmap, as F8's lines do.
+- **The dungeon's readied-spell line** (`scenes/dungeonContext.js`): drawn on BOTH skins, so under the enhanced one the
+  spell was said twice, once by the HUD caption and once in the bitmap face under it. The classic skin's alone now.
+- **The pad prompt bar** (`ui/plusPad.js`): `var(--pixel-font, "Pixelify Sans", ...)` named a variable nothing
+  declares - bare Pixelify, no Silkscreen five, smoothed, ligatures on. The trio.
+- **The opening film** (`ui/introScreen.js`): Georgia and the system face; the trio, the five's face carried in its own
+  sheet (it mounts before the skin's) and the request made at mount (`?nofonts` still skips it).
+- **The two inline-only cards** (`ui/charSheetDoor.js` the level-up wait, `ui/enhancedChunk.js` the chunk notice):
+  "inline style only - the error path must not depend on anything that could be the thing that broke". They NAME the
+  face first (`PIXEL_FAMILIES`, a leaf of constants in the entry bundle) and load nothing; the system face stands if
+  the request never came.
+- **The asset picker** (`scenes/dataSource.js`, music/sounds/lighting/Morrowind from a Features tile): the trio under
+  the enhanced skin; the classic skin and the first-run picker keep their monospace.
+
+**Kept outside the face, on purpose.** The account RECOVERY CODE plaque names Barlow outright: its alphabet
+(`server-account/src/password.js` CODE_ALPHABET, Crockford's) keeps B/8, G/6, S/5 and O/0 apart as different
+symbols, which Pixelify draws alike at that size, and a code mistyped from paper is an account lost. Three canvas
+faces the audits found and this slice did not move, each a recorded choice: the enhanced BOOK's pages (Cormorant -
+EB2, after Mac asked "Can we use a more legible text?"; long-form reading in a 5px x-height pixel face would undo the
+readability this slice is for), the held map's INK (`inkMap.js` NAME_FACE, "THE STRIP IS INKED, NOT CHROME" - the
+names are lettering on a drawn sheet), and the FPS read-out and the F8/CSA debug lines. The classic maps a player
+chooses under the enhanced skin (MAP-TOGGLE) keep their own bitmap text, as PORT0's `classicScope` says they should.
+
+**The FONT1 record's FONT2 list is stale** (and `ui/enhancedHudText.js`'s header with it): of its seven canvas windows,
+the death screen, the rest window, the quest journal, every MessageBox with buttons and every ActionTextBox now always
+open an enhanced DOM face; the save window is never built under the enhanced skin; the travel popup is reached only
+through the classic travel map a player chose. The input-box line was paid by AUDIT HCC U5.
+
+**Measured in a browser** (Chromium 1280x800, the front door with no ARENA2, the game's own font request fetched
+through the probe's route): the home screen and the Settings pane under the change - every text node's computed
+family is the pixel stack, and no text box clips. Not seen in a browser: Features, Overhauls, About and every in-game
+window the floor touched (no ARENA2 here) - the floor raises a size by at most 3px and only under 11px. Pins: `test/font3_readable.test.js` (9: the pair and the trio's order, the body and the
+tokens, the recovery code's reason, THE FLOOR over all 25 sheets, the dim's contrast and order, the named surfaces,
+the dungeon line, the text layer over a fake document, the prison label mounted and taken down). Followed:
+`test/audit39_uicore.test.js` (the touch layer's order), `test/audit0928_input.test.js` (the map seam's new free
+name). Patch notes: `PATCH-NOTES-Readable-Text.md`.

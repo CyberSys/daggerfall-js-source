@@ -170,18 +170,18 @@ ${PIXELIFY_FIVE_FACE}
 .dfprofile-renown:empty { display: none; }
 /* GUILD1c: the guild's tag right of the name, before the glyphs - the name layer's own steel */
 .dfprofile-guild { flex: none; font-size: 13px; letter-spacing: .04em; color: #a9c4dd; }
-.dfprofile-line { font-size: 13px; color: var(--dim, #8b8578); line-height: 1.4; }
+.dfprofile-line { font-size: 13px; color: var(--dim, #a39d8f); line-height: 1.4; }
 .dfprofile-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 14px; }
-.dfprofile-h { font-size: 11px; color: var(--dim, #8b8578); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+.dfprofile-h { font-size: 11px; color: var(--dim, #a39d8f); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
 .dfprofile-attrs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
 .dfprofile-stat, .dfprofile-vital { display: flex; justify-content: space-between; gap: 6px; font-size: 14px; line-height: 1.5; }
-.dfprofile-k { color: var(--dim, #8b8578); }
+.dfprofile-k { color: var(--dim, #a39d8f); }
 .dfprofile-v { color: var(--bone, #e9e4d9); }
 .dfprofile-vitals { margin-top: 8px; }
 .dfprofile-row { display: flex; gap: 8px; font-size: 13px; line-height: 1.5; }
-.dfprofile-slot { flex: none; width: 6.5em; color: var(--dim, #8b8578); }
+.dfprofile-slot { flex: none; width: 6.5em; color: var(--dim, #a39d8f); }
 .dfprofile-item { min-width: 0; overflow-wrap: anywhere; }
-.dfprofile-none { font-size: 13px; color: var(--dim, #8b8578); }
+.dfprofile-none { font-size: 13px; color: var(--dim, #a39d8f); }
 .dfprofile-note { font-size: 12px; font-style: italic; color: #c8c2b4; text-align: center; }
 .dfprofile-close { align-self: center; min-width: 120px; min-height: 44px; background: var(--iron, #2b323b); color: var(--bone, #e9e4d9);
   border: 0; border-radius: 3px; font: inherit; font-size: 14px; padding: 6px 12px; cursor: pointer; text-align: center; }
@@ -191,7 +191,7 @@ ${PIXELIFY_FIVE_FACE}
   border-radius: 3px; font: inherit; font-size: 14px; padding: 6px 12px; cursor: pointer; text-align: center; }
 .dfprofile-duel:hover:not([disabled]) { background: #b8483f; color: var(--ink, #0e1013); }
 .dfprofile-duel[disabled] { opacity: .55; cursor: default; }
-.dfprofile-why { font-size: 12px; color: var(--dim, #8b8578); text-align: center; }
+.dfprofile-why { font-size: 12px; color: var(--dim, #a39d8f); text-align: center; }
 /* a phone's width: the sheet above what they wear, not beside it - and the name a size down, so the widest a name can
    be (NAME_MAX of the face's widest letter) stands on one line with its glyphs; breaking inside it is the last resort */
 @container (max-width: 400px) { .dfprofile-body { grid-template-columns: minmax(0, 1fr); } .dfprofile-name { font-size: 16px; } }

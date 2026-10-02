@@ -77,6 +77,7 @@ import { setInfectionHost } from '../systems/infection.js';   // AUDIT 39 (#37):
 // point stands and is now made in ONE place instead of two.
 import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY
 import { loadHud, drawHud, hudScale as hudScaleFor, hideHudTextSurfaces } from '../ui/hud.js';   // AUDIT FONT F3: the two DOM text surfaces' one hide door, for the hosts' overlay branch
+import { isEnhanced } from '../systems/uiSkin.js';   // FONT3: the readied-spell line is the classic skin's
 import { largeHudOptions } from '../ui/hudLarge.js';   // U45: the classic bottom bar
 import { drawText, makeFont } from '../ui/text.js';
 import { HudText } from '../ui/hudText.js';
@@ -1911,7 +1912,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:14792 / exterior.js:3766), set
+  // host's own townTalk sink (world.js:14800 / exterior.js:3766), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3863,7 +3864,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:24546,
+              // playerArrowHitFoe is the one copy world.js:24554,
               // exterior.js:5385 and worldModes.js:8565 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
@@ -6877,7 +6878,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       ];
       lines.forEach((t, i) => drawText(renderer, hudFont, t, 4 * s2, (4 + i * 9) * s2, s2, [0.4, 1, 0.5, 1]));
     }
-    if (hudFont && magic.readied()) {
+    // FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the classic skin's line
+    // alone. Under the enhanced skin the HUD's caption already says the readied spell in the pixel face ("Ready" and
+    // its name, ui/enhancedHud.js parts.readied), so this bitmap line stood under it in a second face, saying it twice.
+    if (hudFont && magic.readied() && !isEnhanced()) {
       // U2a's first consumer: the readied spell + cost, classic text
       // above the vitals (the spellbook window replaces this in U4).
       const s = hudScaleFor(canvas.width, canvas.height);

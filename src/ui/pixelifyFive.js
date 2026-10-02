@@ -28,8 +28,11 @@ export const PIXELIFY_FIVE_WOFF2_BASE64 = 'd09GMgABAAAAAAIIAA0AAAAABKQAAAG5AAEAQ
  *  style id was considered and refused: it would put a JS call between
  *  a sheet and a face it already carries, for no byte saved. */
 export const PIXELIFY_FIVE_FACE = `@font-face { font-family: '${PIXELIFY_FIVE_FAMILY}'; unicode-range: U+0035; font-display: swap; src: url(data:font/woff2;base64,${PIXELIFY_FIVE_WOFF2_BASE64}) format('woff2'); }`;
+/** The two faces, the five first - for a stack that falls back to something other than monospace (FONT3: the two
+ *  inline-only cards, ui/enhancedChunk.js and ui/charSheetDoor.js, fall to the system face if the request never came). */
+export const PIXEL_FAMILIES = `'${PIXELIFY_FIVE_FAMILY}', 'Pixelify Sans'`;
 /** The stack every enhanced rule sets - the five first, then the face. */
-export const PIXEL_STACK = `'${PIXELIFY_FIVE_FAMILY}', 'Pixelify Sans', monospace`;
+export const PIXEL_STACK = `${PIXEL_FAMILIES}, monospace`;
 
 // FONT1 (2026-09-16, Mac: "Enhanced mode UI. Especially the new online
 // interfaces font use our enhanced font ... Any enhanced UI or text
@@ -44,8 +47,21 @@ export const PIXEL_STACK = `'${PIXELIFY_FIVE_FAMILY}', 'Pixelify Sans', monospac
 // ui/socialPanel.js, ui/partyPanel.js, ui/socialMenu.js), so without
 // one home for the trio there would be five copies of it and the
 // fifth would forget the smoothing.
+// FONT3 (2026-10-02, Mac: "improve the readability of our ingame font as
+// im recieving a lot of complaints"): THE READING PAIR. Pixelify Sans at
+// weight 400 draws a stroke thinner than one screen pixel at every size
+// the skin uses under 16px, so a browser greys it out rather than lighting
+// it (measured in Chromium: at 10px only 16% of a glyph's inked pixels
+// reach full brightness at 400, 24% at 500; at 13px 29% against 32%), and
+// its sidebearings leave about one pixel between letters, which the
+// greying closes. 500 is the request's own second weight (ENHANCED_FONTS_URL
+// asks for 400;500, so nothing new is fetched) and half a pixel of
+// tracking reopens the gap. A rule that says its own weight or spacing
+// AFTER this keeps it - so this goes FIRST in a rule (ui/touch.js was the
+// one place that wrote a weight before the trio, and was turned round).
+export const PIXEL_READ_CSS = 'font-weight: 500; letter-spacing: 0.5px;';
 export const PIXEL_FONT_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
-  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;`;
+  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0; ${PIXEL_READ_CSS}`;
 /** The classic shadowed pair the enhanced skin uses for text over the
  *  world - hard, one pixel-step, never a blur (ui/enhancedStyle.js
  *  `.hud`). A blurred shadow under a pixel face is the one thing that

@@ -57,6 +57,8 @@
 
 import { loadImg, nativeMetrics, drawImg, drawRect, shadowText, NATIVE_W } from './nativePanel.js';
 import { DFPalette } from '../formats/dfPalette.js';
+import { isEnhanced } from '../systems/uiSkin.js';   // FONT3: the countdown in the enhanced face under that skin
+import { drawEnhancedHudLabel, midTextTopPx } from './enhancedHudText.js';   // FONT3: the mid-screen label's DOM face, one node per id
 
 /** nativeImgName / nativeImgName2 (:31-32). */
 export const COURT_IMG = 'CORT01I0.IMG';
@@ -83,6 +85,8 @@ export const PRISON_UPDATE_INTERVAL_FAST = 0.001;
 /** daysUntilFreedomLabel's anchor (:91) - HorizontalAlignment.Center
  *  overrides the 156, so only the 165 is load-bearing; the x is kept
  *  because DFU writes it. */
+/** FONT3: the enhanced skin's days-until-freedom line - one DOM label, by id. */
+export const ENHANCED_PRISON_DAYS_ID = 'enhanced-prison-days';
 export const DAYS_LABEL_POS = Object.freeze([156, 165]);
 /** DaggerfallUI.cs:72-73. */
 export const DAYS_LABEL_COLOR = Object.freeze([232 / 255, 196 / 255, 76 / 255, 1]);
@@ -233,9 +237,22 @@ export class PrisonScreenWindow {
     } else {
       drawRect(renderer, m, 0, 0, NATIVE_W, 200, [0.03, 0.03, 0.04, 1]);
     }
+    // FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the one line on this screen
+    // is the whole presentation (the header above), and under the enhanced skin it was the 1996 bitmap face over the
+    // picture. It is the mid-screen label's DOM face there now, at the label's own native row - the horse's name
+    // (ui/horseNameTooltip.js) is the same seam. A DOM line stays painted until it is told, so dispose takes it down.
+    if (isEnhanced() && typeof document !== 'undefined') {
+      drawEnhancedHudLabel(ENHANCED_PRISON_DAYS_ID, { text: this.label, visible: true, top: midTextTopPx(canvas, DAYS_LABEL_POS[1]) });
+      return;
+    }
     if (!font) return;
     shadowText(renderer, font, this.label, m, 0, DAYS_LABEL_POS[1], {
       color: DAYS_LABEL_COLOR, shadow: DAYS_LABEL_SHADOW, align: 'center', w: NATIVE_W,
     });
+  }
+
+  /** townTalk's dropOverlay and showOverlay call this on the way out (the served sentence's close, a replacement). */
+  dispose() {
+    if (isEnhanced() && typeof document !== 'undefined') drawEnhancedHudLabel(ENHANCED_PRISON_DAYS_ID, { text: '', visible: false });
   }
 }

@@ -64,7 +64,7 @@ ${PIXELIFY_FIVE_FACE}
    card - under every threshold there is. The opacity is .75 and the reason is its own lighter bone: 4.9:1 composited
    over the card whether the relief under it is black or bright (the numbers are in test/soc5_interact.test.js). */
 .dfpeer-btn[disabled] { opacity: .75; cursor: default; }
-.dfpeer-btn.cancel { background: none; color: var(--dim, #8b8578); padding-top: 2px; padding-bottom: 2px; min-height: 0; }
+.dfpeer-btn.cancel { background: none; color: var(--dim, #a39d8f); padding-top: 2px; padding-bottom: 2px; min-height: 0; }
 .dfpeer-why { font-size: 11px; color: #c8c2b4; font-style: italic; margin-left: auto; }
 .dfpeer-btn[disabled]:hover .dfpeer-why { color: #c8c2b4; }
 `;

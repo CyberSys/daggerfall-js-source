@@ -59,7 +59,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfpage-card:focus { outline: none; }
 .dfpage-head { flex: none; text-align: center; }
 .dfpage-title { font-size: 18px; line-height: 1.3; overflow-wrap: anywhere; }
-.dfpage-when { font-size: 12px; color: var(--dim, #8b8578); line-height: 1.4; overflow-wrap: anywhere; }
+.dfpage-when { font-size: 12px; color: var(--dim, #a39d8f); line-height: 1.4; overflow-wrap: anywhere; }
 .dfpage-leaf { flex: 0 1 auto; min-height: 0; overflow-y: auto; background: rgba(233, 228, 217, .06); border: 1px solid var(--iron, #2b323b);
   border-radius: 3px; padding: 10px 12px; }
 .dfpage-line { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; min-height: 1.5em; }

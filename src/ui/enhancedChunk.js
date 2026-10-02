@@ -44,6 +44,8 @@
 //     reloading and by nothing else, and the player is the one who
 //     decides when to spend their unsaved progress on it.
 
+import { PIXEL_FAMILIES } from './pixelifyFive.js';   // FONT3: a leaf of constants in the entry bundle - it cannot be the chunk that failed
+
 /** Is this rejection a module that could not be fetched (a deploy took
  *  it), rather than one that threw while evaluating? The two want
  *  different words: the first is fixed by a reload, the second is a
@@ -71,7 +73,7 @@ export function paintChunkNotice(host, { err, onDismiss, reload = () => globalTh
     return n;
   };
   const scrim = el('div', 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;'
-    + 'background:rgba(8,9,11,.72);z-index:30;font:14px/1.5 system-ui,sans-serif;color:#e9e4d9;padding:16px');
+    + `background:rgba(8,9,11,.72);z-index:30;font:500 14px/1.5 ${PIXEL_FAMILIES},system-ui,sans-serif;letter-spacing:0.5px;color:#e9e4d9;padding:16px`);   // FONT3: the enhanced face named first - nothing loads for it; the system face stands if the request never came
   const card = el('div', 'max-width:420px;width:100%;background:#14161a;border:1px solid #2b323b;border-radius:8px;padding:18px');
   card.append(el('p', 'margin:0 0 14px', isChunkLoadError(err) ? RELOAD_TEXT : BROKEN_TEXT));
   const row = el('div', 'display:flex;gap:8px;justify-content:flex-end');
