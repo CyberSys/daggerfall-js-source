@@ -265,7 +265,7 @@
   {
     "name": "FORAGE1-30-a-refused-press-strikes-gold",
     "file": "src/systems/quickslots.js",
-    "old": "  if (res?.refused) return { kind: 'refused', name: r.name, result: res };\n",
+    "old": "  if (res?.refused) {\n    if (res.text && !res.said) say?.(res.text);\n    return { kind: 'refused', name: r.name, result: res };\n  }\n",
     "new": "",
     "tests": [
       "test/forage2_tools.test.js"

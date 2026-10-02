@@ -1493,7 +1493,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // exterior door's is a bare NUMBER.
     const g = liveFoeFor(guards, key, 'mobileGuard', { idOf });
     if (!g) return null;
-    const t = mobileEntityName(liveEntityName(g, enemyDisplayName(g.mobileType)), { hostile: !!g.ai?.isHostile });
+    const t = mobileEntityName(liveEntityName(g, enemyDisplayName(g.mobileType)), { hostile: !!g.ai?.isHostile, champion: !!g.entity?.champion });   // LOOT7-CHECK CHAMP-HOVER: the one law at every live arm (the watch never stands as one)
     return t ? { title: t } : null;
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),

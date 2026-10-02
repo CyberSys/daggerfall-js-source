@@ -500,6 +500,12 @@ export const KNIFE_REFUSALS = Object.freeze({
  *  words the prompt says them in. The foe and the load stay the act's own checks. */
 export const KNIFE_WHERE = Object.freeze(['town', 'sea']);
 export const KNIFE_WHERE_WORDS = Object.freeze({ town: 'not in a settlement', sea: 'not out here' });
+/** SETTLE-SAID (FIELD BUGS 2026-10-01, "it gives a notification but you cant mine"): the same for a node of the ground -
+ *  a vein, a boulder, a patch, a tree: the settlement's check (a town, a farm, a temple, a tavern - its footprint and a
+ *  block round it) is the act's (FORAGE0 14.3), and the plan said such a node was ready - E, or the tool's Use, then
+ *  played no act and said "You cannot mine in a settlement!". The plan asks it, and the prompt says it. */
+export const GROUND_WHERE = Object.freeze(['town']);
+export const GROUND_WHERE_WORDS = Object.freeze({ town: 'not in a settlement' });
 
 // ─── PROF8: FISHING WITH THE NET (PROF0 5.2, 6; Appendix B) ─────────
 //

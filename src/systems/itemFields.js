@@ -135,6 +135,10 @@ export const ITEM_FIELDS = Object.freeze({
   marked: bool(),
   // PROF7: a Butcher's Raw Meat, which spoils half as fast (PROF0 3.3; survival/food.js rotFoodDay)
   slowRot: bool(),
+  // SELL-AS-FOUND (AUDIT ECON O1): the condition the world handed a piece over at - Roleplay & Realism: Items' rolls on
+  // a pile, a body and a shelf (systems/rriRealism.js) - which an online counter's sale reads at best (tradeModes.js
+  // saleConditionPercentage); absent on a piece handed over whole
+  foundCondition: int({ min: 0 }),
 });
 
 /** The declared names, and those of one kind. */

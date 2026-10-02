@@ -255,17 +255,14 @@ function stage({ online = true, open = true } = {}) {
   return S;
 }
 
-test('TOUCH-HOLD knife: the Skinning Knife\'s Use from the hotbar at a body starts the skinning held by the Use - no key named, the knife in the hand; the line drawn by the look alone, no key held, skins it clean and wears the knife; the choice key\'s search pick unmoved (mutants: no Use; the Use not holding; the search taken by the Use)', () => {
+test('TOUCH-HOLD knife: the Skinning Knife\'s Use from the hotbar at a body starts the skinning held by the Use - no key named, the knife in the hand; the line drawn by the look alone, no key held, skins it clean and wears the knife; PROF-MENU: the body\'s list offers the search beside it, and the Use skins (mutants: no Use; the Use not holding; the search taken by the Use)', () => {
   const s = stage();
   try {
     const bear = s.kill(MOBILE_TYPES.GrizzlyBear, [0, 0, 2.2]);
     s.lookAt(bear);
     s.host.tick(0.016);
     assert.equal(s.host.target?.node.kind, 'body');
-    s.input = { held: false, attack: false, choice: true };   // the choice key: the body's loot
-    s.host.tick(0.016);
-    s.input = { held: false, attack: false, choice: false };
-    assert.equal(s.prompt.verb, 'Search the Grizzly Bear');
+    assert.deepEqual([s.prompt.verb, s.prompt.rest], ['Choose', 'Skin the Grizzly Bear / Search the Grizzly Bear'], 'PROF-MENU: no plaque - the choice E opens');
     assert.equal(usableItem(s.knife), true, 'the card offers Use');
     const r = s.hotbar();
     assert.equal(s.host.acting(), true, `the knife's Use started the skinning: ${JSON.stringify(r)} ${s.said}`);
@@ -295,7 +292,7 @@ test('TOUCH-HOLD knife: away from a body the Use says where Hunting is done; off
   const s = stage();
   try {
     assert.equal(professionToolLine(SKINNING_KNIFE.templateIndex), PROFESSION_TOOL_HOW[SKINNING_KNIFE.templateIndex]('E'));
-    assert.match(professionToolLine(SKINNING_KNIFE.templateIndex), /^Hunting is done at a body your own blow felled: walk up to it until the prompt shows, then press E \(or use the Skinning Knife\)\.$/);
+    assert.match(professionToolLine(SKINNING_KNIFE.templateIndex), /^Hunting is done at a body your own blow felled: walk up to it until its acts show, then press E \(or use the Skinning Knife\)\.$/);   // PROF-MENU: its acts - the list, or the prompt
     const r = useItem(s.knife, s.e.items, { entity: s.e });
     assert.deepEqual([r?.kind, r?.refused, r?.text], ['foraging', true, professionToolLine(SKINNING_KNIFE.templateIndex)], 'no body: the way said');
     assert.equal(s.host.acting(), false);

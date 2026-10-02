@@ -147,6 +147,9 @@ export const TOOL_ICONS = Object.freeze({
 export const PAD_DEADZONE = 0.2, PAD_ZOOM = 1.6, PAD_TURN = 420;
 /** TURN-STEADY: how far (px) a right-drag travels before it settles on turning, tilting or both. */
 export const ORBIT_LOCK_PX = 8;   // DISC22-G: DFU's note box's own cap (:1603)
+/** ORBIT-FREE: how far (px) a locked drag must go the other way - past its drift - before it turns and tilts at once;
+ *  and the drift itself: off-axis travel under ORBIT_DRIFT of the locked axis's, the slope the lock's own 2:1 forgives. */
+export const ORBIT_FREE_PX = 24, ORBIT_DRIFT = 0.5;
 import { createTownSheet } from './townSheet.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { quadPlacement } from './quadMap.js';   // MAP3: the sheet over the held paper's corners
@@ -2788,6 +2791,22 @@ export class HeldMapWindow {
           // the travel that decided it is spent in that direction, so nothing is lost
           this._sheet?.orbitBy?.(orbitDrag.axis === 'tilt' ? 0 : orbitDrag.sx, orbitDrag.axis === 'turn' ? 0 : orbitDrag.sy);
           return;
+        }
+        // ORBIT-FREE (FIELD BUGS 2026-10-01, "rotate the 3D map only works on one axis ... should work for both vertical
+        // and horizontal simultaneously"; Mac: "Unlock on intent"): the lock held for the WHOLE drag, so one set off
+        // sideways never tilted however far it then went down. A locked drag keeps what it holds back the other way,
+        // less its drift (each move forgives ORBIT_DRIFT of its own travel along the lock); past ORBIT_FREE_PX of it
+        // the drag turns AND tilts, every move, to its release - the travel held back spent first, so nothing is lost.
+        if (orbitDrag.axis !== 'both') {
+          const tilt = orbitDrag.axis === 'tilt';
+          const on = Math.abs(tilt ? dy : dx), off = (orbitDrag.off ?? 0) + (tilt ? dx : dy);
+          orbitDrag.off = Math.sign(off) * Math.max(0, Math.abs(off) - on * ORBIT_DRIFT);
+          if (Math.abs(orbitDrag.off) >= ORBIT_FREE_PX) {
+            const held = orbitDrag.off;
+            orbitDrag.axis = 'both';
+            this._sheet?.orbitBy?.(tilt ? held : dx, tilt ? dy : held);
+            return;
+          }
         }
         this._sheet?.orbitBy?.(orbitDrag.axis === 'tilt' ? 0 : dx, orbitDrag.axis === 'turn' ? 0 : dy);
         return;

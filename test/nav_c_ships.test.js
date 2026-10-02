@@ -16,7 +16,7 @@ import {
   TEMPERS,
 } from '../src/systems/naval/navalAI.js';
 import {
-  DENSITY, SPAWN_RING, SPAWN_CLEAR, DESPAWN_BEYOND, SPAWN_EVERY, FIRST_ROLL_S, SHIP_SPAWN_CHANCE, FACTION_WEIGHTS, PORT_WEIGHTS,
+  DENSITY, SPAWN_RING, SPAWN_CLEAR, DESPAWN_BEYOND, SPAWN_EVERY, FIRST_ROLL_S, SHIP_SPAWN_CHANCE, FACTION_WEIGHTS, PORT_WEIGHTS, PORT_PIRATE_K,
   HUNTER_AT, HUNTER_WEIGHT, weightedPick, factionWeights, createNavalDirector, seedBaseOf,
 } from '../src/systems/naval/navalDirector.js';
 import { SHIP_STATES, STRUCK_AT } from '../src/systems/naval/navalDamage.js';
@@ -180,7 +180,9 @@ test('NAV-C a captain at sea: with no enemy she cruises for a waypoint on open w
   near(s.speed, ACCEL * 1, 1e-12, 'a heavy hull gathers way at half; a brigantine at ACCEL');
   assert.deepEqual(out, { volleys: [], barrels: [], grapple: null, runOuts: [] });
   // the player abeam to starboard, within her reach
-  const b = createSeaShip({ id: 'b', seed: 6, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
+  // SEA-EASE (PIN MOVED): a bold pirate named - seed 6's own draw is wary under BOLD_SHARE's quarter, and a wary one
+  // never takes a boat she cannot size up; the engagement is this pin's, the temper seapeace's
+  const b = createSeaShip({ id: 'b', seed: 6, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0, temper: 'bold' });
   assert.ok(broadsideReach(b, 0) > 150, `her long guns reach ${broadsideReach(b, 0)} m`);
   const o = stepCaptain(b, world({ contacts: [player([80, 0, 0])] }));
   assert.equal(b.mode, 'engage');
@@ -198,13 +200,13 @@ test('NAV-C a captain at sea: with no enemy she cruises for a waypoint on open w
   assert.equal(b.guns.ready('starboard'), false, 'reloading');
   assert.equal(b.guns.ready('port'), true);
   // the same player far out of reach: no volley, she closes
-  const f = createSeaShip({ id: 'f', seed: 7, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
+  const f = createSeaShip({ id: 'f', seed: 7, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0, temper: 'bold' });   // SEA-EASE (PIN MOVED): bold, as b
   const fo = stepCaptain(f, world({ contacts: [player([600, 0, 0])] }));
   assert.equal(f.mode, 'engage');
   assert.equal(fo.volleys.length, 0);
   assert.ok(600 < ENGAGE_RANGE && 600 > broadsideReach(f, 0));
   // past ENGAGE_RANGE she does not see a fight
-  const g = createSeaShip({ id: 'g', seed: 8, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0 });
+  const g = createSeaShip({ id: 'g', seed: 8, classId: 'pirateBrig', pos: [0, 0, 0], yaw: 0, temper: 'bold' });   // SEA-EASE (PIN MOVED): bold, or her cruise says nothing of the reach
   stepCaptain(g, world({ contacts: [player([ENGAGE_RANGE + 10, 0, 0])] }));
   assert.equal(g.mode, 'cruise');
   assert.ok(BEAR_DEG > 0 && batteryReach(g, 'stern', 0) === 0, 'a barrel battery has no reach of its own');
@@ -348,7 +350,8 @@ test('NAV-C the director keeps the density and lets ships go: none rolled while 
 
 test('NAV-C who sails: the open bay\'s weights, a port adding merchants and the navy, a notorious captain drawing HUNTERS - a navy ship laid straight at the player; one pirate flagship at a time (mutants: the port weights dropped, the hunter not aimed, two flagships)', () => {
   assert.deepEqual(factionWeights(), { ...FACTION_WEIGHTS });
-  assert.deepEqual(factionWeights({ nearPort: true }), { pirate: FACTION_WEIGHTS.pirate, merchant: FACTION_WEIGHTS.merchant + PORT_WEIGHTS.merchant, navy: FACTION_WEIGHTS.navy + PORT_WEIGHTS.navy });
+  // SEA-EASE (PIN MOVED): a port's waters cut the pirates' weight to PORT_PIRATE_K - the crown's own waters
+  assert.deepEqual(factionWeights({ nearPort: true }), { pirate: FACTION_WEIGHTS.pirate * PORT_PIRATE_K, merchant: FACTION_WEIGHTS.merchant + PORT_WEIGHTS.merchant, navy: FACTION_WEIGHTS.navy + PORT_WEIGHTS.navy });
   assert.equal(factionWeights({ notoriety: HUNTER_AT }).navy, FACTION_WEIGHTS.navy + HUNTER_WEIGHT);
   assert.equal(factionWeights({ notoriety: HUNTER_AT - 1 }).navy, FACTION_WEIGHTS.navy);
   const w = { a: 1, b: 0, c: 3 };

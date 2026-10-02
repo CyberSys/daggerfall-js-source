@@ -366,8 +366,13 @@ function useQuickslotNow(slot, { entity = null, items = null, hooks = {}, say = 
     say?.(USE_PENDING[res.kind]);
     return { kind: 'refused', name: r.name, result: res };
   }
-  // FORAGE1: a mod's use that REFUSED (Foraging's checks - the HUD already said why) is a refusal, never gold
-  if (res?.refused) return { kind: 'refused', name: r.name, result: res };
+  // FORAGE1: a mod's use that REFUSED (Foraging's checks - the HUD already said why) is a refusal, never gold. AUDIT ECON
+  // R3: a refusal whose arm has no HUD of its own (a repair kit's, smithItems.js - "A kit mends nothing past three
+  // quarters.") carries its words, and the slot says them; one whose arm said them already marks it `said`
+  if (res?.refused) {
+    if (res.text && !res.said) say?.(res.text);
+    return { kind: 'refused', name: r.name, result: res };
+  }
   // UI2: AND WHAT HAS NO USE SAYS SO. UseItem's catch-all does nothing and says nothing (DFU's own - the pack's click
   // on a pair of prayer beads is silent), which from a slot on the HUD, with no window to look at, is a key that seems
   // dead. The slot names it and flashes the refusal.

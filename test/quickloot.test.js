@@ -489,7 +489,7 @@ test('AUDIT QL-WEIGHT1: every host hands the take the resolver it hands the wind
   for (const [f, n] of Object.entries(files)) {
     const src = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
     const calls = src.match(/quickLootTake\(/g) ?? [];
-    const withQuest = src.match(/quickLootTake\([^\n]*\{ getQuest: \(uid\) => (opts\.)?questBridge\?\.machine\.?\??\.getQuest\??\.?\(uid\) \?\? null \}/g) ?? [];
+    const withQuest = src.match(/quickLootTake\([^\n]*\{ getQuest: \(uid\) => (opts\.)?questBridge\?\.machine\.?\??\.getQuest\??\.?\(uid\) \?\? null(, took: showPickups)? \}/g) ?? [];   // PICKUP-FEED: the cards' hook rides after it (test/pickupfeed.test.js pins that every call carries it)
     assert.equal(calls.length, n, `${f}: the calls`);
     assert.equal(withQuest.length, n, `${f}: each with the host's resolver`);
   }

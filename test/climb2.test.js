@@ -118,14 +118,14 @@ test('CLIMB2: the hand-hold - the lip where the wall steps out, the body hanging
   assert.equal(senseGrip(sill(0.05), [0, 0, 1], N, 2.5, GEO), null, 'a 5 cm one is too thin for the fingers');
   assert.equal(senseGrip(wall(1.5), [0, 0, 1], N, 1.5, GEO), null, 'the floor too near under the lip for a body to hang');
   assert.ok(senseGrip(wall(1.5), [0, 0, 1], N, 1.5, GEO, false), '...though the hands could hold it');
-  // a pitched top past 45 degrees is no hold
+  // a pitched top past 50 degrees is no hold
   const roof = scene();
   roof.col.addMesh('roof', new Float32Array([-3, 2.5, 1, 3, 2.5, 1, 3, 3.5, 1.5, -3, 3.5, 1.5]), [0, 2, 1, 0, 3, 2], I);
   roof.box(-3, 0, 1, 3, 2.5, 1.02);
   assert.equal(senseGrip(roof.col, [0, 0, 1], N, 2.5, GEO), null, 'a 63-degree roof');
-  // a knife-edge ridge - the top falling back from the face's edge at 50 degrees - is no hold (steeper, and the
-  // top's ray, a rung and a little long, finds nothing under the edge at all)
-  const ridge = scene(), P = [], fall = 2.5 - 0.3 * Math.tan((50 * Math.PI) / 180);
+  // a knife-edge ridge - the top falling back from the face's edge at 55 degrees - is no hold (steeper than a top, and
+  // the top's ray, a rung and a little long, finds nothing under the edge at all)
+  const ridge = scene(), P = [], fall = 2.5 - 0.3 * Math.tan((55 * Math.PI) / 180);
   for (const x of [-3, 3]) P.push(x, 0, 1, x, 2.5, 1, x, fall, 1.3, x, 0, 1.3);
   const Q = [[0, 4, 5, 1], [1, 5, 6, 2], [2, 6, 7, 3], [0, 3, 7, 4], [0, 1, 2, 3], [4, 7, 6, 5]];
   ridge.col.addMesh('ridge', new Float32Array(P), Q.flatMap(([a, b, c, d]) => [a, b, c, a, c, d]), I);

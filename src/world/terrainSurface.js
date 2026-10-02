@@ -239,6 +239,35 @@ export function groundOffPlane(heightmapData, avg, lx, lz) {
   return surfaceHeightAt(heightmapData, lx, lz) - Math.fround(avg) * (MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE);
 }
 
+/** WOD-BUSH: the share of a box's footprint, each side, left out of the ground read - a bush's foot is its middle. */
+export const GROUND_UNDER_INSET = 0.25;
+
+/**
+ * WOD-BUSH (2026-10-01, Mac: "World of daggerfall bush props float above the
+ * ground in bandit camps"): THE LOWEST DRAWN GROUND UNDER A BOX - over the
+ * middle of its footprint (GROUND_UNDER_INSET off each side), read at its
+ * corners, its centre lines and every sample line that crosses it, so no
+ * quad under it is skipped. The footprint is held to the pixel: the ground
+ * past its edge is the neighbour's, which this pixel does not hold.
+ * @param {Float32Array} heightmapData the pixel's blended samples
+ * @param {ArrayLike<number>} box [minX, minY, minZ, maxX, maxY, maxZ], pixel-local
+ * @returns {number} world height
+ */
+export function lowestGroundUnder(heightmapData, box) {
+  const cell = TERRAIN_SIZE / (HEIGHTMAP_DIMENSION - 1);
+  const clamp = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v));
+  const span = (lo, hi) => {
+    const a = clamp(lo + (hi - lo) * GROUND_UNDER_INSET), b = clamp(hi - (hi - lo) * GROUND_UNDER_INSET);
+    const out = [a, (a + b) / 2, b];
+    for (let g = Math.ceil(a / cell) * cell; g < b; g += cell) out.push(g);
+    return out;
+  };
+  const xs = span(box[0], box[3]), zs = span(box[2], box[5]);
+  let low = Infinity;
+  for (const x of xs) for (const z of zs) low = Math.min(low, surfaceHeightAt(heightmapData, x, z));
+  return low;
+}
+
 /**
  * Build the height grid for one pixel: positions + normals over the
  * 129x129 samples, pixel-local frame (x/z in [0, 819.2]).

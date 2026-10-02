@@ -38,8 +38,8 @@
   {
     "name": "CLICK-LIFT-the-street-never-asks",
     "file": "src/scenes/world.js",
-    "old": "(_act.activate && !gatherHost?.acting() && !_actClick)",
-    "new": "(_act.activate && !gatherHost?.acting())",
+    "old": "(_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked)",
+    "new": "(_act.activate && !gatherHost?.acting() && !nodeClicked)",
     "tests": [
       "test/fb1001_audit.test.js"
     ]

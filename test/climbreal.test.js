@@ -14,6 +14,8 @@ import { PlayerMotor, CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../src/player/motor
 import { Collider } from '../src/player/collider.js';
 import { Arch3dFile } from '../src/formats/arch3dFile.js';
 import { dfMeshToModel } from '../src/world/meshReader.js';
+import { BlocksFile } from '../src/formats/blocksFile.js';
+import { layoutRmbBlock } from '../src/world/rmbLayout.js';
 
 const ARENA2 = process.env.ARENA2_PATH;
 const skipReal = !ARENA2 || !existsSync(ARENA2) ? 'ARENA2_PATH not set or missing - real-data validation skipped' : false;
@@ -184,4 +186,55 @@ test('CLIMB REAL: Daggerfall\'s own buildings - every side of the first 24 build
   }
   assert.equal(taken, 24, 'twenty-four building-sized models in the archive');
   console.log(report.join('\n'));
+});
+
+test('CLIMB REAL: a temperate town block\'s houses (RESIAM06) - Forward held at the middle of every side reaches the roof over its eave on most, and a climb that cannot go on is never a trap: Jump pushes off it (AUDIT CLIMB-FIELD: none reached a roof before)', { skip: skipReal }, () => {
+  const arch = new Arch3dFile();
+  assert.equal(arch.load(new Uint8Array(readFileSync(join(ARENA2, 'ARCH3D.BSA')))), true);
+  const blocks = new BlocksFile();
+  blocks.load(new Uint8Array(readFileSync(join(ARENA2, 'BLOCKS.BSA'))));
+  const byId = new Map();
+  for (let i = 0; i < arch.count; i++) byId.set(arch.getRecordId(i), i);
+  const col = new Collider(() => -0.025);
+  const houses = new Map();
+  for (const p of layoutRmbBlock(blocks.getBlockByName('RESIAM06.RMB')).models) {
+    const i = byId.get(p.modelIdNum);
+    if (i == null) continue;
+    const cpu = dfMeshToModel(arch.getMesh(i), () => ({ width: 1, height: 1 }));
+    col.addMesh('world', cpu.positions, cpu.indices, p.matrix);
+    if (p.recordIndex == null) continue;
+    const M = p.matrix, P = cpu.positions;
+    let b = houses.get(p.recordIndex);
+    if (!b) houses.set(p.recordIndex, b = { lo: [Infinity, Infinity, Infinity], hi: [-Infinity, -Infinity, -Infinity] });
+    for (let k = 0; k < P.length; k += 3) {
+      for (let a = 0; a < 3; a++) {
+        const w = M[a] * P[k] + M[4 + a] * P[k + 1] + M[8 + a] * P[k + 2] + M[12 + a];
+        b.lo[a] = Math.min(b.lo[a], w); b.hi[a] = Math.max(b.hi[a], w);
+      }
+    }
+  }
+  const tally = { roof: 0, held: 0, other: 0 };
+  for (const b of houses.values()) {
+    if (b.hi[1] - b.lo[1] < 2.5) continue;
+    const cx = (b.lo[0] + b.hi[0]) / 2, cz = (b.lo[2] + b.hi[2]) / 2;
+    for (const [x, z, yaw] of [[cx, b.lo[2] - 1.5, 0], [cx, b.hi[2] + 1.5, Math.PI], [b.lo[0] - 1.5, cz, Math.PI / 2], [b.hi[0] + 1.5, cz, -Math.PI / 2]]) {
+      const m = new PlayerMotor(col, { speed: 50, running: 30 }, {
+        parkour: { enabled: () => true, inputs: () => ({ climbing: 100, jumping: 50 }), say: () => {}, tally: () => {} },
+      });
+      m.spawn(x, 0, z);
+      let top = -Infinity;
+      for (let i = 0; i < 700 && top < 2; i++) {
+        m.update(1 / 60, { forward: 1, strafe: 0, run: false, jump: false, crouch: false }, yaw);
+        if (m.grounded) top = Math.max(top, m.pos[1]);
+      }
+      if (top >= 2) { tally.roof++; continue; }
+      if (!m.onWall) { tally.other++; continue; }
+      tally.held++;
+      // stalled on the wall (an eave past the hands' reach, a roof past 50 degrees): the keys let go, Jump pushes off
+      for (let i = 0; i < 6; i++) m.update(1 / 60, { forward: 0, strafe: 0, run: false, jump: i >= 2, crouch: false }, yaw);
+      assert.ok(!m.onWall, `stalled at ${m.pos.map((v) => v.toFixed(2))}: Jump let go of the wall`);
+    }
+  }
+  console.log(JSON.stringify(tally));
+  assert.ok(tally.roof >= 0.6 * (tally.roof + tally.held + tally.other), `most sides climbed onto the roof (${JSON.stringify(tally)})`);
 });

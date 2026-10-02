@@ -26,10 +26,10 @@
 //   systems/chopAct.js; the Wood-Axe draws DFU's War Axe in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { trees, nodeKey, WOOD_TABLES } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { createChopAct } from '../systems/chopAct.js';
 import { FT } from '../systems/foragingLaw.js';
-import { foragingActRefusal, foragingToolIn } from '../systems/foragingInstall.js';
+import { foragingActRefusal, foragingToolIn, actChecksRefusal } from '../systems/foragingInstall.js';
 import { materialLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
@@ -179,6 +179,9 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     gone: (n) => book.taken(n.key, 'logs'),
     mark: (n) => (book.taken(n.key, 'logs') ? null : TREE_MARK),   // NODE-MARKS: a standing tree; a felled one's stump none
     tools: Object.freeze([FT.WoodAxe]),   // TOOL-USE: the Wood-Axe's Use at a tree is E there
+    where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID
+    /** PROF-MENU: the menu's title - the tree its wood is. */
+    nodeName: (n) => `${materialLabel(n.material).replace(/ Log$/, '')} Tree`,
     plan(n, { entity, rank, specs }) {
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),

@@ -297,7 +297,7 @@ import {
   parkourSkill, jumpingSkill, parkourReach, parkourCatchHold, parkourRefusal,
   PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
   // CLIMB2: the hang, the shimmy, the grip and the free climb
-  senseGrip, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
+  senseGrip, senseEaveAhead, senseEaveLedge, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
   bandsClear, capsuleFits, PARKOUR_LEAN,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
@@ -1567,6 +1567,7 @@ export class PlayerMotor {
       back: input.forward < 0,
       anyMove: input.forward !== 0 || input.strafe !== 0,
       falling: this.falling,
+      slowFalling: this.slowFalling,   // SLOW-GRASP: no airborne grasp begins on a slow fall (climbing.js)
       grounded: this.grounded,
       levitating: this.levitating,
       riding: isRiding(this.transportMode),   // TR1: ClimbingMotor :398 - no climbing from a saddle
@@ -1609,7 +1610,11 @@ export class PlayerMotor {
       // billed here - the machine sees slippedToGround next step,
       // stops, and the normal grounded bookkeeping bills the drop.
       if (!this.falling) { this.falling = true; this.fallStart = this.pos[1]; this.velY = 0; }
-      this.velY -= GRAVITY * dt;
+      // SLOW-SLIP (FIELD BUGS 2026-10-01): ApplyGravity's slowfall arm rides the slip too - the flat 2.1 m/s with the
+      // fall re-anchored each tick, as the walk arm's below. The slip integrated plain gravity and anchored its fall
+      // once, at the let-go: a slip under the spell hit the floor at ~20 m/s and billed the whole slip.
+      if (this.slowFalling) { this.fallStart = this.pos[1]; this.velY = -SLOWFALL_VELOCITY; }
+      else this.velY -= GRAVITY * dt;
       const r = this.collider.move(this.pos, 0, this.velY * dt, 0, this.height);
       this.grounded = r.grounded;
       if (r.grounded) this.velY = 0;
@@ -1816,6 +1821,12 @@ export class PlayerMotor {
           if (over && over.floorY < ledge.lipY - PARKOUR_OVER_DROP) move = planClamber(this.pos, ledge, over, skill);
         }
       }
+    }
+    // AUDIT CLIMB-FIELD E2: an eave whose wall stands past the grab's reach - no face for the ledge sensor - is caught by
+    // its edge (a lip at the chest or higher, as every air catch's hang is)
+    if (!move && air && !ledge.ok && !this.crouching) {
+      const g = senseEaveAhead(this.collider, this.pos, look, geo);
+      if (g && g.lipY - this.pos[1] >= PARKOUR_HANG_LOW && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) move = planCatch(this.pos, g);
     }
     if (!move && air && fwd && !tapOnly && this._pkGrab(look, pk)) return true;
     // CLIMB3: running, Jump at a wall runs up it; at an edge, leaps (the plain jump goes on everywhere else)
@@ -2113,20 +2124,27 @@ export class PlayerMotor {
   _hangStep(dt, input, side, vert, skill, live = 0) {
     const w = this._wall;
     const geo = this._pkGeo();
-    if (!senseGrip(this.collider, this._pkFaceOf(w.normal), w.normal, w.lipY, geo)) { this._wallEnd(); return false; }
+    const hold = senseGrip(this.collider, this._pkFaceOf(w.normal), w.normal, w.lipY, geo);
+    if (!hold) { this._wallEnd(); return false; }
     const jump = input.jump && !this._pkJumpLatch;
-    // CLIMB3: a fresh Jump with Back held ejects off the wall, with Left or Right leaps along it (the press spent either
-    // way: no hold that way, and the hands hold on)
+    // CLIMB3: a fresh Jump with Back held ejects off the wall, with Left or Right leaps along it. AUDIT CLIMB-FIELD J1
+    // (Mac: "You cant jump from a wall"): no hold that way, the press was spent and the hands held on - it pushes off
     if (jump && (vert < 0 || side)) {
       this._pkJumpLatch = true;
-      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || true;
+      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || this._pkLeapFrom(dt, 'back', 0) || true;
     }
     if (vert <= 0) w.upRefused = false;
     if (jump || (vert > 0 && !w.upRefused)) {
       if (jump) this._pkJumpLatch = true;
       const dir = [-w.normal[0], 0, -w.normal[2]];
       const ledge = senseLedge(this.collider, this.pos, dir, this._pkGeo(PARKOUR_HANG_DROP - 0.3, PARKOUR_HANG_DROP + 0.2));
-      const move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;
+      let move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;
+      // AUDIT CLIMB-FIELD E3: an eave standing out past the grab's reach shows the ledge sensor no face to read it by -
+      // the way onto its roof is planned from the hold itself
+      if (!move && hold.eave) {
+        const el = senseEaveLedge(this.collider, this.pos, hold, geo);
+        if (el.mantle) move = planMantle(this.pos, el, skill);
+      }
       if (move) {
         this._wallEnd();
         this._parkourBegin(move);
@@ -2144,6 +2162,9 @@ export class PlayerMotor {
         w.seek = true;
         return true;
       }
+      // AUDIT CLIMB-FIELD J1: a Jump with nothing to climb onto or leap to (a sill under a window, an eave with no room
+      // over it) pushes off the wall - it did nothing, and Jump on a wall never jumped
+      if (jump && this._pkLeapFrom(dt, 'back', 0)) return true;
       w.upRefused = vert > 0;
     } else if (vert < 0) {
       w.mode = 'climb';   // down the face: the free climb takes it from here - seeking the wall under a sill
@@ -2365,36 +2386,22 @@ export class PlayerMotor {
     w.normal = c.normal;
     if (c.key !== w.key) { w.key = c.key; w.carrier = c.key != null ? (this.collider.bucketPose?.(c.key) ?? null) : null; }
     // CLIMB3: a fresh Jump on the free climb leaps - Back off the wall, Left or Right along it, else up it (Mac's
-    // "Parkour leap"; until now Jump on a free climb did nothing); the press is spent though no hold is in reach
+    // "Parkour leap"; until now Jump on a free climb did nothing). AUDIT CLIMB-FIELD J1 (Mac: "You cant jump from a
+    // wall"): Jump up the wall climbs onto a top in reach first, as Forward does; and a press with no hold that way
+    // pushes off the wall - it was spent, and the climber hung on
     if (inputs.jumpPressed) {
       this._pkJumpLatch = true;
+      if (vert >= 0 && !side && this._fcTopOut(dt, skill, inputs, into, true)) return true;
       if (this._pkLeapFrom(dt, vert < 0 ? 'back' : side ? 'side' : 'up', Math.sign(side))) return true;
+      if (vert >= 0 && this._pkLeapFrom(dt, 'back', 0)) return true;
     }
     if (vert > 0) {
-      // AUDIT CLIMB2 H5: THE TOP-OUT. A lip coming within the hands' reach is climbed onto or over - CLIMB1's top-out of
-      // the classic climb, which this climb took the place of and lost: a free climb up a wall lower than the hang
-      // (a plinth, a garden wall) never had its lip come to the hands, and stuck under the top with Forward held. Asked
-      // only once the face has ended inside the reach (one ray), and rested after a refusal as the air catch is.
-      const reach = parkourReach(skill, inputs.load ?? 0) + PARKOUR_AIR_REACH;
-      if (!Number.isFinite(this.collider.raycast([this.pos[0], this.pos[1] + reach, this.pos[2]], into, CAPSULE_RADIUS + PARKOUR_WALL_REACH))) {
-        if (this._pkQuiet > 0) this._pkQuiet--;
-        else {
-          const geo = this._pkGeo(PARKOUR_AIR_LOW, reach);
-          const ledge = senseLedge(this.collider, this.pos, into, geo);
-          const move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;
-          if (move) {
-            this._wallEnd();
-            this._parkourBegin(move);
-            this._parkourAdvance(dt);
-            return true;
-          }
-          if (ledge.ok) this._pkQuiet = PARKOUR_QUIET_STEPS;
-        }
-      }
+      if (this._fcTopOut(dt, skill, inputs, into, false)) return true;
       const face = [this.pos[0] + into[0] * c.dist, 0, this.pos[2] + into[2] * c.dist];
       const g0 = senseGrip(this.collider, face, c.normal, this.pos[1] + PARKOUR_HANG_DROP, this._pkGeo());
       const g = g0 && w.past != null && g0.lipY <= w.past + PARKOUR_LIP_FOLLOW ? null : g0;   // CLIMB3: not the sill climbed past
-      if (g && g.lipY - this.pos[1] <= PARKOUR_HANG_DROP + 0.04) {
+      const level = !!g && g.lipY - this.pos[1] <= PARKOUR_HANG_DROP + 0.04;
+      if (level && !g.eave) {
         w.mode = 'hang';
         w.upRefused = false;
         this._pkHangAt(g);
@@ -2402,8 +2409,9 @@ export class PlayerMotor {
       }
       // AUDIT CLIMB2 G4: a climb that could go no higher - the head under a cornice that stands out from the wall, the
       // lip still over the hands - reaches up round it: the hang is taken by a catch's move, its way proven clear, and
-      // the hold goes on (an unbilled move, as a corner is)
-      if (g && w.stuck && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) {
+      // the hold goes on (an unbilled move, as a corner is). AUDIT CLIMB-FIELD E1: and an eave's edge come to the hands
+      // is reached out to the same way - its hang is a body's width out from the wall, under the edge, never stepped to
+      if (g && (w.stuck || (level && g.eave)) && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) {
         const move = planCatch(this.pos, g);
         move.kind = 'reach';
         move.bill = false;
@@ -2429,6 +2437,28 @@ export class PlayerMotor {
     if (!held()) { this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2]; }
     w.stuck = vert > 0 && this.pos[1] - was[1] < 1e-4;
     return true;
+  }
+
+  /** AUDIT CLIMB2 H5: THE TOP-OUT. A lip coming within the hands' reach is climbed onto or over - CLIMB1's top-out of
+   *  the classic climb, which this climb took the place of and lost: a free climb up a wall lower than the hang (a
+   *  plinth, a garden wall) never had its lip come to the hands, and stuck under the top with Forward held. Asked only
+   *  once the face has ended inside the reach (one ray), and rested after a refusal as the air catch is - unless a fresh
+   *  Jump asks (`pressed`, AUDIT CLIMB-FIELD J1). Answers whether a move began. */
+  _fcTopOut(dt, skill, inputs, into, pressed) {
+    const reach = parkourReach(skill, inputs.load ?? 0) + PARKOUR_AIR_REACH;
+    if (Number.isFinite(this.collider.raycast([this.pos[0], this.pos[1] + reach, this.pos[2]], into, CAPSULE_RADIUS + PARKOUR_WALL_REACH))) return false;
+    if (!pressed && this._pkQuiet > 0) { this._pkQuiet--; return false; }
+    const geo = this._pkGeo(PARKOUR_AIR_LOW, reach);
+    const ledge = senseLedge(this.collider, this.pos, into, geo);
+    const move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;
+    if (move) {
+      this._wallEnd();
+      this._parkourBegin(move);
+      this._parkourAdvance(dt);
+      return true;
+    }
+    if (ledge.ok) this._pkQuiet = PARKOUR_QUIET_STEPS;
+    return false;
   }
 
   /** CLIMB2: the free climb's move from `was` - across, up or down the face, pressed into it as the classic hug is,
@@ -2948,6 +2978,10 @@ export class PlayerMotor {
       // rather than frozen, which the hosts' zeroed bag already gives.
       vx = (sin * input.forward + cos * input.strafe) * factor * speed;
       vz = (cos * input.forward - sin * input.strafe) * factor * speed;
+      // SLOW-PRESS (AUDIT part five SP1): the Jump spell's air control re-asks the input every step - a press a face spent
+      // stays spent (it re-pressed a slow fall into a face past the slope limit: 72 deg took 19.9 s, 74 deg at a run crept up)
+      const n = this.slowFalling ? this._slowPress : null;
+      if (n) { const d = vx * n[0] + vz * n[1]; if (d > 0) { vx -= d * n[0]; vz -= d * n[1]; } }
     } else {
       vx = this._airVelX;
       vz = this._airVelZ;
@@ -3064,7 +3098,27 @@ export class PlayerMotor {
     // Snap is withheld while `jumping` (AcrobatMotor's Jumping: set at
     // takeoff, cleared on the next grounded frame) so the ballistic
     // descent integrates instead of teleporting onto the floor probe.
+    const x0 = this.pos[0], y0 = this.pos[1], z0 = this.pos[2];
     const r = this.collider.move(this.pos, vx * dt, dy, vz * dt, this.height, !this.jumping);
+    // SLOW-PRESS (FIELD BUGS 2026-10-01): on a slow fall the frozen liftoff momentum keeps only what the collider let it
+    // do - the press into a face that HOLDS the body up is spent. Kept, it pinned the body to whatever wall the (five
+    // times longer) glide reached, and on a face past the slope limit its push-out lifted the capsule more than the
+    // spell's 0.035 m a step lowered it: the body hung there, or crept up it, until the spell ran out.
+    if (this.slowFalling && this.falling && !r.grounded) {
+      // AUDIT part five SP2: spent only once it has held the body over the spell's line further than a step's rise - a
+      // lip in the step band is the step-up's to take (it needs the press the step after the touch; spent on the touch,
+      // a glide a step under a lower roof's lip fell into the street); a face past the slope limit is slid down. SP1:
+      // the way the face refused is kept, and the Jump spell's air control (above) is refused it until the body leaves
+      const lift = this.pos[1] - (y0 + dy);
+      if (lift > 1e-6) this._slowHeld = (this._slowHeld ?? 0) + lift;
+      else { this._slowHeld = 0; this._slowPress = null; }   // nothing holds it up: off the face, steering is free
+      if (this._slowHeld > STEP_OFFSET) {
+        const ax = (this.pos[0] - x0) / dt, az = (this.pos[2] - z0) / dt;
+        const lx = vx - ax, lz = vz - az, l = Math.hypot(lx, lz);
+        if (l > 1e-3) this._slowPress = [lx / l, lz / l];   // the way the face refused - the air control's too
+        if (ax * ax + az * az < vx * vx + vz * vz - 1e-6) { this._airVelX = ax; this._airVelZ = az; }
+      }
+    } else { this._slowHeld = 0; this._slowPress = null; }
     this.groundKey = r.grounded ? (r.groundKey ?? null) : null;   // platform riding: what holds us up
     this.grounded = r.grounded;
     if (r.grounded && this.velY < 0) this.velY = 0;

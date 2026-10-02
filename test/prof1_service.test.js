@@ -137,7 +137,7 @@ test('PROF1 service: the day and the node are the law\'s - yesterday\'s node lap
   assert.deepEqual(await post({ node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(_now) - 1, slot: p.slot }) }), { error: 'prof-day' });
   assert.deepEqual(await post({ at: _now - 601 }), { error: 'prof-late' });
   assert.deepEqual(await post({ at: _now + 61 }), { error: 'prof-late' });
-  assert.deepEqual(await post({ node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(_now), slot: 4 }) }), { error: 'bad-node' }, 'Woodlands has four patches');
+  assert.deepEqual(await post({ node: nodeKey({ kind: 'herb', x: p.x, y: p.y, day: utcDay(_now), slot: 8 }) }), { error: 'bad-node' }, 'Woodlands has eight patches (PIN MOVED, MORE-NODES)');
   assert.deepEqual(await post({ node: 'vein:1:1:1:0' }), { error: 'prof-kind' }, 'PROF2: a vein is ore, never herbs');
   assert.deepEqual(await post({ node: 'tree:1:1:1:0', kind: 'herbs' }), { error: 'prof-kind' }, 'PROF4: a tree is Logging\'s - logs, never herbs');
   assert.deepEqual(await post({ kind: 'logs' }), { error: 'prof-kind' });

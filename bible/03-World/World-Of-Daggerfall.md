@@ -191,6 +191,13 @@ flat, by its ARCHIVE STRING:
   Unity reverses the culling of a transform with a negative
   determinant, so the batch reverses that model's winding (WOD5).
   Before that fix the port drew the wall inside out.
+  The shrub (model 60610, 202 placements ringing the sites, every
+  bandit camp among them) is the one model NOT stood at the mod's
+  height: its mesh foot goes to the lowest drawn ground under the
+  middle of its footprint (WOD-BUSH, a Ledger A departure). The mod
+  levels only the prefab's rect, the shrubs stand in the eased band
+  past it at heights read off the author's own ground, and on falling
+  ground they hung in the air, in DFU as here.
 - **a flat** is a billboard, base-anchored where `AlignToBase` and the
   scale fix (`LocationLoader.cs:243-248`) leave it; the four records the
   layouts scale are batches at their own size.

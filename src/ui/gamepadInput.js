@@ -211,7 +211,7 @@ export function attachGamepad(canvas, hooks = {}, { getPads = null, dispatch = s
       P.plusCursor = plusNow;
       cursorEl.style.zIndex = plusNow ? '2147483001' : '6';
       cursorEl.style.width = plusNow ? '31px' : `${CURSOR_SIZE}px`;
-      cursorEl.style.height = plusNow ? '34px' : `${CURSOR_SIZE}px`;
+      cursorEl.style.height = plusNow ? '32px' : `${CURSOR_SIZE}px`;
       cursorEl.style.backgroundImage = `url("${plusNow ? GAUNTLET_POINT : CURSOR_SVG}")`;
     }
     if (plusNow) {

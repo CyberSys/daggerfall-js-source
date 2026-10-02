@@ -1651,7 +1651,7 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   quarter 12 or over, the label saying which is which - and its label its own number (PSCALE1's growth still comes at
   the stand, with the party that meets it). Offline there is one player, and the band reads theirs, as Daggerfall does.
 - **The journey slows as enemies close (systems/travelThreat.js; the third ask).** The clock is held so the traveller
-  always has THREAT_WARN_S (1.2 s: 5 at launch, 2 at OW6-LATE, 1.2 at OW6-NEAR, FB 29g) of real time before the nearest enemy's REACH along their way - a band's sight, a
+  always has THREAT_WARN_S (0.6 s: 5 at launch, 2 at OW6-LATE, 1.2 at OW6-NEAR, FB 29g, 0.6 at OW6-HALF, FB 2026-10-01c) of real time before the nearest enemy's REACH along their way - a band's sight, a
   raider's lookout (at sea), any hostile foe's sight (a camp's sixty metres, CAMP-SIGHT), or, for a chaser, its contact
   ring from any side at its own pace too (`metresToReach`, `threatCap`); stepped down the spinner's own ladder (1, 2, 3,
   4, 5, then fives), never under walking pace (the encounter stops a journey - AUDIT OW5b E1 - the governor only slows
@@ -1783,3 +1783,41 @@ each one line to change:
 - **A band met with the view down** (2026-09-29, at the merge of AUDIT OW5 and OW5b) - stood WHERE IT IS, about 140 m off
   (AUDIT OW5b B2, by CAMP-FAR's own 100-150 m: come across, not landed on); AUDIT OW5 had left it Mac's call. One line
   to change back: `bandStand`'s distances.
+
+## GATHER-OW - the professions' groups on the Overworld (2026-10-02, Mac)
+
+Mac: *"allow them to appear in the overworld without being overwhelming, maybe a glyph marker showing where a group of
+them are"*; asked, "Groups nearby". One mark a profession a stood pixel (`gather <profession>`): a diamond in the
+profession's compass colour (`ui/nodeMarks.js`) at the middle of its nodes not yet worked today, its count beside it,
+the nearest twelve within 3 km, read again twice a second (`scenes/gatherHost.js` overworldGroups); a sixth filter,
+Gathering (`systems/travelViewFilters.js`); drawn by `ui/travelViewHud.js` (look `gather`, `m.color`); fed beside the
+camps in `scenes/world.js` travelViewMarks. Not pickable - a click there falls to the ground and walks to it. See
+`06-Systems/Professions-Arc.md` (MORE-NODES, GATHER-OW). Pins `test/gatherow.test.js`.
+
+## OW-CROWD - the region's travellers decluttered (2026-10-02, Mac)
+
+Mac: *"Can we also find a way to reduce the overwhelming player markers that flood the screen? I like it, dont get me
+wrong, but there must be a way to make it where its not overwhelming"*. Every player of the region was their own mark
+wearing their whole badge (the title, the Renown, the name, the guild's tag, the glyphs - OVERWORLD NAMES), and each off
+the picture their own arrow at the edge. Now, as the marks are placed on the screen (`ui/travelViewHud.js`
+declutterTravellers, between the placement and the edges' spread): travellers drawn within TV_CROWD_PX (36 px) of one
+another are one mark at their middle, a larger dot named "N travellers"; arrows at the edge within TV_CROWD_EDGE_PX
+(56 px) one arrow, the nearest's place and way; and of those still alone in the picture only the TV_BADGES_MAX (6)
+nearest my own mark wear their badge - the rest their name. My party (kind `party`), the places, the dungeons, the
+enemies, the gathering groups and the journey's end are never folded nor stripped. The Travellers filter's count is
+still every traveller. Pins `test/owcrowd.test.js`; mutants `tools/mutants/owcrowd.json`.
+
+AUDIT OW-CROWD (Mac: "Audit thid"): the badges were made before the crowds were folded - the frame's sixteen builds
+(BADGE_BUILDS_PER_FRAME) spent on players a crowd or the cap then dropped, the badges kept late a frame or more, and a
+crowd's arrow laid out by its lead's badge rather than its own words; they are made after now, for the marks still
+wearing one. And a lone arrow at the edge wore its whole badge, uncapped, round the screen - it wears the name alone now
+(my party's keeps its badge). PIN MOVED: `tv5_far_places` N1-8 feeds the cache six a frame, N1-5 and N1-6 ask the held
+badge's box of my party's arrows.
+
+AUDIT GATHER-OW and OW-CROWD, second pass (Mac: "Audit thid"): the groups were kept in scene coordinates for half a
+second, so a recentre of the floating origin threw every diamond off by the shift until the next read - they are kept
+by their pixel now and placed through its translation each call, and a pixel torn down (or stood again) since the read
+drops its group. The diamond stood at the nodes' mean, which in a scattered pixel is open ground or inside a rock - it
+stands on the node nearest that mean now. `scenes/travelView.js` copied every mark but its colour, so every diamond was
+brass in play - the colour is carried. And the decluttered travellers went last in the draw order, a crowd's dot over
+my party's - every mark keeps its order now, a crowd where its first member stood.
