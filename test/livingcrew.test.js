@@ -27,7 +27,7 @@ import { boxColliderTriangles } from '../src/world/prefabColliders.js';
 import { musterOf, MOBILE, CREW_PER_HAND, GRAPPLE_S, HAND } from '../src/systems/naval/navalBoarding.js';
 import { classById } from '../src/systems/naval/navalShips.js';
 import { Boat, spawnBoat } from '../src/systems/comeSailAwayBoat.js';
-import { drawCrewLines, destroyNavalHud, tagAlpha, CREW_SAY_RANGE, CREW_SAY_FADE_FROM, CREW_SAY_MAX } from '../src/ui/navalHud.js';
+import { drawCrewLines, destroyNavalHud, tagAlpha, CREW_SAY_RANGE, CREW_SAY_FADE_FROM, CREW_SAY_MAX, CREW_SAY_LIFT } from '../src/ui/navalHud.js';   // FIELD BUGS 2026-10-02 CREW-SAY: the foot's lift
 import { MODELS, ctxFor } from './csaScene.mjs';
 import { sea, readyPool } from './navalSea.mjs';
 
@@ -369,14 +369,15 @@ test('LIVING CREW THE LANDING AND THE RAIL, lifted from the world host over the 
 
 test('LIVING CREW THE WORDS: a bubble a line over his head at the HUD\'s scale - the nearest CREW_SAY_MAX, a song\'s in the song\'s own look, a shout\'s in its own - fading with the distance to CREW_SAY_RANGE; one node a slot, moved and re-worded, never rebuilt; a window over the world hides them all (mutants: every line drawn, rebuilt each frame, never hidden, the fade unread)', () => {
   destroyNavalHud();
-  const pts = Array.from({ length: 8 }, (_, i) => ({ x: 100 + i * 10, y: 50, text: `line ${i}`, kind: i === 0 ? 'sing' : i === 1 ? 'shout' : 'talk', distance: 5 + i * 3 }));
+  // FIELD BUGS 2026-10-02b PIN MOVED: the heads 500 px down, the stack's room over them - a lifted bubble over the screen's top is not drawn
+  const pts = Array.from({ length: 8 }, (_, i) => ({ x: 100 + i * 10, y: 500, text: `line ${i}`, kind: i === 0 ? 'sing' : i === 1 ? 'shout' : 'talk', distance: 5 + i * 3 }));
   drawCrewLines(pts, { scale: 1.5 });
   const [layer] = byClass(globalThis.document.body, 'dfnaval-tags');
   const says = byClass(layer, 'dfnaval-say');
   assert.equal(says.length, CREW_SAY_MAX, 'the nearest six');
   assert.deepEqual(says.map((n) => n.textContent), pts.slice(0, CREW_SAY_MAX).map((p) => p.text));
   assert.deepEqual(says.slice(0, 3).map((n) => n.className), ['dfnaval-say sing', 'dfnaval-say shout', 'dfnaval-say']);
-  assert.equal(says[0].style.transform, 'translate(100px, 50px) scale(1.5) translate(-50%, calc(-100% - 6px))');
+  assert.equal(says[0].style.transform, `translate(100px, 500px) scale(1.5) translate(-50%, calc(-100% - ${CREW_SAY_LIFT}px))`);   // CREW-SAY: the nearest at its own place, its foot clear of a bar and a mate's name
   assert.equal(says[5].style.opacity, String(Math.round(tagAlpha(20, CREW_SAY_RANGE, CREW_SAY_FADE_FROM) * 100) / 100));
   assert.equal(says[0].style.opacity, '1');
   drawCrewLines([{ ...pts[0], text: 'again', x: 120 }], { scale: 1.5 });
@@ -391,7 +392,7 @@ test('LIVING CREW THE WORDS: a bubble a line over his head at the HUD\'s scale -
 
 test('LIVING CREW THE WORLD by source: the crews stepped before the people are drawn, their sprites among them; the words after the bars; every clear stands them down; the fight\'s end brings my hands home; a grapple\'s side each crew\'s own, her other ship by the host\'s door; me never walked through; a room\'s boat seeded by whose and which; the boarding\'s doors (mutants: each unwired)', () => {
   assert.match(WORLD, /navalCrewFrame\(gamePaused\(\) \? 0 : foeDt\);[^\n]*\n\s+livePersonBatches\.push\(\.\.\.exteriorFoes\.batches\(\), \.\.\.navalCrew\.batches\(\)\);/);   // AUDIT NAV2 F53 PIN MOVED: held by a pause
-  assert.match(WORLD, /navalCrewBars\(proj, view, mwv\.eye\);[^\n]*\n\s+navalCrewLines\(proj, view, mwv\.eye\);/);
+  assert.match(WORLD, /navalCrewBars\(proj, view, mwv\.eye\);[^\n]*\n\s+navalCrewLines\(proj, view, mwv\.eye, dt\);/);   // FIELD BUGS 2026-10-02b PIN MOVED: the frame's dt, the lifts' ease
   assert.match(WORLD, /navalFlames\.clear\(\); navalCrew\.clear\(\);[^\n]*drawCrewLines\(\[\]\); \};/);
   assert.match(WORLD, /if \(_crewBoarding && !b\) for \(const boat of csa\.boats\) navalCrew\.reset\(boat\);/);
   assert.match(WORLD, /const other = grapple \? \(key === grapple\.shipId \? grapple\.boat : key === grapple\.boat \? naval\.boatOf\(grapple\.shipId\) : null\) : null;/);

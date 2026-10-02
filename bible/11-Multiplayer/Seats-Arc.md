@@ -467,7 +467,9 @@ BUILT (CASTLE-GATE, 2026-10-02; Online-Arc CASTLE-GATE): a crown's field at its 
 box, and at a crown hands the lowest (`systems/siegeField.js` castleEntranceOf - DFU lands a player leaving the castle
 at its lowest, `player/enterExit.js` dungeonEntranceLanding) to siegeFieldOf's `castle` (AUDIT-SEATS G21): a crown's
 Throne, its Gatehouse, its defenders' camp and its Palace square - and the Royal Tourney's ring (7.6) - stand before it.
-A crown city whose blocks stand no such door keeps the palace door's field.
+A crown city whose blocks stand no such door keeps the palace door's field. AUDIT: the entrance faces along its door
+record's own outward normal (a U-shaped forecourt's or a recessed gate's box middle stands outside the door), "lowest" is
+the door's centre (as DFU's landing), and a door too narrow to face is passed over for the next.
 
 ### 6.3 Scheduling
 
@@ -762,7 +764,9 @@ music is DFU's own tavern playlist (SongManager's TavernSongs - song_square_2, s
 song_fm_sqr_2), the day's song as a tavern picks it, heard in the town's streets by day and night (a building keeps its
 own); the banners are the holder's on the seat banners' cloth, two beside each tavern's door and a pennant over each
 board BOUNTY1 took, at most 6 more; the lanterns are lights in the street's own lantern pool, one before every banner
-the town flies, lit dusk to dawn with its lamps - a glow, no lantern sprite drawn.
+the town flies, lit dusk to dawn with its lamps - a glow, no lantern sprite drawn. The stage follows the Turning while
+the player stays in town: a seats' list read in an earlier seat week is stale, and the book reads it again once the
+week turns (Curfew alike).
 
 BUILT (CROWN1 part one, 2026-10-01; Online-Arc CROWN1): Conscription, a crown's alone (`edictForTier`; a palace's
 proclamation refused, `edict-tier`), made law at no cost and paid at the Turning that ends the week it ruled - after
@@ -845,7 +849,7 @@ says which way it moved ("Standing 55, up 7 since the last Turning.", `townSeatL
 `ui/seatTab.js`). Each Turning writes every held seat's Standing as it found it and as it left it, a Chronicle row of
 kind `standing` the Chronicle and the Hall of Records never show (`seatTurning.js` settleWeek, `seatInfluence.js`
 chronicleOf); the standings read names the holder's `was` off the last Turning's (standingWas) - no migration, the
-service still `acct61`. DECIDED: the trend is the Standing now less what it was as the last Turning began, so a siege
+service shipped at `acct63`, named on `acct64`. DECIDED: the trend is the Standing now less what it was as the last Turning began, so a siege
 held or a revolt put down since moves it too; "up N", "down N" or "steady"; none where the last Turning reckoned no
 Standing for this holder (a Charter it claimed, a seat taken since).
 
@@ -883,8 +887,10 @@ carries a guild's heraldry to these faces (a peer's token names its tag alone), 
 (unique) off what the client already holds - the reader's own guild, the seats' list's holders and battles, a seat's
 standings (`net/heraldryIndex.js` heraldryByTag) - and a guild the client knows no heraldry of wears the plain tag, no
 shield, no Roll line; no relay or service change. DECIDED: a Chronicle line shows the guild's heraldry as it is now, not
-as it was that day (a row keeps the name and tag alone). DECIDED: the book reader draws text alone, so the Hall of
-Records names the arms in words.
+as it was that day (a row keeps the name and tag alone) - and only where the guild holding its tag now bears its name
+too (a reused tag shows no new arms on an old guild's lines). DECIDED: the book reader draws text alone, so the Hall of
+Records names the arms in words - each guild a line names, in the line's order. A Moderators' void is about the holder
+it restored, else none. The Overworld's name face frames the tag with the shield too, drawn on its canvas.
 
 ### 8.2 The guild hall (GUILD1d)
 
@@ -1270,14 +1276,23 @@ Every law in Home.md's Process section, and what it demands of this arc:
   developer's (titles.js canModerate; anyone else `not-moderator`); it voids the seat's battle of this week (a siege, a
   Tourney or a revolt) and writes a Chronicle row ("the siege of X was voided by the Moderators"); no red line; no pass
   opens to it and a receipt claimed after is refused; a battle already void answers `repeat`, a seat with none this week
-  `battle-none`. DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
-  the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED: after a capture (or a revolt that
-  stood) the Charter goes back to the guild that held it as the result kept it (migration 0067's
-  `town_seat_results.prior`: its Standing, the week it took the seat, its truce, Tithe and arrears - none kept, Standing
-  50 from this week), its Legacy back, the works' capture drop undone and a Fortifier's save unspent; the capturer's own
-  projects fall and its Edict for next week is void. DECIDED: after a hold (a forfeit, a revolt put down) the holder's
-  Standing goes back where it stood and its defence fifth is struck - and the challenger's bar is lifted, its influence
-  and Legacy back. DECIDED: after a Tourney the winner's Charter is gone and its fee stays burnt. DECIDED: Honours, Marks,
+  `battle-none`, a battle whose week its Turning has settled `battle-settled` (AUDIT 529 V5 - asked in the void's own
+  write too). DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
+  the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED (AUDIT 529 V1): a revolt voided
+  before its result lapses its holder's Charter now, as the Turning lapses a revolt nobody put down (its projects fall,
+  its Edict for next week void, the Chronicle's "the rebel captain held the palace door") - a void never saves a Charter
+  the Turning would lapse. DECIDED: after a capture (or a revolt that stood) the Charter goes back to the guild that held
+  it as the result kept it (migration 0067's `town_seat_results.prior`: its Standing, the week it took the seat, its
+  truce, Tithe and arrears - none kept, Standing 50 from this week), its Legacy back, the works' capture drop undone and
+  a Fortifier's save unspent; the capturer's own projects fall and its Edict for next week is void. DECIDED (AUDIT 529
+  V2): the holder's own building projects the capture (or the revolt's lapse) made fall begin again at the tier they were
+  raising, with their starter's marks and day, what they held taken back out of the seat's stockpile where it is still
+  there (a project short of it waits on the stockpile again) - given back, never refunded - and a revolt's voided Edict
+  for next week is proclaimed again (`prior`'s `projects`, `held`, `edict`). AUDIT 529 V3: where the result kept a seat
+  nobody held (its holder relinquished it before the battle), the capturer's Charter goes and none comes back. DECIDED:
+  after a hold (a forfeit, a revolt put down) the holder's Standing goes back where it stood (DECIDED, AUDIT 529 V4: a
+  result that kept none leaves it as it stands - never a guess past a Throne's -5, a paid forfeit or the cap) and its
+  defence fifth is struck - and the challenger's bar is lifted, its influence and Legacy back. DECIDED: after a Tourney the winner's Charter is gone and its fee stays burnt. DECIDED: Honours, Marks,
   Renown and Spoils already claimed stand (never clawed back), the Sellswords paid at the result stay paid, and the
   palace's decor a capture cleared is not given back; a voided forfeit is not the pair's forfeit of the Season.
 - **Rate limits.** Every seat endpoint is bounded per account per hour (the guild's `GUILD_OPS_MAX` shape): pledges

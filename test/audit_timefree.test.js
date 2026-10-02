@@ -153,3 +153,61 @@ test('AUDIT TIMEFREE T7: online a frozen deadline never fires, not even one arme
   offLimit.tick(off);
   assert.equal(offLimit.clockFinished, true, 'offline: DFU\'s first-tick end');
 });
+
+// ═══ AUDIT TIMEFREE II (2026-10-02, Mac: "One more audit") - the real machine, ticked: what a player meets ═══
+// The scripts' map placements (`place npc`, `create npc at`) want a loaded world; headless they throw and abort the
+// quest's update, so the machine here reads each script without those lines - every clock, task and `when` is the
+// script's own.
+const machineFor = (online, now, given = []) => new QuestMachine({
+  nowSeconds: () => now.s, sharedClock: () => online(), questClockStepMax: () => (online() ? 1800 : Infinity),
+  getQuestSourceLines: (n) => rd(`vendor/dfu-quests/Quests/${n}.txt`).split(/\r?\n/).filter((l) => !/^\s*(place npc|create npc at)/.test(l)),
+  showPopup() {}, isPlayerInTown: () => true, giveItemToPlayer: (it) => given.push(it),
+});
+
+test('AUDIT TIMEFREE II: Brisienna online, ticked - the invitation within half an hour of play, her month and her fortnight never run out through sixty days, and meeting her closes the quest within the short wait (mutants: remindpc out of the table, the closing rule dropped)', async () => {
+  const { Symbol: QS } = await import('../src/systems/quest/symbol.js');
+  const now = { s: 1e6 };
+  const given = [];
+  const m = machineFor(() => true, now, given);
+  const q = m.startQuestByName('_BRISIEN');
+  const step = (secs, n) => { for (let i = 0; i < n; i++) { now.s += secs; m.tick(); } };
+  step(60, 30);
+  assert.equal(q.resources.get('invitepc').clockFinished, true, 'the invitation, inside the half hour');
+  assert.equal(given.length, 1, 'letter1 in hand');
+  step(1800, 48 * 60);
+  assert.equal(q.resources.get('remindpc').clockFinished, false, 'no "you are late" after sixty days');
+  assert.equal(q.resources.get('pcfailed').clockEnabled, false, 'her fortnight never begun');
+  assert.equal(given.length, 1);
+  q.startTask(new QS('_meetladyb_'));
+  step(60, 40);
+  assert.equal(q.questComplete, true, 'met, then closed on the short wait');
+});
+
+test('AUDIT TIMEFREE II: K\'avar\'s letter online lands on the short wait and his first timer stands; offline the same half hour lands nothing - DFU\'s 31-93 days (mutants: the wait never cut, online charged)', () => {
+  const run = (online) => {
+    const now = { s: 1e6 };
+    const m = machineFor(() => online, now);
+    const q = m.startQuestByName('S0000500');
+    for (let i = 0; i < 30; i++) { now.s += 60; m.tick(); }
+    return q;
+  };
+  const on = run(true);
+  assert.equal(on.resources.get('S.00').clockFinished, true, 'online: the letter');
+  const off = run(false);
+  assert.equal(off.resources.get('S.00').clockFinished, false, 'offline: still weeks off');
+});
+
+test('AUDIT TIMEFREE II: a character who plays online then offline - the deadline resumes where it stood, charged nothing for the online span (mutants: online charged)', () => {
+  let online = true;
+  const now = { s: 1e6 };
+  const m = machineFor(() => online, now);
+  const q = m.startQuestByName('A0C01Y03');
+  const limit = q.resources.get('S.01');
+  if (!limit.clockEnabled) limit.startTimer();
+  const before = limit.remainingTimeInSeconds;
+  for (let i = 0; i < 100; i++) { now.s += 1800; m.tick(); }   // fifty game hours online
+  assert.equal(limit.remainingTimeInSeconds, before, 'frozen online');
+  online = false;
+  now.s += 3600; m.tick();
+  assert.equal(limit.remainingTimeInSeconds, before - 3600, 'offline: the hour since, and nothing of the fifty online');
+});

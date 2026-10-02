@@ -48,6 +48,27 @@ remaining deadlines - each a lost limit, a trip, a lifetime or a long-stop - are
   amounts; the pins that ran DFU's amount through the seam at 1 are unchanged. WEAR-TWICE's two records that
   multiplied by it are retired (at 1 they are the source itself).
 
+## AUDIT TIMEFREE II - the real machine, and what ships (2026-10-02, Mac: "One more audit")
+
+The first pass read the scripts; this one RAN them - the quest machine ticked online and offline over the scripts'
+own clocks, tasks and `when`s (headless, each script read without its map placements, which want a loaded world) -
+and read what ships beside main.
+
+- **Brisienna online**: the invitation lands inside half an hour of play; her month and her fortnight stand through
+  sixty days (no "you are late", no "stop the main quest"); meeting her closes her quest within the short wait.
+- **K'avar's letter** (31-93 days) lands on the short wait online, and offline the same half hour lands nothing.
+- **Online, then offline**: a deadline frozen through fifty game hours online resumes offline where it stood, charged
+  only the offline hour.
+- **Main merged in** (#533, #534 - the Seats audit, Ships of the Bay): no semantic overlap - main's only edit to a
+  touched file is a cite in `equip.js`; cites mapped by citeMerge, CD4 re-aimed, the Suite line recounted.
+- **The words**: the wear note said wear was doubled "earlier today" - WEAR-TWICE shipped in app-v0.1.5646, so it
+  says "the last update"; the curse quests' "within a few minutes" was a promise the cure's roll (22-30% a mark)
+  does not keep - "after a few minutes of play (a cure can take ten or so)".
+- **Checked again and fine**: the bounty's time left has one reader (the board window, which drops the line when it is
+  null); main's new tests pass beside TIMEFREE (the full suite, below).
+
+Pins: `test/audit_timefree.test.js` (the three ticked runs).
+
 ## Left, said so
 
 - `daily from` windows stay on the sky (6.3b says why); the guild's guard keeps GUARD-ONLINE's arrival window.

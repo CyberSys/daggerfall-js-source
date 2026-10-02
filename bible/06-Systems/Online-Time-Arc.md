@@ -574,6 +574,8 @@ terms; 9 is new and not built.
   whole; nineteen misread clocks corrected (T1-T6) - among them Brisienna's close, the main quest's endings and
   letter43, quests that never closed after their reward. `test/audit_timefree.test.js`,
   `tools/mutants/audit_timefree.json` (14, all dead).
+- 2026-10-02: AUDIT TIMEFREE II: the real machine ticked online and offline (Brisienna, K'avar's letter, a deadline
+  across the switch); main merged in; the patch notes' words corrected.
 - 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
   the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
   now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the

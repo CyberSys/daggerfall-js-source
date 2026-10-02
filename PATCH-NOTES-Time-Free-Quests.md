@@ -15,7 +15,7 @@
   morning.
 - **Bounties never lapse online.** A bounty you take stays yours until you finish it or drop it.
 - **Vampire and werewolf quests come sooner online.** Clan quests and the cure quests no longer wait 38 or 84 game
-  days. They come within a few minutes of play, one at a time.
+  days. Online they come after a few minutes of play (a cure can take ten or so), one at a time.
 - **The Thieves Guild and Dark Brotherhood invitations come sooner online.** They now arrive a couple of minutes after
   you earn them, not three days later.
 - A few quests still follow day and night online. They have someone at a certain place at night or during the day,
@@ -23,6 +23,6 @@
 - Offline play is unchanged: quest timers, deadlines and waits work as they do in Daggerfall.
 
 ## Tougher gear
-- **Weapons and armour last twice as long.** Wear per hit is back to Daggerfall's own rate. Earlier today wear was
-  doubled, and a dagger or short bow broke after about 25 hits; it now lasts about 50, and every other piece lasts
-  twice as long as it did.
+- **Weapons and armour last twice as long.** Wear per hit is back to Daggerfall's own rate. The last update doubled
+  wear, and a dagger or short bow broke after about 25 hits; it now lasts about 50, and every other piece lasts twice as
+  long as it did. Repairs cost the same.

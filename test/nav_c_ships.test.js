@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  HULL, HULL_BUILDS, SHIP_CLASSES, NAVAL_FACTIONS, FACTION_IDS, CROWNS, PIRATE_NAMES, MERCHANT_NAMES,
+  HULL, HULL_BUILDS, SHIP_CLASSES, NAVAL_FACTIONS, FACTION_IDS, CROWNS, CROWN_LORE,
   classById, classFor, crownOf, shipNames, classLine, batteriesOf,
 } from '../src/systems/naval/navalShips.js';
 import {
@@ -83,13 +83,18 @@ test('NAV-C names off the seed: the same seed names the same ship and captain on
   const b = shipNames(classById('navyCutter'), 0xabc123, { regionIndex: 23, crown: wayrest });
   assert.deepEqual(a, b, 'deterministic');
   assert.equal(a.crown, 'Wayrest');
-  assert.ok(wayrest.ships.map((n) => `The ${n}`).includes(a.name), a.name);
+  // SHIP-NAMES (2026-10-02) PIN MOVED: a navy ship's name is of her crown's forms - never another crown's words
+  const others = CROWNS.filter((c) => c !== wayrest).flatMap((c) => [...c.ships, ...CROWN_LORE[c.name].royals.filter((r) => !CROWN_LORE.Wayrest.royals.includes(r)), ...CROWN_LORE[c.name].places.filter((q) => q !== 'Sentinel')]);   // "Wayrest Sentinel" is Wayrest's own
+  for (let i = 0; i < 300; i++) {
+    const n = shipNames(classById('navyCutter'), i * 104729 + 3, { regionIndex: 23, crown: wayrest }).name;
+    assert.ok(!others.some((w) => n.includes(w)), `${n}: Wayrest's`);
+  }
   assert.ok(typeof a.captain === 'string' && a.captain.trim().length > 2, a.captain);
   const p = shipNames(classById('pirateSloop'), 77, { regionIndex: 17 });
-  assert.ok(PIRATE_NAMES.map((n) => `The ${n}`).includes(p.name), p.name);
+  assert.ok(/^(The |\S+(?: \S+)?'s )/.test(p.name), p.name);
   assert.equal(p.crown, null);
   const m = shipNames(classById('merchantCoaster'), 78, { regionIndex: 17 });
-  assert.ok(MERCHANT_NAMES.map((n) => `The ${n}`).includes(m.name), m.name);
+  assert.ok(m.name.startsWith('The '), m.name);
   // the global stream stands where it stood
   srand(4242);
   const before = getSeed();

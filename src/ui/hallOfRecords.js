@@ -44,20 +44,25 @@ export function hallOfRecordsTokens(seat, rows, zero = null, armsOf = null) {
 // HERALDRY-SHOWN (2026-10-02, Mac: "lets finish the build work"; Seats-Arc 8.1: the heraldry "drawn on ... the
 // Chronicle"): the book reader draws text alone (a Daggerfall book has no pictures, on either face), so the Hall of
 // Records carries its guilds' arms IN WORDS - a Roll of Arms after its chapters: each guild its lines name, in the order
-// the book first names it, whose heraldry the client knows (`armsOf(tag)` - the host's seats' list and own guild).
+// the book first names it, whose heraldry the client knows (`armsOf(tag, name)` - the host's seats' list and own guild).
 /** The Roll of Arms' heading. */
 export const HALL_OF_RECORDS_ROLL = 'The Roll of Arms';
-/** The Roll's lines - "The Silver Hand <SH>: Azure bordered Gold, a Wolf." - for each guild named in a row the Chronicle
- *  has words for, once, whose heraldry `armsOf` knows. */
+/** The Roll's lines - "The Silver Hand <SH>: Azure bordered Gold, a Wolf." - for each guild a row's Chronicle line names
+ *  (AUDIT HERALDRY H2: its words in the line - a guild the row carries but the line leaves out is not on the Roll), once,
+ *  in the order the lines name them, whose heraldry `armsOf(tag, name)` knows (H3: the guild bearing that tag and name). */
 export function hallOfRecordsRoll(rows, seat, armsOf = null) {
   if (typeof armsOf !== 'function') return [];
   const out = [], seen = new Set();
   for (const r of rows ?? []) {
-    if (!chronicleLine(r, seat)) continue;
-    for (const g of Object.values(r?.data ?? {})) {
-      if (!g || typeof g !== 'object' || typeof g.tag !== 'string' || typeof g.name !== 'string' || seen.has(g.tag)) continue;
+    const line = chronicleLine(r, seat);
+    if (!line) continue;
+    const named = Object.values(r?.data ?? {})
+      .filter((g) => g && typeof g === 'object' && typeof g.tag === 'string' && typeof g.name === 'string' && line.includes(guildWords(g)))
+      .sort((a, b) => line.indexOf(guildWords(a)) - line.indexOf(guildWords(b)));
+    for (const g of named) {
+      if (seen.has(g.tag)) continue;
       seen.add(g.tag);
-      const h = heraldryOf(armsOf(g.tag));
+      const h = heraldryOf(armsOf(g.tag, g.name));
       if (h) out.push(`${upper(guildWords(g))}: ${heraldryText(h)}.`);
     }
   }

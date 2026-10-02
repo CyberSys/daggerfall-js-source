@@ -301,8 +301,8 @@
   {
     "name": "GUILD1d-banner-faces-the-building",
     "file": "src/scenes/hallBanners.js",
-    "old": "  if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }\n",
-    "new": "",
+    "old": "  const [ox, oz] = doorFaceSign(-rz, rx, cx, cz, box, frame.normal);",
+    "new": "  const [ox, oz] = [-rz, rx];",
     "tests": [
       "test/guild1d_client.test.js"
     ]

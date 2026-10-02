@@ -122,15 +122,15 @@ export function clockCounts(quest, clock) {
  * time?"; asked what a waiting step does online, "Short real wait"). ONLINE, A QUEST'S CLOCK IS NOT TIME.
  *
  * A Daggerfall clock is one of two things, and the script says which by what its end does:
- *  - a DEADLINE - its end loses the quest ("you have 14 days": the task of its name ends the quest with no reward), or
- *    shuts a reward that waits on it NOT having run out ("return before the time is up and be paid": a task reading
- *    `not _clock_` pays). Online a deadline never runs out: the quest waits for the player.
+ *  - a DEADLINE - its end loses the quest ("you have 14 days": its end alone ends the quest with no reward), costs a
+ *    standing, or shuts a reward that waits on it NOT having run out ("return before the time is up and be paid": a
+ *    `not _clock_` reader pays). Online a deadline never runs out (AUDIT TIMEFREE: but a CLOSING is no deadline).
  *  - a DELAY - everything else: Brisienna's letter (7-14 days), the tutorial's pages, "come back in three days", a
  *    reward that comes after a wait. Online a delay runs out after ONLINE_DELAY_SECONDS of the character's own clock
  *    (about two real minutes of play) or its own remainder, whichever is sooner - the beat still lands, nobody waits days.
  * WORLD5 stood every clock down and the main quest never began (a delay is half of them); this asks each clock which it
- * is. The reading is the script's own tasks, static: what the clock's task does, what starts from it (`start task`,
- * `setvar`), and what a `when` reads of it. Offline nothing here runs - DFU's clock, whole.
+ * is. The reading is the script's own tasks: what the end does, what starts from it, what a `when` reads of it, and
+ * who started the clock; the run-time half is the quest's success (Clock isDeadline). Offline none of it - DFU's clock.
  */
 export const ONLINE_DELAY_SECONDS = 24 * 60;
 /** The actions that mean the quest is going somewhere good - GivePc (`give pc nothing` too: it is the success), TrainPc
