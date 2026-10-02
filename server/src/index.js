@@ -931,8 +931,8 @@ export class Room {
     if (reg) { const due = reg.at + PARK_TTL_MS; if (Date.now() >= due) await this.state.storage.delete('reg'); else await this.state.storage.setAlarm(due); return; }
     if (await this._gateTick()) return;   // WB3: a gate room's alarm is its boss's beat
     if (await this._siegeTick()) return;   // PVP-REF: a siege room's alarm is its fallen fighters' waves
-    const riteOwed = await this._riteTellHub(Date.now());   // WB12d: a broken rite its hub has not heard
-    if (await this._raidSweep(Date.now())) { if (riteOwed) await this._riteArm(Date.now() + RITE_TELL_RETRY_MS); return; }   // RAID3: a cell's alarm is its raids' ends, and a cleanse its hub has not heard - never past the rite's retry
+    const riteDue = await this._riteTellHub(Date.now());   // WB12d: a broken rite its hub has not heard (AUDIT BROKER-CAGE R4: not riteOwed - that is the circle's own test)
+    if (await this._raidSweep(Date.now())) { if (riteDue) await this._riteArm(Date.now() + RITE_TELL_RETRY_MS); return; }   // RAID3: a cell's alarm is its raids' ends, and a cleanse its hub has not heard - never past the rite's retry
     for (const [, b] of this._all()) if (b.id) return;
     const m = await this.state.storage.list({ prefix: 'world:' });
     const dead = [...m.keys()];
@@ -3429,7 +3429,9 @@ export class Room {
     const led = await this._riteLedgerOf();
     const owed = led ? Object.values(led.c).filter(riteOwed) : [];
     if (!owed.length || !riteStands(led.d, now)) return false;
-    if (this._riteTelling) return true;
+    // AUDIT BROKER-CAGE R2: A TELL IN FLIGHT took what was owed when it went - a word said meanwhile (the faithful's last
+    // fall after the Summoner's) is the retry's, armed here; the alarm it armed may have fired already, and arms nothing
+    if (this._riteTelling) { await this._riteArm(now + RITE_TELL_RETRY_MS); return true; }
     this._riteTelling = true;
     try {
       await this._riteArm(now + RITE_TELL_RETRY_MS);
@@ -3448,11 +3450,13 @@ export class Room {
     try { const had = await this.state.storage.getAlarm(); if (had == null || had > at) await this.state.storage.setAlarm(at); }
     catch (e) { console.warn('[rite] arm', e?.message ?? e); }
   }
-  /** The hub's door (the raid's): a relay built without the binding keeps the cell's own word. */
+  /** The hub's door (the raid's): a relay built without the binding keeps the cell's own word. AUDIT BROKER-CAGE R2: a
+   *  tell that hangs is let go at its own retry (a hung one held every later tell off for the object's life) - the hub
+   *  folds a tell said twice as once. */
   async _riteTellHubOf(body) {
     const rooms = this.env?.ROOMS;
     if (!rooms?.idFromName || !rooms?.get) return true;
-    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RITE_INTERNAL_BROKEN}`, { method: 'POST', body: JSON.stringify(body) })); return !!res?.ok; }
+    try { const res = await rooms.get(rooms.idFromName(SOCIAL_ROOM)).fetch(new Request(`https://relay.internal${RITE_INTERNAL_BROKEN}`, { method: 'POST', body: JSON.stringify(body), signal: AbortSignal.timeout(RITE_TELL_RETRY_MS) })); return !!res?.ok; }
     catch (e) { console.warn('[rite] hub', e?.message ?? e); return false; }
   }
   /** THE HUB'S HALF: the day's rites - `{ d, c: { 'px,py': { px, py, at, h, said, cl?, clAt? } } }`, each circle a cell told of
@@ -3474,7 +3478,11 @@ export class Room {
     const now = Date.now();
     await this._riteOf();
     const fellAt = await this._fellAtOf(o.d);
-    if (!riteStands(o.d, now, fellAt)) return json({ ok: true });   // AUDIT WB12d (R3): its breach collapsed - nothing left to say
+    // AUDIT WB12d (R3): its breach collapsed - nothing left to say of the rite. AUDIT BROKER-CAGE R1: but the Broker's
+    // cage stands until midnight (cageStands) - a cleared word told after an early kill's collapse (its cell could not
+    // reach this hub until then) is kept and said, and nothing else
+    const stands = riteStands(o.d, now, fellAt);
+    if (!stands && !(body?.cl === 1 && cageStands(o.d, now))) return json({ ok: true });
     // AUDIT WB12d (S1): read and written with no await between - two tells landing together each saw a fresh day
     let r = this._riteHub;
     if (r && r.d > o.d) return json({ ok: true });   // an older day's
@@ -3489,8 +3497,8 @@ export class Room {
       if (!Array.isArray(e) || typeof e[0] !== 'string' || !e[0] || e[0].length > 128) continue;
       if (Object.hasOwn(c.h, e[0]) || Object.keys(c.h).length < RITE_HELPERS_MAX) c.h[e[0]] = sanitizeName(typeof e[1] === 'string' ? e[1] : '');
     }
-    const fresh = !c.said;
-    c.said = 1;
+    const fresh = stands && !c.said;
+    if (stands) c.said = 1;
     // BROKER-CAGE: its faithful every one fallen - kept once, with when the cell heard it
     const cleared = body.cl === 1 && !c.cl;
     if (cleared) { c.cl = 1; c.clAt = Number.isSafeInteger(body.clAt) && body.clAt > 0 ? body.clAt : now; }

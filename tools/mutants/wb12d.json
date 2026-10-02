@@ -876,11 +876,12 @@
   {
     "name": "AUDIT-WB12d-tells-unguarded",
     "file": "server/src/index.js",
-    "old": "    if (this._riteTelling) return true;\n",
+    "old": "    if (this._riteTelling) { await this._riteArm(now + RITE_TELL_RETRY_MS); return true; }\n",
     "new": "",
     "tests": [
       "test/wb12d_rite_relay.test.js"
-    ]
+    ],
+    "note": "AUDIT BROKER-CAGE R2 (re-aimed by content): a tell in flight now arms the retry before it answers."
   },
   {
     "name": "AUDIT-WB12d-told-for-ever",
@@ -894,11 +895,12 @@
   {
     "name": "AUDIT-WB12d-hub-said-past-collapse",
     "file": "server/src/index.js",
-    "old": "    if (!riteStands(o.d, now, fellAt)) return json({ ok: true });",
-    "new": "",
+    "old": "    const stands = riteStands(o.d, now, fellAt);",
+    "new": "    const stands = true;",
     "tests": [
       "test/wb12d_rite_relay.test.js"
-    ]
+    ],
+    "note": "AUDIT BROKER-CAGE R1 (re-aimed by content): past the collapse the hub keeps a cleared word alone (the cage's, until midnight) - the rite's own word is what this mutant would say there."
   },
   {
     "name": "AUDIT-WB12d-hub-first-circle-wins",
@@ -2235,14 +2237,15 @@
   {
     "name": "AUDIT-WB12d-T-relay-sweep-forgotten",
     "file": "server/src/index.js",
-    "old": "const riteOwed = await this._riteTellHub(Date.now());",
-    "new": "const riteOwed = false;",
+    "old": "const riteDue = await this._riteTellHub(Date.now());",
+    "new": "const riteDue = false;",
     "tests": [
       "test/wb12d_rite_relay.test.js",
       "test/wb12d_rite_law.test.js",
       "test/wb12d_rite_world.test.js",
       "test/wb12d_rite_host.test.js"
-    ]
+    ],
+    "note": "AUDIT BROKER-CAGE R4 (re-aimed by content): the alarm's local renamed riteDue - it shadowed the circle's own test, riteOwed."
   },
   {
     "name": "AUDIT-WB12d-T-relay-sweep-owed-unsaid",

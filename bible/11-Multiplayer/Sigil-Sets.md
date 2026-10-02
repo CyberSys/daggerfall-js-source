@@ -516,7 +516,7 @@ name the new calls; three MERGE-PLUS C8 mutants and SET3's import mutant are re-
   ("Sealed" after 22:00).
 
 BROKER-CAGE (2026-10-02) moved her: caged at the faithful's circle from the omen to midnight, free once every one of
-them fell (`11-Multiplayer/World-Bosses.md` section 19 E). Where she stands, her box, her press and her leaving below
+them fell (`11-Multiplayer/World-Bosses.md` section 19 E). Where she stands, her box, her press and her leaving above
 are SET7's as built; the cage's are that section's.
 
 Pinned: `test/set7_broker.test.js` (8) and `test/set7_broker_world.test.js` (9); `tools/mutants/set7.json` (56, all

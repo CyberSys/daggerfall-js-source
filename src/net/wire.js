@@ -3693,6 +3693,10 @@ export function validRaidOut(m) {
 /** The first relay that keeps the rite. An older one CLOSES the socket on the frame, so a client says none to it. */
 export const RITE_RELAY_MIN = 151;   // world151 - WB12's (world141 on its branch; main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150)
 export const relaySupportsRite = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= RITE_RELAY_MIN; };
+/** BROKER-CAGE: the first relay that keeps the faithful's every fall (the word's `c`) and says the Broker's cage open
+ *  (`cl`). AUDIT BROKER-CAGE C6: at it, its word is the cage's one truth; before it, each screen's own eyes. */
+export const CAGE_RELAY_MIN = 153;
+export const relaySupportsCage = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= CAGE_RELAY_MIN; };
 /** The rite's own bucket: a word every RITE_WORD_MS, one at a strike or the Summoner's fall, and a second's slack. */
 export const RITE_HZ_MAX = 2;
 export const riteGate = (bucket, nowMs) => tokenGate(bucket, nowMs, RITE_HZ_MAX);

@@ -517,7 +517,7 @@ import { parseChatLine, HELP_LINES, CHAT_GREETING_TEXT, unknownCommandText, empt
 import { partyRosterSource, localRosterSource, guildRosterSource } from '../net/roster.js';   // CHAT-CHAN: the Party and Local tabs' composed lists
 import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY: the party's points on the compass
 import { SocialState, accountId, accountSecret } from '../net/social.js';   // SOC2: the friends and the party, as the hub says them; the account the hub's hello carries; SOC3: and the two colours a name wears in the DOM - my party's green, a friend's blue
-import { SOCIAL_ROOM, PARTY_SEND_MS, chatRegionRoom } from '../net/wire.js';   // CHAT-CHAN: a region's channel
+import { SOCIAL_ROOM, PARTY_SEND_MS, chatRegionRoom, relaySupportsRite, relaySupportsCage } from '../net/wire.js';   // CHAT-CHAN: a region's channel
 import { cellRoomOfWire } from '../net/wire.js';   // HCC-PARK: the cell a parked team's anchor stands in
 import { GATE_BRAIN_V } from '../net/wire.js';   // AUDIT WBX R7: the brain's law this client knows, said on every `in`
 import { characterIdOf } from '../systems/characterId.js';   // AUDIT HCC-PARK: my parked team is my CHARACTER's (the relay keys it by the account and this)
@@ -17502,6 +17502,10 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  the law's, made on the pack - the unlocked stones out, a fresh mint of the piece in, the offer marked - behind the
    *  pack's own carry gate (itemTransfer.js planTake), and it clinks as every concluded deal does (nativeTrade.js). */
   const _brokerNow = () => Date.now() + _sharedOffsetMs;
+  /** AUDIT BROKER-CAGE C4, C6: whether the relay keeps the faithful's rite, and says the cage open, as its last welcome
+   *  named it (onRelayVersion) - null until one has, so she is caged until it is known (the omen waits on the hub's
+   *  welcome all the same). */
+  let _relayKeepsRite = null, _relayKeepsCage = null;
   let _brokerStock = null;
   const brokerStockNow = () => {
     const day = brokerDay(_brokerNow());
@@ -17605,7 +17609,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     pixelTranslation: (px, py, out) => state.pixelTranslation(px, py, out),
     heightAt: (x, z) => surfaceAt(x, z),   // the drawn triangles' height, as the faithful's circle stands on (no ground: her pixel not built)
     now: _brokerNow,
-    freed: (day, px, py) => !!riteHost?.isCleared(day, px, py),   // BROKER-CAGE: every one of the faithful fallen - the hub's word, or my own eyes
+    // BROKER-CAGE: every one of the faithful fallen - AUDIT BROKER-CAGE C6: the hub's word where the relay says it, my own
+    // eyes before it; AUDIT BROKER-CAGE C4: or no faithful at all (a relay before the rite stands none - no captors, no cage)
+    freed: (day, px, py) => _relayKeepsRite === false || !!riteHost?.isCleared(day, px, py, _relayKeepsCage !== true),
+    freedAt: (day, px, py) => riteHost?.clearedAt(day, px, py) ?? NaN,   // AUDIT BROKER-CAGE C8: a cage the hub opened before I saw it shut neither swings nor speaks
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
     cam: () => cam.pos,
     say: (text) => townTalk.say(text),   // AUDIT SET W4: her words to the HUD's lines, as every static NPC's Info says (worldModes presentNpcInfoText - DFU's AddHUDText)
@@ -19201,7 +19208,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // chat line, including `ui/nameLayer.js`'s BUBBLE1 speech-bubble treatment over the sender's own character.
   // See `_partyRestVoteTrackTick`'s own doc comment (this file, above) for the replacement: every near
   // member's own client now watches the shared pose data and pushes its own local, bubble-free `chatNotice`.
-  const onRelayVersion = (v) => { if (relayVersionSeen(v) === 'changed') chatNotice(RELAY_RESTART_TEXT); };
+  const onRelayVersion = (v) => { _relayKeepsRite = relaySupportsRite(v); _relayKeepsCage = relaySupportsCage(v); if (relayVersionSeen(v) === 'changed') chatNotice(RELAY_RESTART_TEXT); };   // AUDIT BROKER-CAGE C4, C6: and whether it keeps the rite and the cage
   // SRV-N: THE BUILD POLL. The relay moves by hand and rarely; the client
   // moves on every merge, which is what "whenever we push" actually is
   // for this project. Nothing tells a tab held open across a deploy that

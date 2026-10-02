@@ -438,8 +438,8 @@
   {
     "name": "SET7-the-window-left-open-on-nothing",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "        if (was && !due && gone()) say(BROKER_TEXT.gone);",
-    "new": "        if (was && false) say(BROKER_TEXT.gone);",
+    "old": "      if (was && (!due || s.day !== was.day) && gone()) say(BROKER_TEXT.gone);",
+    "new": "      if (was && false) say(BROKER_TEXT.gone);",
     "tests": [
       "test/set7_broker_world.test.js"
     ],
@@ -448,8 +448,8 @@
   {
     "name": "SET7-the-line-said-with-no-window",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "        if (was && !due && gone()) say(BROKER_TEXT.gone);",
-    "new": "        if (was && !due) { gone(); say(BROKER_TEXT.gone); }",
+    "old": "      if (was && (!due || s.day !== was.day) && gone()) say(BROKER_TEXT.gone);",
+    "new": "      if (was && (!due || s.day !== was.day)) { gone(); say(BROKER_TEXT.gone); }",
     "tests": [
       "test/set7_broker_world.test.js"
     ]
@@ -529,7 +529,7 @@
   {
     "name": "SET7-AUDIT-W3-a-beacon-shutting-the-sale",
     "file": "src/scenes/sigilBrokerPool.js",
-    "old": "if (was && !due && gone())",
+    "old": "if (was && (!due || s.day !== was.day) && gone())",
     "new": "if (was && gone())",
     "tests": [
       "test/set7_broker_world.test.js"

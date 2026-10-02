@@ -24,9 +24,10 @@
 //
 // BROKER-CAGE (2026-10-02, Mac: "she should be present at the site in a jailed gate, and the gate opens after all the
 // enemies are cleared"): the Sigil Broker is their prisoner, caged beside the circle (scenes/sigilBrokerPool.js). The
-// rite's word says too whether this character has seen EVERY ONE of the faithful fall (net/gateRite.js riteRosterFell);
-// the hub's word that they all fell (`cl`) is kept by circle like the broken one, and once it is said none of the
-// faithful is stood again - for this screen, or a page opened after. `isCleared` is the cage's question.
+// rite's word says too whether this character has seen EVERY ONE of the faithful fall (net/gateRite.js riteRosterFell -
+// the Summoner's fall the hub said counting as seen, AUDIT BROKER-CAGE C1); the hub's word that they all fell (`cl`) is
+// kept by circle like the broken one, and once it is said none of the faithful is stood again - for this screen, or a
+// page opened after - and copies of them standing are taken down (C13). `isCleared` is the cage's question.
 //
 // Online alone, on a relay that keeps the rite: offline there is no breach. Design: bible/11-Multiplayer/World-Bosses.md
 // section 19 D.
@@ -169,8 +170,12 @@ export function createRiteHost({
   const bare = { x: 0, z: 0, r: RITE_BARE_R, key: '' };
   /** the hub's word: the circles whose rite is broken, by circleKey - who broke it, and how many */
   const brokenWords = new Map();
-  /** BROKER-CAGE: the hub's word: the circles whose faithful every one fell, by circleKey */
-  const clearedWords = new Set();
+  /** BROKER-CAGE: the hub's word: the circles whose faithful every one fell, by circleKey - and when it was said (relay
+   *  ms; 0 unknown) */
+  const clearedWords = new Map();
+  /** AUDIT BROKER-CAGE C7: the cage's question's circle, its key made once (the Broker asks it every frame she is caged) */
+  let qDay = NaN, qPx = NaN, qPy = NaN, qKey = '';
+  const keyFor = (d, px, py) => { if (d !== qDay || px !== qPx || py !== qPy) { qDay = d; qPx = px; qPy = py; qKey = circleKey(d, px, py); } return qKey; };
   let frameN = 0;
   const T3 = [0, 0, 0];
 
@@ -347,7 +352,9 @@ export function createRiteHost({
    *  only when due (AUDIT WB12d C13). Not sent, it is said again at once. BROKER-CAGE: `c`, every one of them seen to
    *  fall. */
   function word(t) {
-    const mem = riteMemory(C.day), s = mem.struck ? 1 : 0, f = mem.fell ? 1 : 0, c = riteRosterFell(C.day, mem.slain, mem.fell) ? 1 : 0, k = s * 4 + f * 2 + c;
+    // AUDIT BROKER-CAGE C1: the Summoner's fall the hub said counts toward every one of them - he is never stood again for a
+    // character who did not see it (survivors), so its own eyes could never see them all, and the cage stayed shut
+    const mem = riteMemory(C.day), s = mem.struck ? 1 : 0, f = mem.fell ? 1 : 0, c = riteRosterFell(C.day, mem.slain, mem.fell || brokenHere() ? 1 : 0) ? 1 : 0, k = s * 4 + f * 2 + c;
     const changed = k !== C.saidKey;
     if (!changed && t - C.wordAt < RITE_WORD_MS && t < C.resayAt) return;
     if (!send({ d: C.day, px: C.px, py: C.py, s, f, c }, C.cell)) return;
@@ -483,6 +490,10 @@ export function createRiteHost({
       const f = feet(), d = f ? Math.hypot(f[0] - C.heart[0], f[2] - C.heart[2]) : Infinity;
       const holds = t >= C.win.from && t < C.win.to, on = online();
       if (foes && d <= RITE_TEND_M) tend(holds);
+      // AUDIT BROKER-CAGE C13: the hub says every one of them fell - my own still standing are copies a word outran (a
+      // page that stood them before the hello's word landed, a copy stood again and counted twice): taken down, the site
+      // kept, as at the opening; none is stood again (survivors)
+      if (foes && C.ownLive && clearedHere()) { foes.drop(C.site); C.ownLive = 0; }
       if (on && holds && foes && C.known && d <= RITE_SPRING_M) maybeStand(t);
       // the hub's word, said once while the rite holds and the place is known (AUDIT WB12d D1: a page opened after the
       // break heard it before its omen, "in the wilds")
@@ -510,8 +521,8 @@ export function createRiteHost({
       if (!w || !Number.isSafeInteger(w.d) || !Number.isSafeInteger(w.px) || !Number.isSafeInteger(w.py)) return;
       if (w.k === 'cl') {
         const k = circleKey(w.d, w.px, w.py);
-        clearedWords.delete(k); clearedWords.add(k);
-        if (clearedWords.size > BROKEN_KEPT) clearedWords.delete(clearedWords.values().next().value);
+        clearedWords.delete(k); clearedWords.set(k, Number.isSafeInteger(w.at) && w.at > 0 ? w.at : 0);
+        if (clearedWords.size > BROKEN_KEPT) clearedWords.delete(clearedWords.keys().next().value);
         return;
       }
       const k = circleKey(w.d, w.px, w.py), by = Array.isArray(w.by) ? w.by.filter((x) => typeof x === 'string' && x) : [];
@@ -521,13 +532,21 @@ export function createRiteHost({
     },
     /** Whether the hub said the rite at this circle broken (systems/gateOmen.js: its order is not said then). */
     isBroken: (day, px, py) => brokenWords.has(circleKey(day, px, py)),
-    /** BROKER-CAGE: whether every one of the circle's faithful fell - the hub's word, or this character's own eyes (a
-     *  word the relay has yet to answer, or one before a relay that keeps it): the Broker's cage open. */
-    isCleared(day, px, py) {
-      if (clearedWords.has(circleKey(day, px, py))) return true;
+    /** BROKER-CAGE: whether every one of the circle's faithful fell - the hub's word, or (`ownEyes`: a relay before the
+     *  one that says it - net/wire.js relaySupportsCage) this character's own eyes, the Summoner's fall the hub's broken
+     *  word counting as seen (AUDIT BROKER-CAGE C1): the Broker's cage open. AUDIT BROKER-CAGE C6: where the relay says
+     *  it, its word alone - a screen that freed her on its own eyes while the relay never heard them (the last of them
+     *  felled 60 m out, the breach opening before its killer came back) sold where every other screen saw her caged. */
+    isCleared(day, px, py, ownEyes = true) {
+      const k = keyFor(day, px, py);
+      if (clearedWords.has(k)) return true;
+      if (!ownEyes) return false;
       const mem = riteSeen(day);
-      return !!mem && riteRosterFell(day, mem.slain, mem.fell);
+      return !!mem && riteRosterFell(day, mem.slain, mem.fell || brokenWords.has(k) ? 1 : 0);
     },
+    /** BROKER-CAGE: when the hub said the circle's faithful every one fallen (relay ms), or NaN - AUDIT BROKER-CAGE C8:
+     *  the Broker's door, seen shut only after it, neither swings nor says she is free. */
+    clearedAt(day, px, py) { const at = clearedWords.get(keyFor(day, px, py)); return at > 0 ? at : NaN; },
     /** The circle's stone and the tents, in the host's world pass - and its sigil for an eye near it (AUDIT WB12d G6;
      *  no eye said, it is drawn). */
     draw(r = renderer, texRemap = null, eye = null) {

@@ -1780,39 +1780,84 @@ Wrath's midnight** (`net/gateRite.js cageStands`), caged or free; a Warden falle
 circle, never her (the omen's `cageSite` reads the site off the day, not off the gate's standing). On a pixel not yet
 built she is not stood (GATE-SEEN's law), and nothing is shut.
 
-**The cage** (`world/cageModel.js`): 2.2 m square and 2.7 m high, cut from the gate's own stone - corner posts, door
-jambs and a frame of the plinth's, bars of the gate's a hand apart on three sides and either side of a 1 m barred door
-on the side toward the gate, and bars across the top. Its walls stand in the collider as plain slabs (no body slips
-between two bars), its shut door as another; the door's slab comes down the moment it opens. A wall is never stood
-around a body standing where it would rise (AUDIT SET W1's law, her post's). While she is caged her eye's box is the
-cage's whole, so the bars never hide her from the press; free, it is her own.
+**The cage** (`world/cageModel.js`): 2.2 m square and 2.7 m high, cut from the gate's own stone - corner posts capped
+over its frame, door jambs under its front beam and a frame of the plinth's, bars of the gate's a hand apart on three
+sides and either side of a 1 m opening on the side toward the gate, bars across the top, and a barred leaf of 0.9 m
+hung on the left jamb's inner face (no face of it lies over another). Its bars reach down to the lowest ground under
+its corners and 0.15 m beyond (0.5 m under her feet at the least), and its door's sill stands over the highest ground
+the leaf sweeps as it swings - the ground read when she moves, the meshes made again when either moves. Its walls stand
+in the collider as plain slabs a bar's thickness about the bars (no body slips between two bars), a roof over them,
+its shut door as another slab; the door's slab comes down the moment it opens. A wall is never stood around a body
+standing where it would rise (AUDIT SET W1's law, her post's). **Her eye's box is her cage's own**, turned with it and
+just beyond its walls (player/activate.js's turned box): the ray meets it before any bar, so she is pressed and named
+from every side, caged or free, from right against the bars, and from inside her open doorway; it ends at her walls,
+so a body lying by her cage is looted, not her.
 
 **The door opens when every one of the faithful has fallen** - the Summoner and each of Dagon's Faithful, as many of
 each career as the day stood (`riteRosterFell`) - before the breach opens. A player who saw them all fall says so in
-the rite's word (`c`, beside `s` and `f`); the circle's cell keeps it beside the broken rite (every one fallen is the
+the rite's word (`c`, beside `s` and `f`); the Summoner's fall the hub said counts as seen, so a player who came after
+him and felled the rest says it too. The circle's cell keeps it beside the broken rite (every one fallen is the
 Summoner fallen) and tells the hub, which says **her cage open** (`rite` `cl`) once to everyone online and at every
-hello until midnight. Each screen opens it on the hub's word or on what its own character saw, so it opens at once for
-the one who struck last. Once the hub says it, no faithful is stood again at that circle for anyone. The door swings
-out over 1.5 s, and a player within 60 m who saw it shut hears **"The Sigil Broker is free."**; a page opened after
-(or whose word came within 3 s of her first frame) finds it open and hears nothing. Not cleared by the opening, the
-faithful pass into the breach and **she stays caged that night**.
+hello until midnight - a word the cell could not tell before an early kill's collapse is kept and said all the same.
+**At a relay that says it, the hub's word alone opens her** - every screen at once, the one who struck last a moment
+after the last fall - so no screen sells where another sees her caged; at an older one (world151-152) each screen
+opens her on its own character's eyes; at a relay that keeps no rite (no faithful stand) she is never caged. Once the
+hub says it, no faithful is stood again at that circle for anyone, and copies a page stood before the word landed are
+taken down. The word is said from within 55 m of the circle (the relay believes 60), until the opening and 2 s past
+it: the last of them felled further out counts once its killer comes back in time. The door swings out over 1.5 s,
+eased, and a player within 60 m who saw it shut hears **"The Sigil Broker is free."**; a page that first saw her
+after the hub had opened her (or whose word came within 3 s of her first frame) finds it open and hears nothing. Not
+cleared by the opening, the faithful pass into the breach and **she stays caged that night**.
 
 **The press.** Caged, her plaque reads *Sigil Broker / Caged by Dagon's Faithful*; Info and Steal are as ever; any
-other press says **"Kill all of Dagon's Faithful to free her."** while the rite holds and **"She stays caged
-tonight."** after it. Free, her plaque is her trade and a press opens her window; the sale asks that she stands free.
-Midnight takes her: a window open on her is shut, and she says **"The Sigil Broker leaves for the night."**
+other press says **"Kill all of Dagon's Faithful to free her."** while the relay still hears the rite (the opening and
+2 s) and **"She stays caged tonight."** after it. Free, her plaque is her trade and a press opens her window; the sale
+asks that she stands free. Midnight takes her - or a page asleep across it wakes on the next day's cage: a window open
+on her is shut, and she says **"The Sigil Broker leaves for the night."**
 
 **Honest limit, stated.** The rite's own (D above): a word is its player's own. A player at the circle can say every
 one of the faithful fell before they did and open the cage for everyone; the sale itself was always the buyer's
 machine's (SET7). A faithful seen to fall is counted by its career on each screen, so a copy stood again by a new owner
-and killed again counts twice there.
+and killed again counts twice there. The collider's own: a body thrown at any solid at 0.74 m a move or more (a
+knockback, never a walk or a run) now and then comes out inside it - a whole block of stone as well as her walls.
 
-Relay **world153** (`net/wire.js` RELAY_VERSION): the word's `c`, the cell's and the hub's `cl`, the hello's replay
-until midnight. An older relay ignores `c` (`validRiteIn` projects what it knows) and never says `cl`: each screen
-opens the cage on its own character's eyes alone. An older client drops `cl` (`validRiteOut` knows `br` alone).
-Pinned: `test/brokercage.test.js` (6) and `test/set7_broker_world.test.js` (12, re-pinned for the cage); mutants
-`tools/mutants/brokercage.json` (53), set7's and wb12d's records the cage moved re-aimed by content. The probe
-`tools/brokerProbe.mjs` draws her caged from three sides and freed, its door swung.
+Relay **world153** (`net/wire.js` RELAY_VERSION, `relaySupportsCage`): the word's `c`, the cell's and the hub's `cl`,
+the hello's replay until midnight. An older relay ignores `c` (`validRiteIn` projects what it knows) and never says
+`cl`. An older client drops `cl` (`validRiteOut` knows `br` alone). Pinned: `test/brokercage.test.js` (8) and
+`test/set7_broker_world.test.js` (13, re-pinned for the cage); mutants `tools/mutants/brokercage.json` (82), set7's,
+wb12d's and soc1's records the cage moved re-aimed by content. The probe `tools/brokerProbe.mjs` draws her caged from
+three sides and freed, its door swung.
+
+### AUDIT BROKER-CAGE (2026-10-02, Mac: "Audit this")
+
+Three lanes read the change end to end - the law, the wire and the relay (R); the client at runtime (C); the cage's
+geometry, the tests, the records and the docs (G, T, D) - each finding reproduced on the change as it was, fixed,
+pinned red-then-green and its mutant recorded (`tools/mutants/brokercage.json`, the `AUDIT-` records).
+
+| # | found | fixed |
+|---|---|---|
+| C1 | a character who did not see the Summoner fall could never see them all fall - he is never stood again once the hub says him fallen - so a breach whose Summoner's killer left kept her caged all night for everyone | the hub's broken word counts as his fall, in the word's `c` and the cage's own-eyes answer |
+| C2 | caged, her box was an axis-aligned square round any turn of the cage - a player against the bars stood inside it, where a flat's box is never pressed: no press, no plaque | her cage's own turned box, just beyond its walls, a surface of its own |
+| C3 | free, her box shrank to her own inside the walls - hidden by them from all but her door, which faces away from the circle | the same turned box, caged or free; a press from her doorway meets her post |
+| C4 | a relay that keeps no rite stands no faithful - she was caged all night with nobody to kill | free where the relay's welcome says it keeps no rite |
+| C5 | the old box reached a metre past her walls and took presses aimed at a body lying by them | the turned box ends at her walls |
+| C6 | a screen freed her on its own eyes where the relay never heard them (the last of them felled 60 m out) and sold while every other screen saw her caged | at a relay that says the cage, its word alone |
+| C7 | her ground was read every frame, a key string each time; the circle key every frame she was caged | read when the land moves and every 15 frames; the key made once a circle |
+| C8 | a hub's word late behind a page's first sight of her swung the door and said she was free of a cage opened long before | the word's instant: opened before the page saw her shut, it neither swings nor speaks |
+| C9 | measured, not a fault of hers: any solid lets a body thrown at 0.74 m a move or more through now and then | stated (the honest limit above); thicker walls made it worse and were not kept |
+| C10 | no roof in the collider: a body that levitated over the cage dropped in | its roof |
+| C11 | the shared clock stepping back mid-swing drew the open door shut | an open door stays open |
+| C12 | a page asleep across midnight woke on the next day's cage with yesterday's window open | a new day's Broker shuts it |
+| C13 | the press said "She stays caged tonight." in the 2 s the relay still hears the last fall; copies of the faithful a page stood before the hub's word stood on | the press at the relay's grace; the copies taken down |
+| R1 | a cleared word its cell could not tell before an early kill's collapse was answered and dropped by the hub - and marked told | kept and said until midnight; nothing else said past the collapse |
+| R2 | a tell in flight took what was owed when it went; a cleared word said meanwhile was never told (an existing single-flight flaw the cage inherited), and a hung tell held every later one off | a tell in flight arms the retry; a tell lets go at its own retry |
+| R3 | the usual order - the Summoner first, the rest later - was never pinned | pinned, the hub down and back |
+| R4 | the alarm's local named `riteOwed` hid the circle's own test | renamed |
+| G5 | the leaf lay over the jambs' faces, the jambs through the beam, the posts' tops in the frame's plane - faces fighting | the leaf between the jambs on the left jamb's inner face, the jambs under the beam, the posts capped |
+| G6 | on a slope the downhill bars stood on air, and the door swung through rising ground | the bars to the lowest corner and beyond, the sill over the ground the leaf sweeps |
+| T1-T5 | pins that could not fail: a hinge equal to its own definition, a foot equal to its constant, a bar gap of constants; the front-left wall, the swing's direction and easing, the drawn turn, the top and front bars, all unpinned | each read off the built geometry or the drawn matrices |
+| D | the docs' "the bars never hide her" (they did), "below" for what is above, the Ledger's "stands only by a gate", the Testing row's pre-cage text | rewritten |
+| D2 | the cage's model claims a Ledger A row and the Ledger named it nowhere - `test/doctrine.test.js` failed on the change as pushed (its own run before the commit had the file untracked, and the pin reads tracked files alone) | named in the breach's Ledger row |
 
 ### Versions and the deploy
 

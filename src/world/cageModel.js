@@ -6,9 +6,13 @@
 // the collider are plain slabs apart from the bars (a body meets a wall, never slips between two bars).
 //
 // THE CAGE'S OWN FRAME: x across, z through its door (the door on its +z face), y up from her feet - the host turns it
-// with trs's yaw (world/mat4.js: local +z faces the bearing). Its bars stand CAGE_FOOT under her feet, so a cage on a
-// slope never stands on air. The door is made in its HINGE's frame (x along the leaf from the hinge, z out of the
-// cage) and swung by the host about the hinge (`cageHinge`), CAGE_DOOR_OPEN when it is open: outward. Pure.
+// with trs's yaw (world/mat4.js: local +z faces the bearing). AUDIT BROKER-CAGE G6: ITS FOOT IS THE GROUND'S - the host
+// samples the ground under its corners and builds its bars down to the lowest of them and CAGE_FOOT_UNDER beyond
+// (`foot`, never less than CAGE_FOOT), so a cage on a slope never stands on air; and its door's sill clears the ground
+// it swings over (`sill`). The door is made in its HINGE's frame (x along the leaf from the hinge, z out of the cage)
+// and swung by the host about the hinge (`cageHinge` - the left jamb's inner face), CAGE_DOOR_OPEN when it is open:
+// outward. AUDIT BROKER-CAGE G5: no two faces of it lie in one plane over each other (the leaf between the jambs, the
+// jambs under the beam, the posts capped over it). Pure.
 //
 // Not a DFU member. Ledger A (WB).
 import { faces, GATE_STONE_RECORD, GATE_PLINTH_RECORD, GATE_ARCHIVE } from './gateModel.js';
@@ -17,8 +21,17 @@ import { faces, GATE_STONE_RECORD, GATE_PLINTH_RECORD, GATE_ARCHIVE } from './ga
 export const CAGE_W = 2.2;
 export const CAGE_D = 2.2;
 export const CAGE_H = 2.7;
-/** How far its bars and walls stand under her feet - the ground under a cage on a slope. */
+/** How far its bars and walls stand under her feet at the least, and under the lowest ground at its corners beyond
+ *  that (AUDIT BROKER-CAGE G6: riteModel.js boxCorners' own 0.15). */
 export const CAGE_FOOT = 0.5;
+export const CAGE_FOOT_UNDER = 0.15;
+/** The door's sill over her feet at the least, and over the highest ground it swings across beyond that; and the
+ *  highest it is ever raised (a leaf of 1.5 m at the least). */
+export const CAGE_SILL = 0.08;
+export const CAGE_SILL_OVER = 0.05;
+export const CAGE_SILL_MAX = CAGE_H - 0.1 - 1.5;
+/** How far a corner post rises over the frame - a cap, so the two tops never lie in one plane. */
+export const CAGE_CAP = 0.04;
 /** A bar's width, and the bars' spacing, centre to centre - a hand between two, never a body. */
 export const CAGE_BAR = 0.06;
 export const CAGE_GAP = 0.22;
@@ -30,11 +43,18 @@ export const CAGE_DOOR_W = 1;
 /** The door swung open, radians about its hinge (outward, off the cage's face), and how long it takes to swing, ms. */
 export const CAGE_DOOR_OPEN = -1.75;
 export const CAGE_DOOR_MS = 1500;
-/** A wall's thickness in the collider. */
-export const CAGE_WALL = 0.1;
+/** A wall in the collider: how far it stands out beyond the bars' line, and in from it - the bars' own thickness and a
+ *  little (AUDIT BROKER-CAGE C9, measured: a wall thicker inward kept no body out that a thin one let in - a body thrown
+ *  at any solid, a whole block of it, at 0.74 m a move or more comes out inside now and then (player/collider.js, every
+ *  wall's), and at 0.5 m a move or less none does; and it took the room to stand beside her). */
+export const CAGE_WALL_OUT = 0.05;
+export const CAGE_WALL_IN = 0.05;
 
-/** The door's hinge in the cage's frame: the door's left edge on the +z face. */
-export const cageHinge = () => [-CAGE_DOOR_W / 2, CAGE_D / 2];
+/** The door's leaf: the opening between the jambs (AUDIT BROKER-CAGE G5: a leaf the opening's whole width lay over the
+ *  jambs' own faces). */
+export const CAGE_LEAF_W = CAGE_DOOR_W - CAGE_BEAM;
+/** The door's hinge in the cage's frame: the left jamb's inner face, on the +z face. */
+export const cageHinge = () => [-CAGE_LEAF_W / 2, CAGE_D / 2];
 
 /** An upright box's six faces, x0..x1, y0..y1, z0..z1, wound outward as the circle's stones are (riteModel.js box): its
  *  sides a strip of the art up their height, its ends a patch. */
@@ -46,8 +66,8 @@ function slab(f, rec, x0, y0, z0, x1, y1, z1) {
   end(4, 5, 6, 7); end(3, 2, 1, 0);   // the top, the foot
   side(0, 1, 5, 4); side(1, 2, 6, 5); side(2, 3, 7, 6); side(3, 0, 4, 7);
 }
-/** A bar up from the foot to `top`, about (x, z). */
-const bar = (f, x, z, top, w = CAGE_BAR, rec = GATE_STONE_RECORD) => slab(f, rec, x - w / 2, -CAGE_FOOT, z - w / 2, x + w / 2, top, z + w / 2);
+/** A bar up from `foot` under her feet to `top`, about (x, z). */
+const bar = (f, foot, x, z, top, w = CAGE_BAR, rec = GATE_STONE_RECORD) => slab(f, rec, x - w / 2, -foot, z - w / 2, x + w / 2, top, z + w / 2);
 /** The bars' places along one side from `a` to `b` (exclusive of both ends - the posts stand there). */
 function along(a, b) {
   const n = Math.max(1, Math.round(Math.abs(b - a) / CAGE_GAP));
@@ -76,20 +96,22 @@ function assemble(f) {
 
 /**
  * THE CAGE, its door apart: the four corner posts and the frame of the plinth's stone, the bars of the gate's - three
- * sides, either side of the door's opening, and over the top. renderer.createMesh's model shape, in the cage's frame.
+ * sides, either side of the door's opening, and over the top - its bars `foot` under her feet (AUDIT BROKER-CAGE G6:
+ * the ground's, the host's to say). renderer.createMesh's model shape, in the cage's frame.
+ * @param {{foot?: number}} [o]
  */
-export function buildCageModel() {
+export function buildCageModel({ foot = CAGE_FOOT } = {}) {
   const f = faces();
-  const hx = CAGE_W / 2, hz = CAGE_D / 2, H = CAGE_H, dx = CAGE_DOOR_W / 2;
-  for (const [x, z] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) bar(f, x, z, H, CAGE_POST, GATE_PLINTH_RECORD);
-  // the door's two jambs, posts of their own
-  for (const x of [-dx, dx]) bar(f, x, hz, H, CAGE_BEAM, GATE_PLINTH_RECORD);
+  const hx = CAGE_W / 2, hz = CAGE_D / 2, H = CAGE_H, dx = CAGE_DOOR_W / 2, top = H - CAGE_BEAM;
+  for (const [x, z] of [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]]) bar(f, foot, x, z, H + CAGE_CAP, CAGE_POST, GATE_PLINTH_RECORD);
+  // the door's two jambs, posts of their own under the front beam
+  for (const x of [-dx, dx]) bar(f, foot, x, hz, top, CAGE_BEAM, GATE_PLINTH_RECORD);
   // the bars: the back and the two sides whole, the front either side of the door
-  for (const x of along(-hx, hx)) bar(f, x, -hz, H);
-  for (const z of along(-hz, hz)) { bar(f, -hx, z, H); bar(f, hx, z, H); }
-  for (const x of [...along(-hx, -dx), ...along(dx, hx)]) bar(f, x, hz, H);
+  for (const x of along(-hx, hx)) bar(f, foot, x, -hz, H);
+  for (const z of along(-hz, hz)) { bar(f, foot, -hx, z, H); bar(f, foot, hx, z, H); }
+  for (const x of [...along(-hx, -dx), ...along(dx, hx)]) bar(f, foot, x, hz, H);
   // the frame round the top, and the bars across it
-  const b = CAGE_BEAM / 2, top = H - CAGE_BEAM;
+  const b = CAGE_BEAM / 2;
   slab(f, GATE_PLINTH_RECORD, -hx, top, -hz - b, hx, H, -hz + b);
   slab(f, GATE_PLINTH_RECORD, -hx, top, hz - b, hx, H, hz + b);
   slab(f, GATE_PLINTH_RECORD, -hx - b, top, -hz, -hx + b, H, hz);
@@ -98,10 +120,12 @@ export function buildCageModel() {
   return assemble(f);
 }
 
-/** THE DOOR, in its hinge's frame: a barred leaf CAGE_DOOR_W along +x from the hinge, its rails top and bottom. */
-export function buildCageDoor() {
+/** THE DOOR, in its hinge's frame: a barred leaf CAGE_LEAF_W along +x from the hinge, its rails top and bottom, its sill
+ *  `sill` over her feet (AUDIT BROKER-CAGE G6: clear of the ground it swings across - the host's to say).
+ *  @param {{sill?: number}} [o] */
+export function buildCageDoor({ sill = CAGE_SILL } = {}) {
   const f = faces();
-  const W = CAGE_DOOR_W, H = CAGE_H - CAGE_BEAM, b = CAGE_BEAM / 2, low = 0.08;
+  const W = CAGE_LEAF_W, H = CAGE_H - CAGE_BEAM, b = CAGE_BEAM / 2, low = Math.min(CAGE_SILL_MAX, Math.max(CAGE_SILL, sill));
   slab(f, GATE_PLINTH_RECORD, 0, low, -b, W, low + CAGE_BEAM, b);
   slab(f, GATE_PLINTH_RECORD, 0, H - CAGE_BEAM, -b, W, H, b);
   slab(f, GATE_PLINTH_RECORD, 0, low, -b, CAGE_BEAM, H, b);
@@ -119,21 +143,24 @@ function slabTris(out, x0, y0, z0, x1, y1, z1) {
 const frozenMesh = (o) => Object.freeze({ positions: new Float32Array(o.positions), indices: new Uint16Array(o.indices) });
 
 /** ITS WALLS IN THE COLLIDER, in the cage's frame: the back, the two sides, and the front either side of the door's
- *  opening - each a slab CAGE_WALL thick about its bars, foot to top. */
+ *  opening - each a slab from CAGE_WALL_OUT beyond its bars to CAGE_WALL_IN inside them, CAGE_FOOT under her feet to its
+ *  top (a body stands on the ground; no gap under a wall is a body's height) - and its roof (AUDIT BROKER-CAGE C10: a
+ *  body that levitated over it dropped in). */
 export const CAGE_WALLS = (() => {
   const out = { positions: [], indices: [] };
-  const hx = CAGE_W / 2, hz = CAGE_D / 2, t = CAGE_WALL / 2, dx = CAGE_DOOR_W / 2, y0 = -CAGE_FOOT, y1 = CAGE_H;
-  slabTris(out, -hx - t, y0, -hz - t, hx + t, y1, -hz + t);
-  slabTris(out, -hx - t, y0, -hz, -hx + t, y1, hz);
-  slabTris(out, hx - t, y0, -hz, hx + t, y1, hz);
-  slabTris(out, -hx - t, y0, hz - t, -dx, y1, hz + t);
-  slabTris(out, dx, y0, hz - t, hx + t, y1, hz + t);
+  const hx = CAGE_W / 2, hz = CAGE_D / 2, o = CAGE_WALL_OUT, i = CAGE_WALL_IN, dx = CAGE_DOOR_W / 2, y0 = -CAGE_FOOT, y1 = CAGE_H;
+  slabTris(out, -hx - o, y0, -hz - o, hx + o, y1, -hz + i);   // the back
+  slabTris(out, -hx - o, y0, -hz, -hx + i, y1, hz);   // the sides
+  slabTris(out, hx - i, y0, -hz, hx + o, y1, hz);
+  slabTris(out, -hx - o, y0, hz - i, -dx, y1, hz + o);   // the front, either side of the door
+  slabTris(out, dx, y0, hz - i, hx + o, y1, hz + o);
+  slabTris(out, -hx - o, CAGE_H - CAGE_BEAM, -hz - o, hx + o, CAGE_H + CAGE_CAP, hz + o);   // the roof
   return frozenMesh(out);
 })();
-/** THE SHUT DOOR IN THE COLLIDER, in the cage's frame: the opening's own slab. */
+/** THE SHUT DOOR IN THE COLLIDER, in the cage's frame: the opening's own slab, as thick as the walls beside it. */
 export const CAGE_DOOR_WALL = (() => {
   const out = { positions: [], indices: [] };
-  const hz = CAGE_D / 2, t = CAGE_WALL / 2, dx = CAGE_DOOR_W / 2;
-  slabTris(out, -dx, -CAGE_FOOT, hz - t, dx, CAGE_H, hz + t);
+  const hz = CAGE_D / 2, dx = CAGE_DOOR_W / 2;
+  slabTris(out, -dx, -CAGE_FOOT, hz - CAGE_WALL_IN, dx, CAGE_H, hz + CAGE_WALL_OUT);
   return frozenMesh(out);
 })();

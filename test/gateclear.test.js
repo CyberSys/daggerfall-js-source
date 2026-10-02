@@ -20,7 +20,7 @@ import { wodPiecewise, WOD_SITE_OBJECT_RADIUS_M } from '../src/world/roadClearan
 import { PIXEL_M, gateSpotLocal, GATE_SPOT_SPREAD_M } from '../src/net/gateLaw.js';
 import { PLINTH_R } from '../src/world/gateModel.js';
 import { GATE_LANDING_M } from '../src/world/gateArena.js';
-import { CAGE_R, BROKER_CAGE_HALF_W } from '../src/scenes/sigilBrokerPool.js';   // BROKER-CAGE: she stands caged at the faithful's circle
+import { CAGE_R, BROKER_BOX_HX, BROKER_BOX_HZ } from '../src/scenes/sigilBrokerPool.js';   // BROKER-CAGE: she stands caged at the faithful's circle
 import { LocationSession, pickLocations } from '../src/world/wodLocationLoader.js';
 import { decodeRegionPack } from '../src/world/wodLocationPack.js';
 import { loadLocationPrefab } from '../src/world/wodLocationData.js';
@@ -35,7 +35,7 @@ test('GATE-CLEAR: the clearing holds the gate and its way home (BROKER-CAGE: the
   assert.equal(GATE_CLEAR_M, 24);
   assert.ok(GATE_CLEAR_M >= PLINTH_R * 2, 'twice the plinth at least');
   assert.ok(GATE_CLEAR_M > GATE_LANDING_M + 8, 'the way home lands on open ground');
-  assert.ok(RITE_CLEAR_M > CAGE_R + BROKER_CAGE_HALF_W + 4, 'BROKER-CAGE: the Broker\'s cage stands in the circle\'s clearing, clear of any rock');
+  assert.ok(RITE_CLEAR_M > CAGE_R + Math.hypot(BROKER_BOX_HX, BROKER_BOX_HZ) + 4, 'BROKER-CAGE: the Broker\'s cage stands in the circle\'s clearing, clear of any rock');
   const c = gateClearFor(site(538, 412, 207, 300.5, 511.25));
   const [rx, rz] = riteLocalOf(538);
   assert.deepEqual({ ...c }, { key: '538:412,207', day: 538, px: 412, py: 207, x: 300.5, z: 511.25, rx, rz }, 'AUDIT WB12d (G12): and the faithful\'s circle');
