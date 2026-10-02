@@ -213,6 +213,10 @@ export const ARENA_TEXT = F({
     hallTier: (tier, title, name) => `${tier} - ${name}, ${title}`,
     hallNone: 'No name is cut here yet. The stone waits for one.',
     hallYours: (n) => `Your name is cut here ${n === 1 ? 'once' : `${n} times`}.`,
+    /** ARENA3: the banners' Grand Champions this save has seen, under the player's own. */
+    hallNotYou: 'Your name is not cut here yet.',
+    hallTheirs: 'The Grand Champions of the Arena:',
+    hallTheir: (year, who, banner) => `3E ${year} - ${who}, for ${banner}`,
   }),
 
   // ── THE BANNERS (ARENA3; systems/arenaLeague.js) ────────────────────────────────────────────────────────────

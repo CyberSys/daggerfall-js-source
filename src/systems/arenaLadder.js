@@ -154,16 +154,26 @@ export function practiceBout(L) {
  * THE HALL OF CHAMPIONS: the lines its keeper reads off the wall for this save - its Grand Champion, then each tier
  * whose champion was beaten (its number, its name, the title it gave), the highest first; the stone's waiting line
  * when none is cut. `name` the player's. Pure.
+ *
+ * ARENA3: and THE ARENA'S GRAND CHAMPIONS this save has seen - the banners' fighters who took the title
+ * (systems/arenaLeague.js rosterGrandChampions, handed in as `champions` `[{ season, name, home, banner }]`, the newest
+ * season first): their season, their name and home, the banner they fought for. With none handed in the wall reads as
+ * it always did.
  */
-export function hallOfChampions(L, name) {
+export function hallOfChampions(L, name, champions = []) {
   const s = arenaLadderRestore(L);
   const U = ARENA_TEXT.undercroft;
   const lines = [U.hallTitle, '', U.hallIntro, ''];
   const cut = [];
   if (s.grand) cut.push(U.hallGrand(name));
   for (let i = s.champs.length - 1; i >= 0; i--) if (s.champs[i] && !(s.grand && i === s.champs.length - 1)) cut.push(U.hallTier(U.hallTierName(i + 1, ARENA_TEXT.tiers[i]), ARENA_TEXT.titles[i], name));
-  if (!cut.length) lines.push(U.hallNone);
+  const theirs = Array.isArray(champions) ? champions : [];
+  if (!cut.length) lines.push(theirs.length ? U.hallNotYou : U.hallNone);
   else lines.push(...cut, '', U.hallYours(cut.length));
+  if (theirs.length) {
+    lines.push('', U.hallTheirs);
+    for (const c of theirs) lines.push(U.hallTheir(c.season, `${c.name} of ${c.home}`, ARENA_TEXT.teams.the[c.banner] ?? ''));
+  }
   return lines;
 }
 

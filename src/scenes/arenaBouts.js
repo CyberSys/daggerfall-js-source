@@ -28,7 +28,7 @@ import {
 } from '../systems/arenaBout.js';
 import { newCrowd, crowdHear, crowdTick, crowdBark, crowdCount, crowdFlipFps, crowdHop, verdictThrows, seatPeople, THROWN_FLOWERS, THROWN_REFUSE } from '../systems/arenaCrowd.js';
 import { fighterIdentity, boutMarks, boutGateOf } from '../systems/arenaFighters.js';
-import { EXHIBITION_PURSE, ladderAfter, arenaLadderRestore, arenaHash, seededRng } from '../systems/arenaLadder.js';
+import { EXHIBITION_PURSE, ladderAfter, arenaLadderRestore, arenaHash, seededRng, ladderTitle } from '../systems/arenaLadder.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { arenaScoreFor } from '../systems/arenaScore.js';
 import { crowdSeats, pickSeats, RING_R } from '../world/arenaFloor.js';
@@ -145,7 +145,8 @@ export function createArenaBouts(deps) {
       tags.set(fid, { id, side: s.side, out: false, hold: true, hooks: hooks(fid) });
       fighters.push({ id: fid, name: who.name, side: s.side, maxHealth: 1, temper: who.temper, ai: true, home: who.home, epithet: who.epithet, spec: s, who, mark });
     }
-    if (ladder) fighters.unshift({ id: YOU, name: P?.name || 'You', side: 0, maxHealth: Math.max(1, P?.maxHealth | 0), health: Math.max(1, P?.health | 0), temper: 0, ai: false, home: '', mark: marks[0][0] });
+    // ARENA3: the Herald cries me by the title the ladder gave me ("Aldric, Grand Champion!") - my epithet on the sand
+    if (ladder) fighters.unshift({ id: YOU, name: P?.name || 'You', side: 0, maxHealth: Math.max(1, P?.maxHealth | 0), health: Math.max(1, P?.health | 0), temper: 0, ai: false, home: '', epithet: ladderTitle(P?.arenaLadder) ?? '', mark: marks[0][0] });
     cur = {
       kind: p.kind, id, seed, stage, ladder, next: ladder ? p.next : null, ex: ladder ? null : p.ex, fighters: new Map(), tags, marks,
       roster: fighters, b: null, crowd: null, you: ladder ? YOU : null, playerTag: ladder ? { id, side: 0, out: false, hold: true } : null,
@@ -427,7 +428,7 @@ export function createArenaBouts(deps) {
         break;
       case 'crier': {
         const f = boutFighter(C.b, e.a);
-        if (f) say(f.ai ? ARENA_TEXT.call.fighter(`${f.name}, ${f.epithet || ''}`.replace(/, $/, ''), f.home) : ARENA_TEXT.call.fighter(f.name, ''));
+        if (f) say(ARENA_TEXT.call.fighter(`${f.name}, ${f.epithet || ''}`.replace(/, $/, ''), f.ai ? f.home : ''));   // ARENA3: mine by my title
         if (f?.ai) walkIn(C, f.id);   // ARENA-FIX 8: named, they walk in from their gate
         break;
       }

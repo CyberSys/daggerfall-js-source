@@ -3647,7 +3647,7 @@ function statsCharacter(detail, m) {
   if (m.arena) {
     detail.append(pxDivider('The Arena'));
     const a = el('div', 'px-statgrid');
-    for (const [label, v] of [['Title', m.arena.title ?? 'None yet'], ['Record', m.arena.record]]) {
+    for (const [label, v] of [['Title', m.arena.title ?? 'None yet'], ['Record', m.arena.record], ...(m.arena.banner ? [['Banner', m.arena.banner]] : [])]) {   // ARENA3: the banner worn
       const r = el('div', 'px-stat');
       r.append(el('span', 'k', label), el('span', 'v', v));
       a.append(r);
