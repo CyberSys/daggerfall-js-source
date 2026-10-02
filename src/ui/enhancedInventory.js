@@ -449,11 +449,11 @@ export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
  *  (ui/iconFit.js SLOT_BOX), made at the screen's own device size: `{ src, w, h, smooth }`, or null while it is made
  *  (`onReady` fires when it lands) and for an item with no picture. The door above at scale 1 is its source, so the
  *  record, its dye and the cart's model are asked exactly as before; every enhanced list draws through this now. */
-export function linePicture(line, { box, onReady = null } = /** @type {any} */ ({})) {
+export function linePicture(line, { box, onReady = null, snap = true } = /** @type {any} */ ({})) {
   if (!line.image && line.model == null) return null;
   // MERGE (UI1 x DYE-ICON): the swatch the dye changes names the picture too - a silver blade is not the base one
   const name = line.image ? iconName(line.image.archive, line.image.record, line.image.dye, line.image.dyeTarget) : `model${line.model}`;
-  return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady });
+  return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady, snap });
 }
 
 /**
@@ -1890,7 +1890,7 @@ function equippedList() {
   const plaque = armourPlaque(deps.entity);
   plaque.style.gridArea = '1 / 2';
   map.append(plaque);
-  wrap.append(statFlip(map, deps.entity));   // STATS-CARD: the worn map is the card's front; a Stats button turns it over
+  wrap.append(statFlip(map, deps.entity, deps.usingRightHand));   // STATS-CARD: the worn map is the card's front; a Stats button turns it over
   const byLabel = new Map();
   for (const row of worn.rows) {
     if (!byLabel.has(row.label)) byLabel.set(row.label, []);
@@ -1960,7 +1960,8 @@ function wornPanel(fam, byLabel, area) {
     return `${r.label}: ${l.name}${itemStatSuffix(l)}`;
   }).join('\n');
   if (area) b.style.gridArea = area;
-  b.append(tileWithWear(line, b, wornBox(area == null)));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's
+  // Keep equipment pictures at their slot's size across display zoom; integer snapping could shrink a 48px helm to 40px.
+  b.append(tileWithWear(line, b, wornBox(area == null), false));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's
   const txt = el('span', 'worntext');
   txt.append(el('span', 'wornslot', fam.label), el('span', 'wornname', line.name));
   b.append(txt);
@@ -2044,7 +2045,7 @@ function transportHalves() {
     const node = el(isCart && owned ? 'button' : 'div',
       `wornrow${owned ? '' : ' wornempty'}${isCart && owned && session.usingWagon ? ' on' : ''}`);
     const line = owned ? itemLine(owned, deps.entity) : null;
-    node.append(line ? itemTile(line, wornBox(true)) : el('span', 'worntile', '\u25c7'));   // UI1: a half panel's box
+    node.append(line ? itemTile(line, wornBox(true), render, false) : el('span', 'worntile', '\u25c7'));   // UI1: a half panel's box
     const txt = el('span', 'worntext');
     txt.append(el('span', 'wornslot', t.label), el('span', `wornname${owned ? '' : ' wornempty'}`, line ? line.name : t.empty));
     node.append(txt);
@@ -2093,7 +2094,7 @@ function shelfSocket(r, g) {
   const b = el('button', `wornsock${item === picked ? ' on' : ''}`);
   markItemFrame(b, item);   // RARITY-UI / SIGIL-UI: a socket is the icon's frame
   b.title = `${r.label}: ${line.name}${itemStatSuffix(line)}`;
-  b.append(tileWithWear(line, b, SLOT_BOX.socket));   // WEAR-UI
+  b.append(tileWithWear(line, b, SLOT_BOX.socket, false));   // WEAR-UI
   dragFrom(b, item, 'worn');   // MAC-M2's hold: off the body and into the pack
   b.onclick = (e) => {
     if (takeDragClick()) return;
@@ -2146,14 +2147,14 @@ function characterCol() {
  * scanning, which is what the prototype's tile was for. When the real
  * record lands the whole screen repaints and the letters give way.
  */
-function itemTile(line, box, ready = render) {
+function itemTile(line, box, ready = render, snap = true) {
   // MW-D38: the Morrowind ground mesh stands in for the sprite when a
   // body is built and the item resolves through the one map; the
   // classic icon stands otherwise. Enhanced only, like everything here.
   // UI1: both FITTED to the surface's own box (ui/iconFit.js SLOT_BOX) - the sprite no longer drawn at twice its size
   // and then capped at 30px by the sheet, whatever the slot around it.
   const pic = modelPicture(line.item, box)
-    || linePicture(line, { box, onReady: ready });
+    || linePicture(line, { box, onReady: ready, snap });
   if (pic) {
     const tile = el('span', 'tile has-icon');
     // NOT SQUASHED. These sprites are not square - a dagger is tall
@@ -2326,8 +2327,8 @@ export function wearBar(item) {
 }
 /** An item's picture with its wear bar in it; `holder` (the row or socket that frames it) is marked `hasbar`, so the
  *  sheet can lift what shares the tile's foot. */
-function tileWithWear(line, holder, box) {
-  const tile = itemTile(line, box);
+function tileWithWear(line, holder, box, snap = true) {
+  const tile = itemTile(line, box, render, snap);
   const bar = wearBar(line.item);
   if (bar) { tile.append(bar); holder.classList.add('hasbar'); }
   return tile;

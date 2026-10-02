@@ -33,16 +33,16 @@ export const clampDpr = (dpr) => (Number.isFinite(dpr) && dpr > 0 ? Math.min(DPR
  * A picture of `w` x `h` source pixels fitted to a box `box` CSS pixels a side, at `dpr`: `{ prescale, outW, outH,
  * smooth, cssW, cssH }` - nearest neighbour to `prescale` times the source, then (when `smooth`) a smooth resample to
  * `outW` x `outH` device pixels, drawn at `cssW` x `cssH` CSS pixels. Null for a picture or a box with no size.
- * @param {number} w @param {number} h @param {{ box: number, dpr?: number, cap?: number }} opts
+ * @param {number} w @param {number} h @param {{ box: number, dpr?: number, cap?: number, snap?: boolean }} opts
  */
-export function fitIcon(w, h, { box, dpr = 1, cap = ICON_CAP } = /** @type {any} */ ({})) {
+export function fitIcon(w, h, { box, dpr = 1, cap = ICON_CAP, snap = true } = /** @type {any} */ ({})) {
   if (!(w > 0) || !(h > 0) || !(box > 0)) return null;
   const r = clampDpr(dpr);
   const boxDev = Math.max(1, Math.floor(box * r));
   const side = Math.max(w, h);
   const s = Math.min(boxDev / side, (cap > 0 ? cap : ICON_CAP) * r);   // device pixels a source pixel
   const whole = Math.floor(s + 1e-9);
-  if (whole >= 1 && whole / s >= SNAP) {
+  if (whole >= 1 && (Math.abs(whole - s) < 1e-9 || (snap && whole / s >= SNAP))) {
     return { prescale: whole, outW: w * whole, outH: h * whole, smooth: false, cssW: (w * whole) / r, cssH: (h * whole) / r };
   }
   const outW = Math.max(1, Math.round(w * s)), outH = Math.max(1, Math.round(h * s));

@@ -2,8 +2,8 @@
   {
     "name": "UI1-no-snap",
     "file": "src/ui/iconFit.js",
-    "old": "  if (whole >= 1 && whole / s >= SNAP) {",
-    "new": "  if (whole >= 1 && whole / s >= 1) {",
+    "old": "(snap && whole / s >= SNAP)",
+    "new": "(snap && whole / s >= 1)",
     "tests": [
       "test/ui1_slots.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "UI1-the-key-blind-to-the-box",
     "file": "src/ui/textureCanvas.js",
-    "old": "  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}`;",
-    "new": "  const key = `${name}@x${r}c${cap}${trim ? '' : 'w'}`;",
+    "old": "  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}${snap ? '' : 'nosnap'}`;",
+    "new": "  const key = `${name}@x${r}c${cap}${trim ? '' : 'w'}${snap ? '' : 'nosnap'}`;",
     "tests": [
       "test/ui1_slots.test.js"
     ]

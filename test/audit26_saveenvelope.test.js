@@ -159,7 +159,7 @@ test('audit26 F216/F217: both exterior pools snapshot in natives and restore thr
   // before the mint (SerializableEnemy.cs:205-218), through a callback
   // the caller that owns a quest machine hands in.
   assert.match(ef, /function restoreWorld\(saved, fromNative, yOffset = 0, \{ reviveQuestBehaviour = null \} = \{\}\)/);
-  assert.match(ef, /spawnFoe\(sf\.mobileType, \[lx, sf\.y \+ yOffset, lz\], \{ gender: sf\.gender, feetGiven: true, questBehaviour, placed: !!sf\.placed, champion: sf\.champion \? championIndex\(sf\.champion\) : null \}\)/,   // WOD3: a placed foe restores placed; LOOT7: a champion as one   // REVIEW 2026-09-05: the snapshot holds FEET
+  assert.match(ef, /spawnFoe\(sf\.mobileType, \[lx, sf\.y \+ yOffset, lz\], \{ gender: sf\.gender, feetGiven: true, questBehaviour, placed: !!sf\.placed, eliteFoe: sf\.eliteFoe === true, champion: sf\.champion \? championIndex\(sf\.champion\) : null \}\)/,   // B04 (#534 fix package): its elite word restored, never re-rolled   // WOD3: a placed foe restores placed; LOOT7: a champion as one   // REVIEW 2026-09-05: the snapshot holds FEET
     'the restore re-mints through the pool\'s ONE spawn chain, then overlays the saved truth');
   const cg = rd('src/scenes/cityGuards.js');
   assert.match(cg, /function snapshotWorld\(toNative\)/);

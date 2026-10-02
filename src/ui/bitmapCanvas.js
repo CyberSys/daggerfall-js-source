@@ -123,15 +123,15 @@ export const TRIM_ALPHA = 8;
  * UI2: `trim: false` keeps the whole picture - a spell's icon is a square tile, its dark border part of it, and a
  * trimmed one would stand a different size from its neighbours.
  * @param {HTMLCanvasElement} src
- * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean }} opts
+ * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean, snap?: boolean }} opts
  */
-export function fitCanvas(src, { box, dpr = 1, cap = ICON_CAP, trim = true } = /** @type {any} */ ({})) {
+export function fitCanvas(src, { box, dpr = 1, cap = ICON_CAP, trim = true, snap = true } = /** @type {any} */ ({})) {
   const w = src?.width | 0, h = src?.height | 0;
   const sctx = w && h ? src.getContext?.('2d') : null;
   if (!sctx) return null;
   const { data } = sctx.getImageData(0, 0, w, h);
   const b = trim ? opaqueBounds(w, h, (x, y) => data[(y * w + x) * 4 + 3] > TRIM_ALPHA) : { x: 0, y: 0, w, h };
-  const f = b ? fitIcon(b.w, b.h, { box, dpr, cap }) : null;
+  const f = b ? fitIcon(b.w, b.h, { box, dpr, cap, snap }) : null;
   if (!b || !f) return null;
   const bigW = b.w * f.prescale, bigH = b.h * f.prescale;
   let cur = paintedCanvas(bigW, bigH, false, (c) => c.drawImage(src, b.x, b.y, b.w, b.h, 0, 0, bigW, bigH));
