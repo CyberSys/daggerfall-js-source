@@ -454,8 +454,8 @@ test('EOTB-IL: AutoTogglePerspective ships DISARMED - the sum of nine Don\'tChan
 
 test('EOTB-IL: OnNewGame and OnLoad - a transition row when armed and nothing else; StartInThirdPerson through ToggleOffset when not', () => {
   const cam = createEotbCamera();
-  cam.loadSettings(null);
-  assert.equal(cam.start(), true, 'Start: ToggleOffset(StartInThirdPerson), shipped on');
+  cam.loadSettings((m, k) => (k === 'Camera.StartInThirdPerson' ? true : undefined));   // FP-START: ships off now - the player who turns it on
+  assert.equal(cam.start(), true, 'Start: ToggleOffset(StartInThirdPerson), turned on');
   cam.toggleOffset(false);
   assert.equal(cam.onLoad(false), true, 'disarmed: OnLoad takes StartInThirdPerson');
   cam.toggleOffset(false);
@@ -473,6 +473,7 @@ test('EOTB-IL: OnNewGame and OnLoad - a transition row when armed and nothing el
   assert.match(w, /mwViewRebase\(r\.offset\);/, 'and the floating origin re-seeds the camera');
   openLane();
   try {
+    eotbCamera.loadSettings((m, k) => (k === 'Camera.StartInThirdPerson' ? true : undefined));   // FP-START: ships off now - the player who turns it on
     eotbCamera.toggleOffset(false);
     mwViewLoadPose(null, false);
     assert.equal(eotbCamera.thirdPerson(), true, 'the load door re-seeds the sprite camera from the setting');
