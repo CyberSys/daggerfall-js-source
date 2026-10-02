@@ -5,7 +5,9 @@
   up" - none of them run out. Take as long as you like; the quest waits for you.
 - **No more waiting days for the story to move.** A step that would make you wait days - a letter that arrives later,
   a contact who will see you in a few days, a reward paid after a wait - now moves on after about two minutes of play.
-  This includes Lady Brisienna's letters and every main quest letter.
+  This includes Lady Brisienna's invitation and every main quest letter.
+- **Finished quests close sooner.** A quest that wraps up a while after you finish it (once you are paid, or once the
+  next part of the story begins) now closes within a couple of minutes.
 - **Quest text no longer counts days online.** Lines like "you have 7 days" now read "you have a few days".
 - **No countdowns online.** The journal, the quest tracker, the quest rail and the map markers no longer show
   "Time remains", and you no longer get "running out of time" warnings.

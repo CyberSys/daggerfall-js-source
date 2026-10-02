@@ -49,8 +49,8 @@ test('TIMEFREE: the reading - a clock whose end loses the quest, costs a standin
   assert.equal(kind(parse('N0B20Y02'), 'S.12'), 'delay', 'the trance ends (`hide npc`)');
 });
 
-test('TIMEFREE: the four penalties the reading cannot see are deadlines by hand - the cure quests\' hunters, the monster\'s escape, the mark leaving (mutants: the table emptied)', () => {
-  assert.deepEqual(Object.keys(ONLINE_DEADLINES).sort(), ['$CUREVAM', '$CUREWER', 'M0B11Y18', 'U0C00Y00']);
+test('TIMEFREE: the penalties the reading cannot see are deadlines by hand - the cure quests\' hunters, the monster\'s escape, the mark leaving, Brisienna\'s month (AUDIT TIMEFREE T6) (mutants: the table emptied)', () => {
+  assert.deepEqual(Object.keys(ONLINE_DEADLINES).sort(), ['$CUREVAM', '$CUREWER', 'M0B11Y18', 'U0C00Y00', '_BRISIEN']);
   for (const [quest, clocks] of Object.entries(ONLINE_DEADLINES)) {
     const q = parse(quest);
     for (const c of clocks) {
@@ -68,7 +68,7 @@ test('TIMEFREE: every vendored clock is read, and the split stands where this ch
     try { q = parse(f.replace('.txt', '')); } catch { continue; }
     for (const r of q?.resources.values() ?? []) if (r.isClock) { if (r.isDeadline) deadlines++; else delays++; }
   }
-  assert.deepEqual({ deadlines, delays }, { deadlines: 279, delays: 120 });
+  assert.deepEqual({ deadlines, delays }, { deadlines: 262, delays: 137 });   // AUDIT TIMEFREE: 279/120 before T1-T6
 });
 
 test('TIMEFREE: online a deadline is charged nothing and never runs out; a delay lands on the short wait; offline both are DFU\'s (mutants: online charged, the wait never cut)', () => {

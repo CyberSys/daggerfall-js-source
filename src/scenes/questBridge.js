@@ -460,7 +460,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
      * (and, GUIDE1, the step each was written at), and the TIGHTEST
      * RUNNING clock on the quest's resources (Clock carries
      * `remainingTimeInSeconds` in game seconds beside
-     * `clockEnabled`/`clockFinished`, quest/clock.js:203,164). The
+     * `clockEnabled`/`clockFinished`, quest/clock.js:270,164). The
      * archive is the notebook's filed entries; `ended` the completed
      * quests the machine still holds, with their verdict.
      *

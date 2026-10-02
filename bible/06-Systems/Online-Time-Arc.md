@@ -384,9 +384,17 @@ does online: "Short real wait"; asked whether the bounties, the curse quests and
   clock, `isDeadline`): a deadline's end loses the quest (its task, and what it starts or a positive `when` of it sets
   off, ends the quest with no GivePc, TrainPc or StartQuest), costs a standing (a negative `change repute` or
   `legal repute`), or shuts a reward waiting on `not _clock_`. Everything else is a delay. A clock a clock starts is
-  asked on its own (Brisienna's invitation is a delay that starts her fortnight, a deadline). Four penalties the
-  reading cannot see are deadlines by hand (`ONLINE_DEADLINES`: the cure quests' hunters, U0C00Y00's escape,
-  M0B11Y18's mark leaving). Of the 399 vendored clocks, 279 are deadlines and 120 delays (`test/timefree.test.js`).
+  asked on its own (Brisienna's invitation is a delay that starts her fortnight, a deadline). AUDIT TIMEFREE
+  (`01-Overview/Audit-Timefree.md`) sharpened the reading: a standing lost or a reward shut counts only by what the
+  end or the reader itself DOES, not by a chain of later `when`s (T2); `end quest` is a loss only when the end ALONE
+  sets it off, by the engine's own reading of the `when` (T3 - the main quest's endings wait on the story); a quest
+  item handed over is progress (T4); `Clock _x_ 00:00` with no travel arm is "at once" (T3); and a CLOSING - a clock
+  a task starts after settling the quest (the reward paid, the next quest begun, a deadline already lost) - is a delay
+  (T1), as is, at run time, a task-started deadline once the quest is a success, unless it was started after the
+  success (a new limit - T5). Penalties the reading cannot see are deadlines by hand (`ONLINE_DEADLINES`: the cure
+  quests' hunters, U0C00Y00's escape, M0B11Y18's mark leaving, Brisienna's month - T6), and one closing after a
+  failure is a delay by hand (`ONLINE_CLOSINGS`: R0C11Y03). Of the 399 vendored clocks, 262 are deadlines and 137
+  delays; the main quest's 30 deadlines are listed and pinned (`test/timefree.test.js`, `test/audit_timefree.test.js`).
 - **Online a deadline never runs out**: charged nothing, its sample still moving, so a quest taken offline resumes it
   where it stood. QFAIL-FREE stays as the net under anything else that ends a quest unfinished.
 - **Online a delay lands on the short wait**: its remainder is cut once to `ONLINE_DELAY_SECONDS` (24 minutes of the
@@ -562,6 +570,10 @@ terms; 9 is new and not built.
 - 2026-10-02: TIMEFREE (6.3b) - online quests are not time: deadlines never run out, delays land on the short wait,
   no countdowns, bounties never lapse, the curse quests and crime-guild letters on the short wait.
   `test/timefree.test.js`, `tools/mutants/timefree.json` (10, all dead), `PATCH-NOTES-Time-Free-Quests.md`.
+- 2026-10-02: AUDIT TIMEFREE (`01-Overview/Audit-Timefree.md`): every vendored clock read by hand, the main quest's
+  whole; nineteen misread clocks corrected (T1-T6) - among them Brisienna's close, the main quest's endings and
+  letter43, quests that never closed after their reward. `test/audit_timefree.test.js`,
+  `tools/mutants/audit_timefree.json` (14, all dead).
 - 2026-10-02: AUDIT TIME, four lenses (the sky and the moon; the quests; the hosts, saves and wire; the words and
   the tests). Fixed: the coven's daily re-roll was stamped and saved on the sky - its key is the event clock's day
   now, the prince's day the sky's (`daedraSummoning.js rerollDay`); `tools/skyCutover.mjs` could not move the

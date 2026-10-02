@@ -42,13 +42,13 @@
   {
     "name": "QT-LIVE1-tick-grows-its-own-arithmetic-back",
     "file": "src/systems/quest/clock.js",
-    "old": "    if (!questTimeFree(this.parentQuest)) this.remainingTimeInSeconds -= this.chargeSeconds(caller);",
-    "new": "    if (!questTimeFree(this.parentQuest)) this.remainingTimeInSeconds -= Math.trunc(now - this._lastWorldTimeSample);",
+    "old": "    if (!timeFree) this.remainingTimeInSeconds -= this.chargeSeconds(caller);",
+    "new": "    if (!timeFree) this.remainingTimeInSeconds -= Math.trunc(now - this._lastWorldTimeSample);",
     "tests": [
       "test/qtlive1.test.js",
       "test/auditworld78.test.js"
     ],
-    "note": "TIMEFREE (PIN MOVED): re-aimed by content - the offline arm of the charge, the line now guarded by questTimeFree."
+    "note": "TIMEFREE (PIN MOVED): re-aimed by content - the offline arm of the charge, the line now guarded by questTimeFree. AUDIT TIMEFREE T7 (PIN MOVED): re-aimed by content."
   },
   {
     "name": "QT-LIVE1-running-clock-answers-the-field-when-disabled-check-inverted",
