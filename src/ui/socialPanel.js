@@ -177,29 +177,29 @@ ${PIXELIFY_FIVE_FACE}
 .dfsocial-banner { flex: none; display: flex; gap: 10px; align-items: flex-start; padding: 4px 0; }
 .dfsocial-banner img { flex: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
 .dfsocial-tabs { flex: none; display: flex; gap: 2px; padding: 4px 4px 0; border-bottom: 1px solid var(--iron, #2b323b); }
-.dfsocial-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #8b8578); font: inherit; font-size: 13px;
+.dfsocial-tab { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--dim, #9a9486); font: inherit; font-size: 13px;
   letter-spacing: .05em; text-transform: uppercase; padding: 6px 10px; cursor: pointer; }
 .dfsocial-tab.active { color: var(--bone, #e9e4d9); border-bottom-color: var(--brass, #c08a3e); }
 .dfsocial-badge { margin-left: 6px; background: #c8503c; color: #f6efe2; border-radius: 8px; padding: 0 6px; font-size: 11px; }
 .dfsocial-badge:empty { display: none; }
 .dfsocial-body { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 8px 8px; display: flex; flex-direction: column; }
-.dfsocial-sec { flex: none; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #8b8578); padding: 8px 0 2px; }
+.dfsocial-sec { flex: none; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #9a9486); padding: 8px 0 2px; }
 .dfsocial-row { flex: none; display: flex; align-items: center; gap: 6px; padding: 3px 0; }
 .dfsocial-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: #5a6068; }
 .dfsocial-dot.on { background: ${PARTY_GREEN_CSS}; }
 .dfsocial-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .dfsocial-name { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
-.dfsocial-sub { font-size: 11px; color: var(--dim, #8b8578); overflow-wrap: anywhere; }
-.dfsocial-lead { flex: none; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--brass, #c08a3e); }
-.dfsocial-left { flex: none; font-size: 11px; color: var(--dim, #8b8578); }
+.dfsocial-sub { font-size: 11px; color: var(--dim, #9a9486); overflow-wrap: anywhere; }
+.dfsocial-lead { flex: none; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--brass, #c08a3e); }
+.dfsocial-left { flex: none; font-size: 11px; color: var(--dim, #9a9486); }
 .dfsocial-btn { flex: none; background: var(--iron, #2b323b); color: var(--bone, #e9e4d9); border: 0; border-radius: 3px; font: inherit; font-size: 12px; padding: 4px 8px; cursor: pointer; }
 .dfsocial-btn[disabled] { opacity: .45; cursor: default; }
 .dfsocial-btn.warn { background: #6b2f28; }
 /* AUDIT SOC C11: the reason a button is dead, BESIDE the label and not only on its title - a title needs a mouse to
    hover, and half the machines this panel runs on have none. The F-menu's own shape (ui/socialMenu.js .dfpeer-why). */
-.dfsocial-why { flex: none; font-size: 10px; font-style: italic; color: var(--dim, #8b8578); margin-left: 4px; }
+.dfsocial-why { flex: none; font-size: 11px; font-style: italic; color: var(--dim, #9a9486); margin-left: 4px; }
 .dfsocial-why:empty { display: none; }   /* GUILD-LIVE: a live button come alive keeps its span, empty */
-.dfsocial-empty { flex: none; font-size: 13px; color: var(--dim, #8b8578); padding: 6px 0; overflow-wrap: anywhere; }
+.dfsocial-empty { flex: none; font-size: 13px; color: var(--dim, #9a9486); padding: 6px 0; overflow-wrap: anywhere; }
 /* MAIL1 (tools/mailProbe.mjs photographed it): A FRIEND'S ACTS ARE ONE GROUP THAT WRAPS. Letter made them three - Invite,
    Letter, Remove - and at the touch skin's 44px buttons, each with its reason beside its label, three are wider than a
    phone's panel: the name beside them was squeezed to one letter a line. The row wraps its acts BELOW the name when it
@@ -216,20 +216,20 @@ ${PIXELIFY_FIVE_FACE}
 .dfsocial-letter:hover, .dfsocial-letter:focus-visible { background: rgba(125, 116, 96, .18); outline: none; }
 .dfsocial-letter .dfsocial-dot { margin-top: 5px; background: transparent; }
 .dfsocial-letter .dfsocial-dot.unread { background: var(--brass, #c08a3e); }
-.dfsocial-letter.read .dfsocial-name { font-weight: 400; color: var(--dim, #8b8578); }
+.dfsocial-letter.read .dfsocial-name { font-weight: 400; color: var(--dim, #9a9486); }
 .dfsocial-glyph { width: 12px; height: 12px; margin-left: 4px; vertical-align: -1px; }
-.dfsocial-age { flex: none; font-size: 11px; color: var(--dim, #8b8578); padding-top: 2px; }
+.dfsocial-age { flex: none; font-size: 11px; color: var(--dim, #9a9486); padding-top: 2px; }
 .dfsocial-letterhead { flex: none; display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--iron, #2b323b); }
 .dfsocial-subject { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
 .dfsocial-lettertext { flex: none; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.45; padding: 8px 0; }
 .dfsocial-acts { flex: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
 .dfsocial-form { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 6px 0; }
-.dfsocial-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #8b8578); margin-top: 4px; }
+.dfsocial-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim, #9a9486); margin-top: 4px; }
 .dfsocial-field { box-sizing: border-box; width: 100%; background: rgba(0, 0, 0, .35); color: var(--bone, #e9e4d9); border: 1px solid var(--iron, #2b323b);
   border-radius: 3px; font: inherit; font-size: 13px; padding: 5px 6px; }
 .dfsocial-field:focus { outline: none; border-color: var(--brass, #c08a3e); }
 textarea.dfsocial-field { resize: vertical; min-height: 120px; line-height: 1.4; }
-.dfsocial-count { font-size: 11px; color: var(--dim, #8b8578); text-align: right; }
+.dfsocial-count { font-size: 11px; color: var(--dim, #9a9486); text-align: right; }
 .dfsocial-count.over { color: #e0704a; }
 
 /* AUDIT SOC C8: THE FINGER'S OWN SIZES. Every control this panel draws was built at the mouse's scale - the tabs 29

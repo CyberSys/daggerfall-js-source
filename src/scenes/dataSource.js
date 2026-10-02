@@ -14,6 +14,8 @@
 // UPPERCASE basenames - real ARENA2 ships uppercase, user folders vary.
 
 import { isTouchDevice } from '../ui/touchDevice.js';   // TI3
+import { isEnhanced } from '../systems/uiSkin.js';   // FONT3: the asset picker's face follows the skin
+import { PIXEL_FONT_CSS } from '../ui/pixelifyFive.js';   // FONT3
 
 const DB_NAME = 'project-dagger';
 const STORE = 'arena2';
@@ -992,7 +994,7 @@ export const ASSET_PICKER_Z = 40;
 /** MWFIX: is the asset picker on screen? A modal opened FROM another
  *  overlay has to be able to say so, because the opener may own the
  *  keyboard - the enhanced shell takes Escape on `globalThis` in
- *  CAPTURE and stops it (enhancedMenu.js:4681), which is right for a
+ *  CAPTURE and stops it (enhancedMenu.js:4712), which is right for a
  *  screen with nothing above it and wrong the moment something is.
  *  Its own stated law is that a modal overlay owns its input; this is
  *  how the one above it says "that's me". */
@@ -1003,7 +1005,10 @@ async function pickAssetFolder({ title, blurb, store, register, directory = true
   return new Promise((resolve) => {
     const ui = document.createElement('div');
     _pickerOpen = true;
-    ui.style.cssText = `position:fixed;inset:0;background:#111;color:#ddd;font:14px monospace;display:flex;align-items:center;justify-content:center;z-index:${ASSET_PICKER_Z}`;
+    // FONT3: under the enhanced skin the picker a Features tile opens (music, sounds, lighting, Morrowind) speaks the
+    // skin's face; the classic skin and the first-run picker below keep the plain monospace they always had.
+    const face = isEnhanced() ? `${PIXEL_FONT_CSS}font-size:14px;` : 'font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;';
+    ui.style.cssText = `position:fixed;inset:0;background:#111;color:#ddd;${face}display:flex;align-items:center;justify-content:center;z-index:${ASSET_PICKER_Z}`;
     ui.innerHTML = `
       <div style="max-width:460px;text-align:center;border:1px solid #444;padding:24px">
         <h2 style="margin-top:0">${title}</h2>
@@ -1451,7 +1456,7 @@ export async function ensureArena2() {
 
   await new Promise((resolve) => {
     const ui = document.createElement('div');
-    ui.style.cssText = 'position:fixed;inset:0;background:#111;color:#ddd;font:14px monospace;display:flex;align-items:center;justify-content:center;z-index:10';
+    ui.style.cssText = 'position:fixed;inset:0;background:#111;color:#ddd;font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;display:flex;align-items:center;justify-content:center;z-index:10';
     ui.innerHTML = `
       <div style="max-width:460px;text-align:center;border:1px solid #444;padding:24px" id="dz">
         <h2 style="margin-top:0">Daggerfall Online</h2>

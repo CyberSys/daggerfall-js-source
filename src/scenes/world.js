@@ -409,7 +409,7 @@ import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
-import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
+import { setRaidingPartiesHost, raidFrame as raidingPartiesFrame, raidState, raidingPartiesOn, raidTypeName as raidKindName, raidDefendingHere, outOfSight as raidOutOfSight, raidWireWord, raidPeerWord, raidRelayWord, raidTownsFor, RAID_SPAWN_MIN_DISTANCE, RAID_SPAWN_MAX_DISTANCE } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties, the towns' raids
 import { modSaveRecords, restoreModSaveRecords, newGameModSaveRecords, registerModSaveData } from '../systems/modSaveData.js';   // WA1: DFU's per-mod save slot, for the mods after HCC; OH-D: Ocean Holes' OceanHoleSaveData
 import { applyDeathPenalty, deathPenaltyText, stateDeathLoss, statedDeathLoss } from '../systems/deathPenalty.js';   // DEATH-PENALTY: an online death costs a quarter of the purse
 import { createBountyHost } from './bountyHost.js';   // BOUNTY1: the town's bounty boards - the hunts, their packs, their purse
@@ -655,6 +655,7 @@ import { hudShortcutKey, retroToggleKey, hudRenderEnabled } from '../ui/hudShort
 import { createActivateGate, activateFrame, setClickDelay } from '../systems/activateGate.js';   // A8: PlayerActivate's ActivateCenterObject frame
 import { openPauseFlow, preloadPauseFlowArt, pauseDoorReady, pauseOpts } from '../ui/pauseDoor.js';   // I3/I4; U51 picks the skin; MAC-L1: pauseOpts is the ONE reader of the door's options
 import { isEnhanced, isEnhancedPlus } from '../systems/uiSkin.js';   // WM2d: the mills are an enhanced-only addition
+import { drawEnhancedTextLayer, hideEnhancedTextLayer } from '../ui/enhancedTextLayer.js';   // FONT3: a draw list's words in the enhanced face (Come Sail Away's position reading)
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 import { drawEnhancedStatusLine } from '../ui/enhancedHudText.js';   // FONT1: the online status line in the skin's own face
 import { rrRidingOn, rrRidingSetting, BED_MODELS, bedSleepingOn } from '../systems/rrRealism.js';   // RR2: EnhancedRiding's switches; CSA-G: the boat's bed is RR1's BedActivation
@@ -6246,6 +6247,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   };
   for (const type of ['pointermove', 'pointerdown']) addEventListener(type, csaTrackMouse, true);   // capture: a press's own place, before any slot takes it
   let _csaMapWindow = null;
+  const CSA_MAP_TEXT_LAYER = 'enhanced-csa-map-text';   // FONT3: the position reading's words, in the enhanced face under that skin
   /** GameManager.PauseGame(true, true) for the position reading: a window in the mode's slot - the world held and the
    *  HUD hidden as any window holds them, every key handed to it - that draws OnGUI's map (DECLARED). */
   function csaMapOpen() {
@@ -6258,7 +6260,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       hidesHud: true,   // AUDIT PRE-MERGE 0928 U8: PauseGame(true, true) takes the HUD away, the large one too (windowStack.hidesHud - the street's, the building's and the dungeon's drawHud read it)
       click() {}, hover() {}, wheel() {}, tick() {},
       draw() { csaDrawMap(); },
-      dispose() { if (_csaMapWindow === win) _csaMapWindow = null; },
+      dispose() { if (_csaMapWindow === win) _csaMapWindow = null; hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER); },   // FONT3: the words' DOM layer goes with the window
     };
     if (modes?.mountWindow?.(win)) _csaMapWindow = win;
   }
@@ -6268,6 +6270,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!w) return;
     _csaMapWindow = null;
     _csaMapKeys.held.clear();
+    hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER);   // AUDIT FONT3 F1: here, not in dispose alone - the interior and dungeon slots close a window without disposing it
     modes?.closeWindow?.(w);
   }
   /** EntityEffectManager.AssignBundle for StartWaterwalking's bundle: its one WaterWalkingSilent on the player, for
@@ -6296,26 +6299,32 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** A draw list the runtime answers (OnGUI's): each quad its picture stretched and tinted, each text
    *  DaggerfallFont.DrawText's two passes - the shadow, then the text. */
-  function csaDrawList(draws) {
+  function csaDrawList(draws, layerId = null) {
     const pics = draws.some((d) => d.kind === 'quad') ? csaMapPictures() : null;
     const font = townTalk.font;
     const rgba = (c) => [c.r, c.g, c.b, c.a];
+    // FONT3: under the enhanced skin a list that names a layer says its words in the pixel face (ui/enhancedTextLayer.js)
+    // - the pictures stay on the canvas. The debug values name none and keep the bitmap face, as F8's lines do.
+    const words = layerId && isEnhanced() && typeof document !== 'undefined' ? [] : null;
     for (const d of draws) {
       if (d.kind === 'quad') {
         const tex = d.tex === 'map' ? pics?.map : pics?.line;
         if (tex) renderer.drawScreenQuad(tex, d.rect, undefined, rgba(d.color));
+      } else if (words) {
+        words.push({ text: d.text, x: d.x, y: d.y, cell: (font?.fnt?.fixedHeight ?? 7) * d.scale, color: rgba(d.color), shadow: rgba(d.shadow), shadowPos: d.shadowPos });
       } else if (font) {
         drawText(renderer, font, d.text, d.x + d.shadowPos[0], d.y + d.shadowPos[1], d.scale, rgba(d.shadow));
         drawText(renderer, font, d.text, d.x, d.y, d.scale, rgba(d.color));
       }
     }
+    if (words) drawEnhancedTextLayer(layerId, words, canvas);
   }
   /** OnGUI's map, while the reading has it up - drawn by its window, the slot's last. */
   function csaDrawMap() {
     if (!csaRuntime) return;
     csaCall(() => {
       const draws = csaRuntime.mapOverlay({ screenRect: { x: 0, y: 0, width: canvas.width, height: canvas.height }, screen: [canvas.width, canvas.height], unscaledTime: performance.now() / 1000 });
-      if (draws) csaDrawList(draws);
+      if (draws) csaDrawList(draws, CSA_MAP_TEXT_LAYER);
     });
   }
   /** CSA-K: the others' words standing them on this boat of mine (the pack's refusal; OWS2: and a landfall's pack). */
@@ -6685,6 +6694,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  and LateUpdate (the boat's move, the placing click on ActivateCenterObject's release) - then its boats in the
    *  mode's collider where they now stand. Outdoors it runs after the motor, before the eye is taken from the body. */
   function csaUpdate(dt) {
+    // AUDIT FONT3 F1: a DOM line stays painted until it is told - with no map up, its words are down, whatever slot
+    // the window left by (every mode runs this; the hide is a no-op on a layer already down)
+    if (!_csaMapWindow) hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER);
     if (!csaRuntime) return;
     const paused = gamePaused() || _loading;   // CSA-J (the audit): Update, LateUpdate and FixedUpdate return while SaveLoadManager.LoadInProgress too (4291/4917/5087), the pause's arm
     _csaDt = paused ? 0 : dt * worldTimeScale();
@@ -8694,7 +8706,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2776 mounts the same one, gated on
+  // and dungeonContext.js:2777 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6853
@@ -11314,7 +11326,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7809), so exterior mode and a
+    // composer, dungeonContext.js:7814), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12657,6 +12669,34 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** F5-QUESTS (2026-09-26): THIS HOST'S PAUSE BAG, one arm for both doors that mount the pause window - hudCtx.togglePause
    *  and the F5 page (makeCharSheetWindow's `pause`, ui/charSheetDoor.js), which was handed the sheet's four
    *  doors and nothing else, so its Quests tab never listed a quest. */
+  // TIMERS1 (Mac: "a new unique UI element for reset times like the Sunday wars, oblivion gates, town raids, and anything
+  // else"): what the pause face's timers window reads (systems/eventTimers.js) - the relay's clock and what this host
+  // already holds: the day's gate site and the relay's word of its kill, the seats list (the week's battles, the
+  // Season's zero), the day's raids in relay ms. Null offline - every row is a shared moment of the online world.
+  let _timersSeatAsk = -Infinity;
+  const timersSource = ({ ask = false } = {}) => {
+    // AUDIT TIMERS1 D6: the pause door is armed before the boot's last awaits, and `online` (and the gate's two) are
+    // declared after them - a pause in that window read them before they stood. Not there yet is "no timers".
+    try {
+      // AUDIT TIMERS1 D8: and not before the relay's clock has been heard - until the welcome the offset is nought, and
+      // every row would count on this machine's clock (the gate's omen waits for the same word)
+      if (!online || !_sharedClockHeard) return null;
+      const now = battleNowMs();
+      // AUDIT TIMERS1 UI-9: the service is asked only by the window's own read (`ask`), never by the pause face's test
+      if (ask && seatBook?.open !== false && now - _timersSeatAsk > 60_000) { _timersSeatAsk = now; seatBook?.read?.()?.catch?.(() => {}); }   // the list keeps its own five minutes
+      const relayOf = (minute) => { const ms = sharedWallMs(minute); return ms == null ? NaN : ms + _sharedOffsetMs; };
+      return {
+        now,
+        gate: { place: gateOmen?.current?.()?.site?.place ?? null, fellAt: (day) => gateLink?.fellAt?.(day) ?? null },
+        seatsOpen: seatBook?.open === true,   // AUDIT TIMERS1 D5: the seat week's rows are for an account the seats are open to
+        seats: seatBook?.open === true ? (seatBook.data?.seats ?? null) : null,
+        zero: seatBook?.open === true ? seatBook.zero : null,
+        region: REGION_NAMES[_questRegionIndex()] ?? null,   // AUDIT TIMERS1 D3: the player's own region's raids are listed whole
+        raids: raidingPartiesOn() ? raidState().raids.map((r) => ({ name: r.locationName, region: REGION_NAMES[r.regionIndex] ?? '',
+          type: raidKindName(r.type), startMs: relayOf(r.startMinute), endMs: relayOf(r.endMinute), done: !!r.cleansed })) : null,
+      };
+    } catch { return null; }
+  };
   const pauseDoorHooks = () => ({
     // PX25: the sheet's own doors, through this host's own arms. AUDIT 27h A4: each answers whether it opened one -
     // the page went down as a handoff (ui/pauseDoor.js), and a door that opened nothing resumes instead.
@@ -12675,6 +12715,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // door is guarded at worldQuickLoad itself - this is the
     // pane's read of the same signal, not a second gate.
     loadingPrevented: () => !!online,
+    timers: timersSource,   // TIMERS1: the hourglass's window (null offline - no hourglass)
     // SAV4: the slot window's seams - the pause SAVE/LOAD doors
     // open it with these (openClassicPauseFlow builds the doors).
     playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
@@ -14024,7 +14065,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10384-10448 -
+  // worldModes answers it in BOTH modes (worldModes.js:10386-10450 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20876,6 +20917,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // pause menu greys the Load pane the same way - see
     // worldModes.js's togglePause for the door itself.
     loadingPrevented: () => !!online,
+    timers: timersSource,   // TIMERS1: forwarded to a building's and a dungeon's pause face
     playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
     saveAs: (saveName) => worldQuickSave(saveName),
     loadKey: (key) => worldQuickLoad({ key }),

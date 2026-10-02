@@ -21,6 +21,7 @@ import {
   addRemovedSecondaryAction, isPadCode, saveKeyBinds,
 } from '../systems/inputActions.js';
 import { isEnhancedPlus } from '../systems/uiSkin.js';
+import { PIXEL_FONT_CSS } from './pixelifyFive.js';   // FONT3: the prompt bar in the whole trio
 import { getPref, setPref } from '../systems/uiPrefs.js';
 import { hdGlyphSvg, hdGlyphName } from './padGlyphsHD.js';
 
@@ -269,7 +270,9 @@ export function crossbarInForce() { try { return !!_xb?.inForce?.(); } catch { r
 // ── 3. THE MENUS ────────────────────────────────────────────────────
 
 const doc = () => globalThis.document ?? null;
-const visible = (n) => !!n && n.isConnected !== false && typeof n.getClientRects === 'function' && n.getClientRects().length > 0
+// AUDIT TIMERS1 UI-7: and not inside an [inert] subtree - a window over the pause face makes the face inert, and a bumper
+// turned the tabs under it
+const visible = (n) => !!n && n.isConnected !== false && !n.closest?.('[inert]') && typeof n.getClientRects === 'function' && n.getClientRects().length > 0
   && (globalThis.getComputedStyle?.(n)?.visibility ?? 'visible') !== 'hidden';
 
 /** The tab strips a bumper turns, first match wins: the pack's and the shop's category tabs, the pause window's
@@ -405,7 +408,7 @@ const PROMPT_CSS = `
   z-index: 39; display: none; gap: 14px; align-items: center; padding: 6px 14px; pointer-events: none;
   background: linear-gradient(180deg, rgba(34,31,26,0.94), rgba(14,13,11,0.94));
   border: 2px solid; border-color: #b08a4a #5c4526 #3a2c18 #8a6c3c; box-shadow: 0 0 0 1px #000, 0 6px 18px rgba(0,0,0,0.55);
-  font: 13px/1 var(--pixel-font, "Pixelify Sans", ui-monospace, monospace); letter-spacing: 0.06em; color: #ece3c8;
+  ${PIXEL_FONT_CSS} font-size: 13px; line-height: 1; letter-spacing: 0.06em; color: #ece3c8;   /* FONT3: --pixel-font was never declared, so this was bare Pixelify - no Silkscreen five, smoothed, ligatures on */
   text-shadow: 1px 1px 0 #000; white-space: nowrap; }
 #${PROMPT_ID}.on { display: flex; }
 #${PROMPT_ID} .pp { display: inline-flex; align-items: center; gap: 5px; }
