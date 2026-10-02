@@ -7805,12 +7805,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     heal: arenaHeal,
     crime: () => { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); },   // the watch for a brawler, by the street's own law
     gameMinutes: () => worldMinutes(),   // ARENA3: the season a ladder bout's points go to, the laurel, the Records page
+    exhibitionVerdict: (hour, side) => arenaGate.verdictSeen(hour, side),   // ARENA3: the bookmaker settles by what was seen
   });
   // ARENA-FIX 9/10: every attack's resolution and every swing of mine, told to the bout (its misses, its crits)
   registerAttackResolutionListener('arena', (r) => arenaBouts.attackResolved(r));
   registerPlayerSwingListener('arena', (n) => arenaBouts.playerSwing(n));
   // ARENA3: the banners' recruiters (and the book's bookmaker) at the gate - one home for both hosts (scenes/arenaGate.js)
-  const arenaGate = createArenaGate({ playerEntity, gameMinutes: () => worldMinutes(), showOverlay: (w) => townTalk.showOverlay(w), say: (l) => townTalk.say(l), openWindow: null });
+  const arenaGate = createArenaGate({
+    playerEntity, gameMinutes: () => worldMinutes(), showOverlay: (w) => townTalk.showOverlay(w), say: (l) => townTalk.say(l), openWindow: null,
+    liveHour: () => arenaBouts.hour(), begun: () => arenaBoutBegun(),
+  });
+  /** The exhibition standing here has had the word (the book on it is shut). */
+  const arenaBoutBegun = () => { const b = arenaBouts.bout(); return arenaBouts.kind() === 'exhibition' && !!b && !['call', 'walk', 'count'].includes(b.phase); };
   /** THE CITY'S FLOOR as a stage: the colosseum's sand where its block stands in a built pixel (null off it), its
    *  fighters through this host's own pool - `loose` (no cap), `transient` (no save holds them), `managed` (no cull),
    *  no champion, no loot - and the ground under a seat asked of the collider from above. */
@@ -8565,7 +8571,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2792 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6701
+  // that context through modes.dungeonCtx - so worldModes.js:6702
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -14007,7 +14013,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10301-10365 -
+  // worldModes answers it in BOTH modes (worldModes.js:10302-10366 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20451,6 +20457,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // Herald, facing the market)
     arenaHerald: () => arenaHerald(),
     arenaRecruiter: (role) => arenaGate.recruiter(role),   // ARENA3: the Red and Blue Banners' recruiters
+    arenaBookmaker: () => arenaGate.bookmaker(),   // ARENA3: the bookmaker's stall
     // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter
     // of my tier on the pit's stage; refused while a bout of mine stands
     arenaPractice: () => {

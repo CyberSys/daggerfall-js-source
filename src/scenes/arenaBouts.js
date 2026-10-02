@@ -71,9 +71,10 @@ export const THROW_MS = 900;
  *   drawHud?: (model: any, o?: any) => void,
  *   renderer?: any, getTexture?: (archive: number) => Promise<any>, uploadRecordFrame?: (a: number, r: number, f: number) => void,
  *   pay?: (gold: number) => void, heal?: () => void, crime?: () => void, ladderChanged?: (ladder: any, out: any) => void,
- *   gameMinutes?: () => number,
+ *   gameMinutes?: () => number, exhibitionVerdict?: (hour: number, side: number|null) => void,
  * }} deps
- *   ARENA3: `gameMinutes` the game's clock (the season a ladder bout's points go to, the laurel, the Records page's day).
+ *   ARENA3: `gameMinutes` the game's clock (the season a ladder bout's points go to, the laurel, the Records page's day);
+ *   `exhibitionVerdict` an exhibition's verdict seen here (the side that won, null a draw) - the bookmaker's to settle.
  */
 export function createArenaBouts(deps) {
   const now = deps.now ?? (() => performance.now());
@@ -494,7 +495,10 @@ export function createArenaBouts(deps) {
       }
       deps.ladderChanged?.(out.ladder, out);
       deps.notice?.(lines);
-    } else if (r.side !== null) { C.bark = ARENA_TEXT.purse.won(EXHIBITION_PURSE); C.barkAt = t; }
+    } else {
+      if (r.side !== null) { C.bark = ARENA_TEXT.purse.won(EXHIBITION_PURSE); C.barkAt = t; }
+      deps.exhibitionVerdict?.(C.ex.hour, r.side);   // ARENA3: the bookmaker settles a wager on it by what was seen
+    }
   }
   /** THE HEALERS: everyone whole (the duel's own heal, the host's), the fighters' bodies too. */
   function heal(C) {

@@ -5499,10 +5499,10 @@ ready-spell events (`hostMagic.js:94-95`), and those two doors are the
 (`machine.js:900`/`:883`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:8174-8175`,
+other two engine-owning hosts wire (`world.js:8180-8181`,
 `dungeonContext.js:2567-2568`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:14016-14019`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:14022-14025`),
 absent which the action self-completes at *parse*
 (`actions.js:2781`/`:2788`) and the task can never arm at all.
 

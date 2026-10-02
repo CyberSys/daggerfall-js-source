@@ -15,6 +15,10 @@ import { ChoiceWindow } from '../ui/talkWindow.js';
 import { recruiterChoice, quitAsk } from '../systems/arenaHerald.js';
 import { joinBanner, quitBanner, rollLeague } from '../systems/arenaLeague.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
+import { bookmakerChoice, stakeChoice, placeWager, settleBook, bookVerdict, collectWinnings, priceText, exhibitionOdds, priceFor } from '../systems/arenaBook.js';
+import { exhibitionFor } from '../systems/arenaLadder.js';
+import { fighterIdentity } from '../systems/arenaFighters.js';
+import { totalGoldAmount, deductGold, addGold } from '../systems/court.js';
 
 /** The recruiters by their office (world/arenaCity.js ARENA_GATE_PEOPLE `role`) and the banner each keeps. */
 export const RECRUITER_BANNER = Object.freeze({ redRecruiter: 'red', blueRecruiter: 'blue' });
@@ -22,8 +26,10 @@ export const RECRUITER_BANNER = Object.freeze({ redRecruiter: 'red', blueRecruit
 /**
  * @param {{
  *   playerEntity: any, gameMinutes: () => number, showOverlay: (w: any) => void, say?: (line: string) => void,
- *   openWindow?: ((page?: string) => any) | null,
- * }} deps `openWindow` the host's door to the Arena window (ui/arenaDoor.js), or null where it does not open
+ *   openWindow?: ((page?: string) => any) | null, liveHour?: () => (number|null), begun?: () => boolean,
+ * }} deps `openWindow` the host's door to the Arena window (ui/arenaDoor.js), or null where it does not open;
+ *   `liveHour` the hour whose exhibition stands on a floor here (its wager waits for its verdict), `begun` whether that
+ *   bout's fight has begun (the book shuts at the word)
  */
 export function createArenaGate(deps) {
   const P = deps.playerEntity;
@@ -31,7 +37,11 @@ export function createArenaGate(deps) {
   const say = (line) => deps.say?.(line);
   /** The league on today's season, written back so the save carries the roll. */
   const league = () => (P.arenaLeague = rollLeague(P.arenaLeague, gm()));
-  const choice = (ch, act) => deps.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => act(o.act) })) }));
+  const choice = (ch, act) => deps.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => act(o.act, o) })) }));
+  const liveHour = () => deps.liveHour?.() ?? null;
+  const begun = () => !!deps.begun?.();
+  /** The book written back into the league. */
+  const setBook = (book) => { P.arenaLeague = { ...league(), book }; };
 
   /** A RECRUITER's choice (`role` 'redRecruiter' | 'blueRecruiter'). True: it is up. */
   function recruiter(role) {
@@ -56,5 +66,52 @@ export function createArenaGate(deps) {
     return true;
   }
 
-  return { recruiter };
+  // ── THE BOOKMAKER ───────────────────────────────────────────────────────────────────────────────────────
+  const B = ARENA_TEXT.book;
+  /** Every wager that can be settled now, settled (systems/arenaBook.js settleBook) - its winnings owed at the stall. */
+  function settle() { setBook(settleBook(league().book, gm(), { liveHour: liveHour() }).book); }
+  /** THE VERDICT SEEN of the exhibition of `hour` (the driver's - scenes/arenaBouts.js `exhibitionVerdict`): a wager on it
+   *  is settled by what was seen. */
+  function verdictSeen(hour, side) {
+    setBook(bookVerdict(league().book, hour, side));
+    settle();
+  }
+  /** PLACE a wager of `stake` on fighter `side` of the exhibition of `hour`: `{ ok, text }` - the gold taken from the
+   *  purse (coins, then letters - DFU's own payment law, systems/court.js deductGold). */
+  function wager(hour, side, stake) {
+    const ex = exhibitionFor(gm());
+    if (!ex || ex.hour !== hour) return { ok: false, text: B.whyRefused.closed };
+    const r = placeWager(league().book, ex, side, stake, { gold: totalGoldAmount(P), begun: begun(), gameMinutes: gm() });
+    if (!r.ok) return { ok: false, text: B.whyRefused[r.reason ?? 'closed'] };
+    deductGold(P, r.cost);
+    setBook(r.book);
+    const name = fighterIdentity(ex.seed, side, ex.opponents[side].mobile).name;
+    return { ok: true, text: B.taken(r.cost, name, priceText(priceFor(exhibitionOdds(ex)[side]))) };
+  }
+  /** THE BOOKMAKER'S CHOICE: collect, back a fighter (then the stake), the window, leave. True: it is up. */
+  function bookmaker() {
+    settle();
+    const ch = bookmakerChoice({ league: league(), gameMinutes: gm(), gold: totalGoldAmount(P), begun: begun(), window: typeof deps.openWindow === 'function' });
+    choice(ch, (a) => {
+      if (a === 'collect') {
+        const r = collectWinnings(league().book);
+        setBook(r.book);
+        if (r.gold > 0) { addGold(P, r.gold); say(B.paid(r.gold)); }
+      } else if (a === 'back0' || a === 'back1') {
+        const ex = ch.exhibition;
+        if (!ex) return;
+        const side = a === 'back1' ? 1 : 0;
+        const name = fighterIdentity(ex.seed, side, ex.opponents[side].mobile).name;
+        const price = priceText(priceFor(exhibitionOdds(ex)[side]));
+        choice(stakeChoice({ name, price, gold: totalGoldAmount(P) }), (b, o) => {
+          if (b !== 'stake') return;
+          const r = wager(ex.hour, side, o.stake);
+          say(r.text);
+        });
+      } else if (a === 'window') deps.openWindow?.('bouts');
+    });
+    return true;
+  }
+
+  return { recruiter, bookmaker, wager, settle, verdictSeen };
 }
