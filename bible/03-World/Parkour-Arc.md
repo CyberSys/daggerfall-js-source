@@ -944,7 +944,7 @@ by `combat/weaponRig.js`.
   whatever is drawn. The weapon still lowers away under them (CLIMB4).
 - **The layout**: on DFU's 320x200 design surface, scaled like FPSWeapon. Two fists `GRIP_H` 150 tall, `GRIP_APART` 52 off
   the middle, each sleeve `BOTTOM_SLACK` 34 under the bottom edge. No lift goes past that slack, so the cut sleeve never shows.
-- **The animation**: the hands come up quickly onto the wall and drop away a little slower. A hang sways on the arms. The
+- **The animation** [AUDIT CLIMB-HANDS: superseded - the hands now run ClimbPose's own gaits and windows, below]: the hands come up quickly onto the wall and drop away a little slower. A hang sways on the arms. The
   shimmy lifts the hand the body goes toward and reaches that way, then the other closes up after it, a grip every
   `PARKOUR_HAND_SPAN`, the parkour law's span; a stop finishes onto the nearer grip. The free climb goes hand over hand, a
   reach every `FEEL.REACH` (up, down or across), one hand at a time. A catch, a reach and a leap's end bring the hands up onto
@@ -957,6 +957,87 @@ by `combat/weaponRig.js`.
   kept the other fist holding at its edge). A move in flight keeps the hold's hands.
 - **Pinned**: `test/climbhands.test.js` (8).
 - **Not yet seen in game**: the layouts were checked in a rendered preview of the law's boxes, not yet on a real install.
+
+## AUDIT CLIMB-HANDS (2026-10-02): "ensure all the animations and stuff are perfect"
+
+Mac: *"Audit this and ensure all the animations and stuff are perfect"*. The classic lane's hands held to the climb they
+draw: the motor's moves (`player/parkour.js`'s plans, `motor.js _parkourAdvance`), the 3D body's choreography
+(`player/climbPose.js`), the camera's feel and the ear (`climbFeel.js`, `climbSounds.js`). First measured: a harness drove
+the law through every state with the motor's own move shapes and flagged each frame a hand on the screen jumped; then
+contact sheets of every animation, frame by frame. ClimbPose is now the one choreography: the sprite law runs its gaits
+(`gait`, `shimmyGait`, its `_settled` law) and its moves' windows, drawn as a hand's way on the wall relative to the body
+(`GAIT_PX` 110 to the metre, the free climb's highest reach inside the sleeve's slack).
+
+### Findings (each pinned red, each fixed)
+
+- **A1 Pops.** A leap snapped both hands 88 design px down on its first frame (its curve began under the hold); the free
+  climb turned back snapped the reaching hand 53 px (the lift's sign flipped with the climb's way). Every change of state
+  now carries the hands from where they were onto the new place over `POSE.LIMB_TAU` (ClimbPose's `_ease` law): a new
+  hold, the hang to the free climb, the climb turned (a change of way past 6 degrees), a lip stepped, a move's start and
+  end; and each move starts from where the hands were (`moveStart`).
+- **A1b A new hold's gait counted the frame that took it.** ClimbPose zeroes that frame's travel; the sprite law counted
+  the body's last step into the new hold's gait, and a hitch at a corner's end left the hands 34 px off their stones on
+  the new face.
+- **A2 The let-go.** Off the wall the law fell back to the rest pose: over a mantle's or a vault's top the hands, already
+  gone below, came back up to the hold and slid away again; let go looking away, the look was zeroed and the fists came
+  back up as the reaching arm went. Now the hands leave from where they were (the frame's offsets and the look stand
+  while the exit drops them).
+- **A3 The shimmy** took two grips a span (each hand out and back in its half of the cycle), off the ear's one, and a held
+  hand stood still on the screen while the wall slid under the view: the hands skated. Now ClimbPose's shimmyGait: a grip
+  every span, the leading hand first, the two in turn, a held hand sliding with the wall against the way the body goes,
+  both on the lip between the reaches (`POSE.SHIMMY_REACH`), starting square at a new lip.
+- **A4 The free climb** led with the right hand where the body leads with the left, and a held hand never moved. Now
+  ClimbPose's gait: the left first, a grip every `FEEL.REACH` in step with the ear, one hand off the face at a time for
+  `1 - POSE.CLIMB_DUTY` of the stride, a held hand going down the view as the body climbs past it (up it, climbing down).
+- **A5 The catch** landed by 0.4 of its clock (the pose's is 0.45) and then dipped the hands 9 px DOWN under the weight,
+  the way opposite the view's own dip, so the hands slid down the wall as it rose. Now the hands land by 0.45 and the arms
+  straighten under the body's swing (ClimbPose's pendulum, `POSE.SWING_HZ` and `SWING_DAMP`, harder the faster the body
+  came): a lift in the view, with the view's dip, settling back.
+- **A6 The leap** began under the hold (the pop) and took its hold at 0.7. Now ClimbPose._leap's: pushed off the stone by
+  0.18, leading toward the leap's side across the flight, on the new hold by 0.8, landing as a catch does.
+- **A7 The mantle** lifted the hands through the rise (the body rising past them takes them DOWN the view), and a step-up
+  from the ground raised its hands to the hang's hold over the head. Now down the view through the rise, pressed on the
+  top as it crests, let go on ClimbPose._mantle's clock (0.6-0.95 over; a clamber's 0.45-0.75); a step-up's edge low in
+  the view, by its rise.
+- **A8 The vault** ran on an invented 0.15 split and raised its hands to the hang's hold. Now ClimbPose._vault's windows:
+  planted low by 0.12, the body passing over them, gone by 0.8.
+- **A9 The lower** brought the hands up only after 0.45 of its clock. Now on the edge by 0.26 (ClimbPose._lower), low in
+  the view as the body squats, rising to the hang as the body drops below the edge.
+- **A10 The corner** slid both hands together. Now the hand on the side it goes first (0-0.55), lifted off the lip and
+  reaching round, the other from 0.4: its way read off the move's own path.
+- **A11 Found on the way (CLIMB6): ClimbPose's corner led with the right hand every time.** It read `m.way`, which the motor
+  sets on the move's event (`motor.js _pkMoveEvent`) and never on the move: a corner going left led with the wrong hand on
+  the Morrowind arms and every body. Its way is read off the move's own path now.
+- **A12 The wall run** lifted the left hand over its clock's first half and the right over the second. Now
+  ClimbPose._wallrun's: the arms pumping with the run's steps (`POSE.WALLRUN_STEP`), then reaching for the hold from 0.55.
+- **A13 The sway:** the two hands swayed out of step on one lip, and swayed on through the shimmy. Now together (the
+  pose's sway, its pitch at `FEEL.SWAY_HZ` x 1.37), eased out while the body moves along the lip.
+- **A14 The large HUD:** the hands ignored `weaponOffsetHeight`; the classic sprite and the spell's hands stand on the bar,
+  and the climbing hands sank behind it. Now lifted by it.
+- **A15 The weapon and the hands overlapped:** the lowering weapon passed over the rising hands at a catch and back up
+  through them at a let-go. Now the hands come up once the weapon is half down (`weaponRig.js CLIMB_HANDS_AFTER` 0.5,
+  three frames in) and the weapon stays down while a hand shows.
+- **A16 The lane:** the law was stepped on every lane; it is handed the climb on the classic lane alone (`handsLane`), so
+  the Morrowind lane's lowering never waits on hands nobody draws.
+- With them: the presence eases on the pose's own weights (`POSE.IN_TAU`, `OUT_TAU`), the tremble on the feel's noise at
+  the pose's rate.
+
+### The mutation run
+
+`tools/mutants/climbhands.json` (59): 58 dead, 1 recorded equivalent (the slack's clamp: belt and braces, no motion
+reaches it). The first run left four alive (a let-go placed from an empty climb, hidden by the exit; the shimmy's lift; a
+clamber's let-go; a late lower), each pinned since.
+
+### What the pins could not reach
+
+- **In game:** checked on contact sheets of the law's boxes (every state, frame by frame), not yet on a real install.
+- **The view's spring:** the hands follow the body's choreography and are camera-locked, as the Morrowind arms are: the
+  feel's dip, sway and roll move the view, not the hands.
+
+### Records
+
+`test/auditclimbhands.test.js` (17), `test/climbhands.test.js` (8: three rewritten for the gaits),
+`tools/mutants/climbhands.json`.
 
 ## Still open
 

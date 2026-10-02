@@ -1,9 +1,10 @@
 // CLIMB-HANDS (2026-10-02, Mac: "Here are two textures for the first person view (not morrowind)" / "whenever you look
 // away from the wall" / "mirrored" / "Definitely animate the arms for when you are climbing, or shifting left to right
 // climbing/on a ledge"): THE CLASSIC LANE'S HANDS ON THE WALL. Design: bible/03-World/Parkour-Arc.md (CLIMB-HANDS).
-// THE LAW EXECUTES: which climbs draw hands, the two fists (the left one mirrored, thumbs in), never a cut sleeve, the
-// look off the wall (the reach on the side looked to, mirrored to the left), the shimmy's leading hand, the free climb's
-// hands in turn, a catch's hands coming up, the trembling grip, the hands off the wall; the draw; and the wiring by source.
+// THE LAW EXECUTES: which climbs draw hands, the two fists (the painting a left hand, the right its mirror - thumbs in),
+// never a cut sleeve, the look off the wall (the angled arm alone, as painted looked right, mirrored left), a stopped
+// shimmy's hand onto its stone, the free climb's one hand at a time, a catch's hands coming up, the trembling grip, the
+// hands off the wall; the draw; and the wiring by source. AUDIT CLIMB-HANDS's pins: test/auditclimbhands.test.js.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -71,61 +72,60 @@ test('CLIMB-HANDS looking away: past LOOK_FROM_DEG both fists drop out and the r
   assert.ok(Math.abs(lookOffWall(hang(), 2 * Math.PI + 0.3) - 0.3) < 1e-12);
 });
 
-test('CLIMB-HANDS the shimmy: the hand the body goes toward lifts and reaches first, then the other closes up - and a stop finishes onto a grip', () => {
-  for (const dir of [1, -1]) {
+test('CLIMB-HANDS the shimmy stopped mid-reach: the hand finishes onto the nearer stone - most of the way there it lands, barely off its stone it takes it back (ClimbPose._settled) - and stays there, no lift left', () => {
+  for (const [stopAt, lands] of [[0.06, false], [0.17, true]]) {
     const h = new ClimbHands();
     settle(h, hang([0, 1, 0]));
-    const lead = dir > 0 ? 'R' : 'L', trail = dir > 0 ? 'L' : 'R';
-    const rest = { [lead]: grip(h.out, lead).y, [trail]: grip(h.out, trail).y };
-    let x = 0, leadUp = 0, trailUp = 0, firstLift = null;
-    const step = PARKOUR_HAND_SPAN / 40;
-    for (let i = 0; i < 40; i++) {
-      x += dir * step;
-      h.update(1 / 60, hang([x, 1, 0]), { yaw: 0 });
-      const l = rest[lead] - grip(h.out, lead).y, tr = rest[trail] - grip(h.out, trail).y;
-      if (i < 20) leadUp = Math.max(leadUp, l); else trailUp = Math.max(trailUp, tr);
-      if (firstLift === null && Math.max(l, tr) > 4) firstLift = l > tr ? lead : trail;
-    }
-    assert.equal(firstLift, lead, `going ${dir > 0 ? 'right' : 'left'} the ${lead} hand reaches first`);
-    assert.ok(leadUp > HANDS.SHIMMY_LIFT * 0.7 && trailUp > HANDS.SHIMMY_LIFT * 0.7, 'each lifts in its half');
-    // stopped a quarter of a cycle in: the hand settles back onto a grip
-    for (let i = 0; i < 10; i++) { x += dir * step; h.update(1 / 60, hang([x, 1, 0]), { yaw: 0 }); }
-    for (let i = 0; i < 60; i++) h.update(1 / 60, hang([x, 1, 0]), { yaw: 0 });
-    assert.ok(Math.abs(h.shimmyPhase * 2 - Math.round(h.shimmyPhase * 2)) < 1e-3, 'on a half cycle\'s end');
+    const restX = grip(h.out, 'R').x;
+    const v = 0.01;
+    for (let x = v; x <= stopAt + 1e-9; x += v) h.update(1 / 60, hang([x, 1, 0]), { yaw: 0 });
+    for (let i = 0; i < 60; i++) h.update(1 / 60, hang([stopAt, 1, 0]), { yaw: 0 });
+    const xs = [];
+    for (let i = 0; i < 30; i++) xs.push(grip(h.update(1 / 60, hang([stopAt, 1, 0]), { yaw: 0 }), 'R').x);
+    assert.ok(Math.max(...xs) - Math.min(...xs) < 2 * HANDS.SWAY_X + 1e-6, 'stopped: on its stone (the sway alone moves it)');
+    const stone = (lands ? 2 * PARKOUR_HAND_SPAN : 0) - stopAt;   // the stone it took, along the lip from the body now
+    assert.ok(Math.abs(xs[0] - restX - stone * HANDS.GAIT_PX) < 2 * HANDS.SWAY_X + 1e-6, `${lands ? 'onto the next stone' : 'back onto its own'} (${(xs[0] - restX).toFixed(1)} px)`);
   }
 });
 
-test('CLIMB-HANDS the free climb: hand over hand, a reach every FEEL.REACH climbed, the hands taking turns - and no lift shows the cut sleeve', () => {
+test('CLIMB-HANDS the free climb: one hand off the face at a time (POSE.CLIMB_DUTY), the reaching hand the only one going up the view - and no reach shows the cut sleeve', () => {
   const h = new ClimbHands();
   settle(h, climb([0, 1, 0]));
-  let y = 1, rUp = 0, lUp = 0, both = 0;
-  const restY = grip(h.out, 'R').y;
-  for (let i = 0; i < 120; i++) {
+  let y = 1, prev = null, both = 0, reaches = 0;
+  for (let i = 0; i < 180; i++) {
     y += 0.01;
     h.update(1 / 60, climb([0, y, 0]), { yaw: 0 });
-    const r = restY - grip(h.out, 'R').y, l = restY - grip(h.out, 'L').y;
-    rUp = Math.max(rUp, r); lUp = Math.max(lUp, l);
-    if (r > 6 && l > 6) both++;
+    const now = { L: grip(h.out, 'L').y, R: grip(h.out, 'R').y };
+    if (prev) {
+      const up = ['L', 'R'].filter((k) => now[k] < prev[k] - 1e-9);
+      if (up.length === 2) both++;
+      reaches += up.length;
+    }
+    prev = now;
     for (const g of h.out.grips) assert.ok(g.y >= NATIVE_H - g.h - 1e-9, 'never lifted past the slack');
   }
-  assert.ok(rUp > 15 && lUp > 15, 'each hand reaches');
+  assert.ok(reaches > 30, 'the hands reach');
   assert.equal(both, 0, 'one at a time');
 });
 
-test('CLIMB-HANDS the moves and the grip: a catch brings the hands up onto the hold, a mantle presses them down off the screen, a failing grip trembles them, and off the wall they go', () => {
+test('CLIMB-HANDS the moves and the grip: a catch from the air brings the hands up from below onto the hold, a mantle presses them down off the screen, a failing grip trembles them, and off the wall they go', () => {
   const h = new ClimbHands();
-  settle(h, hang());
-  const rest = grip(h.out, 'R').y;
+  settle(h, null);
   h.update(1 / 60, { ...hang(), move: { kind: 'catch', t: 0.02 } }, { yaw: 0 });
-  assert.ok(grip(h.out, 'R').y > rest + 30, 'a catch starts with the hands below');
-  h.update(1 / 60, { ...hang(), move: { kind: 'catch', t: 0.4 } }, { yaw: 0 });
-  assert.ok(Math.abs(grip(h.out, 'R').y - rest) < 4, 'and has them on the hold by its CATCH_IN');
-  h.update(1 / 60, { ...hang(), move: { kind: 'mantle', t: 0.98, split: 0.5 } }, { yaw: 0 });
+  h.update(1 / 60, { ...hang(), move: { kind: 'catch', t: 0.05 } }, { yaw: 0 });
+  assert.ok(!grip(h.out, 'R') || grip(h.out, 'R').y > 200 - HANDS.GRIP_H + HANDS.BOTTOM_SLACK + 30, 'a catch from the air starts with the hands below');
+  const c = { kind: 'catch', t: 0 };
+  for (let i = 1; i <= 30; i++) { c.t = i / 30; h.update(1 / 60, { ...hang(), move: c }, { yaw: 0 }); }
+  settle(h, hang(), { yaw: 0, pitch: 0 }, 3);
+  const rest = grip(h.out, 'R').y;
+  assert.ok(Math.abs(rest - (200 - HANDS.GRIP_H + HANDS.BOTTOM_SLACK)) < HANDS.SWAY_Y + 0.5, 'on the hold');
+  const m = { kind: 'mantle', t: 0, split: 0.5 };
+  for (let i = 1; i <= 50; i++) { m.t = i / 50; h.update(1 / 60, { ...hang(), move: m }, { yaw: 0 }); }
   assert.equal(h.out.grips.length, 0, 'over the top the hands are gone down off the screen');
   // the grip failing
   const steady = new ClimbHands(), weak = new ClimbHands();
   let dSteady = 0, dWeak = 0;
-  settle(steady, hang()); settle(weak, hang({ grip: 0.05 }));
+  settle(steady, hang()); settle(weak, hang([0, 1, 0], { grip: 0.05 }));
   for (let i = 0; i < 30; i++) {
     const a = grip(steady.update(1 / 60, hang(), { yaw: 0 }), 'R').x, b = grip(weak.update(1 / 60, hang([0, 1, 0], { grip: 0.05 }), { yaw: 0 }), 'R').x;
     if (i) { dSteady += Math.abs(a - steady._px); dWeak += Math.abs(b - weak._px); }
@@ -170,7 +170,7 @@ test('CLIMB-HANDS the draw: Mac\'s two paintings, loaded once, each box a screen
 
 test('CLIMB-HANDS by source: the rig steps the law on the frame\'s climb and draws it on the classic lane under the spell hands\' vetoes, above the sheathe gates; the paintings are on the allow-list', () => {
   const rig = rd('src/combat/weaponRig.js');
-  assert.match(rig, /_climbLower = climbLowerStep\(_climbLower, climbing, dt\);\n\s*climbHands\.update\(dt, camNow\?\.climb \?\? null, camNow \?\? \{\}\);/);
+  assert.match(rig, /_climbLower = climbLowerStep\(_climbLower, climbing \|\| \(handsLane && climbHands\.showing\(\)\), dt\);\n\s*climbHands\.update\(dt, handsLane && _climbLower >= CLIMB_HANDS_AFTER \? \(camNow\?\.climb \?\? null\) : null, camNow \?\? \{\}\);/);
   assert.match(rig, /if \(c && !paralyzed && !fpArm\.active\(\) && !eotbHidesWeapon\(\) && !sheetWindowUp\(\)\) climbHands\.draw\(c, \{ tint: fpTint \}\);/);
   assert.ok(rig.indexOf('climbHands.draw(c') < rig.indexOf('const torchOnly = !shown()'), 'above the sheathe gates');
   const doctrine = rd('test/doctrine.test.js');

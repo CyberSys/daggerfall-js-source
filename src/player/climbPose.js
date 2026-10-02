@@ -573,7 +573,10 @@ export class ClimbPose {
     const now = wallFrame(m.hang?.normal ?? c.normal ?? [0, 0, 1]);
     out.frame = now;
     const lipY = m.hang?.lipY ?? c.lipY;
-    const way = m.way ? Math.sign(m.way[0] * was.right[0] + m.way[1] * was.right[2]) || 1 : 1;
+    // AUDIT CLIMB-HANDS (found on the way): the way read off the move's own path - the motor sets `way` on the move's
+    // EVENT (motor.js _pkMoveEvent), never on the move, so `m.way` was always undefined and the right hand led every corner
+    const toward = m.up ?? m.to;
+    const way = toward && m.from ? Math.sign((toward[0] - m.from[0]) * was.right[0] + (toward[2] - m.from[2]) * was.right[2]) || 1 : 1;
     const startC = { ...c, feet: m.from ?? c.feet }, endC = { ...c, feet: m.to ?? c.feet };
     const half = POSE.HANDS_APART / 2;
     for (const s of ['L', 'R']) {

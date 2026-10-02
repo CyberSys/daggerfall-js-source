@@ -4,37 +4,48 @@
 // arm "for when you're climbing and look around for a place to jump to" - "whenever you look away from the wall your
 // climbing or ledge you are hanging from", "mirrored", and "Definitely animate the arms for when you are climbing, or
 // shifting left to right climbing/on a ledge"). THE CLASSIC LANE'S HANDS ON THE WALL. Design: bible/03-World/Parkour-Arc.md
-// (CLIMB-HANDS).
+// (CLIMB-HANDS, AUDIT CLIMB-HANDS).
 //
 // CLIMB4 lowered the classic sprite out of the screen for the climb (WeaponManager's climbing return) and left the screen
 // empty; CLIMB6 gave the Morrowind arms a pose on the stone. This is the sprite lane's: Mac's two paintings,
-// public/art/climb-grip.png (a fist, the back of the hand to the eye, its thumb on the painting's right - a left hand: drawn
-// as it is on the left and mirrored on the right, so both thumbs are inside) and public/art/climb-reach.png (a right arm reaching out to the right - mirrored when the
-// look is to the left).
+// public/art/climb-grip.png (a fist, the back of the hand to the eye, its thumb on the painting's right - a left hand:
+// drawn as it is on the left and mirrored on the right, so both thumbs are inside) and public/art/climb-reach.png (an arm
+// reaching out to the right as painted, mirrored to the left).
 //
 // THE LAW (`ClimbHands`, pure: no renderer, no clock but the `dt` it is handed) reads the climb's snapshot
-// (player/climbPose.js climbRigInput) and the view, and answers each sprite's rect on DFU's 320x200 design surface:
-//   - THE HOLD: both fists up, the arms running off the bottom of the screen; a hang sways a little on the arms.
-//   - THE SHIMMY: the hand the body goes toward lifts and reaches that way, then the other closes up after it - a grip
-//     every PARKOUR_HAND_SPAN along the lip, the parkour law's own span (the ear's and the camera's).
-//   - THE FREE CLIMB: hand over hand, a reach every FEEL.REACH climbed (up, down or across), the hands taking turns.
-//   - THE MOVES: a catch, a reach and a leap's end slam the hands up onto the hold; a mantle and a vault press down and
-//     let go as the body crests; a lower brings them up over the edge; a corner carries them round with the wall; a wall
-//     run reaches high.
-//   - THE GRIP FAILING: the hands tremble, harder the lower the grip.
+// (player/climbPose.js climbRigInput) and the view, and answers each sprite's rect on DFU's 320x200 design surface. The
+// hands do what the climbing body does (AUDIT CLIMB-HANDS: ClimbPose is the one choreography - its gaits, its moves'
+// windows - drawn here as a hand's way on the wall relative to the body, GAIT_PX to the metre):
+//   - THE HOLD: both fists up, the arms running off the bottom of the screen; a still hang sways on the arms, the two
+//     hands as one (one lip), as the body sways under them.
+//   - THE SHIMMY: ClimbPose's shimmyGait - the hand the body goes toward reaches first, the other closes up after it, a
+//     grip every PARKOUR_HAND_SPAN along the lip (the ear's, the 3D body's); a hand on the lip goes with the wall,
+//     against the way the body goes. Stopped mid-reach, the hand finishes onto the nearer stone (ClimbPose._settled).
+//   - THE FREE CLIMB: ClimbPose's gait - hand over hand, the left first, a grip every FEEL.REACH climbed (up, down or
+//     across); a held hand goes down the view as the body climbs past it.
+//   - THE MOVES, from where the hands were when each began (a hand not up comes from FROM_BELOW): a catch and a reach
+//     onto the hold by 0.45 of the clock, a leap pushed off by 0.18 and on the new hold by 0.8, then the weight landing
+//     (the arms straighten, ClimbPose's pendulum); a mantle down the view as the body rises past the hands, a press over
+//     the top, let go on the pose's clock; a vault planted by 0.12, gone by 0.8; a lower onto the edge by 0.26, then up
+//     to the hang as the body drops; a corner the leading hand first; a wall run's arms pumping with its steps, then up.
+//   - THE GRIP FAILING: the hands tremble on the stone, harder the lower the grip (the feel's noise, the pose's rate).
 //   - LOOKING AWAY: turned off the wall's face, both fists drop out of the view and the reaching arm alone comes up from
-//     the other side of the screen, open toward the way the eye looks (Mac, 2026-10-02: "For look right/left dont use the hand
-//     aiming straight up. Only use the angled arm").
-// Every sprite's arm runs off the bottom edge with BOTTOM_SLACK to spare, so no lift shows its cut sleeve.
+//     the other side of the screen, open toward the way the eye looks (Mac, 2026-10-02: "For look right/left dont use
+//     the hand aiming straight up. Only use the angled arm").
+// No pop: a change of state (a new hold, the hang to the free climb, the climb turned, a move's end) carries the hands
+// from where they were onto the new place over POSE.LIMB_TAU, as ClimbPose eases its limbs; off the wall they leave from
+// where they were. Every sprite's arm runs off the bottom edge with BOTTOM_SLACK to spare, so no lift shows its sleeve.
 //
 // The enhanced climb only (the motor's hold, a move in flight): DFU's own climb keeps WeaponManager's empty screen.
 
-import { FEEL } from '../player/climbFeel.js';
-import { PARKOUR_GRIP_LOW, PARKOUR_HAND_SPAN } from '../player/parkour.js';
+import { FEEL, tremble } from '../player/climbFeel.js';
+import { PARKOUR_GRIP_LOW, PARKOUR_HANG_DROP } from '../player/parkour.js';
+import { POSE, gait, shimmyGait, wallFrame } from '../player/climbPose.js';
 import { decodePng } from '../systems/textureReplacement.js';
 import { toScreenOrder } from '../formats/color32Order.js';
 import { APP_ROOT } from '../systems/appRoot.js';
 import { wrapAngle } from '../world/mat4.js';   // the one home for an angle into (-PI, PI] (audit24's ratchet)
+import { weaponOffsetHeight } from '../ui/hudLarge.js';   // AUDIT CLIMB-HANDS: the large HUD's bar, the classic sprite's own lift
 
 /** DFU's design surface (FPSWeapon's 320x200) - module-local: ui/nativePanel.js exports the names (audit24's ratchet). */
 const NATIVE_W = 320;
@@ -54,31 +65,35 @@ export const HANDS = Object.freeze({
                            // left/right side of the screen respectively"; then "they need to be the originasl size" - 150 shrank it)
   REACH_X_IN: 4,           // the reaching arm's box in from its edge
   REACH_SLACK: 16,         // the reaching arm's sleeve under the bottom edge
-  // coming onto the wall and off it (the classic sprite's CLIMB_LOWER_TAU, the other way round)
-  ON_TAU: 0.07,
-  OFF_TAU: 0.12,
-  // hanging
+  // the gaits: a hand's way on the wall relative to the body, design pixels a metre - the free climb's highest reach
+  // (half POSE.CLIMB_DUTY's stride) inside BOTTOM_SLACK
+  GAIT_PX: 110,
+  SHIMMY_LIFT: 12,         // a hand off the lip lifts this much at the top of its reach (the pose's HAND_LIFT and HAND_AWAY)
+  FROM_BELOW: 90,          // a hand that was not up when a move began comes from this far under its place
+  RING: 14,                // the catch's landing: the arms straightening under the body's swing, at its hardest
+  // the moves
+  MANTLE_SINK: 45,         // a pull-up's hands down the view by the crest (the body risen past them)...
+  MANTLE_PRESS: 22,        // ...pressed on the top...
+  MANTLE_APART: 26,        // ...and out to the sides
+  VAULT_PLANT: 52,         // a vault's top at the waist: the hands planted this far under the hold's place...
+  VAULT_SINK: 34,          // ...and down as the body passes over them...
+  VAULT_APART: 12,
+  LOWER_LOW: 60,           // a lower's hands on the edge, low in the view as the body squats over it
+  LEAP_DROP: 70,           // a leap's push: the hands down off the hold...
+  LEAP_LEAD: 26,           // ...and leading toward the leap's side across the flight
+  CORNER_REACH: 22,        // a corner's hand reaching round, the way it goes...
+  CORNER_LIFT: 12,         // ...lifted off the lip
+  WALLRUN_PUMP: 16,        // a wall run's arms pumping with its steps
+  // the still hang's sway (the pose's: its pitch at FEEL.SWAY_HZ x 1.37, its roll at FEEL.SWAY_HZ), in and out on this
   SWAY_Y: 2.2,
   SWAY_X: 1.2,
-  // the shimmy: a hand's lift and its reach along the lip
-  SHIMMY_LIFT: 16,
-  SHIMMY_REACH: 22,
-  // the free climb: a hand's lift, and its lean the way the climb goes across
-  CLIMB_LIFT: 30,
-  CLIMB_ACROSS: 14,
-  // the moves
-  CATCH_IN: 0.4,           // the share of a catch over which the hands come up onto the hold
-  CATCH_DIP: 9,            // the weight landing on the arms
-  PRESS_DOWN: 150,         // a mantle's hands pressed down off the screen as the body crests
-  PRESS_APART: 30,
-  CORNER_SHIFT: 46,
-  WALLRUN_LIFT: 34,
+  SWAY_TAU: 0.25,
   // the grip failing
   TREMBLE: 2.4,
-  TREMBLE_HZ: 11,
   // looking away from the wall
   LOOK_FROM_DEG: 40,       // turned this far off the wall's face, the reach begins...
   LOOK_FULL_DEG: 75,       // ...and is whole here
+  LOOK_TAU: 0.09,
   SEARCH_X: 5,             // the reaching arm feeling for a hold
   SEARCH_Y: 4,
   SEARCH_HZ: 0.6,
@@ -87,9 +102,17 @@ export const HANDS = Object.freeze({
   DOWN_FULL_DEG: 80,
 });
 
+/** A sprite out of the view under the bottom edge: a fist's height and its sleeve's slack. */
+const OUT = HANDS.GRIP_H + HANDS.BOTTOM_SLACK;
+const SIDES = /** @type {const} */ (['L', 'R']);
+
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const smooth = (x) => { const s = clamp01(x); return s * s * (3 - 2 * s); };
 const bump = (x) => Math.sin(Math.PI * clamp01(x));
+const lerp = (a, b, t) => a + (b - a) * t;
+/** @returns {{L: number[], R: number[]}} */
+const pair = (lx = 0, ly = 0, rx = 0, ry = 0) => ({ L: [lx, ly], R: [rx, ry] });
+const copyPair = (p) => ({ L: [p.L[0], p.L[1]], R: [p.R[0], p.R[1]] });
 
 /** The heading that faces into a wall whose face points out along `normal` (the view's yaw convention: forward is
  *  [sin yaw, 0, cos yaw]). */
@@ -108,22 +131,47 @@ export function lookOffWall(c, viewYaw) {
   return wrapAngle(viewYaw - wallYawOf(c.normal));
 }
 
+/** The way a move goes along the wall it began on (+1 to the right facing it, -1 left, 0 straight in or up), read off
+ *  its own path - the motor sets its way on the move's event alone, never on the move. */
+export function moveSide(m, normal) {
+  if (!m?.from || !normal) return 0;
+  const to = m.up ?? m.to;
+  if (!to) return 0;
+  const fr = wallFrame(normal);
+  const a = (to[0] - m.from[0]) * fr.right[0] + (to[2] - m.from[2]) * fr.right[2];
+  return Math.abs(a) > 1e-4 ? Math.sign(a) : 0;
+}
+
 /**
  * The law. `update(dt, climb, view)` with the frame's climb snapshot (or null) and the view ({ yaw, pitch }); `out`
  * then holds the frame's sprites: `grips` (each { side, x, y, w, h, flip }) and `reach` (the same, or null), in design
  * pixels, and `present` (0..1, the hands on the screen at all).
  */
 export class ClimbHands {
-  constructor() {
+  constructor() { this.reset(); }
+
+  /** Back to rest: the hands off the wall and out of the view. */
+  reset() {
     this.present = 0;
     this.t = 0;
-    this.prev = null;
-    this.shimmyPhase = 0;
-    this.shimmySide = 1;
-    this.climbPhase = 0;
-    this.climbSide = 0;
-    this.climbUp = 1;
-    this.look = 0;      // the eased reach, signed by side
+    this.prev = null;          // the body's last point on the wall (its own way, the snapshot's `track`)
+    this.speed = 0;            // ...and its pace there (m/s): a catch's landing is harder the faster it came
+    this.src = null;           // what places the hands: a move (the motor's own object) or a hold (its mode and lip)
+    this.travel = 0;           // the gaits' travel from the hold's start: along the lip (signed) or up the face (path)
+    this.travelDir = [0, 1];   // the way the free climb last went, in the wall's (right, up)
+    this.turned = false;       // ...turned this frame: the hands carried over to the gait's other way
+    this.settle = { L: { v: 0, prev: 0, cycle: null }, R: { v: 0, prev: 0, cycle: null } };
+    this.moveStart = null;     // the hands' offsets when the move in flight began (null: they were not up)
+    this.moveNormal = null;    // ...and the wall it began on
+    this.moveSpeed = 0;        // ...and the pace the body came to it at
+    this.base = null;          // last frame's offsets, the carry in them (the start of the next change)
+    this.carry = pair();       // what a change of state still owes the new place, eased out on POSE.LIMB_TAU
+    this.ringT = Infinity;     // seconds since the hands landed on a hold from a catch, a reach or a leap...
+    this.ringA = 0;            // ...and how hard (0..1)
+    this.ringArmed = false;
+    this.swayW = 0;            // the still hang's sway, eased in and out
+    this.drawn = pair();       // the frame's offsets, everything in them: off the wall the hands leave from here
+    this.look = 0;             // the eased reach, signed by side
     this.out = { present: 0, grips: [], reach: null };
   }
 
@@ -131,63 +179,104 @@ export class ClimbHands {
     dt = Math.max(0, Math.min(0.1, Number.isFinite(dt) ? dt : 0));
     this.t += dt;
     const want = climbHandsWanted(c);
-    const tau = want ? HANDS.ON_TAU : HANDS.OFF_TAU;
+    // the hands onto the wall and off it on the pose's own weights (a catch is a grab)
+    const tau = want ? POSE.IN_TAU : POSE.OUT_TAU;
     this.present += ((want ? 1 : 0) - this.present) * (1 - Math.exp(-dt / tau));
     if (Math.abs(this.present - (want ? 1 : 0)) < 0.005) this.present = want ? 1 : 0;
+    if (!want && this.present <= 0) { this.reset(); return this.out; }
+    // the body's travel since the last frame, read whenever the climb says where it is (a leap's flight too: the speed a
+    // catch comes at) - a teleport is none, and nothing is read across a frame with no climb
+    const p = c?.track ?? c?.feet ?? null;
+    let d = [0, 0, 0];
+    if (p && this.prev) d = [p[0] - this.prev[0], p[1] - this.prev[1], p[2] - this.prev[2]];
+    if (Math.hypot(d[0], d[1], d[2]) > 1) d = [0, 0, 0];
+    this.prev = p ? [p[0], p[1], p[2]] : null;
+    if (want) this._place(dt, c, d, view);
+    if (dt > 0) this.speed = Math.hypot(d[0], d[1], d[2]) / dt;
+    // off the wall: the hands leave from where they were, the look as it was (`drawn` and `look` stand)
+    return this._layout(view);
+  }
+
+  /** The frame's offsets for each hand (`drawn`) and the look off the wall. */
+  _place(dt, c, d, view) {
+    const m = c.move ?? null;
+    // what places the hands: a move (each its own object), else the hold - a new mode or lip starts the gaits square
+    // (ClimbPose's: a face followed round a bend is the same hold going on)
+    const key = m ? null : `${c.mode}|${c.lipY ?? ''}`;
+    const src = m ?? key;
+    let changed = src !== this.src;
+    if (changed) {
+      this.src = src;
+      if (m) {
+        this.moveStart = this.present >= 0.5 && this.base ? copyPair(this.base) : null;
+        this.moveNormal = c.normal ?? m.hang?.normal ?? null;
+        this.moveSpeed = this.speed;   // the pace the body came to it at (last frame's)
+        this.ringArmed = false;
+      } else {
+        // square over the hold just taken - the frame that took it moves no stone (ClimbPose: `along = 0` there)
+        this.travel = 0;
+        this.travelDir = [0, 1];
+        for (const s of SIDES) this.settle[s] = { v: 0, prev: 0, cycle: null };
+        d = [0, 0, 0];
+      }
+    }
+    const base = m ? this._move(m, c) : c.mode === 'hang' ? this._hang(dt, c, d) : this._climb(dt, c, d);
+    if (this.turned) { changed = true; this.turned = false; }
+    // a change of state carries the hands from where they were onto the new place (ClimbPose._ease's law)
+    const k = Math.exp(-dt / POSE.LIMB_TAU);
+    for (const s of SIDES) {
+      for (const i of [0, 1]) {
+        this.carry[s][i] = changed ? (this.base && this.present > 0 ? this.base[s][i] - base[s][i] : 0) : this.carry[s][i] * k;
+        base[s][i] += this.carry[s][i];
+      }
+    }
+    this.base = base;
+    // laid over it: the landing's swing, the still hang's sway, the failing grip's tremble
+    const off = copyPair(base);
+    if (Number.isFinite(this.ringT)) {
+      this.ringT += dt;
+      const ring = -HANDS.RING * this.ringA * Math.exp(-POSE.SWING_DAMP * this.ringT) * Math.sin(2 * Math.PI * POSE.SWING_HZ * this.ringT);
+      for (const s of SIDES) off[s][1] += ring;
+      if (this.ringT > 4) this.ringT = Infinity;
+    }
+    const still = !m && c.mode === 'hang' && Math.hypot(d[0], d[2]) < 1e-5;
+    this.swayW += ((still ? 1 : 0) - this.swayW) * (1 - Math.exp(-dt / HANDS.SWAY_TAU));
+    if (this.swayW > 1e-4) {
+      const w = 2 * Math.PI * FEEL.SWAY_HZ * this.t;
+      for (const s of SIDES) { off[s][0] += this.swayW * HANDS.SWAY_X * Math.sin(w); off[s][1] += this.swayW * HANDS.SWAY_Y * Math.sin(w * 1.37); }
+    }
+    const fail = c.mode && Number.isFinite(c.grip) ? clamp01((PARKOUR_GRIP_LOW - c.grip) / PARKOUR_GRIP_LOW) : 0;
+    if (fail > 0) {
+      const ft = this.t * POSE.TREMBLE_HZ;
+      off.L[0] += HANDS.TREMBLE * fail * tremble(ft); off.L[1] += HANDS.TREMBLE * fail * tremble(ft * 1.3 + 7);
+      off.R[0] += HANDS.TREMBLE * fail * tremble(ft + 3.1); off.R[1] += HANDS.TREMBLE * fail * tremble(ft * 1.3 + 11);
+    }
+    this.drawn = off;
+    // looking away from the wall: eased, signed by side (a move in flight keeps the hold's hands)
+    const turn = lookOffWall(c, view.yaw);
+    const lookT = !m ? Math.sign(turn) * smooth((Math.abs(turn) / DEG - HANDS.LOOK_FROM_DEG) / (HANDS.LOOK_FULL_DEG - HANDS.LOOK_FROM_DEG)) : 0;
+    this.look += (lookT - this.look) * (1 - Math.exp(-dt / HANDS.LOOK_TAU));
+    if (Math.abs(this.look - lookT) < 0.002) this.look = lookT;
+  }
+
+  /** The sprites from the offsets, the presence, the look and the view's pitch. */
+  _layout(view) {
     const out = this.out;
     out.present = this.present;
     out.grips = [];
     out.reach = null;
-    if (!want) { this.prev = null; this.look = 0; if (this.present <= 0) return out; }
-
-    // the frame's own travel on the wall (a teleport is none)
-    let dx = 0, dy = 0, dz = 0;
-    const p = c?.track ?? c?.feet ?? null;
-    if (want && p) {
-      if (this.prev) { dx = p[0] - this.prev[0]; dy = p[1] - this.prev[1]; dz = p[2] - this.prev[2]; }
-      this.prev = [p[0], p[1], p[2]];
-      if (Math.hypot(dx, dy, dz) > 1) dx = dy = dz = 0;
-    }
-    const n = c?.normal ?? null;
-    const along = n ? dx * -n[2] + dz * n[0] : 0;   // + to the climber's right along the wall
-
-    // each hand's offset from its rest: x (+ right), y (+ down), in design pixels
-    const off = { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } };
-    const m = want ? c.move : null;
-    if (m) this._move(m, off);
-    else if (want && c.mode === 'hang') this._hang(dt, along, off);
-    else if (want) this._climb(along, dy, dx, dz, off);
-
-    // the grip failing
-    const grip = Number.isFinite(c?.grip) ? c.grip : 1;
-    if (want && grip < PARKOUR_GRIP_LOW) {
-      const k = HANDS.TREMBLE * (1 - grip / PARKOUR_GRIP_LOW);
-      const w = 2 * Math.PI * HANDS.TREMBLE_HZ * this.t;
-      off.L.x += k * Math.sin(w); off.L.y += k * Math.sin(w * 1.31 + 1);
-      off.R.x += k * Math.sin(w * 1.17 + 2); off.R.y += k * Math.sin(w * 0.93 + 3);
-    }
-
-    // looking away from the wall: eased, signed by side (a move in flight keeps the hold's)
-    const turn = want ? lookOffWall(c, view.yaw) : 0;
-    const lookT = want && !m ? Math.sign(turn) * smooth((Math.abs(turn) / DEG - HANDS.LOOK_FROM_DEG) / (HANDS.LOOK_FULL_DEG - HANDS.LOOK_FROM_DEG)) : 0;
-    this.look += (lookT - this.look) * (1 - Math.exp(-dt / 0.09));
-    if (Math.abs(this.look - lookT) < 0.002) this.look = lookT;
     const a = Math.abs(this.look), side = this.look >= 0 ? 'R' : 'L';
-
     // looking straight down off the wall: the hands are over the head, out of the view
     const pitch = Number.isFinite(view.pitch) ? view.pitch : 0;
-    const down = smooth((-pitch / DEG - HANDS.DOWN_FROM_DEG) / (HANDS.DOWN_FULL_DEG - HANDS.DOWN_FROM_DEG));
-
+    const gone = smooth((-pitch / DEG - HANDS.DOWN_FROM_DEG) / (HANDS.DOWN_FULL_DEG - HANDS.DOWN_FROM_DEG)) * OUT;
     const gh = HANDS.GRIP_H, gw = gh * GRIP_ART.w / GRIP_ART.h;
-    const enter = (1 - smooth(this.present)) * (gh + HANDS.BOTTOM_SLACK);
-    const gone = Math.max(down, 0) * (gh + HANDS.BOTTOM_SLACK);
-    for (const s of ['L', 'R']) {
+    const enter = (1 - smooth(this.present)) * OUT;
+    for (const s of SIDES) {
       const lat = s === 'R' ? 1 : -1;
-      let x = NATIVE_W / 2 + lat * HANDS.GRIP_APART - gw / 2 + off[s].x;
-      let y = NATIVE_H - gh + HANDS.BOTTOM_SLACK + off[s].y + enter + gone;
-      y += smooth(a) * (gh + HANDS.BOTTOM_SLACK);   // looked away: the fists drop out, the angled arm alone
-      // never lifted past the sleeve's slack
-      y = Math.max(y, NATIVE_H - gh);
+      const x = NATIVE_W / 2 + lat * HANDS.GRIP_APART - gw / 2 + this.drawn[s][0];
+      let y = NATIVE_H - gh + HANDS.BOTTOM_SLACK + this.drawn[s][1] + enter + gone;
+      y += smooth(a) * OUT;   // looked away: the fists drop out, the angled arm alone
+      y = Math.max(y, NATIVE_H - gh);   // never lifted past the sleeve's slack
       if (y >= NATIVE_H) continue;
       out.grips.push({ side: s, x, y, w: gw, h: gh, flip: s === 'R' });   // the painting is the left hand: the right is its mirror
     }
@@ -205,78 +294,162 @@ export class ClimbHands {
     return out;
   }
 
-  /** The hang: a sway on the arms, or the shimmy's hand-over-hand along the lip. */
-  _hang(dt, along, off) {
-    if (Math.abs(along) > 1e-5) {
-      this.shimmyPhase += Math.abs(along) / PARKOUR_HAND_SPAN;
-      this.shimmySide = Math.sign(along);
-    }
+  /** ClimbPose._settled: a limb's reach finishing on the clock when the body stops mid-reach, and once finished on its
+   *  new stone until the gait's reach is behind it. `g` is the gait's answer. */
+  _settled(key, g, moving, dt) {
+    const st = this.settle[key], sw = g.swing;
+    if (sw <= 0) { st.v = 0; st.cycle = null; return 0; }
+    if (st.cycle !== g.cycle) { st.cycle = g.cycle; st.v = sw; st.prev = sw; }
+    if (!moving) st.v = st.v >= 0.5 ? Math.min(1, st.v + dt / POSE.SETTLE_S) : Math.max(0, st.v - dt / POSE.SETTLE_S);
+    else if (sw >= st.prev) st.v = st.prev < 1 ? st.v + (1 - st.v) * (sw - st.prev) / (1 - st.prev) : sw;
+    else st.v = st.prev > 0 ? st.v * sw / st.prev : sw;
+    st.prev = sw;
+    return st.v;
+  }
+
+  /** The hang: ClimbPose's shimmy - each hand's stone along the lip relative to the body, lifted while it reaches. */
+  _hang(dt, c, d) {
+    const fr = wallFrame(c.normal ?? [0, 0, 1]);
+    const along = d[0] * fr.right[0] + d[2] * fr.right[2];
+    this.travel += along;
     const moving = Math.abs(along) > 1e-5;
-    // stopped mid-reach, the hand finishes onto the nearer grip (a half cycle's end) and stays there
-    if (!moving) {
-      const to = Math.round(this.shimmyPhase * 2) / 2;
-      this.shimmyPhase += (to - this.shimmyPhase) * (1 - Math.exp(-dt / 0.08));
-      if (Math.abs(to - this.shimmyPhase) < 1e-3) this.shimmyPhase = to;
+    const span = FEEL.SHIMMY_SPAN, stride = 2 * span;
+    const out = pair();
+    for (const s of SIDES) {
+      const g = shimmyGait(this.travel, stride, s === 'R' ? span / 2 : 1.5 * span, POSE.SHIMMY_REACH * span);
+      const sw = this._settled(s, g, moving, dt);
+      const atLip = lerp(g.anchor, g.next, smooth(sw)) - this.travel;   // metres along the lip, to the body's right
+      out[s] = [atLip * HANDS.GAIT_PX, -HANDS.SHIMMY_LIFT * bump(sw)];
     }
-    {
-      // the leading hand on the cycle's first half, the trailing on its second - each lifts and reaches the way
-      const u = this.shimmyPhase % 1;
-      const lead = this.shimmySide > 0 ? 'R' : 'L', trail = lead === 'R' ? 'L' : 'R';
-      const k1 = bump(u * 2), k2 = bump(u * 2 - 1);
-      off[lead].x += this.shimmySide * HANDS.SHIMMY_REACH * k1; off[lead].y -= HANDS.SHIMMY_LIFT * k1;
-      off[trail].x += this.shimmySide * HANDS.SHIMMY_REACH * k2; off[trail].y -= HANDS.SHIMMY_LIFT * k2;
-    }
-    const w = 2 * Math.PI * FEEL.SWAY_HZ * this.t;
-    off.L.y += HANDS.SWAY_Y * Math.sin(w * 1.37); off.R.y += HANDS.SWAY_Y * Math.sin(w * 1.37 + Math.PI * 0.8);
-    off.L.x += HANDS.SWAY_X * Math.sin(w); off.R.x += HANDS.SWAY_X * Math.sin(w);
+    return out;
   }
 
-  /** The free climb: hand over hand, a reach every FEEL.REACH climbed, the hands taking turns. */
-  _climb(along, dy, dx, dz, off) {
-    const travel = Math.hypot(dx, dy, dz);
-    if (travel > 1e-5) {
-      this.climbPhase += travel / FEEL.REACH;
-      if (Math.abs(dy) > 1e-6) this.climbUp = Math.sign(dy);
-      this.climbSide = travel > 0 ? along / travel : 0;
+  /** The free climb: ClimbPose's gait - each hand's stone on the face relative to the body, the way it climbs. */
+  _climb(dt, c, d) {
+    const fr = wallFrame(c.normal ?? [0, 0, 1]);
+    const a = d[0] * fr.right[0] + d[2] * fr.right[2], u = d[1];
+    const step = Math.hypot(a, u);
+    if (step > 1e-5) {
+      const dir = [a / step, u / step];
+      if (dir[0] * this.travelDir[0] + dir[1] * this.travelDir[1] < 0.995) this.turned = true;   // the stones mirror: carried over
+      this.travel += step;
+      this.travelDir = dir;
     }
-    const s = Math.sin(Math.PI * this.climbPhase);   // the right hand on +, the left on -
-    const kR = Math.max(0, s), kL = Math.max(0, -s);
-    // up: the reaching hand lifts; down: it lowers to the next hold
-    off.R.y -= this.climbUp * HANDS.CLIMB_LIFT * kR; off.L.y -= this.climbUp * HANDS.CLIMB_LIFT * kL;
-    off.R.x += this.climbSide * HANDS.CLIMB_ACROSS * kR; off.L.x += this.climbSide * HANDS.CLIMB_ACROSS * kL;
+    const moving = step > 1e-5;
+    const [ta, tu] = this.travelDir;
+    const out = pair();
+    for (const s of SIDES) {
+      const g = gait(this.travel, 2 * FEEL.REACH, s === 'R' ? 0 : 0.5, POSE.CLIMB_DUTY);
+      const sw = this._settled(s, g, moving, dt);
+      const rel = lerp(g.anchor - this.travel, g.next - this.travel, smooth(sw));   // the stone, relative to the body now
+      out[s] = [ta * rel * HANDS.GAIT_PX, -tu * rel * HANDS.GAIT_PX];
+    }
+    return out;
   }
 
-  /** A move in flight, by its kind and its clock. */
-  _move(m, off) {
+  /** The landing's swing begins: the arms straighten under the body, harder the faster it came (ClimbPose's pendulum). */
+  _land(speed) {
+    if (this.ringArmed) return;
+    this.ringArmed = true;
+    this.ringT = 0;
+    this.ringA = 0.5 + 0.5 * clamp01((POSE.SWING_BASE + POSE.SWING_PER_SPEED * speed) / POSE.SWING_MAX);
+  }
+
+  /** A move in flight, by its kind and its clock, from where the hands were when it began - ClimbPose's windows. */
+  _move(m, c) {
     const t = clamp01(m.t ?? 0);
-    const both = (x, y) => { off.L.x -= x; off.R.x += x; off.L.y += y; off.R.y += y; };
+    const start = this.moveStart;
+    const from = (s) => start?.[s] ?? [0, HANDS.FROM_BELOW];
+    const out = pair();
     switch (m.kind) {
-      case 'catch': case 'reach': case 'leap': {
-        // up onto the hold over the move's first part, then the weight lands on the arms
-        const inT = m.kind === 'leap' ? 0.7 : HANDS.CATCH_IN;
-        const rise = 1 - smooth(t / inT);
-        both(0, rise * (HANDS.GRIP_H * 0.6) + HANDS.CATCH_DIP * bump((t - inT) / (1 - inT)));
+      case 'catch': case 'reach': {
+        // ClimbPose._toHang: the hands onto the hold over the first 0.45, where the swing begins
+        const k = smooth(t / 0.45);
+        for (const s of SIDES) out[s] = [lerp(from(s)[0], 0, k), lerp(from(s)[1], 0, k)];
+        if (t >= 0.45) this._land(this.moveSpeed);
         break;
       }
-      case 'mantle': case 'vault': {
-        const split = m.kind === 'vault' ? 0.15 : clamp01(m.split ?? 0.5);
+      case 'leap': {
+        // ClimbPose._leap: off the stone at the push (0.18), reaching for the hold across the flight, on it at 0.8
+        const side = moveSide(m, this.moveNormal);
+        const push = smooth(t / 0.18), reach = smooth((t - 0.18) / 0.62);
+        const lead = side * HANDS.LEAP_LEAD * bump((t - 0.18) / 0.62);
+        for (const s of SIDES) {
+          const f = from(s);
+          out[s] = t < 0.18 ? [lerp(f[0], 0, push), lerp(f[1], HANDS.LEAP_DROP, push)] : [lead, lerp(HANDS.LEAP_DROP, 0, reach)];
+        }
+        if (t >= 0.8) {
+          const way = m.to && m.from ? Math.hypot(m.to[0] - m.from[0], m.to[1] - m.from[1], m.to[2] - m.from[2]) : 0;
+          this._land(m.dur > 0 ? way / m.dur : 0);   // the flight's arrival (the feel's leap dip is its arrival's too)
+        }
+        break;
+      }
+      case 'mantle': {
+        // ClimbPose._mantle: on the edge through the rise - the body rising past the hands takes them down the view - then
+        // the palms press on the top and let go as the body stands (a clamber's as it drops off the far side)
+        const split = clamp01(m.split ?? 0.5);
         const over = t <= split ? 0 : (t - split) / Math.max(1e-6, 1 - split);
-        both(HANDS.PRESS_APART * smooth(over), -HANDS.CATCH_DIP * bump(t / Math.max(0.05, split)) + HANDS.PRESS_DOWN * smooth((over - 0.2) / 0.8));
+        const rise = m.to && m.from ? m.to[1] - m.from[1] : PARKOUR_HANG_DROP;
+        const edge = HANDS.MANTLE_SINK * clamp01((PARKOUR_HANG_DROP - rise) / 1.2);   // a step-up's edge low in the view
+        const sink = HANDS.MANTLE_SINK * clamp01(rise / PARKOUR_HANG_DROP) * smooth(t / Math.max(1e-6, split));
+        const take = start ? 1 : smooth(t / Math.max(0.08, split * 0.4));
+        const press = smooth(over / 0.35);
+        const letGo = m.exit ? smooth((over - 0.45) / 0.3) : smooth((over - 0.6) / 0.35);
+        for (const s of SIDES) {
+          const lat = s === 'R' ? 1 : -1, f = from(s);
+          const y0 = start ? f[1] : lerp(f[1], edge, take);
+          const x0 = start ? f[0] * (1 - smooth(t / Math.max(1e-6, split))) : 0;
+          out[s] = [x0 + lat * HANDS.MANTLE_APART * press, y0 + sink + HANDS.MANTLE_PRESS * press + OUT * letGo];
+        }
         break;
       }
-      case 'lower':
-        both(0, (1 - smooth((t - 0.45) / 0.55)) * HANDS.GRIP_H * 0.8);
+      case 'vault': {
+        // ClimbPose._vault: planted on the top by 0.12, the body passing over them, let go 0.55-0.8
+        const plant = smooth(t / 0.12), pass = smooth((t - 0.12) / 0.43), letGo = smooth((t - 0.55) / 0.25);
+        for (const s of SIDES) {
+          const lat = s === 'R' ? 1 : -1, f = from(s);
+          out[s] = [lerp(f[0], 0, plant) + lat * HANDS.VAULT_APART * pass, lerp(f[1], HANDS.VAULT_PLANT, plant) + HANDS.VAULT_SINK * pass + OUT * letGo];
+        }
         break;
+      }
+      case 'lower': {
+        // ClimbPose._lower: the hands to the edge as the body squats over it (0.04-0.26), then holding it as the body
+        // goes down the face to the hang - the edge rising up the view
+        const onEdge = smooth((t - 0.04) / 0.22), drop = smooth((t - 0.32) / 0.68);
+        for (const s of SIDES) {
+          const f = from(s);
+          out[s] = [lerp(f[0], 0, onEdge) * (1 - drop), lerp(lerp(f[1], HANDS.LOWER_LOW, onEdge), 0, drop)];
+        }
+        break;
+      }
       case 'corner': {
-        const turn = Math.sign(m.turn || 0);
-        off.L.x += turn * HANDS.CORNER_SHIFT * bump(t); off.R.x += turn * HANDS.CORNER_SHIFT * bump(t);
+        // ClimbPose._corner: the hand on the side the corner goes first (0-0.55), the other after it (0.4-1), each lifted
+        // off the lip and reaching round the way it goes
+        const way = moveSide(m, this.moveNormal) || 1;
+        for (const s of SIDES) {
+          const lead = (s === 'R' ? 1 : -1) === way;
+          const k = lead ? smooth(t / 0.55) : smooth((t - 0.4) / 0.6), f = from(s);
+          out[s] = [lerp(f[0], 0, k) + way * HANDS.CORNER_REACH * bump(k), lerp(f[1], 0, k) - HANDS.CORNER_LIFT * bump(k)];
+        }
         break;
       }
-      case 'wallrun':
-        off.L.y -= HANDS.WALLRUN_LIFT * bump(t * 2); off.R.y -= HANDS.WALLRUN_LIFT * bump(t * 2 - 1);
+      case 'wallrun': {
+        // ClimbPose._wallrun: the arms pump with the steps (a foot every POSE.WALLRUN_STEP the body rises), then reach
+        // for what the run ends on (0.55-0.95)
+        const rose = (c.feet?.[1] ?? 0) - (m.from?.[1] ?? c.feet?.[1] ?? 0);
+        const up = smooth((t - 0.55) / 0.4), pumping = 1 - smooth((t - 0.55) / 0.3);
+        for (const s of SIDES) {
+          const f = from(s);
+          const pump = Math.abs(Math.sin(Math.PI * (rose / POSE.WALLRUN_STEP + (s === 'R' ? 0 : 0.5)))) * pumping;
+          out[s] = [lerp(f[0], 0, up), lerp(f[1], 0, up) - HANDS.WALLRUN_PUMP * pump];
+        }
         break;
-      default: break;
+      }
+      default:
+        for (const s of SIDES) out[s] = [...from(s)];
+        break;
     }
+    return out;
   }
 }
 
@@ -308,13 +481,14 @@ export function createClimbHands({ renderer, fetchBytes = null, decode = decodeP
   return {
     law,
     update(dt, climb, view) { return law.update(dt, climb, view); },
-    /** Whether the hands are on the screen this frame (the weapon's lowered sprite yields to them). */
+    /** Whether a hand is on the screen this frame (the weapon stays lowered while one is). */
     showing() { return law.out.present > 0 && (law.out.grips.length > 0 || !!law.out.reach); },
-    draw(canvas, { tint = null } = {}) {
+    /** `offsetHeight`: the large HUD's bar the hands stand on, as the classic sprite does (FPSWeapon.cs:146-155). */
+    draw(canvas, { tint = null, offsetHeight = weaponOffsetHeight() } = {}) {
       const out = law.out;
       if (!canvas || !renderer || out.present <= 0) return false;
       const sx = canvas.width / NATIVE_W, sy = canvas.height / NATIVE_H;
-      const quad = (t, b) => renderer.drawScreenQuad(t, { x: b.x * sx, y: b.y * sy, w: b.w * sx, h: b.h * sy },
+      const quad = (t, b) => renderer.drawScreenQuad(t, { x: b.x * sx, y: b.y * sy - offsetHeight, w: b.w * sx, h: b.h * sy },
         b.flip ? { u0: 1, v0: 0, u1: 0, v1: 1 } : undefined, tint ?? undefined);
       let drew = false;
       if (out.reach) { const t = load(REACH_ART); if (t) { quad(t, out.reach); drew = true; } }

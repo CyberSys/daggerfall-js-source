@@ -403,6 +403,9 @@ export function sheetHolderOf(rig) {
 export const CLIMB_LOWER_TAU = Object.freeze({ down: 0.07, up: 0.14 });
 /** Lowered this far, the viewmodel is out of sight: no lane draws. */
 export const CLIMB_LOWER_GONE = 0.98;
+/** AUDIT CLIMB-HANDS: the classic lane's climbing hands (combat/climbHands.js) come up once the weapon is this far down -
+ *  half the screen's height under its rect, three frames into the climb: the weapon and the hands never overlap. */
+export const CLIMB_HANDS_AFTER = 0.5;
 /** One frame of the lowering: toward 1 while `climbing`, back to 0 after; snapped home within half a percent. */
 export function climbLowerStep(lower, climbing, dt) {
   const target = climbing ? 1 : 0;
@@ -1500,8 +1503,13 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // rather than cutting (CLIMB_LOWER_TAU): the hands leave the hilt for the stone and come back to it.
       const camNow = camera?.() ?? null;
       const climbing = _climbing = !!camNow?.climbing;
-      _climbLower = climbLowerStep(_climbLower, climbing, dt);
-      climbHands.update(dt, camNow?.climb ?? null, camNow ?? {});   // CLIMB-HANDS: the hold, the shimmy, the free climb, the moves and the look off the wall
+      // AUDIT CLIMB-HANDS: THE WEAPON AND THE HANDS ARE NEVER ON THE SCREEN TOGETHER. The weapon stays down while a hand
+      // shows (it comes back once they are off the screen) and the hands come up once it is half down
+      // (CLIMB_HANDS_AFTER). The classic lane's alone: the Morrowind arms and the third-person body take the climb
+      // themselves, so there the law is handed no climb and never holds the weapon down.
+      const handsLane = !fpArm.active() && !eotbHidesWeapon();
+      _climbLower = climbLowerStep(_climbLower, climbing || (handsLane && climbHands.showing()), dt);
+      climbHands.update(dt, handsLane && _climbLower >= CLIMB_HANDS_AFTER ? (camNow?.climb ?? null) : null, camNow ?? {});   // CLIMB-HANDS: the hold, the shimmy, the free climb, the moves and the look off the wall
       const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !climbing && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool
       const strike = !paralyzed && c && canAttack
         ? playerWeapon.gesture(_dx, _dy, _held, dt, Math.max(c.clientWidth, c.clientHeight), { cancelHeld: activateHeld() })   // AUDIT 28 W12
