@@ -87,8 +87,8 @@ test('AUDIT NAV1 H1 the look\'s reach: where it meets the sea while that point m
 test('AUDIT NAV1 H2 a look on a ship lays the guns for its very point - its range out along the fire and its own height, the middle gun\'s arc through it; a look on the sea lays its reach out along the look\'s own bearing, measured along the fire (mutants: the point\'s height ignored, the slant taken for the range)', () => {
   const ship = { position: [0, 0, 0], rotation: ID, velocity: [0, 0, 0], hull: HULL.SmallShip };
   const bat = batteryOf(HULL.SmallShip, 'starboard');
-  assert.deepEqual(bat.muzzles[2], [8.1, 4.5, -4.5]);
-  const at = [85, 6, -4.5];   // on her side, 6 m over the sea, abeam my middle gun
+  assert.deepEqual(bat.muzzles[2], [5.949, 2.2435, -0.714]);   // PIN MOVED (GALLEON, 2026-10-01): the new galleon's middle port
+  const at = [85, 6, -0.714];   // on her side, 6 m over the sea, abeam my middle gun
   const aim = aimSolution(ship, 'starboard', { origin: EYE, dir: [1, 0, 0], at }, 0);
   assert.deepEqual(aim.lookPoint, at);
   const mid = aim.launches[2];
@@ -117,11 +117,11 @@ test('AUDIT NAV1 H3 the crosshair on her hull lays the broadside into her side: 
   const m = h.host.hudModel();
   assert.deepEqual([m.aim.side, m.aim.state, m.aim.hot], ['starboard', 'ready', true], 'laid, loaded and red');
   const d = h.host.drawFrame().aim;
-  assert.equal(d.strikes.length, 6, 'all six guns into her');
+  assert.equal(d.strikes.length, 5, 'all five guns into her');   // PIN MOVED (GALLEON, 2026-10-01): five ports a side
   assert.equal(d.zone.length, 0, 'none on to the sea');
   assert.equal(d.hot, true);
   for (const p of d.strikes) { near(p[0], side[0], 0.5, 'at her side'); near(p[1], side[1], 0.5, 'at the height the crosshair is on'); }
-  for (let i = 0; i < 6; i++) assert.deepEqual(d.arcs[i].at(-1).map(r3), d.strikes[i].map(r3), 'each arc ends where its ball strikes');
+  for (let i = 0; i < 5; i++) assert.deepEqual(d.arcs[i].at(-1).map(r3), d.strikes[i].map(r3), 'each arc ends where its ball strikes');
   const s = EYE[1] / -dir[1];
   assert.ok(EYE[0] + dir[0] * s > box.c[0] + box.h[0], 'where the look met the sea lay beyond her far side');
   assert.equal(navalHudText(m, {}).aim.target, ' - on target');
@@ -141,14 +141,16 @@ test('AUDIT NAV1 H4 the crosshair on her canvas: round shot is laid for her hull
   const h = await helm();
   const abeam = { pos: [90, 0, 0], yaw: 0 };
   frames(h, [[h.e, abeam]], 3);
-  const box = boxOf(h, h.e), rig = rigBoxesOf(h.e.boat)[0];
-  const sail = [rig.c[0] - rig.h[0] - 0.05, 22, 0];
-  assert.ok(sail[0] > box.c[0] - box.h[0], 'her canvas stands inboard of her side');
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail amidships (rig 1) - her fore course's yard (rig 0)
+  // reaches past her sides, as a square sail's does
+  const box = boxOf(h, h.e), rig = rigBoxesOf(h.e.boat)[1];
+  const sail = [rig.c[0] - rig.h[0] - 0.05, rig.c[1], rig.c[2]];
+  assert.ok(sail[0] > box.c[0] - box.h[0] && sail[1] > box.c[1] + box.h[1], 'her canvas stands inboard of her side, over her');
   h.view.look = { origin: EYE, dir: toward(EYE, sail) };
   h.host.attackInput(true);
   frames(h, [[h.e, abeam]]);
   let d = h.host.drawFrame().aim;
-  assert.equal(d.strikes.length, 6, 'the broadside into her hull');
+  assert.equal(d.strikes.length, 5, 'the broadside into her hull');
   const top = box.c[1] + box.h[1];
   for (const p of d.strikes) { near(p[0], box.c[0] - box.h[0], 0.6, 'through her side'); assert.ok(p[1] < top - 1, `under her top (${p[1].toFixed(2)})`); }
   assert.equal(h.host.hudModel().aim.hot, true);
@@ -156,7 +158,7 @@ test('AUDIT NAV1 H4 the crosshair on her canvas: round shot is laid for her hull
   // dead ahead and broadside on: the chasers (chain) on her canvas, 14 m up
   const ahead = { pos: [0, 0, 90], yaw: Math.PI / 2 };
   frames(h, [[h.e, ahead]], 2);
-  const rig2 = rigBoxesOf(h.e.boat)[0], box2 = boxOf(h, h.e);
+  const rig2 = rigBoxesOf(h.e.boat)[1], box2 = boxOf(h, h.e);
   const canvas = [0, 14, rig2.c[2] - rig2.h[0] - 0.05];
   const dir = toward(EYE, canvas);
   const atSide = (box2.c[2] - box2.h[0] - EYE[2]) / dir[2];
@@ -351,8 +353,9 @@ test('AUDIT NAV1 H8 the broadside camera: while a broadside is laid the eye ease
   assert.ok(back[0] < eye[0] && back[0] > own[0], 'on its way home');
   for (let i = 0; i < 60; i++) eye = h.host.aimEye(own, 0.1);
   assert.equal(eye, own, 'home: the eye its own again');
-  // a ship alongside: the way out stops AIM_CAM_CLEAR short of her side
-  const alongside = { pos: [20, 0, 0], yaw: 0 };
+  // a ship alongside: the way out stops AIM_CAM_CLEAR short of her side - PIN MOVED (GALLEON, 2026-10-01): 14 m off,
+  // 2.3 m of water between the new galleons' 5.9 m half beams (20 m stood the mod's 3.1 m apart)
+  const alongside = { pos: [14, 0, 0], yaw: 0 };
   frames(h, [[h.e, alongside]], 2);
   h.host.attackInput(true);
   frames(h, [[h.e, alongside]]);

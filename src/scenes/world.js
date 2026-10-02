@@ -397,7 +397,7 @@ import { toScreenOrder as csaToScreenOrder } from '../formats/color32Order.js'; 
 import { parseHexColor as csaParseHexColor } from '../ui/toolTip.js';   // CSA-E: the widget's colour setting, RRGGBBAA
 import { horseOffsetHeight as csaHorseOffsetHeight } from '../ui/hudLarge.js';   // CSA-E: OnGUI's LargeHUD lift   // CSA-C: the boats placed, kept and saved; CSA-D: sailed
 import { raycastColliders, rayBoxEntry, colliderPoses, invertAffine, BUILTIN_COLLIDER_MESHES, boxColliderTriangles } from '../world/prefabColliders.js';   // CSA-C: a boat's colliders under the ray; CSA-D: and in the world's collider
-import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
+import { DECK_STEP, DECK_HEADROOM, intoDeck, outOfDeck, mainLevel } from '../systems/naval/navalDeck.js';   // DECK-WALK: a body off her deck by more than a tread has left it; her deck's frame (AUDIT NAV2 F33: the headroom a deck point's ray starts under)
 import { warmAshesOn, LeaveShip, setWarmAshesHost, onPreFastTravel as warmAshesPreTravel, onPostFastTravel as warmAshesPostTravel, frame as warmAshesFrame, raidAtSea as warmAshesRaidAtSea, raidRefusal as warmAshesRaidRefusal, raidUnderWay as warmAshesRaidUnderWay, WA_RAID_QUESTS, WA_SEA_REGION } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships, the ambush at sea; OWS3: its raid, seen coming; THE MERGE (NAV-D, OWS3): one raid at a time
 import { raidersNear, raiderAt, raiderSight, chaseStep as raiderChaseStep, pixelOfNative, NATIVE_PIXEL as RAID_NATIVE_PIXEL, RAIDER_CONTACT_M, RAIDER_CONTACT_PLAY_M, RAIDER_CHASE_MPS, RAIDERS_WIRE_MAX, RAIDER_WORD_MS, raiderWordOf, validRaiderWord, raiderLifeOf, raiderNearMe, RAIDER_LABEL, RAIDER_LIFE_MS } from '../systems/seaRaiders.js';   // OWS3: Warm Ashes' raiders on the Overworld's sea
 import { RAIDER_LEAD_S } from '../systems/naval/navalRaiders.js';   // NAV-R: a raider ship steers its seeded course this far on
@@ -6803,7 +6803,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (deck?.count) {
       const mid = deck.nearest(0, 0);
       const out = [];
-      for (const at of deck.spots(n)) {
+      for (const at of deck.spots(n, mainLevel(deck))) {   // GALLEON: her main deck's - her castle up its flights her walk's, never a muster's
         const w = navalDeckToWorld(boat, at);
         const hit = raycastColliders(boat.GameObject, [w[0], w[1] + DECK_HEADROOM - 0.1, w[2]], [0, -1, 0], DECK_HEADROOM + 2.9, { triggers: false, geometry: csaColliderMesh });   // AUDIT NAV2 F33: from under the headroom her deck keeps (navalDeckPoint's)
         const c = mid ? navalDeckToWorld(boat, mid) : w;

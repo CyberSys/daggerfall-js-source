@@ -1,0 +1,130 @@
+[
+  {
+    "name": "GALLEON-bake-fill-strays",
+    "file": "tools/bakeGalleon.mjs",
+    "old": "      if (!fillInside(pts, tris)) { const f = slabFill(pts); tris = f.tris; extra = f.points.slice(pts.length); }\n",
+    "new": "",
+    "tests": [
+      "test/galleon_model.test.js"
+    ],
+    "why": "the port side's 24-gon filled over two of her ports - the bake no longer the file committed"
+  },
+  {
+    "name": "GALLEON-no-recoil",
+    "file": "src/systems/naval/galleonGunDeck.js",
+    "old": "  return RECOIL * (1 - u * u * (3 - 2 * u));",
+    "new": "  return 0;",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-hold-dropped",
+    "file": "src/systems/naval/galleonGunDeck.js",
+    "old": "      if (s) s.laidUntil = Math.max(s.laidUntil, now + HOLD_S);",
+    "new": "      if (s) s.laidUntil = Math.max(s.laidUntil, now);",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-other-side-laid",
+    "file": "src/systems/naval/galleonGunDeck.js",
+    "old": "          const laid = now < s.laidUntil;",
+    "new": "          const laid = now < Math.max(r.sides.starboard.laidUntil, r.sides.port.laidUntil);",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-guns-never-run-in",
+    "file": "src/systems/naval/galleonGunDeck.js",
+    "old": "            const want = laid ? RUN_OUT_X : RUN_IN_X;",
+    "new": "            const want = RUN_OUT_X;",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-lay-unwired",
+    "file": "src/scenes/navalHost.js",
+    "old": "      if (side === 'starboard' || side === 'port') galleonGuns.lay(boat, side, clock);   // GALLEON: laid - her shutters up, her guns out\n",
+    "new": "",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-fired-unwired",
+    "file": "src/scenes/navalHost.js",
+    "old": "if (gb) galleonGuns.fired(gb, e.side, e.index ?? 0, clock);",
+    "new": "if (gb) galleonGuns.lay(gb, e.side, clock);",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-ramp-collider",
+    "file": "src/world/galleonModel.js",
+    "old": "  const castleSolid = bakedPartGeometry(part('castle'), { keep: (n) => !(n[1] > WELL_RAMP_NY[0] && n[1] < WELL_RAMP_NY[1]) });",
+    "new": "  const castleSolid = meshes['galleon:castle'];",
+    "tests": [
+      "test/auditnav2_deck.test.js"
+    ],
+    "why": "the well's ramp rose 4 cm through her top tread: no floor at a flight's head, her castle apart from her deck"
+  },
+  {
+    "name": "GALLEON-loader-no-fallback",
+    "file": "src/systems/comeSailAwayModels.js",
+    "old": "      if (!galleon) throw e;\n",
+    "new": "      throw e;\n",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-art-registered-twice",
+    "file": "src/world/galleonArt.js",
+    "old": "  if (_registered) return 0;\n",
+    "new": "",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-glow-everywhere",
+    "file": "src/world/galleonArt.js",
+    "old": "  if (record !== TEX.sternWindows) return null;\n",
+    "new": "",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-muzzle-inside",
+    "file": "src/systems/naval/navalShips.js",
+    "old": "broadside: Object.freeze([[5.949, 2.2435, -7.595]",
+    "new": "broadside: Object.freeze([[5.749, 2.2435, -7.595]",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-hatch-clip-unread",
+    "file": "src/world/galleonModel.js",
+    "old": "  pair('galleon2/Hatch', [0, 0, 0], [0, 0, HATCH_OPEN_DEG]);",
+    "new": "  pair('galleon2/Hatch', [0, 0, 0], [0, 0, 0]);",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-wheel-still",
+    "file": "src/world/galleonModel.js",
+    "old": "eulerCurve('HelmWheel', [0, 0, -t * WHEEL_TURNS * 360])",
+    "new": "eulerCurve('HelmWheel', [0, 0, 0])",
+    "tests": [
+      "test/galleon_model.test.js"
+    ]
+  }
+]

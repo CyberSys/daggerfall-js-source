@@ -29,8 +29,8 @@
   {
     "name": "AUDIT-NAV2-F58-spot-unfrozen",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "        out.push(Object.freeze(centre(spotCells[best])));",
-    "new": "        out.push(centre(spotCells[best]));",
+    "old": "        out.push(Object.freeze(centre(cells[best])));",
+    "new": "        out.push(centre(cells[best]));",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "AUDIT-NAV2-F32-bench-inset",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "(joined(kk * nx + ii, h, live) < 0 && !bench(kk * nx + ii, h))",
-    "new": "joined(kk * nx + ii, h, live) < 0",
+    "old": "(joined(kk * nx + ii, h, live, j) < 0 && !bench(kk * nx + ii, h))",
+    "new": "joined(kk * nx + ii, h, live, j) < 0",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "AUDIT-NAV2-F32-no-half-deck-rule",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "  if (inset > 0) { const bare = settle(0); if (s.count * 2 < bare.count) s = bare; }\n",
-    "new": "",
+    "old": "    if (s.count * 2 < bare.count) s = bare;\n    else s = keepFlights(s, bare.live);\n",
+    "new": "    s = keepFlights(s, bare.live);\n",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]
@@ -200,7 +200,7 @@
   {
     "name": "AUDIT-NAV2-F36-the-box-again",
     "file": "src/scenes/navalHost.js",
-    "old": "    return deck.under(l[0], l[2], l[1], DECK_REACH_M);",
+    "old": "    return deck.under(l[0], l[2], l[1], l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : 0);",
     "new": "    return insideGrown(hullBox(boat), feet, DECK_REACH_M);",
     "tests": [
       "test/auditnav2_deck.test.js"
@@ -209,7 +209,7 @@
   {
     "name": "AUDIT-NAV2-F36-reach-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "    return deck.under(l[0], l[2], l[1], DECK_REACH_M);",
+    "old": "    return deck.under(l[0], l[2], l[1], l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : 0);",
     "new": "    return deck.under(l[0], l[2], l[1], 0);",
     "tests": [
       "test/auditnav2_deck.test.js"
@@ -337,6 +337,42 @@
     "file": "src/scenes/comeSailAwayPool.js",
     "old": "c.classicModel != null ? (cpu?.positions && cpu.indices ? cpu : null)",
     "new": "c.classicModel != null ? null",
+    "tests": [
+      "test/auditnav2_deck.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-reach-below-deck",
+    "file": "src/scenes/navalHost.js",
+    "old": "l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : 0",
+    "new": "DECK_REACH_M",
+    "tests": [
+      "test/auditnav2_deck.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-flight-tread-unread",
+    "file": "src/systems/naval/navalDeck.js",
+    "old": "    if (!(d <= FLIGHT_JOIN)) return false;\n    const mid =",
+    "new": "    return false;\n    const mid =",
+    "tests": [
+      "test/auditnav2_deck.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-flight-margin-taken",
+    "file": "src/systems/naval/navalDeck.js",
+    "old": "    else s = keepFlights(s, bare.live);\n",
+    "new": "",
+    "tests": [
+      "test/auditnav2_deck.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-walk-flight-unread",
+    "file": "src/systems/naval/navalDeck.js",
+    "old": "    if (!flights || !(d <= FLIGHT_JOIN)) return false;\n    return n - j",
+    "new": "    return false;\n    return n - j",
     "tests": [
       "test/auditnav2_deck.test.js"
     ]

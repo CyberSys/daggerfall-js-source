@@ -32,7 +32,7 @@
 
 import { musterOf, MOBILE, CREW_PER_HAND, MUSTER_MIN, MUSTER_MAX } from './navalBoarding.js';
 import { seededRng } from '../wind.js';
-import { mainLevel, DECK_STEP } from './navalDeck.js';
+import { mainLevel, DECK_STEP, FLIGHT_OVER } from './navalDeck.js';
 import { watchCount } from './shipWatch.js';
 
 /** A walker's pace on deck (m/s) - an amble, a hurry under fire or to a muster. */
@@ -234,10 +234,15 @@ const within = (rng, range) => range[0] + rng() * (range[1] - range[0]);
  */
 export function createCrewLife({ deck, roster, seed, places = [], faction = null }) {
   const rng = seededRng(((seed >>> 0) ^ 0x51ce11fe) >>> 0);
-  const spots = deck?.count ? deck.spots(Math.max(16, roster.length * 3)) : [];
-  // a flat on her walkable deck starts a walker; one off it (her wheel, her poop) is a station
+  // GALLEON (2026-10-01): her hands' work her MAIN deck's - a raised deck her walk joins up its flights (the new
+  // galleon's castle, the Carrack's forecastle) is her officers' and her walk's, never where her hands idle: a muster
+  // called from her castle's roof was 20 m of walk from the rail, past her grapples' flight
+  const main = deck?.y && deck.count ? mainLevel(deck) : NaN;
+  const spots = deck?.count ? deck.spots(Math.max(16, roster.length * 3), Number.isNaN(main) ? undefined : main) : [];
+  // a flat on her walkable deck starts a walker; one off it (her wheel, her poop) is a station - GALLEON: and one on a
+  // raised deck of hers (her castle's: her officer and her coxswain at her helm)
   const onDeck = [], stations = [];
-  for (const p of places) (deck?.walkable(p[0], p[2]) ? onDeck : stations).push(p);
+  for (const p of places) (deck?.walkable(p[0], p[2]) && !(p[1] > main + FLIGHT_OVER) ? onDeck : stations).push(p);
   const starts = [...stations.map((p) => ({ p, station: true })), ...onDeck.map((p) => ({ p, station: false })), ...spots.map((p) => ({ p, station: false }))];
   /** The `i`th of her roster, standing at his start. */
   const member = (r, i) => {
@@ -257,7 +262,11 @@ export function createCrewLife({ deck, roster, seed, places = [], faction = null
   // her lookout; whether her crew is turned in; the work she has (0..1)
   const ext = deck?.y ? deckExtentZ(deck) : null;
   const bow = ext && deck?.nearest ? deck.nearest(0, ext[1] - LOOKOUT_BACK) : null;
-  const hatch = deck?.count ? deck.nearest?.(0, ext ? (ext[0] + ext[1]) / 2 : 0) ?? null : null;
+  // GALLEON (2026-10-01): her hatch amidships of her MAIN deck - a raised deck her walk joins (the new galleon's castle
+  // up its two flights, the Carrack's forecastle) drew the middle of her whole deck off it, the galleon's onto her
+  // mainmast's drum
+  const mainExt = deck?.y && deck.count ? deckExtentZ(deck, main) : null;
+  const hatch = deck?.count ? deck.nearest?.(0, mainExt ? (mainExt[0] + mainExt[1]) / 2 : 0) ?? null : null;
   /** @type {any} */ let lookout = null;
   let asleep = false, work = 0;
   // AUDIT WK-W10: the roster place of the hand her card names Lookout (`ctx.lookout`), -1 for none; AUDIT WK-W7: whether

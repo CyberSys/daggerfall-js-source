@@ -285,7 +285,7 @@ export const BOAT_ACTIONS = Object.freeze({
   sailUp: 'BoatSailUp', sailDown: 'BoatSailDown',
 });
 /** HELM-KEYS (the port's, DECLARED): a helm IN IRONS - her sails up, her bow within IRONS_TELL_DEG of the wind's eye and
- *  her way under IRONS_TELL_WAY m/s for IRONS_TELL_S running: the sails cannot draw and the mod's rudder cannot turn a
+ *  her way ahead under IRONS_TELL_WAY m/s (GALLEON: sternway too, her canvas aback) for IRONS_TELL_S running: the sails cannot draw and the mod's rudder cannot turn a
  *  hull that makes no way, so the helm is told once how she comes out (IRONS_TEXT) - and the panel says it while it lasts
  *  (helmPanelState). The dwell: a sail just raised, or a tack through the wind's eye, is not lying in irons. AUDIT NAV2
  *  F18: the responsive helm's rudder answers at rest (HELM-WAY's steerage) - a Small Ship's helm alone brings her
@@ -1131,8 +1131,11 @@ export function createComeSailAwayRuntime(deps) {
     if (state.sailPosition === 0 || b.Sails.length < 1) return false;
     const toWind = Math.abs(vSignedAngle(flat(forwardOf(b.GameObject)), flat(state.windVectorCurrent), V_UP));   // the wind blows TO: 180 is dead into it
     // AUDIT NAV2 F15: her way THROUGH THE WATER - velocityCurrent carries the sea's current too (half the wind with the
-    // waves on, the mod's default), which held a hull lying head to wind over IRONS_TELL_WAY: never told
-    return toWind >= 180 - IRONS_TELL_DEG && vMagnitude(state.MoveVectorCurrent) < IRONS_TELL_WAY;
+    // waves on, the mod's default), which held a hull lying head to wind over IRONS_TELL_WAY: never told. GALLEON
+    // (2026-10-01): her way AHEAD (MoveVectorCurrent is her own frame's) - square canvas, a gaff and a staysail come
+    // aback in the wind's eye and drive her astern (GetSailPower's backing), and the new galleon lying head to wind
+    // went astern over IRONS_TELL_WAY: never told
+    return toWind >= 180 - IRONS_TELL_DEG && state.MoveVectorCurrent[2] < IRONS_TELL_WAY;
   }
   /** Update's manual trim (4370-4410): the brackets turn the fore-and-aft booms to 90 each way, or the square ones
    *  to 45 (with the modifier, or on a boat with neither lateen nor gaff), at 15 degrees a second; every boom set. */

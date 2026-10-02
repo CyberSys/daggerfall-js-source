@@ -51,6 +51,9 @@ import { mat4FromQuatPosScale } from '../world/quat.js';
 import { colliderPoses, boxColliderTriangles, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // DECK-WALK: a hull's colliders at rest
 import { buildDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: her walkable deck
 import { hullBuild } from '../systems/naval/navalShips.js';
+import { registerGalleonArt, GALLEON_ARCHIVE, galleonGlow } from '../world/galleonArt.js';   // GALLEON: the new galleon's own pictures, on the texture door before her meshes ask
+import { toColor32 } from '../formats/color32Order.js';
+import { addVendorTextures } from '../systems/textureReplacement.js';
 
 /** DungeonLightHandler.CheckLight's reach: UnscaledBlockRange x MeshReader.GlobalScale. */
 export const LANTERN_HANDLER_REACH = DUNGEON_LIGHT_HANDLER.unscaledBlockRange * GLOBAL_SCALE;
@@ -174,7 +177,12 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
 
   async function ensureModels() {
     if (models || modelsFailed) return models;
-    modelsLoading ??= loadComeSailAwayModels(fetchFn ?? globalThis.fetch, undefined, log).then((m) => { models = m; modelsFailed = !m; return m; });
+    modelsLoading ??= loadComeSailAwayModels(fetchFn ?? globalThis.fetch, undefined, log).then((m) => {
+      // GALLEON: her pictures are the port's own, made at boot - registered as GALLEON_ARCHIVE's stand-ins before any
+      // of her meshes asks the pipeline for that archive (meshFor's getTexture), so they upload as every hull's do
+      if (m?.galleon) registerGalleonArt(addVendorTextures);
+      models = m; modelsFailed = !m; return m;
+    });
     return modelsLoading;
   }
 
@@ -318,6 +326,9 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
         for (const sm of model.subMeshes) {
           try { await pipeline.getTexture(sm.textureArchive); pipeline.uploadRecord(sm.textureArchive, sm.textureRecord, { opaque: true }); }
           catch (e) { warnOnce(`tex:${sm.textureArchive}`, `[come-sail-away] TEXTURE.${sm.textureArchive} will not load - the boats' faces in it draw nothing`, e); }
+          // GALLEON: her stern gallery's glass, lit at night as a town's windows are (the window style the host sets -
+          // its emission mask is the glass alone, galleonArt.js galleonGlow)
+          if (sm.textureArchive === GALLEON_ARCHIVE) { const glow = galleonGlow(sm.textureRecord); if (glow) renderer.uploadEmissionTexture?.(GALLEON_ARCHIVE, sm.textureRecord, toColor32(glow), { replacement: true }); }
         }
         meshes.set(key, renderer.createMesh(model));
       })().catch((e) => { meshes.set(key, null); warnOnce(`mesh:${key}`, '[come-sail-away] a boat mesh failed to build', e); }).finally(() => meshLoads.delete(key)));

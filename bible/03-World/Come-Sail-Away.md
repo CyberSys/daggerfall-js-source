@@ -2099,6 +2099,14 @@ The heave-to's brake (NAV1's `accelScale`, ten times her own coast) is its own n
 m/s^2 - so the handling choice never moves it. Pins: `test/helmway.test.js` (the harness `test/csaScene.mjs`, the
 wind suite's scene, one module).
 
+GALLEON (2026-10-01): the Small Ship is Mac's galleon now (The new galleon, below) - five sails where the mod's galleon
+carried two lateens - and helmWay.js's header carries her figures, re-measured like for like (AUDIT NAV2 F20's pin
+holds them): under the mod's handling she takes 29.2 s to her full way of 8.75 m/s and 43.7 s (191 m) to lose it,
+0.75 deg/s at 1 m/s and 6.56 at her full way on the same 153 m circle; under the responsive helm 8.33 s to her full
+way and 14.6 s (64 m) to lose it, her rudder 8.49 deg/s at her full way on a 118 m circle (the rest as above). The
+mod's galleon's figures above stand for the record - she is hull 2 again whenever the new galleon's model will not
+load.
+
 ## The Overworld's crossing (OWS2, 2026-09-28)
 
 The player's ask: *"You should transition to your boat if traveling across water then back onto land when hitting
@@ -2237,6 +2245,94 @@ packs every hull (`getBoatTransforms`: `Crewed` sets `packable` too), and makes 
   `test/csa_items.test.js` and `test/ows2_crossing.test.js` PIN MOVED. `tools/mutants/shippack.json` (24, all dead);
   boatmenu's, csa_items', csa_placing's, ows2's and audit0928_save's records re-aimed by content and killed again. Not
   seen in a browser.
+
+## The new galleon (GALLEON, 2026-10-01 - OURS)
+
+Mac: *"So this model is to replace the current ingame gallon model. The doors/hatches should open and close and we will
+need to give this a proper texture, along with a wheel at the helm, the sails and ropes, amd ensuring cannon fire shoots
+from the cannon holes properly."* Hull 2, the Small Ship (the pirate brig's, the merchant galleon's and the navy
+cutter's hull too), is Mac's own model now, fitted out round it. The Port-Ledger's GALLEON row carries the departures.
+
+**Her model.** Mac sent three Blender exports of one scene (only their creation stamps differ); one is committed,
+`src/assets/galleon/source/New_Ship.fbx`, and `tools/bakeGalleon.mjs` bakes it to `src/assets/galleon/galleon.json`:
+each of the scene's objects named to its ROLE and checked to stand where it was read (the hull, her gun deck and main
+deck, two hatch covers, the castle with its parapet and rail, the bulkhead, the two flights up the castle, the
+balustrades, the masts with their partners and steps, the crow's nest and the bowsprit), the scene's second station
+(one more copy of her parts 60 m off) skipped, the hull's five rudder faces split off to turn on their own post, every
+polygon in the boat's frame (0.7 of the scene, the waterline and the midship taken off) and triangulated as Blender
+fills it - and a face neither ear clip fills inside itself (the port side's inner planking, a 24-gon that runs round
+her ports and folds back along their lintels) filled by its own winding (`slabFill`): the first bake laid two
+triangles over two of her ports from inside. `test/galleon_model.test.js` re-bakes it to the byte.
+
+**Her prefab** (`world/galleonModel.js galleonPrefab`) is Come Sail Away's data shape built on the bake and stands in
+for prefab 112412 (`systems/comeSailAwayModels.js`: her components after the mod's, her meshes decoded already, her
+clips and overrides beside its own), so the mod's own SpawnBoat walks her as it walks any hull - her `NewGalleon` hull
+node the boat's frame (her MeshCollider her planking and her castle's), her triggers, her lanterns, her crew's flats,
+her sails, booms and rudder found by their names:
+- **Her hatches and doors open and close** - the two hatch covers (Mac's fore cover is both: his aft one he left
+  propped open) lift on their starboard edge to `HATCH_OPEN_DEG` past upright, the castle's door and the bulkhead's
+  swing aft, each on the mod's own Door Controller with a DoorTrigger the walk sizes to its collider; TriggerDoor turns
+  them over as it turns the mod's. A companion ladder stands under each hatch, down to her gun deck.
+- **Her wheel** on the castle's roof before the helmsman's place (DrivePosition, the eye over it to the bow), turned
+  `WHEEL_TURNS` hard over each way and her rudder `RUDDER_DEG` on its post, both by the mod's Rudder Wheel Controller's
+  TurnAngle through her own ten clips.
+- **Her sails and ropes** (`world/galleonRig.js`) - a brigantine's five by the mod's own names, so its laws read them:
+  a fore course and a fore topsail and a main topsail (square, the two topsails small), a large main gaff sail and a
+  large jib; on four booms (the mod's trim turns them), each canvas skinned a bone a vertex and baked as the mod bakes
+  its own (FixDeformations), furled and set by the wind's side through her own clips over the mod's Sail and Staysail
+  Controllers (Stowed, or Unstowed blended by Wind); her shrouds with their deadeyes and
+  ratlines on channels outside her hull, her stays, backstays, bobstay and flagstaff (a mesh a piece, never one box
+  round the whole rig), her braces and sheets skinned to the yards and booms they work.
+- **Her guns out of her ports.** Ten gunports (five a side, Mac's) carry a shutter each on the mod's Door Controller
+  (`LID_OPEN_DEG` up on its top hinge) and a gun behind it on her gun deck (1.085 m); two chasers on swivels over her
+  bow rail. HULL_BUILDS' Small Ship is measured off her (`systems/naval/navalShips.js`, `GALLEON_BATTERIES`): each
+  broadside muzzle at its port's middle a hair outside her planking, so a ball leaves her through the hole it is fired
+  from - the test shoots a line in through every port and meets none of her hull, and her planking a port's width
+  aside. `systems/naval/galleonGunDeck.js` works them for every ship of hers in play: a battery laid (my look at the
+  helm, a captain's run-out tell) opens that side's shutters and runs its guns out; each gun kicks `RECOIL` inboard as
+  its own ball leaves (the shot field's muzzle, its index the port's) and is hauled out over `HAUL_S`; `HOLD_S` past
+  the last word the guns run in to load and the shutters close.
+- **Her texture** (`world/galleonArt.js`): seventeen pictures painted at load from numbers alone - the hull's painted
+  livery and gilt bands, her bottom, her inner planking, her deck, the castle's panels, the stern gallery (its glass
+  glowing by night through the pool's emission mask), spars, iron, canvas, rope, gilt, the hatch gratings, the shutters'
+  red, the doors, the beams - registered as stand-ins of archive 38131 on the vendor texture door, so a loose pack's
+  `38131_<record>-0.png` would override one as it overrides any record. No file, no ARENA2 pixel.
+- The mod's own small things are copied out of its galleon and stood in her: the anchor (weighed and let go), her cargo
+  and its trigger, the stove, the bed in the great cabin, the lantern poles and hooks, her colours over the crow's nest;
+  her six crew posts (the officer and the coxswain on the castle's roof by the wheel, the boatswain and the quartermaster
+  on her main deck, the master-at-arms and the cook below).
+- **The loader never traps** (`loadComeSailAwayModels`): her model fetched beside the mod's five files
+  (`GALLEON_MODEL_URL`, never among them); missing, or one that will not build, hull 2 is the mod's own galleon, said
+  once.
+
+**Her deck** (`systems/naval/navalDeck.js`, `systems/naval/crewLife.js`). Her castle's roof is her deck, up its two
+flights - each 1.4 m wide between its well's walls, its treads 0.385 m on 0.25 m risers: two risers between two cells'
+centres as often as one (0.51 m, over the motors' step), and a cell clear between the walls the inset took. So a flight
+finer than a cell joins over the tread between (`linked`: a floor at the midpoint of the side two cells share, a step
+from each, within `FLIGHT_JOIN`), and a raised deck the inset parted from her open deck keeps every way up to it a cell
+wide (`keepFlights`) - the Carrack's forecastle up its stair joined with hers. The well's ramp under each flight is no
+collider of hers (it rose 4 cm through the top tread). Her hands work her main deck (`spots(n, level)`), her officer
+and her coxswain stand at their posts on the castle (a flat on a raised deck a station), her hatch is amidships of her
+main deck, and a boarding's musters stand on it; her castle is the walk's, up either flight - a boarder can reach the
+helm.
+
+**What it moved elsewhere.** Her guns are five a side where the mod's galleon had six, so every hull-2 class is a sixth
+lighter at the guns: a wary brig outguns no sound boat of the player's now (a crewless Large Galley 1.10 to one; a
+Small Ship hurt to four fifths and alone at her guns, 1.37), and the navy cutter's odds on the corsair galley fell to
+1.23 (fought four to four). Her low gun deck (1.08 m over the sea) brought the aboard reach to her rail's height
+(`scenes/navalHost.js standsOn`); her canvas aback in the wind's eye drives her astern, so the in-irons tell reads her
+way ahead (`systems/comeSailAway.js inIrons`); her narrower hull lies closer in to a boat she boards, so a boarding
+comes in on a sounded berth unswung by the lookout and sounds the berth as wide as its legs (`systems/naval/navalAI.js
+boardCourse`, `berthOpen`).
+
+Pins: `test/galleon_model.test.js` (11); the naval suites' PIN MOVED rows (`test/auditnav2_deck.test.js`,
+`auditnav2_crew`, `auditnav2_captains`, `auditnav2_helm`, `auditnav2_online`, `auditwatchkit_crew`, `deckwalk`,
+`livingcrew`, `nav_a_guns`, `nav_h_host`, `navaudit_captains`, `navaudit_guns`, `navaudit_helm`,
+`navaudit_presentation`, `fb1001b_peerboats`, `seapeace`); `test/csaScene.mjs` builds hull 2 on her as the game does.
+`tools/mutants/galleon.json` (14, all dead) and the naval lists' GALLEON records, all dead. Drawn offline with a
+scratch rasterizer over the real prefab and art (her livery, the castle and the stern gallery, the wheel, her sails
+stowed, set and trimmed, the hatches and shutters open, the guns run out, the gun deck and the cabin from inside); not
+seen in a browser.
 
 ## What was already waiting in the port
 

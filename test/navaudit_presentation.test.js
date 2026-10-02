@@ -274,7 +274,14 @@ test('AUDIT NAV1 (the presentation) a scuttled prize burns to the waterline and 
     h.host.frame(0.1);
     worst = Math.max(worst, h.host._effects.drawList().filter((p) => (p.kind === 'ember' || p.kind === 'smoke') && p.pos[1] < -0.2).length);
   }
-  assert.ok(flames.length === 3 && flames.every((f) => f.out != null && f.out < SINK_SECONDS / 2), `out by the time her deck is under (${flames.map((f) => f.out?.toFixed(1)).join(', ')})`);
+  // PIN MOVED (GALLEON, 2026-10-01): each out as the sea reaches its place on her - a metre over her deck, her trim's
+  // lift at her fires' reach fore and aft - her depth sinkUnder x the square of the time: the new galleon's 6.2 m deck
+  // under her spars' reach goes under past half her SINK_SECONDS, where the mod's went before them
+  const b = hullBuild(e.ship.hull), reachZ = (b.beam || 4) * 1.6;
+  let awash = 0;
+  while (awash < SINK_SECONDS && e.sinkUnder * (awash / SINK_SECONDS) ** 2 < b.deck + 1 - FLAME_AWASH + reachZ * Math.sin(SINK_PITCH * NAVAL_DEG * awash / SINK_SECONDS)) awash += 0.05;
+  assert.ok(awash < SINK_SECONDS * 0.6, `her deck under well before she is (${awash.toFixed(1)} s)`);
+  assert.ok(flames.length === 3 && flames.every((f) => f.out != null && f.out <= awash + 0.2), `out by the time her deck is under at ${awash.toFixed(1)} s (${flames.map((f) => f.out?.toFixed(1)).join(', ')})`);
   assert.equal(worst, 0);
 });
 
@@ -313,7 +320,7 @@ test('AUDIT NAV1 (the presentation) THE MIX, my broadside: each report at one ov
     for (let i = 0; i < 12; i++) { at.t += 0.05; h.host.frame(0.05); }
     const reports = played.filter((s) => s.k === NAVAL_SFX.cannon);
     const n = reports.length;
-    assert.equal(n, hull === 2 ? 6 : 7, 'every gun heard');
+    assert.equal(n, hull === 2 ? 5 : 7, 'every gun heard');   // PIN MOVED (GALLEON, 2026-10-01): the Small Ship's five ports a side
     const lo = 10 ** (-GUN_GAIN_JITTER_DB / 20) / Math.sqrt(n), hi = 10 ** (GUN_GAIN_JITTER_DB / 20) / Math.sqrt(n);
     assert.ok(reports.every((r) => r.v >= lo - 1e-9 && r.v <= hi + 1e-9), `each at 1/sqrt(${n}), jittered (${reports.map((r) => r.v.toFixed(2))})`);
     assert.ok(reports.every((r) => Math.abs(r.opts.pitch - 1) <= GUN_PITCH_JITTER + 1e-9), 'each its own pitch');
@@ -345,17 +352,18 @@ test('AUDIT NAV1 (the presentation) THE MIX, a broadside across the bay: the far
   };
   const close = await heard(150);
   const closeReports = close.filter((s) => s.k === NAVAL_SFX.cannon);
-  assert.ok(closeReports.length >= 6 && !close.some((s) => s.k === NAVAL_SFX.cannonFar), 'near: her reports, no roll');
+  // PIN MOVED (GALLEON, 2026-10-01): a Small Ship's volley is five guns now - Mac's galleon's ports
+  assert.ok(closeReports.length >= 5 && !close.some((s) => s.k === NAVAL_SFX.cannonFar), 'near: her reports, no roll');
   assert.ok(closeReports.every((r) => r.v >= 10 ** (-GUN_GAIN_JITTER_DB / 20) - 1e-9), 'another\'s guns each at full weight - only my own ripple is scaled');
   const off = await heard(700);
   const rolls = off.filter((s) => s.k === NAVAL_SFX.cannonFar);
   assert.equal(off.filter((s) => s.k === NAVAL_SFX.cannon).length, 0, 'far: no near report');
   assert.equal(rolls.length, 1, 'one roll a volley');
-  assert.ok(Math.abs(rolls[0].v - FAR_MATCH * Math.sqrt(6)) < 1e-9, `at FAR_MATCH x sqrt(6) (${rolls[0].v})`);
+  assert.ok(Math.abs(rolls[0].v - FAR_MATCH * Math.sqrt(5)) < 1e-9, `at FAR_MATCH x sqrt(5) (${rolls[0].v})`);
   assert.equal(rolls[0].opts.far, true, 'held off the ear as a far sound');
   const mid = await heard(NEAR_BOOM_M);
   const midReports = mid.filter((s) => s.k === NAVAL_SFX.cannon), midRoll = mid.filter((s) => s.k === NAVAL_SFX.cannonFar);
-  assert.ok(midReports.length >= 6 && midRoll.length === 1, 'in the band: both');
+  assert.ok(midReports.length >= 5 && midRoll.length === 1, 'in the band: both');
   // each at its own place in the band: x = 0 at NEAR_BOOM_M - FAR_FADE_M, 1 at + FAR_FADE_M - the reports by cos, the roll
   // by sin: equal power across it (the feet at the origin)
   const xOf = (p) => Math.min(1, Math.max(0, (Math.hypot(p[0], p[2]) - (NEAR_BOOM_M - FAR_FADE_M)) / (2 * FAR_FADE_M)));
@@ -365,7 +373,7 @@ test('AUDIT NAV1 (the presentation) THE MIX, a broadside across the bay: the far
   }
   const x0 = xOf(midRoll[0].p);
   assert.ok(x0 > 0.3 && x0 < 0.7, `the volley in the band's middle (${x0.toFixed(2)})`);
-  assert.ok(Math.abs(midRoll[0].v - FAR_MATCH * Math.sqrt(6) * Math.sin(x0 * Math.PI / 2)) < 1e-9, 'the roll coming in by the sine of its first gun\'s place');
+  assert.ok(Math.abs(midRoll[0].v - FAR_MATCH * Math.sqrt(5) * Math.sin(x0 * Math.PI / 2)) < 1e-9, 'the roll coming in by the sine of its first gun\'s place');
   assert.ok(FAR_FADE_M > 0 && FAR_FADE_M < NEAR_BOOM_M);
   const gone = await heard(NAVAL_SOUND_RANGE[NAVAL_SFX.cannonFar].maxDistance + 200);
   assert.equal(gone.filter((s) => s.k === NAVAL_SFX.cannon || s.k === NAVAL_SFX.cannonFar).length, 0, 'past its range: nothing (the inverse law never reaches silence)');
@@ -891,7 +899,7 @@ test('AUDIT NAV1 (the presentation) THE SHIPS\' TAGS (#14): one card within 6 de
   assert.deepEqual(h.host.tags().map((t) => t.target), [true, false]);
   // going down: her tag settles with her
   a.ship.damage.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
-  h.run(3, 0.1);
+  h.run(4, 0.1);   // PIN MOVED (GALLEON, 2026-10-01): her depth off her spars as they are, the new galleon's settling slower at first
   const sunkBy = h.host.tags().find((t) => t.id === a.id);
   assert.equal(sunkBy.state, 'sinking');
   assert.ok(sunkBy.point[1] < ta.point[1] - 0.5, 'lower as she goes');
@@ -1114,7 +1122,7 @@ test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her smoke and her planks (#1
   long.g.run(TIMBER_LIFE * 1.5 - 5 + 0.2, 0.5);
   assert.equal(alive().length, 0, 'gone by half again TIMBER_LIFE');
   assert.equal((await strike('heavy', 3)).planks.length, TIMBER_PER_HIT + 1, 'a heavy ball one more');
-  const rig = await strike('long', 20);
+  const rig = await strike('long', 16);   // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail, 13.2 to 19 m up amidships
   assert.ok(rig.shreds.length > 0 && rig.planks.length === 0, 'through her canvas: shreds, no planks');
 });
 

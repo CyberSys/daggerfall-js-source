@@ -502,8 +502,10 @@ test('AUDIT WK-SN HER HATCH AND HER BOW: her hatch at her main deck\'s middle, h
   const pool = await readyPool();
   for (const deck of [plainDeck(), pool.deckOf(HULL.SmallShip, 0), pool.deckOf(HULL.LargeGalley, 0), pool.deckOf(HULL.Carrack, 0)]) {
     const life = createCrewLife({ deck, roster: crewRoster({ hull: 3, seed: 4, shipClass: pirate }), seed: 4 });
-    const ext = deckExtentZ(deck);
-    assert.ok(Math.abs(life.hatch[2] - (ext[0] + ext[1]) / 2) < 1.5, `her hatch amidships: ${life.hatch[2]} in ${ext}`);
+    // PIN MOVED (GALLEON, 2026-10-01): her MAIN deck's middle, as said - the new galleon's castle (and the Carrack's
+    // forecastle) up their flights her deck too, never where her hatch is
+    const ext = deckExtentZ(deck), main = deckExtentZ(deck, mainLevel(deck));
+    assert.ok(Math.abs(life.hatch[2] - (main[0] + main[1]) / 2) < 1.5, `her hatch amidships: ${life.hatch[2]} in ${main}`);
     assert.ok(Math.abs(life.bow[2] - (ext[1] - LOOKOUT_BACK)) < deck.cell, `her bow ${LOOKOUT_BACK} m from her stem: ${life.bow[2]} in ${ext}`);
     assert.deepEqual(life.bow, deck.nearest(0, ext[1] - LOOKOUT_BACK));
     assert.ok(deck.walkable(life.bow[0], life.bow[2]) && deck.walkable(life.hatch[0], life.hatch[2]), 'each a cell of her deck');

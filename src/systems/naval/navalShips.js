@@ -96,13 +96,20 @@ export const HULL_BUILDS = Object.freeze([
     hullHp: 150, sailHp: 60, crew: 0, deck: 0.1, beam: 1.9, ram: false, bowZ: 6.51, aftZ: -5.99, halfWidth: 2.15, keel: -0.64, top: 1.59, sailWay: 1,
     rig: rigOf([[-1.7, 1.59, -5.44], [1.7, 9.27, 6.71]]),
   }),
-  Object.freeze({   // 2 Small Ship - the gun deck at 3.64, ports 0.9 over it from the quarter to the forecastle
+  // GALLEON (2026-10-01, Mac: "ensuring cannon fire shoots from the cannon holes properly"): hull 2 is Mac's galleon now
+  // (world/galleonModel.js) and every number here is hers, off her own model (test/galleon_model.test.js pins each to
+  // it): a gun at each of her ten gunports, its muzzle a hair outside her planking at the port's middle - the ports
+  // 1.56 to 2.93 m over the sea, her gun deck at 1.085 - so a broadside leaves her through the holes it is fired from;
+  // two chasers on swivels over her bow rail; the barrels over her stern under the castle. Her box is her hull's and
+  // her castle's MeshCollider's bounds; her rig her five sails' and their spars', each as it hangs set, over her roof
+  // (her castle's 12.3 - under it her box is her: the canvas over her waist below it is struck as her hull is).
+  Object.freeze({   // 2 Small Ship - five ports a side on her gun deck (1.085), the guns' axis at the ports' middle (2.24)
     hull: 2, gun: 'long',
-    broadside: Object.freeze([[7.2, 4.5, -12], [7.8, 4.5, -8], [8.1, 4.5, -4.5], [7.8, 4.5, -1], [7.4, 4.5, 2.5], [7.0, 4.5, 6]].map(Object.freeze)),
-    bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.4, 7.6, 16.0]), Object.freeze([1.4, 7.6, 16.0])]) }),
-    stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 7.6, -23.0])]) }),
-    hullHp: 420, sailHp: 160, crew: 24, deck: 3.64, beam: 7.4, ram: false, bowZ: 19.88, aftZ: -24.25, halfWidth: 8.43, keel: -3.35, top: 10.92, sailWay: 1,
-    rig: rigOf([[-3.5, 10.92, -20.1], [3.5, 34, 26]]),
+    broadside: Object.freeze([[5.949, 2.2435, -7.595], [5.949, 2.2435, -4.417], [5.949, 2.2435, -0.714], [5.949, 2.2435, 2.8105], [5.949, 2.2435, 6.5135]].map(Object.freeze)),
+    bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.15, 7.45, 19.15]), Object.freeze([1.15, 7.45, 19.15])]) }),
+    stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 5.4, -20.6])]) }),
+    hullHp: 420, sailHp: 160, crew: 24, deck: 6.2, beam: 5.4, ram: false, bowZ: 21.93, aftZ: -19.91, halfWidth: 5.86, keel: -3.89, top: 12.3, sailWay: 1,
+    rig: rigOf([[-6.3, 12.3, 8.2], [6.3, 17.7, 11.6]], [[-5.65, 13.0, -0.8], [5.65, 19.0, 2.6]], [[-1.45, 12.3, -8.8], [1.45, 18.0, -0.1]], [[-1.1, 12.3, 9.4], [1.1, 16.5, 27.9]]),
   }),
   Object.freeze({   // 3 Large Galley - four long guns a side on the upper deck (10.25), three heavy guns over the stem, a ram
     hull: 3, gun: 'long',

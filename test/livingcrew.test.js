@@ -195,7 +195,7 @@ test('LIVING CREW THE HOST: a ship in range stands her crew as mobile units - th
   const boat = smallShip();
   const flats = peopleFlatsOf(boat);
   const main = mainLevel(deck);
-  assert.ok(Math.abs(main - 6.77) < 0.1, `her main deck: ${main}`);
+  assert.ok(Math.abs(main - 6.2) < 0.1, `her main deck: ${main}`);   // PIN MOVED (GALLEON, 2026-10-01): the new galleon's
   const below = flats.filter((f) => f.feet[1] < main - DECK_STEP), onDeck = flats.filter((f) => f.feet[1] >= main - DECK_STEP);
   assert.ok(below.length >= 1 && onDeck.length >= 4, `flats: ${onDeck.length} on or above her deck, ${below.length} below`);
   const h = host();

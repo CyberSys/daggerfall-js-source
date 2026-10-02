@@ -580,5 +580,14 @@
     "tests": [
       "test/auditnav2_crew.test.js"
     ]
+  },
+  {
+    "name": "GALLEON-hands-on-the-castle",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "deck.spots(Math.max(16, roster.length * 3), Number.isNaN(main) ? undefined : main)",
+    "new": "deck.spots(Math.max(16, roster.length * 3))",
+    "tests": [
+      "test/auditnav2_crew.test.js"
+    ]
   }
 ]

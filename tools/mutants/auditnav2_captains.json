@@ -325,5 +325,23 @@
     "tests": [
       "test/auditnav2_captains.test.js"
     ]
+  },
+  {
+    "name": "GALLEON-berth-swung",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "  const berthing = still && !ship.route?.lost",
+    "new": "  const berthing = false && !ship.route?.lost",
+    "tests": [
+      "test/auditnav2_captains.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-berth-unmargined",
+    "file": "src/systems/naval/navalAI.js",
+    "old": "    for (const x of [0, b.halfWidth + SCAN_MARGIN]) if (!isWater(",
+    "new": "    for (const x of [0, b.halfWidth]) if (!isWater(",
+    "tests": [
+      "test/auditnav2_captains.test.js"
+    ]
   }
 ]

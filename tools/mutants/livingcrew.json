@@ -29,7 +29,7 @@
   {
     "name": "CREW-stations-walk",
     "file": "src/systems/naval/crewLife.js",
-    "old": "  for (const p of places) (deck?.walkable(p[0], p[2]) ? onDeck : stations).push(p);",
+    "old": "  for (const p of places) (deck?.walkable(p[0], p[2]) && !(p[1] > main + FLIGHT_OVER) ? onDeck : stations).push(p);",
     "new": "  for (const p of places) onDeck.push(p);",
     "tests": [
       "test/livingcrew.test.js"

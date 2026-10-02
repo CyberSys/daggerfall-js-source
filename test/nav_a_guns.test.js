@@ -136,7 +136,7 @@ test('NAV-A the aim: a look that meets the sea lays the side\'s guns to fall the
   const d = [target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]], dl = Math.hypot(...d);
   const aim = aimSolution(ship, 'starboard', { origin: eye, dir: d.map((v) => v / dl) }, seaY);
   assert.equal(aim.side, 'starboard'); assert.equal(aim.gun, 'long'); assert.equal(aim.barrel, false);
-  assert.equal(aim.launches.length, 6, 'six long guns a side on a Small Ship');
+  assert.equal(aim.launches.length, 5, 'five long guns a side on a Small Ship');   // PIN MOVED (GALLEON, 2026-10-01): Mac's galleon's five ports a side
   assert.deepEqual(aim.dir.map((v) => +v.toFixed(9) + 0), [1, 0, 0], 'fired square to starboard');
   near(aim.range, 60, 1.5, 'the zone where the look meets the sea');
   near(aim.lookPoint[0], target[0], 1e-9, 'the look\'s own point on the sea');
@@ -307,7 +307,7 @@ test('NAV-A the hulls\' batteries as HULL_BUILDS measures them: a rowboat none, 
   const kinds = (h) => Object.fromEntries(batteriesOf(h).map((b) => [b.side, `${b.gun}x${b.muzzles.length}`]));
   assert.deepEqual(kinds(0), {});
   assert.deepEqual(kinds(1), { starboard: 'swivelx3', port: 'swivelx3', bow: 'swivelx1' });
-  assert.deepEqual(kinds(2), { starboard: 'longx6', port: 'longx6', bow: 'chainx2', stern: 'barrelx1' });
+  assert.deepEqual(kinds(2), { starboard: 'longx5', port: 'longx5', bow: 'chainx2', stern: 'barrelx1' });   // PIN MOVED (GALLEON, 2026-10-01): a gun a port
   assert.deepEqual(kinds(3), { starboard: 'longx4', port: 'longx4', bow: 'heavyx3' });
   assert.deepEqual(kinds(4), { starboard: 'longx7', port: 'longx7', bow: 'chainx2', stern: 'barrelx1' });
   for (let h = 1; h < HULL_BUILDS.length; h++) {

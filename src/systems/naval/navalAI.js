@@ -1371,19 +1371,26 @@ function boardCourse(ship, enemy, wind, isWater) {
   const still = Math.hypot(v[0], v[2]) < GRAPPLE_STILL;
   const sweeps = still && d <= SWEEP_RANGE ? Math.min(SWEEP_WAY, pace) : 0;
   if (wp) return { want: headingTo(ship.pos, wp), goal: wp, sails, sweeps, sailable: sweeps > 0 };
-  if (d < 8) return { want: eYaw, goal: berth, sails, sweeps, sailable: sweeps > 0 };
+  // GALLEON (2026-10-01): THE LAST LEG INTO A SOUNDED BERTH - the berth open and the straight leg to it sounded clear
+  // (routeTo: no way round wanted), within her lookout's reach of it, she comes in on it as a moored ship berths
+  // (shipLife.js), never swung off it by the lookout's LOOKAHEAD_MIN past the berth: the new galleon's narrower hull lies
+  // closer in to the boat she boards, and the land 31 m beyond a prize held her off the grapple's reach for good
+  const berthing = still && !ship.route?.lost && berthOpen(ship, berth, f, r, ship.berthSide, isWater) && d <= lookout(ship).dist;
+  if (d < 8) return { want: eYaw, goal: berth, sails, sweeps, sailable: sweeps > 0, berthing };
   // up from astern to match a boat under way
   const lead = still ? 0 : Math.min(60, d) * 0.8, ahead = Math.min(10, d / Math.max(1, ship.speed));
   const aim = [berth[0] - f[0] * lead + v[0] * ahead, 0, berth[2] - f[2] * lead + v[2] * ahead];
-  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0 };
+  return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0, berthing };
 }
 
 /** AUDIT NAV2 F22: whether she can lie at a berth - her stem, middle and stern there, on her keel line and her outer
- *  side (the hull she berths by along `f`, her side of it `side` along `r`), all on water. */
+ *  side (the hull she berths by along `f`, her side of it `side` along `r`), all on water. GALLEON (2026-10-01): her
+ *  outer side SCAN_MARGIN out, as every leg to it is sounded (legClear) - the new galleon's narrower hull fitted a berth
+ *  0.4 m off a spit that no leg could sound its way into, and she gave the boarding up. */
 function berthOpen(ship, berth, f, r, side, isWater) {
   const b = hullBuild(ship.hull);
   for (const z of [b.bowZ, 0, b.aftZ]) {
-    for (const x of [0, b.halfWidth]) if (!isWater(berth[0] + f[0] * z + r[0] * side * x, berth[2] + f[2] * z + r[2] * side * x)) return false;
+    for (const x of [0, b.halfWidth + SCAN_MARGIN]) if (!isWater(berth[0] + f[0] * z + r[0] * side * x, berth[2] + f[2] * z + r[2] * side * x)) return false;
   }
   return true;
 }

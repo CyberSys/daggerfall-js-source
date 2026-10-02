@@ -124,7 +124,7 @@ test('AUDIT NAV1 G3 the fire\'s window: her half-extent across the line of fire 
   near(win('pirateBrig', player([100, 0, 0], { yaw: undefined, vel: [5, 0, 0] }), 100), win('pirateBrig', bowOn, 100), 1e-9, 'or her way\'s');
 });
 
-test('AUDIT NAV1 G4 never over her, never short: a lay the carriage cannot depress to strike her - a Large Boat alongside a galley\'s high deck - is neither run out nor fired; the depression the audit asked lets a Small Ship\'s broadside strike a sloop come alongside to grapple, where -3 flew over her (mutants: layPasses always, the band\'s roof)', () => {
+test('AUDIT NAV1 G4 never over her, never short: a lay the carriage cannot depress to strike her - a Large Boat alongside a galley\'s high deck - is neither run out nor fired; the depression the audit asked lets a Carrack\'s broadside strike a sloop come alongside to grapple, where -3 flew over her, and the new galleon\'s low guns strike her laid shallower (mutants: layPasses always, the band\'s roof)', () => {
   const lb = hullBuild(HULL.LargeBoat);
   // the galley's long guns stand 11.1 m up: a Large Boat 21 m off her side is under them
   const g = ship('pirateGalley');
@@ -135,8 +135,13 @@ test('AUDIT NAV1 G4 never over her, never short: a lay the carriage cannot depre
   const r = run(g, gw, 4);
   assert.equal(r.volleys.filter((v) => v.side === 'starboard').length, 0, 'no broadside that flies over her');
   assert.equal(r.runOuts.filter((x) => x.side === 'starboard').length, 0, 'and no tell for one');
-  // a Small Ship's broadside at a sloop 25 m off her guns
-  const b = ship('pirateBrig');
+  // a Carrack's broadside at a sloop 25 m off her guns - PIN MOVED (GALLEON, 2026-10-01): the Small Ship's guns stand
+  // 2.24 m over the sea now (Mac's galleon's gun deck), under the old -3's reach: hers strike a sloop alongside laid
+  // a degree and a half down, and -3 too
+  const brig = ship('pirateBrig');
+  const low = aimSolution(pose(brig), 'starboard', null, 0, { target: [31, 0, 0], targetY: lb.top * AIM_FREEBOARD });
+  assert.ok(layPasses(low, [31, 0, 0], [0, lb.top]) && low.elevation > -3 * DEG, `the Small Ship's low guns (${low.elevation / DEG})`);
+  const b = ship('pirateFlagship');
   const sol = aimSolution(pose(b), 'starboard', null, 0, { target: [33, 0, 0], targetY: lb.top * AIM_FREEBOARD });
   assert.ok(layPasses(sol, [33, 0, 0], [0, lb.top]), 'laid low enough at -8');
   assert.ok(sol.elevation > GUNS.long.minEl * DEG && sol.elevation < -3 * DEG, `below the old -3 (${sol.elevation / DEG})`);

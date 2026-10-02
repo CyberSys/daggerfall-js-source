@@ -83,7 +83,8 @@ import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
 import { raiderPlan, raiderClassOf } from '../systems/naval/navalRaiders.js';
-import { intoDeck } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip)
+import { intoDeck, mainLevel, DECK_STEP } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip)
+import { createGalleonGunDeck } from '../systems/naval/galleonGunDeck.js';   // GALLEON: her shutters and guns at work
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
 export const NAVAL_SAVE_VENDOR = 'NavalCombat';
@@ -426,6 +427,9 @@ export function createNavalHost(deps) {
   const where = () => (whereNow ??= deps.where?.() ?? {});
   const now = () => clock;
   let clock = 0;
+  /** GALLEON: every galleon's gun deck in play - her shutters opened and her guns run out as a broadside is laid, each
+   *  gun kicked back as it fires (systems/naval/galleonGunDeck.js; a hull without the nodes is left alone). */
+  const galleonGuns = createGalleonGunDeck();
   let enabled = true;
 
   // ── the sea's ships ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -574,6 +578,14 @@ export function createNavalHost(deps) {
   /** AUDIT NAV1 (the presentation): how far into the far roll a report at `d` (m) is heard - 0 near, 1 far. */
   const farShare = (d) => clamp((d - (NEAR_BOOM_M - FAR_FADE_M)) / (2 * FAR_FADE_M), 0, 1);
 
+  /** GALLEON: the boat a shooter's id names - one of mine, a sea ship's, another player's at her helm - or null. */
+  function boatOfShooter(id) {
+    if (typeof id !== 'string') return null;
+    if (isMine(id)) return myBoats().find((b) => myBoatId(b) === id) ?? null;
+    if (id.startsWith('peer:')) { const owner = id.slice(5); return (deps.peerBoats?.() ?? []).find((p) => p.id === owner)?.boat ?? null; }
+    return sea.get(id)?.boat ?? null;
+  }
+
   // ── firing ───────────────────────────────────────────────────────────────────────────────────────────────────────
   /**
    * A volley from a ship: its balls flown (resolved here when `resolve`), its word kept for the others.
@@ -620,6 +632,7 @@ export function createNavalHost(deps) {
     countTally(e);
     if (e.type === 'muzzle') {
       if ((e.index ?? 0) === 0) heardGun(e.pos, gunfireBy(e.shooter));   // SEA-PEACE: a volley's report, heard across the bay
+      if (e.side === 'starboard' || e.side === 'port') { const gb = boatOfShooter(e.shooter); if (gb) galleonGuns.fired(gb, e.side, e.index ?? 0, clock); }   // GALLEON: the gun that fired it kicks back
       const scale = e.gun === 'heavy' ? 1.35 : e.gun === 'swivel' ? 0.55 : 1;
       effects.muzzle(e.pos, e.dir, scale);
       flashes.push({ pos: [...e.pos], t: clock });
@@ -1524,7 +1537,9 @@ export function createNavalHost(deps) {
    *  quay point 19.6 m from her hull) and stood the hunt, a bounty's trail and a band's chase down. F60: a hull whose
    *  root stands past her own reach of the feet (her stem, her stern and her beam, and DECK_REACH_M) is never asked - her
    *  box was built for every boat and every sea ship on every call (3.34 us and 11 KB: each step's hostileNear, the
-   *  threats, playerAfloat each frame). */
+   *  threats, playerAfloat each frame). GALLEON (2026-10-01): DECK_REACH_M her rail's - feet at her main deck or over it;
+   *  under it a floor of hers under the feet themselves (the new galleon's gun deck lies 1.08 m over the sea, and a
+   *  metre's reach of it stood a swimmer or a quay against her side aboard). */
   const _aboardLocal = [0, 0, 0];
   const standsOn = (boat, feet) => {
     const r = boat.GameObject?.worldMatrix?.(), b = hullBuild(boat.hull);
@@ -1532,7 +1547,7 @@ export function createNavalHost(deps) {
     const deck = boat.MeshObject && deps.pool.deckOf?.(boat.hull, boat.variant ?? 0);
     if (!deck?.count || !deck.under) { const box = hullBox(boat); return !!box && insideGrown(box, feet, DECK_REACH_M); }
     const l = intoDeck(boat.MeshObject.worldMatrix(), feet, _aboardLocal);
-    return deck.under(l[0], l[2], l[1], DECK_REACH_M);
+    return deck.under(l[0], l[2], l[1], l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : 0);
   };
   function aboardShip() {
     if (myBoat() || (boarding?.boat && myBoats().includes(boarding.boat)) || deps.aboardPeer?.()) return true;
@@ -2719,7 +2734,18 @@ export function createNavalHost(deps) {
     if (aiming && boat) {
       const side = lookSide(boat);
       if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }
+      if (side === 'starboard' || side === 'port') galleonGuns.lay(boat, side, clock);   // GALLEON: laid - her shutters up, her guns out
     } else if (!boat) aiming = false;
+    // GALLEON: a captain's run-out opens her shutters as it runs her guns out (the tell, navalAI.js) - and every
+    // galleon in play stands her gun deck as this frame has it
+    const decks = [...myBoats()];
+    for (const e of sea.values()) {
+      if (!e.boat) continue;
+      decks.push(e.boat);
+      for (const side of e.ship.runOut?.keys?.() ?? []) if (side === 'starboard' || side === 'port') galleonGuns.lay(e.boat, side, clock);
+    }
+    for (const p of deps.peerBoats?.() ?? []) if (p.boat) decks.push(p.boat);
+    galleonGuns.step(decks, clock);
     // the word's memory of the last moments
     wireVolleys = wireVolleys.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
     wireBarrels = wireBarrels.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
@@ -3591,6 +3617,8 @@ export function createNavalHost(deps) {
 
   return {
     frame, attackInput, cancelAim, holdFire, activate, hudModel, drawFrame, lights, offsetAll, clear, stowPlunder, aimEye, wayScale, sailRefused, brake,
+    /** GALLEON: a galleon's gun deck as this frame stood it (her sides laid, her guns' places, her shutters) - a probe's reading. */
+    gunDeckOf: (boat) => galleonGuns.read(boat, clock),
     word, applyWord, sweepOwners, applyPeerHit, dropOwner, clearPeers,
     /** AUDIT NAV2 F3/F9: another player's boat at sea as their word says her - her crew's share and whether she
      *  fights (her crew at battle on every screen) - or null (no word, or an older build's). AUDIT WK-W12: and her work,

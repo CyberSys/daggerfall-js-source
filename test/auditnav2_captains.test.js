@@ -524,6 +524,10 @@ for (const navy of ['navyCutter', 'navyGalley']) {
       if (wins.none) lines.push(`${say} - not fought to a strike`);
     }
     assert.deepEqual(lines, []);
-    assert.ok(called >= 2, `the model calls two of the four at least (${called})`);
+    // PIN MOVED (GALLEON, 2026-10-01): the cutter is a Small Ship - Mac's galleon, five guns a side where the mod's had
+    // six - and her odds on the corsair galley 1.23 to one now (1.47 with six): fought four to four, which the model
+    // rightly leaves uncalled; she calls the flagship alone
+    const least = navy === 'navyCutter' ? 1 : 2;
+    assert.ok(called >= least, `the model calls ${least} of the four at least (${called})`);
   });
 }

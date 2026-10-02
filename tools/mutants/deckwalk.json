@@ -101,7 +101,7 @@
   {
     "name": "DECK-WALK-corner-cut-past-edge",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "          if (di && dk && !(Math.abs(y[k * nx + ii] - y[j]) <= DECK_JOIN && Math.abs(y[kk * nx + i] - y[j]) <= DECK_JOIN)) continue;   // no corner cut past the edge (AUDIT NAV2 F34: nor past a drop - a stair's tread beside the deck it climbs from)\n",
+    "old": "          if (di && dk && !(steps(j, k * nx + ii) && steps(j, kk * nx + i))) continue;   // no corner cut past the edge (AUDIT NAV2 F34: nor past a drop - a stair's tread beside the deck it climbs from)\n",
     "new": "",
     "tests": [
       "test/deckwalk.test.js"
@@ -128,7 +128,7 @@
   {
     "name": "DECK-WALK-leg-tread-unread",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "!Number.isNaN(y[kk * nx + ii]) && Math.abs(y[kk * nx + ii] - was) <= DECK_JOIN;",
+    "old": "!Number.isNaN(y[kk * nx + ii]) && steps(was, kk * nx + ii);",
     "new": "!Number.isNaN(y[kk * nx + ii]);",
     "tests": [
       "test/deckwalk.test.js"

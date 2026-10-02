@@ -91,7 +91,7 @@ rail's height, the beam); the table is what each carries, a side at a time:
 |---|---|---|
 | Rowboat | 60 / 0 / 0 | none - it rams, it does not fight |
 | Large Boat | 150 / 60 / 0 | 3 swivels a side, 1 on the bow |
-| Small Ship | 420 / 160 / 24 | 6 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
+| Small Ship | 420 / 160 / 24 | 5 long guns a side (GALLEON: a gun a port of Mac's galleon - the mod's had 6), 2 chain-shot chasers, a fire barrel over the stern |
 | Large Galley | 520 / 90 / 60 | 4 long guns a side, 3 great guns on the bow - and the ram (GALLEY_RAM) |
 | Carrack | 560 / 220 / 30 | 7 long guns a side, 2 chain-shot chasers, a fire barrel over the stern |
 
@@ -1642,6 +1642,33 @@ once built, a stale owner masking the sink window, the sea off the player's shor
 AUDIT NAV2's own suites - `test/auditnav2_online.test.js`, `auditnav2_boarding`, `auditnav2_captains`,
 `auditnav2_helm`, `auditnav2_combat`, `auditnav2_deck` and `auditnav2_crew` - and their mutant lists
 (`tools/mutants/auditnav2_*.json`) are the audit's record's (`01-Overview/Audit-NAV2.md`).
+
+## GALLEON (2026-10-01) - Mac's galleon, her guns out of her ports - OURS
+
+Hull 2 is Mac's own galleon now (`03-World/Come-Sail-Away.md` The new galleon; the Port-Ledger's GALLEON row), and the
+Small Ship's build is measured off her (`navalShips.js` HULL_BUILDS, `world/galleonModel.js` GALLEON_BATTERIES): five
+long guns a side, a gun a port, each muzzle at its port's middle a hair outside her planking (5.95 m out, 2.24 m over
+the sea - her gun deck at 1.085), so a broadside leaves her through the holes it is fired from; two chain chasers on
+swivels over her bow rail (7.45 m); her barrels under her castle astern. Her box is her MeshCollider's bounds - her
+hull's planking and her castle's (stem 21.93, stern -19.91, half beam 5.86, keel -3.89, roof 12.3); her rig four boxes
+of her set canvas over that roof (the fore course and topsail, the main topsail, the gaff, the jib).
+
+**Her gun deck works** (`systems/naval/galleonGunDeck.js`, stepped by the host for every ship of hers in play): a battery
+laid - my look at her helm, a captain's run-out tell - opens that side's shutters and runs its guns out; each gun kicks
+RECOIL inboard as its own ball leaves (`muzzle`, its index the port's) and is hauled out over HAUL_S; HOLD_S past the
+last word they run in to load and the shutters close. `scenes/navalHost.js gunDeckOf` reads it.
+
+**What five guns moved.** Every hull-2 class (the pirate brig, the merchant galleon, the navy cutter) is a sixth lighter
+at the guns. The pins that stood on the six moved to the five's truth: a wary brig outguns no sound boat of the
+player's now (a crewless Large Galley 1.10 to one, where it was her prize at 1.31) - the wary sloop's prize is the
+Large Galley, which cannot lay on her, and the brig's a Small Ship hurt to four fifths and alone at her guns (1.37);
+the navy cutter on the corsair galley 1.23 to one (1.47), fought four to four, so Mac's bar (AUDIT NAV2 F25) calls one
+of the cutter's four duels where it called two. Her low gun deck brought the aboard reach to her rail's height (her
+gun deck lies 1.08 m over the sea: a metre's reach of it read a swimmer against her side aboard); a boarding comes in
+on a sounded berth unswung by the lookout (`boardCourse` `berthing`: LOOKAHEAD_MIN held her 60 m off a prize lying
+31 m from a spit, her narrower hull needing to close 5 m nearer than the mod's to grapple) and sounds a berth as wide
+as the legs that reach it (`berthOpen`). Pins: `test/galleon_model.test.js`; the moved pins in `nav_a_guns`,
+`nav_h_host`, `navaudit_*`, `auditnav2_*`, `seapeace`, `deckwalk`, `livingcrew`, `fb1001b_peerboats`.
 
 ## THE MERGE with main (2026-09-28)
 

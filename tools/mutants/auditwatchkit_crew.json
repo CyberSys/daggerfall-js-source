@@ -380,8 +380,8 @@
   {
     "name": "LD-CL-hatch-at-stern",
     "file": "src/systems/naval/crewLife.js",
-    "old": "deck.nearest?.(0, ext ? (ext[0] + ext[1]) / 2 : 0)",
-    "new": "deck.nearest?.(0, ext ? ext[0] : 0)",
+    "old": "deck.nearest?.(0, mainExt ? (mainExt[0] + mainExt[1]) / 2 : 0)",
+    "new": "deck.nearest?.(0, mainExt ? mainExt[0] : 0)",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]
@@ -463,6 +463,15 @@
     "file": "src/scenes/navalCrew.js",
     "old": "ship.work = Number.isFinite(w.work) ? w.work : 0;",
     "new": "ship.work = 0;",
+    "tests": [
+      "test/auditwatchkit_crew.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-hatch-whole-deck",
+    "file": "src/systems/naval/crewLife.js",
+    "old": "  const mainExt = deck?.y && deck.count ? deckExtentZ(deck, main) : null;",
+    "new": "  const mainExt = ext;",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]

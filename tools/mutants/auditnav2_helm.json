@@ -38,7 +38,7 @@
   {
     "name": "AUDIT-NAV2-F15-the-current-counted",
     "file": "src/systems/comeSailAway.js",
-    "old": "vMagnitude(state.MoveVectorCurrent) < IRONS_TELL_WAY",
+    "old": "state.MoveVectorCurrent[2] < IRONS_TELL_WAY",
     "new": "vMagnitude(state.velocityCurrent) < IRONS_TELL_WAY",
     "tests": [
       "test/auditnav2_helm.test.js",
@@ -138,8 +138,8 @@
   {
     "name": "AUDIT-NAV2-F20-the-mods-old-way",
     "file": "src/systems/helmWay.js",
-    "old": "Small Ship took 25.4 s to her full way",
-    "new": "Small Ship took 29.8 s to her full way",
+    "old": "Small Ship took 29.2 s to her full way",
+    "new": "Small Ship took 25.4 s to her full way",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]
@@ -147,8 +147,8 @@
   {
     "name": "AUDIT-NAV2-F20-the-mods-old-loss",
     "file": "src/systems/helmWay.js",
-    "old": "// of 7.6 m/s and 38.1 s (145 m) to lose it",
-    "new": "// of 7.6 m/s and 45 s (200 m) to lose it",
+    "old": "8.75 m/s and 43.7 s (191 m) to lose it",
+    "new": "8.75 m/s and 45 s (200 m) to lose it",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]
@@ -156,8 +156,8 @@
   {
     "name": "AUDIT-NAV2-F20-the-laws-old-way",
     "file": "src/systems/helmWay.js",
-    "old": "a Small Ship 7.25 s to her full way, 12.7 s (48 m) to lose it",
-    "new": "a Small Ship 8.5 s to her full way, 15 s (48 m) to lose it",
+    "old": "a Small Ship 8.33 s to her full way, 14.6 s (64 m) to lose it",
+    "new": "a Small Ship 8.5 s to her full way, 15 s (64 m) to lose it",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]
@@ -165,8 +165,8 @@
   {
     "name": "AUDIT-NAV2-F20-full-way-at-nine",
     "file": "src/systems/helmWay.js",
-    "old": "//     way of 7.6 m/s (a 94 m circle), 8.3 at 9 m/s",
-    "new": "//     way of 9 m/s (a 94 m circle), 8.3 at 9 m/s",
+    "old": "//     way of 8.75 m/s (a 118 m circle), 8.3 at 9 m/s",
+    "new": "//     way of 9 m/s (a 118 m circle), 8.3 at 9 m/s",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]
@@ -203,6 +203,15 @@
     "file": "src/scenes/navalHost.js",
     "old": "    if (!enabled || boarding || aiming) return false;",
     "new": "    if (!enabled || boarding) return false;",
+    "tests": [
+      "test/auditnav2_helm.test.js"
+    ]
+  },
+  {
+    "name": "GALLEON-irons-astern-unread",
+    "file": "src/systems/comeSailAway.js",
+    "old": "state.MoveVectorCurrent[2] < IRONS_TELL_WAY",
+    "new": "vMagnitude(state.MoveVectorCurrent) < IRONS_TELL_WAY",
     "tests": [
       "test/auditnav2_helm.test.js"
     ]

@@ -103,11 +103,11 @@ test('NAV-H at an armed helm the attack is the broadside\'s: look to a side and 
   assert.ok(host.drawFrame().aim.arcs.length > 0, 'the arcs drawn');
   assert.equal(host.attackInput(false), true);
   assert.equal(host.aiming, false);
-  assert.ok(host._shots.inFlight >= 6, 'the whole broadside');
+  assert.ok(host._shots.inFlight >= 5, 'the whole broadside');   // PIN MOVED (GALLEON, 2026-10-01): five ports a side
   assert.deepEqual(log.shake, [], 'AUDIT NAV1 (the presentation): no kick at the release - each gun kicks as it goes');
   run(host, 0.6);
   const booms = log.sounds.filter(([k]) => k === NAVAL_SFX.cannon);
-  assert.ok(booms.length >= 6, 'each gun heard');
+  assert.ok(booms.length >= 5, 'each gun heard');
   assert.equal(booms[0][1].refDistance, 30, 'over a long gun\'s own range');
   assert.equal(log.sounds.some(([k]) => k === NAVAL_SFX.cannonFar), false, 'my own guns, near: no far roll');
   assert.ok(NEAR_BOOM_M > 0);

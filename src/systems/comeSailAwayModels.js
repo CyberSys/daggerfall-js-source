@@ -58,6 +58,8 @@
 // and one with more draws its last submesh again with each extra one -
 // Unity's rule.
 
+import { galleonPrefab, GALLEON_PREFAB_ID } from '../world/galleonModel.js';   // GALLEON: Mac's ship stands in for hull 2
+
 /** Where the extractor's files are served (a pin reads them off the disk). */
 export const CSA_MODEL_URLS = Object.freeze({
   prefabs: new URL('../../vendor/come-sail-away/Models/prefabs.json', import.meta.url).href,
@@ -66,6 +68,9 @@ export const CSA_MODEL_URLS = Object.freeze({
   materials: new URL('../../vendor/come-sail-away/Models/materials.json', import.meta.url).href,
   animation: new URL('../../vendor/come-sail-away/Models/animation.json', import.meta.url).href,
 });
+/** GALLEON (2026-10-01): the new galleon's model, baked from Mac's export (tools/bakeGalleon.mjs) - the port's own, not
+ *  the mod's, so never among its files above: hull 2 is built on it (comeSailAwayModels' `galleon`). */
+export const GALLEON_MODEL_URL = new URL('../../src/assets/galleon/galleon.json', import.meta.url).href;
 
 /** CSA-E: the wind widget's pictures as Start imports them - TryImportTexture(112395, 1, i), frame i of the 24. */
 export const windWidgetFrameUrl = (/** @type {number} */ i) => new URL(`../../vendor/come-sail-away/Textures/112395_1-${i}.png`, import.meta.url).href;
@@ -80,10 +85,11 @@ export const soundUrl = (/** @type {string} */ name) => new URL(`../../vendor/co
 /**
  * The five files, fetched. NEVER TRAPS: a file that will not load is the
  * mod's boats missing, never the scene - the answer is null and it says
- * so once.
+ * so once. GALLEON: and the new galleon's model at `galleonUrl` (null for
+ * none) - missing, hull 2 is the mod's own galleon, said once.
  * @returns {Promise<ReturnType<typeof comeSailAwayModels> | null>}
  */
-export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = CSA_MODEL_URLS, log = console) {
+export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = CSA_MODEL_URLS, log = console, galleonUrl = GALLEON_MODEL_URL) {
   if (!fetchFn) return null;
   try {
     const get = async (/** @type {string} */ url, /** @type {boolean} */ binary) => {
@@ -94,7 +100,17 @@ export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = 
     const [prefabs, meshes, bin, materials, animation] = await Promise.all([
       get(urls.prefabs, false), get(urls.meshes, false), get(urls.bin, true), get(urls.materials, false), get(urls.animation, false),
     ]);
-    return comeSailAwayModels({ prefabs, meshes, bin, materials, animation });
+    // GALLEON: the new galleon over hull 2 - and, its model not answering, the mod's own galleon, said once (a ship
+    // missing her new timbers still sails as the old one; never no ship)
+    let galleon = null;
+    if (galleonUrl) {
+      try { galleon = await get(galleonUrl, false); } catch (e) { log?.warn?.('[come-sail-away] the new galleon did not load - hull 2 stands as the mod\'s own galleon', e); }
+    }
+    try { return comeSailAwayModels({ prefabs, meshes, bin, materials, animation, galleon }); } catch (e) {
+      if (!galleon) throw e;
+      log?.warn?.('[come-sail-away] the new galleon would not build - hull 2 stands as the mod\'s own galleon', e);
+      return comeSailAwayModels({ prefabs, meshes, bin, materials, animation });
+    }
   } catch (e) {
     log?.warn?.('[come-sail-away] the boats\' models did not load - no boat can stand', e);
     return null;
@@ -103,18 +119,37 @@ export async function loadComeSailAwayModels(fetchFn = globalThis.fetch, urls = 
 
 /**
  * The files as the port reads them. `geometry(key)` decodes a mesh once.
- * @param {{ prefabs: { prefabs: Record<string, any>, components: any[] }, meshes: Record<string, any>, bin: Uint8Array, materials: Record<string, any>, animation: any }} files
+ *
+ * GALLEON (2026-10-01): with `galleon` (src/assets/galleon/galleon.json) the new galleon STANDS IN FOR HULL 2 - prefab
+ * 112412 is her tree (world/galleonModel.js galleonPrefab), her components join the shared table after the mod's, her
+ * meshes answer `geometry` (decoded already - she is built, not extracted) and `meshes` their boxes, and her clips and
+ * overrides join the mod's animation. Without it every file reads as the mod shipped it (the mod's own pins read that).
+ * @param {{ prefabs: { prefabs: Record<string, any>, components: any[] }, meshes: Record<string, any>, bin: Uint8Array, materials: Record<string, any>, animation: any, galleon?: any }} files
  */
-export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation }) {
+export function comeSailAwayModels({ prefabs, meshes, bin, materials, animation, galleon = null }) {
   const decoded = new Map();
+  let prefabTable = prefabs.prefabs, components = prefabs.components, meshTable = meshes, anim = animation;
+  if (galleon) {
+    const g = galleonPrefab(galleon, prefabs);
+    prefabTable = { ...prefabs.prefabs, [String(GALLEON_PREFAB_ID)]: g.prefab };
+    components = [...prefabs.components, ...g.components];
+    meshTable = { ...meshes };
+    for (const [key, geo] of Object.entries(g.meshes)) {
+      meshTable[key] = { vertexCount: geo.vertexCount, aabb: geo.aabb, galleon: true };
+      decoded.set(key, geo);
+    }
+    anim = { ...animation, overrides: { ...animation.overrides, ...g.animation.overrides }, clips: { ...animation.clips, ...g.animation.clips } };
+  }
   return {
-    prefabs: prefabs.prefabs,
-    components: prefabs.components,
-    meshes,
+    prefabs: prefabTable,
+    components,
+    meshes: meshTable,
     materials,
-    animation,
+    animation: anim,
+    /** GALLEON: whether hull 2 is the new galleon (the art's registration, a probe's reading). */
+    galleon: !!galleon,
     /** The prefab tree DFU's MeshReplacement answers `id` with, or null (TryImportGameObject's false). */
-    prefab: (/** @type {number} */ id) => prefabs.prefabs[String(id)] ?? null,
+    prefab: (/** @type {number} */ id) => prefabTable[String(id)] ?? null,
     /** A mesh decoded to the port's shape, once; null for a key the files do not carry. */
     geometry(/** @type {string} */ key) {
       if (decoded.has(key)) return decoded.get(key);

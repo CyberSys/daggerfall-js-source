@@ -249,7 +249,8 @@ test('AUDIT NAV2 F40 THE RAIL DEALT FORE TO AFT: the muster\'s rail slots go to 
       assert.ok(walkers.every((m) => Math.abs(m.pos[0]) > 1.5 && Math.sign(m.pos[0]) === side), `${cls} ${seed}: at her ${side > 0 ? 'starboard' : 'port'} rail`);
       // the rail's places are the walkers' - a station keeps his post and takes none (her captain's and her helmsman's
       // on the Small Ship's poop sent her walkers to the forward half of it)
-      const ext = deckExtentZ(deck), aft = Math.min(...walkers.map((m) => m.pos[2]));
+      // PIN MOVED (GALLEON, 2026-10-01): her main deck's rail - the new galleon's castle aft of it, up its flights
+      const ext = deckExtentZ(deck, mainLevel(deck)), aft = Math.min(...walkers.map((m) => m.pos[2]));
       assert.ok(aft <= ext[0] + (ext[1] - ext[0]) / walkers.length + 0.5, `${cls} ${seed}: her aftmost walker at the rail's aftmost place (${aft.toFixed(1)})`);
       for (let k = 1; k < before.length; k++) {
         assert.ok(before[k - 1].pos[2] <= before[k].pos[2] + 1e-6, `${cls} ${seed}: the order fore and aft kept - #${before[k - 1].i} then #${before[k].i}: ${before.map((m) => `${m.i}@${m.pos[2].toFixed(1)}`).join(' ')}`);
@@ -277,7 +278,8 @@ test('AUDIT NAV2 F62 THE MUSTER ON HER MAIN DECK (F40 after F34, found at the me
   }
   // the Small Ship's, through her crew's own muster: every walker ready at her main deck's rail on the side asked
   const deck = pool.deckOf(2, 0), main = mainLevel(deck);
-  assert.ok(deckExtentZ(deck)[1] > deckExtentZ(deck, main)[1], 'her forecastle is her deck, forward of her main deck');
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's raised deck is her castle, aft, up its two flights
+  assert.ok(deckExtentZ(deck)[0] < deckExtentZ(deck, main)[0] - 5, 'her castle is her deck, aft of her main deck');
   for (let seed = 1; seed <= 6; seed++) {
     const life = createCrewLife({ deck, roster: crewRoster({ hull: 2, seed, shipClass: pirate }), seed, places: placesOf(hullOf(2), deck), faction: 'pirate' });
     for (let f = 0; f < 45 / DT; f++) life.step(DT, {});

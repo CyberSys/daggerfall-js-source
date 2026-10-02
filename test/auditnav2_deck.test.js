@@ -49,12 +49,12 @@ const near = (a, b, eps = 1e-6) => a.every((v, i) => Math.abs(v - b[i]) < eps);
 
 /** world.js's deck doors over the pool's decks, cast at her live colliders (csaColliderMesh's reading of them). */
 function deckDoors(pool) {
-  const body = `const { intoDeck, outOfDeck, DECK_HEADROOM, csa, raycastColliders, csaColliderMesh, tvSeaY, navalHullBoxOf } = s;
+  const body = `const { intoDeck, outOfDeck, DECK_HEADROOM, csa, raycastColliders, csaColliderMesh, tvSeaY, navalHullBoxOf, mainLevel } = s;
     ${line('  const navalDeckToWorld = (boat, p, out) =>')}${line('  const navalWorldToDeck = (boat, p, out) =>')}${line('  const NAVAL_RAIL_GAP = ')}
     ${lift('navalDeckSpots')}${lift('navalDeckPoint')}${lift('navalDeckLanding')}${lift('navalRailSpots')}
     return { navalDeckSpots, navalDeckPoint, navalDeckLanding, navalRailSpots };`;
   // eslint-disable-next-line no-new-func
-  return new Function('s', body)({ intoDeck, outOfDeck, DECK_HEADROOM, csa: { deckOf: (h, v) => pool.deckOf(h, v), models: null }, raycastColliders, csaColliderMesh: geometry, tvSeaY: () => 0, navalHullBoxOf: () => null });
+  return new Function('s', body)({ intoDeck, outOfDeck, DECK_HEADROOM, csa: { deckOf: (h, v) => pool.deckOf(h, v), models: null }, raycastColliders, csaColliderMesh: geometry, tvSeaY: () => 0, navalHullBoxOf: () => null, mainLevel: NAVAL_DECK.mainLevel });
 }
 /** world.js's deck registry, leash and carry, over `csa` (a pool, or a stand-in with its deckOf) and `foes`. */
 function leashRig(csa, foes) {
@@ -165,11 +165,17 @@ test('AUDIT NAV2 F32 A SMALL HULL\'S DECK: kept off her walls and her open side,
   assert.equal(lb.walkable(0.1, 1.26), true, 'against her fore thwart');
   assert.equal(lb.walkable(-0.9, -0.24), false, 'still kept off her side');
   assert.equal(lb.walkable(1.1, -0.24), false, 'either side');
-  // the big three as they were: the Small Ship's every cell under her stair's upper treads (F34 adds those and her
-  // forecastle), the Large Galley's and the Carrack's every cell
-  assert.equal(cellsOf(pool.deckOf(2, 0)).filter((c) => c[1] < 8.6).length, 651, 'the Small Ship\'s 651');
+  // the big three as they are: PIN MOVED (GALLEON, 2026-10-01) - the Small Ship is the new galleon, her main deck's 736
+  // cells and her castle's two flights and roof over them (F34); the Carrack's forecastle joined up its stair (a flight
+  // finer than a cell, navalDeck.js `linked`): her 515, the stair's foot at her main deck and the 33 cells up it; the
+  // Large Galley's every cell as it was
+  const small = pool.deckOf(2, 0);
+  assert.equal(cellsOf(small).filter((c) => Math.abs(c[1] - mainLevel(small)) <= DECK_STEP).length, 736, 'the Small Ship\'s main deck, 736');
+  assert.equal(small.count, 910, 'the Small Ship\'s 910, her castle with it');
   assert.equal(pool.deckOf(3, 0).count, 4013, 'the Large Galley\'s 4013');
-  assert.equal(pool.deckOf(4, 0).count, 515, 'the Carrack\'s 515');
+  const carrack = pool.deckOf(4, 0);
+  assert.equal(carrack.count, 549, 'the Carrack\'s 549');
+  assert.equal(cellsOf(carrack).filter((c) => Math.abs(c[1] - mainLevel(carrack)) <= DECK_STEP).length, 516, 'her main deck\'s 515 and her stair\'s foot');
   // her rail: a cell a point
   const w = deckDoors(pool);
   for (let hull = 0; hull < HULL_NAMES.length; hull++) {
@@ -208,46 +214,62 @@ test('AUDIT NAV2 F33 A DECK POINT SET DOWN ON HER DECK: the ray that sets a must
 
 // ── F34: raised decks ───────────────────────────────────────────────────────────────────────────────────────────
 
-test('AUDIT NAV2 F34 RAISED DECKS, JOINED AND KEPT: the Small Ship\'s forecastle stair whole (its upper treads were the main deck under them, the stair cut at 8.55) - a walk from her waist climbs it onto her forecastle; every piece of her kept (her poop, her cabins): the leash keeps a body on her forecastle or her poop where it stands (it dragged them 2.5 m and 3.2 m down), and one stepped off her poop over her side back onto the poop; the Large Galley\'s rowers never her deck, her crew\'s main level still her main deck (mutants: one level a cell, the largest piece alone, the tread\'s join, the leash off its piece)', async () => {
+test('AUDIT NAV2 F34 RAISED DECKS, JOINED AND KEPT: PIN MOVED (GALLEON, 2026-10-01: the Small Ship is the new galleon - her castle aft up two flights, port and starboard, where the mod\'s galleon had her forecastle stair forward, its treads 0.385 m on 0.25 m risers - two risers between two cells\' centres as often as one, a flight finer than a cell, joined over the tread between them and kept a cell wide where her castle\'s well walls it) - a walk from her waist climbs either flight onto her castle; every piece of her kept (her cabin under her castle): the leash keeps a body on her castle or her flight where it stands, and one stepped off her castle over her side back onto it; the Large Galley\'s rowers never her deck, her crew\'s main level still her main deck (mutants: one level a cell, the largest piece alone, the tread\'s join, the leash off its piece, a flight\'s tread unread, a flight\'s margin taken)', async () => {
   const pool = await readyPool();
   const d = pool.deckOf(2, 0);
   assert.ok(STEP_OFFSET >= DECK_STEP, 'the motors climb a tread');
   assert.equal(NAVAL_DECK.DECK_JOIN, STEP_OFFSET, 'her floors joined at the motors\' own step');
-  for (const [x, z, y, what] of [[-1.18, 11.25, 8.84, 'a tread over her main deck'], [-1.18, 11.75, 9.13, 'the next'], [-1.18, 12.25, 9.40, 'her stair\'s head'], [-1.18, 13.75, 9.26, 'her forecastle']]) {
-    assert.ok(Math.abs(d.heightAt(x, z) - y) < 0.02, `${what}: ${d.heightAt(x, z)}`);
+  assert.equal(NAVAL_DECK.FLIGHT_JOIN, 2 * STEP_OFFSET, 'a flight\'s two risers, each the motors\' step');
+  for (const x of [-4.11, 3.89]) {
+    for (const [z, y, what] of [[-7.66, 6.495, 'a tread over her main deck'], [-8.16, 6.763, 'the next'], [-8.66, 7.274, 'two risers on'], [-12.16, 9.523, 'up her castle\'s well'], [-14.66, 10.995, 'her flight\'s head'], [-15.16, 11.018, 'her castle']]) {
+      assert.ok(Math.abs(d.heightAt(x, z) - y) < 0.02, `${what} (${x}): ${d.heightAt(x, z)}`);
+    }
   }
-  const walk = d.path([0, 0], [-1.18, 14.25]);
-  assert.ok(walk, 'a walk from her waist to her forecastle');
-  assert.ok(Math.abs(walk[0][1] - 6.77) < 0.02 && Math.abs(walk.at(-1)[1] - 9.26) < 0.02, `from her main deck up on her forecastle: ${walk[0]} -> ${walk.at(-1)}`);
-  const trod = [];   // her deck under the walk, every 5 cm of it (a straight leg runs up the stair's flight whole)
-  for (let i = 1; i < walk.length; i++) {
-    const a = walk[i - 1], b = walk[i], n = Math.ceil(Math.hypot(b[0] - a[0], b[2] - a[2]) / 0.05);
-    for (let q = 0; q <= n; q++) trod.push(d.heightAt(a[0] + (b[0] - a[0]) * q / n, a[2] + (b[2] - a[2]) * q / n));
+  const sideOf = (p, q) => {   // the flight bit of the side two neighbouring cells share, or 0
+    const i = Math.floor((p[0] - d.minX) / d.cell), k = Math.floor((p[2] - d.minZ) / d.cell), ii = Math.floor((q[0] - d.minX) / d.cell), kk = Math.floor((q[2] - d.minZ) / d.cell);
+    if (Math.abs(i - ii) + Math.abs(k - kk) !== 1) return 0;
+    const j = Math.min(k * d.nx + i, kk * d.nx + ii);
+    return (d.flights?.[j] ?? 0) & (i !== ii ? 1 : 2);
+  };
+  for (const [to, x] of [[[-2.5, -16.5], -4.11], [[2.5, -16.5], 3.89]]) {
+    const walk = d.path([0, 0], to);
+    assert.ok(walk, `a walk from her waist to her castle (${to})`);
+    assert.ok(Math.abs(walk[0][1] - 6.2) < 0.02 && Math.abs(walk.at(-1)[1] - 11.018) < 0.02, `from her main deck up on her castle: ${walk[0]} -> ${walk.at(-1)}`);
+    const trod = [];   // her deck under the walk, every 5 cm of it (a straight leg runs up the flight whole)
+    for (let i = 1; i < walk.length; i++) {
+      const a = walk[i - 1], b = walk[i], n = Math.ceil(Math.hypot(b[0] - a[0], b[2] - a[2]) / 0.05);
+      for (let q = 0; q <= n; q++) { const px = a[0] + (b[0] - a[0]) * q / n, pz = a[2] + (b[2] - a[2]) * q / n; trod.push([px, d.heightAt(px, pz), pz]); }
+    }
+    assert.ok(trod.every((p) => !Number.isNaN(p[1])), 'every step of it on her deck');
+    assert.ok(trod.some((p) => p[1] > 7.3 && p[1] < 10.9 && Math.abs(p[0] - x) < d.cell), `up her ${x < 0 ? 'port' : 'starboard'} flight's treads`);
+    for (let i = 1; i < trod.length; i++) {
+      const rise = Math.abs(trod[i][1] - trod[i - 1][1]);
+      assert.ok(rise <= STEP_OFFSET || (rise <= NAVAL_DECK.FLIGHT_JOIN && sideOf(trod[i - 1], trod[i])), `a tread at a time, or a flight's two (${trod[i - 1][1]} to ${trod[i][1]})`);
+    }
   }
-  assert.ok(trod.every((y) => !Number.isNaN(y)), 'every step of it on her deck');
-  assert.ok(trod.some((y) => y > 7.3 && y < 9.2), 'up her stair\'s treads');
-  for (let i = 1; i < trod.length; i++) assert.ok(Math.abs(trod[i] - trod[i - 1]) <= STEP_OFFSET, `a tread at a time (${trod[i - 1]} to ${trod[i]})`);
   // the leash, lifted from the world host, over her real deck and her mesh node
   const boat = standing(2), m = boat.MeshObject.worldMatrix();
   const foes = [];
   const w = leashRig({ deckOf: () => d }, { foes });
   const stand = (local) => { const f = { dead: false, ai: { feet: outOfDeck(m, local) }, entity: {} }; foes.push(f); w.navalDeckBody(f, boat); return f; };
-  const fore = stand([-1.18, 9.26, 14.0]), poop = stand([0.5, 9.93, -16]), stair = stand([-1.18, 9.13, 11.75]);
-  const was = [fore, poop, stair].map((f) => [...f.ai.feet]);
+  const castle = stand([0.5, 11.018, -16]), flight = stand([-4.11, 9.523, -12.16]), other = stand([3.89, 8.787, -11.16]);
+  const was = [castle, flight, other].map((f) => [...f.ai.feet]);
   for (let i = 0; i < 3; i++) { w.navalCarry(); w.navalLeash(); }
-  assert.ok(near(fore.ai.feet, was[0]), `her forecastle: untouched (${intoDeck(m, fore.ai.feet).map((v) => v.toFixed(2))})`);
-  assert.ok(near(poop.ai.feet, was[1]), `her poop: untouched (${intoDeck(m, poop.ai.feet).map((v) => v.toFixed(2))})`);
-  assert.ok(near(stair.ai.feet, was[2]), 'her stair: untouched');
-  // over the side of her poop: back onto the poop, never onto her main deck 3.2 m under it
-  poop.ai.feet = outOfDeck(m, [9.6, 9.93, -16]);
+  assert.ok(near(castle.ai.feet, was[0]), `her castle: untouched (${intoDeck(m, castle.ai.feet).map((v) => v.toFixed(2))})`);
+  assert.ok(near(flight.ai.feet, was[1]), 'her port flight: untouched');
+  assert.ok(near(other.ai.feet, was[2]), 'her starboard flight: untouched');
+  // over the side of her castle: back onto her castle, never onto her main deck 4.8 m under it
+  castle.ai.feet = outOfDeck(m, [7.5, 11.018, -16]);
   w.navalLeash();
-  const back = intoDeck(m, poop.ai.feet);
-  assert.ok(Math.abs(back[1] - 9.93) < 0.05 && back[0] < 9.6, `back on her poop: ${back.map((v) => v.toFixed(2))}`);
+  const back = intoDeck(m, castle.ai.feet);
+  assert.ok(Math.abs(back[1] - 11.018) < 0.05 && back[0] < 7.5, `back on her castle: ${back.map((v) => v.toFixed(2))}`);
+  // her great cabin under her castle: a piece of hers, never her open deck
+  assert.ok(d.pieceAt(0, -14, 6.2) > 0, 'her cabin a piece of its own');
   // the Large Galley: her rowers' benches under her deck never deck; her crew's level her main deck
   const g = pool.deckOf(3, 0);
   assert.ok(Math.abs(mainLevel(g) - 10.25) < 0.05, `the Galley's main level: ${mainLevel(g)}`);
   assert.ok(cellsOf(g).every((c) => c[1] > 10.25 - DECK_STEP), 'no rower\'s bench in her deck');
-  assert.ok(Math.abs(mainLevel(d) - 6.77) < 0.05, `the Small Ship's: ${mainLevel(d)}`);
+  assert.ok(Math.abs(mainLevel(d) - 6.202) < 0.05, `the Small Ship's: ${mainLevel(d)}`);
   const rowerAt = cellsOf(g)[Math.floor(cellsOf(g).length / 2)];
   assert.ok(Math.abs(g.heightAt(rowerAt[0], rowerAt[2], 6.5) - 10.25) < 0.05, 'asked at a rower\'s height: her deck the floor there');
 });
@@ -262,9 +284,10 @@ test('AUDIT NAV2 F36 ABOARD IS STANDING ON HER: a floor of hers under the feet -
   assert.equal(at(...deck.nearest(0, 0)), true, 'her waist');
   const rail = deck.rail(1, 0);
   assert.equal(at(rail[0] + 0.7, rail[1], rail[2]), true, 'by her rail, past her deck\'s inset edge');
-  assert.equal(at(0.5, 9.93, -16), true, 'her poop');
-  assert.equal(at(0.8, 3.65, -2), true, 'her lower deck');
-  for (const [p, what] of [[[8.5, 1.5, 17], 'a quay beside her bow'], [[9, 1.5, -21], 'a quay beside her stern'], [[6, 0.5, 19], 'a beach under her bow quarter'], [[0, 1.5, 21], 'the water off her stem'], [[11, 1.5, 0], 'a quay off her side']]) {
+  // PIN MOVED (GALLEON, 2026-10-01): the new galleon's castle at 11.02 and her gun deck at 1.08, her stem at 21.9
+  assert.equal(at(0.5, 11.02, -16), true, 'her castle');
+  assert.equal(at(0.8, 1.09, -2), true, 'her gun deck');
+  for (const [p, what] of [[[8.5, 1.5, 17], 'a quay beside her bow'], [[9, 1.5, -21], 'a quay beside her stern'], [[6, 0.5, 19], 'a beach under her bow quarter'], [[0, 1.5, 23.5], 'the water off her stem'], [[11, 1.5, 0], 'a quay off her side']]) {
     h.view.feet = p;
     assert.equal(h.host.aboard(), false, what);
   }
@@ -277,7 +300,7 @@ test('AUDIT NAV2 F36 ABOARD IS STANDING ON HER: a floor of hers under the feet -
   // round her, off her hull at a quay's height and in the water: never aboard
   let slack = 0;
   for (let x = -12; x <= 12; x += 1) for (let z = -28; z <= 24; z += 1) {
-    if (Math.abs(x) <= 8.5 && z >= -24.3 && z <= 19.9) continue;   // her hull's own box
+    if (Math.abs(x) <= 5.9 && z >= -19.95 && z <= 21.95) continue;   // her hull's own box
     for (const y of [1.5, 0]) { h.view.feet = [x, y, z]; if (h.host.aboard()) slack++; }
   }
   assert.equal(slack, 0, 'nothing off her hull reads aboard');
