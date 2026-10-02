@@ -1,7 +1,8 @@
 // DRAKES (2026-09-29, Mac: "Can we change the name of marks to something else"; asked what to, "Drakes"; bible/06-Systems/
 // Online-Arc.md DRAKES): THE SERVER'S CURRENCY IS CALLED DRAKES WHEREVER A PLAYER READS IT. Only the words changed: the
 // balances, the ledger, the routes, the switch (MARKS_OPEN) and the code's own name for them (marks, MARKS1) stand, so
-// no account's balance moved and no stored row was touched.
+// no account's balance moved and no stored row was touched. SILVER (2026-10-02, test/silver.test.js) named it again:
+// the words read "silver" now, and these pins read them - the Marks never come back either way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -32,12 +33,12 @@ const SHOWN = [
   'src/ui/profPages.js', 'src/ui/socialPanel.js',
 ];
 
-test('DRAKES a balance reads in Drakes - one Drake, and the rest Drakes (mutants: the old name back; "1 Drakes")', () => {
-  assert.equal(marksText(1), '1 Drake');
-  assert.equal(marksText(1240), '1,240 Drakes');
-  assert.equal(marksText(0), '0 Drakes');
-  assert.equal(accountRefusalText('marks-short'), 'You do not hold that many Drakes.');
-  assert.equal(accountRefusalText('guild-marks-short'), 'The treasury does not hold that many Drakes.');
+test('DRAKES a balance never reads in Marks - silver now, one and many (SILVER; mutants: the old name back)', () => {
+  assert.equal(marksText(1), '1 silver');
+  assert.equal(marksText(1240), '1,240 silver');
+  assert.equal(marksText(0), '0 silver');
+  assert.equal(accountRefusalText('marks-short'), 'You do not hold that much silver.');
+  assert.equal(accountRefusalText('guild-marks-short'), 'The treasury does not hold that much silver.');
 });
 
 test('DRAKES no word a player reads says Marks any more - the account card, the Bank, the market, the Work tab, the guild treasury, the professions\' pages, the refusals (mutants: a label or a line left on the old name)', () => {
@@ -47,10 +48,10 @@ test('DRAKES no word a player reads says Marks any more - the account card, the 
   }
   // the places it is said, by name
   const ports = src('src/ui/enhancedPorts.js');
-  for (const w of ["'Drakes to sell'", "title: 'Drakes'", "['Drakes held'", '`${MARKS_BANK.goldPerMark} gold a Drake`', "'Sell Drakes'"]) assert.ok(ports.includes(w), w);
-  assert.match(src('src/ui/enhancedAccount.js'), /row\('Drakes', marksText\(flow\.account\.marks\)\)/, 'the account card');
-  assert.match(src('src/ui/socialPanel.js'), /el\('div', 'dfsocial-sec', 'Drake treasury'\)/, 'the guild\'s treasury');
-  assert.match(src('src/ui/bankWindow.js'), /MARKS_COUNTING = 'The Bank counts your Drakes\.\.\.'/);
+  for (const w of ["'Silver to sell'", "title: 'Silver'", "['Silver held'", '`${MARKS_BANK.goldPerMark} gold for each silver`', "'Sell silver'"]) assert.ok(ports.includes(w), w);
+  assert.match(src('src/ui/enhancedAccount.js'), /row\('Silver', marksText\(flow\.account\.marks\)\)/, 'the account card');
+  assert.match(src('src/ui/socialPanel.js'), /el\('div', 'dfsocial-sec', 'Silver treasury'\)/, 'the guild\'s treasury');
+  assert.match(src('src/ui/bankWindow.js'), /MARKS_COUNTING = 'The Bank counts your silver\.\.\.'/);
   // and the unrelated marks stand: DFU's Mark slots, the King's Mark, the map's middle-click, the blood marks
   assert.match(src('src/ui/enhancedInventory.js'), /\[EQUIP_SLOTS\.Mark0\]: \{ x: 44, y: 296, label: 'Mark', off: true \}/);
   assert.match(src('src/systems/lootRarity.js'), /name: "King's Mark"/);

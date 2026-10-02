@@ -28,6 +28,11 @@ import { MARKS_FAUCETS, MARKS_KINDS } from '../src/net/marksLaw.js';
 const name = (i) => templateByIndex(i).name;
 const names = (list) => list.map(name);
 
+// TIME1 (bible/06-Systems/Online-Time-Arc.md): a UTC day's season and month are the SKY's (nodeLaw dayDate), which
+// turns a year every 7.5 real days from its switch - so the winter day these pins stand on is FOUND, the first on or
+// after the one they used to name whose month is 1 and whose season is winter, never named by its date.
+const WINTER_DAY = (() => { let d = utcDayOfMs(Date.UTC(2027, 0, 15)); while (!(dayMonth(d) === 1 && daySeason(d) === SEASONS.Winter)) d++; return d; })();
+
 test('PROF1 law: thirteen professions - five that gather, eight that craft, in the tab\'s order (PROF0 3.1)', () => {
   assert.deepEqual(PROFESSIONS.map((p) => [p.name, p.kind]), [
     ['Mining', 'gathering'], ['Logging', 'gathering'], ['Herbalism', 'gathering'], ['Hunting', 'gathering'], ['Fishing', 'gathering'],
@@ -138,7 +143,7 @@ test('PROF1 law: how many nodes a pixel holds a day, by climate (PROF0 6); the t
   const C = mapsFile.CLIMATES;
   const row = (c) => { const n = NODE_COUNTS[c]; return [n.tree, n.herb, n.vein, n.boulder]; };
   assert.deepEqual([C.Woodlands, C.MountainWoods, C.Mountain, C.HauntedWoodlands, C.Swamp, C.Rainforest, C.Subtropical, C.Desert, C.Desert2].map(row),
-    [[6, 4, 2, 1], [5, 3, 3, 2], [2, 2, 6, 3], [4, 4, 2, 1], [3, 5, 1, 0], [6, 5, 1, 0], [4, 4, 2, 1], [0, 3, 5, 3], [0, 3, 5, 3]]);
+    [[12, 8, 4, 3], [10, 6, 6, 4], [4, 4, 12, 5], [8, 8, 4, 3], [6, 10, 2, 0], [12, 10, 2, 0], [8, 8, 4, 3], [0, 6, 10, 5], [0, 6, 10, 5]]);   // PIN MOVED (BOULDERS, acct47): the boulders 1/2/3 -> 3/4/5, the Swamp and the Rainforest none still; (MORE-NODES, acct48): the trees, patches and veins doubled
   assert.equal(NODE_COUNTS[C.Ocean], undefined);
   assert.deepEqual(NODE_TIER_WEIGHTS, [40, 25, 15, 10, 6, 4]);
   assert.deepEqual([0, 0.4999, 0.5, 0.8124, 0.8125, 0.9999].map((u) => drawTier(u, 3)), [1, 1, 2, 2, 3, 3], 'herbs: 40 : 25 : 15 renormalised (8 : 5 : 3)');
@@ -150,17 +155,17 @@ test('PROF1 law: how many nodes a pixel holds a day, by climate (PROF0 6); the t
 
 test('PROF1 law: a pixel\'s patches are the clock\'s - the same for every asker; held to tier 2 unconfirmed; a bare first draw draws again at that tier or below; a Seasonal Eye keeps it, off-season', () => {
   const C = mapsFile.CLIMATES;
-  const T = utcDayOfMs(Date.UTC(2027, 0, 15));   // winter on the shared clock
+  const T = WINTER_DAY;   // winter on the shared clock - TIME1: the sky's, found rather than named by its date
   assert.equal(daySeason(T), SEASONS.Winter);
   const a = herbPatches({ x: 400, y: 200, day: T, climate: C.Woodlands, confirmed: true });
   assert.deepEqual(a, herbPatches({ x: 400, y: 200, day: T, climate: C.Woodlands, confirmed: true }), 'pure');
-  assert.equal(a.length, 4);
+  assert.equal(a.length, 8, 'PIN MOVED (MORE-NODES): the Woodlands\' eight');
   for (const p of a) {
     assert.ok(p.u >= 0.04 && p.u <= 0.96 && p.v >= 0.04 && p.v <= 0.96);
     assert.ok(herbInSeason(p.herb, SEASONS.Winter), 'winter: only what grows');
     assert.ok(HERB_TABLES[C.Woodlands][p.tier - 1].includes(p.herb));
   }
-  // a game year is thirty real days (360 game days of two hours), so a summer day is found by walking forward
+  // a game year is 7.5 real days on the sky (TIME1: 360 game days of thirty minutes), so a summer day is found by walking forward
   let S = T;
   while (daySeason(S) !== SEASONS.Summer) S++;
   let rare = 0, unconfRare = 0, eyeOff = 0;
@@ -200,7 +205,7 @@ test('PROF1 law: the yields - an herb 1-3, the Basket by its block; the order ba
   assert.equal(foodYield({ roll: 1, step: 1.25 }, 0.2), 2);
   assert.equal(foodYield({ roll: 1, step: 1.25 }, 0.3), 1);
   const C = mapsFile.CLIMATES;
-  const T = utcDayOfMs(Date.UTC(2027, 0, 15));
+  const T = WINTER_DAY;   // TIME1: the sky's winter, month 1
   assert.deepEqual(basketFood(C.Desert, T, 0), { block: 'A', material: 'food:orange' });
   assert.deepEqual(basketFood(C.Woodlands, T, 0), { block: 'D', material: 'food:apple' }, 'winter months: block D');
   assert.deepEqual(basketFood(C.Swamp, T, 0.99), { block: 'C', material: 'food:egg' });

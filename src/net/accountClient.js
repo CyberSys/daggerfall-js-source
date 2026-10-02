@@ -45,6 +45,7 @@ import { HOME_CAP, RENT_ROOMS_MAX, RENT_HELD_MAX, RENT_DAYS_MAX } from './homeLa
 import { DECOR_CAP, DECOR_YARD_CAP } from './decorLaw.js';   // DECOR1: the cap its refusal names; HOME-YARD: a yard's
 import { MARKS_MAX, MARKS_BANK, MARKS_MOVE_MAX } from './marksLaw.js';   // MARKS1: the bounds its refusals name
 import { NOTES_LIVE_MAX, NOTE_DAYS, NOTICE_DAYS_MAX } from './boardLaw.js';   // NOTICE1: the bounds its refusals name
+import { SIGN_WHY, SIEGE_WHY, ROYAL_WHY, FEALTY_WHY, SELLSWORD_FEE_MAX } from './townSeatLaw.js';   // SEAT2a: the rosters' refusals in the board's own words; the fee's bound
 import {
   HARVESTS_PER_DAY, HARVESTS_PER_ACCOUNT_DAY, DEEP_UNCONFIRMED_PER_DAY, STORES_MAX, WITHDRAW_MAX, COURT_WRITS_PER_DAY, RESPEC,
   HIDES_PER_DAY, HIGH_HIDES_PER_DAY, HAULS_PER_DAY,
@@ -55,6 +56,7 @@ import {
 import { MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, AUCTION_BID_MAX } from './marketLaw.js';   // PROF5: the bounds its refusals name
 import { GUILD_WRITS_MAX, GUILD_STORES_MAX, COMMISSIONS_MAX, COMMISSIONS_FOR_MAX, WRIT_POSTS_MAX, WRIT_OPS_MAX } from './writLaw.js';   // PROF6: the bounds its refusals name
 import { RENOWN_TRACKS_MAX } from './renown.js';   // RENOWN1: the tracks' bound, in its refusal's own sentence (RENOWN-CHAR: back with the tracks)
+import { HERALDRY_CHANGE_DRAKES } from './heraldryLaw.js';   // GUILD1d: a change's cost, in its refusal's own sentence
 
 /** WHERE THE SERVICE IS. Its own constant beside the relay's
  *  DEFAULT_SERVER (net/online.js), because they are two Workers and
@@ -141,10 +143,11 @@ export const REFUSALS = Object.freeze({
   'no-title': 'The account service does not know that title. The game may need updating.',
   // WB9g, the Broker's insignia (server-account/src/accounts.js buyInsignia, equipAura)
   'no-aura': 'The account service does not know that aura. The game may need updating.',
+  'no-glyph': 'The account service does not know that glyph. The game may need updating.',   // GLYPH-WEAR
   'no-insignia': 'The Broker does not sell that any more. The game may need updating.',
   owned: 'Your account already owns that.',
-  short: 'Your account has not closed enough Oblivion Gates to pay for that. Each gate closed pays one Sigil Stone.',
-  guest: 'The Broker records insignia only on an account with a username and password. Give this account one first.',
+  short: 'Your account has too few embers for that.',   // WB12a; WB13b: the card says the rule; AUDIT WB12d (A4): a rite's ember counts, and is no breach closed
+  guest: 'Insignia need a registered account. Add a username and password first.',
   // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
   // and never a player; it has a sentence because every word the service says does.
   'patreon-closed': 'Linking Patreon is not switched on yet.',
@@ -241,17 +244,54 @@ export const REFUSALS = Object.freeze({
   receipt: 'That gate\'s receipt was not signed by the gate, or it has run out.',
   'not-yours': 'That gate\'s receipt names another account.',
   // MARKS1: Marks, the server's currency (server-account/src/marks.js)
-  'marks-need-account': 'Drakes are kept by registered accounts. Add a username to hold them.',
-  'marks-closed': 'The counting-houses are not striking Drakes yet.',
+  'marks-need-account': 'Silver is kept by registered accounts. Add a username to hold it.',
+  'marks-closed': 'The counting-houses are not striking silver yet.',
   'marks-rid': 'That request could not be read. Try again.',
-  'bad-marks': `Drakes move 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
-  'marks-short': 'You do not hold that many Drakes.',
-  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} Drakes from you a day.`,
-  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
-  'guild-marks-short': 'The treasury does not hold that many Drakes.',
-  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
-  'marks-rate': 'You have moved a great many Drakes this hour. Try again later.',
+  'bad-marks': `Silver moves 1 to ${MARKS_MOVE_MAX.toLocaleString('en-US')} at a time, and the Bank buys at most ${MARKS_BANK.perDay} a day.`,
+  'marks-short': 'You do not hold that much silver.',
+  'marks-bank-cap': `The Bank buys at most ${MARKS_BANK.perDay} silver from you a day.`,
+  'marks-full': `An account holds at most ${MARKS_MAX.toLocaleString('en-US')} silver.`,
+  'guild-marks-short': 'The treasury does not hold that much silver.',
+  'guild-marks-full': `A guild's treasury holds at most ${MARKS_MAX.toLocaleString('en-US')} silver.`,
+  'marks-rate': 'You have moved a great deal of silver this hour. Try again later.',
   'not-developer': 'Only a developer may do that.',   // MARKS1's report, NOTICE1's notices, CUSTOMS-PASS's grant
+  // SEAT1a: the seats' registry (server-account/src/townSeats.js)
+  'seats-need-account': 'The seats are witnessed by registered accounts. Add a username to witness one.',
+  'seats-closed': 'The seats are not open yet.',
+  'bad-seat': 'That seat could not be read.',
+  'seats-rate': 'You have reported a great many seats this hour. Try again later.',
+  'seat-struck': 'That seat was struck from the registry.',
+  // SEAT1b: influence (server-account/src/seatInfluence.js)
+  'seat-unconfirmed': 'That seat is not confirmed yet. Seats are confirmed once enough players have seen them.',
+  'seat-reckoning': 'Pledges are locked until the Turning, Sunday 18:00 UTC.',
+  'seat-pledges-full': 'Your guild has pledged in five regions this week. Take one pledge down first.',
+  'seat-no-pledge': 'Your guild is not pledged to that seat this week.',
+  'seat-tribute-cap': 'Tribute is at most a fifth of your guild\'s week at a seat. Earn more influence there first.',
+  'bad-tribute': 'Tribute is paid in multiples of 10 silver.',
+  'bad-watch': 'Those watch receipts could not be read.',
+  // SEAT1c: the Charters
+  'seat-not-held': 'Your guild does not hold that Charter.',
+  'seat-held-here': 'Your guild holds a Charter in this region, and is pledged to it.',
+  // SEAT1d: the holder's levers
+  'bad-tithe': 'A Tithe is a whole percent, at most the seat\'s cap: 10% at a palace and 15% at a crown, a point more for each tier of its Market Hall.',   // AUDIT SEATS-3 C6: the Market Hall raises the cap (fortLaw.js marketHallTitheCap)
+  'tithe-this-week': 'The Tithe has been set this week already. It may change again after the Turning.',
+  'bad-edict': 'There is no such Edict.',
+  'edict-twice': 'That Edict rules this week, and only Market Day may be proclaimed two weeks running.',
+  'edict-tier': 'Only a crown may proclaim that Edict.',
+  'seat-no-edict': 'No Edict is proclaimed for next week.',
+  'bad-bounty': 'A Bounty sets aside at least 20 silver, and at most 100,000.',
+  'bad-orc-camp': 'That camp is not one the Orc Raids count.',   // SEASON1 part two
+  // SEAT2a: the battles' week - the window, the rosters, the Sellswords (the board's own words: townSeatLaw.js SIGN_WHY)
+  'bad-window': 'A window is a day from Wednesday to Saturday and a start from 16:00 to 02:00 UTC.',
+  'bad-fee': `A Sellsword's fee is a whole amount of silver, at most ${SELLSWORD_FEE_MAX.toLocaleString('en-US')}.`,
+  'bad-handle': 'Name the account by its username.',
+  'no-such-account': 'There is no account by that name.',
+  'hire-none': 'That Sellsword has no contract to withdraw.',
+  'hire-twice': 'That account has a contract here already.',
+  ...SIGN_WHY,
+  ...SIEGE_WHY,   // SEAT2a part three: the pass and the Honours
+  ...ROYAL_WHY,   // CROWN1 part two: the Royal Tourney's pass and bouts
+  ...FEALTY_WHY,   // CROWN2: fealty and Pacts
   // NOTICE1: the Notice Board (server-account/src/board.js)
   'board-need-account': 'Notes are pinned by registered accounts. Add a username to pin one.',
   'board-closed': 'The notice board is not open yet.',
@@ -300,6 +340,7 @@ export const REFUSALS = Object.freeze({
   'prof-hunt-high': `Your account has taken all the rare hides a day allows (${HIGH_HIDES_PER_DAY}, across your characters).`,
   'prof-foe': 'No knife takes a hide from that body.',
   'prof-dye': 'That cannot be dyed so.',
+  'prof-sculptor': 'Only a Sculptor carves stone decor - Masonry\'s choice at 100.',   // PROF11
   'bad-qty': `Take 1 to ${WITHDRAW_MAX} at a time.`,
   'bad-pixels': 'That land could not be read.',
   'bad-region': 'That region could not be read.',
@@ -312,7 +353,7 @@ export const REFUSALS = Object.freeze({
   'prof-rate': 'You have done a great deal at your crafts this hour. Try again later.',
   // PROF5: the market (server-account/src/market.js)
   'market-closed': 'The market is not open yet.',
-  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-price': `A price is 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} silver.`,
   'bad-units': `A number of units is 1 to ${MARKET_UNITS_MAX.toLocaleString('en-US')} at a time.`,   // AUDIT 31 L6: a listing's, an order's, a writ's, a guild Stores move's
   'bad-provenance': 'Only a crafted piece, with its maker\'s record, lists on the market.',
   'bad-wear': 'That piece could not be weighed for the market.',
@@ -325,8 +366,8 @@ export const REFUSALS = Object.freeze({
   'market-short': 'There are not that many left.',
   'market-no-road': 'The couriers do not know the road there yet.',
   'market-price-moved': 'The market has moved since you looked. Look again.',
-  'market-seller-full': 'The seller cannot hold any more Drakes just now.',
-  'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
+  'market-seller-full': 'The seller cannot hold any more silver just now.',
+  'market-listings-max': `You have as many listings up as this board allows (${MARKET_LISTINGS_MAX}, more in a town with a Market Hall). Cancel one first.`,   // AUDIT SEATS-3 D2: a Market Hall's town lists more
   'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
   // MARKET-KEEP: the piece stays with its holder - said so, and where it may still go
   'market-not-yours': 'That piece\'s maker\'s record names another owner, so only they can sell it at the counting-house. It stays in your pack - a piece from your pack sells for gold.',
@@ -344,8 +385,8 @@ export const REFUSALS = Object.freeze({
   // GOLD-MARKET: gold is a realm character's, and what gold bought stays gold's (Professions-Arc 10.8)
   'market-gold-realm': 'Gold changes hands on the market only between characters of the online realm.',
   'market-currency': 'That listing is priced in the other currency. Look again.',
-  'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for Drakes, to a station, a craft or a writ.',
-  'market-drakes-goods': 'What you bought with Drakes sells for Drakes. Only what you gathered, made or bought with gold sells for gold.',
+  'market-gold-goods': 'What you bought with gold goes to your pack or back on the market for gold - never for silver, to a station, a craft or a writ.',
+  'market-drakes-goods': 'What you bought with silver sells for silver. Only what you gathered, made or bought with gold sells for gold.',
   'market-gold-none': 'Your sales hold no gold for you just now.',
   'market-gold-full': 'The seller cannot hold any more gold from the market just now.',
   // MARKET-ANY: a piece from the pack
@@ -361,7 +402,7 @@ export const REFUSALS = Object.freeze({
   'auction-bid-standing': 'A bid stands on it, so it cannot be taken back now.',
   // AUDIT 31
   'auction-moved': 'Another bid landed as yours was weighed. The auction has been read again - bid again if you still would.',
-  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-bid': `A bid is 1 to ${AUCTION_BID_MAX.toLocaleString('en-US')} silver.`,
   'market-no-record': 'The counting-house has no record of that piece, so it cannot be sold or handed over.',
   'piece-kept': 'The counting-house is still settling another business with that piece. It answers that first.',
   'other-character': 'That was begun by another of your characters. It settles when they next open the board.',
@@ -374,6 +415,14 @@ export const REFUSALS = Object.freeze({
   'writ-elsewhere': 'That writ is delivered at the boards of the region that posted it.',
   'writ-short': 'That writ wants fewer than that now.',
   'writ-moved': 'Another delivered first. The writ has been read again.',
+  // SEAT2b: a seat writ and a fortification project
+  'seat-not-pledged': 'Your guild neither holds that seat nor is pledged to it this week.',
+  'bad-work': 'There is no such work.',
+  'fort-not-here': 'That work cannot be raised at this seat.',
+  'fort-building': 'That work is being raised already.',
+  'fort-max': 'That work stands at its last tier.',
+  'seat-treasury': 'The guild\'s treasury does not hold the silver that project asks.',
+  'bad-rid': 'That request was malformed. Try again.',
   'writ-rate': `You have done as much with writs and commissions as an hour allows (${WRIT_POSTS_MAX} posted, ${WRIT_OPS_MAX} other acts). Try again later.`,
   'writ-busy': 'The counting-house is still settling your last writ.',
   'guild-writs-max': `A guild may have ${GUILD_WRITS_MAX} writs posted at once.`,
@@ -381,12 +430,25 @@ export const REFUSALS = Object.freeze({
   'guild-stores-short': 'The guild Stores do not hold that many.',
   'guild-stores': 'Empty the guild Stores first.',
   'guild-writs': 'Withdraw the guild\'s writs first.',
-  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the Drake treasury, which is full. Take Drakes out of the treasury first.',   // AUDIT 31 A15
+  'guild-writ-escrow': 'A withdrawn writ\'s pay is still waiting to go back to the silver treasury, which is full. Take silver out of the treasury first.',   // AUDIT 31 A15
+  // GUILD1d (Seats-Arc 8): the guild hall and the heraldry (server-account/src/halls.js)
+  'guild-hall-have': 'Your guild already has a hall. Sell it first to buy another.',
+  'guild-hall-none': 'Your guild has no hall.',
+  'guild-hall-moved': 'The hall changed while you were selling it - a piece placed or moved, or the guild handed on. Look again.',
+  'guild-hall': 'Sell the guild\'s hall first.',
+  'guild-seat': 'Give up the guild\'s Charters first, at each seat\'s Notice Board.',   // SEAT1c
+  'guild-battle': 'The guild is named in a siege or a Tourney this week. It cannot go until the battle is over.',   // SEAT1c
+  'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
+  'hall-yard': 'A guild hall\'s yard cannot be furnished yet.',
+  'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
+  'heraldry-same': 'That is already your guild\'s heraldry.',
+  'heraldry-moved': 'The guild\'s heraldry changed meanwhile. Look again.',
+  'heraldry-drakes': `Changing the heraldry costs ${HERALDRY_CHANGE_DRAKES} silver from the guild's silver treasury, and it holds less.`,
   'writ-own-guild': 'Your guild\'s Officers and Guildmaster take its Stores out, so they do not deliver to its writs.',   // AUDIT 31 S6
   'guild-stores-mine': 'A member takes out only what they put in of their own. The Officers and the Guildmaster take the rest.',   // AUDIT 31 R1
-  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-budget': `A writ budget is 0 to ${MARKS_MAX.toLocaleString('en-US')} silver.`,
   'bad-quality': 'Ask a quality from Crude to Masterwork - or none, for a piece that takes none.',
-  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} Drakes.`,
+  'bad-pay': `A commission pays 1 to ${MARKET_PRICE_MAX.toLocaleString('en-US')} silver.`,
   'commission-recipe': 'Only a piece the market lists may be commissioned - never arrows or siege works.',
   'commission-crafter': 'There is no crafter by that name.',
   'commission-self': 'You cannot commission yourself.',
@@ -552,6 +614,10 @@ export const equipTitle = (io, title) => call(io, '/v1/account/title', { title: 
 /** WB9g: wear one of the Broker's auras, or none - `{ ok, titles, title, glyphs, auras, aura, insignia }`, the wardrobe
  *  after the write. */
 export const equipAura = (io, aura) => call(io, '/v1/account/aura', { aura: aura ?? null });
+/** GLYPH-WEAR (2026-10-02, Mac: "players can also equip/unequip their glyphs"): show one glyph (`on` true) or hide it -
+ *  the wardrobe after the write (`glyphs` still all that is true, `glyphsOff` the ones taken off). The service refuses
+ *  `not-held` for a glyph that is not true of this account. */
+export const equipGlyph = (io, glyph, on) => call(io, '/v1/account/glyph', { glyph, on: !!on });
 /** WB9g: buy a piece of the Broker's insignia (net/insignia.js INSIGNIA) for this account - the wardrobe after the sale and
  *  the `purse` its closed gates can still pay, or a refusal (`owned`, `short` with `purse` and `price`, `guest`). */
 export const buyInsignia = (io, item) => call(io, '/v1/account/insignia', { item });
@@ -650,17 +716,21 @@ export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs
  * after any wear (the account card's, the Broker's) - so this device's own player sees the fire at their feet the moment
  * any door changes it (systems/ownGlyphs.js ownAura). The room sees it from their next hello, off the signature.
  *
+ * GLYPH-WEAR (2026-10-02): LESS THE GLYPHS TAKEN OFF (`glyphsOff`), when the answer states them - what dresses my own
+ * player on my own screen is what the room is shown, so a Shadow Fang hidden is a wolf in no skin here as it is there.
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string, glyphs?: string[], aura?: string|null, secret?: string }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[], glyphsOff?: string[], aura?: string|null, secret?: string }} [who]
  */
-export function adoptIdentity(storage, { name, kind, glyphs, aura, secret } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs, glyphsOff, aura, secret } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
   if (typeof secret === 'string' && was.secret !== secret) return false;
   const next = { ...was };
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
-  if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24).slice(0, 16);
+  const off = Array.isArray(glyphsOff) ? glyphsOff : [];   // GLYPH-WEAR
+  if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24 && !off.includes(g)).slice(0, 16);
   if (aura !== undefined) next.aura = typeof aura === 'string' && AURAS.includes(aura) ? aura : null;   // WB9g: one that exists, or none
   const sameGlyphs = (next.glyphs ?? []).join('+') === (was.glyphs ?? []).join('+');
   const sameAura = (next.aura ?? null) === (was.aura ?? null);
@@ -780,12 +850,16 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
     if (answer.ok) {
       const token = typeof answer.data?.token === 'string' ? answer.data.token : null;
       if (token) {
-        const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,
+        const who = { name: answer.data.name, kind: answer.data.kind, title: answer.data.title ?? null, ts: Array.isArray(answer.data.ts) ? answer.data.ts : null, glyphs: Array.isArray(answer.data.glyphs) ? answer.data.glyphs : [], level: Number.isSafeInteger(answer.data.level) ? answer.data.level : null,   // SEAT1c: `ts` a seat title's claim
           xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
+          // GLYPH-WEAR: the glyphs my own name leaves out - `glyphs` stays all that is true (the staff rights read it)
+          ...(Array.isArray(answer.data.glyphsOff) ? { glyphsOff: answer.data.glyphsOff } : {}),   // absent for none
           // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
-          ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}) };
+          ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}),
+          // SEASON1 part two: a Season's banner ribbon under my own name (null for none) - absent from a service before acct58
+          ...('ribbon' in answer.data ? { ribbon: Array.isArray(answer.data.ribbon) ? answer.data.ribbon : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked
         // A THROW HERE IS THE HOST'S AND IS NOT THE PLAYER'S. The token
         // is good and the connection is the thing that matters; a
@@ -855,7 +929,7 @@ export function accountDuels({ fetch, storage }) {
 /** WB5b: the kill receipt the relay signed for this account, carried to
  *  the service - `{ recorded, closed }`, or `{ recorded: false, why }`
  *  (`claimed`, `guest`). */
-export const claimGateReceipt = (io, receipt) => call(io, '/v1/gate/claim', { receipt });
+export const claimGateReceipt = (io, receipt, extra = null) => call(io, '/v1/gate/claim', { receipt, ...(extra ?? {}) });   // SEAT1b: `extra` the kill's `region` and the claiming `character`
 
 /**
  * WB5b: THE GATES' ONE CALL, bound to this device's stored session (read
@@ -866,7 +940,7 @@ export const claimGateReceipt = (io, receipt) => call(io, '/v1/gate/claim', { re
 export function accountGates({ fetch, storage }) {
   const io = () => { const s = storedSession(storage); return s ? { fetch, base: serviceBase(storage), secret: s.secret } : null; };
   return {
-    claim: async (receipt) => { const i = io(); return i ? claimGateReceipt(i, receipt) : { ok: false, error: 'no-session' }; },
+    claim: async (receipt, extra = null) => { const i = io(); return i ? claimGateReceipt(i, receipt, extra) : { ok: false, error: 'no-session' }; },
     /** AUDIT WB A9: the signed-in account's id - the receipts this device may offer are its alone. */
     me: () => storedSession(storage)?.id ?? null,
   };
@@ -891,7 +965,7 @@ export function accountRaids({ fetch, storage }) {
 }
 
 /** RENOWN1: what one of this account's characters earned online - `{ character, xp, level, credited, rose, order }`. */
-export const reportRenownXp = (io, character, xp, name = null, rid = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id
+export const reportRenownXp = (io, character, xp, name = null, rid = null, region = null) => call(io, '/v1/renown/xp', { character, xp, name, ...(rid ? { rid } : {}), ...(region != null ? { region } : {}) });   // AUDIT RENOWN1 DATA-4: `rid` the report's own id; SEAT1b: `region` where it was earned
 
 /**
  * RENOWN1: THE RENOWN'S REPORT, bound to this device's stored
@@ -900,14 +974,14 @@ export const reportRenownXp = (io, character, xp, name = null, rid = null) => ca
  * never a knock.
  */
 export function accountRenown({ fetch, storage }) {
-  const report = async (character, xp, name = null, rid = null, keepalive = false) => {
+  const report = async (character, xp, name = null, rid = null, keepalive = false, region = null) => {
     const s = storedSession(storage);
-    return s ? reportRenownXp({ fetch, base: serviceBase(storage), secret: s.secret, keepalive }, character, xp, name, rid) : { ok: false, error: 'no-session' };
+    return s ? reportRenownXp({ fetch, base: serviceBase(storage), secret: s.secret, keepalive }, character, xp, name, rid, region) : { ok: false, error: 'no-session' };
   };
   return {
-    report: (character, xp, name = null, rid = null) => report(character, xp, name, rid),
+    report: (character, xp, name = null, rid = null, region = null) => report(character, xp, name, rid, false, region),
     /** AUDIT RENOWN1 GAME-8: the same report as the page goes - `keepalive`, so the browser finishes it after the page. */
-    leave: (character, xp, name = null, rid = null) => report(character, xp, name, rid, true),
+    leave: (character, xp, name = null, rid = null, region = null) => report(character, xp, name, rid, true, region),
   };
 }
 
@@ -958,11 +1032,11 @@ export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }
   const post = sessionPost({ fetch, storage });
   const waited = waitedPost({ fetch, storage }, listWaitMs);
   return {
-    list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
-    place: ({ mapId, buildingKey, character, piece, realm = null, yard = false }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}), ...(yard ? { yard: true } : {}) }),   // REALM P2.2b: and its gold on the record; HOME-YARD: outside
+    list: (mapId, buildingKey, seat = false) => waited('/v1/homes/decor', { mapId, buildingKey, ...(seat ? { seat: true } : {}) }),   // SEAT-HALL: a palace's Charter Room
+    place: ({ mapId, buildingKey, character, piece, realm = null, yard = false, seat = false }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}), ...(yard ? { yard: true } : {}), ...(seat ? { seat: true } : {}) }),   // REALM P2.2b: and its gold on the record; HOME-YARD: outside
     yards: (mapId) => waited('/v1/homes/yards', { mapId }),   // HOME-YARD: every yard of a town
-    move: ({ mapId, buildingKey, character, id, place, realm = null }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}) }),
-    remove: ({ mapId, buildingKey, character, id, realm = null }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}) }),
+    move: ({ mapId, buildingKey, character, id, place, realm = null, seat = false }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}), ...(seat ? { seat: true } : {}) }),
+    remove: ({ mapId, buildingKey, character, id, realm = null, seat = false }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}), ...(seat ? { seat: true } : {}) }),
     // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner
     hidden: ({ mapId, buildingKey, character, keys }) => post('/v1/homes/decor/hidden', { mapId, buildingKey, character, keys }),
   };
@@ -989,6 +1063,12 @@ export function accountGuilds({ fetch, storage }) {
     withdraw: (character, gold, realm = null, letter = false) => post('/v1/guilds/withdraw', { character, gold, ...(realm ? { realm, letter: letter === true } : {}) }),
     handOver: (character, member) => post('/v1/guilds/handover', { character, member }),
     disband: (character) => post('/v1/guilds/disband', { character }),
+    // GUILD1d (Seats-Arc 8): the hall bought and sold from the treasury, who may walk in, and the heraldry (`rid`: a change
+    // after the first burns Drakes, and a change asked twice is one line)
+    hallBuy: ({ character, mapId, buildingKey, region, price }) => post('/v1/guilds/hall/buy', { character, mapId, buildingKey, region, price }),
+    hallSell: (character) => post('/v1/guilds/hall/sell', { character }),
+    hallEntry: (character, entry) => post('/v1/guilds/hall/entry', { character, entry }),
+    heraldry: (character, heraldry, rid = null) => post('/v1/guilds/heraldry', { character, heraldry, ...(rid ? { rid } : {}) }),
   };
 }
 
@@ -1037,6 +1117,60 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     modRestore: (id) => post('/v1/board/mod/restore', { id }),
     notice: ({ subject, body, days }, rid) => post('/v1/board/notice', { subject, body, days, rid }),
     noticeRemove: (id) => post('/v1/board/notice/remove', { id }),
+    // GUILD1e: the guild's own board - its members', named by the character (server-account/src/guildBoard.js)
+    guildRead: (character) => post('/v1/guilds/board', { character }),
+    guildPin: ({ character, subject, body, days }, rid) => post('/v1/guilds/board/pin', { character, subject, body, days, rid }),
+    guildTakeDown: (character, id) => post('/v1/guilds/board/take-down', { character, id }),
+  };
+}
+
+/** SEAT1a: THE SEATS' REGISTRY (server-account/src/townSeats.js) through the one door - the seats the witnesses confirmed,
+ *  a seat this client stands in reported, and a developer's strike (VOID: and a moderator's void of a battle). Each waited
+ *  for ACCOUNT_ACT_WAIT_MS at most. */
+export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
+  const post = waitedPost({ fetch, storage }, waitMs);
+  return {
+    /** SEAT1b: the account this device is signed in as - the Watch's receipts it may claim are its alone. */
+    me: () => storedSession(storage)?.id ?? null,
+    list: () => post('/v1/seats/list', {}),
+    witness: (seat) => post('/v1/seats/witness', { seat }),
+    strike: (key) => post('/v1/seats/strike', { key }),
+    voidSiege: (key) => post('/v1/seats/siege/void', { key }),   // VOID (Seats-Arc 18): a moderator's `/siege void <key>`
+    // SEAT1b: influence - the standings at a seat (with the reader's own guild), a pledge set or taken down, the Watch's
+    // receipts claimed, Tribute paid under its own request id
+    standings: (key, character) => post('/v1/seats/standings', { key, character }),
+    records: (key) => post('/v1/seats/records', { key }),   // SEASON1 part three: a seat's Hall of Records
+    pledge: (character, key, region = null) => post('/v1/seats/pledge', { character, key, ...(region != null ? { region } : {}) }),
+    watch: (character, receipts) => post('/v1/seats/watch', { character, receipts }),
+    tribute: (character, key, marks, rid) => post('/v1/seats/tribute', { character, key, marks, rid }),
+    relinquish: (character, key) => post('/v1/seats/relinquish', { character, key }),   // SEAT1c
+    // SEAT1d: the holder's levers at its board - the Tithe, the coming week's Edict (null takes it back); a Bounty's camp
+    tithe: (character, key, pct) => post('/v1/seats/tithe', { character, key, pct }),
+    edict: (character, key, edict, setAside = 0) => post('/v1/seats/edict', { character, key, edict, ...(edict === 'bounty' ? { setAside } : {}) }),
+    bounty: (character, site, region) => post('/v1/seats/bounty', { character, site, region }),
+    // SEAT2a: the battles' week - the holder's window; a side signed and unsigned; a Sellsword hired and withdrawn
+    window: (character, key, day, hour) => post('/v1/seats/window', { character, key, day, hour }),
+    sign: (character, key) => post('/v1/seats/siege/sign', { character, key }),
+    unsign: (key) => post('/v1/seats/siege/unsign', { key }),
+    hire: (character, key, handle, fee = 0) => post('/v1/seats/siege/hire', { character, key, handle, fee }),
+    withdrawHire: (character, key, handle) => post('/v1/seats/siege/withdraw', { character, key, handle }),
+    // SEAT2a part three: a battle's pass (the field this game derived from the town); a fighter's receipt claimed
+    pass: (key, field) => post('/v1/seats/siege/pass', { key, ...(field ? { field } : {}) }),
+    claimSiege: (receipt, character) => post('/v1/seats/siege/claim', { receipt, character }),
+    // CROWN1 part two: a Royal Tourney's pass (a contender's ring, or a spectator's); a bout's receipt claimed
+    royalPass: (key, field, watch) => post('/v1/seats/royal/pass', { key, ...(field ? { field } : {}), ...(watch ? { watch: true } : {}) }),
+    claimRoyal: (receipt) => post('/v1/seats/royal/claim', { receipt }),
+    // CROWN2: fealty offered (`as` 'vassal' or 'liege'), accepted, broken or withdrawn; a Pact offered or signed, broken
+    // SEAT2b: a seat's works read; a project begun (`port`: DFU names the town a port - a Harbour's ask)
+    forts: (key) => post('/v1/seats/forts', { key }),
+    fortFund: (character, key, work, rid, port = false) => post('/v1/seats/fort/fund', { character, key, work, rid, ...(port ? { port: true } : {}) }),
+    fealty: (character, tag, as) => post('/v1/seats/fealty', { character, tag, as }),
+    fealtyAccept: (character, tag) => post('/v1/seats/fealty/accept', { character, tag }),
+    fealtyBreak: (character, tag) => post('/v1/seats/fealty/break', { character, ...(tag ? { tag } : {}) }),
+    pact: (character, tag) => post('/v1/seats/pact', { character, tag }),
+    pactBreak: (character, tag) => post('/v1/seats/pact/break', { character, tag }),
+    // SEASON1 part two: an Orc Raid's camp cleared
+    orcCamp: (character, site, region) => post('/v1/seats/orc-camp', { character, site, region }),
   };
 }
 
@@ -1056,8 +1190,8 @@ export function accountProf({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     harvest: (req) => post('/v1/prof/harvest', req),
     spec: (character, profession, rank, spec, from, rid) => post('/v1/prof/spec', { character, profession, rank, spec, from, rid }),   // AUDIT 29 A15: `from`, the choice the client saw standing
     withdraw: (character, material, qty, rid) => post('/v1/stores/withdraw', { character, material, qty, rid }),
-    smelt: (character, recipe, count, rid) => post('/v1/prof/smelt', { character, recipe, count, rid }),   // PROF2: the forge
-    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }) }),   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`
+    smelt: (character, recipe, count, rid, clean = false) => post('/v1/prof/smelt', { character, recipe, count, rid, ...(clean === true ? { clean: true } : {}) }),   // PROF2: the forge; PROF11: the mason's bench, `clean` the chisel's report
+    craft: (character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null) => post('/v1/prof/craft', { character, recipe, clean, name, rid, heartwood, ...(dye == null ? {} : { dye }), ...(seat == null ? {} : { seat }) }),   // SEAT2b part two: `seat` the held town the station stands in   // PROF3: the anvil - `clean` the act's report, `name` the maker's mark; PROF4: the workbench, `heartwood` for a plank; PROF7: the loom, a garment's `dye`
     stock: (character, material, qty, rid) => post('/v1/prof/stock', { character, material, qty, rid }),   // PROF3: the smith's stock
     writs: (character, region) => post('/v1/writs/list', { character, region }),
     deliver: (character, id, rid) => post('/v1/writs/deliver', { character, id, rid }),

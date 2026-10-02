@@ -69,6 +69,7 @@ function huntStand(book, { entity = { items: [knifeOf()] }, nowMs = () => NOON *
   const feet = [0, 0, 0];
   const view = { yaw: 0, pitch: 0 };
   let input = { held: false, attack: false, choice: false };
+  let lit = null;   // PROF-MENU: the row the plaque has lit over the body
   const eyePos = () => [feet[0], feet[1] + 1.6, feet[2]];
   const host = createGatherHost({
     book, hud, kinds: [huntKind({ book, bodies: () => bodiesOf(foes, stamps, (f) => f.corpseMarker?.pos ?? f.ai?.feet) })],
@@ -76,7 +77,7 @@ function huntStand(book, { entity = { items: [knifeOf()] }, nowMs = () => NOON *
     billboardSize: () => ({ w: 1, h: 1 }), flatBatchAabb: () => [0, 0, 0, 1, 1, 1], built: () => new Map(),
     pixelTranslation: (x, y, out) => { out[0] = 0; out[1] = 0; out[2] = 0; return out; }, pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs,
     eye: () => ({ pos: eyePos(), dir: [Math.sin((view.yaw * Math.PI) / 180) * Math.cos((view.pitch * Math.PI) / 180), Math.sin((view.pitch * Math.PI) / 180), Math.cos((view.yaw * Math.PI) / 180) * Math.cos((view.pitch * Math.PI) / 180)] }),
-    view: () => view, feet: () => feet, entity: () => entity, keyLabel: (a) => (a === 'ActChoice' ? 'R' : 'E'), input: () => input, active: () => true,
+    view: () => view, feet: () => feet, entity: () => entity, keyLabel: (a) => (a === 'ActChoice' ? 'R' : 'E'), input: () => input, active: () => true, lit: () => lit,
   });
   const kill = (mobileType, at) => {
     const f = { entity: { mobileType, name: 'foe' }, dead: false, corpse: false, ai: { feet: [...at] } };
@@ -110,6 +111,7 @@ function huntStand(book, { entity = { items: [knifeOf()] }, nowMs = () => NOON *
   return {
     host, said, feet, view, foes, stamps, kill, lookAt, trace, entity,
     set input(v) { input = { held: false, attack: false, choice: false, ...v }; },
+    set lit(v) { lit = v; },
     done() { registerPlayerKillListener('prof7-test', null); host.dispose(); },
   };
 }
@@ -136,7 +138,9 @@ test('PROF7 DONE WHEN: a bear felled by the player\'s own blow, skinned online w
       h.lookAt(bear);
       h.host.tick(0.016);
       assert.equal(h.host.target?.node.key, h.stamps.of(bear.entity).key, `bear ${i}: the body a node where it lies`);
-      assert.deepEqual([h.said.prompt.verb, h.said.prompt.rest, h.said.prompt.alt], ['Skin the Grizzly Bear', 'Hunting 50', '[R] search the body']);
+      // PROF-MENU: the body's list - its knife and its search, the knife's word under its name; no plaque, the choice E opens
+      assert.deepEqual(h.host.hoverName(`prof:${h.host.target.node.key}`), { title: 'Grizzly Bear', subs: ['Hunting 50'], actions: [{ id: 'hide', label: 'Skin the Grizzly Bear' }, { id: 'search', label: 'Search the Grizzly Bear' }] });
+      assert.deepEqual([h.said.prompt.verb, h.said.prompt.rest], ['Choose', 'Skin the Grizzly Bear / Search the Grizzly Bear']);
       assert.equal(h.host.press(), true);
       assert.deepEqual(h.host.handTool(), KNIFE_HAND, 'DFU\'s Dagger');
       h.trace(bear);
@@ -257,18 +261,14 @@ test('PROF7 host: a body is a node only while the pack holds a knife; targeted w
     h.host.tick(0.016);
     assert.equal(h.host.target?.node.kind, 'body');
     assert.equal(h.said.chip, 'Hunting 10 - 4 / 30 today', 'the account\'s day on the chip');
-    // the choice key: the body's loot instead - the press passes on, and says nothing of its own
-    h.input = { choice: true };
-    h.host.tick(0.016);
-    h.input = {};
-    assert.deepEqual([h.said.prompt.verb, h.said.prompt.alt], ['Search the Grizzly Bear', '[R] skin it']);
+    // PROF-MENU: the list's search lit - the press passes on to the body's loot, and says nothing of its own
+    h.lit = 'search';
     assert.deepEqual([h.host.press(), h.host.sayNeed()], [false, false]);
-    h.input = { choice: true };
-    h.host.tick(0.016);
-    h.input = {};
-    // AUDIT 32 H4: a settlement is ground the knife never works - no ready node, and E goes on to the body's loot
+    h.lit = null;
+    // AUDIT 32 H4: a settlement is ground the knife never works - its row refused, and E goes on to the body's loot
     // (AUDIT 29 C1); what it needs said only when nothing else opened (VEIN-NEED)
-    assert.deepEqual([h.said.prompt.verb, h.said.prompt.rest], ['Skin the Grizzly Bear', 'not in a settlement']);
+    assert.deepEqual(h.host.hoverName(`prof:${h.host.target.node.key}`).actions[0], { id: 'hide', label: 'Skin the Grizzly Bear', disabled: true, why: 'not in a settlement' });
+    assert.deepEqual([h.said.prompt.verb, h.said.prompt.rest], ['Search the Grizzly Bear', ''], 'no plaque: the one act left its prompt');
     assert.deepEqual([h.host.press(), h.host.acting()], [false, false]);
     assert.equal(h.host.sayNeed(), true);
     assert.equal(h.said.at(-1), 'Skin the Grizzly Bear: not in a settlement');
@@ -325,7 +325,7 @@ test('PROF7 HUD: the trace\'s meter - the carcass\'s face, its dotted line, the 
   const gentle = createTraceAct({ tier: 1, gentle: true });
   for (let i = 0; i < 3; i++) gentle.tick(0.2, { held: true });
   hud.setMeter(gentle);
-  assert.equal(meter.querySelector('.prof-bar').children[0].style.width, '50%');
+  assert.equal(meter.querySelector('.arc-fill').getAttribute('stroke-dasharray'), '50 100');   // PROF-RETICLE: the hold an arc round the crosshair
   assert.match(meter.textContent, /hold the use key/);
   hud.dispose();
 });
@@ -415,7 +415,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const text = () => root.textContent;
   const buttons = () => [...root.querySelectorAll('button')];
   const press = (label) => buttons().find((b) => b.textContent.startsWith(label)).onclick();
-  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom']);
+  assert.deepEqual([...PROF_STATIONS], ['forge', 'workbench', 'loom', 'mason']);   // PIN MOVED (PROF11): the mason's bench
   assert.match(stationColdLine('loom'), /The loom is still/);
   assert.match(text(), /The Loom/);
   assert.match(text(), /The tailor's loom and tanning rack - 50 gold a craft, a cure or a weave/);
@@ -435,7 +435,7 @@ test('PROF7 pages: the Loom at a Clothing Store - the cures for the hides held a
   const shirt = buttons().find((b) => b.textContent.startsWith('Linen Short Shirt') && !b.textContent.includes(','));
   assert.match(shirt.textContent, /wants its inputs/);
   shirt.onclick();
-  await press('Buy 2 from the Weavers - 4 Drakes');
+  await press('Buy 2 from the Weavers - 4 silver');
   assert.deepEqual(bought, [['cloth:linen', 2, 'weavers']]);
   assert.deepEqual(GARMENT_WORDS(buttons()), ['Undyed', 'Blue', 'Grey', 'Red', 'Dark Brown', 'Purple', 'Light Brown', 'White', 'Aquamarine', 'Yellow', 'Green']);
   assert.equal(dyeWord(3), 'Dark Brown');
@@ -517,7 +517,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   assert.match(w, /stitchBand: \(\) => stitchBand\(\{ agility: liveStat\(playerEntity, 'agility'\), speed: liveStat\(playerEntity, 'speed'\) \}\),/);
   assert.match(w, /clothing: \(\) => \(playerEntity\?\.gender === 'female' \? 'WomensClothing' : 'MensClothing'\),/);
   assert.match(w, /: profession === 'outfitting'\n\s*\? \{ here: \(\) => modes\?\.loomHere\?\.\(\) \?\? null, a: 'a loom', who: 'tailor', noun: 'loom', kept: LOOM_KEPT_TEXT, xp: 'Outfitting', busy: 'Your last work is still on the loom\.' \}/);
-  assert.match(w, /const f = \(loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
+  // PIN MOVED (PROF11): a work at the mason's bench asks it first
+  assert.match(w, /const f = \(mason \? modes\?\.masonHere\?\.\(\) : loom \? modes\?\.loomHere\?\.\(\) : bench \? modes\?\.workbenchHere\?\.\(\) : modes\?\.forgeHere\?\.\(\)\) \?\? null;/);
   assert.match(w, /const who = counter === 'furnisher' \? 'furnisher' : counter === 'weavers' \? 'Weavers' : 'smith';/);
   assert.match(w, /withdrawIntoPack\(playerEntity, key, n, undefined, \{ slowRot: key === 'food:meat' && profBook\?\.track\('hunting'\)\?\.specs\?\.\[100\] === 'butcher' \}\)/);
   assert.match(w, /profBook\.track\('hunting'\)\.specs\?\.\[50\] !== 'tracker' \|\| _mode\(\) !== 'exterior'\) return null;\n\s*return trackerMarks\(exteriorFoes\.foes, enchantFeet\(\)\);/);
@@ -534,7 +535,8 @@ test('PROF7 wiring: the street and the dungeon stamp and list their bodies for H
   const idx = src('server-account/src/index.js');
   assert.match(idx, /'prof-hunt-cap': 409, 'prof-hunt-high': 409, 'prof-foe': 400, 'prof-dye': 400,/);
   const c = src('src/net/accountClient.js');
-  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\) \}\),/);
+  // SEAT2b part two (PIN MOVED): and the held town the station stands in (`seat`, its crafting halls' steps)
+  assert.match(c, /craft: \(character, recipe, clean, name, rid, heartwood = false, dye = null, seat = null\) => post\('\/v1\/prof\/craft', \{ character, recipe, clean, name, rid, heartwood, \.\.\.\(dye == null \? \{\} : \{ dye \}\), \.\.\.\(seat == null \? \{\} : \{ seat \}\) \}\),/);
   for (const word of ['prof-hunt-cap', 'prof-hunt-high', 'prof-foe', 'prof-dye']) assert.doesNotMatch(accountRefusalText(word), /problem|could not be read/, word);
   assert.match(src('.github/workflows/account-deploy.yml'), /- "src\/characters\/dyes\.js"/);
   assert.match(src('src/systems/foragingInstall.js'), /hudText\(brokeMessage\(item\.templateIndex, item\.name\)\);/);

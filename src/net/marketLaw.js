@@ -46,8 +46,9 @@ export const MARKET_OPS_MAX = 120;
 export const MARKET_WINDOW_S = 3600;
 /** The sales tax, in hundredths of a sale, burnt from the seller's proceeds (10.4: 5%). */
 export const MARKET_TAX_PCT = 5;
-/** The Tithe, in hundredths (10.4: the holder's rate, 0-10% or 0-15%). FOUND: no seat is held yet (SEAT1 builds
- *  holders), so it is nought until SEAT1 sets it - the law keeps the term so the shape does not change. */
+/** The Tithe, in hundredths (10.4: the holder's rate, 0-10% or 0-15%) - nought where no seat holds the board's
+ *  bailiwick. SEAT1d: a sale's rate is its seat's holder's (server-account/src/seatHolding.js titheAt, passed to saleTithe),
+ *  and its line goes to that holder's treasury (or is burnt) - this default the rest of the law's shape keeps. */
 export const MARKET_TITHE_PCT = 0;
 /** The courier (10.4): a load of this many units a trip, a road this many pixels a Mark, at least this many Marks. */
 export const COURIER = Object.freeze({ load: 20, pixelsAMark: 25, least: 2, baseS: 900, pixelsAMinute: 10 });
@@ -75,6 +76,8 @@ export const CRAFTED_FAMILIES = Object.freeze([
   Object.freeze(['furniture', 'Furniture']),
   // PROF7: the loom's - the leather armour, the clothing (its dye carried with the piece), the rugs, tapestries and skins
   Object.freeze(['leather', 'Leather Armour']), Object.freeze(['clothing', 'Clothing']), Object.freeze(['furnishings', 'Furnishings']),
+  // PROF11: the mason's bench's - the Sculptor's column, bench, font and plinth (recipeLaw STONE_DECOR)
+  Object.freeze(['stonework', 'Stonework']),
 ]);
 /** The material families the Materials view filters by - the Stores' own (section 8). */
 export const MARKET_FAMILIES = MATERIAL_FAMILIES;
@@ -101,7 +104,11 @@ export const saleTax = (total) => Math.floor((total * MARKET_TAX_PCT) / 100);
  *  the tax it would have paid bought whole, and splitting a sale saves nothing. */
 export const saleTaxOn = (before, total) => saleTax(before + total) - saleTax(before);
 /** The Tithe on a sale at `pct` hundredths, rounded down (nought until SEAT1). */
-export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((total * pct) / 100);
+export const saleTithe = (total, pct = MARKET_TITHE_PCT) => Math.floor((Math.max(0, total) * Math.max(0, pct)) / 100);   // AUDIT-SEATS L10: townSeatLaw.js titheOf's rule, a negative none
+/** AUDIT-SEATS L4: the Tithe on a sale of `total` out of a listing that has already sold `before` - as saleTaxOn: the
+ *  rate's share of the running total, less what the earlier sales paid at it, so a listing bought a unit at a time pays
+ *  the holder what it would have bought whole (ten 9-Drake units at 10% paid 0 apiece, 9 whole). */
+export const saleTitheOn = (before, total, pct = MARKET_TITHE_PCT) => saleTithe(before + total, pct) - saleTithe(before, pct);
 /** What the seller receives of a sale: the price less the tax and the Tithe (10.4). */
 export const sellerGets = (total, tithePct = MARKET_TITHE_PCT) => total - saleTax(total) - saleTithe(total, tithePct);
 
@@ -128,7 +135,7 @@ export const MARKET_GOLD_HELD_MAX = 10 * MARKS_MAX;
  *  gold listing pays its fee out of each sale, 1% of it rounded up, where a Drakes listing pays it at listing (a gold
  *  seller holds no gold on the service to pay it from); `gets`, what is held for the seller. */
 export function goldSaleOf(before, total) {
-  const tax = saleTaxOn(before, total), fee = listingFee(total), tithe = saleTithe(total);
+  const tax = saleTaxOn(before, total), fee = listingFee(total), tithe = saleTitheOn(before, total);
   return { tax, fee, tithe, gets: Math.max(0, total - tax - fee - tithe) };
 }
 /** An amount of gold in words, as the game's own windows say it. */
@@ -209,9 +216,10 @@ export function medianLine(rows, today, days = MARKET_MEDIAN_DAYS) {
 export const medianText = (m) => (m == null ? '-' : Number.isInteger(m) ? String(m) : m.toFixed(1));
 
 /** AUDIT 30 L7: the materials nothing yields yet - an order for one could only hold its Marks for a week. The Daedric
- *  Ingot waits on its heart and its stone (4.1, the Oblivion Gate's gift), the Warforged on a siege's Spoils (SEAT2), and
- *  Standard-bearer's Silk on the same Spoils (4.7). PROF7: Hunting yields the Bear Hide now. */
-export const UNYIELDED = Object.freeze(['ingot:daedric', 'ingot:warforged', 'cloth:standard']);
+ *  Ingot waits on its heart and its stone (4.1, the Oblivion Gate's gift). PROF7: Hunting yields the Bear Hide now;
+ *  AUDIT-SEATS: a siege's Spoils (SEAT2a, townSeatLaw.js SIEGE_SPOILS) yield the Warforged Steel Ingot and
+ *  Standard-bearer's Silk now. */
+export const UNYIELDED = Object.freeze(['ingot:daedric']);
 /** AUDIT 30 L2: a crafted piece lists only of a family the market lists (CRAFTED_FAMILIES) - never arrows (a quiver's
  *  stack, re-minted whole) nor a siege work. */
 export const pieceListable = (recipeId) => CRAFTED_FAMILIES.some(([f]) => f === recipeById(recipeId)?.family);

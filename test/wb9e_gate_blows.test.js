@@ -21,7 +21,7 @@ import {
   telegraphShape, telegraphStyle, poolShapes, GateTelegraphRenderer, TELEGRAPH_STYLE, TELEGRAPH_FS, TELEGRAPH_WAVE_MPS, TELEGRAPH_WAVE_MS, TELEGRAPH_NOW_MS,
 } from '../src/render/gateTelegraph.js';
 import {
-  GateFxRenderer, fxBurstOf, meteorFall, sparkAt, sparkSeed, FX_KINDS, FX_BURST_MS, FX_SPARKS, FX_BURSTS_MAX, METEOR_FALL_MS, METEOR_FROM_M, METEOR_DIR, FX_SPARK_VS,
+  GateFxRenderer, fxBurstOf, meteorFall, sparkAt, sparkSeed, FX_KINDS, FX_BURST_MS, FX_SPARKS, FX_BURSTS_MAX, METEOR_FALL_MS, METEOR_FROM_M, METEOR_DIR, METEOR_ELEV_DEG, FX_SPARK_VS,
 } from '../src/render/gateFx.js';
 import { createGateCourt } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
@@ -65,19 +65,20 @@ test('WB9e the telegraph\'s grain: each landing in the grain of what it is - his
   assert.equal(poolShapes([{ x: 1, z: 1, r: 3, from: 0, until: 5000, pct: 0.1, base: 1, el: 'fire' }], 1000, [1, 0, 0])[0].style, TELEGRAPH_STYLE.fire);
 });
 
-test('WB9e the shader reads: the edge at least two pixels wide however far off, a soft halo outside it; the fuse burning down its rim as the wind-up runs, a spark where it burns; the throb quickening toward the landing on its own clock; the last moment at a landing\'s brightness; a shockwave run out past the edge at TELEGRAPH_WAVE_MPS for TELEGRAPH_WAVE_MS - never for the ground nor the whole arena\'s (mutants: the fuse lit whole; the throb steady)', () => {
+test('WB9e the shader reads (WB13a: honed): the line two pixels wide however far off, read off the edge\'s own derivative, a soft glow outside it; no fuse - one line, whole; the throb on the line alone, quickening toward the landing on its own clock; the last moment brightening the line alone; a shockwave run out past the edge at TELEGRAPH_WAVE_MPS for TELEGRAPH_WAVE_MS, sized to its shape - never for the ground nor the whole arena\'s (mutants: the throb steady; the last moment flooding the shape)', () => {
   for (const re of [
-    /float px = max\(length\(fwidth\(vCourt\)\), 1e-4\);/,   // AUDIT WB9 (court F1): the pixel's footprint, never the jumping edge's
-    /float rim = 1\.0 - smoothstep\(max\(0\.06, 1\.2 \* px\), max\(0\.35, 4\.0 \* px\), edge\);/,
-    /float halo = \(1\.0 - fin\) \* \(1\.0 - smoothstep\(0\.0, 1\.4, edge\)\) \* 0\.3;/,
-    /float left = 1\.0 - uT;\n\s*float fuseLit = step\(course, left\);/,
-    /float spark = exp\(-pow\(\(course - left\) \* 40\.0, 2\.0\)\) \* \(1\.0 - uFlash\);/,
-    /float hz = 1\.5 \+ \(5\.0 \/ 3\.0\) \* uT \* uT;/,   // AUDIT WB9 (court F3)
-    /float urgent = 0\.5 \+ 0\.5 \* cos\(6\.283185307179586 \* hz \* uSince\);/,
-    /float now = step\(uSpan - uSince, 0\.350\) \* \(1\.0 - uFlash\);/,
-    /if \(uAfter >= 0\.0 && uPool == 0 && uKind != 5\) \{ float rw = uAfter \* 22\.0;/,
+    /float aa = max\(fwidth\(edge\), 1e-4\) \* uLineW;/,   // WB13a: the edge's own derivative - the cone's edge continuous now (AUDIT WB9 F1's jump gone)
+    /float core = max\(1\.0 - smoothstep\(aa \* wid, 2\.2 \* aa \* wid, edge\), 1\.0 - smoothstep\(0\.05, 0\.08, edge\)\);/,
+    /float glow = \(1\.0 - fin\) \* exp\(-edge \/ \(4\.0 \* aa \+ 0\.12\)\);/,
+    /float hz = 1\.5 \+ 0\.5 \* T2;/,   // AUDIT WB9 (court F3); WB13a: three beats a second at the landing, at most
+    /float throb = 0\.85 \+ 0\.15 \* cos\(6\.283185307179586 \* hz \* uSince\);/,
+    /float now = uPool == 0 \? smoothstep\(uSpan - 0\.180, uSpan, uSince\) \* \(1\.0 - uFlash\) : 0\.0;/,
+    /float line = \(core \* \(0\.95 \* throb \* pop \+ 0\.65 \* now\) \+ glow \* 0\.22\) \* \(1\.0 - 0\.3 \* safe\);/,   // the throb and the last moment on the line alone
+    /float rw = min\(uAfter \* 22\.0, clamp\(0\.5 \* size, 1\.0, 3\.5\)\);/,
+    /if \(uKind != 5\) rgb \+= hot \* wave \* 0\.9;/,
   ]) assert.match(TELEGRAPH_FS, re);
-  assert.equal(TELEGRAPH_WAVE_MPS, 22); assert.equal(TELEGRAPH_WAVE_MS, 450); assert.equal(TELEGRAPH_NOW_MS, 350);
+  assert.doesNotMatch(TELEGRAPH_FS, /fuse|spark/, 'WB13a: no fuse - it burned the line down as danger neared');
+  assert.equal(TELEGRAPH_WAVE_MPS, 22); assert.equal(TELEGRAPH_WAVE_MS, 280); assert.equal(TELEGRAPH_NOW_MS, 180);
   for (let s = 0; s <= 5; s++) assert.match(TELEGRAPH_FS, new RegExp(s < 5 ? `if \\(uStyle == ${s + 1}\\)` : 'return 1\\.0 - smoothstep\\(0\\.0, 0\\.05, abs\\(vnoise\\(p \\* 0\\.55\\) - 0\\.5\\)\\);'), `the grain of style ${s}`);
   const calls = [];
   const gl = new Proxy({ TRIANGLES: 4 }, { get: (t, k) => (k in t ? t[k] : (...a) => { calls.push([k, ...a]); if (k === 'getShaderParameter' || k === 'getProgramParameter') return true; if (k === 'getUniformLocation') return a[1]; return {}; }) });
@@ -116,7 +117,8 @@ test('WB9e the meteor seen falling: through the last METEOR_FALL_MS of its wind-
   assert.ok(Math.abs(Math.hypot(top.at[0] - 6, top.at[1], top.at[2] + 4) - METEOR_FROM_M) < 1e-9, 'from METEOR_FROM_M up its path');
   assert.ok(top.at[1] > mid.at[1] && mid.at[1] > low.at[1] && low.at[1] < 2, 'down onto the mark');
   assert.ok(METEOR_FROM_M - Math.hypot(mid.at[0] - 6, mid.at[1], mid.at[2] + 4) < METEOR_FROM_M / 2, 'gathering speed: slower in its first half');
-  assert.ok(Math.abs(Math.hypot(...METEOR_DIR) - 1) < 1e-12 && METEOR_DIR[1] > 0.8, 'out of the sky');
+  assert.ok(Math.abs(Math.hypot(...METEOR_DIR) - 1) < 1e-12 && Math.abs((Math.asin(METEOR_DIR[1]) * 180) / Math.PI - METEOR_ELEV_DEG) < 1e-9, 'out of the sky');
+  assert.ok(METEOR_ELEV_DEG <= 40 && METEOR_FALL_MS >= 1700, 'WB13d: low enough and long enough to be seen by one looking at him');
 });
 
 test('WB9e the court throws them: each landing its bursts at its own moment (his feet for his own, where it lands for a leap, a bound or a meteor, under each mark for Hellfire), in its colour under his profile, the slots reused past FX_BURSTS_MAX; the meteor\'s fall through its last moments; the pass draws them after the telegraph, depth tested and never written (mutants: bursts at his feet for a meteor; a burst a frame)', () => {

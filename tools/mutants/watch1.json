@@ -128,8 +128,8 @@
   {
     "name": "AUDIT-WATCH1-A3-a-watch-body-advertises-its-pile",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0) }",
-    "new": "o: f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0 }",
+    "old": "o: onWatch || _questLike(f) ? 0 : (f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0), ...(f.entity?.eliteFoe ? { z: 1 } : {}) }",
+    "new": "o: f.corpse ? Math.min(255, f.entity?.items?.length | 0) : 0, ...(f.entity?.eliteFoe ? { z: 1 } : {}) }",
     "tests": [
       "test/watch1.test.js"
     ]
@@ -328,8 +328,8 @@
   {
     "name": "AUDIT-ALL-A6-a-restore-rolls-the-bonus-again",
     "file": "src/scenes/cityGuards.js",
-    "old": "level ?? effectiveLevel(playerEntity), Math.random, { exactLevel: level != null });",
-    "new": "level ?? effectiveLevel(playerEntity));",
+    "old": "level ?? effectiveLevel(playerEntity) + (levelBonus?.() ?? 0), Math.random, { exactLevel: level != null });",
+    "new": "level ?? effectiveLevel(playerEntity) + (levelBonus?.() ?? 0));",
     "tests": [
       "test/watch1.test.js"
     ]

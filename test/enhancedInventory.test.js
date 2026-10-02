@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:226-248) because it is handed the list
+  // hand (enhancedInventory.js:228-250) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -973,7 +973,7 @@ test('PX20c: the name is in the title bar, the count is gone, the tiles carry th
     'and no count under it');
   assert.match(src, /if \(name\) title\.append\(el\('span', 'pack-who', name\)\);/, 'the name rides the window title');
   const css = read('src/ui/enhancedStyle.js');
-  assert.match(css, /\.pack-shell \.pack-id \.pack-who \{ color: #7d7460;/);
+  assert.match(css, /\.pack-shell \.pack-id \.pack-who \{ color: #9c937d;/);
   // The tile is a ROW now, and the piece's NAME is visible again -
   // PX19g hid it because a 52px square clipped it, and that reason is
   // gone with the width.
@@ -2356,7 +2356,7 @@ test('ENH-NOTICE3 (AUDIT B/F5): a refusal raised over a LOOT PILE with the pack 
       const host = dom.mk('div');
       dom.body.append(host);
       const e = hero();
-      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:275)
+      e.goldPieces = 2000000;   // CanCarryAmount's own gate: the coin weight alone fills the load (itemTransfer.js:306)
       const pile = [mk('Claymore')];
       const view = mountEnhancedInventory(host, {
         entity: e, items: () => e.items, loot: { items: () => pile }, onExit: () => {},

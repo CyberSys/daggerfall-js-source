@@ -167,12 +167,12 @@ export function attachTouch(canvas, hooks = {}) {
   // FONT1 (2026-09-16, Mac: "Any enhanced UI or text must be our enhanced version"): under the enhanced skin the layer's
   // buttons, entry field and nav are in the pixel face (ui/pixelifyFive.js PIXEL_FONT_CSS - one home); the classic skin
   // keeps the system face it always drew. The skin cannot change without a reload, so the boot-time hook is exact.
-  const face = hooks.enhanced ? `font-weight:500;font-size:15px;${PIXEL_FONT_CSS}` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';
+  const face = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:500;font-size:15px;` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';
   // AUDIT FONT F6: the naming field sets its OWN font shorthand (it is
   // an <input>, which inherits nothing from the layer), so the one
   // place on this layer a player TYPES in was the one place FONT1's
   // face never reached. Same size, this skin's letters.
-  const entryFace = hooks.enhanced ? `font-weight:600;font-size:18px;${PIXEL_FONT_CSS}` : 'font:600 18px system-ui,-apple-system,sans-serif';
+  const entryFace = hooks.enhanced ? `${PIXEL_FONT_CSS}font-weight:600;font-size:18px;` : 'font:600 18px system-ui,-apple-system,sans-serif';
   ui.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:5;${face};-webkit-user-select:none;user-select:none;-webkit-touch-callout:none`;
   document.body.appendChild(ui);
 

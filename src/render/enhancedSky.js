@@ -374,7 +374,7 @@ export const weatherRow = (weather) => {
 /** The whole state the shader takes for one frame. Pure but for the
  *  clock it is handed. `row` overrides the weather's numbers with an
  *  eased set (the controller keeps one and walks it). */
-export function skyState({ minuteOfDay, weather = 'sunny', classicMinutes = 0, seconds = 0, drift = null, phases = null, row = null }) {
+export function skyState({ minuteOfDay, weather = 'sunny', classicMinutes = 0, skyMinutes = classicMinutes, seconds = 0, drift = null, phases = null, row = null }) {   // TIME1: `skyMinutes` the moons' date, `classicMinutes` the clouds' clock
   const sunDir = sunSkyDirection(minuteOfDay);
   const elevDeg = Math.asin(Math.max(-1, Math.min(1, sunDir[1]))) * 180 / Math.PI;
   const pal = paletteAt(elevDeg);
@@ -411,7 +411,7 @@ export function skyState({ minuteOfDay, weather = 'sunny', classicMinutes = 0, s
   // jump 45 degrees along its arc at midnight (and the moonlight with
   // it) now walks there through the day. A caller's own `phases` (the
   // tests' ladder steps) still go in whole.
-  const ph = phases ?? lunarPhaseFractionsFromMinutes(classicMinutes);
+  const ph = phases ?? lunarPhaseFractionsFromMinutes(skyMinutes);   // TIME1: the moons are the sky's - online its own clock, offline the one
   const moon = (name, phase) => {
     const m = MOONS[name];
     const dir = moonSkyDirection(minuteOfDay, phase, m.tilt);

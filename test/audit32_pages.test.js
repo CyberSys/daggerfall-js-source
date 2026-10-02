@@ -171,7 +171,7 @@ test('AUDIT 32 P6: at a Clothing Store the Weavers\' purchase the Marks cannot m
       const buy = p.btn('Buy 2 from the Weavers');
       if (want === 'none') assert.equal(buy, undefined);
       else assert.equal(buy.disabled, want === 'held', `${marks} Marks`);
-      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 Drake(?!s)/ : /you hold 3 Drakes/);
+      if (want === 'held') assert.match(p.text(), marks === 1 ? /you hold 1 silver/ : /you hold 3 silver/);
     } finally { resetProfPages(); setProfessionsPages(null); }
   }
 });
@@ -183,7 +183,8 @@ test('AUDIT 32 P8/R4: Standard-bearer\'s Silk says what it waits on; the Outfitt
   try {
     p.btn('Clothing').onclick();
     p.btn('Standard-bearer\'s Silk').onclick();
-    assert.match(p.text(), /cloth:standard comes with the sieges - a Siege Honour's Spoils\. Nothing yields it yet\./);
+    assert.match(p.text(), /cloth:standard comes with the sieges - a Siege Honour's Spoils\./);   // PIN MOVED (AUDIT-SEATS): the sieges yield it now
+    assert.doesNotMatch(p.text(), /Nothing yields it yet/);
     const root = el('div');
     document.body.append(root);
     drawProfessionsPage(root, () => {}, kit);
@@ -208,10 +209,14 @@ test('AUDIT 32 P11: the trace\'s meter draws the line through its points, marks 
     hud.setMeter(act, 'E');
     const face = document.body.querySelector('.prof-face');
     assert.ok(face.classList.contains('prof-traceface'));
-    assert.equal(face.style.aspectRatio, '19 / 11');
     const line = face.querySelector('POLYLINE');
     assert.ok(line, 'the line');
     assert.equal(line.getAttribute('points').split(' ').length, act.state.points.length);
+    // PROF-RETICLE: the line laid on the body through the frame's lens - one focal length across and up
+    line.getAttribute('points').split(' ').forEach((s, i) => {
+      const [x, y] = s.split(',').map(Number), [yaw, pitch] = act.state.points[i];
+      assert.ok(Math.abs(x - 500 * Math.tan(yaw * Math.PI / 180)) < 0.06 && Math.abs(y + 500 * Math.tan(pitch * Math.PI / 180)) < 0.06, `point ${i}: a degree the same across as up`);
+    });
     assert.equal(face.querySelectorAll('.first').length, 1, 'the first point marked');
     act.tick(0.05, { held: true, aim: { yaw: act.state.points[0][0], pitch: act.state.points[0][1] } });
     act.tick(0.05, { held: false });

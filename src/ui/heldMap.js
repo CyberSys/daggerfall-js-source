@@ -97,7 +97,7 @@ import { isPlayerControlledTravel, enforceShipRestriction, shipTravelRefusal, sc
 // MAP2: the mod's map additions, through the SAME functions the classic
 // window calls (ui/travelMapOptions.js), so the two skins cannot drift.
 import { teleportCost, teleportCostPrompt, portsFilterAllows, locationInfoRows, resumePrompt } from './travelMapOptions.js';
-import { hasPort } from '../systems/travelPorts.js';
+import { hasPortFor as hasPort } from '../systems/travelPorts.js';   // SEAT2b part two: HasPort, or a members' Harbour at a seat (travelPorts.js hasPortFor)
 import { noticeHold, noticeRelease } from './enhancedNotice.js';   // ENH-NOTICE3: this window's own click-anywhere boxes, as the enhanced panel
 import { TRAVEL_OPTIONS_TEXT as TO_TEXT, format as toFormat } from '../systems/travelOptionsText.js';
 import { getDaggerfallDistance, MatchesCutOff } from '../systems/editDistance.js';
@@ -147,6 +147,11 @@ export const TOOL_ICONS = Object.freeze({
 export const PAD_DEADZONE = 0.2, PAD_ZOOM = 1.6, PAD_TURN = 420;
 /** TURN-STEADY: how far (px) a right-drag travels before it settles on turning, tilting or both. */
 export const ORBIT_LOCK_PX = 8;   // DISC22-G: DFU's note box's own cap (:1603)
+/** WB13c: a finger's tap on a mark with a card holds the card this long (seconds) - a finger has no hover. */
+export const TAP_TIP_S = 4;
+/** ORBIT-FREE: how far (px) a locked drag must go the other way - past its drift - before it turns and tilts at once;
+ *  and the drift itself: off-axis travel under ORBIT_DRIFT of the locked axis's, the slope the lock's own 2:1 forgives. */
+export const ORBIT_FREE_PX = 24, ORBIT_DRIFT = 0.5;
 import { createTownSheet } from './townSheet.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { quadPlacement } from './quadMap.js';   // MAP3: the sheet over the held paper's corners
@@ -154,6 +159,7 @@ import { bindings } from './input.js';
 import { actionsForCode } from '../systems/inputActions.js';   // UXB1-S: every action its key carries, shared or not
 import { smoothstep } from '../systems/mathf.js';   // MAP-FIELD7: the ONE easing, so the sheet travels like everything else in the port
 import { hubMapWord, hubTitle } from '../systems/regionHubs.js';   // HUB1: a region hub's word on the label and its title in the box
+import { seatInfoLine } from '../net/townSeatLaw.js';   // SEAT1a: a seat's Charter in the box
 
 // ── THE SPRITE (Mac's, public/art/held-map.png) ──────────────────
 // THE SITE ROOT lives in systems/appRoot.js now (AUDIT-THUNDERLOCK
@@ -626,6 +632,7 @@ export class HeldMapWindow {
     this._questsKey = '';
     this._tipKey = '';
     this._hoverAt = null;   // where the pointer last hovered, paper and client - a poll refreshes the card under it
+    this._tipUntil = null;  // WB13c: a tap's card stands until this clock
     this._selected = null;  // { summary, name, x, y } - or { coords: true, ... } for a bare pixel (MAP2)
     this._panel = null;     // 'travel' | 'teleport' | null
     this._panelState = null;
@@ -807,6 +814,7 @@ export class HeldMapWindow {
   tick(dt) {
     if (this.done) return;   // a torn-down window has no chrome to drive
     this._clock += dt;
+    if (this._tipUntil !== null && this._clock >= this._tipUntil) { this._tipUntil = null; this._hoverAt = null; this._showTip(null); }   // WB13c: a tap's card goes
     this._padTick(dt);
     this._renderTools();
     const first = !this._ticked;
@@ -1425,6 +1433,7 @@ export class HeldMapWindow {
         isPort: (s) => hasPort(s?.mapID ?? s?.mapId),
         nameOf: (s) => this._summaryName(s),
         hubAt: (s) => this.deps.hubAt?.(s) ?? null,   // HUB1: online, the region's hub flies its pennant
+        seatAt: (s) => this.deps.seatAt?.(s) ?? null,   // SEAT1a: online, while the seats are open, a seat's ring
       });
     }
     return this._model;
@@ -1915,6 +1924,18 @@ export class HeldMapWindow {
     box.style.top = `${at.top}px`;
   }
 
+  /** WB13c (2026-10-01, Mac: "AAA grade polish"): A FINGER HAS NO HOVER, so a phone never saw the breach's card (nor a
+   *  raid's or a quest's). A tap on a mark with a card shows it, with its label, for TAP_TIP_S - the press still picks
+   *  what it picks. */
+  _tapTip(sx, sy, cx, cy) {
+    const hit = this._sheet?.hoverLabel?.(sx, sy) ?? null;
+    if (!hit?.tip) return;
+    if (this._chrome?.label) this._chrome.label.textContent = hit.label ?? '';
+    this._hoverAt = { sx, sy, cx, cy };
+    this._tipUntil = this._clock + TAP_TIP_S;
+    this._showTip(hit.tip, cx, cy);
+  }
+
   /** EVENT-TIP: the card under a STILL pointer, asked again when a poll moved the marks - the gate's countdown ticks
    *  and a raid's town is cleansed without the pointer moving - and the label with it. */
   _refreshTip() {
@@ -2049,7 +2070,8 @@ export class HeldMapWindow {
     const title = this._selected.name;
     // HUB1: what the place is to its region, online - known whether or not its buildings are
     const hub = this.deps.hubAt?.(summary) ?? null;
-    const hubRows = hub ? [hubTitle(hub)] : [];
+    const seat = this.deps.seatAt?.(summary) ?? null;   // SEAT1a: and its Charter, a seat's
+    const hubRows = [...(hub ? [hubTitle(hub)] : []), ...(seat ? [seatInfoLine(seat)] : [])];
     if (!info) {
       this._info = { title: '', rows: [...hubRows, toFormat(TO_TEXT.MsgNoKnowledge, title)], cells: [] };
     } else {
@@ -2116,7 +2138,7 @@ export class HeldMapWindow {
     // info on the panel it stays display:none and the ROOT keeps
     // `hmmodal` on its own: the words moved, the modality did not, and
     // an empty .hmbox would paint a bordered blank over the bay
-    // (ui/enhancedStyle.js:1702 - the frame is the box's, not its
+    // (ui/enhancedStyle.js:1728 - the frame is the box's, not its
     // children's).
     const open = modal && !(this._info && onPanel);
     box.classList.toggle('open', open);
@@ -2789,6 +2811,22 @@ export class HeldMapWindow {
           this._sheet?.orbitBy?.(orbitDrag.axis === 'tilt' ? 0 : orbitDrag.sx, orbitDrag.axis === 'turn' ? 0 : orbitDrag.sy);
           return;
         }
+        // ORBIT-FREE (FIELD BUGS 2026-10-01, "rotate the 3D map only works on one axis ... should work for both vertical
+        // and horizontal simultaneously"; Mac: "Unlock on intent"): the lock held for the WHOLE drag, so one set off
+        // sideways never tilted however far it then went down. A locked drag keeps what it holds back the other way,
+        // less its drift (each move forgives ORBIT_DRIFT of its own travel along the lock); past ORBIT_FREE_PX of it
+        // the drag turns AND tilts, every move, to its release - the travel held back spent first, so nothing is lost.
+        if (orbitDrag.axis !== 'both') {
+          const tilt = orbitDrag.axis === 'tilt';
+          const on = Math.abs(tilt ? dy : dx), off = (orbitDrag.off ?? 0) + (tilt ? dx : dy);
+          orbitDrag.off = Math.sign(off) * Math.max(0, Math.abs(off) - on * ORBIT_DRIFT);
+          if (Math.abs(orbitDrag.off) >= ORBIT_FREE_PX) {
+            const held = orbitDrag.off;
+            orbitDrag.axis = 'both';
+            this._sheet?.orbitBy?.(tilt ? held : dx, tilt ? dy : held);
+            return;
+          }
+        }
         this._sheet?.orbitBy?.(orbitDrag.axis === 'tilt' ? 0 : dx, orbitDrag.axis === 'turn' ? 0 : dy);
         return;
       }
@@ -2849,8 +2887,9 @@ export class HeldMapWindow {
       }
     });
     // EVENT-TIP: the card goes with the pointer - off the map, or into a press
-    stage.addEventListener('pointerleave', () => { this._hoverAt = null; this._showTip(null); });
-    stage.addEventListener('pointerdown', () => { this._hoverAt = null; this._showTip(null); });
+    // WB13c: a finger leaves the stage as it lifts - a tap's card stands its time
+    stage.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'mouse' && this._tipUntil !== null) return; this._hoverAt = null; this._showTip(null); });
+    stage.addEventListener('pointerdown', () => { this._hoverAt = null; this._tipUntil = null; this._showTip(null); });
     const lift = (e) => {
       if (second && e.pointerId === second.id) { second = null; pinch = null; if (downAt) { downAt.x = downAt.cx; downAt.y = downAt.cy; downAt.ox = this._view.ox; downAt.oy = this._view.oy; } return true; }
       if (downAt && e.pointerId === downAt.id) {
@@ -2891,7 +2930,10 @@ export class HeldMapWindow {
         // also pick the place under it.
         const tab = stripHit(this._strip, px, py);
         if (tab) this._selectSheet(tab);
-        else this._sheet?.pickAt?.(px, py);
+        else {
+          this._sheet?.pickAt?.(px, py);
+          if (e.pointerType !== 'mouse') this._tapTip(px, py, e.clientX, e.clientY);   // WB13c: a finger has no hover
+        }
       }
       downAt = null;
     });

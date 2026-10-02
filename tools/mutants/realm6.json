@@ -146,8 +146,8 @@
   {
     "name": "REALM6-tool-removal-uncredited",
     "file": "src/scenes/decorTool.js",
-    "old": "          back = Math.max(0, Number(a.data?.gold) || 0);\n          if (back > 0) deps.wallet?.().credit?.(back);\n        },",
-    "new": "          back = Math.max(0, Number(a.data?.gold) || 0);\n        },",
+    "old": "          back = Math.max(0, Number(a.data?.gold) || 0);\n          toGuild = Math.max(0, Number(a.data?.treasury) || 0);\n          if (back > 0) deps.wallet?.().credit?.(back);\n        },",
+    "new": "          back = Math.max(0, Number(a.data?.gold) || 0);\n          toGuild = Math.max(0, Number(a.data?.treasury) || 0);\n        },",
     "tests": [
       "test/realm6.test.js"
     ]

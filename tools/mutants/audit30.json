@@ -56,7 +56,7 @@
   {
     "name": "AUDIT30-L6-the-buy-s-tax-per-sale",
     "file": "server-account/src/market.js",
-    "old": "const tax = saleTaxOn((Number(l.units) - left) * Number(l.price), total), tithe",
+    "old": "const tax = saleTaxOn(before, total), tithe",
     "new": "const tax = saleTax(total), tithe",
     "tests": [
       "test/audit30_service.test.js"

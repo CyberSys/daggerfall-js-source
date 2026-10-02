@@ -39,6 +39,7 @@
 import { CLIMATE_INDICES } from './travel.js';   // {0,0,0,1,2,3,4,5,5,5} by (climate - Ocean) - TravelTimeCalculator.cs:30, the same map WeatherManager.cs:432 spends
 import { CLIMATES, CLIMATE_BASE_TYPES, getWorldClimateSettings } from '../formats/mapsFile.js';
 import { seasonValue, dateFromClassicMinutes } from './gameDate.js';
+import { skyMinuteOfEvent } from './skyCalendar.js';   // TIME1: the rolls walk the event clock; their season is the sky's
 import { WEATHER_TYPES } from '../world/weather.js';
 import { seededRng } from './wind.js';   // CLK2: the evolution's own generator - never the classic lane's sequence
 import { isEnhanced } from './uiSkin.js';   // CLK2: the evolution is the enhanced lane's
@@ -312,7 +313,7 @@ export function snowGroundLawOn() {
 export function overGround(word, climateIndex, nowMinutes) {
   if (!snowGroundLawOn() || (word !== WEATHER_ENUM.rain && word !== WEATHER_ENUM.thunder)) return word;
   if (nowMinutes == null || !Number.isFinite(nowMinutes)) return word;
-  return groundIsSnowy(getWorldClimateSettings(climateIndex), climateSeasonFromMinutes(nowMinutes)) ? WEATHER_ENUM.snow : word;   // an unknown climate takes the default's ground, as the terrain does
+  return groundIsSnowy(getWorldClimateSettings(climateIndex), climateSeasonFromMinutes(skyMinuteOfEvent(nowMinutes))) ? WEATHER_ENUM.snow : word;   // TIME1: the ground the sky's season dresses   // an unknown climate takes the default's ground, as the terrain does
 }
 /** The ONE write of the sim's word from a roll or the array: the raw word
  *  kept, the ground law applied. Answers true when the worn word changed. */
@@ -433,7 +434,7 @@ export const weatherJumpStamp = () => _jumps;
  * the frames in between.
  */
 export function rollClimateWeathersForDay(nowMinutes, rolls = Math.random) {
-  setClimateWeathers(seasonValue(dateFromClassicMinutes(nowMinutes)), rollsFor(nowMinutes, rolls));   // WORLD5: the day's own roll online
+  setClimateWeathers(seasonValue(dateFromClassicMinutes(skyMinuteOfEvent(nowMinutes))), rollsFor(nowMinutes, rolls));   // WORLD5: the day's own roll online; TIME1: the sky's season
   _climateWeathersRolled = true;
   _updateFromClimateArray = true;
   _rolledAtMinutes = stampRoll(nowMinutes);   // WX2a: the drain measures its lateness from here; AUDIT WORLD5 C5: the day's own minute online
@@ -455,7 +456,7 @@ export function rollClimateWeathersForDay(nowMinutes, rolls = Math.random) {
  *  WeatherManager.cs:524-543) so the loaded sky survives. */
 export function tickWeather(nowMinutes, climateIndex, rolls = Math.random) {
   if (!_climateWeathersRolled) {
-    setClimateWeathers(seasonValue(dateFromClassicMinutes(nowMinutes)), rollsFor(nowMinutes, rolls));   // WORLD5: the day's own roll online
+    setClimateWeathers(seasonValue(dateFromClassicMinutes(skyMinuteOfEvent(nowMinutes))), rollsFor(nowMinutes, rolls));   // WORLD5: the day's own roll online; TIME1: the sky's season
     _climateWeathersRolled = true;
     _updateFromClimateArray = true;   // OnInitWorld raises it at every non-load start (:534)
     _rolledAtMinutes = stampRoll(nowMinutes);   // AUDIT WORLD5 C5: the day's own minute online
@@ -493,7 +494,7 @@ export function weatherRespawn(nowMinutes, climateIndex, rolls = Math.random, at
   // climate stands down on the lane (the field is the day's words as places; a roll beside it would be a
   // second sky), and the arrival is a jump either way
   if (at && climateAt && weatherFieldOn()) return sampleWeatherField(nowMinutes, climateIndex, at, climateAt, 'jump');
-  const next = rollWeather(climateIndex, seasonValue(dateFromClassicMinutes(nowMinutes)), rollsFor(nowMinutes, rolls, 1 + climateIndex));   // WORLD5: the day's and the climate's roll online
+  const next = rollWeather(climateIndex, seasonValue(dateFromClassicMinutes(skyMinuteOfEvent(nowMinutes))), rollsFor(nowMinutes, rolls, 1 + climateIndex));   // TIME1: the sky's season   // WORLD5: the day's and the climate's roll online
   if (!_set(next, climateIndex, nowMinutes)) return false;   // WEATHER2a: through the ground
   _jumps++;   // WX2a: the respawn's "different sky at the destination" is the player arriving under it
   return true;
@@ -585,7 +586,7 @@ export function evolveClimateWeathers(nowMinutes) {
   // stands until the next day roll, as the W1 restore law says
   if (!weatherEvolutionOn() || !_climateWeathersValid || _evolveHour === null || hour < _evolveHour) { _evolveHour = hour; return false; }
   if (hour === _evolveHour) return false;
-  const season = seasonValue(dateFromClassicMinutes(nowMinutes));
+  const season = seasonValue(dateFromClassicMinutes(skyMinuteOfEvent(nowMinutes)));   // TIME1: the event clock's hours, the sky's season
   let changedAny = false;
   for (let h = Math.max(_evolveHour + 1, hour - 23); h <= hour; h++) {
     for (let zone = 0; zone < 6; zone++) {

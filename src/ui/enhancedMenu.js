@@ -110,6 +110,7 @@ import {
 import { mostRecentRestorable, restorableSaves, firstRestorable, deleteSave, QUICK_SAVE_NAME, loadSlot, saveSlot } from '../systems/saveSlots.js';
 import { offlineCopyOf, onlineCopyOf } from '../systems/offlineCopy.js';   // AUDIT LIVED1 E/G: the doors between the lanes
 import { sharedClassicMinutes } from '../net/wire.js';   // AUDIT LIVED1 G: the shared clock's minute a character joins at
+import { SKY_SEGMENTS, skyClassicMinutes, wallMsForSkyMinutes } from '../net/skyLaw.js';   // TIME4: the sky's day, said at the door
 import {
   realmIo, realmList, realmCustoms, realmPut, realmDelete, realmUndo, realmFetch, realmRowAsSave, realmSummaryOf, realmRefusalText, takeRealmNotice,
   sweepUnsent,
@@ -133,7 +134,7 @@ import { dateFromClassicMinutes, dateString, dateTimeString } from '../systems/g
 // PX5: the pause clock reads THE ONE CLOCK directly (AUDIT 23 C2's
 // law - every host already reads this same module), so no host seam
 // is needed and no host can drift.
-import { worldMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
+import { worldMinutes, skyMinutes, trustedWorldMinutes } from '../systems/worldTick.js';
 import { BUILD_TAG } from '../buildTag.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
 import { repaintKeepingScroll } from './domRepaint.js';
@@ -149,6 +150,7 @@ import { legalRepOf } from '../systems/court.js';   // REP5: the law, region by 
 import { banishmentLeft, KNOWN_CRIMINAL_BELOW, pardonPrice, challengeFine } from '../systems/standing.js';
 import { legalStandingWord } from '../systems/legalBands.js';
 import { REGION_NAMES } from '../formats/mapsTables.js';   // GUILD-REP: the sheet's Affiliations box, on the Standing page
+import { hudLocked, setHudLocked, resetHudLayout, hudBarsSplit, setHudBarsSplit } from './hudLayout.js';   // HUD-MOVE: Lock UI and Reset UI
 import { enhancedHudScale as hudScaleNow, HUD_SCALE_MIN, HUD_SCALE_MAX } from './enhancedHud.js';   // PX30c
 import { playerEntity } from '../characters/playerEntity.js';
 // PX6: the Stats page's skill labels - the one home (systems/skills.js).
@@ -190,6 +192,7 @@ import { accountCard } from './enhancedAccount.js';
 import { skinCard } from './skinCard.js';   // DISC23-B2: the skin, on the profile
 import { saveTile, cloudStateOf, saveFromCard, newerBackup } from './saveTile.js';   // TILE1 (Mac: "a detailed tile based design for your saves... showing your portrait and character information"), and ACC2c's card-shaped save
 import { loadFace } from './facePortrait.js';
+import { timersMark, timersWindow, anchorBeside } from './enhancedTimers.js';   // TIMERS1: the hourglass beside the profile mark, and its window
 import { profileBadge, portraitSave, liveCharacter } from './profileBadge.js';   // PROFILE1: the mark is the last character's portrait   // TILE1: the character's face, the one home chargen also reads
 import { cloudIo, cloudList, pushSlot, pullSlot, removeCloudSlot, cloudOnly, slotKeyOf, cloudRefusalText } from '../systems/cloudSaves.js';   // ACC2: the backup a tile can offer, AUDIT-312 F1's delete, and ACC2c's download of a save that is only up there
 import { serviceBase, storedSession } from '../net/accountClient.js';
@@ -272,6 +275,12 @@ let keyHandler = null;
 // menu startup and a new profile icon"): whether the account window is
 // open, and whether startup has already offered it once.
 let accountOpen = false;
+/** TIMERS1: the timers window over the pause face, and its live view (the tick it must stop). */
+let timersOpen = false;
+let timersView = null;
+let timersAnchor = null;      // AUDIT TIMERS1 UI-3: the hourglass's re-placing, disconnected with the face it stands in
+let timersFocusBack = false;  // AUDIT TIMERS1 UI-5: a closed window hands the focus back to the hourglass
+const stopTimers = () => { timersView?.stop(); timersView = null; timersAnchor?.(); timersAnchor = null; };
 let accountOffered = false;
 // ═══ TILE2/ACC2: WHAT THE CLOUD HOLDS, ASKED ONCE PER VISIT ═══════
 //
@@ -323,6 +332,24 @@ const el = (t, cls, txt) => {
 let _pickedSaveKey = null;
 let _pickedSaveName = null;
 let _saveNameDraft = '';
+/** TIME4 (bible/06-Systems/Online-Time-Arc.md section 7): THE SKY'S DAY, SAID AT THE DOOR - what is true when the
+ *  pane opens. From the sky's switch on (net/skyLaw.js SKY_SEGMENTS) a day is an hour (SKY-SLOW); its midnights and its
+ *  dusks (18:00, forty-five real minutes after a midnight) are said in this machine's own minutes - on the hour for most
+ *  of the world, at the half hour or a quarter past where a clock is set off the hour.
+ *  Before the switch the sky is still the event clock's, a day every two hours, and the sentence says when it turns.
+ *  test/time4_words.test.js holds the numbers to the law. */
+export function skyDayWords(nowMs = Date.now(), localTime = (ms) => new Date(ms).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
+  localMinute = (ms) => { const d = new Date(ms); return d.getMinutes() + d.getSeconds() / 60; }) {
+  const turn = SKY_SEGMENTS[SKY_SEGMENTS.length - 1].fromMs;
+  const midnight = wallMsForSkyMinutes(Math.ceil(skyClassicMinutes(turn) / 1440) * 1440);
+  const m0 = ((localMinute(midnight) % 60) + 60) % 60;
+  const at = (m) => { const v = ((m % 60) + 60) % 60; return `:${String(Math.floor(v)).padStart(2, '0')}${v % 1 ? ':30' : ''}`; };
+  const day = `${m0 === 0 ? 'midnight falls on the hour' : `midnight falls at ${at(m0)}`}, and dusk at ${at(m0 + 45)}`;
+  return nowMs >= turn
+    ? `A day in the world is an hour of real time: ${day}.`
+    : `A day in the world is two hours of real time until ${localTime(turn)}; from then on it is an hour: ${day}.`;
+}
+
 export function takePickedSaveKey() { const k = _pickedSaveKey; _pickedSaveKey = null; return k; }
 /** REALM P1.3: the realm character the Online door's Play pressed - its id rides the boot (main.js ?realm). */
 let _pickedRealmId = null;
@@ -1067,7 +1094,7 @@ function paneOnline(body) {
   // agreeing to are still on the surface they enter through, where a
   // page in the bible cannot reach them.
   const foot = el('div', 'card svonlinefoot');
-  foot.append(el('p', 'meta', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans and repairs run on it. Quest timers run while you play. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
+  foot.append(el('p', 'meta', 'Everyone plays their own save, and you can see and talk to each other anywhere. Dungeons and buildings are shared: enemies, doors, levers and every chest, shelf or cupboard someone has opened are the same for everyone, and stay that way. In towns and the wilds you share who is around: what one player meets, everyone nearby sees and can fight, and those monsters can hurt you too. ' + skyDayWords() + ' The world\u2019s clock and sky run on real time: resting, travelling, jail time or training don\u2019t move them, so a quest that waits for a time of day waits for the world\u2019s, and a full moon holds a lycanthrope for its night alone. Your character also keeps their own time: it runs while you play, resting, travelling, jail time and training use it, and it stops while you are logged off. Your wounds, spells, hunger, diseases, curses, guild ranks, rented rooms, loans, repairs and quest timers run on it, so a rest spends a quest\u2019s days as it does in Daggerfall. Every enhancement is on for everyone in the shared world, but your UI is your own, with chat, friends, the party and trading in their own panels. Most mods stay your choice online. A few are the room\u2019s: the ones that change the ground, the ones that change monsters and loot, and the rules everyone plays by. The Mods page marks each one.'));   // AUDIT WORLD5 C12: the shared clock, said at the door; OL1: the lane, said at the door
   foot.append(field('Relay', 'onlineServer', DEFAULT_SERVER, 200));
   body.append(foot);
   body.append(onlineSyncCard());   // UXB1-E: under the rules it copies
@@ -1936,6 +1963,55 @@ function hudScaleRow() {
   return row;
 }
 
+/** HUD-MOVE: LOCK UI and RESET UI. Locked (the default) the HUD stands still and takes no pointer; unlocked, every
+ *  piece - the vitals, the hotbar, the chat, the compass, the Overworld's panel and the rest - is outlined in play and
+ *  moves with a drag of the freed mouse. Reset puts every piece back where the game stands it. */
+function hudLayoutRows() {
+  const lockRow = el('div', 'row');
+  const main = el('button', 'row-main');
+  const locked = hudLocked();
+  main.append(el('div', 'row-name', 'Lock UI'), el('div', 'row-note', locked
+    ? 'On: the HUD stays where it is. Turn it off (or press Alt+U in game) to move the health bars, hotbar, chat, compass, Overworld panel and the rest.'
+    : 'Off: in play, free the mouse and drag any outlined piece. Double-click a piece to put it back. Lock it again (or press Alt+U) when you are done.'));
+  const flip = () => { setHudLocked(!hudLocked()); render(); };
+  main.onclick = flip;
+  lockRow.append(main);
+  const ctl = el('div', 'ctl');
+  const b = el('button', `act rowact${locked ? ' primary' : ''}`, locked ? 'On' : 'Off');
+  b.setAttribute('aria-pressed', String(locked));
+  b.onclick = flip;
+  ctl.append(b, el('span', 'tier live'));
+  lockRow.append(ctl);
+
+  // the three bars: moved as one piece, or each on its own
+  const barsRow = el('div', 'row');
+  const bmain = el('button', 'row-main');
+  const split = hudBarsSplit();
+  bmain.append(el('div', 'row-name', 'Move bars separately'), el('div', 'row-note', split
+    ? 'On: the health, magicka and fatigue bars each move on their own while the UI is unlocked.'
+    : 'Off: the health, magicka and fatigue bars move together as one piece.'));
+  const bflip = () => { setHudBarsSplit(!hudBarsSplit()); render(); };
+  bmain.onclick = bflip;
+  barsRow.append(bmain);
+  const bctl = el('div', 'ctl');
+  const bb = el('button', `act rowact${split ? ' primary' : ''}`, split ? 'On' : 'Off');
+  bb.setAttribute('aria-pressed', String(split));
+  bb.onclick = bflip;
+  bctl.append(bb, el('span', 'tier live'));
+  barsRow.append(bctl);
+
+  const resetRow = el('div', 'row');
+  const rmain = el('div', 'row-main');
+  rmain.append(el('div', 'row-name', 'Reset UI'), el('div', 'row-note', 'Puts every HUD piece you moved back in its usual place.'));
+  resetRow.append(rmain);
+  const rctl = el('div', 'ctl');
+  const rb = el('button', 'act rowact', 'Reset');
+  rb.onclick = () => { resetHudLayout(); rb.textContent = 'Done'; setTimeout(() => { rb.textContent = 'Reset'; }, 1200); };
+  rctl.append(rb, el('span', 'tier live'));
+  resetRow.append(rctl);
+  return [lockRow, barsRow, resetRow];
+}
+
 /** EE13: the outdoors test door - a season, a weather, a random town.
  *  A TEST door, not a setting: it navigates and stores nothing. */
 function outdoorsTestRow() {
@@ -2036,6 +2112,7 @@ function portRowsControls() {
 function portRowsInterface({ pause = false } = {}) {
   const out = [];
   out.push(hudScaleRow());
+  if (isEnhanced()) out.push(...hudLayoutRows());   // HUD-MOVE: the Enhanced Plus HUD's own - Classic draws none of it
   // FOEBAR1: the target bar's face is a two-way choice, not a switch - the
   // stick-position row's shape: a row whose button names the OTHER option.
   {
@@ -3296,24 +3373,44 @@ function renderHome() {
     // innermost: a tap outside it, or Escape, closes IT and leaves the pause window standing - never the game resumed
     // from under a half-made choice.
     home.append(profileMark());
+    // TIMERS1 (Mac: "an enhanced plus button on the pause menu next to the profile icon"): THE HOURGLASS - online only,
+    // where the host hands the clock and what it holds (hooks.timers); its window counts every shared moment down
+    let mark = null;
+    if (hooks.timers?.()) {
+      mark = timersMark(document, { open: timersOpen, onOpen: () => { timersOpen = true; render(); } });
+      home.append(mark);
+      timersAnchor = anchorBeside(mark, home.querySelector?.('.px-profile'), home);   // AUDIT TIMERS1 UI-3: placed again on every resize
+      if (timersFocusBack && !timersOpen) { timersFocusBack = false; globalThis.requestAnimationFrame?.(() => mark.focus?.()); }   // UI-5: back where the press was
+    }
     if (accountOpen) {
       const acct = el('div', 'px-stage px-acctstage');
       acct.append(accountWindow());
       home.append(acct);
       closeOnOutsideTap(home, '.px-acctwin', () => { accountOpen = false; render(); });
     }
+    else if (timersOpen && hooks.timers?.()) {
+      const tstage = el('div', 'px-stage px-timersstage');
+      // AUDIT TIMERS1 UI-9: the window's read is the one that asks the service (the seats list); the hourglass's test does not
+      timersView = timersWindow(document, { read: () => hooks.timers?.({ ask: true }) ?? null, onClose: () => { timersOpen = false; timersFocusBack = true; render(); } });
+      tstage.append(timersView.root);
+      home.append(tstage);
+      closeOnOutsideTap(home, '.px-timerswin', () => { timersOpen = false; timersFocusBack = true; render(); });
+      // AUDIT TIMERS1 UI-5/UI-7: the pause face under the window is out of reach - no Tab into it, no Enter on its
+      // Resume, no bumper turning its tabs (plusPad's tab strips skip what is not visible to it), no profile window
+      for (const n of [stage, home.querySelector?.('.px-profile'), mark]) n?.setAttribute?.('inert', '');
+    }
     // OT1 (Mac: "tapping outside of any UI closes the UI"): a tap on the
     // scrim - outside the window, the clock and the foot - resumes,
     // the way Escape does; the front door has no scrim and no resume.
     // PROFILE2: the mark is inside too (a press on it opens the window), and with the window open the tap is its.
-    else closeOnOutsideTap(home, '.px-win, .px-clock, .px-foot, .px-profile', () => onAction('resume'));
+    else closeOnOutsideTap(home, '.px-win, .px-clock, .px-foot, .px-profile, .px-timersmark', () => onAction('resume'));
     // PX4 (Mac): NO FOOT AT PAUSE - no skin toggle, no About plaque;
     // About is a System-tab row instead, and the skin switch stays on
     // the boot face and the settings shell.
     // PX5: the world's date and time, bottom-right like the reference,
     // through DFU's own header formatter over THE ONE CLOCK - a paused
     // clock, so one read at render is the truth for the whole visit.
-    const d = dateFromClassicMinutes(Math.floor(worldMinutes()));
+    const d = dateFromClassicMinutes(Math.floor(skyMinutes()));   // TIME1: the date and time the world shows are the sky's
     const clock = el('div', 'px-clock');
     clock.append(el('span', null, dateString(d)), el('span', 'px-clocktime', dateTimeString(d).split(' on ')[0]));
     home.append(clock);
@@ -4281,6 +4378,7 @@ function render() {
 function renderInto() {
   if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }
   if (questTimer) { clearInterval(questTimer); questTimer = null; }
+  stopTimers();   // TIMERS1: a rebuild builds the window again, with its own tick
   app.innerHTML = '';
   // PX1/PX2: both doors open on the pixel home; every section keeps
   // its shell.
@@ -4466,6 +4564,7 @@ function onKey(e) {
   // the door, so the one press that means "not that" must close IT
   // rather than walk the screen out from under it.
   const back = accountOpen ? () => { accountOpen = false; render(); }
+    : timersOpen && timersView ? () => { timersOpen = false; timersFocusBack = true; render(); }   // TIMERS1: the window first, ahead of the pause face's resume (AUDIT UI-11: a window that is drawn)
     // AUDIT 32 P12: an act under way on the Stores page is set down first (nothing spent, said) - never the window
     : profActUnderWay() ? () => { setDownProfAct(); render(); }
     : confirming ? () => { confirming = null; render(); }
@@ -4537,6 +4636,8 @@ export function mountEnhancedMenu(host, {
   // PROFILE2: and the profile window is a visit's too - the pause screen mounts this module again, and a window left
   // open on the door (or on the last pause) must not be standing over the next one before the player asks for it
   accountOpen = false;
+  timersOpen = false;   // TIMERS1: and the timers window the same
+  timersFocusBack = false;
   // MAC1 (Mac, 2026-09-10: "after exiting game and then going back to
   // enhanced settings, the Build and Switch Arms options are gone and
   // require me to reattach the files"). The Morrowind store is COUNTED
@@ -4639,6 +4740,7 @@ export function mountEnhancedMenu(host, {
       if (groundTimer) { clearInterval(groundTimer); groundTimer = null; }
       if (textKeyCapture) { globalThis.removeEventListener('keydown', textKeyCapture, true); textKeyCapture = null; }   // DISC28-A
       if (questTimer) { clearInterval(questTimer); questTimer = null; }
+      stopTimers();   // TIMERS1
       // FIX-F: and the rebind pane's own capture listener, which is on
       // the DOCUMENT and would outlive this screen exactly as the one
       // above would.

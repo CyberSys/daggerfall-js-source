@@ -60,7 +60,7 @@ export const RENT_REALM_ONLY = 'Only an online character of the realm can rent a
  * interiorRestPlace `homeBed`), where a tenant's bed was asked as DFU asks a house it sold - inside a permanent scene,
  * which a tenant's visit never is - and refused ("You have not rented a room here.").
  */
-export const homeBedIsMine = (home, nowS) => !!home && (home.own === true || rentDaysLeft(home.tenant, nowS) > 0);
+export const homeBedIsMine = (home, nowS) => !!home && (home.own === true || !!(home.hall && home.member) || rentDaysLeft(home.tenant, nowS) > 0);   // GUILD1d (merged past RENT-REST): a member rests in their guild's hall as in their own home
 
 /**
  * RENT-RENEW (FIELD BUGS 2026-10-01): THE DAYS THE DOOR OFFERS for a room at the service's clock `nowS` - those whose

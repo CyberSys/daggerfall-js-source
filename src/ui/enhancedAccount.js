@@ -60,6 +60,10 @@ export const GLYPH_LABEL = Object.freeze({
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
   penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
   herald: 'Herald',   // HERALD: the herald's trumpet and its banner
+  tower: 'A seat\'s Charter',   // SEAT1c: the tower of a guild holding a palace seat
+  crownDF: 'The Crown of Daggerfall',   // SEAT1c: a crown seat's crown, its kingdom's
+  crownWR: 'The Crown of Wayrest',
+  crownSN: 'The Crown of Sentinel',
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
@@ -243,10 +247,11 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
    * holds no title sees no picker - not an empty box with a heading
    * over it - because ACC1e's own correction was Mac's ("there's
    * uneeded text explaining what an account is") and a control with
-   * no options is exactly that. The glyphs are shown BESIDE it and
-   * are not pressable, because a glyph is TRUE of a player rather
-   * than chosen by one; a control that cannot be operated would say
-   * the opposite.
+   * no options is exactly that. GLYPH-WEAR (2026-10-02, Mac: "can we
+   * make it where players can also equip/unequip their glyphs"): each
+   * glyph is a button too - pressed off, pressed back on - though it
+   * stays TRUE of the player: hiding one is paint, and what it grants
+   * stays.
    */
   function wardrobe() {
     const w = flow.wardrobe;
@@ -276,7 +281,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${TITLE_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${TITLE_TEXT[key] ?? key}`;   // WB13b
         b.onclick = () => flow.equip(key);
         row.append(b);
       }
@@ -294,7 +299,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${AURA_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${AURA_TEXT[key] ?? key}`;
         b.onclick = () => flow.wearAura(key);
         row.append(b);
       }
@@ -303,11 +308,17 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
     if (glyphs.length) {
       box.append(el('span', 'fieldlabel', 'Glyphs'));
       const row = el('div', 'acctwearrow');
+      const off = Array.isArray(w?.glyphsOff) ? w.glyphsOff : [];
       for (const g of glyphs) {
-        // NOT A BUTTON. A glyph is a fact about the account - the
-        // sprout is its age, the dev mark is a grant - and nothing
-        // equips one, so nothing here can be pressed.
-        const chip = el('span', `acctglyph ${badgeClass('gl', g.key)}`);
+        // GLYPH-WEAR: A BUTTON NOW, worn as a title's is - full strength while shown, faded while hidden - and the
+        // press asks the service (flow.toggleGlyph). Still a fact about the account: hidden, it grants what it did.
+        const shown = !off.includes(g.key);
+        const chip = keyedAs(el('button', `acctglyph ${badgeClass('gl', g.key)}${shown ? ' worn' : ''}`), `glyph:${g.key}`);
+        chip.type = 'button';
+        chip.disabled = !!flow.busy;
+        chip.setAttribute('aria-pressed', shown ? 'true' : 'false');
+        chip.title = shown ? 'Showing this - press to hide it' : 'Hidden - press to show it';
+        chip.onclick = () => flow.toggleGlyph(g.key);
         // SHADOW-FANG: the one drawing's colourless half (ui/playerBadge.js glyphArtNode) - its shapes are
         // currentColor, which this chip's class colours; a gradient glyph brings its own fill and eye
         const svg = glyphArtNode(doc, g, 'acctglyphart', 1.6);
@@ -443,10 +454,10 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // WB5b: the Oblivion Gates this account closed - each a kill the relay signed and this service counted once
       // (net/gateClaims.js carries the receipts). A service from before it says nothing.
       const gates = gateRecordText(flow.account.gates);
-      if (gates) row('Gates closed', gates);
+      if (gates) row('Breaches closed', gates);   // WB12a
       // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
       // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
-      if (Number.isSafeInteger(flow.account.marks)) row('Drakes', marksText(flow.account.marks));
+      if (Number.isSafeInteger(flow.account.marks)) row('Silver', marksText(flow.account.marks));
       // RAID4: the towns this account defended - each a raid's cleanse the relay signed and this service counted once
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);

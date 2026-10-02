@@ -400,21 +400,23 @@
   },
   {
     "name": "AUDITLIVED1B-R3-the-journal-stays",
-    "file": "src/systems/offlineCopy.js",
+    "file": "src/systems/quest/questStamps.js",
     "old": "if (m && Number.isFinite(m.time) && m.time !== 0) m.time += deltaSeconds;",
     "new": "void m;",
     "tests": [
       "test/auditlived1b.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1B-R3-a-zero-moves",
-    "file": "src/systems/offlineCopy.js",
+    "file": "src/systems/quest/questStamps.js",
     "old": "if (m && Number.isFinite(m.time) && m.time !== 0) m.time += deltaSeconds;",
     "new": "if (m && Number.isFinite(m.time)) m.time += deltaSeconds;",
     "tests": [
       "test/auditlived1b.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1B-D2-the-stock-stays",
@@ -740,8 +742,8 @@
   {
     "name": "AUDITLIVED1B-T4-ex-spawn-table-reads-the-characters-hour",
     "file": "src/scenes/exterior.js",
-    "old": "        skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null,",
-    "new": "        skyMinutes: null,",
+    "old": "        skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,   // LIVED1: online the minute",
+    "new": "        skyMinutes: null,   // LIVED1: online the minute",
     "tests": [
       "test/auditlived1b_t.test.js"
     ]
@@ -1012,8 +1014,8 @@
   {
     "name": "AUDITLIVED1B-T10-wt-nightfall-ceil-to-floor",
     "file": "src/systems/worldTick.js",
-    "old": "  const real = Math.max(1, Math.ceil(toDusk / ONLINE_MINUTES_PER_MS / 60000));",
-    "new": "  const real = Math.max(1, Math.floor(toDusk / ONLINE_MINUTES_PER_MS / 60000));",
+    "old": "  const real = Math.max(1, Math.ceil(ms / 60000));",
+    "new": "  const real = Math.max(1, Math.floor(ms / 60000));",
     "tests": [
       "test/auditlived1b_t.test.js"
     ]

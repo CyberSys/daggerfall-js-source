@@ -285,7 +285,7 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
   background: ${T.groundPanel}; border: 2px solid ${T.stoneLit}; transform: scale(var(--nc-plate-scale, var(--hud-scale, 1))); transform-origin: bottom right; }
 .dfnaval-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: -10px -12px 8px; padding: 6px 12px 5px;
   font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: #efe8d6; text-shadow: ${OUTLINED}; }
-.dfnaval-waters { font-size: 10px; letter-spacing: 0.06em; color: #b3a684; text-transform: none; white-space: nowrap; }
+.dfnaval-waters { font-size: 11px; letter-spacing: 0.06em; color: #b3a684; text-transform: none; white-space: nowrap; }
 .dfnaval-anchors { display: inline-flex; gap: 3px; margin-left: 5px; vertical-align: middle; }
 .dfnaval-anchor { width: 7px; height: 7px; background: #2a241b; box-shadow: 0 0 0 1px #050608; }
 .dfnaval-anchor.on { background: #b83a2e; box-shadow: 0 0 0 1px #050608, inset 1px 1px 0 rgba(255,255,255,0.3); }
@@ -304,13 +304,13 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-track.low { animation: dfnaval-low 0.9s steps(1) infinite; }
 @keyframes dfnaval-low { 50% { border-color: #e0584a #5a130f #3d0d0a #b83a2e; } }
 .dfnaval-chips { display: flex; gap: 6px; justify-content: flex-end; min-height: 0; margin: 2px 6px 0; }
-.dfnaval-chip { padding: 1px 6px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; background: ${T.groundChip}; border: 2px solid ${T.stoneDim}; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
+.dfnaval-chip { padding: 1px 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; background: ${T.groundChip}; border: 2px solid ${T.stoneDim}; color: #efe8d6; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-chip.fire { border-color: #e0584a #5a130f #3d0d0a #b83a2e; color: #ffd9a8; }
 .dfnaval-chip.brace { border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; color: ${T.brassHi}; }
 .dfnaval-chip.wreck { border-color: #e0584a #5a130f #3d0d0a #b83a2e; color: #ffc4bb; }
 .dfnaval-chip.mend, .dfnaval-chip.repair { border-color: #9fd6a8 #2f6b3b #1f4a28 #5fa36c; color: #cdf0d2; }
-.dfnaval-rose { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto auto; gap: 4px; margin: 8px 6px 2px; align-items: stretch; }
-.dfnaval-gun { position: relative; overflow: hidden; padding: 3px 4px 4px; min-height: 30px; text-align: center; background: ${T.groundButton};
+.dfnaval-rose { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto auto; gap: 4px; margin: 8px 3px 2px; align-items: stretch; }   /* AUDIT FONT3 L1: 3px a side, not 6 - the batteries' words at the 11px floor need it */
+.dfnaval-gun { position: relative; overflow: hidden; padding: 3px 1px 4px; min-height: 30px; text-align: center; background: ${T.groundButton};
   border: 2px solid; border-color: ${T.stoneLit} ${T.stoneDim} ${T.stoneDark} ${T.stoneMid}; box-shadow: 0 0 0 1px #050608; }
 .dfnaval-gun.bow { grid-column: 2; grid-row: 1; }
 .dfnaval-gun.port { grid-column: 1; grid-row: 2; }
@@ -321,8 +321,10 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-gun-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 0;
   background: linear-gradient(180deg, ${T.brassHi} 0 2px, rgba(192,138,62,0.6) 2px); }
 .dfnaval-gun-side, .dfnaval-gun-count { position: relative; z-index: 1; display: block; line-height: 1.15; text-shadow: 1px 1px 0 #050608; }
-.dfnaval-gun-side { font-size: 10px; letter-spacing: 0.12em; color: #efe8d6; text-transform: uppercase; }
-.dfnaval-gun-count { font-size: 9px; color: #d8cfae; }
+/* AUDIT FONT3 L1: at the 11px floor "STARBOARD" at 0.12em clipped in its box and "12 great guns" wrapped, growing the
+   plate a third (256 -> 292px; 161 -> 180px on a 740x360 phone) - the side word tracks 0.04em, the count none */
+.dfnaval-gun-side { font-size: 11px; letter-spacing: 0.04em; color: #efe8d6; text-transform: uppercase; }
+.dfnaval-gun-count { font-size: 11px; letter-spacing: 0; word-spacing: -2px; font-weight: 400; color: #d8cfae; }   /* the spaces give the 2.6px "12 great guns" lacked in a 70.7px battery - the letters keep theirs */
 .dfnaval-gun.ready { border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; }
 .dfnaval-gun.ready .dfnaval-gun-count { color: ${T.brassHi}; }
 .dfnaval-gun.active { background: #2c2413; box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(243,207,134,0.45); }
@@ -330,7 +332,7 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-gun.empty { opacity: 0.5; }
 .dfnaval-gun.fresh { animation: dfnaval-ready ${READY_FLASH_S}s steps(7, end); }
 @keyframes dfnaval-ready { 0% { box-shadow: 0 0 0 1px #050608, 0 0 12px 2px rgba(243,207,134,0.95); } 100% { box-shadow: 0 0 0 1px #050608, 0 0 0 0 rgba(243,207,134,0); } }
-.dfnaval-hint { margin: 7px 6px 0; font-size: 10px; letter-spacing: 0.05em; color: #b3a684; text-align: center; text-shadow: 1px 1px 0 #050608; }
+.dfnaval-hint { margin: 7px 6px 0; font-size: 11px; letter-spacing: 0.05em; color: #b3a684; text-align: center; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-brace { position: absolute; right: calc(18px + var(--nc-plate-w, ${NAVAL_PLATE_W}px) + 8px + env(safe-area-inset-right, 0px));
   bottom: calc(var(--nc-foot, ${NAVAL_PLATE_TOUCH_BOTTOM}px) + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; width: ${NAVAL_BRACE_W}px;
   height: ${NAVAL_BRACE_H}px; line-height: ${NAVAL_BRACE_H - 4}px; text-align: center; pointer-events: auto; touch-action: none;
@@ -396,12 +398,12 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-hud.aside .dfnaval-card-sub { display: none; }
 .dfnaval-hud.aside .dfnaval-card .dfnaval-track { height: 7px; margin-bottom: 3px; }
 .dfnaval-hud.aside .dfnaval-card .dfnaval-track.sail { height: 4px; }
-.dfnaval-hud.aside .dfnaval-card-state { font-size: 10px; min-height: 0; margin-top: 2px; }
+.dfnaval-hud.aside .dfnaval-card-state { font-size: 11px; min-height: 0; margin-top: 2px; }
 .dfnaval-hud.short .dfnaval-plate { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 6px; }
 .dfnaval-hud.short .dfnaval-plate > :not(.dfnaval-bar) { grid-column: 1 / -1; }
 .dfnaval-hud.short .dfnaval-head { margin-bottom: 5px; }
 .dfnaval-hud.short .dfnaval-bar { grid-template-columns: 1fr; gap: 2px; margin: 0 0 5px; }
-.dfnaval-hud.short .dfnaval-bar-label { font-size: 9px; }
+.dfnaval-hud.short .dfnaval-bar-label { font-size: 11px; }
 .dfnaval-hud.short .dfnaval-rose { grid-template-rows: auto auto; margin-top: 5px; }
 .dfnaval-hud.short .dfnaval-gun.port, .dfnaval-hud.short .dfnaval-gun.starboard { grid-row: 1 / span 2; display: flex; flex-direction: column; justify-content: center; }
 .dfnaval-hud.short .dfnaval-gun.stern { grid-row: 2; }
@@ -427,20 +429,20 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-tag-bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #f2a597 0 1px, #b53a2e 1px); }
 .dfnaval-tag.target .dfnaval-tag-bar { box-shadow: 0 0 0 1px #050608, 0 0 0 2px ${T.brassHi}; }
 .dfnaval-tag.friendly .dfnaval-tag-bar > i { background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
-.dfnaval-tag-line { font-size: 9px; letter-spacing: 0.06em; color: #c9bfa4; text-shadow: ${OUTLINED}; }
+.dfnaval-tag-line { font-size: 11px; letter-spacing: 0.06em; color: #c9bfa4; text-shadow: ${OUTLINED}; }
 .dfnaval-tag-line:empty { display: none; }
 .dfnaval-tag.friendly .dfnaval-tag-line { color: #bfe6c3; }
 .dfnaval-tag.hostile .dfnaval-tag-line { color: #f0b9ae; }
-.dfnaval-tag-state { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
+.dfnaval-tag-state { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
 .dfnaval-tag-state:empty { display: none; }
 .dfnaval-crew { position: absolute; left: 0; top: 0; width: ${CREW_BAR_W}px; height: 4px; background: #0b1409; box-shadow: 0 0 0 1px #050608;
   transform-origin: 0 0; will-change: transform, opacity; }
 .dfnaval-crew > i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #b8ffb8 0 1px, ${CREW_GREEN} 1px); }
 .dfnaval-crew.mate { width: ${MATE_BAR_W}px; height: 5px; }
-.dfnaval-crew-name { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; font-size: 10px;
+.dfnaval-crew-name { position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%); white-space: nowrap; font-size: 11px;
   line-height: 1; color: ${CREW_GREEN}; text-shadow: ${OUTLINED}; }
 .dfnaval-crew-name:empty, .dfnaval-crew-fx:empty { display: none; }
-.dfnaval-crew-hp { margin-left: 4px; color: #e8f6e2; font-size: 9px; }
+.dfnaval-crew-hp { margin-left: 4px; color: #e8f6e2; font-size: 11px; }
 .dfnaval-crew-hp:empty { display: none; }
 .dfnaval-crew-fx { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); display: flex; gap: 1px; }
 .dfnaval-crew-fxe { position: relative; width: ${MATE_FX_BOX}px; height: ${MATE_FX_BOX}px; box-shadow: 0 0 0 1px #050608; background: #1b2618; overflow: hidden;

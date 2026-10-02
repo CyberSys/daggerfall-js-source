@@ -118,7 +118,8 @@ function mapSeam({ latch, keys, townTalk }) {
     grab(MODES, /\n(  function closeSpellWindow\(win\) \{[\s\S]*?\n  \})\n/, 'closeSpellWindow'),
   ].join('\n');
   const modes = new Function('townTalk', 'mode', 'dungeonCtx', 'interiorOverlay', `${doors}\nreturn { mountWindow: (win) => mountSpellWindow(win), closeWindow: (win) => closeSpellWindow(win) };`)(townTalk, 'exterior', null, null);
-  return new Function('latch', 'keys', 'modes', 'csaDrawMap', `${src}\nreturn { csaInputFrame, csaInput, csaMapOpen, csaMapClose, mapWindow: () => _csaMapWindow };`)(latch, keys, modes, () => {});
+  // FONT3: the window's dispose takes its words' DOM layer down (ui/enhancedTextLayer.js) - the seam's one new free name
+  return new Function('latch', 'keys', 'modes', 'csaDrawMap', 'hideEnhancedTextLayer', `${src}\nreturn { csaInputFrame, csaInput, csaMapOpen, csaMapClose, mapWindow: () => _csaMapWindow };`)(latch, keys, modes, () => {}, () => {});
 }
 
 /** The street: the real townTalk host (its presenter takes the notify door's boxes), the map seam, the runtime with

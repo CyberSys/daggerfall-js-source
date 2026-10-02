@@ -35,7 +35,10 @@ import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './
 import { PIXEL_STACK } from './pixelifyFive.js';   // AUDIT NAMES N1-4: the in-play name face
 import { renownText } from '../net/renown.js';
 import { guildTagText } from '../net/guildLaw.js';
+import { ribbonColours, heraldryOf, heraldryColourOf } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too; AUDIT HERALDRY H4: the tag's frame
+import { drawShield } from './heraldryArt.js';   // AUDIT HERALDRY H4: the guild's shield, in its tag's frame, on the canvas
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
+import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the Overworld's block and the travel bar move too
 import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
 
 export const TRAVEL_VIEW_HUD_ID = 'travel-view';
@@ -289,6 +292,7 @@ export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
   }
   paintModes(travelPathMode());
   paintFilters(travelViewFilters());
+  tickHudLayout(doc);   // HUD-MOVE
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
   parts.idleMap.onclick = (e) => { e.preventDefault(); hooks.onMap?.(); };
   furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)
@@ -498,7 +502,7 @@ export function updateTravelViewHud(f) {
   const counts = countGroups(all);
   for (const g of TV_FILTER_GROUPS) put(parts.filterNums?.[g], `fn-${g}`, String(counts[g]));
   const fl = travelViewFilters();
-  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr);
+  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr, f.feet?.front ? f.feet : null);   // OW-CROWD: my mark, the badges' nearness (off the picture, its middle)
 }
 
 /**
@@ -576,6 +580,7 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
   if (k === 'bounty') return k;   // BOUNTY-OVERWORLD: a held bounty's hunt
+  if (k === 'gather') return k;   // GATHER-OW: a profession's group of nodes
   return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
@@ -635,12 +640,28 @@ export const TRAVEL_VIEW_NAME_COLORS = Object.freeze({
   renown: '#f2c46b', renownBack: 'rgba(14,16,19,0.78)', renownEdge: 'rgba(242,196,107,0.8)',   // .dfname-renown
   guild: '#a9c4dd',   // .dfname-guild
 });
+/** AUDIT HERALDRY H4: where a guild's heraldry is found by its tag - the host's (scenes/world.js seatArmsOf, the one
+ *  ui/nameLayer.js frames its tags with) - or null. */
+let armsOf = null;
+/** AUDIT HERALDRY H4: the lookup the name face frames a guild's tag with, as in play (ui/nameLayer.js setArmsOf). */
+export function setTravelViewArmsOf(fn) { armsOf = typeof fn === 'function' ? fn : null; }
+/** AUDIT HERALDRY H4: a badge's guild's heraldry, where the host knows it - or null. */
+const badgeArms = (b) => (guildTagText(b?.gt) && armsOf ? heraldryOf(armsOf(b.gt)) : null);
 /** The badge's own words and marks, off a mark's `badge` (the peer's, as the relay stamped them). */
 function badgeParts(b) {
-  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b) };
+  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b), rb: ribbonColours(b?.rb), arms: badgeArms(b) };
 }
-/** Its key in the sprite cache and the frame's picture. */
-const badgeKey = (b) => (b ? `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}` : '');
+/** Its key in the sprite cache and the frame's picture - H4: its tag's heraldry too, so new arms make a new sprite. */
+const badgeKey = (b) => {
+  if (!b) return '';
+  const h = badgeArms(b);
+  return `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}|${(Array.isArray(b.rb) ? b.rb : []).join('/')}|${h ? `${h.field}/${h.border}/${h.device}` : ''}`;
+};
+/** AUDIT HERALDRY H4: the tag's frame as the in-play face's (.dfname-guild.armed) - a dark plate edged in the guild's
+ *  border colour, the shield at its left - px (the shield's width a share of the tag's size). */
+export const TRAVEL_VIEW_ARMS = Object.freeze({ back: 'rgba(14,16,19,0.78)', shield: 0.82, pad: 2, gap: 2 });
+/** AUDIT-SEATS: a Season's banner ribbon under the row - its field's band and its border's edge, px. */
+export const TRAVEL_VIEW_RIBBON = Object.freeze({ band: 2, edge: 1, gap: 1 });
 /**
  * OVERWORLD NAMES (2026-09-28, Mac: "Full, like in play"): A PLAYER'S NAME AS IT READS OVER THEIR HEAD IN PLAY - the
  * title its own line above, in its own colour (a gradient title across its letters); under it one row centred as the
@@ -662,7 +683,8 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   const rowFont = `${size}px ${PIXEL_STACK}`, smallFont = `${small}px ${PIXEL_STACK}`;   // N1-4: the face names wear in play
   x.font = smallFont;
   const lvW = P.lv ? Math.max(small * 1.2, x.measureText(P.lv).width + 6) : 0;
-  const gtW = P.gt ? x.measureText(P.gt).width : 0;
+  const shieldW = P.gt && P.arms ? Math.round(small * TRAVEL_VIEW_ARMS.shield) : 0;   // AUDIT HERALDRY H4
+  const gtW = P.gt ? x.measureText(P.gt).width + (shieldW ? shieldW + TRAVEL_VIEW_ARMS.gap + 2 * TRAVEL_VIEW_ARMS.pad : 0) : 0;
   const titleW = P.title ? x.measureText(P.title.text).width : 0;
   x.font = rowFont;
   const nameW = x.measureText(m.label ?? '').width, arrowW = journey ? x.measureText(' →').width : 0;
@@ -670,7 +692,8 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   const glyphW = P.glyphs.length ? P.glyphs.length * gs + (P.glyphs.length - 1) * 2 : 0;
   const rowW = lvW + (lvW ? gap : 0) + nameW + arrowW + (gtW ? gap + gtW : 0) + (glyphW ? gap + glyphW : 0);
   const titleH = P.title ? small + 3 : 0, rowH = size + 6;
-  const w = Math.ceil(Math.max(rowW, titleW) + 8), h = Math.ceil(titleH + rowH + 2);
+  const ribbonH = P.rb ? TRAVEL_VIEW_RIBBON.gap + TRAVEL_VIEW_RIBBON.band + TRAVEL_VIEW_RIBBON.edge : 0;   // AUDIT-SEATS
+  const w = Math.ceil(Math.max(rowW, titleW) + 8), h = Math.ceil(titleH + rowH + 2 + ribbonH);
   c.width = Math.ceil(w * dpr); c.height = Math.ceil(h * dpr);
   x.scale(dpr, dpr);
   x.textBaseline = 'top';
@@ -698,6 +721,13 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   }
   let cx = (w - rowW) / 2;
   const ry = titleH + 3;
+  if (P.rb) {   // AUDIT-SEATS: a Season's banner ribbon under the row, the row's width - its field, edged in its border
+    const R = TRAVEL_VIEW_RIBBON, by = ry + size + 3 + R.gap;
+    x.shadowBlur = 0; x.shadowOffsetY = 0;
+    x.fillStyle = P.rb.field; x.fillRect(cx, by, rowW, R.band);
+    x.fillStyle = P.rb.border; x.fillRect(cx, by + R.band, rowW, R.edge);
+    x.shadowBlur = 3; x.shadowOffsetY = 1;
+  }
   if (P.lv) {   // the Renown, boxed, left of the name
     x.shadowBlur = 0; x.shadowOffsetY = 0;
     x.fillStyle = N.renownBack; x.fillRect(cx, ry - 1, lvW, size + 2);
@@ -711,7 +741,15 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   x.fillText(m.label ?? '', cx, ry);
   cx += nameW;
   if (journey) { x.fillStyle = TRAVEL_VIEW_MARK_COLORS.brass; x.fillText(' →', cx, ry); cx += arrowW; }
-  if (P.gt) { x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, cx + gap, ry + (size - small) / 2); cx += gap + gtW; }
+  if (P.gt && shieldW) {   // AUDIT HERALDRY H4: framed in its guild's heraldry - the plate, its edge, the shield, then the tag
+    const A = TRAVEL_VIEW_ARMS, px = cx + gap;
+    x.shadowBlur = 0; x.shadowOffsetY = 0;
+    x.fillStyle = A.back; x.fillRect(px, ry - 1, gtW, size + 2);
+    x.strokeStyle = heraldryColourOf(P.arms.border)?.hex ?? N.guild; x.lineWidth = 1; x.strokeRect(px + 0.5, ry - 0.5, gtW - 1, size + 1);
+    drawShield(x, P.arms, px + A.pad, ry + (size - shieldW * 1.04) / 2, shieldW);
+    x.shadowBlur = 3; x.shadowOffsetY = 1;
+    x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, px + A.pad + shieldW + A.gap, ry + (size - small) / 2); cx += gap + gtW;
+  } else if (P.gt) { x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, cx + gap, ry + (size - small) / 2); cx += gap + gtW; }
   if (glyphW && typeof globalThis.Path2D === 'function') {   // each in its own colour, as the DOM face draws them
     cx += gap;
     for (const g of P.glyphs) {
@@ -734,7 +772,7 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
 }
 /** The stroke a stroked glyph is drawn at over a name (ui/nameLayer.js's glyphSvgNode width). */
 const GLYPH_NAME_W = 1.6;
-function drawMarks(marks, vw, vh, dpr) {
+function drawMarks(marks, vw, vh, dpr, feet = null) {
   const cv = parts.canvas;
   drawnKeys = marks.map((m) => m.key);
   if (!cv || (!marks.length && !canvasDrew)) { hits = []; return; }
@@ -751,12 +789,19 @@ function drawMarks(marks, vw, vh, dpr) {
     const held = m.edge ? (edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) ?? (m.front ? notchHold(m, vh) : null)) : null;   // OW-EDGES
     if (!m.front && !held) continue;
     const at = held ?? m;
-    const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null };
+    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null });
+  }
+  // OW-CROWD: the region's travellers decluttered - a crowd one mark, the edge's arrows together, the badges the nearest's
+  const kept = declutterTravellers(placed, feet ?? { x: vw / 2, y: vh / 2 });
+  placed.length = 0;
+  placed.push(...kept);
+  for (const q of placed) {
     // AUDIT NAMES N1-5: a player's badge made (or found) BEFORE the layout, so every box is the drawn one's - the
-    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread
-    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(doc, m, held ? 11 : 12, q.look === 'party', dpr, q.bk); }
-    if (held) q.side = heldSide(q, vw);
-    placed.push(q);
+    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread.
+    // AUDIT OW-CROWD: and AFTER the crowds are folded - the frame's sixteen builds were spent on badges a crowd or the
+    // cap then dropped, and a crowd's arrow was laid out by its lead's badge, not its own words
+    if (q.m.badge) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(doc, q.m, q.held ? 11 : 12, q.look === 'party', dpr, q.bk); }
+    if (q.held) q.side = heldSide(q, vw);
   }
   spreadHeld(placed, vw, vh);
   // OW-EDGES: along the top and the foot, each held mark at the edge - stepped in only where its box meets a notch
@@ -804,7 +849,7 @@ function drawMarks(marks, vw, vh, dpr) {
   for (const q of placed) {
     const { m, held, x, y, look } = q;
     g.globalAlpha = q.fade ? TV_UNDER_HUD_ALPHA : 1;   // OW-EDGES: faint where it would lie over the compass or the hotbar
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
+    const color = look === 'gather' ? (m.color ?? C.brass) : look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
@@ -820,10 +865,12 @@ function drawMarks(marks, vw, vh, dpr) {
       g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.lineWidth = 4; g.strokeStyle = C.bountyRim; g.stroke();
       g.lineWidth = 2; g.strokeStyle = color; g.stroke();
       g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.lineWidth = 1; g.strokeStyle = C.bountyRim; g.fill(); g.stroke();
+    } else if (look === 'gather') {   // GATHER-OW: a profession's group - a gem's diamond in its colour, a ring of dark
+      g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 5, y); g.lineTo(x, y + 7); g.lineTo(x - 5, y); g.closePath(); g.fill(); g.stroke();
     } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
       g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
     } else {
-      const r = look === 'dest' ? 7 : look === 'place' || look === 'far' ? 4 : 5;
+      const r = look === 'dest' || /\bcrowd\b/.test(m.kind ?? '') ? 7 : look === 'place' || look === 'far' ? 4 : 5;   // OW-CROWD: a crowd's dot the larger
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();
     }
     if (!m.label) continue;
@@ -849,6 +896,64 @@ function drawMarks(marks, vw, vh, dpr) {
   canvasDrew = canvasDrew || placed.length > 0;
   if (unmade) canvasSig = [];
 }
+/**
+ * OW-CROWD (2026-10-02, Mac: "reduce the overwhelming player markers that flood the screen ... I like it, dont get me
+ * wrong, but there must be a way to make it where its not overwhelming"): THE REGION'S TRAVELLERS, DECLUTTERED, as they
+ * are placed on the screen. Travellers drawn within TV_CROWD_PX of one another are one mark, a dot named for how many
+ * ("4 travellers"), at their middle; arrows held at the screen's edge within TV_CROWD_EDGE_PX of one another one arrow,
+ * the nearest's, named the same; and of the travellers still drawn alone in the picture, only the TV_BADGES_MAX nearest
+ * my own mark wear their badge (the title, the Renown, the guild's tag, the glyphs) - the rest, and every arrow at the
+ * edge (AUDIT OW-CROWD), their name alone. The badges are made after (drawMarks), for the marks still wearing one. My
+ * party is never folded nor stripped (it is not a traveller's mark), nor is anything else. Pure over the placements:
+ * `{ m, x, y, held, look, side, bk, sp }`, in their own order (a crowd where its first member stood - AUDIT OW-CROWD).
+ * @param {Array<any>} placed @param {{ x: number, y: number }} feet my mark on the screen
+ */
+export function declutterTravellers(placed, feet) {
+  const isTraveller = (q) => (q.m.kind ?? '').split(' ')[0] === 'traveller';
+  const near = (q) => Math.hypot(q.x - feet.x, q.y - feet.y);
+  const order = new Map(placed.map((q, i) => [q, i]));   // AUDIT OW-CROWD: the marks' own order kept - my party over a crowd
+  const out = [], trav = [];
+  for (const q of placed) (isTraveller(q) ? trav : out).push(q);
+  trav.sort((a, b) => near(a) - near(b) || (a.m.key < b.m.key ? -1 : a.m.key > b.m.key ? 1 : 0));
+  /** @type {Array<{ held: boolean, x: number, y: number, members: any[] }>} */
+  const groups = [];
+  for (const q of trav) {
+    const held = !!q.held, r = held ? TV_CROWD_EDGE_PX : TV_CROWD_PX;
+    const g = groups.find((c) => c.held === held && Math.hypot(c.x - q.x, c.y - q.y) <= r);   // held to its first member
+    if (g) g.members.push(q);
+    else groups.push({ held, x: q.x, y: q.y, members: [q] });
+  }
+  let badges = 0;
+  for (const g of groups) {
+    const lead = g.members[0];
+    if (g.members.length === 1) {
+      if (lead.m.badge) {
+        // past the nearest few, or held at the edge (AUDIT OW-CROWD: a region's lone arrows wore every badge, uncapped,
+        // round the screen): the name alone - the badge comes with them into the picture
+        if (!lead.held && badges < TV_BADGES_MAX) badges++;
+        else { lead.m = { ...lead.m, badge: undefined }; lead.sp = null; lead.bk = ''; }
+      }
+      out.push(lead);
+      continue;
+    }
+    const n = g.members.length;
+    const x = g.held ? lead.x : Math.round(g.members.reduce((a, q) => a + q.x, 0) / n);
+    const y = g.held ? lead.y : Math.round(g.members.reduce((a, q) => a + q.y, 0) / n);
+    const ship = g.members.every((q) => isShipKind(q.m));
+    const crowd = { ...lead, x, y, bk: '', sp: null,
+      m: { key: `crowd:${lead.m.key}`, label: crowdLabel(n), kind: `traveller crowd${ship ? ' ship' : ''}`, edge: lead.m.edge, front: true, x: lead.m.x, y: lead.m.y } };
+    order.set(crowd, Math.min(...g.members.map((q) => order.get(q))));   // drawn where its first member was
+    out.push(crowd);
+  }
+  return out.sort((a, b) => order.get(a) - order.get(b));
+}
+/** OW-CROWD: travellers drawn this near one another (px) are one mark; arrows at the edge this near, one arrow; the
+ *  travellers alone in the picture who wear their badge, the nearest my mark. */
+export const TV_CROWD_PX = 36;
+export const TV_CROWD_EDGE_PX = 56;
+export const TV_BADGES_MAX = 6;
+/** OW-CROWD: a crowd's words. */
+export const crowdLabel = (n) => `${n} travellers`;
 /** A player's name in the picture: its foot this far above their head's point (px) - the dot's radius and air. */
 const NAME_ABOVE = 8;
 /** The room between two players' names stacked in the picture (px). */
@@ -876,7 +981,7 @@ const markWidth = (q) => {
   if (q.sp) return q.sp.w;
   if (!m.badge) return Math.max(24, 9 * (m.label?.length ?? 0) + 16);
   const P = badgeParts(m.badge);
-  const row = 9 * (m.label?.length ?? 0) + (P.lv ? 22 : 0) + (P.gt ? 8 * P.gt.length + 4 : 0) + P.glyphs.length * 14 + 16;
+  const row = 9 * (m.label?.length ?? 0) + (P.lv ? 22 : 0) + (P.gt ? 8 * P.gt.length + 4 + (P.arms ? 16 : 0) : 0) + P.glyphs.length * 14 + 16;   // H4: its shield's frame
   return Math.max(24, row, P.title ? 8 * P.title.text.length + 16 : 0);
 };
 /** The lines a mark's label hangs below (or, at the foot, above) its point past the first: a far place's distance, a

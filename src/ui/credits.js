@@ -363,7 +363,7 @@ export const CREDITS = Object.freeze({
       title: 'World Events - Raiding Parties',
       version: '1.1',
       author: 'Kamer',
-      what: 'Towns raided (RAID1): each day knights, bandits or orcs fall on towns across the Iliac Bay for two hours; stand in one and the raiders come, with the town’s watch beside you, and drive off 15 to 25 of them to cleanse it - a region’s standing, its people’s, a knightly order’s and the Fighters Guild’s rising for a player who fought. Ported off the mod’s compiled script, with its own bugs fixed.',
+      what: 'Towns raided (RAID1): each day knights, bandits or orcs fall on towns across the Iliac Bay for two hours (online, ten real minutes); stand in one and the raiders come, with the town’s watch beside you, and drive off 15 to 25 of them to cleanse it - a region’s standing, its people’s, a knightly order’s and the Fighters Guild’s rising for a player who fought. Ported off the mod’s compiled script, with its own bugs fixed.',
       terms: 'Made by Kamer for this port and ported off the script’s IL, with his own bugs fixed - see vendor/world-events-raiding-parties/README.md for the permission record.',
       contact: 'DFU Discord',
       vendor: Object.freeze(['world-events-raiding-parties']),

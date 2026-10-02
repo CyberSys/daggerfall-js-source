@@ -657,8 +657,11 @@ test('SOC3: the host by source - world.js makes the panel in socialStart over th
 
   // the panel itself, inside socialStart and AFTER the state exists
   const start = w.slice(w.indexOf('const socialStart = () => {'), w.indexOf('const composePartyPose'));
-  assert.ok(start.includes('social = new SocialState({ acct: link.acct });'), 'the picture (AUDIT SOC B19: expecting the account this session sent)');
-  assert.ok(start.indexOf('social = new SocialState({ acct: link.acct });') < start.indexOf('socialPanel = createSocialPanel({'), 'and the panel over it, never before it');
+  // FRIENDS-SYNC (FIELD BUGS 2026-10-01 part five): the hub names the picture by the signed-in player (the token's
+  // subject) now, and a relay before it by the profile's id - so the picture expects either, the player's first
+  const picture = 'social = new SocialState({ acct: [storedSession(appStorage())?.id, link.acct].filter(Boolean) });';
+  assert.ok(start.includes(picture), 'the picture (AUDIT SOC B19: expecting the account this session is - the signed-in player, or the profile id it sent)');
+  assert.ok(start.indexOf(picture) < start.indexOf('socialPanel = createSocialPanel({'), 'and the panel over it, never before it');
   assert.match(start, /socialPanel = createSocialPanel\(\{\s*social,\s*(?:mail,\s*)?(?:guild: guildBook,\s*)?send: \(act\) => socialLink\(\)\?\.sendSocial\(act\) \?\? false,/, 'one arrow out, the hub link\'s - and its false is the rate gate\'s answer (MAIL1: the letterbox beside the picture)');
   assert.match(start, /canOpen: \(\) => !gamePaused\(\) && !\(townTalk\.hudCovered \|\| \(modes\?\.hudCovered \?\? false\)\),/, 'the chat\'s own door: no pointer surface under a window');
   assert.match(start, /onOpen: \(\) => surfaceOpen\('social'\),/, 'AUDIT SOC B6: the panel is a COUNTED pointer surface');
@@ -1144,4 +1147,43 @@ test('AUDIT PARTY-UI2: where two reasons stand, the leader\'s Travel map says th
   st = { ...st, outdoors: true, hub: true, held: false, gathered: true };
   panel.render();
   assert.deepEqual([!!btnBy(bodyRows(root)[2], 'Travel map').disabled, why()], [false, null]);
+});
+
+// PARTY-READY (2026-10-01, Mac: "Also when party readying up, the ui element is hidden"): a cover still closes the panel,
+// but the Party tab a cover took mid-journey comes back when it lifts - the leader's Travel map opened the travel map, the
+// map's cover closed the tab, and the round's count and Call off stood nowhere for the whole ready-up.
+test('PARTY-READY: the Party tab the travel map took comes back when the map closes, and so does one a window took over an open round; a cover with no journey of the tab\'s keeps it closed, as does one over a round that has set out or over another tab (mutants: never put back, put back after any cover, put back on the tab it was not on)', () => {
+  const party = { id: 'p1', leader: 'acct-me', members: [member('Mac', { acct: 'acct-me' }), member('Bob')] };
+  let st = { role: 'leader', round: null, outdoors: true, hub: true, gathered: true };
+  const j = { status: () => st, command: () => null, respond: () => null, openMap: () => {} };
+  const { panel, root, pointer } = build({ frame: stateFrame({ party }), journey: () => j });
+  const toParty = () => { panel.open(); find(root, 'dfsocial-tab')[1].fire('click'); };
+  toParty();
+  btnBy(bodyRows(root)[2], 'Travel map').fire('click');
+  panel.render({ covered: true });   // the travel map stands over the HUD
+  assert.equal(panel.isOpen(), false, 'a cover closes the panel (SOC3)');
+  st = { ...st, round: { dest: 'Wayrest', count: '1/2 ready', set: false } };   // Begin: the round opens as the map closes
+  panel.render();
+  assert.deepEqual([panel.isOpen(), panel.tab()], [true, 'party'], 'back on the Party tab');
+  assert.equal(one(bodyRows(root)[2], 'dfsocial-name').textContent, 'To Wayrest', 'with the round and its Call off');
+  assert.equal(pointer.at(-1), 'free', 'the pointer freed for it, as any open frees it');
+  // a window over the open round: closed under it, back after it
+  panel.render({ covered: true });
+  assert.equal(panel.isOpen(), false);
+  panel.render();
+  assert.equal(panel.isOpen(), true, 'back after the window');
+  // spent: closed by hand, a cover and its lifting open nothing
+  panel.close();
+  panel.render({ covered: true }); panel.render();
+  assert.equal(panel.isOpen(), false, 'a cover over a closed panel opens nothing');
+  // a round that has set out: the cover keeps it closed
+  toParty();
+  st = { ...st, round: { ...st.round, set: true } };
+  panel.render({ covered: true }); panel.render();
+  assert.equal(panel.isOpen(), false, 'nothing to answer once it set out');
+  // the Friends tab over an open round: closed, as before
+  st = { ...st, round: { ...st.round, set: false } };
+  panel.open(); find(root, 'dfsocial-tab')[0].fire('click');
+  panel.render({ covered: true }); panel.render();
+  assert.equal(panel.isOpen(), false, 'the cover over another tab keeps it closed');
 });

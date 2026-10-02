@@ -60,7 +60,7 @@
 // worn by a row nobody has looked at since.
 // ═══════════════════════════════════════════════════════════════════
 
-import { TITLES, GLYPHS, AURAS } from '../../src/net/identityToken.js';
+import { TITLES, GLYPHS, AURAS, SEAT_TITLES } from '../../src/net/identityToken.js';
 import { insigniaHeld, insigniaKeys } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - a title and an aura bought
 import { patreonTitlesOf } from './patreon.js';   // PATREON-LINK: a Patreon tier's title, held by the pledge
 
@@ -207,6 +207,10 @@ export function titlesHeld(player, env) {
   // WB9g: AND THE BROKER'S - a title bought with Sigil Stones, held because the sale is recorded on the row (0037). A
   // guest row cannot buy one (accounts.js buyInsignia refuses it), so none is ever read off one.
   for (const t of insigniaKeys(player?.insignia, 'title')) if (!held.includes(t)) held.push(t);
+  // SEAT1c (Seats-Arc 7.4): AND A CHARTER'S - "Warden of <Town>", "Protector of <Kingdom>" - derived from the seats the
+  // account's guildmaster characters' guilds hold (seatTurning.js seatTitlesOf), read by the caller and laid on the row
+  // as `seatTitles` for this request alone
+  if (Array.isArray(player?.seatTitles)) for (const t of player.seatTitles) if (SEAT_TITLES.includes(t) && !held.includes(t)) held.push(t);
   return held;
 }
 
@@ -225,9 +229,8 @@ export function auraRefusal(aura, player) {
   return aurasHeld(player).includes(aura) ? null : 'not-held';
 }
 
-/** THE GLYPHS THAT ARE TRUE OF THIS PLAYER. Not held and not worn -
- *  true, which is why nothing equips one and why the order is fixed
- *  rather than a preference. */
+/** THE GLYPHS THAT ARE TRUE OF THIS PLAYER, in a fixed order. GLYPH-WEAR: a player may take one off (glyphsHidden),
+ *  which hides it and nothing more - this list is still what is true, and what the rights read. */
 export function glyphsOf(player, env, nowS) {
   const on = [];
   if (Number.isFinite(player?.created_at) && nowS - player.created_at < SPROUT_S) on.push('sprout');
@@ -235,6 +238,27 @@ export function glyphsOf(player, env, nowS) {
   if (isModerator(player, env)) on.push('mod');   // MOD1: the blue shield
   for (const t of Object.keys(TIER_LISTS)) if (holdsTier(t, player, env)) on.push(TIER_GLYPH[t]);   // TITLE-N: each title's own glyph
   return on;
+}
+
+/** GLYPH-WEAR (2026-10-02, Mac: "can we make it where players can also equip/unequip their glyphs"): THE GLYPHS THIS
+ *  PLAYER HAS TAKEN OFF - the stored choice (`glyphs_off`, 0068), read against what is true now, so a glyph that has
+ *  lapsed is not "hidden" and one granted later shows until it is taken off. In glyphsOf's order. */
+export function glyphsHidden(player, env, nowS) {
+  const off = typeof player?.glyphs_off === 'string' ? player.glyphs_off.split(' ') : [];
+  return glyphsOf(player, env, nowS).filter((g) => off.includes(g));
+}
+
+/** GLYPH-WEAR: THE GLYPHS THIS PLAYER SHOWS - what is true of them, less what they took off. Paint alone: a right that
+ *  rides a glyph (the relay's /red and /dm, canModerate, the staff commands) reads glyphsOf, never this. */
+export function glyphsShown(player, env, nowS) {
+  const off = glyphsHidden(player, env, nowS);
+  return glyphsOf(player, env, nowS).filter((g) => !off.includes(g));
+}
+
+/** GLYPH-WEAR: may this player show or hide this glyph - the refusal word, or null. Only a glyph true of them now. */
+export function glyphRefusal(glyph, player, env, nowS) {
+  if (typeof glyph !== 'string' || !GLYPHS.includes(glyph)) return 'no-glyph';
+  return glyphsOf(player, env, nowS).includes(glyph) ? null : 'not-held';
 }
 
 /** The title this player WEARS: the stored one, but only while they
@@ -257,12 +281,16 @@ export function equipRefusal(title, player, env) {
   return titlesHeld(player, env).includes(title) ? null : 'not-held';
 }
 
+/** GLYPH-WEAR: `{ glyphsOff }` while a glyph is taken off, else nothing - a player hiding none reads the answer they always did. */
+const glyphsOffOf = (player, env, nowS) => { const off = glyphsHidden(player, env, nowS); return off.length ? { glyphsOff: off } : {}; };
+
 /** The account view's own half: what to show in the window. WB9g: and the auras held and the one worn, and the
  *  Broker's insignia the account bought (its ids). */
 export const wardrobeOf = (player, env, nowS) => ({
   titles: titlesHeld(player, env),
   title: titleWorn(player, env) ?? null,
   glyphs: glyphsOf(player, env, nowS),
+  ...glyphsOffOf(player, env, nowS),   // GLYPH-WEAR: the ones taken off, absent for none - `glyphs` stays all that is true
   auras: aurasHeld(player),
   aura: auraWorn(player) ?? null,
   insignia: insigniaHeld(player?.insignia),

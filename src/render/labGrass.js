@@ -30,6 +30,10 @@ import { smoothstep } from '../systems/mathf.js';   // GRASS2: the host's blade 
 import { buildTuftMips, buildTuftSheet, pixelGrass, PX_RAMP_STEPS, PX_TINT_BANDS, PX_BLADES_PER_TUFT } from './grassPixelArt.js';   // GRASS-PX: the tuft sheet and the pixel style's numbers
 import { buildProgram } from './glProgram.js';   // AUDIT 68 S17-gl-program-dup: the one compile and link
 import { FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: fogFactorAt's one home - the terrain's own text, not a tenth copy
+import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // GRASS-LIT: the deck's shadow, the reader the terrain takes
+import { SHADOW_GLSL, SHADOW_SUN_UNIT, SHADOW_POINT_UNIT, SHADOW_LO_UNIT, SHADOW_POINT_CASTERS, SHADOW_CASTER_TABLE } from './shadowPass.js';   // GRASS-LIT: the sun map, the receiver the terrain takes
+import { AIR_ADAPT_GLSL } from './airPass.js';   // GRASS-LIT: the eye's adaptation, as every lane program exposes by it
+import { EL_CODEC_GLSL, EL_TONEMAP_GLSL, EL_ATTEN_GLSL, EL_MAX_LIGHTS, elDecode, elEncode, elTonemapRGB, elAttenuation, EL_EXPOSURE } from './enhancedLighting.js';   // GRASS-LIT: the lane's codec and curve, and their JS twins for grassLit; GRASS-LIT2: and its lantern falloff
 
 /**
  * GRASS2: THE DEPARTURES FROM THE LAB, AS DATA.
@@ -249,6 +253,14 @@ const UP = new Float32Array([0, 1, 0]);
 const WHITE = new Float32Array([1, 1, 1]);
 const NO_FOG_RANGE = new Float32Array([0, 1]);   // DISC20-A: a range for the unfogged draw (mode 0 never reads it)
 const NO_WATER_FOG = new Float32Array(20);   // DW-C: uDwFog off ([0].x 0)
+const NO_DECK = new Float32Array(4);   // GRASS-LIT: a vec4 of zeros - no deck, no sun map, no player's light
+const NO_CASTERS = new Int32Array(SHADOW_CASTER_TABLE).fill(-1);   // AUDIT GRASS-LIT2 A2: every light without a map
+const NO_CASTER_PARAMS = new Float32Array(SHADOW_POINT_CASTERS * 4);   // AUDIT GRASS-LIT2 A2: and every slot off (far 0)
+const ZERO3 = new Float32Array(3);
+/** GRASS-LIT: the eye's adaptation rides the far ring's unit (render/farRing.js), the deck the renderer's reserved one
+ *  (renderer.js CLOUD_SHADOW_UNIT - the same map it binds there) */
+export const GRASS_ADAPT_UNIT = 11;
+export const GRASS_CLOUD_UNIT = 15;
 
 export const LAB_GRASS_FS = `in float vT; in float vTint; in float vFade; in float vLam; in float vSnow; in float vWet; in vec3 vGround; in float vMoonLam;   // WIND4: appended, so the lab's own locator still finds this line
 uniform vec3 uAmb, uSunCol, uMoonCol; uniform float uDim, uSunScale, uMoonScale;   // WIND4: the sun's SCALE and the moon, the two terms the ground has and the grass did not
@@ -471,9 +483,296 @@ export const GRASSFOG_FS_EDITS = Object.freeze([
     to: '  c = mix(uFogColor, c, fogFactorAt(vWorld));   // DISC20-A\n  c = dwWaterFog(c, vWorld);   // DW-C: and the carved sea\'s distance fog, as the terrain\'s last line takes it\n  o = vec4(c, mix(vFade * smoothstep(0.0, 0.30, vT), 1.0, uPixel));',
   }),
 ]);
-/** what the game compiles: the lab's stages under the pixel style's edits, then the fog's (DISC20-A) */
-export const GAME_GRASS_VS = applyGrassEdits(applyGrassEdits(LAB_GRASS_VS, GRASSPX_VS_EDITS), GRASSFOG_VS_EDITS);
-export const GAME_GRASS_FS = applyGrassEdits(applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS), GRASSFOG_FS_EDITS);
+// ═══════════════════════════════════════════════════════════════════
+// GRASS-LIT (2026-10-01, Mac: "drastically improve the grass texture
+// that isn't super dark and blends well into the terrain"): THE GROUND'S
+// COLOUR, AND THE GROUND'S LIGHT.
+//
+// WHAT WAS WRONG, measured on the real tiles (TEXTURE.302 and its
+// climates, read 2026-10-01) and the real light (world/worldClock.js) -
+// `node tools/grassLightProbe.mjs` prints it:
+//   1. THE BLADE WAS PAINTED A FIXED OLIVE THE GROUND IS NOT. The
+//      temperate grass tile averages (52, 76, 42); the blade's middle
+//      was (33, 51, 18) - two thirds as bright and twice as yellow - and
+//      its root the tile at 0.62, then shaded again by 0.42 of the
+//      ambient. Three quarters of every tuft (its root and mid tones)
+//      drew darker than the ground under it, and the tip a yellow the
+//      tile has nowhere in it: "super dark", and a field that never
+//      blends.
+//   2. IT WAS DIMMED FOR THE WEATHER TWICE. The lab's weather dim
+//      (LAB_DIM: rain 0.60, a storm 0.46) rode on a light the host had
+//      already weathered (exteriorAmbient takes the weather's scale
+//      squared and the sun takes it once) - a rainy field was a third
+//      darker than the ground it stood in.
+//   3. IT IGNORED THE LIGHTING LANE. Under Enhanced Lighting (the
+//      enhanced skin's default) the ground is decoded, lit in linear,
+//      exposed (EL_EXPOSURE x the eye's adaptation), tonemapped and
+//      encoded; the grass was lit in display space with none of it, so
+//      the two drifted apart every hour of the day.
+//   4. IT STOOD IN LIGHT THE GROUND DID NOT GET. The cloud deck's shadow
+//      and the sun map (EL2) darken the ground under a cloud or a tree;
+//      the blades on that ground stayed in full sun - a lit lawn in a
+//      wood's shade. And the light that follows the player (R12) lit
+//      the ground at their feet and not the grass on it.
+//
+// WHAT IT IS NOW. A tuft is painted from THE TILE'S OWN PALETTE: its
+// root in the tile's dark third, its middle the tile's mean (the colour
+// the placer already bakes per blade, GR4), its tip the light third and
+// the highlight the brightest tenth - each a measured ratio of the mean
+// (GRASS_PALETTE, the five grass climates' bases averaged), so a field
+// is the ground's own colours stood up, in every climate and season.
+// It is LIT as the ground is: the ambient, the sun by its scale through
+// the deck and the sun map at the root, the moon, the player's light -
+// and under Enhanced Lighting through the lane's own decode, exposure,
+// adaptation, curve and encode. A soft sward shade (0.86 at the root)
+// stays, the rim catches only where the sun does, and past a third of
+// the range the colour gives way to the ground's mean, so the far field
+// melts into the tile under it instead of drawing a band. The light
+// comes from the frame (`light` in LabGrassRenderer.draw); a host that
+// hands none of the new terms draws the classic lane's light, in sun.
+//
+// The lab's text is still what the pins hold; this is the fourth list
+// of declared edits laid over it, after the fog's.
+// ═══════════════════════════════════════════════════════════════════
+
+/** the tuft's tones as ratios of the tile's mean, per channel: the dark third, the light third, the brightest tenth
+ *  of the grass base's texels, luminance-sorted - averaged over the five grass climates (TEXTURE.102, 104, 302, 304,
+ *  402), measured 2026-10-01. The ground's texture is low-contrast, and so is the field. */
+export const GRASS_PALETTE = Object.freeze({
+  root: Object.freeze([0.852, 0.844, 0.953]),
+  tip: Object.freeze([1.135, 1.166, 1.089]),
+  top: Object.freeze([1.241, 1.275, 1.231]),
+});
+/** the grass base's mean of each grass climate (0..1), measured with GRASS_PALETTE - the probe's ground, not read at
+ *  runtime (the host takes every record's own mean off the tile it draws, GR4) */
+export const GRASS_TILE_MEANS = Object.freeze({
+  mountain: Object.freeze([59 / 255, 67 / 255, 46 / 255]),
+  woodland: Object.freeze([52 / 255, 76 / 255, 42 / 255]),
+  'wood-rain': Object.freeze([46 / 255, 69 / 255, 40 / 255]),
+  swamp: Object.freeze([44 / 255, 63 / 255, 38 / 255]),
+  'mtn-rain': Object.freeze([46 / 255, 53 / 255, 40 / 255]),
+});
+/** the sward's shade: the ambient a blade's root takes, rising to 1 at its tip */
+export const GRASS_SWARD = 0.9;
+/** where up the blade its sun is read (m): above the ground's own depth in the sun map, where the ground under a
+ *  blade would shadow it by its own bias on a slope - a tree's or a wall's shade is metres tall and still falls on it */
+export const GRASS_SUN_LIFT = 0.2;
+/** where the colour gives way to the ground's mean: from this share of the range to the next */
+export const GRASS_FAR_BLEND = Object.freeze([0.12, 0.6]);
+/** the tuft's four tones, as ratios of the ground's mean under each blade (uGrassTone): the ROOT in the tile's own
+ *  dark third, so a base melts into the ground it stands in; the MIDDLE in its light third; the TIP and the
+ *  HIGHLIGHT past the tile's brightest tenth and a shade greener - a blade in the sun is lighter than the soil
+ *  under it, and the eye reads a field by that and nothing else */
+export const GRASS_TONES = Object.freeze([
+  Object.freeze([0.92, 0.92, 0.97]),
+  Object.freeze([1.18, 1.24, 1.08]),
+  Object.freeze([1.38, 1.50, 1.14]),
+  Object.freeze([1.56, 1.70, 1.25]),
+]);
+/** GRASS-LIT2: the same four tones for the CLASSIC lane, which lights in display space with no curve and no eye -
+ *  CALIBRATED BY PHOTOGRAPH against the default lane at noon (tools/grassLookProbe.mjs, four palettes from one boot on
+ *  the real game; the near field's pixels counted by how far they stand over the ground beside them). The share
+ *  standing over 1.2x and over 1.3x: the default lane 6.4% and 4.9%; GRASS_TONES on the classic lane 9.9% and 7.2% -
+ *  the brighter, limer field; GRASS_TONES as the default lane's mean colours show them (a per-channel match) still
+ *  9.1% and 6.3%, because the lane's eye and curve press the middle tones harder than its mean says; these 7.8% and
+ *  4.9%, with the tufts' colour over their ground a shade less green than the default lane's. The highlight keeps
+ *  the per-channel match. */
+export const GRASS_TONES_CLASSIC = Object.freeze([
+  Object.freeze([0.93, 0.93, 0.98]),
+  Object.freeze([1.06, 1.10, 1.01]),
+  Object.freeze([1.24, 1.33, 1.05]),
+  Object.freeze([1.45, 1.57, 1.16]),
+]);
+/** GRASS-LIT2: the ground's slope rides the height lane - its x and z, five bits each (codes 0..30, 15 the level), over
+ *  +/- this; a normal leaning further (a slope past 48.6 degrees) is held to it */
+export const GRASS_SLOPE_SPAN = 0.75;
+/** GRASS-LIT2: the slope's steps either side of level - a step is GRASS_SLOPE_SPAN / this (0.05, under three degrees) */
+export const GRASS_SLOPE_STEPS = 15;
+/** GRASS-LIT2: the height's share of its lane - the high six bits (7 mm steps over the 0.47 m span, which GRASS5 held
+ *  needed eight) */
+export const GRASS_HEIGHT_BITS = 6;
+/** GRASS-LIT2: the lanterns the vertex stage can be handed - the lane's own cap, so every light the ground takes the grass takes */
+export const GRASS_MAX_LIGHTS = EL_MAX_LIGHTS;
+/** AUDIT GRASS-LIT2 A1: the lanterns ONE CELL walks - the lights whose reach meets the cell's box, nearest first. The
+ *  stage walked all 48 for every triangle of every blade (a third of each warp pays a branch's loop); a 30 m cell under
+ *  a lantern's 18 m reach meets one or two, and an open field none */
+export const GRASS_CELL_LIGHTS = 8;
+
+export const GRASSLIT_VS_EDITS = Object.freeze([
+  Object.freeze({
+    why: 'the ground\'s light terms, read where the blade stands: the deck\'s shadow and the sun map (the terrain\'s own readers), the player\'s light, and what the fragment is handed of them',
+    from: 'out vec2 vUV; flat out float vVar;      // GRASS-PX: the tuft\'s texel, and which tuft\n',
+    to: 'out vec2 vUV; flat out float vVar;      // GRASS-PX: the tuft\'s texel, and which tuft\n'
+      + '// GRASS-LIT: the ground\'s light, read once at the root\n'
+      + 'uniform float uSunScale;           // GRASS-LIT: the fragment\'s own, here too - the sun\'s reach is asked only while it is up\n'
+      + 'uniform vec3 uCamPos;              // GRASS-LIT: the fragment\'s own, here too - the cascades are picked about the eye\n'
+      + 'uniform vec4 uIndirect; uniform vec3 uIndirectColor;   // GRASS-LIT: R12, the light that follows the player\n'
+      + CLOUD_SHADOW_GLSL + SHADOW_GLSL
+      + 'flat out float vSun;                    // GRASS-LIT: the sun that reaches the root - the deck\'s and the map\'s, one value a triangle\n'
+      + 'out vec3 vNear;                         // GRASS-LIT: the player\'s light at the root\n'
+      + 'out float vFar;                         // GRASS-LIT: how far into the range - the colour gives way to the ground\'s\n'
+      + 'uniform float uLane;               // GRASS-LIT2: the fragment\'s own, here too - the lane\'s lantern falloff or the classic one\n'
+      + 'uniform int uPointCount;           // GRASS-LIT2: the frame\'s lanterns, torches and candles - the list the ground takes - AUDIT A1: as many of them as meet THIS cell\n'
+      + `uniform int uPointIdx[${GRASS_CELL_LIGHTS}];        // AUDIT GRASS-LIT2 A1: which - indices into the frame\'s list (uCasterOf reads the same index)\n`
+      + `uniform vec4 uPointLights[${GRASS_MAX_LIGHTS}];     // GRASS-LIT2: xyz the light, w its range\n`
+      + `uniform vec3 uPointColors[${GRASS_MAX_LIGHTS}];     // GRASS-LIT2: colour x intensity - linear under the lane, as the ground's\n`
+      + EL_ATTEN_GLSL + '\n'
+      + 'flat out vec3 vPoint;                   // GRASS-LIT2: the lanterns at the root - one value a triangle, as the sun\n',
+  }),
+  Object.freeze({
+    why: 'AUDIT GRASS-LIT2 A6: the lane\'s own word says what it carries now',
+    from: '// GRASS5: u16 x, z, rootY, height - all cell-local, all normalized\n',
+    to: '// GRASS5: u16 x, z, rootY, height - all cell-local, all normalized; GRASS-LIT2: the height\'s word is its six bits and the slope\'s ten\n',
+  }),
+  Object.freeze({
+    why: 'GRASS-LIT2: the height lane carries the ground\'s slope - the height in its high six bits, the normal\'s x and z in five each (writeSlot) - so a blade is lit by the hillside it stands on',
+    from: '                    uBladeScale.x + aPA.w * uBladeScale.y,\n',
+    to: `                    uBladeScale.x + float(hw >> ${16 - GRASS_HEIGHT_BITS}u) / ${(2 ** GRASS_HEIGHT_BITS - 1).toFixed(1)} * uBladeScale.y,   // GRASS-LIT2\n`,
+  }),
+  Object.freeze({
+    why: 'GRASS-LIT2: the lane unpacked ahead of the blade it builds, and the ground\'s normal rebuilt from its x and z',
+    from: '  vec4 aInst = vec4(uCellFrame.xy + aPA.xy * uCellSize,\n',
+    to: '  // GRASS-LIT2: THE HEIGHT LANE\'S SIXTEEN BITS - the height\'s high six, then the ground normal\'s x and z, five each\n'
+      + '  // (codes 0..30, 15 the level, stored XOR 15 so a zero word - a pad, a cleared slot - is level; writeSlot): the terrain\'s\n'
+      + '  // own normal under the root (world/terrainSurface.js surfaceNormalAt)\n'
+      + '  uint hw = uint(aPA.w * 65535.0 + 0.5);\n'
+      + `  vec2 slope = (vec2(float(((hw >> 5u) & 31u) ^ ${GRASS_SLOPE_STEPS}u), float((hw & 31u) ^ ${GRASS_SLOPE_STEPS}u)) - ${GRASS_SLOPE_STEPS.toFixed(1)}) * ${GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS};   // AUDIT A3: stored ^ 15, so a zero word is level\n`
+      + '  vec3 gN = vec3(slope.x, sqrt(max(1.0 - dot(slope, slope), 0.0)), slope.y);\n'
+      + '  vec4 aInst = vec4(uCellFrame.xy + aPA.xy * uCellSize,\n',
+  }),
+  Object.freeze({
+    why: 'the blade\'s normal stands nearer the ground\'s - it still leans into a low sun, but a field at noon is lit as the tile under it is, not a third darker',
+    from: '  vec3 nrm = normalize(vec3(-lean.y, 0.35, lean.x) + vec3(0.0, 0.25, 0.0));',
+    to: '  vec3 nrm = normalize(vec3(-lean.y, 0.0, lean.x) + 1.2 * gN);   // GRASS-LIT; GRASS-LIT2: about the ground\'s own normal - level ground\'s is the up the blade stood about',
+  }),
+  Object.freeze({
+    why: 'the root\'s sun (the deck x the sun map, only while the sun is up), the player\'s light by the ground\'s own falloff, and the distance the colour blends by',
+    from: '  vMoonLam = max(dot(nrm, normalize(uMoonDir)), 0.0);   // WIND4\n',
+    to: '  vMoonLam = max(dot(nrm, normalize(uMoonDir)), 0.0);   // WIND4\n'
+      + '  // GRASS-LIT: THE GROUND\'S LIGHT AT THE ROOT - one read a vertex, the flats\' law (a sprite reads its sun once,\n'
+      + '  // at its foot): the deck\'s shadow and the sun map as the terrain under it takes them, the player\'s light by the\n'
+      + '  // terrain\'s own falloff, and how far into the range the blade stands\n'
+      + '  vec3 rootW = vec3(root.x, gRootY + snowSurf, root.y);\n'
+      + '  // read in each triangle\'s PROVOKING vertex alone (the last - GL\'s, and WebGL\'s, convention) and handed down flat:\n'
+      + '  // the root\'s sun is one value a blade, so the other two vertices of a triangle need not pay the map\'s taps\n'
+      + `  vSun = (gl_VertexID % 3 == 2 && uSunScale > 0.0) ? cloudShadowAt(rootW) * sunShadowAt(rootW + vec3(0.0, ${GRASS_SUN_LIFT}, 0.0), vec3(0.0, 1.0, 0.0)) : 0.0;   // off the ground's own depth: a tree's shade, never the ground's acne\n`
+      + '  vec3 iL = uIndirect.xyz - rootW; float iD = length(iL);\n'
+      + '  float iAtt = clamp(1.0 - iD / max(uIndirect.w, 1e-4), 0.0, 1.0);\n'
+      + '  vNear = iAtt * iAtt * max(dot(nrm, iL / max(iD, 1e-4)), 0.0) * uIndirectColor;\n'
+      + `  vFar = smoothstep(uRange * ${GRASS_FAR_BLEND[0]}, uRange * ${GRASS_FAR_BLEND[1]}, d);\n`
+      + '  // GRASS-LIT2: THE LANTERNS AT THE ROOT - the ground\'s own list and falloff (TERRAIN_FS\'s (1 - d/r)^2, the lane\'s\n'
+      + '  // elAttenuation), each light\'s map where it has one (shadowOfLight, the flats\' reader), lifted off the ground as the\n'
+      + '  // sun\'s is; read in the provoking vertex alone, as the sun\n'
+      + '  vPoint = vec3(0.0);\n'
+      + `  if (gl_VertexID % 3 == 2) for (int j = 0; j < ${GRASS_CELL_LIGHTS}; j++) {   // AUDIT A1: the cell's lights, not the frame's\n`
+      + '    if (j >= uPointCount) break;\n'
+      + '    int i = uPointIdx[j];\n'
+      + '    vec3 pL = uPointLights[i].xyz - rootW; float pd = length(pL);\n'
+      + '    if (pd >= uPointLights[i].w) continue;\n'
+      + '    float pc = clamp(1.0 - pd / uPointLights[i].w, 0.0, 1.0);\n'
+      + '    float pa = uLane > 0.5 ? elAttenuation(pd, uPointLights[i].w) : pc * pc;\n'
+      + `    vPoint += pa * shadowOfLight(i, uPointLights[i], rootW + vec3(0.0, ${GRASS_SUN_LIFT}, 0.0), vec3(0.0)) * max(dot(nrm, pL / max(pd, 1e-4)), 0.0) * uPointColors[i];\n`
+      + '  }\n',
+  }),
+]);
+
+export const GRASSLIT_FS_EDITS = Object.freeze([
+  Object.freeze({
+    why: 'what the vertex stage reads at the root, the lane\'s switch and exposure, the eye\'s adaptation, and the lane\'s codec and curve',
+    from: 'uniform float uPixel, uPxSteps, uPxVariants, uPxTintBands; uniform sampler2D uPxSheet;   // GRASS-PX\n',
+    to: 'uniform float uPixel, uPxSteps, uPxVariants, uPxTintBands; uniform sampler2D uPxSheet;   // GRASS-PX\n'
+      + 'flat in float vSun; in vec3 vNear; in float vFar;   // GRASS-LIT\n'
+      + 'flat in vec3 vPoint;   // GRASS-LIT2: the lanterns at the root\n'
+      + 'uniform float uLane, uELExposure;   // GRASS-LIT: 1 under Enhanced Lighting, and the lane\'s exposure\n'
+      + 'uniform vec3 uGrassTone[4];   // GRASS-LIT: the tuft\'s four tones as ratios of the ground\'s mean - root, middle, tip, highlight (GRASS_TONES)\n'
+      + AIR_ADAPT_GLSL + EL_CODEC_GLSL + '\n' + EL_TONEMAP_GLSL,
+  }),
+  Object.freeze({
+    why: 'the tuft is painted from the tile\'s own palette: its dark third, its mean, its light third and its brightest tenth',
+    from: '  vec3 root = vGround * 0.62;\n  vec3 mid  = vec3(0.13,0.20,0.07);\n  vec3 tip  = vec3(0.24,0.32,0.12);',
+    to: '  vec3 root = vGround * uGrassTone[0];   // GRASS-LIT: the ground\'s colour, in the shade of the sward\n'
+      + '  vec3 mid  = vGround * uGrassTone[1];   // GRASS-LIT\n'
+      + '  vec3 tip  = vGround * uGrassTone[2];   // GRASS-LIT\n'
+      + '  vec3 top  = vGround * uGrassTone[3];   // GRASS-LIT: the highlight texel',
+  }),
+  Object.freeze({
+    why: 'the pixel style\'s fourth tone is the highlight texel, and the tuft\'s blades stand a little nearer one another',
+    from: '  if (uPixel > 0.5) c = (pxTone < 1.5 ? root : (pxTone < 2.5 ? mid : tip)) * (0.92 + pxBlade * 0.16);',
+    to: '  if (uPixel > 0.5) c = (pxTone < 1.5 ? root : (pxTone < 2.5 ? mid : (pxTone < 3.5 ? tip : top))) * (0.95 + pxBlade * 0.10);   // GRASS-LIT: the highlight is the tile\'s brightest tenth',
+  }),
+  // the patch tint keeps its mean and loses its extremes (0.88..1.12) - a field of the ground's colours, varied as the
+  // tile is. Two edits on its two numbers, never the pixel style's band formula between them (MUT-AIM: an edit that
+  // repeats a line gives another list's mutant anchor a second site)
+  Object.freeze({
+    why: 'the patch tint\'s floor',
+    from: '  c *= 0.80 + mix(vTint, ',
+    to: '  c *= 0.88 + mix(vTint, ',
+  }),
+  Object.freeze({
+    why: 'the patch tint\'s span',
+    from: ', uPixel) * 0.42;',
+    to: ', uPixel) * 0.24;',
+  }),
+  Object.freeze({
+    why: 'the far field gives way to the ground\'s mean, before the wet and the snow (which are the ground\'s too)',
+    from: '  // wet grass is DARKER; snow-laden grass is pale and cold\n',
+    to: '  c = mix(c, vGround, vFar);   // GRASS-LIT: the far field is the ground\'s colour\n'
+      + '  // wet grass is DARKER; snow-laden grass is pale and cold\n',
+  }),
+  Object.freeze({
+    why: 'lit as the ground is - the ambient under a soft sward shade, the sun through the deck and the map, the moon, the player\'s light - and under Enhanced Lighting through the lane\'s own decode, exposure, curve and encode',
+    from: '  c *= (uAmb * 1.25 * (0.42 + 0.58*t) + uSunCol * (uSunScale * 1.15 * vLam) + uMoonCol * (uMoonScale * 1.15 * vMoonLam));',
+    to: `  vec3 light = uAmb * (${GRASS_SWARD} + ${(1 - GRASS_SWARD).toFixed(2)}*t) + uSunCol * (uSunScale * vLam * vSun) + uMoonCol * (uMoonScale * vMoonLam) + vNear + vPoint;   // GRASS-LIT; GRASS-LIT2: and the lanterns\n`
+      + '  c = uLane > 0.5 ? elEncode(elTonemapRGB(elDecode(c) * light * (uELExposure * elAdapt()))) : c * light;   // GRASS-LIT: the lane\'s pipeline, as EL_TERRAIN_FS runs it',
+  }),
+  Object.freeze({
+    why: 'the rim catches only where the sun reaches the root, and softer - a highlight, not a glow',
+    from: '  c += uSunCol * (uSunScale * 0.20) * mix(smoothstep(0.86,1.0,t), step(3.5, pxTone), uPixel) * vLam;   // GRASS-PX',
+    to: '  c += uSunCol * (uSunScale * 0.12) * mix(smoothstep(0.86,1.0,t), step(3.5, pxTone), uPixel) * vLam * vSun;   // GRASS-PX; GRASS-LIT: under the deck and the map',
+  }),
+]);
+
+/** what the game compiles: the lab's stages under the pixel style's edits, then the fog's (DISC20-A), then the
+ *  ground's colour and light (GRASS-LIT) */
+export const GAME_GRASS_VS = applyGrassEdits(applyGrassEdits(applyGrassEdits(LAB_GRASS_VS, GRASSPX_VS_EDITS), GRASSFOG_VS_EDITS), GRASSLIT_VS_EDITS);
+export const GAME_GRASS_FS = applyGrassEdits(applyGrassEdits(applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS), GRASSFOG_FS_EDITS), GRASSLIT_FS_EDITS);
+
+/**
+ * GRASS-LIT: THE FRAGMENT'S COLOUR IN JS, term for term (the smooth style, at a blade's height `t`, no patch tint,
+ * no rim, the sun unshadowed, the blade at rest) - so the probe and the pins can hold the arithmetic the GPU runs
+ * against the ground's (tools/grassLightProbe.mjs). `ground` the tile's mean (0..1, display), `light` the frame's
+ * `{ amb, sunCol, sunScale, sunDir, moonCol?, moonScale?, moonDir? }` (display colours), `lane` true for
+ * Enhanced Lighting (exposure EL_EXPOSURE, the eye's `adapt`). GRASS-LIT2: each lane's own tones; `light.normal` the
+ * ground's (level when absent); `light.points` the lanterns `[{ at, range, color }]` (display colours, unshadowed)
+ * read at `light.root`. AUDIT GRASS-LIT2: `tones` paints with other tones than the lane's own - the probe's
+ * blade from before GRASS-LIT2, whose classic lane drew in GRASS_TONES.
+ */
+export function grassLit(ground, t, light, lane = false, adapt = 1, tones = null) {
+  const ss = (a, b, x) => smoothstep(a, b, x);
+  const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+  const [root, mid, tip] = (tones ?? (lane ? GRASS_TONES : GRASS_TONES_CLASSIC)).slice(0, 3).map((k) => ground.map((v, i) => v * k[i]));
+  let c = mix(root, mid, ss(0, 0.55, t));
+  c = mix(c, tip, ss(0.5, 1, t));
+  // the blade's normal at rest - the ground's own, past the lean's share (GRASSLIT_VS_EDITS: normalize(1.2 * gN))
+  const n = light.normal ?? [0, 1, 0];
+  const lamOf = (d) => { const l = Math.hypot(d[0], d[1], d[2]) || 1; return Math.max((n[0] * d[0] + n[1] * d[1] + n[2] * d[2]) / l, 0); };
+  const lam = lamOf(light.sunDir);
+  const moonLam = light.moonDir ? lamOf(light.moonDir) : 0;
+  const dec = (v) => (lane ? elDecode(v) : v);
+  const amb = GRASS_SWARD + (1 - GRASS_SWARD) * t;
+  // GRASS-LIT2: the lanterns at the root, by the lane's falloff or the classic (1 - d/r)^2
+  const pt = [0, 0, 0], at = light.root ?? [0, 0, 0];
+  for (const p of light.points ?? []) {
+    const L = [p.at[0] - at[0], p.at[1] - at[1], p.at[2] - at[2]], d = Math.hypot(L[0], L[1], L[2]);
+    if (d >= p.range) continue;
+    const a = lane ? elAttenuation(d, p.range) : (1 - d / p.range) ** 2;
+    const k = a * Math.max((n[0] * L[0] + n[1] * L[1] + n[2] * L[2]) / Math.max(d, 1e-4), 0);
+    for (let i = 0; i < 3; i++) pt[i] += k * dec(p.color[i]);
+  }
+  const lit = c.map((v, i) => dec(v) * (dec(light.amb[i]) * amb + dec(light.sunCol[i]) * light.sunScale * lam
+    + dec(light.moonCol?.[i] ?? 1) * (light.moonScale ?? 0) * moonLam + pt[i]));
+  return lane ? elTonemapRGB(lit.map((v) => v * EL_EXPOSURE * adapt)).map(elEncode) : lit;
+}
 
 // GRASS2 (Mac: "I also want to shorten the grass length. Little too tall
 // for my liking"): the height was GR1's 54 and is 38. It is the one
@@ -702,7 +1001,7 @@ export function grassCellSeed(cx, cz, seed = LAB_GRASS.seed) {
  *
  *    x, z     cell-local, so 16 bits over 30 m is 0.46 mm
  *    rootY    cell-local over the cell's own height span, 16 bits
- *    height   0.25..0.72 units, so 8 bits is 1.8 mm
+ *    height   0.25..0.72 units, so 8 bits is 1.8 mm (GRASS-LIT2: six of its u16, 7 mm; the slope the rest)
  *    phase    a wind phase, 8 bits is 0.025 rad
  *    lean     +/-0.25, 8 bits is 0.002
  *    tint     0..1, 8 bits
@@ -723,6 +1022,35 @@ export function grassCellSeed(cx, cz, seed = LAB_GRASS.seed) {
  *  per blade, because every blade in a cell shares them - which is the
  *  whole reason 16 bits is enough for a position. */
 export const GRASS_PACK_BYTES = 16;
+/**
+ * GRASS-LIT2 (2026-10-02): THE HEIGHT LANE, SHARED WITH THE GROUND'S SLOPE. GRASS5 gave the height a u16 and wrote that
+ * it needed eight bits; it takes the high GRASS_HEIGHT_BITS now (7 mm over its 0.47 m span), and the ground normal's x
+ * and z under the root take five each - codes 0..30 over +/-GRASS_SLOPE_SPAN, 15 the level, so level ground packs
+ * exactly level; each code is stored XOR 15 (AUDIT A3), so a ZERO word - a pad blade, a cleared slot - decodes to the
+ * height floor on level ground, where it decoded to the steepest lean. The quantising is DITHERED by the blade's index (the R2 sequence's two axes): the placer emits a
+ * cell's blades in random order, so the step a hillside's normal is rounded to lands as grain across the field and
+ * never as a contour line; the mean of a patch is the slope's own. No byte more a blade.
+ * @param {number} hn the height over its span, 0..1
+ * @param {number} nx the ground normal's x
+ * @param {number} nz the ground normal's z
+ * @param {number} i the blade's index in its cell - the dither's
+ * @returns {number} the lane's u16
+ */
+export function packHeightSlope(hn, nx, nz, i) {
+  const top = 2 ** GRASS_HEIGHT_BITS - 1;
+  const h = Math.max(0, Math.min(top, Math.round(hn * top)));
+  if (!Number.isFinite(nx) || !Number.isFinite(nz)) nx = nz = 0;   // AUDIT GRASS-LIT2 A4: a normal that is not one is level - NaN shifted to code 0, the steepest lean
+  const l = Math.hypot(nx, nz), k = l > GRASS_SLOPE_SPAN ? GRASS_SLOPE_SPAN / l : 1;   // a normal past the span is held to it, its heading kept
+  const q = (v, r) => Math.max(0, Math.min(2 * GRASS_SLOPE_STEPS, Math.round(GRASS_SLOPE_STEPS + v * k * GRASS_SLOPE_STEPS / GRASS_SLOPE_SPAN + r)));
+  const dx = ((0.5 + i * 0.7548776662466927) % 1) - 0.5, dz = ((0.5 + i * 0.5698402909980532) % 1) - 0.5;   // R2, centred: -0.5..0.5
+  return (h << 10) | ((q(nx, dx) ^ GRASS_SLOPE_STEPS) << 5) | (q(nz, dz) ^ GRASS_SLOPE_STEPS);   // AUDIT A3: stored XOR 15 - a zero word is level
+}
+/** GRASS-LIT2: the lane back - the vertex stage's arithmetic, for the pins and the probe: { hn, nx, nz } */
+export function unpackHeightSlope(w) {
+  const top = 2 ** GRASS_HEIGHT_BITS - 1, step = GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS;
+  return { hn: (w >> 10) / top, nx: ((((w >> 5) & 31) ^ GRASS_SLOPE_STEPS) - GRASS_SLOPE_STEPS) * step, nz: (((w & 31) ^ GRASS_SLOPE_STEPS) - GRASS_SLOPE_STEPS) * step };
+}
+
 /** The lean's half-range: the placer draws (rnd - 0.5) * 0.5. */
 export const LEAN_SPAN = 0.5;
 /** The width's floor and span: the placer draws 0.052 + rnd * 0.055. */
@@ -856,7 +1184,7 @@ export const bakedTint = (rnd, x, z) => Math.max(0, Math.min(1, rnd + (grassClum
 export function placeLabGrassCell(cx, cz, opts) {
   const st = beginGrassCell(cx, cz, opts);
   stepGrassCell(st, st.perCell, opts);
-  return { inst: st.inst, inst2: st.inst2, rootY: st.rootY, ground: st.ground, count: st.count, perCell: st.perCell };
+  return { inst: st.inst, inst2: st.inst2, rootY: st.rootY, ground: st.ground, slope: st.slope, count: st.count, perCell: st.perCell };
 }
 
 /**
@@ -884,13 +1212,14 @@ export function beginGrassCell(cx, cz, { perCell, seed = LAB_GRASS.seed, cell = 
     count: 0,                         // writeSlot's name for n
     inst: new Float32Array(perCell * 4), inst2: new Float32Array(perCell * 4),
     rootY: new Float32Array(perCell), ground: new Float32Array(perCell * 3),
+    slope: new Float32Array(perCell * 2),   // GRASS-LIT2: the ground normal's x and z under each root (0, 0: level)
   };
 }
 
 /** PERF-EXT22: `budget` more candidates of a begun cell; true once the
  *  last one is placed. `keep`/`ground` are this frame's - a slice asks
  *  the world as it stands when the slice runs. */
-export function stepGrassCell(st, budget, { keep, ground = null, height = LAB_GRASS.height }) {
+export function stepGrassCell(st, budget, { keep, ground = null, slope = null, height = LAB_GRASS.height }) {
   const { inst, inst2, rootY, cell, originX, originZ } = st;
   const groundCol = st.ground;
   let s = st.s;
@@ -916,6 +1245,8 @@ export function stepGrassCell(st, budget, { keep, ground = null, height = LAB_GR
     rootY[n] = y;
     const gc = ground ? ground(x, z) : null;
     groundCol[n * 3] = gc ? gc[0] : 0.10; groundCol[n * 3 + 1] = gc ? gc[1] : 0.145; groundCol[n * 3 + 2] = gc ? gc[2] : 0.065;
+    const gn = slope ? slope(x, z) : null;   // GRASS-LIT2: the ground's normal under the root, from the host that knows the surface
+    st.slope[n * 2] = gn ? gn[0] : 0; st.slope[n * 2 + 1] = gn ? gn[2] : 0;
     n++;
   }
   st.s = s; st.i = end; st.n = n; st.count = n;
@@ -944,7 +1275,7 @@ export const GRASS_CATCH_UP = 8;
  * few thousand keep() lookups, milliseconds. PERF-EXT22: and on a walk
  * that is the spike - a rim cell is placed a slice a frame (see update).
  */
-export function createGrassField(renderer, { keep, ground = null, span = LAB_GRASS.span, density = LAB_GRASS.density, height = LAB_GRASS.height, seed = LAB_GRASS.seed, cell = GRASS_CELL, range = LAB_GRASS.range, perFrame = 2, slots: slotsOverride = 0 }) {
+export function createGrassField(renderer, { keep, ground = null, slope = null, span = LAB_GRASS.span, density = LAB_GRASS.density, height = LAB_GRASS.height, seed = LAB_GRASS.seed, cell = GRASS_CELL, range = LAB_GRASS.range, perFrame = 2, slots: slotsOverride = 0 }) {
   const perCell = grassPerCell(density);   // GRASS2: the RATE, off the lab's own span - `span` below is the window, and the two are not the same question
   // PERF10 (2026-09-19, Mac: "when youre further out in the wilderniss
   // it loaded many chunks and grass the performance still degrades"):
@@ -1058,7 +1389,7 @@ export function createGrassField(renderer, { keep, ground = null, span = LAB_GRA
         free.push(held.slot);
       }
     },
-    update(ex, ez, keepNow = keep, groundNow = ground) {
+    update(ex, ez, keepNow = keep, groundNow = ground, slopeNow = slope) {
       const keepR2 = span * span;      // PERF10: held out to here
       const fillR2 = range * range;    // PERF10: placed only inside here
       const k = Math.ceil(range / cell) + 1;
@@ -1096,7 +1427,7 @@ export function createGrassField(renderer, { keep, ground = null, span = LAB_GRA
       // at the pace the field always filled at.
       const catchUp = missing > GRASS_CATCH_UP;
       const wholeR2 = (range * GRASS_WHOLE_AT) * (range * GRASS_WHOLE_AT);
-      const ask = { keep: keepNow, ground: groundNow, height };
+      const ask = { keep: keepNow, ground: groundNow, slope: slopeNow, height };
       let sliced = false;
       if (pending) {
         sliced = !catchUp;
@@ -1137,7 +1468,7 @@ export function createGrassField(renderer, { keep, ground = null, span = LAB_GRA
           renderer.clearSlot(far.slot); live.delete(farKey); slot = far.slot;
         }
         budget--;
-        renderer.writeSlot(slot, item.st ?? placeLabGrassCell(cx, cz, { keep: keepNow, ground: groundNow, perCell, height, seed, cell, originX: gx, originZ: gz }));   // PERF-EXT21; PERF-EXT22: or the rim cell its slices finished
+        renderer.writeSlot(slot, item.st ?? placeLabGrassCell(cx, cz, { keep: keepNow, ground: groundNow, slope: slopeNow, perCell, height, seed, cell, originX: gx, originZ: gz }));   // PERF-EXT21; PERF-EXT22: or the rim cell its slices finished
         live.set(key, { slot, cx, cz });
       }
       // AUDIT PERF10 F5: what was MISSING when this update began - not
@@ -1224,11 +1555,19 @@ export const GRASS_FAR_AT = 0.5;
 /** A color32 tile's (`BaseImageFile.getColor32`'s `{colors, width,
  *  height}`) mean RGB, 0..255 - the one average the grass reads: the
  *  bases grassRecordsOf classifies against, and the root's colour. */
+/** GRASS-LIT2: the most texels a mean reads - a texture mod's tile (GROUND1) can be 1024 square, 56 of them an archive;
+ *  past this a mean reads every k-th texel, k ODD, so no power-of-two period (a texel grid, an ordered dither, the
+ *  row's own width) lines up with the step and is read on one phase only. A classic tile (64 x 64) is read whole. */
+export const GRASS_MEAN_SAMPLES = 65536;
+/** the step a mean of `n` texels reads at: 1 up to the cap, past it the least ODD step that keeps the reads under it
+ *  (AUDIT GRASS-LIT2 A5: ceil - floor read every texel of a tile up to twice the cap) */
+export const grassMeanStep = (n) => Math.max(1, Math.ceil(n / GRASS_MEAN_SAMPLES)) | 1;
 function meanRgb(l) {
-  let r = 0, g = 0, b = 0;
+  let r = 0, g = 0, b = 0, m = 0;
   const n = l.width * l.height;
-  for (let k = 0; k < n; k++) { r += l.colors[k * 4]; g += l.colors[k * 4 + 1]; b += l.colors[k * 4 + 2]; }
-  return [r / n, g / n, b / n];
+  const step = grassMeanStep(n);
+  for (let k = 0; k < n; k += step) { r += l.colors[k * 4]; g += l.colors[k * 4 + 1]; b += l.colors[k * 4 + 2]; m++; }
+  return [r / m, g / m, b / m];
 }
 
 /** GR4: the colour a blade's root takes off the tile it stands on - the
@@ -1283,7 +1622,11 @@ export class LabGrassRenderer {
    *  game's by default. The probe hands the LAB's pair to draw the same
    *  field through the lab's own text and hold the smooth style
    *  byte-identical to it - the executed form of "with the switch at
-   *  zero the arithmetic is the lab's". */
+   *  zero the arithmetic is the lab's". AUDIT GRASS-LIT2 A6: that held
+   *  until GRASS-LIT painted the game's field in the ground's colours;
+   *  and the lab's text reads the height lane as GRASS5 packed it (a
+   *  u16 height), so since GRASS-LIT2 its blades stand up to 7 mm off
+   *  the game's - the lab's pair draws the lab's look, not the game's. */
   constructor(gl, { stages = { vs: GAME_GRASS_VS, fs: GAME_GRASS_FS }, tuft = null } = {}) {   // GRASS-PX4: `tuft` ({ w, h }) lays the sheet at another size - the probe photographs the old 16x32 beside the shipped 8x16 through it
     this.gl = gl;
     const prog = buildProgram(gl, LAB_GRASS_HEAD + GAME_GRASS_FIELD + stages.vs, LAB_GRASS_HEAD + stages.fs);   // GRASS-PX: the lab's text under the declared edits
@@ -1291,7 +1634,23 @@ export class LabGrassRenderer {
     this.u = {};
     for (const n of ['uVP', 'uTime', 'uWind', 'uRange', 'uEye', 'uSunDir', 'uWindDir', 'uSnowFull', 'uSlotN', 'uCellFrame', 'uBladeScale', 'uCellSize', 'uGField', 'uGFieldOrigin', 'uGFieldM', 'uSnowGlobal', 'uWindV', 'uAmb', 'uSunCol', 'uDim', 'uSunScale', 'uMoonDir', 'uMoonScale', 'uMoonCol',
       'uPixel', 'uPxVariants', 'uPxSteps', 'uPxTintBands', 'uPxSheet',   // GRASS-PX: the pixel style's five (GRASS-PX3 took the sway's two)
-      'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uDwFog']) this.u[n] = gl.getUniformLocation(prog, n);   // DISC20-A: the terrain's fog; DW-C: and the sea's
+      'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uDwFog',   // DISC20-A: the terrain's fog; DW-C: and the sea's
+      'uLane', 'uELExposure', 'uAdapt', 'uIndirect', 'uIndirectColor', 'uCloudShadowMap', 'uCloudShadowRect', 'uGrassTone',   // GRASS-LIT: the lane, the eye, the player's light, the deck
+      'uPointCount', 'uPointLights', 'uPointColors', 'uPointIdx']) this.u[n] = gl.getUniformLocation(prog, n);   // GRASS-LIT2: the lanterns; AUDIT A1: a cell's
+    // GRASS-LIT: the sun map's block, by the names ShadowPass.upload binds (the receiver the terrain takes)
+    const ul = (n) => gl.getUniformLocation(prog, n);
+    this.shadowLoc = {
+      sunShadow: ul('uSunShadow'), sunVP: ul('uSunVP'), sunParams: ul('uSunShadowParams'), sunTexel: ul('uSunTexel'), sunOrigin: ul('uSunOrigin'),
+      pointShadow: ul('uPointShadow'), pointParams: ul('uPointShadowParams'), shadowIndex: ul('uShadowIndex'), casterOf: ul('uCasterOf'), pointShadowLo: ul('uPointShadowLo'),
+    };
+    this._dec = { amb: new Float32Array(3), sun: new Float32Array(3), moon: new Float32Array(3), near: new Float32Array(3), points: new Float32Array(GRASS_MAX_LIGHTS * 3) };   // GRASS-LIT: the lane's linear colours, kept; GRASS-LIT2: the lanterns' too
+    /** GRASS-LIT: the four tones the field is painted with (GRASS_TONES, flat) - a probe may hand others */
+    this.tones = new Float32Array(GRASS_TONES.flat());
+    /** GRASS-LIT2: and on the classic lane (GRASS_TONES_CLASSIC) */
+    this.tonesClassic = new Float32Array(GRASS_TONES_CLASSIC.flat());
+    // AUDIT GRASS-LIT2 A1: a cell's lantern list, its distances, and the list last uploaded
+    this._cellIdx = new Int32Array(GRASS_CELL_LIGHTS); this._cellDist = new Float64Array(GRASS_CELL_LIGHTS);
+    this._cellLast = new Int32Array(GRASS_CELL_LIGHTS); this._cellN = -1; this._pn = 0; this._pts = null;
     // the blade, and three instance streams the lab's layout plus the game's root height
     // GRASS2: the instance buffers are made ONCE and shared by both
     // levels of detail - only the corner buffer differs between them, so
@@ -1446,7 +1805,7 @@ export class LabGrassRenderer {
       A[i * 4] = u16((x - ox) / xSpan);
       A[i * 4 + 1] = u16((z - oz) / xSpan);
       A[i * 4 + 2] = u16((placed.rootY[i] - yBase) / ySpan);
-      A[i * 4 + 3] = u16((h - hFloor) / hSpan);
+      A[i * 4 + 3] = packHeightSlope((h - hFloor) / hSpan, placed.slope ? placed.slope[i * 2] : 0, placed.slope ? placed.slope[i * 2 + 1] : 0, i);   // GRASS-LIT2
       B[i * 4] = u8((placed.inst2[i * 4] + LEAN_SPAN / 2) / LEAN_SPAN);
       B[i * 4 + 1] = u8((placed.inst2[i * 4 + 1] + LEAN_SPAN / 2) / LEAN_SPAN);
       B[i * 4 + 2] = u8(placed.inst2[i * 4 + 2]);
@@ -1486,6 +1845,7 @@ export class LabGrassRenderer {
     // GRASS5: zeroing A zeroes the packed HEIGHT, and a blade of the
     // cell's height FLOOR still draws - so a cleared slot is also
     // dropped by slotCount, which is what really keeps it off the GPU.
+    // AUDIT GRASS-LIT2 A3: and the zero word's slope is level (stored XOR 15).
     if (!this._zeros || this._zeros.length !== p * 4) this._zeros = new Uint16Array(p * 4);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufs[0]);
     gl.bufferSubData(gl.ARRAY_BUFFER, slot * p * 8, this._zeros);
@@ -1552,16 +1912,61 @@ export class LabGrassRenderer {
     gl.uniform4f(u.uBladeScale, heightFloor(this.height), Math.max(1e-6, heightSpan(this.height)), WIDTH_MIN, WIDTH_SPAN);
     gl.uniform3fv(u.uEye, eye);
     gl.uniform3fv(u.uSunDir, light.sunDir);
-    gl.uniform3fv(u.uAmb, light.amb);
-    gl.uniform3fv(u.uSunCol, light.sunCol);
-    gl.uniform1f(u.uDim, light.dim);
+    // GRASS-LIT: UNDER ENHANCED LIGHTING THE COLOURS GO UP LINEAR, as the renderer's own programs take them (its _c3) and
+    // the far ring's - `light.lane` is the installed lane (renderer.lightingLane), null on the classic one
+    const lane = light.lane ?? null;
+    const c3 = (c, out) => (lane && c ? lane.decode3(c, out) : c);
+    gl.uniform3fv(u.uAmb, c3(light.amb, this._dec.amb));
+    gl.uniform3fv(u.uSunCol, c3(light.sunCol, this._dec.sun));
+    gl.uniform1f(u.uDim, light.dim ?? 1);
+    gl.uniform1f(u.uLane, lane ? 1 : 0);
+    gl.uniform3fv(u.uGrassTone, lane ? this.tones : this.tonesClassic);   // GRASS-LIT2: each lane its own
+    gl.uniform1f(u.uELExposure, light.exposure ?? EL_EXPOSURE);
+    gl.activeTexture(gl.TEXTURE0 + GRASS_ADAPT_UNIT);   // the far ring's unit for the eye; a frame with no air pass reads a 1
+    gl.bindTexture(gl.TEXTURE_2D, light.adaptTex ?? this._adaptOne());
+    gl.uniform1i(u.uAdapt, GRASS_ADAPT_UNIT);
+    // GRASS-LIT: the deck's shadow on the renderer's reserved unit (the same map it binds there, or none - amount 0)
+    const cs = light.cloud?.map ? light.cloud : null;
+    if (cs) { gl.activeTexture(gl.TEXTURE0 + GRASS_CLOUD_UNIT); gl.bindTexture(gl.TEXTURE_2D, cs.map); }
+    gl.uniform1i(u.uCloudShadowMap, GRASS_CLOUD_UNIT);
+    gl.uniform4fv(u.uCloudShadowRect, cs ? cs.rect : NO_DECK);
+    // GRASS-LIT: the sun map - the frame's ShadowPass binds its own units and matrices; without one (the classic lane,
+    // the map off) the block answers full sun, and its samplers still name their own units (two sampler types on one
+    // unit is an invalid draw in WebGL2)
+    gl.activeTexture(gl.TEXTURE0);
+    if (light.shadows) light.shadows.upload(this.shadowLoc);
+    else {
+      const L = this.shadowLoc;
+      gl.uniform1i(L.sunShadow, SHADOW_SUN_UNIT); gl.uniform1i(L.pointShadow, SHADOW_POINT_UNIT);
+      if (L.pointShadowLo) gl.uniform1i(L.pointShadowLo, SHADOW_LO_UNIT);
+      gl.uniform4fv(L.sunParams, NO_DECK);
+      // AUDIT GRASS-LIT2 A2: and NO CASTER - the lanterns read uCasterOf now, and a program's uniforms outlive the frame
+      // that set them: a frame with shadows and then one without read the last frame's caster slots off its maps
+      gl.uniform1iv(L.casterOf, NO_CASTERS);
+      gl.uniform4fv(L.pointParams, NO_CASTER_PARAMS);
+    }
+    // GRASS-LIT: the player's light (R12), as the ground takes it; none handed is out of range everywhere
+    gl.uniform4fv(u.uIndirect, light.indirect ?? NO_DECK);
+    gl.uniform3fv(u.uIndirectColor, c3(light.indirectColor ?? ZERO3, this._dec.near));
+    // GRASS-LIT2: the frame's lanterns, torches and candles - the list the ground took (renderer._pointLights) and their
+    // display colours, linear under the lane as the ground's; cut to the program's slots, and none handed is none
+    const pts = light.points ?? null, pcs = light.pointColors ?? null;
+    const pn = pts && pcs ? Math.min(pts.length >> 2, Math.floor(pcs.length / 3), GRASS_MAX_LIGHTS) : 0;
+    // AUDIT GRASS-LIT2 A1: the frame's list goes up whole, once; each cell is handed which of them meet it
+    // (_cellLights, in _drawVisibleSlots) - the count is the cell's, uploaded when it changes
+    this._pts = pn > 0 ? pts : null; this._pn = pn; this._cellN = -1;
+    gl.uniform1i(u.uPointCount, 0);
+    if (pn > 0) {
+      gl.uniform4fv(u.uPointLights, pts.subarray ? pts.subarray(0, pn * 4) : pts.slice(0, pn * 4));
+      gl.uniform3fv(u.uPointColors, lane ? lane.decodeN(pcs, this._dec.points, pn) : (pcs.subarray ? pcs.subarray(0, pn * 3) : pcs.slice(0, pn * 3)));
+    }
     // WIND4: the ground's own two terms. A host that hands neither gets
     // the old behaviour (a full sun, no moon) rather than a black field,
     // because a missing light must not read as night.
     gl.uniform1f(u.uSunScale, light.sunScale ?? 1);
     gl.uniform3fv(u.uMoonDir, light.moonDir ?? UP);
     gl.uniform1f(u.uMoonScale, light.moonScale ?? 0);
-    gl.uniform3fv(u.uMoonCol, light.moonCol ?? WHITE);
+    gl.uniform3fv(u.uMoonCol, c3(light.moonCol ?? WHITE, this._dec.moon));   // GRASS-LIT: linear under the lane
     // DISC20-A: the frame's fog as the terrain takes it (renderer.setFog's state, measured from the view's eye). A
     // host that hands none draws the field unfogged - mode 0 is a factor of exactly 1, the lab's own picture.
     const fog = light.fog;
@@ -1667,6 +2072,7 @@ export class LabGrassRenderer {
       const far = this._oneQuad || dn > range * GRASS_FAR_AT;   // GRASS-PX2: the pixel style is one quad everywhere
       if (far !== wasFar) { gl.bindVertexArray(far ? this.vaoFar : this.vao); wasFar = far; }
       const verts = far ? this.vertsFar : this.verts;
+      if (this._pn > 0) this._cellLights(box);   // AUDIT GRASS-LIT2 A1
       this._point(slot);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, verts, budget);
       slots++; blades += budget; kept += n; verts_ += verts * budget; if (far) farSlots++;
@@ -1676,8 +2082,46 @@ export class LabGrassRenderer {
     this.drawn.verts = verts_; this.drawn.farSlots = farSlots;   // GRASS2: the vertex work, counted rather than inferred from one blade shape
   }
 
+  /** AUDIT GRASS-LIT2 A1: THE CELL'S LANTERNS. The frame's lights whose reach meets the cell's box (its roots' lowest to
+   *  its tallest tip), nearest first, at most GRASS_CELL_LIGHTS; uploaded only when they differ from the last cell's - an
+   *  open field's cells are all the same empty list, one upload a frame. */
+  _cellLights(box) {
+    const P = this._pts, idx = this._cellIdx, dist = this._cellDist, cap = GRASS_CELL_LIGHTS;
+    let n = 0;
+    for (let i = 0; i < this._pn; i++) {
+      const x = P[i * 4], y = P[i * 4 + 1], z = P[i * 4 + 2], r = P[i * 4 + 3];
+      const dx = Math.max(box[0] - x, 0, x - box[3]), dy = Math.max(box[1] - y, 0, y - box[4]), dz = Math.max(box[2] - z, 0, z - box[5]);
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (!(d2 < r * r)) continue;   // its reach misses the cell (the shader's own `pd >= w` cut, at the box)
+      if (n === cap && d2 >= dist[cap - 1]) continue;   // full, and no nearer than any kept: it falls off
+      let k = n < cap ? n++ : cap - 1;   // the slot it takes - the farthest's, when full
+      while (k > 0 && dist[k - 1] > d2) { dist[k] = dist[k - 1]; idx[k] = idx[k - 1]; k--; }   // nearest first; a tie keeps the earlier light
+      dist[k] = d2; idx[k] = i;
+    }
+    let same = n === this._cellN;
+    for (let k = 0; same && k < n; k++) same = idx[k] === this._cellLast[k];
+    if (same) return;
+    this.gl.uniform1i(this.u.uPointCount, n);
+    if (n > 0) this.gl.uniform1iv(this.u.uPointIdx, idx);
+    this._cellN = n; this._cellLast.set(idx);
+  }
+
+  /** GRASS-LIT: a 1x1 adaptation image holding the multiplier 1 (the log encoding's midpoint) - the far ring's own,
+   *  for a lane frame with no air pass */
+  _adaptOne() {
+    if (this._one) return this._one;
+    const gl = this.gl, tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return (this._one = tex);
+  }
+
   destroy() {
     const gl = this.gl;
+    if (this._one) gl.deleteTexture(this._one);   // GRASS-LIT
     for (const b of this.bufs) gl.deleteBuffer(b);
     for (const b of this._cornerBufs ?? []) gl.deleteBuffer(b);
     gl.deleteVertexArray(this.vao);

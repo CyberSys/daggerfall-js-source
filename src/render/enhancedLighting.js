@@ -68,7 +68,7 @@ import { BAYER_GLSL, BAYER_MEAN, DISSOLVE_GLSL } from './orderedDither.js';   //
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
-import { HIT_FLASH_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
+import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, the classic BB_FS's own
 import { pageParam } from '../systems/pageQuery.js';   // PERF-URL: the page's query, parsed once a search
 
 /** The lane's light cap - the classic lane's sixteen, tripled. Forty-eight
@@ -315,12 +315,9 @@ float elScatter(vec3 L, float range, vec3 dir, float dist) {
   return (atan((tb - t0) / h) - atan((ta - t0) / h)) / h;
 }
 `;
-export const EL_GLSL = `
-uniform float uELExposure;   // EL1: scene exposure before the tonemap
-uniform float uELScatter;    // EL1: in-scatter gain x the fog's density (0 = no fog, no glow; VOL1: 0 on a world frame the air pass glows for)
-${BAYER_GLSL}
-${AIR_ADAPT_GLSL}
-vec3 elDecode(vec3 c) {
+/** GRASS-LIT: the lane's sRGB codec alone (elDecode / elEncode above, term for term) - the grass's program takes it
+ *  without the rest of EL_GLSL, whose Bayer block it already carries under its own name. */
+export const EL_CODEC_GLSL = `vec3 elDecode(vec3 c) {
   vec3 lo = c / 12.92;
   vec3 hi = pow((c + 0.055) / 1.055, vec3(2.4));
   return mix(hi, lo, step(c, vec3(0.04045)));
@@ -330,14 +327,23 @@ vec3 elEncode(vec3 c) {
   vec3 lo = c * 12.92;
   vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
   return mix(hi, lo, step(c, vec3(0.0031308)));
-}
-float elAttenuation(float d, float range) {
+}`;
+/** GRASS-LIT2: the lane's lantern falloff alone (elAttenuation above, term for term) - the grass's vertex stage lights
+ *  its roots by it without the rest of EL_GLSL. */
+export const EL_ATTEN_GLSL = `float elAttenuation(float d, float range) {
   float x = d / max(range, 1e-4);
   float x2 = x * x;
   float win = clamp(1.0 - x2 * x2, 0.0, 1.0);
   win *= win;
   return ${EL_LIGHT_GAIN}.0 / (1.0 + ${EL_LIGHT_KNEE}.0 * x2) * win;
-}
+}`;
+export const EL_GLSL = `
+uniform float uELExposure;   // EL1: scene exposure before the tonemap
+uniform float uELScatter;    // EL1: in-scatter gain x the fog's density (0 = no fog, no glow; VOL1: 0 on a world frame the air pass glows for)
+${BAYER_GLSL}
+${AIR_ADAPT_GLSL}
+${EL_CODEC_GLSL}
+${EL_ATTEN_GLSL}
 ${EL_TONEMAP_GLSL}
 ${EL_SCATTER_GLSL}
 `;
@@ -618,6 +624,8 @@ uniform sampler2D uEmissionTex;
 uniform int uSpectral;
 uniform vec4 uConceal;
 uniform float uHitFlash;   // HITFLASH1
+uniform float uEliteGlow;  // ELITE FOES
+uniform float uEliteTime;  // ELITE FOES: the embers' clock
 uniform vec3 uTint;
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -638,6 +646,7 @@ ${EL_FOG_GLSL}
 ${EL_POINT_LIT_GLSL}
 ${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
+${ELITE_GLOW_GLSL}
 out vec4 outColor;
 void main() {
   vec2 uv = vUV;
@@ -645,8 +654,16 @@ void main() {
     uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
     if (uv.x < 0.0 || uv.x > 1.0) discard;
   }
-  vec4 tex = texture(uTex, uv);
-  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) discard;
+  vec4 tex = (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) ? vec4(0.0) : texture(uTex, uv);   // ELITE FOES: the widened quad's margin is empty
+  if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
+    // ELITE FOES: the rim and the embers, bright enough in linear light for the bloom to catch
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0) {   // negative: an elite's corpse - the rim alone
+      if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, min(eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), vec3(1.0)), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }   // in DISPLAY colour, past the exposure: through the tone curve a dark dungeon's exposure took it to white (Mac's screenshot) - this is the classic lane's blue
+      float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
+      if (em > 0.0) { outColor = vec4(dwColumn(dwWaterFog(mix(uFogColor, min(eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), vec3(1.0)), fogFactorAt(vBBWorld)), vBBWorld), vBBWorld), 1.0); return; }   // display colour, as the rim
+    }
+    discard;
+  }
   vec3 emission = elDecode(texture(uEmissionTex, uv).rgb);
   vec3 albedo = max(elDecode(tex.rgb) - emission, vec3(0.0));
   vec3 base = vBBBase + vec3(0.0, 0.5, 0.0);   // EL2: the shadow is read a half unit up the sprite's base, once for the whole flat
@@ -668,6 +685,7 @@ void main() {
   vec3 lit = albedo * (uTint + sunLit + elPointFlat(vBBWorld, base) + elIndirectFlat(vBBWorld)) + emission;
   if (uConceal.x == 2.0) lit *= ${SHADE_DARK};   // AUDIT-EL F14: a uniform nothing uploaded read 0 - every shade a black cut-out
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3's mode, which this lane never drew
+  lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: a struck body's red - the lane had no flash at all
   if (uConceal.x == 4.0) lit = vec3(0.0);
   float alpha = uSpectral == 1 ? tex.a : 1.0;

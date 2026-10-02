@@ -47,8 +47,8 @@
   {
     "name": "PARTY-UI-the-count-never-updated",
     "file": "src/systems/partyTravel.js",
-    "old": "      t.count = tripCountText(tally);   // PARTY-UI\n",
-    "new": "",
+    "old": "if (count !== t.count) { t.count = count; waitLabel(t, now); }",
+    "new": "if (count !== t.count) { waitLabel(t, now); }",
     "tests": [
       "test/partytravel.test.js"
     ]

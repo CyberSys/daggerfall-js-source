@@ -42,17 +42,17 @@ test('DISCORD-GATES law: THE DOOR - a Discord webhook URL (discord.com, discorda
   for (const bad of [undefined, '', '@everyone', 'Gate Watchers', '<@&112233445566778899>', '1234', '1'.repeat(22)]) assert.equal(heraldRole(bad), null, String(bad));
 });
 
-test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY mention Discord may make; where, when it opens (in each reader\'s own time, and how soon), when it seals, and who holds it; no place said as "over the wilds", the map named (mutants: the ping dropped; every mention allowed; the open said as the seal)', () => {
+test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY mention Discord may make; where, when it opens (in each reader\'s own time, and how soon), when it seals, and the marks he comes under (WB13b: the chat\'s own sentence); no place said as "over the wilds", the map named (mutants: the ping dropped; every mention allowed; the open said as the seal)', () => {
   const p = omenPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', role: ROLE });
   assert.ok(p.content.startsWith(`<@&${ROLE}> `), 'the role, first');
   assert.deepEqual(p.allowed_mentions, { roles: [ROLE] }, 'that role and nothing else - no @everyone, no user, whatever the text holds');
-  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** An Oblivion Gate opens <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>) and seals at <t:${s(TT.sealAt)}:t>. ${gateBossOf(DAY).name}, ${gateBossOf(DAY).title}, holds it. Tonight he comes **the Storm-Crowned**, Unyielding and Soul-Hungry.`);   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
+  assert.equal(p.content, `<@&${ROLE}> **The sky burns near Copperham, Wrothgarian Mountains.** Dagon's faithful open a breach <t:${s(TT.openAt)}:R> (<t:${s(TT.openAt)}:t>). The Covenant seals it at <t:${s(TT.sealAt)}:t>. The faithful work their rite nearby. Kill their Summoner before the breach opens. ${gateBossOf(DAY).name} comes **the Storm-Crowned** tonight, Unyielding and Soul-Hungry.`);   // WB12d: the rite - AUDIT WB12d (D3): the chat's sentences, after the times   // WB11a: the nine-trial rotation moved the day's marks (it was the Burning, Soul-Hungry and Echoing)
   assert.deepEqual(gateModsOf(DAY), ['storm', 'unyielding', 'soulhungry'], 'WB8c: the day\'s own marks, in the tables\' words - never a player\'s');
   assert.equal(TT.openAt - TT.omenAt, 15 * 60_000, 'Mac\'s "15 min before": the omen is the gate\'s own, fifteen real minutes before it opens');
   const q = omenPost({ day: DAY });
   assert.deepEqual(q.allowed_mentions, { parse: [] }, 'no role: nobody pinged');
-  assert.ok(q.content.startsWith('**The sky burns over the wilds.** An Oblivion Gate opens'), q.content);
-  assert.ok(q.content.includes(' - it is marked on your map.'), 'no place: the map');
+  assert.ok(q.content.startsWith('**The sky burns over the wilds.** Dagon\'s faithful open a breach'), q.content);
+  assert.ok(q.content.includes('. It is marked on your map. '), 'no place: the map');
   assert.ok(!p.content.includes('marked on your map'), 'a place: said');
   assert.ok(p.content.length < 2000 && q.content.length < 2000, 'a Discord message\'s bound');
 });
@@ -60,12 +60,12 @@ test('DISCORD-GATES law: THE OMEN\'S POST - the role pinged first and the ONLY m
 test('DISCORD-GATES law: THE KILL\'S POST - the boss fallen, where, by the court\'s top dealers and how many more; pings nobody; a name is letters, digits, spaces, apostrophes and hyphens (mutants: a ping on the kill; the others miscounted; a name posted raw)', () => {
   const boss = gateBossOf(DAY).name;
   const p = fellPost({ day: DAY, place: 'Copperham, Wrothgarian Mountains', top: ['Ann', 'Bran', 'Cid'], n: 15 });
-  assert.equal(p.content, `**${boss} has fallen** at the Oblivion Gate near Copperham, Wrothgarian Mountains - struck down by Ann, Bran, Cid and 12 others. The gate collapses.`);
+  assert.equal(p.content, `**${boss} has fallen** at Dagon's Breach near Copperham, Wrothgarian Mountains, struck down by Ann, Bran, Cid and 12 others. The breach collapses.`);
   assert.deepEqual(p.allowed_mentions, { parse: [] }, 'the kill pings nobody (Mac: the role on the omen alone)');
-  assert.ok(fellPost({ day: DAY, top: ['Ann', 'Bran'], n: 2 }).content.endsWith('in the wilds - struck down by Ann and Bran. The gate collapses.'));
+  assert.ok(fellPost({ day: DAY, top: ['Ann', 'Bran'], n: 2 }).content.endsWith('in the wilds, struck down by Ann and Bran. The breach collapses.'));
   assert.ok(fellPost({ day: DAY, top: ['Ann'], n: 2 }).content.includes('struck down by Ann and 1 other.'));
   assert.ok(fellPost({ day: DAY, top: ['Ann'], n: 1 }).content.includes('struck down by Ann.'));
-  assert.equal(fellPost({ day: DAY, top: [], n: 3 }).content, `**${boss} has fallen** at the Oblivion Gate in the wilds. The gate collapses.`);
+  assert.equal(fellPost({ day: DAY, top: [], n: 3 }).content, `**${boss} has fallen** at Dagon's Breach in the wilds. The breach collapses.`);
   const loud = fellPost({ day: DAY, top: ['@everyone', '**Mac**', 'https://evil.io/x', '<@&1>'], n: 4 }).content;
   assert.ok(loud.includes('struck down by everyone, Mac, httpsevilio'), loud);
   assert.ok(!/@|https:|<@&/.test(loud.replace(/^\*\*[^*]+\*\*/, '')), 'no mention and no link rides a name');
@@ -263,13 +263,13 @@ test('DISCORD-GATES relay: THE KILL - owed the moment the hub hears it (kept fir
   });
 });
 
-test('DISCORD-GATES relay: NO WEBHOOK, NO HERALD - nothing posted, nothing kept (no site record, no owe), the sweep armed as it always was; a webhook that is not Discord\'s is none; a `site` outside the hub is junk (mutants: the herald ignoring its door; the record kept for nothing)', async () => {
+test('DISCORD-GATES relay: NO WEBHOOK, NO HERALD - nothing posted, no owe, the sweep armed as it always was; a webhook that is not Discord\'s is none; a `site` outside the hub is junk. AUDIT WB12d (R1): the site record is kept all the same - the faithful\'s rite stands by the gate\'s agreed site, herald or none (mutants: the herald ignoring its door; the record kept only with a herald)', async () => {
   for (const env of [{}, { GATE_DISCORD_WEBHOOK: 'https://example.com/hook', GATE_DISCORD_ROLE: ROLE }]) {
     await withHerald(async ({ r, join, site, fell, posts, now, set }) => {
       const a = await join('a');
       assert.equal(r.alarm.at, now() - 10 + ACCOUNT_SWEEP_MS, 'the sweep\'s, untouched');
       await site(a, DAY, 100, 200, 'Copperham');
-      assert.equal(r.store.has('gatesite'), false);
+      assert.deepEqual(r.store.get('gatesite'), { d: DAY, c: [[100, 200, 'Copperham', ['acct-a']]] }, 'kept for the rite');   // PIN MOVED (the merge with main's FRIENDS-SYNC): the hub's account is the signed-in player's, never the browser profile's
       set(TT.omenAt); await r.fire();
       set(TT.openAt + 1000); await fell(DAY, ['Ann'], 1); await r.fire();
       assert.equal(r.store.has('herald'), false);

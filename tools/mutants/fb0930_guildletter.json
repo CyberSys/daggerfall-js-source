@@ -146,8 +146,8 @@
   {
     "name": "GUILD-LETTER-the-tab-silent",
     "file": "src/ui/socialPanel.js",
-    "old": "      guildUi.word = r?.ok ? guildDoneText(okWord, r) : guildWordText(r?.error);",
-    "new": "      guildUi.word = r?.ok ? okWord : guildWordText(r?.error);",
+    "old": "guildUi.word = r?.ok ? guildDoneText(typeof okWord === 'function' ? okWord(r) : okWord, r) : guildWordText(r?.error);",
+    "new": "guildUi.word = r?.ok ? (typeof okWord === 'function' ? okWord(r) : okWord) : guildWordText(r?.error);",
     "tests": [
       "test/fb0930_guildletter.test.js"
     ]

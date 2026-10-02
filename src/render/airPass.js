@@ -1472,6 +1472,41 @@ export class AirPass {
   _deleteFrame(k) {
     const gl = this.gl;
     gl.deleteTexture(k.tex); for (const d of k.depths) gl.deleteTexture(d); for (const f of k.fbos) gl.deleteFramebuffer(f);
+    if (k.aoDepth) { gl.deleteTexture(k.aoDepth); gl.deleteFramebuffer(k.aoFbo); }   // GRASS-LIT
+  }
+  /**
+   * GRASS-LIT (2026-10-01): THE OCCLUSION'S DEPTH, TAKEN BEFORE THE GRASS. The AO is read off the frame's depth at the
+   * resolve (EL6), and the grass writes that depth - so every blade, a sixty-centimetre card standing out of the
+   * ground, read as a crease: the AO darkened the field and the ground round each tuft by its 0.75 resolve, and with
+   * `?air=off` the same tufts drew the ground's own colour (tools/grassLookProbe.mjs photographs both). The host takes
+   * the depth HERE, just before the grass draws (Renderer.snapshotAoDepth), and the AO and its blur read this copy:
+   * the world occludes as it did, the grass neither takes the world's occlusion as its own nor casts any, and the
+   * blades still hide one another and are hidden by the depth they write. One depth blit a world frame that has grass,
+   * none otherwise (the next frame's prepare drops the copy). A no-op with no frame bound.
+   */
+  snapshotAoDepth() {
+    const F = this.frame;
+    if (!F || !this.f || !this.fresh) return false;
+    const gl = this.gl;
+    if (!F.aoDepth) {
+      F.aoDepth = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, F.aoDepth);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, F.w, F.h);   // the frame's own format, so the blit is legal
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      F.aoFbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, F.aoFbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, F.aoDepth, 0);
+    }
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, F.fbo);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, F.aoFbo);
+    gl.blitFramebuffer(0, 0, F.w, F.h, 0, 0, F.w, F.h, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, F.fbo);   // the frame's own, read and draw, as the world left it
+    F.aoTaken = true;
+    return true;
   }
   /** PERF-SCALE (the review): free a slot's frame image - the world stopped drawing into an image of its own (retro
    *  off, the render scale back at 100%; Renderer._dropWorldImage), so the image-sized frame is not held for the rest
@@ -1629,21 +1664,23 @@ export class AirPass {
       gl.useProgram(prog.p);
       gl.bindVertexArray(this.quadVao);
     };
-    const depthOn = (prog) => {   // the depth block's four uniforms, the depth on unit 0
+    const depthOn = (prog, depth = F.depth) => {   // the depth block's four uniforms, the depth on unit 0
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, F.depth);
+      gl.bindTexture(gl.TEXTURE_2D, depth);
       gl.uniform1i(prog.uDepth, 0);
       gl.uniform4fv(prog.uProjInfo, this.projInfo);
       gl.uniform4fv(prog.uRect, this.rect);
       gl.uniform2fv(prog.uCanvas, this.canvas);
     };
     // 1. the ambient occlusion, then its box blur (exactly one tile of the ordered rotation)
+    const aoDepth = F.aoTaken && F.aoDepth ? F.aoDepth : F.depth;   // GRASS-LIT: the depth before the grass, where it was taken
+    F.aoTaken = false;
     quad(this.programs.ao, T.ao);
-    depthOn(this.programs.ao);
+    depthOn(this.programs.ao, aoDepth);
     gl.uniform4fv(this.programs.ao.uAOParams, this.aoParams);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     quad(this.programs.box, T.aoBlur);
-    depthOn(this.programs.box);   // EL7: the blur reads the depth too - on unit 0; the AO on unit 1
+    depthOn(this.programs.box, aoDepth);   // EL7: the blur reads the depth too - on unit 0; the AO on unit 1 (GRASS-LIT: the AO's own)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, T.ao.tex); gl.uniform1i(this.programs.box.uSrc, 1);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform2f(this.programs.box.uTexel, 1 / T.ao.w, 1 / T.ao.h);

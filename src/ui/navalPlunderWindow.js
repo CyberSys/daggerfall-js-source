@@ -78,7 +78,7 @@ export const NAVAL_PLUNDER_CSS = `
 .dfnaval-lede { margin: 0; font-size: 12px; color: #b9ab93; text-align: center; }
 .dfnaval-acts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .dfnaval-btn { min-width: 136px; padding: 6px 14px; font: inherit; font-size: 14px; letter-spacing: 0.06em; color: #e9e4d9; border: 2px solid; cursor: pointer; text-shadow: 1px 1px 0 #050608; }
-.dfnaval-btn:disabled { cursor: default; color: #7d7460; }
+.dfnaval-btn:disabled { cursor: default; color: #9c937d; }
 .dfnaval-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .dfnaval-choice { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 8px 9px; font: inherit; text-align: center; color: #e9e4d9;
   border: 2px solid; background-color: ${T.groundButton}; cursor: pointer; }

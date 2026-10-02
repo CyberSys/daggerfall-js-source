@@ -138,7 +138,8 @@ test('GUILD-LETTER one letter: the realm\'s maker, which the Worker bundles, is 
   assert.equal(guildDoneText('20,000 gold taken out.', { ok: true, letter: true }), '20,000 gold taken out. You are paid with a letter of credit.');
   assert.equal(guildDoneText('20,000 gold taken out.', { ok: true }), '20,000 gold taken out.');
   assert.equal(guildDoneText('20,000 gold taken out.', { ok: true, letter: 'yes' }), '20,000 gold taken out.');
-  assert.match(src('src/ui/socialPanel.js'), /guildUi\.word = r\?\.ok \? guildDoneText\(okWord, r\) : guildWordText\(r\?\.error\);/, 'every act\'s word goes through it');
+  // AUDIT GUILD1d R13: an act's word may be the answer's own (the hall's sale says its sum) - through the same door
+  assert.match(src('src/ui/socialPanel.js'), /guildUi\.word = r\?\.ok \? guildDoneText\(typeof okWord === 'function' \? okWord\(r\) : okWord, r\) : guildWordText\(r\?\.error\);/, 'every act\'s word goes through it');
 });
 
 test('GUILD-LETTER the host: the world\'s guild wallet weighs a withdrawal by the real carried weight against the real max encumbrance, and writes the realm\'s letter at the front of the pack or the coins (mutants: the weight unread; the ceiling unread; the host pays coins)', () => {

@@ -218,8 +218,8 @@
   {
     "name": "PROF6-svc-guild-room-unasked",
     "file": "server-account/src/writs.js",
-    "old": "        AND COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13\n",
-    "new": "        AND ?13 = ?13\n",
+    "old": "        AND (w.seat IS NOT NULL OR COALESCE((SELECT SUM(qty) FROM guild_prof_stores WHERE guild_id = w.guild_id AND material = w.material), 0) + ?4 <= ?13)",
+    "new": "        AND (w.seat IS NOT NULL OR ?13 = ?13)",
     "tests": [
       "test/prof6_service.test.js"
     ]
@@ -694,8 +694,8 @@
   {
     "name": "PROF6-host-herbalism-always",
     "file": "src/scenes/world.js",
-    "old": "    const prof = professionName(d.track?.profession) || 'profession';\n    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} Drakes struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} ${prof} XP.${rose}`;",
-    "new": "    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} Drakes struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} Herbalism XP.${rose}`;",
+    "old": "    const prof = professionName(d.track?.profession) || 'profession';\n    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} silver struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} ${prof} XP.${rose}`;",
+    "new": "    return `Writ filled: ${Number(d.pay ?? 0).toLocaleString('en-US')} silver struck to your account, ${Number(d.renown?.credited ?? 0).toLocaleString('en-US')} Renown and ${Number(d.pay ?? 0) * 2} Herbalism XP.${rose}`;",
     "tests": [
       "test/prof6_client.test.js"
     ]

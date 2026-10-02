@@ -159,7 +159,9 @@ test('A2: the book-price warm is wired to the one books boot all three hosts cal
     assert.match(src(host), /preloadBookArt\(\{ renderer, fetchBytes, palette \}\)/, `${host} calls the books boot`);
   }
   // and the four mint sites share ONE member
-  assert.match(src('systems/shopStock.js'), /add\(createRandomBook\(rolls\)\)/);
+  // WB12c: a shop's shelf mints through createShelfBook - CreateRandomBook itself over the shelf's draw
+  assert.match(src('systems/shopStock.js'), /add\(createShelfBook\(rolls\)\)/);
+  assert.match(src('systems/books.js'), /export const createShelfBook = \(rolls = Math\.random\) => createRandomBook\(rolls, getShelfBookID\);/);
   assert.match(src('systems/loot.js'), /halving\(matrix\.BK, \(\) => createRandomBook\(rolls\)\)/);
   assert.match(src('systems/biography.js'), /if \(group === 'Books'\) return createRandomBook\(rolls\);/);
   assert.match(src('systems/quest/item.js'), /: createRandomBook\(rolls\);/);

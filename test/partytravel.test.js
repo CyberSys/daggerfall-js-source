@@ -208,7 +208,7 @@ test('PARTY-TRAVEL wire: the relay\'s door projects the fields through (validPar
   assert.deepEqual(m.p.tv, { x: 300, y: 150, o: 2, at: NOW, go: null });
   assert.equal(m.p.tr, NOW - 5);
   assert.equal(m.p.wx, f.wx);
-  assert.equal(RELAY_VERSION, 'world141', 'CLIMB5 and CLIMB6 moved it on last (world141: the pose\'s climb - `cl`, `cw` and a move\'s `ck`, `cy`, `cd`); before it WB11 moved it on (world140: the host of the Legion-Lord - the `ahit` blow on one of it, the words `ad`, `amv`, `aatk`, `ah` and `adie` of the room, `lg` in the state, `a` in a chart row, the brain law 5; GATE-HEAL\'s `heal` and a chart row\'s `hl` with it - main\'s HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`, the kills of quest foes a member held for a partner, counted by every copy of the quest); before it GATE-UX moved it on (world136: the damage chart made at the kill - every challenger and their part, ranked, on the `fell` word of the court and on the fall in the state (`dm`)); before it WB9 moved it on (world135: the three courts of the Warden and the Reckoning of Dagon - his court and the walkways laid in the state (`ct`, `xa`), the crystals, their breaking and the stun (`cx`, `cxh`, `cxb`, `stun`, `su`, `rk`) and a blow on a crystal (`xhit`), judged and fanned by the relay - main\'s PARTY-MAP took world134 first); before it PARTY-MAP moved it on (world134: the `amap` frame, the automap rows a Shared Cartography caster reveals, to the party alone); before it SOFTCAP1 moved it on (world133: the party pose `cl`, a member character level for mentor mode); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character); before it PENITENT\'s badge vocabulary (world129); before it WB8 moved it on (world128: marks on the gate state, the fed word - world126 on its branch, never deployed, renumbered past OW6L at the merge); before it OW6L (world127: the overworld ledger of a cell, the ow frame - never world125 (VOICE1, reverted) nor world126 (DISCORD-GATES on its branch)); before it TV8 (world124: the party\'s Overworld walk - world123 on its branch, renumbered past THE MERGE\'s); before it THE MERGE (world123: the raids, the gates and Discord - world122 to world126 on their branch, never deployed - one relay past main\'s TV3); before it TV3 (world122: a region\'s traveller marks); ONE-SEAT before it (world121 - world119, then world120, on its branch, renumbered past main\'s AUDIT SET (world119) and PARTY-BUFFS + REST-OPT (world120) at the merges: a hub hello\'s claim - one tab of an account online); before it PARTY-BUFFS + REST-OPT + the batch audit (world120 - world119, world120 and world121 on their branch, renumbered past main AUDIT SET at the merge: fx, rs and nr on the party pose, TRADE_REV_MAX and REST_OPT_RELAY_MIN named); before it AUDIT SET (world119 - world117 on its branch, renumbered past main\'s SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on its branch, renumbered past main\'s world114-117: the own lane and the pose\'s concealment bits); SHADOW-FANG\'s badge vocabulary moved it on (world117 - world114 on its branch, world116 at its first merge; main\'s Oblivion Gate WBX took world116 first); the Oblivion Gate\'s WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116 - world114 on its branch, renumbered past main\'s Enhanced Plus patch (world114) and GUILD1c (world115)); GUILD1c (world115 - world113 on its branch) and the Enhanced Plus patch (world114) moved it on after WB3 and AUDIT WB (the gate\'s boss room, world113); PARTY-TRAVEL: the party pose\'s journey fields (world112 - world110 on its branch; EVENT1 and RENOWN1 took 110-111)');
+  assert.equal(RELAY_VERSION, 'world152', 'GLYPH-WEAR moved it on last (world152); WB12 moved it on (world151: Dagon\'s Breach - its words in the omen\'s lines and the herald\'s posts, the faithful\'s rite - main\'s CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150 first); before it SEAT2b part two (b) moved it on (world150: the works in battle); SEASON1 part two, the banner ribbon moved it on (world149: the banner ribbon - the Seats arc\'s six relays renumbered past main\'s HERALD, LOOT7, WB11 and CLIMB5 (world138-world141) at the merge); CROWN1 part two moved it on (world148: the Royal Tourney); SEAT2a moved it on (world147: the siege battle); PVP-REF moved it on (world146: the refereed siege room); SEAT1c moved it on (world145: the seats\' titles and glyphs - five generic title ids, a `ts` claim beside them, four glyphs); SEAT1b moved it on (world144: the Watch\'s tick - a `watch` frame carrying a `k1` receipt the relay signs, net/watchReceipt.js); ELITE FOES moved it on (world143: the foe record carries an elite foe, z, so a puppet stands as one); before it FRIENDS-SYNC moved it on (world142: the hub account is the signed-in player - the token subject - and a browser profile list is merged into it once); before it CLIMB5 and CLIMB6 moved it on (world141: the pose\'s climb - `cl`, `cw` and a move\'s `ck`, `cy`, `cd`); before it WB11 moved it on (world140: the host of the Legion-Lord - the `ahit` blow on one of it, the words `ad`, `amv`, `aatk`, `ah` and `adie` of the room, `lg` in the state, `a` in a chart row, the brain law 5; GATE-HEAL\'s `heal` and a chart row\'s `hl` with it - main\'s HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`, the kills of quest foes a member held for a partner, counted by every copy of the quest); before it GATE-UX moved it on (world136: the damage chart made at the kill - every challenger and their part, ranked, on the `fell` word of the court and on the fall in the state (`dm`)); before it WB9 moved it on (world135: the three courts of the Warden and the Reckoning of Dagon - his court and the walkways laid in the state (`ct`, `xa`), the crystals, their breaking and the stun (`cx`, `cxh`, `cxb`, `stun`, `su`, `rk`) and a blow on a crystal (`xhit`), judged and fanned by the relay - main\'s PARTY-MAP took world134 first); before it PARTY-MAP moved it on (world134: the `amap` frame, the automap rows a Shared Cartography caster reveals, to the party alone); before it SOFTCAP1 moved it on (world133: the party pose `cl`, a member character level for mentor mode); before it STRIKE-SHARED moved it on (world132: the strike spell on a hit and the trapper on a dead foe, both read by the clients alone); before it MERGE 2 moved it on (world131: the professions branch, BOUNTY1 + AUDIT 28 - `bq` and `lv` on the party pose, `k`, `a` and `t` on a bounty row - world125 on its branch, never deployed, a number VOICE1 took on main); before it REALM-DOOR moved it on (world130: the door refuses a token the account service signed as naming no realm character); before it PENITENT\'s badge vocabulary (world129); before it WB8 moved it on (world128: marks on the gate state, the fed word - world126 on its branch, never deployed, renumbered past OW6L at the merge); before it OW6L (world127: the overworld ledger of a cell, the ow frame - never world125 (VOICE1, reverted) nor world126 (DISCORD-GATES on its branch)); before it TV8 (world124: the party\'s Overworld walk - world123 on its branch, renumbered past THE MERGE\'s); before it THE MERGE (world123: the raids, the gates and Discord - world122 to world126 on their branch, never deployed - one relay past main\'s TV3); before it TV3 (world122: a region\'s traveller marks); ONE-SEAT before it (world121 - world119, then world120, on its branch, renumbered past main\'s AUDIT SET (world119) and PARTY-BUFFS + REST-OPT (world120) at the merges: a hub hello\'s claim - one tab of an account online); before it PARTY-BUFFS + REST-OPT + the batch audit (world120 - world119, world120 and world121 on their branch, renumbered past main AUDIT SET at the merge: fx, rs and nr on the party pose, TRADE_REV_MAX and REST_OPT_RELAY_MIN named); before it AUDIT SET (world119 - world117 on its branch, renumbered past main\'s SHADOW-FANG (world117) and OWN1 + INVIS-NET (world118) at the merge: the dungeon foe record carries `v`, the joiner whose blow killed it); OWN1 + INVIS-NET moved it on before (world118 - world114 on its branch, renumbered past main\'s world114-117: the own lane and the pose\'s concealment bits); SHADOW-FANG\'s badge vocabulary moved it on (world117 - world114 on its branch, world116 at its first merge; main\'s Oblivion Gate WBX took world116 first); the Oblivion Gate\'s WBX5, AUDIT WBX and AUDIT WBX2 moved it on (world116 - world114 on its branch, renumbered past main\'s Enhanced Plus patch (world114) and GUILD1c (world115)); GUILD1c (world115 - world113 on its branch) and the Enhanced Plus patch (world114) moved it on after WB3 and AUDIT WB (the gate\'s boss room, world113); PARTY-TRAVEL: the party pose\'s journey fields (world112 - world110 on its branch; EVENT1 and RENOWN1 took 110-111)');
   assert.equal(PARTY_TRAVEL_RELAY_MIN, 112);
   assert.equal(relaySupportsPartyTravel('world112'), true);
   assert.equal(relaySupportsPartyTravel('world113'), true);
@@ -262,7 +262,7 @@ function partyOf(names = ['Ann', 'Bran'], leaderName = names[0]) {
   const clients = new Map();
   const byAcct = (acct) => [...clients.values()].find((c) => c.acct === acct);
   for (const name of names) {
-    const c = { name, acct: `acct-${name}`, pose: { ...P }, feet: null, near: true, online: true, lines: [], mids: [], prompts: [], travels: [], opened: 0,
+    const c = { name, acct: `acct-${name}`, pose: { ...P }, feet: null, near: true, online: true, lines: [], mids: [], midSecs: [], prompts: [], travels: [], opened: 0, tab: false,
       busy: false, alive: true, outdoors: true, refusal: null, afford: true, travelGoes: true, at: { x: 0, z: 0 }, relayOk: true, moving: false, journeying: false, dirty: 0, sendFails: false };
     c.social = { acct: c.acct, party: null, leads() { return this.party?.leader === this.acct; }, now: () => clock.shared };
     c.host = {
@@ -279,7 +279,8 @@ function partyOf(names = ['Ann', 'Bran'], leaderName = names[0]) {
       placeName: (to, fb) => PLACES[`${to.x},${to.y}`] || fb || 'the wilderness',
       prompt: (rows, onYes, onNo) => { const h = { rows, onYes, onNo, closed: false }; c.prompts.push(h); return h; },
       closePrompt: (h) => { h.closed = true; },
-      say: (t) => c.lines.push(t), mid: (t) => c.mids.push(t),
+      say: (t) => c.lines.push(t), mid: (t, sec) => { c.mids.push(t); c.midSecs.push(sec); },
+      tabOpen: () => c.tab,   // PARTY-READY: the Social panel open on its Party tab
       travel: (pick, opts, computed) => { c.travels.push({ pick, opts, computed }); return Promise.resolve(c.travelGoes); },
       openMap: () => { c.opened++; },
       clock: () => clock.mono,
@@ -1208,4 +1209,63 @@ test('AUDIT PARTY-UI2 host by source: the map door SAYS it indoors - "You cannot
   assert.ok(door.indexOf('_travelMap.gotoPlace(_travelGoto)') > door.indexOf('_travelMap = buildTravelMapWindow('), '...once one has been built');
   assert.equal((door.match(/_travelGoto = null/g) ?? []).length, 1, 'and let go nowhere else - a refused open keeps it');
   assert.match(w, /let _travelGoto = null;\n\s*const toggleTravelMap = /, 'one target, kept beside the door across opens');
+});
+
+// PARTY-READY (2026-10-01, Mac: "Also when party readying up, the ui element is hidden"): the ready-up stays on screen.
+test('PARTY-READY session: THE LEADER\'S WAIT STANDS THE ROUND - the HUD label for the round\'s minute, not the host\'s four seconds; set again only as the count moves (every label is a notebook line), for what is left of it; the set-out, a call-off or a lapse says its own line over it (mutants: the wait for the host\'s default, set every tick, never moved, left standing over the outcome)', () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  w.step();
+  assert.equal(ann.pt.propose(PICK, OPTS, FARE), true);
+  assert.equal(ann.mids.at(-1), 'Waiting for the party to ready up (1/2 ready).');
+  assert.equal(ann.midSecs.at(-1), PARTY_READY_TIMEOUT_MS / 1000, 'for the round\'s whole minute');
+  const n = ann.mids.length;
+  w.step(); w.step();
+  assert.equal(ann.mids.length, n, 'the count unmoved: set no more');
+  bran.prompts[0].onYes();
+  w.step();
+  assert.deepEqual(ann.mids.slice(n), ['Waiting for the party to ready up (2/2 ready).', 'The party sets out for Wayrest.'], 'the count moved, then the round set out over it');
+  assert.equal(ann.midSecs[n], (PARTY_READY_TIMEOUT_MS - 3 * PARTY_TRIP_TICK_MS) / 1000, 'for what was left of the round');
+  assert.equal(ann.midSecs[n + 1], undefined, 'the outcome for the host\'s own short while');
+  // called off from the tab or the chat
+  const off = partyOf();
+  off.step();
+  off.c('Ann').pt.propose(PICK, OPTS, FARE);
+  assert.equal(off.c('Ann').pt.command('travel'), 'You call off the journey.');
+  assert.equal(off.c('Ann').mids.at(-1), 'You call off the journey.', 'over the wait');
+  // lapsed, unanswered
+  const late = partyOf();
+  late.step();
+  late.c('Ann').pt.propose(PICK, OPTS, FARE);
+  late.step(PARTY_READY_TIMEOUT_MS + PARTY_TRIP_TICK_MS);
+  assert.ok(late.c('Ann').mids.length >= 2 && late.c('Ann').mids.at(-1) === late.c('Ann').lines.at(-1), `the lapse said over it: ${late.c('Ann').mids.at(-1)}`);
+});
+
+test('PARTY-READY session: A MEMBER WITH THE PARTY TAB OPEN ANSWERS THERE - no box over the tab that asks it already (the box paused the game, and the pause took the tab and the party\'s HUD out of the page as the ready-up began), nor a line to type what it offers; the tab\'s Ready answers; closed unanswered, the box asks (mutants: the box over the tab, the round marked asked under it)', () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  bran.tab = true;
+  w.step();
+  ann.pt.propose(PICK, OPTS, FARE);
+  w.step(); w.step();
+  assert.equal(bran.prompts.length, 0, 'no box over the tab');
+  assert.ok(!bran.lines.some((l) => l.includes('/travel')), 'nor a line to type what the tab offers');
+  assert.equal(bran.pt.status().round.gathered, true, 'the tab can answer it');
+  assert.equal(bran.pt.respond(true), 'You are ready to travel to Wayrest.');
+  const shut = partyOf();
+  shut.c('Bran').tab = true;
+  shut.step();
+  shut.c('Ann').pt.propose(PICK, OPTS, FARE);
+  shut.step();
+  assert.equal(shut.c('Bran').prompts.length, 0);
+  shut.c('Bran').tab = false;
+  shut.step();
+  assert.equal(shut.c('Bran').prompts.length, 1, 'the tab closed unanswered: the box asks');
+});
+
+test('PARTY-READY host by source: the wait\'s seconds reach the HUD\'s label, and the session reads the Party tab open (mutants: the seconds dropped at the seam, the tab never read)', () => {
+  const w = rd('src/scenes/world.js');
+  const host = w.slice(w.indexOf('partyTravel = createPartyTravel({'), w.indexOf('poseDirty: () => { _partyComposedAt = -Infinity; },'));
+  assert.match(host, /mid: \(text, seconds = PARTY_REST_FAR_SECONDS\) => setMidScreenText\(text, seconds\),/);
+  assert.match(host, /tabOpen: \(\) => !!socialPanel\?\.isOpen\?\.\(\) && socialPanel\.tab\(\) === 'party',/);
 });

@@ -25,8 +25,11 @@
  *  2.5x nearer at every pace (a rider at x40 held from 1.3 km short of a band's sight, not 3.2 km), and the traveller
  *  still meets the reach at walking pace. OW6-NEAR (FIELD BUGS 2026-09-29g, ! OG: "reduce the encounter speed slowing
  *  distance by like 40% to start"): 1.2 - the lead-in before every reach 40% shorter at every pace (a rider at x40 held
- *  from 768 m short of a band's sight, not 1280), no enemy's sight or chase moved. */
-export const THREAT_WARN_S = 1.2;
+ *  from 768 m short of a band's sight, not 1280), no enemy's sight or chase moved. OW6-HALF (2026-10-01, Mac: "We also
+ *  need to reduce the distance at which overworld enemies slow the user down"): 0.6 - the lead-in halved again at every
+ *  pace (a rider at x40 held from 384 m short of a band's sight, not 768; on foot 84 m, not 168), the reach still met at
+ *  walking pace. */
+export const THREAT_WARN_S = 0.6;
 
 /**
  * Metres along the way (`heading`, a unit {x, z}, or null when there is no way - a traveller standing) before the point

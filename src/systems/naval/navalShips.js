@@ -260,7 +260,7 @@ export const NAME_WORDS = Object.freeze({
   fair: Object.freeze(['Gilded', 'Honest', 'Bountiful', 'Fair', 'Laden', 'Thrifty', 'Prosperous', 'Golden', 'Silver', 'Merry', 'Fortunate', 'Steady',
     'Plump', 'Patient', 'Faithful', 'Wandering', 'Weathered', 'Lucky', 'Bonny', 'Sturdy', 'Swift', 'Gentle', 'Generous', 'Humble', 'Jolly', 'Kindly',
     'Quiet', 'Rosy', 'Sunny', 'Tidy', 'Willing', 'Bright', 'Copper', 'Amber', 'Ivory', 'Velvet', 'Spiced', 'Salted', 'Homeward', 'Outward']),
-  wares: Object.freeze(['Cog', 'Scale', 'Purse', 'Ledger', 'Barrel', 'Cask', 'Bale', 'Bushel', 'Coin', 'Septim', 'Drake', 'Wheel', 'Lantern', 'Compass',
+  wares: Object.freeze(['Cog', 'Scale', 'Purse', 'Ledger', 'Barrel', 'Cask', 'Bale', 'Bushel', 'Coin', 'Septim', 'Ingot', 'Wheel', 'Lantern', 'Compass',
     'Anchor', 'Gull', 'Heron', 'Cormorant', 'Pelican', 'Swan', 'Dove', 'Wren', 'Lark', 'Swallow', 'Goose', 'Otter', 'Seal', 'Mare', 'Bell', 'Hearth',
     'Harvest', 'Vintage', 'Venture', 'Bargain', 'Errand', 'Return', 'Welcome', 'Tidings', 'Penny', 'Fortune']),
   goods: Object.freeze(['Wool', 'Iron', 'Barley', 'Silk', 'Spice', 'Wine', 'Salt', 'Timber', 'Amber', 'Copper', 'Linen', 'Pearl', 'Dyes', 'Glass',

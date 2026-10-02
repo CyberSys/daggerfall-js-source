@@ -66,13 +66,14 @@ test('MODS-ONLINE-2: every vendored mod is classified, and the only keys the lan
     'a classification for a mod that does not exist is dead weight');
 
   // A forced key must be a key the mod actually declares, forced to the
-  // value the mod itself ships - the room's floor is the mod's own
-  // floor, not a number invented here.
+  // value the port ships - the room's floor is the mod's own floor, not
+  // a number invented here; the port's own default where it ships one
+  // (WEAR-VANILLA: Roleplay Realism's equipDamage, which the mod ships on).
   for (const [vendor, keys] of Object.entries(ONLINE_ROOM_MOD_KEYS)) {
     for (const [key, value] of Object.entries(keys)) {
       const def = MOD_SETTINGS[vendor]?.keys?.[key];
       assert.ok(def, `${vendor}/${key} is a declared switch`);
-      assert.equal(value, def.default, `${vendor}/${key} is forced to the mod's own shipped default`);
+      assert.equal(value, def.default, `${vendor}/${key} is forced to the port's shipped default`);
     }
   }
 });
@@ -294,7 +295,8 @@ test('MODS-ONLINE-3 by execution: the survival system writes only its own entity
 
 test('MODS-ONLINE-5: one ruleset per room - the reason PCAAO is forced whole forces RR\'s six combat overrides the same way, and intensive training is forced OFF because the shared clock would hand its +4 out for free', () => {
   const rr = ONLINE_ROOM_MOD_KEYS['roleplay-realism'];
-  for (const k of ['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'equipDamage', 'encumbranceEffects']) assert.equal(onlineForcedModSetting('roleplay-realism', k, '?online=1'), true, `${k} is the room's, at the mod's own default`);
+  for (const k of ['advancedArchery', 'weaponSpeed', 'weaponMaterials', 'encumbranceEffects']) assert.equal(onlineForcedModSetting('roleplay-realism', k, '?online=1'), true, `${k} is the room's, at the mod's own default`);
+  assert.equal(onlineForcedModSetting('roleplay-realism', 'equipDamage', '?online=1'), false, 'WEAR-VANILLA: the armour x5 is the room\'s, forced off (the port\'s default)');
   assert.equal(onlineForcedModSetting('roleplay-realism', 'classicStrengthDamageBonus', '?online=1'), false, 'the classic bonus ships off and stays off');
   assert.equal(onlineForcedModSetting('roleplay-realism', 'RefinedTraining.intensiveTraining', '?online=1'), false, 'CLOCK-REFUSAL: the four days would not pass');
   for (const k of ['bandaging', 'climbingRestriction', 'loanAmountPerLevel', 'shipPorts', 'bedSleeping', 'underworldExpulsion', 'EnhancedRiding.TrampleCivilians', 'RefinedTraining.variableTrainingPrice']) assert.equal(onlineForcedModSetting('roleplay-realism', k, '?online=1'), undefined, `${k} stays the player's - it reaches nobody`);

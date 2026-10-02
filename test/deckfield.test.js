@@ -150,7 +150,7 @@ test('GUN-HOLD: the world gives Activate to the hold first - before the click ca
   // PIN MOVED (AUDIT NAV2 F31): Interact - the readout's "E: hold fire" - holds it too, read before the hold
   assert.match(WORLD, /const useEdge = !travelView\?\.active && pressed\(latch\.edge, keys, 'Interact'\);[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*const _holdFire = \(_act\.activate \|\| _act\.cast \|\| useEdge\) && !!naval\?\.aiming && naval\.holdFire\(\);\n\s+if \(_act\.cast && !_holdFire && !gatherHost\?\.acting\(\)\) magic\.interceptAttack\(true\);/);
   // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): the click an act took is the act's to its release
-  assert.match(WORLD, /if \(\(\(_act\.activate && !gatherHost\?\.acting\(\) && !_actClick\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning && !_holdFire\) \{/);   // PIN MOVED (the merge with AUDIT 32 H5: a click mid-act is the act's)
+  assert.match(WORLD, /if \(\(\(_act\.activate && !gatherHost\?\.acting\(\) && !_actClick && !nodeClicked\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning && !_holdFire\) \{/);   // PIN MOVED (the merge with AUDIT 32 H5: a click mid-act is the act's; PROF-MENU: a click a node's list took is the list's)
   assert.match(WORLD, /if \(magic\.interceptAttack\(true\)\) return; if \(naval\?\.attackInput\(true\)\) return; weaponRig\.attackInput\(0, 0, true\);/, 'the mouse: the cast law first, then the guns');
 });
 

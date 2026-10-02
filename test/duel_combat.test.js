@@ -165,7 +165,8 @@ test('DUEL1 hosts by source: the swing reaches my opponent before any pool and i
   assert.match(w, /if \(duelMeleeHit\(cam\.pos, makeInView\(proj, view, multiply\)\)\) \{\s*\n\s*tallySwingSkills\(playerEntity, weaponRig\.playerWeapon\.weapon\);\s*\n\s*surfacePlayer\(\);\s*\n\s*\} else if \(!cityGuards\.resolvePlayerHit/, 'the duel arm first, the ladder after');
   assert.match(w, /\.filter\(\(t\) => !t\.dead && t\.ai\)\.map\(\(t\) => \(\{ feet: t\.ai\.feet, ref: t \}\)\), \.\.\.duelArrowTargets\(\)\]/);
   assert.match(w, /onFoeHit: \(m, t\) => \(t\?\.duel \? undefined : exteriorFoes\.arrowHitFoe\(m, t\)\)/);
-  assert.match(w, /onPlayerArrowHitFoe: \(m, t\) => \(t\?\.duel \? duelStrikeOut\('arrow', m\.weapon \?\? null, 'StrikeDown', weaponRig\.playerWeapon\?\.lastDrawMs \?\? 0\) : playerArrowHitFoe\(m, t, \{/);
+  // PIN MOVED (AUDIT-SEATS): the shaft's target's id rides too - outside a duel, a battle's foe it struck (G5's shaft)
+  assert.match(w, /onPlayerArrowHitFoe: \(m, t\) => \(t\?\.duel \? duelStrikeOut\('arrow', m\.weapon \?\? null, 'StrikeDown', weaponRig\.playerWeapon\?\.lastDrawMs \?\? 0, t\.id\) : playerArrowHitFoe\(m, t, \{/);
   assert.match(w, /castAtDuel: \(id, sp\) => duelSpellOut\(id, sp\),/);
   assert.match(w, /hurt: \(n\) => \{ if \(n > 0\) hurtPlayer\(playerEntity, n, _duelScope \? \{ spare: duelSpare \} : undefined\); \}/);
   assert.match(w, /_duelScope = true;\s*\n\s*try \{ magic\.applySpellToPlayer\(spell, d\.level, null, \{ duelCast: true \}\); \} finally \{ _duelScope = false; \}/);

@@ -326,7 +326,7 @@
   {
     "name": "RESTORE-C-a-taken-building-written",
     "file": "tools/realmRestore.mjs",
-    "old": "        if (nowHome && nowHome.player !== player) {",
+    "old": "        if (nowHome && (nowHome.player !== player || String(nowHome.char_id).startsWith('guild:'))) {",
     "new": "        if (false) {",
     "tests": [
       "test/realm_restore.test.js"

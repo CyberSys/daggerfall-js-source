@@ -25,7 +25,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { gateHash } from './gateLaw.js';   // the one mix every clock-law in the world rolls with
-import { sharedClassicMinutes } from './wire.js';
+import { skyClassicMinutes } from './skyLaw.js';   // TIME1: a UTC day's season and month are the SKY's (bible/06-Systems/Online-Time-Arc.md section 4)
 import { CLIMATES, REGION_NAMES, MAX_MAP_PIXEL_X, MAX_MAP_PIXEL_Y } from '../formats/mapsTables.js';
 import { SEASONS, seasonValue, dateFromClassicMinutes } from '../systems/gameDate.js';
 import { basketBlock, BASKET_BLOCKS } from '../systems/foragingCore.js';   // the Basket's blocks and foods - the IL's, one home
@@ -48,17 +48,20 @@ export const NODE_KINDS = Object.freeze({ tree: 1, herb: 2, vein: 3, boulder: 4,
 // ─── HOW MANY (PROF0 6) ──────────────────────────────────────────────
 
 const counts = (tree, herb, vein, boulder) => Object.freeze({ tree, herb, vein, boulder });
-/** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). */
+/** A wilderness pixel's nodes a day, by climate. The sea has none (Fishing's alone). BOULDERS (FIELD BUGS 2026-10-01, the
+ *  service's acct47): the boulders 3 / 4 / 5 where they were 1 / 2 / 3 - a field's pieces hold one on each side now.
+ *  MORE-NODES (2026-10-02, Mac: "increase all profession nodes", "Double"; acct48): the trees, the herb patches and the
+ *  veins twice what they were - a day's sixty a profession is the bound, so it is the walk between nodes that halves. */
 export const NODE_COUNTS = Object.freeze({
-  [CLIMATES.Woodlands]: counts(6, 4, 2, 1),
-  [CLIMATES.MountainWoods]: counts(5, 3, 3, 2),
-  [CLIMATES.Mountain]: counts(2, 2, 6, 3),
-  [CLIMATES.HauntedWoodlands]: counts(4, 4, 2, 1),
-  [CLIMATES.Swamp]: counts(3, 5, 1, 0),
-  [CLIMATES.Rainforest]: counts(6, 5, 1, 0),
-  [CLIMATES.Subtropical]: counts(4, 4, 2, 1),
-  [CLIMATES.Desert]: counts(0, 3, 5, 3),
-  [CLIMATES.Desert2]: counts(0, 3, 5, 3),
+  [CLIMATES.Woodlands]: counts(12, 8, 4, 3),
+  [CLIMATES.MountainWoods]: counts(10, 6, 6, 4),
+  [CLIMATES.Mountain]: counts(4, 4, 12, 5),
+  [CLIMATES.HauntedWoodlands]: counts(8, 8, 4, 3),
+  [CLIMATES.Swamp]: counts(6, 10, 2, 0),
+  [CLIMATES.Rainforest]: counts(12, 10, 2, 0),
+  [CLIMATES.Subtropical]: counts(8, 8, 4, 3),
+  [CLIMATES.Desert]: counts(0, 6, 10, 5),
+  [CLIMATES.Desert2]: counts(0, 6, 10, 5),
 });
 /** How many nodes of `kind` a pixel of `climate` holds a day. */
 export const nodeCount = (climate, kind) => NODE_COUNTS[climate]?.[kind] ?? 0;
@@ -118,8 +121,10 @@ export const herbSeasonMult = (templateIndex, season) =>
 /** The UTC day an instant (ms) falls in. */
 export const utcDayOfMs = (ms) => Math.floor(ms / 86_400_000);
 /** A UTC day's first instant on the shared clock, as DFU's date - a day's patches, the Basket's block and a writ's
- *  table read the season and month of it, so nothing under a player changes before the day does. */
-export const dayDate = (day) => dateFromClassicMinutes(Math.floor(sharedClassicMinutes(day * 86_400_000)));
+ *  table read the season and month of it, so nothing under a player changes before the day does. TIME1: the SKY's date
+ *  at that instant, so a herb blooms in the spring the player sees - it holds the whole UTC day, and can trail the
+ *  sky's season by up to a day (the event clock's, before the sky's first switch: one law, both ends). */
+export const dayDate = (day) => dateFromClassicMinutes(Math.floor(skyClassicMinutes(day * 86_400_000)));
 export const daySeason = (day) => seasonValue(dayDate(day));
 export const dayMonth = (day) => dayDate(day).month;
 
@@ -386,9 +391,10 @@ export function trees(p) {
 /** A tree's base roll (the service's dice): 2 to 4 logs. */
 export const TREE_YIELD = Object.freeze([2, 4]);
 /** A TREE'S YIELD, in PROF0 6's order: the base roll; a march's +25%; the fraction a chance. The act moves no logs. */
-export function treeYield({ roll, march = false }, chance) {
+export function treeYield({ roll, march = false, tideMult = 1 }, chance) {
   let y = roll;
   if (march) y *= MARCH_MULT;
+  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)
   return Math.max(1, wholeYield(y, chance));
 }
 /**
@@ -467,9 +473,10 @@ export function bodyFinds({ hide, torn = false, butcher = false }, dice) {
  * march's +25% on confirmed ground, a school's fish (a Netter's two), a Slaughterfish's weight (a fish more); the fraction
  * a chance. At least one.
  */
-export function haulYield({ roll, clean = false, march = false, school = false, netter = false, slaughterfish = false }, chance) {
+export function haulYield({ roll, clean = false, march = false, school = false, netter = false, slaughterfish = false, tideMult = 1 }, chance) {
   let y = roll * (clean ? ACT_YIELD_MAX : 1);
   if (march) y *= MARCH_MULT;
+  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)
   if (school) y += netter ? SCHOOL_FISH.netter : SCHOOL_FISH.plain;
   if (slaughterfish) y += 1;
   return Math.max(1, wholeYield(y, chance));
@@ -510,18 +517,20 @@ export function schoolSpots(x, y, day, k) {
  * autumn's berries x1.5; a Seasonal Eye's off-season herb x0.5); the act's step - a bruised herb one less, at least one;
  * a march's +25%; the fraction a chance.
  */
-export function herbYield({ roll, common = false, gardener = false, seasonMult = 1, offSeason = false, bruised = false, march = false }, chance) {
+export function herbYield({ roll, common = false, gardener = false, seasonMult = 1, offSeason = false, bruised = false, march = false, tideMult = 1 }, chance) {
   let y = roll + (common && gardener ? 1 : 0);
   y *= seasonMult;
   if (offSeason) y *= OFF_SEASON_MULT;
   if (bruised) y = Math.max(1, y - 1);
   if (march) y *= MARCH_MULT;
+  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)
   return Math.max(1, wholeYield(y, chance));
 }
 /** THE BASKET'S YIELD: the block's roll, the search's step (x1.5 all three, x1.25 two), a march's +25%, the fraction. */
-export function foodYield({ roll, step = 1, march = false }, chance) {
+export function foodYield({ roll, step = 1, march = false, tideMult = 1 }, chance) {
   let y = roll * step;
   if (march) y *= MARCH_MULT;
+  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)
   return Math.max(1, wholeYield(y, chance));
 }
 /** A vein's base roll (the service's dice): 2 to 3 ore. A boulder's: 3 to 5 Rough Stone. */
@@ -532,10 +541,11 @@ export const BOULDER_YIELD = Object.freeze([3, 5]);
  * on a confirmed pixel - the caller's `march`); the fraction a chance. The act moves no ore (its step waits for
  * PROF3's quality - PROF0 23).
  */
-export function veinYield({ roll, deep = false, deepDelver = false, march = false }, chance) {
+export function veinYield({ roll, deep = false, deepDelver = false, march = false, tideMult = 1 }, chance) {
   let y = roll;
   if (deep && deepDelver) y *= DEEP_DELVER_MULT;
   if (march) y *= MARCH_MULT;
+  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)
   return Math.max(1, wholeYield(y, chance));
 }
 /**
@@ -543,9 +553,10 @@ export function veinYield({ roll, deep = false, deepDelver = false, march = fals
  * Stonebreaker, always) cuts it at the rock, two to one, into Cut Stone (at least one). One chance, the service's, for
  * whichever fraction is left last.
  */
-export function boulderYield({ roll, march = false, cut = false }, chance) {
+export function boulderYield({ roll, march = false, cut = false, tideMult = 1 }, chance) {
   let y = roll;
   if (march) y *= MARCH_MULT;
+  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)
   if (cut) return { material: 'stone:cut', qty: Math.max(1, wholeYield(y / CUT_RATIO, chance)) };
   return { material: 'stone:rough', qty: Math.max(1, wholeYield(y, chance)) };
 }

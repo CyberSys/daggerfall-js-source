@@ -125,7 +125,7 @@ export class ClimbingState {
 
   /** ClimbingCheck (:307-488), the classic arms, per fixed step.
    *  c = { forward, back, anyMove, falling, grounded, levitating,
-   *  riding, touchingSides, horizontalPos: [x, z],
+   *  riding, touchingSides, horizontalPos: [x, z], slowFalling,
    *  tooCloseToGround: () => bool (thunk - short-circuit, :319) }.
    *  Returns isClimbing. */
   step(dt, c) {
@@ -146,6 +146,7 @@ export class ClimbingState {
         || !c.touchingSides
         || c.levitating
         || c.riding
+        || (airborneGraspWall && c.slowFalling)   // SLOW-GRASP (FIELD BUGS 2026-10-01): a slow fall is not grasped onto a wall (the spell makes the 0.77 s timer 1.6 m of descent, re-rolled all the way down)
         || slippedToGround
         || tooClose
         || nonOrthogonalStart) {

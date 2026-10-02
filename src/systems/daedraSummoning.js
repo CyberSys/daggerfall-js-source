@@ -119,9 +119,13 @@ export const summoningChance = (daedraRep, bonus) => 30 + daedraRep + bonus;
  * coven re-rolls, exactly as DFU writes it onto PlayerEntity.
  *
  * Answers the DAEDRA record, or null for "not a summoning day".
+ *
+ * TIME1 (bible/06-Systems/Online-Time-Arc.md 5.2): `rerollDay` is the coven's re-roll key, a STAMP saved on the
+ * player - the event clock's day online, so a coven re-rolls once per two real hours whatever the sky's rate; a
+ * prince's own day is `dayOfYear`, the sky's calendar. Offline both are DFU's one clock (the default: the same day).
  */
 export function daedraForSummoner({
-  factionId, factionType = null, dayOfYear = 0, state = null, rolls = Math.random,
+  factionId, factionType = null, dayOfYear = 0, rerollDay = dayOfYear, state = null, rolls = Math.random,
 } = {}) {
   // Glenmoril is tested by ID before the type test, so its witches
   // never reach the coven's random draw.
@@ -131,9 +135,9 @@ export function daedraForSummoner({
     // Range(1, length) EXCLUDES index 0 - a coven can never draw
     // Hircine. `|| index === 0` re-rolls a state that somehow holds
     // one, which is DFU's own guard against an unset field.
-    if (s.daedraSummonDay !== dayOfYear || !s.daedraSummonIndex) {
+    if (s.daedraSummonDay !== rerollDay || !s.daedraSummonIndex) {
       s.daedraSummonIndex = 1 + Math.floor(rolls() * (DAEDRA.length - 1));
-      s.daedraSummonDay = dayOfYear;
+      s.daedraSummonDay = rerollDay;
     }
     return DAEDRA[s.daedraSummonIndex];
   }

@@ -45,5 +45,5 @@ for (const k of Object.values(KINGDOMS)) for (const r of k.regions) BY_REGION.se
 /** The crown a region is under - 'daggerfall', 'wayrest', 'sentinel' - or null for a March, a Free Land or a region
  *  no crown holds. */
 export const kingdomOf = (region) => BY_REGION.get(region) ?? null;
-export const isMarch = (region) => Object.prototype.hasOwnProperty.call(MARCHES, region);
+export const isMarch = (region) => Number.isInteger(region) && Object.prototype.hasOwnProperty.call(MARCHES, region);   // AUDIT-SEATS L10: a number, as kingdomOf and isFreeLand read one ('21' is no region)
 export const isFreeLand = (region) => FREE_LAND_REGIONS.includes(region);

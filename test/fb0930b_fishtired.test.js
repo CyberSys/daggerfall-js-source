@@ -105,7 +105,7 @@ function stand({ swimming = true, share = 1 } = {}) {
   let windLeft = 0;
   /** One world.js frame of an angler still in the water: E at a cast, held 0.9 s to wind, the act played; the minute's band. */
   const frame = () => {
-    if (!gather.acting()) { const took = gather.press(); if (took) windLeft = 0.9; input = { held: took, attack: false, choice: false }; }
+    if (!gather.acting()) { const took = gather.press() || (gather.sayNeed() && gather.acting()); if (took) windLeft = 0.9; input = { held: took, attack: false, choice: false }; }   // CAST-E: the cast is the press's when nothing else took it - the world's ladder hands it back
     else if (windLeft > 0) { input = { held: true, attack: false, choice: false }; windLeft -= dt; }
     else if (phase !== 'tug' && phase !== 'haul') input = { held: false, attack: false, choice: false };   // let go: the net flies, then waits
     gather.tick(dt);

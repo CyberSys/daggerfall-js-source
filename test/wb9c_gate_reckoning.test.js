@@ -328,7 +328,7 @@ test('WB9c the court: the call said as the crystals rise (each heard grinding up
   const grew = 30_000 - ATTACKS.reckon.windup;
   tick(h, grew + 50, stOf({ atk: RK(), cx: cxOf() }));
   assert.equal(h.said.filter((s) => s === COURT_RECKON_TEXT.call(3)).length, 1);
-  assert.equal(COURT_RECKON_TEXT.call(3), 'Dagon\'s Reckoning! Shatter all 3 crystals of Oblivion before it lands!');
+  assert.equal(COURT_RECKON_TEXT.call(3), 'Dagon\'s Reckoning! Shatter all 3 crystals!', 'WB13b: the bar counts it down');
   const rise = h.sounds.filter((s) => s[1] === clipOf(BOSS_CUES.crystalRise));
   assert.equal(rise.length, 3, 'each heard rising');
   assert.deepEqual(rise.map((s) => s[2]).sort(), spots.map((p) => courtToDungeon(p[0], 0, p[1])).sort(), 'where it grows');
@@ -368,8 +368,8 @@ test('WB9c the court: each crystal broken as the relay says - its crash where it
   tick(h, grew + 2000, stOf({ atk: RK(), cx: cxOf() }));
   tick(h, grew + 5000, stOf({ atk: RK(), cx: cxOf([0, 40, 40], [{ c: 0, n: 'Ann', at: grew + 4990 }]) }));
   assert.ok(h.said.includes(COURT_RECKON_TEXT.shattered('Ann', 2)));
-  assert.equal(COURT_RECKON_TEXT.shattered('Ann', 2), 'Ann shatters a crystal - 2 remain.');
-  assert.equal(COURT_RECKON_TEXT.shattered('Bran', 1), 'Bran shatters a crystal - 1 remains.');
+  assert.equal(COURT_RECKON_TEXT.shattered('Ann', 2), 'Ann shatters a crystal. 2 remain.');
+  assert.equal(COURT_RECKON_TEXT.shattered('Bran', 1), 'Bran shatters a crystal. 1 remains.');
   assert.equal(COURT_RECKON_TEXT.shattered('Cyr', 0), 'Cyr shatters the last crystal!');
   assert.ok(h.sounds.some((s) => s[1] === clipOf(BOSS_CUES.crystalBreak) && s[2].join() === courtToDungeon(spots[0][0], 0, spots[0][1]).join()));
   assert.deepEqual(h.c.crystalTargets().map((q) => q.c), [1, 2], 'a broken one is no body');

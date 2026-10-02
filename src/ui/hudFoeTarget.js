@@ -50,7 +50,7 @@ export function foeTarget() {
   if (!e || _foe.dead) return null;
   const max = e.maxHealth || e.health || 1;
   return {
-    name: String(titled(e, e.name ?? e.career?.name ?? 'Foe')),   // LOOT7: a champion's trait before its name
+    name: `${e.eliteFoe ? 'Elite ' : ''}${String(titled(e, e.name ?? e.career?.name ?? 'Foe'))}`,   // LOOT7: a champion's trait before its name; ELITE FOES: the target bar names an elite
     health: Math.max(0, e.health ?? 0),
     maxHealth: max,
     fade: Math.min(1, _left / 1.5),   // the last second and a half

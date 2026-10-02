@@ -164,14 +164,14 @@ test('AUDIT 31 U2, U10: every field under its visible name; a Post or a Commissi
   // the writ form: an Officer with no budget
   btn(r.host, 'Post a guild writ').click(); await ticks();
   const form = byClass(r.host, 'work-form')[0];
-  assert.deepEqual(byClass(form, 'work-label-text').map((l) => l.textContent), ['Material', 'Units', 'Drakes each']);
+  assert.deepEqual(byClass(form, 'work-label-text').map((l) => l.textContent), ['Material', 'Units', 'Silver each']);
   const post = btn(form, 'Post');
   assert.deepEqual([post.disabled, post.getAttribute('title')], [true, 'The Guildmaster has set no writ budget for Officers this week.']);
   assert.match(form.textContent, /The Guildmaster has set no writ budget for Officers this week\./);
   // the commission form
   btn(r.host, 'Commission a piece').click(); await ticks();
   const cform = byClass(r.host, 'work-form')[0];
-  assert.deepEqual(byClass(cform, 'work-label-text').map((l) => l.textContent), ['Crafter', 'Kind', 'Piece', 'Least quality', 'Pay (Drakes)']);
+  assert.deepEqual(byClass(cform, 'work-label-text').map((l) => l.textContent), ['Crafter', 'Kind', 'Piece', 'Least quality', 'Pay (silver)']);
   const who = field(cform, 'comm|crafter');
   const go = () => btn(byClass(r.host, 'work-form')[0], 'Commission');
   assert.equal(go().getAttribute('title'), 'Name the crafter.');
@@ -182,7 +182,7 @@ test('AUDIT 31 U2, U10: every field under its visible name; a Post or a Commissi
   who.value = 'Silverthorn'; who.oninput();
   const pay = field(cform, 'comm|pay');
   pay.value = '501'; pay.oninput();
-  assert.equal(go().getAttribute('title'), 'You hold only 500 Drakes.');
+  assert.equal(go().getAttribute('title'), 'You hold only 500 silver.');
   pay.value = '500'; pay.oninput();
   assert.equal(go().disabled, false);
   r.v.unmount();
@@ -199,9 +199,9 @@ test('AUDIT 31 U4, U11, H6, U13: Yours declines a commission naming you and says
   const r = workRig({ data: boardData(), pieces: [sword] });
   await openWork(r.host);
   const yours = byClass(r.host, 'work-yours')[0];
-  assert.match(yours.textContent, /Silas commissioned you: a Mithril Longsword, Fine or better, 900 Drakeshere · 5 days leftFill it on its card above\./);
-  assert.match(yours.textContent, /Ann commissioned you: an Iron Repair Kit, 40 DrakesWayrest · 3 days leftFilled at the boards of Wayrest\./);
-  assert.match(yours.textContent, /You commissioned Joiner: a Small Oak Table, Standard or better, 60 Drakeshere · filled - collect it at the Market tab/);
+  assert.match(yours.textContent, /Silas commissioned you: a Mithril Longsword, Fine or better, 900 silverhere · 5 days leftFill it on its card above\./);
+  assert.match(yours.textContent, /Ann commissioned you: an Iron Repair Kit, 40 silverWayrest · 3 days leftFilled at the boards of Wayrest\./);
+  assert.match(yours.textContent, /You commissioned Joiner: a Small Oak Table, Standard or better, 60 silverhere · filled - collect it at the Market tab/);
   const declines = byClass(yours, 'work-decline');
   assert.equal(declines.length, 2);
   declines[1].click(); await ticks();
@@ -215,8 +215,8 @@ test('AUDIT 31 U4, U11, H6, U13: Yours declines a commission naming you and says
   const pick = field(card, 'select|The piece to fill Silas\' commission with');
   assert.ok(pick, 'Silas\' - never "fill Silas commission"');
   assert.equal(pick.children[0].textContent, 'Mithril Longsword (Superior)');
-  assert.equal(paidText(114, 6), '114 Drakes struck to your account (6 Drakes tax taken)');
-  assert.equal(paidText(19, 0), '19 Drakes struck to your account');
+  assert.equal(paidText(114, 6), '114 silver struck to your account (6 silver tax taken)');
+  assert.equal(paidText(19, 0), '19 silver struck to your account');
   assert.ok(WORK_ARM_MS > 0);
   r.v.unmount();
   // AUDIT 31 H8: the piece that answers it is equipped - said so
@@ -274,7 +274,7 @@ test('AUDIT 31 L6, U14: a next bid past any balance is said, never a Bid greyed 
   redraw();
   byClass(root, 'market-row')[0].click();
   redraw();
-  assert.match(root.textContent, /The next bid would be 10,000,001 Drakes - more than any account can hold\. It stands where it is\./);
+  assert.match(root.textContent, /The next bid would be 10,000,001 silver - more than any account can hold\. It stands where it is\./);
   assert.equal(byClass(root, 'market-bid').length, 0);
   data = { rows: [] };
   tab.state.family = 'weapons';

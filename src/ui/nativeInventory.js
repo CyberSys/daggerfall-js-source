@@ -46,9 +46,9 @@
 // branch at U25 (AUDIT 23 trimmed that list). The LETTER OF CREDIT
 // went last and whole: minted at systems/inventory.js:69
 // (DaggerfallTradeWindow.cs:1044-1048), summed by creditAmount at
-// systems/court.js:244 (ItemCollection.GetCreditAmount, ItemCollection
+// systems/court.js:249 (ItemCollection.GetCreditAmount, ItemCollection
 // .cs:108-118), spent letters-before-coins with the shortfall returned
-// by deductGold at court.js:286 (DeductGoldAmount, PlayerEntity.cs
+// by deductGold at court.js:291 (DeductGoldAmount, PlayerEntity.cs
 // :1324-1354), banked at systems/banking.js:728/:746, and described by
 // the 1007 text at systems/itemInfo.js:105. Nothing was ever owed at
 // THIS surface anyway - DaggerfallInventoryWindow.cs has no
@@ -94,6 +94,7 @@ import {
   // the cycling arithmetic and dropIconIdxs' record lookup.
   openDropIcon, canChangeDropIcon, cycleDropIcon, dropIconRecord,
   groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
+  storeCapacityOf,   // COMPANION-WEIGHT: a storage's own weight limit
 } from '../systems/inventorySession.js';
 import { isEquipped, equipItem, unequipSlot, isForbiddenEquip, isBrokenItem, EQUIP_SLOTS, FORBIDDEN_EQUIPMENT_TEXT_ID, ITEM_BROKEN_TEXT_ID, equipDelaySnapshot, billEquipDelayOnClose } from '../systems/equip.js';   // S23; FX1 (F128): the per-visit swap-pause clock
 import { drawPaperDoll, refreshPaperDoll, slotAtPaperDoll, ARMOR_LABEL_POS } from './paperDoll.js';
@@ -534,9 +535,12 @@ export class NativeInventoryWindow {
     if (loot && (loot.textureArchive ?? 0) > 0) {
       return { image: dropIconImage(loot.textureArchive, loot.textureRecord), label: pileLabel(loot.pile) };
     }
+    // AUDIT ECON C2: a storage with its own limit (a companion's pack, COMPANION-WEIGHT) is labelled with its load the way
+    // the wagon is - the classic window said nothing of it while its Remove refused at the limit
+    const cap = storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne });
     return {
       container: loot ? (loot.containerImage?.() ?? CONTAINER_IMAGES.Ground) : CONTAINER_IMAGES.Ground,
-      label: pileLabel(loot?.pile),
+      label: cap ? targetIconWeightText(totalWeight(this._remote()), cap.kg) : pileLabel(loot?.pile),
     };
   }
 
@@ -839,6 +843,7 @@ export class NativeInventoryWindow {
           usingWagon: this.usingWagon,
           remote: this._remote(),
           groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP
+          capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT
         });
         if (plan.notice) this.boxes = [{ rows: [{ text: plan.notice, center: true }] }];
         if (!plan.ok) { if (plan.refusal?.reason === 'ground') this._refuse(plan.refusal); return; }   // HOUSE-DROP: the floor's refusal is said
@@ -930,6 +935,7 @@ export class NativeInventoryWindow {
         remote: to, usingWagon: this.usingWagon, chooseOne: this.chooseOne,
         getQuest: this.hooks.getQuest ?? null,
         groundRefusal: groundRefusalOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // HOUSE-DROP: a floor that refuses a drop
+        capacity: storeCapacityOf(this.hooks, { usingWagon: this.usingWagon, chooseOne: this.chooseOne }),   // COMPANION-WEIGHT: a companion's pack takes what fits
       });
       if (!plan.ok) { this._refuse(plan.refusal); return; }
       // AUDIT 26 F156: the map interception (:1471-1478) - the reveal

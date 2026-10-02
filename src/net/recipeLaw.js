@@ -6,6 +6,9 @@
 // Ram Kit - and the plane they are drawn with; a recipe names its profession. PROF7 (2026-09-29, Mac: "Do it"; section
 // 29): Outfitting's - the leather armour, DFU's clothing in its four cloths and its dyes, the rugs, tapestries and skins,
 // the Fishing-Net - and the stitch they are sewn with; the Skinning Knife at the anvil; the Harpy-feathered arrows.
+// PROF11 (Professions-Arc 3.2, 3.3, 9.3, 9.4): Masonry's - the Sculptor's four stone pieces for DECOR, the chisel the
+// mason's bench strikes with, and the bench's XP (its cut and its mix are the forge's works' shape: professionLaw
+// MASON_RECIPES).
 //
 // PURE, and both ends import it: the account service decides a craft by it (server-account/src/professions.js
 // craftAtAnvil), the client draws the anvil by it (ui/profPages.js) and mints the piece by it (systems/smithItems.js).
@@ -15,7 +18,7 @@
 // laid on it after. Not a DFU member: DFU crafts nothing. Ledger A (the professions' row).
 import {
   INGOTS, TIER_RANKS, topTierOf, actBand, minedMaterial, WOODS, PINE_PLANK, RESIN, HEARTWOOD, LINEN, WOOL, BEAR_HIDE, CLOTHS, HIDES,
-  CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE, COUNTER_ONLY,
+  CURED_LEATHER, HARDENED_LEATHER, SKINNING_KNIFE, COUNTER_ONLY, CUT_STONE, MORTAR, PROF_RANK_MAX,   // PROF11: the mason's stone
 } from './professionLaw.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';   // DFU's ten clothing dyes (DyeColors 0-9), one home
 
@@ -92,6 +95,10 @@ export const REPAIR_KIT_TEMPLATE = 692;
  *  piles and on foes that carry loot, never crafted - mends any metal's weapon or armour, by less than a smith's kit. */
 export const FIELD_KIT_REPAIR = 0.15;
 export const KIT_REPAIR = 0.25;
+/** KIT-CEILING (2026-10-01, the economy arc - bible/06-Systems/Economy-Arc.md: field repair stays partial): no kit, a
+ *  field kit or a smith's, mends a piece past three quarters of its condition - the overhaul's normal band (a blade at
+ *  61-75% strikes at its own damage); the sharp edge above it is a smith's work. */
+export const KIT_CEILING = 0.75;
 
 /** The metals a recipe is made in: every ingot but the Daedric's and the Warforged's for the tools (Iron alone). */
 const SMITH_INGOTS = Object.freeze(INGOTS.map((i) => i.key));
@@ -99,9 +106,10 @@ const KIT_INGOTS = Object.freeze(SMITH_INGOTS.filter((k) => k !== WARFORGED));
 
 /**
  * @typedef {{ id: string, product: string, name: string, kind: string, family: string,
- *   profession: 'smithing'|'carpentry'|'outfitting', templateIndex: number, metal: string|null, wood?: string|null,
+ *   profession: 'smithing'|'carpentry'|'outfitting'|'masonry', templateIndex: number, metal: string|null, wood?: string|null,
  *   material: number, tier: number, rank: number, stack?: number, later?: string, group?: string, cloth?: string,
- *   leather?: string, dyes?: boolean, inputs: readonly { key: string, n: number }[] }} Recipe
+ *   leather?: string, dyes?: boolean, spec?: string, inputs: readonly { key: string, n: number }[] }} Recipe
+ *   PROF11: `spec` the specialisation at 100 a recipe asks besides its rank (the Sculptor's stone decor)
  */
 const FAMILY = Object.freeze({ weapon: 'weapons', plate: 'armour', shield: 'armour', chain: 'armour', tool: 'tools', kit: 'kits' });
 /** @returns {Recipe} */
@@ -177,7 +185,7 @@ export const CARPENTRY_RECIPES = Object.freeze([
   ...FURNITURE_WOODS.map(([w, i]) => carpentry({ id: `chair:${w}`, name: `${woodName(w)} Chair`, kind: 'furniture', family: 'furniture', templateIndex: 229 + i, wood: w, inputs: [[plank(w), 2]] })),
   ...BEDS.map(([p, name, t, w]) => carpentry({ id: `${p}:${w}`, name, kind: 'furniture', family: 'furniture', templateIndex: t, wood: w, inputs: [[plank(w), 8], [LINEN.key, 2]] })),
   carpentry({ id: 'basket:pine', name: 'Basket', kind: 'tool', family: 'tools', templateIndex: 1607, wood: 'pine', inputs: [[PINE_PLANK.key, 2]] }),
-  carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: 5, rank: RAM_KIT_RANK, later: 'sieges', inputs: [[plank('oak'), 40], ['ingot:iron', 20], [BEAR_HIDE.key, 4]] }),
+  carpentry({ id: 'ramkit:oak', name: 'Ram Kit', kind: 'siege', family: 'siege', templateIndex: RAM_KIT_TEMPLATE, wood: 'oak', tier: 5, rank: RAM_KIT_RANK, inputs: [[plank('oak'), 40], ['ingot:iron', 20], [BEAR_HIDE.key, 4]] }),
 ]);
 // ─── OUTFITTING (PROF0 9.3, 29) ──────────────────────────────────────
 
@@ -264,14 +272,59 @@ export const GARMENT_DYES = CLOTHING_DYES;
 /** Whether `dye` may be asked of recipe `r`: a garment that takes one, and one of DFU's ten - or none asked at all. */
 export const dyeOk = (r, dye) => (dye == null ? true : !!r && r.kind === 'garment' && r.dyes === true && Number.isInteger(dye) && GARMENT_DYES.includes(dye));
 
-/** Every recipe, the anvil's, the workbench's and (PROF7) the loom's. */
-export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES]);
+// ─── PROF11: MASONRY'S STONE DECOR (PROF0 3.3, 9.3) ─────────────────
+
+/** The Sculptor (3.3: "Sculptor - stone decor pieces"), Masonry's choice at 100 - the one door to the stone decor. */
+export const SCULPTOR = 'sculptor';
+/**
+ * THE SCULPTOR'S FOUR (9.3: "stone decor (Sculptor): a column, a bench, a font, a statue plinth (DECOR pieces)").
+ * DECIDED, each:
+ * - ITS TEMPLATE: 696-699, the last four of the professions' range (4.8 names none of them; the stone's own 673-675 run
+ *   into the Siege-cracked Gem's 678) - DFU's Furniture group, as Carpentry's tables are, so a piece is DELIVERED among
+ *   the home's things and never carried (DECOR2b's furnishings; systems/decorFurnish.js), its picture in a list the
+ *   stone's own lump (Lodestone's, greyed - 4.8's stone row).
+ * - ITS SHAPE IN A ROOM: ONE of Daggerfall's own models, named by World of Daggerfall's table of them
+ *   (vendor/world-of-daggerfall/Scripts/LocationHelper.cs) - the Column its "Marble Pillar" (62315), the Bench its
+ *   "Marble Slab" (62322 - a seat of stone), the Font its "Fountain 1" (41220 - the stone basin Climates & Calories drinks
+ *   from as a trough, survival/items.js WATER_SOURCE_MODELS), the Plinth its "Stone Pedestal" (74091). A table chooses
+ *   its look among the game's furniture (DECOR2b); a carving is the one shape the Sculptor cut. Unverified against the
+ *   player's ARENA2 here - the woods' and hides' open flag holds them (Mac's eye).
+ * - ITS STONE: Cut Stone and Mortar (9.3: "Cut Stone and Mortar (4.5); stone decor"), the larger the piece the more -
+ *   the Column 12 and 3, the Font 10 and 3, the Bench 8 and 2, the Plinth 6 and 2 - a carving a Master's week of the
+ *   quarry's stone, never a single afternoon's.
+ * - ITS RANK: Cut Stone's tier (2) and its rank (10) - the quality's margin is the Master's own (100 - 10: the 45+ row,
+ *   a Master's work) - and its door the SCULPTOR's choice (`spec`, recipeOpen), which only a Master makes.
+ * - ITS WORTH: in gold, the furniture's way (its quality the condition's multiplier on it): the Column 150, the Font
+ *   120, the Bench 90, the Plinth 60; its weight a piece of stone's (200, 150, 120, 80 kg) - delivered, never carried.
+ */
+export const STONE_DECOR = Object.freeze([
+  Object.freeze({ id: 'column', name: 'Stone Column', templateIndex: 696, model: 62315, cut: 12, mortar: 3, price: 150, weight: 200 }),
+  Object.freeze({ id: 'bench', name: 'Stone Bench', templateIndex: 697, model: 62322, cut: 8, mortar: 2, price: 90, weight: 120 }),
+  Object.freeze({ id: 'font', name: 'Stone Font', templateIndex: 698, model: 41220, cut: 10, mortar: 3, price: 120, weight: 150 }),
+  Object.freeze({ id: 'plinth', name: 'Statue Plinth', templateIndex: 699, model: 74091, cut: 6, mortar: 2, price: 60, weight: 80 }),
+]);
+/** The stone decor's templates. */
+export const STONE_DECOR_TEMPLATES = Object.freeze(STONE_DECOR.map((d) => d.templateIndex));
+/** The one DFU model a stone piece stands as, by its template, or null for anything else. */
+export const stoneDecorModel = (templateIndex) => STONE_DECOR.find((d) => d.templateIndex === templateIndex)?.model ?? null;
+/** EVERY RECIPE the mason's bench carves (its cut and its mix are works - professionLaw MASON_RECIPES): the four, in
+ *  9.3's order, `kind` furniture (minted among the home's things, systems/smithItems.js), `family` stonework. */
+/** @type {readonly Recipe[]} */
+export const MASONRY_RECIPES = Object.freeze(STONE_DECOR.map((d) => Object.freeze({
+  id: `${d.id}:stone`, product: d.id, name: d.name, kind: 'furniture', family: 'stonework', profession: 'masonry',
+  templateIndex: d.templateIndex, metal: null, material: 0, tier: CUT_STONE.tier, rank: TIER_RANKS[CUT_STONE.tier - 1], spec: SCULPTOR,
+  inputs: Object.freeze([Object.freeze({ key: CUT_STONE.key, n: d.cut }), Object.freeze({ key: MORTAR.key, n: d.mortar })]),
+})));
+
+/** Every recipe, the anvil's, the workbench's and (PROF7) the loom's - PROF11: and the mason's bench's carvings. */
+export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES, ...MASONRY_RECIPES]);
 const BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 /** A recipe by its id (`longsword:mithril`, `chain-cuirass:steel`, `kit:iron`, `table-small:oak`), or null. */
 export const recipeById = (id) => (typeof id === 'string' ? BY_ID.get(id) ?? null : null);
 /** Every recipe unlocks by rank (the found ones come with the writs, PROF6); a recipe whose slice is to come (`later`)
- *  is named and never made. */
-export const recipeOpen = (r, rank) => !!r && !r.later && rank >= r.rank;
+ *  is named and never made. PROF11: a recipe that asks a specialisation (`spec` - the Sculptor's stone decor) opens
+ *  only to a track standing under it at 100 (`specs`, specsAt's `{ 50, 100 }`) - asked without, it is shut. */
+export const recipeOpen = (r, rank, specs = null) => !!r && !r.later && rank >= r.rank && (!r.spec || specs?.[100] === r.spec);
 /** Whether a recipe may take a Heartwood for one of its planks (PROF0 25): it asks a plank and takes a quality. */
 export const takesHeartwood = (r) => !!r && takesQuality(r) && r.inputs.some((i) => i.key.startsWith('plank:'));
 /**
@@ -429,6 +482,48 @@ export const beatAt = (t) => ((t / STITCH_ACT.beatS) % 1 + 1) % 1;
 /** Whether the beat at phase `u` is within a band `w` wide centred on it. */
 export const onBeat = (u, w) => u <= w / 2 || u >= 1 - w / 2;
 
+// ─── PROF11: THE CHISEL (PROF0 9.4) ──────────────────────────────────
+
+/**
+ * "Strikes on marked lines that the glint's rule moves": the stone at the bench is scored with `lines` lines (the
+ * glint's five points, MINE_ACT), one MARKED at a time; the mark stands `markS` (`masterMarkS` at Master) x the
+ * attribute band and then moves to another line - and it moves after every strike too: the Pick-Axe's glint's rule
+ * (PROF0 5.2), a line for a point. A strike lands on the line the chisel is set on; on the marked line it is true. A
+ * cut or a mix takes `strikes` (Mining's tier 1-2 count - the bench's stone is tiers 1-2), a carving `carveStrikes`
+ * (Mining's deepest veins', 5-6 - the Sculptor's finest work); each at least `gapS` after the last (the glint's swing);
+ * every one true is a clean act.
+ */
+export const CHISEL_ACT = Object.freeze({ lines: 5, strikes: 4, carveStrikes: 7, markS: 1.2, masterMarkS: 2.0, gapS: 0.45 });
+/** Masonry's attribute pair - DECIDED: (STR + END) / 2, the mallet's weight and the arm that keeps it up all day (no
+ *  other act reads Endurance), on Foraging's four bands. */
+export const chiselBand = ({ strength, endurance }) => actBand(Math.trunc((strength + endurance) / 2));
+/** The strikes a work or a recipe's chisel takes: a carving's (the stone decor) seven, a cut's or a mix's four. */
+export const chiselStrikes = (r) => (r?.family === 'stonework' ? CHISEL_ACT.carveStrikes : CHISEL_ACT.strikes);
+/** How long a mark stands, seconds: 1.2 (2.0 at Master) x the band - the glint's own numbers. */
+export const chiselMarkS = (rank, band = 1) => (rank >= PROF_RANK_MAX ? CHISEL_ACT.masterMarkS : CHISEL_ACT.markS) * band;
+
+// ─── PROF11: THE BENCH'S XP (PROF0 3.2) ─────────────────────────────
+
+/**
+ * Masonry's tier for a work's XP, at a rank. DECIDED - XP FOLLOWS THE RANK (Mac, PROF8: "XP follows your rank"): the
+ * bench's stone sits on tiers 1-2 and nothing higher (4.5), so at the craft's own tier a quarter falls on it from rank 40
+ * (Cut Stone) and 55 (Mortar) and Masonry could never climb to its Sculptor or its Fortifier (100); worked at the rank's
+ * own tier, as a haul is, it climbs as every other craft does. The recipe's tier still gates its rank (workOpen).
+ */
+export const masonTier = (rank) => topTierOf(rank);
+/**
+ * A MASON'S WORK's XP (3.2: "a craft 20 x tier x units, +500 the first time a recipe is made"): 20 x the rank's tier
+ * (masonTier) a unit of work - a cut, a mix - never a product (a Quarryman's second Cut Stone earns nothing more, as a
+ * Quartermaster's second ingot does not, PROF0 24); half again for a CLEAN chisel (DECIDED: the Stores keep no quality,
+ * so the clean act's step is the clean act's +50% - 3.2's harvest law, Mining's at the rock, PROF0 23); and 500 the
+ * first time the character does it (where firstCraftPays - the service reads `first` in its decision).
+ */
+export function masonXp(units, rank, { clean = false, first = false } = {}) {
+  let xp = CRAFT_XP_PER_TIER * masonTier(rank) * (Number.isSafeInteger(units) && units > 0 ? units : 0);
+  if (clean) xp = Math.floor((xp * 3) / 2);
+  return xp + (first ? FIRST_CRAFT_XP : 0);
+}
+
 /** A maker's name as the mark keeps it: the character's name at the moment of making (PROF0 18), trimmed, at most 32. */
 export const MAKER_MAX = 32;
 export function makerName(name) {
@@ -446,9 +541,9 @@ export const markedName = (maker, name) => `${maker}'s ${name}`;
 /** The lines a crafted piece's tooltip and card carry above its powers (PROF0 9.2): its quality and its maker - or a
  *  Repair Kit's work. Nothing for a piece no anvil or workbench made. */
 export function pieceLines(item) {
-  if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, once`];   // REPAIR-EASE: a looted kit has no provenance
+  if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // REPAIR-EASE: a looted kit has no provenance; KIT-CEILING
   if (!item || typeof item.provenance !== 'string' || !PROVENANCE_RE.test(item.provenance)) return [];
-  if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, once`];
+  if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // KIT-CEILING
   const out = [];
   if (Number.isInteger(item.quality) && item.quality >= 0 && item.quality <= MASTERWORK) out.push(QUALITY_NAMES[item.quality]);
   if (typeof item.maker === 'string' && item.maker) out.push(`Made by ${item.maker}`);

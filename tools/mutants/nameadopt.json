@@ -2,7 +2,7 @@
   {
     "name": "NAME-ADOPT-1-the-flow-never-adopts",
     "file": "src/ui/accountFlow.js",
-    "old": "    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, aura: auraStated(r.data.wardrobe), secret: asked });   // SHADOW-FANG: and what is true of the account; AUDIT B4: into the session that asked; WB9g: and the aura worn",
+    "old": "    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, glyphsOff: r.data.wardrobe?.glyphsOff, aura: auraStated(r.data.wardrobe), secret: asked });   // SHADOW-FANG: and what is true of the account; AUDIT B4: into the session that asked; WB9g: and the aura worn",
     "new": "",
     "tests": [
       "test/nameadopt.test.js"
@@ -82,12 +82,12 @@
   {
     "name": "NAME-ADOPT-9-my-own-badge-trusted-unchecked",
     "file": "src/net/online.js",
-    "old": "    const b = readBadge({ title, glyphs });",
-    "new": "    const b = { title: title ?? null, glyphs: glyphs ?? [] };",
+    "old": "    const b = readBadge({ title, glyphs, ts });",
+    "new": "    const b = { title: title ?? null, glyphs: glyphs ?? [], ts: ts ?? null };",
     "tests": [
       "test/nameadopt.test.js"
     ],
-    "note": "A second spelling of the vocabulary check, and a missing one: a badge this build has never heard of would be painted beside my own name while being refused beside everybody else's."
+    "note": "A second spelling of the vocabulary check, and a missing one: a badge this build has never heard of would be painted beside my own name while being refused beside everybody else's. SEAT1c (PIN MOVED): re-aimed by content - a seat title's claim rides beside the title."
   },
   {
     "name": "NAME-ADOPT-10-the-host-starts-from-the-character",

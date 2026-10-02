@@ -21,6 +21,11 @@
 // PRNG rule) - Clock ranges and randompermanent Places draw from it.
 // `nowSeconds` is the world-time seam the machine injects (classic
 // game seconds) - clocks and log entries read it.
+// TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): online it is the
+// CHARACTER's clock (LIVED1's own) - every countdown and interval - and
+// two more ride beside it: `skySeconds`, the sky an hour, a date and a
+// season are read on, and `worldSeconds`, the event clock the journal's
+// dates are stamped on. Offline all three are DFU's one clock.
 
 import { travelTimeSeconds } from './clock.js';
 import { Message, Formatting } from './message.js';
@@ -89,7 +94,7 @@ export function ensureUidAtLeast(uid) { if (uid > _uid) _uid = uid; }
 export function resetUid() { _uid = 0; }
 
 export class Quest {
-  constructor({ rolls = Math.random, nowSeconds = null, hooks = null, actionFactory = null, questClockStepMax = null } = {}) {
+  constructor({ rolls = Math.random, nowSeconds = null, skySeconds = null, worldSeconds = null, raisedSeconds = null, hooks = null, actionFactory = null, questClockStepMax = null } = {}) {
     this.uid = nextUid();
     this.questName = '';
     // AUDIT 24 (wave 26): NULL, because Quest.cs:56 is a bare
@@ -115,7 +120,10 @@ export class Quest {
     this.tasks = new Map();        // symbol name -> Task
     this.resources = new Map();    // symbol name -> QuestResource
     this.rolls = rolls;
-    this.nowSeconds = nowSeconds;  // () => classic game seconds (machine-injected)
+    this.nowSeconds = nowSeconds;  // () => classic game seconds (machine-injected) - TIME3: the character's own clock, the countdowns'
+    this.skySeconds = skySeconds ?? nowSeconds;   // TIME3: () => the sky's seconds - an hour, a date, a season (DailyFrom, a notice's daytime); the one clock offline
+    this.worldSeconds = worldSeconds ?? nowSeconds;   // TIME3: () => the event clock's seconds - the journal's dates are stamped on it
+    this.raisedSeconds = raisedSeconds;   // TIME3: () => the session's raised seconds, or null - a countdown charges them whole (quest/clock.js)
     this.questClockStepMax = questClockStepMax;   // WORLD7: () => world seconds - the most one played frame charges a Clock or a spawn interval (machine-injected; Infinity offline)
     this.hooks = hooks;            // machine hooks: showPopup/changeReputation/log
     this.actionFactory = actionFactory;   // (line, quest) -> action | null (the machine's registry)
@@ -194,7 +202,7 @@ export class Quest {
   // ---- Q2 lifecycle (Quest.cs:280-600) ----
 
   start() {
-    this.questStartTime = this.nowSeconds?.() ?? 0;
+    this.questStartTime = this.worldSeconds?.() ?? 0;   // TIME3: a date the journal shows - the event clock's, read on the sky's calendar (%qdt)
     // AUDIT 28 W4 (Quest.cs:284): the SmallerDungeons setting AS OF the
     // quest's start, frozen in - marker assignments are not relocated
     // when the setting flips, so the dungeon a quest points at keeps
@@ -330,7 +338,13 @@ export class Quest {
     // tombstone later scrubs the "rumor mill" rumors and info topics.
     this.hooks?.removeProgressRumors?.(this.uid);
     this.hooks?.removeQuestorPostMessage?.(this.uid);
-    if (this.factionId > 0) {
+    // QFAIL-FREE (2026-10-02, Mac: "Soften failure cost"): online a quest
+    // that ends unfinished costs the faction nothing. TIME3 put the
+    // countdowns on the character's clock, so a journey or a rest spends
+    // them, and DFU's -2 (propagated through the tree) bled every
+    // standing a player held. Offline DFU's -2 stands. Port-Ledger A.
+    const failureFree = !this.questSuccess && !!this.hooks?.sharedClock?.();
+    if (this.factionId > 0 && !failureFree) {
       const repChange = this.questSuccess ? QUEST_SUCCESS_REP : QUEST_FAILURE_REP;
       // Quest.cs:385 passes propagate=TRUE - the ally/enemy/tree
       // spread, not the flat write (Q2b-VERIFY: the flag was dropped).
@@ -414,7 +428,7 @@ export class Quest {
 
   /** Quests have log steps 0-9; adding an existing step replaces it. */
   addLogStep(stepID, messageID) {
-    this.activeLogMessages.set(stepID, { stepID, messageID, time: this.nowSeconds?.() ?? 0 });
+    this.activeLogMessages.set(stepID, { stepID, messageID, time: this.worldSeconds?.() ?? 0 });   // TIME3: the step's date, as the start's
   }
 
   removeLogStep(stepID) { this.activeLogMessages.delete(stepID); }
@@ -495,6 +509,9 @@ export class Quest {
       tasks: [...this.tasks.values()].map((t) => t.getSaveData()),
       oneTimeDisplayedMessages: [...this.oneTimeDisplayedMessages],
       shareId: this.shareId ?? null,   // DISC22-F: the shared copy's identity - the port's own member, absent in DFU's saves
+      // TIME3: the clock its countdowns stand on - the holder's own, as it read when this was taken. A party member's copy
+      // moves them onto theirs by the distance (quest/questStamps.js); an envelope without it is from before TIME3.
+      ownSecondsAt: Number.isFinite(this.nowSeconds?.()) ? Math.floor(this.nowSeconds()) : null,
     };
   }
 

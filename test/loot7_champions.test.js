@@ -105,7 +105,7 @@ test('LOOT7: the street\'s - a hash of where it stands, its type and the count, 
   for (const bad of [-1, 16, 1.5, 'x']) assert.equal(validFoeRecord({ i: 3, cp: bad }), null, `cp ${bad}`);
   assert.deepEqual(validFoeRecord({ i: 3 }), { i: 3 }, 'none when none');
   const ef = strip(read('src/scenes/exteriorFoes.js'));
-  assert.match(ef, /if \(!allied\) applyChampion\(entity, champion !== undefined \? champion : \(capped \? rollStreetChampion\(pending\.feet, mobileType\) : null\)\);\s*if \(puppet\) entity\.items = \[\];/, 'the owner rolls an encounter\'s, a puppet takes its owner\'s word - before the loot');
+  assert.match(ef, /if \(!allied && !entity\.eliteFoe\) applyChampion\(entity, champion !== undefined \? champion : \(capped \? rollStreetChampion\(pending\.feet, mobileType\) : null\)\);\s*if \(puppet\) entity\.items = \[\];/, 'the owner rolls an encounter\'s, a puppet takes its owner\'s word - before the loot (ELITE FOES: never on an elite - one or the other)');
   assert.match(ef, /if \(!onWatch && f\.entity\?\.champion\) r\.cp = championIndex\(f\.entity\.champion\);/, 'the record carries it');
   assert.equal((ef.match(/champion: r\.cp \?\? null/g) ?? []).length, 2, 'both of a puppet\'s stands read it');
   assert.match(ef, /champion: f\.entity\.champion \?\? null,/, 'a save keeps it');
@@ -155,7 +155,7 @@ test('LOOT7: its name everywhere - the hover, the HUD\'s target, the death line,
   assert.equal(sayEnemyDied(() => {}, 7), 'Orc just died.');
   const dc = strip(read('src/scenes/dungeonContext.js'));
   assert.match(dc, /corpseName\(championName\(f\.entity, enemyDisplayName\(f\.mobileType\)\)\)/, 'the dungeon\'s body');
-  assert.match(strip(read('src/scenes/exteriorFoes.js')), /corpseName\(championName\(e\.entity, enemyDisplayName\(e\.mobileType\)\)\)/, 'the street\'s');
+  assert.match(strip(read('src/scenes/exteriorFoes.js')), /corpseName\(properName\(e\.entity\) \?\? championName\(e\.entity, enemyDisplayName\(e\.mobileType\)\)\)/, 'the street\'s - AUDIT WB12d (D2): a foe\'s own name first');
 });
 
 test('LOOT7: the traits that answer a blow - the Vampiric drinks its blow, the Thorned hurts my blow back; registered', () => {

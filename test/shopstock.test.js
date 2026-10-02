@@ -62,7 +62,7 @@ test('shopStock: the stock law - rarity gate, chance, gender swap, horse+cart', 
   // general stores ALWAYS shelve the horse + small cart - and books
   // ride the quality ladder with NO Dice100 gate (q5 -> 3 books)
   const gs = stockShopShelf({ buildingType: BUILDING_TYPES.GeneralStore, quality: 5 }, { level: 1 }, { rolls: () => 0.999 });
-  assert.deepEqual(gs.map((it) => it.templateIndex), [TRANSPORT_HORSE, TRANSPORT_SMALL_CART, 277]);   // AUDIT-RR2 G10: AddItem merges the three same-message books into one stack (ItemCollection.cs:224-228, :710)
+  assert.deepEqual(gs.map((it) => it.templateIndex), [TRANSPORT_HORSE, TRANSPORT_SMALL_CART, 277, 83]);   // POTION-COMMON: and its day of Potions of Healing (the Glass Bottle, 83) at the shelf's end   // AUDIT-RR2 G10: AddItem merges the three same-message books into one stack (ItemCollection.cs:224-228, :710)
   assert.equal(gs[2].stackCount, 3);
   // the gender swap: a female player sees WomensClothing at the clothier
   const cs = stockShopShelf({ buildingType: BUILDING_TYPES.ClothingStore, quality: 21 }, { level: 1, gender: 'female' }, { rolls: () => 0 });

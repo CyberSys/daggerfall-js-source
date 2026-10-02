@@ -98,15 +98,15 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-room-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .dfdecor-head { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--iron, #2b323b); padding-bottom: 6px; }
 .dfdecor-title { font-size: 18px; }
-.dfdecor-where { font-size: 13px; color: var(--dim, #8b8578); flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.dfdecor-where { font-size: 13px; color: var(--dim, #9a9486); flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .dfdecor-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .dfdecor-search { flex: 1 1 180px; min-width: 0; min-height: 28px; padding: 3px 8px; box-sizing: border-box; border-radius: 3px;
   border: 1px solid var(--iron, #2b323b); background: #0b0d10; color: var(--bone, #e9e4d9); font: inherit; font-size: 14px; }
 .dfdecor-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .dfdecor-chip { min-height: 26px; padding: 2px 8px; border-radius: 3px; border: 1px solid var(--iron, #2b323b);
-  background: transparent; color: var(--dim, #8b8578); font: inherit; font-size: 12px; cursor: pointer; }
+  background: transparent; color: var(--dim, #9a9486); font: inherit; font-size: 12px; cursor: pointer; }
 .dfdecor-chip[aria-pressed="true"] { color: #f2c46b; border-color: #b8943f; background: rgba(242, 196, 107, .08); }
-.dfdecor-rooms-label { align-self: center; margin-left: 10px; font-size: 12px; color: var(--dim, #8b8578); }   /* DECOR-ROOMS */
+.dfdecor-rooms-label { align-self: center; margin-left: 10px; font-size: 12px; color: var(--dim, #9a9486); }   /* DECOR-ROOMS */
 .dfdecor-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
 .dfdecor-list { overflow-y: auto; min-height: 0; border: 1px solid var(--iron, #2b323b); border-radius: 3px; }
 .dfdecor-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; align-items: center;
@@ -115,12 +115,12 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-row[aria-selected="true"] { background: rgba(242, 196, 107, .14); }
 .dfdecor-row.dim .dfdecor-row-price { color: #b8483f; }
 .dfdecor-thumb { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; overflow: hidden;
-  font-size: 11px; color: var(--dim, #8b8578); border: 1px solid rgba(43, 50, 59, .7); border-radius: 2px; }
+  font-size: 11px; color: var(--dim, #9a9486); border: 1px solid rgba(43, 50, 59, .7); border-radius: 2px; }
 .dfdecor-thumb img { max-width: 32px; max-height: 32px; image-rendering: pixelated; }
 .dfdecor-row-name { font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
-.dfdecor-row-sub { font-size: 11px; color: var(--dim, #8b8578); line-height: 1.3; }
+.dfdecor-row-sub { font-size: 11px; color: var(--dim, #9a9486); line-height: 1.3; }
 .dfdecor-row-price { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dfdecor-empty { padding: 16px; font-size: 13px; color: var(--dim, #8b8578); text-align: center; }
+.dfdecor-empty { padding: 16px; font-size: 13px; color: var(--dim, #9a9486); text-align: center; }
 .dfdecor-side { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; }   /* AUDIT HOME-STATIONS S5: six acts on a short screen */
 .dfdecor-preview { flex: 1 1 auto; min-height: 140px; border: 1px solid var(--iron, #2b323b); border-radius: 3px;
   background: transparent; display: flex; align-items: center; justify-content: center; }
@@ -129,7 +129,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-preview[data-model="1"] canvas { display: block; }
 .dfdecor-preview[data-model="1"] img { display: none; }
 .dfdecor-pick-name { font-size: 16px; overflow-wrap: anywhere; }
-.dfdecor-pick-line, .dfdecor-pick-why { font-size: 12px; color: var(--dim, #8b8578); line-height: 1.4; }
+.dfdecor-pick-line, .dfdecor-pick-why { font-size: 12px; color: var(--dim, #9a9486); line-height: 1.4; }
 .dfdecor-pick-why { color: #d9a441; }
 .dfdecor-pick-price { font-size: 15px; font-variant-numeric: tabular-nums; }
 .dfdecor-btn { min-height: 32px; padding: 4px 14px; border-radius: 3px; border: 1px solid #b8943f; background: #2c2412;
@@ -137,14 +137,14 @@ ${PIXELIFY_FIVE_FACE}
 .dfdecor-btn:hover { background: #b8943f; color: #0e1013; }
 .dfdecor-btn[disabled] { opacity: .45; cursor: default; background: #2c2412; color: var(--bone, #e9e4d9); }
 .dfdecor-close { margin-left: auto; border-color: var(--iron, #2b323b); background: transparent; }
-.dfdecor-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--dim, #8b8578); }
+.dfdecor-foot { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--dim, #9a9486); }
 .dfdecor-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   z-index: 8; display: none; flex-direction: column; gap: 6px; padding: 8px 12px; max-width: calc(100vw - 24px);
   box-sizing: border-box; background: rgba(14, 16, 19, .92); border: 1px solid #b8943f; border-radius: 6px;
   pointer-events: none; ${PIXEL_FONT_CSS} color: var(--bone, #e9e4d9); }
 .dfdecor-bar[data-up="1"] { display: flex; }
 .dfdecor-bar-what { font-size: 14px; }
-.dfdecor-bar-keys { font-size: 12px; color: var(--dim, #8b8578); line-height: 1.4; }
+.dfdecor-bar-keys { font-size: 12px; color: var(--dim, #9a9486); line-height: 1.4; }
 .dfdecor-bar-why { font-size: 12px; color: #d9a441; }
 .dfdecor-bar-why:empty { display: none; }
 .dfdecor-bar-btns { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -587,7 +587,7 @@ export function createDecorPanel({
     }
     const main = el('span', '');
     main.append(el('div', 'dfdecor-row-name', it.name), el('div', 'dfdecor-row-sub', decorPlacedSub(it)));
-    r.append(thumb, main, el('span', 'dfdecor-row-price', it.piece.item ? 'yours' : `${decorRefundText(it.piece.paid)} back`));
+    r.append(thumb, main, el('span', 'dfdecor-row-price', it.piece.item ? 'yours' : `${decorRefundText(it.piece.paid)} back${view?.hall ? ' to the guild' : ''}`));   // AUDIT GUILD1d A9: a hall's half is the guild's
     r.addEventListener('click', () => { placedId = it.piece.id; redraw(); });
     return r;
   }
@@ -874,7 +874,7 @@ export function createDecorPanel({
     } else {
       pickName.textContent = it.name;
       pickLine.textContent = decorPlacedSub(it);
-      pickPrice.textContent = it.piece.item ? `Take down: back to ${decorBackTo(it.piece)}` : `Remove: ${decorRefundText(it.piece.paid)} back${it.piece.station ? ' (the station licence is not)' : ''}`;   // AUDIT HOME-STATIONS S6
+      pickPrice.textContent = it.piece.item ? `Take down: back to ${decorBackTo(it.piece)}` : `Remove: ${decorRefundText(it.piece.paid)} back${view?.hall ? " to the guild's treasury" : ''}${it.piece.station ? ' (the station licence is not)' : ''}`;   // AUDIT HOME-STATIONS S6
     }
     lightBtn.textContent = it?.piece.light ? 'Light: on' : 'Light: off';
     storeBtn.textContent = it?.piece.storage ? 'Holds things: yes' : 'Holds things: no';

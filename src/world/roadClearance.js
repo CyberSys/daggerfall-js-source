@@ -86,6 +86,21 @@ export const wodPiecewise = (prefabName) => /^WOD_(?:Rocks_(?!Cave)|Mountain_)/.
 /** A WoD site's own objects stand within this of their position (a tent, a fire, a wagon) - the site test's margin. */
 export const WOD_SITE_OBJECT_RADIUS_M = 8;
 
+/** FOREST1 (AUDIT FOREST1 F7): A SITE'S FOOTPRINT in terrain tiles, max-exclusive as DFU's rects - its rect and every
+ *  object of it at the placement's own position (tile * 6.4 + its offset, x east and z north), each grown by the site
+ *  margin. A camp's tents reach past its rect (BanditCamp_04's seven tiles south of a three-tile rect), and the woods
+ *  keep their clearing off the whole of it. */
+export function wodSiteFootprint(prefab, rect, tileMetres = 6.4) {
+  let xMin = rect.x, xMax = rect.x + rect.width, yMin = rect.y, yMax = rect.y + rect.height;
+  const m = WOD_SITE_OBJECT_RADIUS_M / tileMetres;
+  for (const o of prefab?.obj ?? []) {
+    const x = rect.x + o.pos.x / tileMetres, y = rect.y + o.pos.z / tileMetres;
+    xMin = Math.min(xMin, Math.floor(x - m)); xMax = Math.max(xMax, Math.ceil(x + m));
+    yMin = Math.min(yMin, Math.floor(y - m)); yMax = Math.max(yMax, Math.ceil(y + m));
+  }
+  return { xMin, xMax, yMin, yMax };
+}
+
 /**
  * Is a World of Daggerfall site (a pick: its prefab and its rect in terrain tiles) clear of the roads? Only the
  * whole-site kinds are asked (wodPiecewise answers the others piece by piece, with their meshes, at placement).

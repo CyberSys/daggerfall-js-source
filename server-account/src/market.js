@@ -53,6 +53,11 @@ import { accountKind, mintId, overRate } from './accounts.js';
 import { canModerate } from './titles.js';
 import { marksOpenFor, balanceOf } from './marks.js';
 import { boardOpenFor } from './board.js';
+import { titheAt } from './seatHolding.js';   // SEAT1d: the bailiwick's Tithe
+import { listingsCapAt } from './seatForts.js';   // SEAT2b: a Market Hall's listings
+import { titheOf } from '../../src/net/townSeatLaw.js';
+import { tideNow } from './tides.js';   // SEASON1 part two: a Bandit Summer's couriers (9.3)
+import { tideCourier } from '../../src/net/tideLaw.js';
 import { profOpenFor, spendStatements, spendOrigins, spendableSql, storeOf } from './professions.js';
 import { REALM_ID_RE, realmActFirst, prepareRealmRecord, mustChange, dropIfUnnamed, recordMovedOf, dropObjects } from './realm.js';   // GOLD-MARKET
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // GOLD-MARKET: a gold sale moves a realm record's gold
@@ -62,9 +67,9 @@ import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk, WITNESS } from '../../src/net/nodeLaw.js';
 import { recipeById } from '../../src/net/recipeLaw.js';
 import {
-  MARKET_LISTING_S, MARKET_ORDER_S, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
+  MARKET_LISTING_S, MARKET_ORDER_S, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
   MARKET_SHOWN, MARKET_HISTORY_SHOWN, MARKET_TRADES_SHOWN, MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_RID_RE, MARKET_ID_RE,
-  MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, hubReport, hubPixelOk,
+  MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, saleTitheOn, hubReport, hubPixelOk,
   MARKET_WORTH_MAX, UNYIELDED, pieceListable, MARKET_TAX_PCT, MARKET_TITHE_PCT,
   hubPixel, roadPixels, courierFee, courierSeconds, medianOf, medianLine, marketCatalogue,
   AUCTION_S, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_GRACE_S, bidOk, auctionNext, auctionable,
@@ -125,14 +130,17 @@ async function hubsAt(db, regions, own) {
   }
   return out;
 }
-/** The courier between two regions: `{ courier, seconds, road }` - nothing on the same region, null with no road. */
-function courierOf(hubs, from, to, units) {
+/** The courier between two regions: `{ courier, seconds, road }` - nothing on the same region, null with no road.
+ *  SEASON1 part two: `slow` the Tide's factor on its seconds where it is bound (tideLaw.js tideCourier). */
+function courierOf(hubs, from, to, units, slow = 1) {
   if (from === to) return { courier: 0, seconds: 0, road: 0 };
   const a = hubs.get(from), b = hubs.get(to);
   if (!a || !b) return null;
   const road = roadPixels(a, b);
-  return { courier: courierFee(units, road), seconds: courierSeconds(road), road };
+  return { courier: courierFee(units, road), seconds: courierSeconds(road) * slow, road };
 }
+/** SEASON1 part two (9.3): a Bandit Summer where a courier is bound, while a Season is counted. */
+const courierSlow = (env, nowS, to) => tideCourier(tideNow(env, nowS, to));
 /** AUDIT 30 S3: whether the ledger already holds this account's line `rid` + `suffix` - a request id spent, though the
  *  row that would answer its repeat was pruned. */
 const spent = async (db, me, rid, suffix) => !!(await db.prepare('SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?2').bind(me, `${rid}${suffix}`).first());
@@ -187,6 +195,14 @@ const bidView = (b) => ({
 });
 /** PROF5b: a sale's tax and Tithe off its whole, in SQL - `x`'s floor of hundredths, as saleTax and saleTithe are. */
 const netSql = (x) => `${x} - (${x} * ${MARKET_TAX_PCT}) / 100 - (${x} * ${MARKET_TITHE_PCT}) / 100`;
+/** SEAT1d: a board's town pixel as a request names it (`board: [x, y]`), or null - an older client's names none. */
+const boardOf = (b) => (Array.isArray(b) && b.length === 2 && hubPixelOk(b[0], b[1]) ? [b[0], b[1]] : null);
+/** SEAT1d: a row's board pixel (a listing's, an auction's), or null. */
+const rowBoard = (r) => (r?.board_x == null ? null : [Number(r.board_x), Number(r.board_y)]);
+/** SEAT1d (SEAT0 7.2): a Tithe line's end - the holder's Drake treasury where the guild stands and its cap takes it,
+ *  else burnt (PROF0 18: "SEAT1 writes the Tithe's line (to the holder, or burnt)"). `g` the guild id's parameter, `amt`
+ *  the amount's expression. */
+const titheEnd = (g, amt) => `EXISTS (SELECT 1 FROM guilds WHERE id = ${g}) AND COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ${g}), 0) + ${amt} <= ${MARKS_MAX}`;
 /** PROF5b: the open sales an account (`?1`) stands - its listings and its auctions (10.2's thirty are both); AUDIT 31
  *  L1: an auction past its end, a won one waiting on its seller's Marks cap, stands no longer - the moment at `now`. */
 const openSalesSql = (now) => `((SELECT COUNT(*) FROM market_listings WHERE seller = ?1 AND state = 'open')
@@ -311,7 +327,7 @@ async function closeAuctions(ctx) {
   const { db, nowS, rand } = ctx;
   const live = (a) => `EXISTS (SELECT 1 FROM market_bids WHERE id = ${a}.high_bid AND state = 'high')`;
   const room = (a, gets) => `COALESCE((SELECT balance FROM marks WHERE account = ${a}.seller), 0) + ${gets} <= ?2`;
-  const { results: due = [] } = await db.prepare(`SELECT id, high, ${live('a')} AS live, ${room('a', netSql('high'))} AS room FROM market_auctions a
+  const { results: due = [] } = await db.prepare(`SELECT id, high, region, board_x, board_y, ${live('a')} AS live, ${room('a', netSql('high'))} AS room FROM market_auctions a
       WHERE state = 'open' AND ends_at <= ?1
         AND (NOT ${live('a')} OR ${room('a', netSql('high'))} OR ends_at + ?3 <= ?1)
     ORDER BY ends_at LIMIT ${SETTLE_MAX}`).bind(nowS, MARKS_MAX, AUCTION_GRACE_S).all();
@@ -319,7 +335,10 @@ async function closeAuctions(ctx) {
   for (const a of due) {
     const nonce = mintId(rand);
     const high = a.high == null ? null : Number(a.high);
-    const tax = high == null ? 0 : saleTaxOn(0, high), gets = high == null ? 0 : high - tax - saleTithe(high);
+    // SEAT1d: the Tithe of the seat the auction's board belongs to, from the seller's proceeds
+    const tt = high == null ? null : await titheAt(db, nowS, Number(a.region), rowBoard(a));
+    const tithe = tt ? saleTithe(high, tt.pct) : 0;
+    const tax = high == null ? 0 : saleTaxOn(0, high), gets = high == null ? 0 : high - tax - tithe;
     // the winning bid, once this close marked it won (the second statement) - every line and the owner keyed on it
     const won = `FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid AND b.state = 'won' WHERE a.id = ?1 AND a.cn = ?2`;
     if (!Number(a.live) || !Number(a.room)) {
@@ -339,10 +358,10 @@ async function closeAuctions(ctx) {
     }
     await db.batch([
       // THE DECISION: still open, past its end, the standing bid the one read and standing, the seller's room under the cap
-      db.prepare(`UPDATE market_auctions SET state = 'sold', closed_at = ?3, cn = ?2, returned = 1
+      db.prepare(`UPDATE market_auctions SET state = 'sold', closed_at = ?3, cn = ?2, returned = 1, tithe = ?7
         WHERE id = ?1 AND state = 'open' AND ends_at <= ?3 AND high IS ?4 AND ${live('market_auctions')}
           AND COALESCE((SELECT balance FROM marks WHERE account = market_auctions.seller), 0) + ?5 <= ?6`)
-        .bind(a.id, nonce, nowS, high, gets, MARKS_MAX),
+        .bind(a.id, nonce, nowS, high, gets, MARKS_MAX, tithe),
       db.prepare(`UPDATE market_bids SET state = 'won' WHERE id = (SELECT high_bid FROM market_auctions WHERE id = ?1 AND cn = ?2) AND state = 'high'`).bind(a.id, nonce),
       db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
         SELECT 'escrow', b.id, 'account', a.seller, 'auction-sale', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':sale' ${won}`)
@@ -350,6 +369,11 @@ async function closeAuctions(ctx) {
       ...(tax > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
         SELECT 'escrow', b.id, 'burn', NULL, 'market-tax', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':tax' ${won}`)
         .bind(a.id, nonce, tax, day, nowS)] : []),
+      // SEAT1d: the Tithe to the auction's seat's holder - or burnt
+      ...(tithe > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+        SELECT 'escrow', b.id, CASE WHEN ${titheEnd('?6', '?3')} THEN 'guild' ELSE 'burn' END, CASE WHEN ${titheEnd('?6', '?3')} THEN ?6 END,
+          'tithe', ?3, ?4, ?5, b.bidder, a.id, 'auction:' || a.id || ':tithe' ${won}`)
+        .bind(a.id, nonce, tithe, day, nowS, tt.guild)] : []),
       db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
         SELECT 'escrow', b.id, 'burn', NULL, 'courier', b.courier, ?3, ?4, b.bidder, a.id, 'auction:' || a.id || ':courier' ${won} AND b.courier > 0`)
         .bind(a.id, nonce, day, nowS),
@@ -445,7 +469,7 @@ async function mediansOf(db, keys, today, currency = 'marks') {
  * views (marketLaw MARKET_VIEWS), after the account's own market is settled. Every answer carries what is on its way
  * to the account, its balance and its live counts.
  */
-export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs, currency = 'marks', pieces = null } = {}) {
+export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs, currency = 'marks', pieces = null, board = null } = {}) {
   const { db, nowS } = ctx;
   const refused = asks(player, { character, needRid: false });
   if (refused) return refused;
@@ -478,6 +502,9 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     return {
       ok: true, view, region, currency, road: await roadOf(db, me, nowS), balance: await balanceOf(db, me),
       counts: { listings: Number(counts?.listings ?? 0), orders: Number(counts?.orders ?? 0), bids: Number(counts?.bids ?? 0) },
+      // AUDIT SEATS-3 D2: the open listings this account may hold at the board read from (`board`, its map pixel, as the
+      // post's), a Market Hall's quarter a tier in it - the count's measure, so the board never says thirty where it lists more
+      listingsMax: await listingsCapAt(db, nowS, boardOf(board)),
       held: Number(counts?.held ?? 0), stores, goldHeld: Number(gold?.gold ?? 0),
     };
   };
@@ -489,7 +516,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
   };
   const quote = async (rows, unitsOf) => {
     const at = await hubsAt(db, [region, ...rows.map((l) => Number(l.region))], own);
-    return rows.map((l) => courierOf(at, Number(l.region), region, unitsOf(l)));
+    return rows.map((l) => courierOf(at, Number(l.region), region, unitsOf(l), courierSlow(env, nowS, region)));
   };
 
   if (view === 'materials') {
@@ -629,7 +656,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     UNION ALL SELECT 'ordered', 'material', material, NULL, units, price, units * price, at, 'marks', NULL FROM market_fills WHERE poster = ?1 AND at > ?2
     UNION ALL SELECT 'won', 'piece', NULL, a.provenance, 1, a.high, a.high + b.courier, a.closed_at, 'marks', NULL FROM market_auctions a JOIN market_bids b ON b.id = a.high_bid
       WHERE a.state = 'sold' AND b.bidder = ?1 AND a.closed_at > ?2
-    UNION ALL SELECT 'auctioned', 'piece', NULL, provenance, 1, high, ${netSql('high')}, closed_at, 'marks', NULL FROM market_auctions
+    UNION ALL SELECT 'auctioned', 'piece', NULL, provenance, 1, high, ${netSql('high')} - tithe, closed_at, 'marks', NULL FROM market_auctions
       WHERE state = 'sold' AND seller = ?1 AND closed_at > ?2
     ORDER BY at DESC LIMIT ${MARKET_TRADES_SHOWN}`).bind(me, nowS - MARKET_KEEP_DAYS * DAY_S).all();
   return {
@@ -654,9 +681,9 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
  * units, nor a piece bought with gold (the wall).
  * MARKET-ANY: `kind` 'item' - a piece from the pack, with `item`, `pick` and `realm` (listGood).
  */
-export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', item = null, pick = null, realm = null } = {}) {
+export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', board = null, item = null, pick = null, realm = null } = {}) {
   // MARKET-ANY: a piece from the pack moves its seller's realm record - its own door, where the record stands asked first
-  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm });
+  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board });   // AUDIT SEATS-3 D2: and its board
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -674,6 +701,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   if (!currencyOk(currency)) return { error: 'bad-act' };
   if (currency === 'gold' && !REALM_ID_RE.test(character)) return { error: 'market-gold-realm' };   // GOLD-MARKET: gold is a realm record's
   const gold = currency === 'gold';
+  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // SEAT2b (7.5): a Market Hall's town lists a quarter more a tier
   const other = gold ? 'gold' : 'bought';   // GOLD-MARKET: the listing's second origin - bought in its own currency
   if (kind === 'material') {
     if (!material(key)) return { error: 'bad-material' };
@@ -717,7 +745,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
             -- AUDIT 30 S6: not while it stands in a home
             AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?7)))
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?14 || ':fee')`)
-      .bind(me, character, id, region, kind, key, provenance, units, price, wear, fee, nowS, nowS + MARKET_LISTING_S, rid, nonce, MARKET_LISTINGS_MAX, currency, other),
+      .bind(me, character, id, region, kind, key, provenance, units, price, wear, fee, nowS, nowS + MARKET_LISTING_S, rid, nonce, listingsMax, currency, other),
     // a material's units out of the Stores, bought first - GOLD-MARKET: a gold listing's gold's first, then its own
     ...(kind === 'material' ? (gold
       ? spendOrigins(db, { player: me, character, materialSql: '?3', qtySql: '?4', guard: mine, binds: [key, units, rid, nonce], order: ['gold', 'own'] })
@@ -725,6 +753,9 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
     // a piece marked listed
     db.prepare(`UPDATE products SET listed = 1 WHERE provenance = ?2 AND EXISTS (SELECT 1 FROM market_listings WHERE seller = ?1 AND rid = ?3 AND n = ?4)`)
       .bind(me, provenance, rid, nonce),
+    // SEAT1d: the board it was posted at - its Tithe's seat (SEAT0 7.2's bailiwick)
+    ...(boardOf(board) ? [db.prepare('UPDATE market_listings SET board_x = ?4, board_y = ?5 WHERE seller = ?1 AND rid = ?2 AND n = ?3')
+      .bind(me, rid, nonce, boardOf(board)[0], boardOf(board)[1])] : []),
     // the fee burnt - GOLD-MARKET: a Drakes listing's; a gold listing's comes of each sale
     db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', ?1, 'burn', NULL, 'market-fee', fee, ?2, at, ?1, id, rid || ':fee' FROM market_listings WHERE seller = ?1 AND rid = ?3 AND n = ?4 AND currency = 'marks'`)
@@ -737,7 +768,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
   if (await spent(db, me, rid, ':fee')) return { error: 'prof-rid' };
   if (!gold && (await balanceOf(db, me)) < fee) return { error: 'marks-short' };
   const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  if (Number(open?.n ?? 0) >= listingsMax) return { error: 'market-listings-max' };
   if (kind === 'material') {
     // GOLD-MARKET: short only of units the other currency bought - the wall's own word
     const st = await storeOf(db, me, character, key);
@@ -765,7 +796,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
  * as a crafted piece ('market-piece-route' - its record's owner then moves with its sale); one whose record names
  * another lists from the pack like any piece. Answers the listing and the record's new sequence (`realm.seq`).
  */
-async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm }) {
+async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board = null }) {
   const { db, bucket, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -790,7 +821,8 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);
   const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // AUDIT SEATS-3 D2: a Market Hall's town lists a piece a quarter more a tier too, as every other listing
+  if (Number(open?.n ?? 0) >= listingsMax) return { error: 'market-listings-max' };
   // THE RECORD'S OWN PIECE: the very record at `pick`, as offered, out of it - never what the tab says it holds
   let moved = null;
   const prep = await prepareRealmRecord(ctx, me, side.at, (save) => {
@@ -809,7 +841,7 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
       // THE DECISION: a place among the thirty, the id not spent - the record's piece on the listing, for gold
       db.prepare(`INSERT OR IGNORE INTO market_listings (id, seller, char_id, region, kind, units, own, bought, price, fee, at, expires_at, rid, n, currency, item)
         SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11 WHERE ${openSalesSql('?7')} < ?12`)
-        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + MARKET_LISTING_S, rid, nonce, JSON.stringify(moved), MARKET_LISTINGS_MAX),
+        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + MARKET_LISTING_S, rid, nonce, JSON.stringify(moved), listingsMax),
       mustChange(db),   // no listing, no piece out of the record: the record's step rolls back with it
       ...witnessStatements(db, player, nowS, [region], hubsOf(hubs), 'EXISTS (SELECT 1 FROM market_listings WHERE seller = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
     ]);
@@ -832,7 +864,7 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
  * to pay in all. Here, a material goes into the Stores at once and a piece is answered to the pack; elsewhere the goods
  * go by courier. The seller is paid at the sale; a piece's owner moves to the buyer in the same batch.
  */
-export async function marketBuy(ctx, player, env, { character, region, listing: id, units = 1, max, hubs, rid, realm = null } = {}) {
+export async function marketBuy(ctx, player, env, { character, region, listing: id, units = 1, max, hubs, rid, realm = null, board = null } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -892,14 +924,20 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
   if (units > Number(l.own) + Number(l.bought)) return { error: 'market-short' };
   const from = Number(l.region);
   const own = hubsOf(hubs);
-  const road = courierOf(await hubsAt(db, [from, region], own), from, region, units);
+  const road = courierOf(await hubsAt(db, [from, region], own), from, region, units, courierSlow(env, nowS, region));
   if (!road) return { error: 'market-no-road' };
   if (at) return buyWithGold(ctx, player, { character, region, l, units, max, rid, road, own, at, answer });
   const total = units * Number(l.price);
   // AUDIT 30 L6: the tax of the listing's running total - what it has sold before this, units x its price
   const left = Number(l.own) + Number(l.bought);
-  const tax = saleTaxOn((Number(l.units) - left) * Number(l.price), total), tithe = saleTithe(total);
+  // SEAT1d (SEAT0 7.2): the Tithe of the seat the listing's board belongs to, from the seller's proceeds; the share of
+  // the courier the buyer's board's seat takes, out of what is burnt
+  const tt = await titheAt(db, nowS, from, rowBoard(l));
+  const before = (Number(l.units) - left) * Number(l.price);   // AUDIT-SEATS L4: the Tithe of the running total too, as the tax
+  const tax = saleTaxOn(before, total), tithe = tt ? saleTitheOn(before, total, tt.pct) : 0;
   const gets = total - tax - tithe;
+  const ct = road.courier > 0 ? await titheAt(db, nowS, region, boardOf(board)) : null;
+  const courierTithe = ct ? titheOf(road.courier, ct.pct) : 0;
   if (total + road.courier > max) return { error: 'market-price-moved' };
   const here = from === region;
   const delivered = l.kind === 'piece' || here ? 1 : 0;
@@ -934,8 +972,17 @@ export async function marketBuy(ctx, player, env, { character, region, listing: 
       SELECT 'account', buyer, 'burn', NULL, 'market-tax', tax, day, at, buyer, listing, rid || ':tax'
       FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND tax > 0`).bind(me, rid, nonce),
     db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
-      SELECT 'account', buyer, 'burn', NULL, 'courier', courier, day, at, buyer, listing, rid || ':courier'
-      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier > 0`).bind(me, rid, nonce),
+      SELECT 'account', buyer, 'burn', NULL, 'courier', courier - ?4, day, at, buyer, listing, rid || ':courier'
+      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND courier - ?4 > 0`).bind(me, rid, nonce, courierTithe),
+    // SEAT1d: the Tithe to the listing's seat's holder, and the courier's share to the buyer's board's - or burnt
+    ...(tithe > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'account', buyer, CASE WHEN ${titheEnd('?4', 'tithe')} THEN 'guild' ELSE 'burn' END, CASE WHEN ${titheEnd('?4', 'tithe')} THEN ?4 END,
+        'tithe', tithe, day, at, buyer, listing, rid || ':tithe'
+      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND tithe > 0`).bind(me, rid, nonce, tt.guild)] : []),
+    ...(courierTithe > 0 ? [db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
+      SELECT 'account', buyer, CASE WHEN ${titheEnd('?4', '?5')} THEN 'guild' ELSE 'burn' END, CASE WHEN ${titheEnd('?4', '?5')} THEN ?4 END,
+        'tithe', ?5, day, at, buyer, listing, rid || ':ctithe'
+      FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3`).bind(me, rid, nonce, ct.guild, courierTithe)] : []),
     // a material here, into the Stores as bought
     db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
       SELECT buyer, char_id, material, 'bought', units FROM market_sales WHERE buyer = ?1 AND rid = ?2 AND n = ?3 AND kind = 'material' AND delivered = 1
@@ -1386,7 +1433,7 @@ export async function marketGoldCollect(ctx, player, env, { character, realm = n
  * has not listed, posted at an opening bid on the boards of `region` for 24 hours, for the listing fee burnt (1% of the
  * opening bid). The piece leaves the save (the book keeps it) and comes back unsold on the seller's read.
  */
-export async function marketAuction(ctx, player, env, { character, region, provenance = null, wear = null, opening, hubs, rid } = {}) {
+export async function marketAuction(ctx, player, env, { character, region, provenance = null, wear = null, opening, hubs, rid, board = null } = {}) {
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -1402,6 +1449,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
   if (!regionOk(region)) return { error: 'bad-region' };
   if (!provenanceOk(provenance)) return { error: 'bad-provenance' };
   if (!wearOk(wear)) return { error: 'bad-wear' };
+  const auctionsMax = await listingsCapAt(db, nowS, boardOf(board));   // SEAT2b (7.5): a Market Hall's town lists a quarter more a tier
   if (!priceOk(opening)) return { error: 'bad-price' };
   const made = await db.prepare('SELECT recipe, quality FROM products WHERE provenance = ?1').bind(provenance).first();
   if (made && !pieceListable(made.recipe)) return { error: 'market-not-listable' };
@@ -1426,8 +1474,11 @@ export async function marketAuction(ctx, player, env, { character, region, prove
         AND NOT EXISTS (SELECT 1 FROM market_deliveries WHERE provenance = ?5 AND collected = 0)
         AND NOT EXISTS (SELECT 1 FROM home_decor WHERE json_extract(item, '$.pv') = ?5)
         AND NOT EXISTS (SELECT 1 FROM marks_ledger WHERE actor = ?1 AND rid = ?11 || ':afee')`)
-      .bind(me, character, id, region, provenance, wear, opening, fee, nowS, nowS + AUCTION_S, rid, nonce, MARKET_LISTINGS_MAX, MASTERWORK),
+      .bind(me, character, id, region, provenance, wear, opening, fee, nowS, nowS + AUCTION_S, rid, nonce, auctionsMax, MASTERWORK),
     db.prepare(`UPDATE products SET listed = 1 WHERE provenance = ?4 AND ${posted}`).bind(me, rid, nonce, provenance),
+    // SEAT1d: the board it was posted at - its Tithe's seat
+    ...(boardOf(board) ? [db.prepare('UPDATE market_auctions SET board_x = ?4, board_y = ?5 WHERE seller = ?1 AND rid = ?2 AND n = ?3')
+      .bind(me, rid, nonce, boardOf(board)[0], boardOf(board)[1])] : []),
     // the fee burnt - `:afee`, never a listing's `:fee`, so one id cannot hold both
     db.prepare(`INSERT INTO marks_ledger (src_kind, src_id, dst_kind, dst_id, kind, amount, day, at, actor, who, rid)
       SELECT 'account', ?1, 'burn', NULL, 'market-fee', fee, ?4, at, ?1, id, rid || ':afee' FROM market_auctions WHERE seller = ?1 AND rid = ?2 AND n = ?3`)
@@ -1440,7 +1491,7 @@ export async function marketAuction(ctx, player, env, { character, region, prove
   if (await spent(db, me, rid, ':afee')) return { error: 'prof-rid' };
   if ((await balanceOf(db, me)) < fee) return { error: 'marks-short' };
   const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  if (Number(open?.n ?? 0) >= auctionsMax) return { error: 'market-listings-max' };
   const p = await db.prepare('SELECT owner, listed, quality, bought_with FROM products WHERE provenance = ?1').bind(provenance).first();
   if (!p) return { error: 'market-no-record' };   // AUDIT 31 H1: no record at all - never "another owner's"
   if (p.owner !== me) return { error: 'market-not-yours' };
@@ -1482,7 +1533,7 @@ export async function marketBid(ctx, player, env, { character, region, auction: 
   if (amount < next) return { error: 'auction-low' };
   const from = Number(a.region);
   const own = hubsOf(hubs);
-  const road = courierOf(await hubsAt(db, [from, region], own), from, region, 1);
+  const road = courierOf(await hubsAt(db, [from, region], own), from, region, 1, courierSlow(env, nowS, region));
   if (!road) return { error: 'market-no-road' };
   const held = amount + road.courier;
   const bidId = mintId(rand);
