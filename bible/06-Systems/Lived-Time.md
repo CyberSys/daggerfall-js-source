@@ -11,7 +11,7 @@ at a later time but for now this is the solution"*) and OL3's recorded alternati
 world keeps ONE clock, so per-player deadlines would be a different design"*). This is that design.
 
 [NEXT, PROPOSED 2026-10-01: `Online-Time-Arc.md` (TIME) splits the world's clock below in two - a faster SKY
-(a day every 30 real minutes) and this page's world clock kept as the EVENT clock - and leaves the
+(a day every real hour since SKY-SLOW; designed at 30 minutes) and this page's world clock kept as the EVENT clock - and leaves the
 character's clock as it is. Nothing here changes until it is built. BUILT 2026-10-01 (TIME1-TIME4): where this
 page says the world's clock for the sun, the moons, the calendar or a season, read the SKY; for the world's
 business (prices, shelves, gates, raids, stamps), the event clock, unchanged. The quest clocks below moved to the

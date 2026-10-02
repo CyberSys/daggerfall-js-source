@@ -270,8 +270,8 @@ export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = n
   // from lagging the change by a round.
   // TIME2 (Mac, 2026-10-01: "werewolf forms last insanely long"; bible/06-Systems/Online-Time-Arc.md 6.1): ONLINE THE
   // FULL MOON IS A NIGHT. The change is forced while the full moon is UP - from the dusk of a full-moon date to the next
-  // dawn, on the sky (`moonNight`, which the round runner raises when a host hands the sky: the online lane) - fifteen
-  // real minutes at the sky's TimeScale 48, not a whole day no rest can shorten. At dawn the lock ends; changing back
+  // dawn, on the sky (`moonNight`, which the round runner raises when a host hands the sky: the online lane) - thirty
+  // real minutes at the sky's TimeScale 24, not a whole day no rest can shorten. At dawn the lock ends; changing back
   // is the power, ungated, as DFU has it. Offline DFU's rule stands: the whole calendar day of either moon's full phase.
   const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(skyMinutes);
   if (!entry.wearingHircineRing && moonForces && !entry.isTransformed) {
