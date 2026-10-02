@@ -22,14 +22,15 @@
 // ═══════════════════════════════════════════════════════════════════
 
 /** questName -> the place the watch is kept at (the script's own Place symbol, without its underscores) and the
- *  window, in seconds of the world's clock. Ten game minutes is fifty real seconds online, an hour five minutes. */
+ *  window, in seconds of the quest's clock - TIME3: the character's own (bible/06-Systems/Online-Time-Arc.md 6.3a),
+ *  which runs with the world while they stand watch: ten game minutes is fifty real seconds, an hour five minutes. */
 export const ONLINE_GUARD_WINDOWS = Object.freeze({
   N0B10Y03: Object.freeze({ place: 'magesguild', delaySeconds: 10 * 60, lengthSeconds: 60 * 60 }),
 });
 
 /**
  * The window's law, pure. `s` is the watching action's own state `{ guardAnchor, guardAway }` (saved with it);
- * `here` is whether the player stands in the place now, `now` the world's clock in seconds. Answers whether the
+ * `here` is whether the player stands in the place now, `now` the quest's clock in seconds (TIME3: the character's). Answers whether the
  * window stands, and moves the state.
  */
 export function guardWindowStep(s, here, now, win) {

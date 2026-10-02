@@ -5,7 +5,7 @@
 // completed, expire tombstones after one in-game week (604800 classic
 // seconds). DFU ticks at 10Hz of REAL time while clocks ride WORLD
 // time - the host calls tick() on its own cadence (TICKS_PER_SECOND
-// is the law to pace by) and injects the world clock as nowSeconds.
+// is the law to pace by) and injects the world clock as nowSeconds (TIME3: online the character's, beside the sky).
 //
 // deps (all injectable, every one a routed system):
 //   nowSeconds()               - world time in EPOCH-RELATIVE seconds:

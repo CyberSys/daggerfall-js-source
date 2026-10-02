@@ -182,7 +182,7 @@ export class Clock extends QuestResource {
 
   /** Q2 - Clock.cs Tick: whole world-seconds since the last sample
    *  come off the remainder; at zero the SAME-NAMED task starts and
-   *  the clock finishes. The world clock is the quest's nowSeconds
+   *  the clock finishes. The world clock is the quest's nowSeconds (TIME3: online the character's own)
    *  seam (classic game seconds, machine-injected). */
   /** ExpandMacro (Clock.cs): =symbol_ answers days remaining (the
    *  ShowQuestJournalClocksAsCountdown setting picks remaining vs
