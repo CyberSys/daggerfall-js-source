@@ -64,7 +64,7 @@ its `modsettings.json`:
 | `MirrorVCEH` / `OnAttackDamageCalculated` / `OnSavingThrow` | the Vanilla Combat Event Handler's two events, mirrored to relay to OTHER mods | not carried - no consumer here (README) |
 | `Debug.LogFormat("matReqDamMulti")` | a Unity console line | not carried |
 
-## The one departure: the hit chance's floor (DISC19-D, Mac's call 2026-09-24)
+## The first departure: the hit chance's floor (DISC19-D, Mac's call 2026-09-24)
 
 `CalculateSuccessfulHit` computes `Mathf.Clamp(num, 3, 97)` and never
 assigns it, so under the mod a sum below zero was a certain miss. With a
@@ -79,6 +79,60 @@ every blow lands at least 3 in 100 (55 of 2000 on that Vampire, 51 on the
 Lich) and misses at least 3 in 100, a monster's on the player included.
 Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
 
+## The second departure: the wear modules ship off (WEAR-VANILLA, 2026-10-01)
+
+The repair triage: "Disable the modded feature that increases durability
+loss. Vanilla values work fine. Weapon degradation done improperly is
+extremely agitating if done wrong." `equipmentDamageEnhanced` wore a
+weapon about 2.8x DFU per landed hit - more, the better its metal - and a
+struck piece about 15x, by a monster's claws too, which DFU never lets wear
+armour; `fadingEnchantedItems` destroyed a player's broken enchanted piece.
+BALANCE1's 0.6 on every blow softened it without undoing it. Both ship OFF
+in the port now (the mod ships them on), with Roleplay Realism's
+`equipDamage` (armour x5, the arm that answers when this one is off), and
+the wear scale is back at 1. A switch alone was not enough: the mod's own
+core (`CalculateAttackDamage` under the redone armour formula) calls the
+class's own `DamageEquipment` and wears gear its way whatever
+`equipmentDamageEnhanced` says. So `pcaaoAttackDamage` follows the switch -
+a departure from the mod's code as well as its defaults: off, the blow
+wears what FormulaHelper's DamageEquipment says (`formulas.js`
+`damageEquipment`), with the weapon it was struck with, never the stand-in
+the core assigns a monster's natural attack (DFU has no such weapon). The rest of the overhaul - the redone armour
+formula, the criticals, condition-based effectiveness, soft materials, the
+strength fix - is untouched. Offline the switches are the player's (a
+value saved under the old default is let go once, `SWITCH_RESETS`);
+online the room reads the port's defaults. Measured through `calculateAttackDamage` (a level-20 player,
+skills 70, level-10 foes, a quality-10 smith; repair prices unchanged): a
+Daedric longsword's repair 17.5-25.2 gold a landed hit -> 4.8-6.9, a
+Daedric cuirass's 6.4-10.6 a monster's blow -> 0 and an armed foe's 6.4 ->
+0.9; Ebony 4.4-6.7 -> 1.3-2.0 and 2.0-3.5 -> 0-0.3. Ledger A, WEAR-VANILLA; `test/wear_vanilla.test.js`.
+
+**Below the reduction (AUDIT ECON W1, 2026-10-01).** DFU's member is handed
+the damage the blow DEALT - after the overhaul's armour reduction, as the
+duel already read it (`scenes/world.js`, the defender's own damage). DFU's
+armour turns a blow aside, and the blow wears nothing; the redone formula
+lets nearly every blow land (a Knight's on a steel-clad player 0.70 -> 0.97
+of his swings) and takes its share off instead, so the share it took wears
+nothing either. Fed the damage before the reduction - after the critical
+multiplier - gear wore 1.3-2.5 times DFU's rate a swing (a level-20 player
+in Daedric lost 2.5 times DFU's armour to a Knight's swing); below it,
+armour 0.71-0.86 times and a blade 1.17-1.22 times (`calculateAttackDamage`
+over the same seeded fights, steel at level 10 and Daedric at level 20,
+against every mod off). With REPAIR-RATE's third, a Daedric longsword's
+repair is 1.65-3.20 gold a landed hit (`06-Systems/Economy-Arc.md`). The
+module on keeps the mod's own wear, before the reduction, as the mod has it.
+A soft weapon still wears by what it deals: an iron blade on a Ghost does
+nothing in DFU and wears nothing, and does a little under the soft-material
+requirements and wears that little.
+
+**Two things decided, not ported.** A blow the overhaul's shield roll
+blocks on a part the shield does not cover (its weak-spot chance) wears
+the piece under it - DFU's routing reads the shield's cover, not the
+overhaul's roll - and a failed block over a covered part wears the shield:
+DFU's, kept. Roleplay Realism's `equipDamage` has no screen (its tile
+carries four dials); were it on, its slot inside DFU's member would take
+its x5 on the overhaul's path too, as DFU does with both mods installed.
+
 ## What is kept bug for bug
 
 - `Mathf.Round` rounds half to EVEN (`unityRound`), and every float the
@@ -88,7 +142,7 @@ Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
   the natural resistance's +-0.2 (moot - three stats of 100 reach
   exactly 0.2), the critical strike's luck term, the shield chances. Not
   clamped here either. The fourth, the hit chance's 3..97, IS applied -
-  the one departure (below).
+  the first departure (above).
 - C# integer division truncates toward zero; where an operand can be
   negative (a stat below 50, a level difference) the port truncates.
 - The archery hit table's `> 8000` arm sits behind `> 5000` and never
@@ -96,13 +150,15 @@ Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
 - The warnings repeat while a piece sits at exactly 48% or 15%.
 - The soft-material multiplier and the crit multiplier apply to the
   WHOLE blow, backstab included, before the wear and the reduction; the
-  wear is charged on the PRE-reduction damage.
+  mod's wear (its module on) is charged on the PRE-reduction damage -
+  DFU's, the port's default, below it (the second departure, above).
 - **BALANCE1 (2026-09-27, Mac: durability "drain[s] a little too fast")**:
-  the mod's wear amounts stay the mod's, and what a piece LOSES is x0.6
-  (`equip.js CONDITION_WEAR_SCALE`, through the one `wear` sink; the
-  fraction rolled so the average is exact). Measured first: this mod's
-  wear ran ~2.8x DFU's on a weapon per landed hit and ~15x on armour. A
-  departure: Ledger A, `01-Overview/Field-Bugs-2026-09-27-phone-backup-drains.md`.
+  the scale on what a piece loses (`equip.js CONDITION_WEAR_SCALE`,
+  through the one `wear` sink; a fraction rolled so the average is exact)
+  is 1 since WEAR-VANILLA (above), which turned the mod's wear off instead;
+  BALANCE1's 0.6 had softened that wear (~2.8x DFU's on a weapon per landed
+  hit and ~15x on armour, measured first) without undoing it. Ledger A,
+  `01-Overview/Field-Bugs-2026-09-27-phone-backup-drains.md`.
 - A left-hand item that is not a shield still goes through the shield
   roll (the C# never asks IsShield there); `GetShieldProtectedBodyParts`
   answers nothing for it, so it rolls the weak spot.
@@ -121,7 +177,7 @@ Ledger A's PCO1 row records it; `test/pcaao.test.js` pins it.
   port has no mod list, so the mod is a switch in the Mods pane (the
   Dynamic Skies precedent after VC1). ~~Off~~ ON by default since MO1
   (2026-09-12, Mac's law: every mod on; the pane is where it is turned off). The seven shipped module keys
-  default as shipped (all on). Mac's to flip.
+  default as shipped (all on), but for the two wear modules, off since WEAR-VANILLA (above).
 - **The two derived arms read the OTHER mods' own switches** (MM1, Mac:
   "there shouldn't be compatibility switches between mods"; they were
   switches of this mod's from PCO1 to MM1). `meanerMonsters` is
