@@ -493,11 +493,15 @@ export function _wearScaleForTests(scale = CONDITION_WEAR_SCALE) { _wearScale = 
  *  and armour hardly wore, so wear put no pressure on an outing - the economy arc's friction ("the pressure to return
  *  is capacity, supplies and wear, never price", 06-Systems/Economy-Arc.md). The mods' own wear modules, which a
  *  player may turn on offline, keep their own amounts; repairs keep REPAIR-RATE's third. A whole number, so it draws
- *  no roll. A departure (Ledger A, WEAR-TWICE). */
-export const DFU_WEAR_MULTIPLE = 2;
+ *  no roll. A departure (Ledger A, WEAR-TWICE).
+ *  WEAR-ONE (2026-10-02, Mac: "we need to buff gear durability because its really bad"; asked how much, "Daggerfall's
+ *  rate (1x)"): TWICE WAS TOO MUCH - a 50-point dagger or bow broke in about 25 landed blows, and every blow cost at
+ *  least 2 (the doubling came after the 20% floor roll's 1). The multiple is 1 again: DFU's own amount. The seam stays,
+ *  so a later tuning is one number. [SUPERSEDES WEAR-TWICE's 2.] */
+export const DFU_WEAR_MULTIPLE = 1;
 let _dfuMultiple = DFU_WEAR_MULTIPLE;
 /** TEST SEAM: the files that pin DFU's DamageEquipment verbatim run it at 1, beside the scale's own seam above
- *  (wear_vanilla.test.js pins the 2). No argument puts the port's back. */
+ *  (wear_vanilla.test.js pins the port's 1 - WEAR-ONE). No argument puts the port's back. */
 export function _dfuWearMultipleForTests(m = DFU_WEAR_MULTIPLE) { _dfuMultiple = m; }
 /** WEAR-TWICE: a blow's DFU amount as the port wears it - the multiple, then the scale (blowWear). */
 export const dfuBlowWear = (amount, rolls = Math.random) => (amount > 0 ? blowWear(amount * _dfuMultiple, rolls) : amount);

@@ -15542,6 +15542,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     startQuest: (name) => questBridge.machine.startQuestByName(name),
     startQuestObject: (q) => questBridge.machine.startQuestImmediate(q),
     findQuests: (name) => [...questBridge.machine.quests.values()].filter((q) => q.questName === name),
+    activeQuestNames: () => [...questBridge.machine.quests.values()].filter((q) => !q.questComplete && !q.questTombstoned).map((q) => q.questName), // TIMEFREE
     tombstoneQuestsByName: (name) => {
       for (const q of [...questBridge.machine.quests.values()]) {
         if (q.questName === name && !q.questTombstoned) questBridge.machine.tombstoneQuest(q);
@@ -17188,7 +17189,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (sent.weapon) {
         let amount = Math.trunc((10 * duelWearDamage(d.dmg, sent.weapon, playerEntity) + 50) / 100);   // AUDIT DUEL1 A2: the defender's damage, never past what this weapon could deal
         if (amount === 0 && Math.random() < 0.2) amount = 1;
-        if (amount > 0) lowerCondition(sent.weapon, dfuBlowWear(amount), playerEntity, (l) => townTalk.say(l));   // BALANCE1: a duel's blow wears on the port's scale too; WEAR-TWICE: twice DFU's
+        if (amount > 0) lowerCondition(sent.weapon, dfuBlowWear(amount), playerEntity, (l) => townTalk.say(l));   // BALANCE1: a duel's blow wears on the port's scale too; WEAR-TWICE: twice DFU's, WEAR-ONE: DFU's again
       }
     }
   };
