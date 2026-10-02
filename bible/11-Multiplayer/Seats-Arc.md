@@ -910,8 +910,19 @@ the part of the treasury realm records paid in (`realm_gold`), and the sale pays
 pieces' cost back there; a hall's entries are `guild` (the default) and `public` (a party is not a guild's), and
 `guild` joined private/party/public for every home; decor by Officers - off their own records, a piece's half back to
 the treasury, the catalogue's pieces alone; the guild Stores chest is every cupboard of the hall (the Guild tab's guild
-Stores to a member). NOT YET: a hall's outside and yard (HOME-LOOK and HOME-YARD name a character); a seat's palace as
-a second hall (7.2) - BUILT by SEAT-HALL (2026-10-02, 7.2's BUILT), its own table and not a home's row.
+Stores to a member). NOT YET: a hall's outside and yard (HOME-LOOK and HOME-YARD name a character) - BUILT by
+GUILD-YARD (2026-10-02, below); a seat's palace as a second hall (7.2) - BUILT by SEAT-HALL (2026-10-02, 7.2's BUILT),
+its own table and not a home's row.
+
+BUILT (GUILD-YARD, 2026-10-02, Mac: "Guild hall next"; `06-Systems/Online-Arc.md` GUILD-YARD): a hall's outside and its
+yard are its keepers', as its rooms are. DECIDED: the keepers are the decor's - the Officers and the guildmaster, a
+realm character each - under ONE rule (`decor.js` OWNS) for the rooms, the yard and the outside; a plain member and a
+stranger change neither, and see both as every visitor does. DECIDED: the outside is painted free, as a home's is (no
+treasury line). DECIDED: a yard's piece is the catalogue's, under a home's yard law and cap (sixty), paid off the
+keeper's own record (the hall's region's account last, as a home's yard's); half of what records paid for it, given back
+when it is taken out or shrunk, goes into the guild's treasury (`hall-piece`), never to the keeper; the hall's sale counts
+its yard with its rooms (one sum of its pieces, half back with the deed share) and the yard goes with it. DECIDED: a
+seat's palace stands no yard still (`hall-yard`, a palace's word now). No migration (`acct65`).
 
 BUILT (GUILD1e, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1e): the private guild board - a guild's own notes, its
 members' alone, read and pinned on the Guilds tab of every Notice Board and at the board in its hall: Daggerfall's own

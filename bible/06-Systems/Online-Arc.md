@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8604` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8605` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -10270,7 +10270,7 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
   reclaim alike.
 - **Decor by Officers** (`decor.js` OWNS): the home's own character, or a guild's hall and a keeper of its guild - the
   same four places bound in the same order, read once through `k`. A hall holds the catalogue's pieces alone - never
-  a keeper's own thing (`hall-item`: whose would it be at the sale?) - and stands no yard yet (`hall-yard`). Its keeper
+  a keeper's own thing (`hall-item`: whose would it be at the sale?) - and stood no yard (`hall-yard`; GUILD-YARD, below, stands it). Its keeper
   pays for a piece off their own record, as in any home; half of what records paid, given back when a piece is taken
   out or shrunk, goes into the guild's treasury (`hall-piece`), never to whichever Officer took it down.
 - **The town answer** (`homes.js homesInTown`): a hall is `{ owner: its guild's name, entry, mine: false, hall: { name,
@@ -10316,7 +10316,7 @@ own module (`src/net/hallLaw.js`), never net/guildLaw.js, which is in the relay'
 
 Known limits (a later slice's): a hall's board (Seats-Arc 8.2's "private guild board", the board's Guilds tab) is
 GUILD1e's - the hall had no board yet (AUDIT-SEATS: GUILD1e built it); a hall's outside is not painted and its yard not furnished (HOME-LOOK and
-HOME-YARD name a character); the banner at the door is the building's FIRST door record (a house with two doors hangs
+HOME-YARD name a character - GUILD-YARD, below, built both); the banner at the door is the building's FIRST door record (a house with two doors hangs
 them at the first); heraldry is not yet on the map ring, the guild tag's frame, the siege HUD or the Chronicle
 (SEAT1a-SEASON1); a hall's price is the client's word, as a home's.
 
@@ -10410,6 +10410,40 @@ carries a mutant in `tools/mutants/auditguild1d.json` (44 records, all dead).
 
 Left as known limits: the banner pass allocates the eye's small array each frame it draws, and another client's
 banners change heraldry only when its town's list is next read.
+
+### GUILD-YARD - a guild hall's outside and its yard, its keepers'
+
+(2026-10-02, Mac: "Guild hall next"; `11-Multiplayer/Seats-Arc.md` 8.2's NOT YET - "a hall's outside and yard (HOME-LOOK
+and HOME-YARD name a character)" - and its BUILT, with the DECIDEDs.) One deploy of the account service (`acct65`); no
+migration (the look's column and the yard's flag stand on every homes row already - 0038, 0039); no relay change.
+
+- **The keepers**: a hall's outside and its yard are its keepers', as its rooms are - its Officers and its guildmaster,
+  a realm character each (hallLaw.js HALL_POWERS.decorate). ONE rule says so: `decor.js` OWNS (the home's own character,
+  or a hall and a keeper of its guild), now exported - the rooms' pieces, the yard's and the outside all ask it in their
+  own statement. A plain member and anyone outside the guild change nothing (`no-home`, as at another's home); every
+  visitor sees both.
+- **The outside** (HOME-LOOK): `homes.js` setHomeLook writes `homes.look` WHERE OWNS - free, as a home's, a decorator's
+  write against the hour's; `homesInTown` answers a hall's `look` to everyone (`lookOfRow`, a home's own projection).
+- **The yard** (HOME-YARD): `decor.js` placeDecor stands a hall's yard - the hall's rule (`hallBars`) bars a keeper's own
+  thing anywhere and a yard's piece at a palace alone (SEAT-HALL's Charter Room - `hall-yard`, a palace's word now), in
+  the read and inside the INSERT (AUDIT GUILD1d S3). The yard's law and cap (sixty) are a home's yard's; the keeper's
+  record pays (the hall's region's account last); a yard piece's half, taken out or shrunk, goes into the guild's
+  treasury (`hallPieceBack`, `hall-piece`), never to the keeper. The town's yards (`/v1/homes/yards`) carry the hall's.
+- **The sale**: `halls.js` sellHall's sum is every piece of the building, yard and room alike (`piecesBackOf`), half of
+  what records paid back into the treasury with the deed share, and the yard goes with the row (the table's cascade).
+- **The client**: `systems/onlineHomes.js` homeOutsideKept - the playing character's own home, or a hall the town's
+  answer calls it a `keeper` of; `scenes/homeYards.js` stands an empty yard for its keeper (a yard with pieces for
+  everyone), finds the keeper's lot under their feet, and opens the decorator there as "Your guild's yard"
+  (`homeYardWhere`) with `hall` - the panel says a piece's half goes to the guild's treasury and the purse is given
+  nothing (decorTool.js, AUDIT GUILD1d A4/A9's own); the Exterior tab paints it through the registry's `setLook`, said
+  as "Your guild's hall is painted."; `scenes/world.js` draws a hall its character keeps out of the pixel's merge, as an
+  owner's home (`homeRow.keeper`, `row?.keeper` in refreshHomeLooks), so the keeper's painter tries a look on it.
+- Four hosts: `world.js` WIRED (the yards, the look); `worldModes.js` and `dungeonContext.js` stand no street;
+  `exterior.js` (the bench) FLAGGED - no online homes, as HOME-LOOK and HOME-YARD.
+
+Pinned: `test/guild_yard.test.js` (9); re-aimed `test/guild1d_service.test.js` (a hall's yard stands) and the
+ACCOUNT_VERSION pins (`acct65`). `tools/mutants/guild_yard.json` (17, all dead); `guild1d.json`'s hall-yard record now
+a palace's (equivalent, as before), `housing.json`'s and `fb1001_yard.json`'s re-aimed by content.
 
 ### GUILD1e - a guild's own board
 

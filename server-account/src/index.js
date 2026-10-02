@@ -879,7 +879,7 @@ const service = {
           const status = RENT_STATUS[r.error] ?? 400;
           return no(r.error, status, origin);
         }
-        if (path === '/v1/homes/look') {   // HOME-LOOK: how a home looks outside - its owner's character's
+        if (path === '/v1/homes/look') {   // HOME-LOOK: how a home looks outside - its owner's character's (GUILD-YARD: a hall's, its keepers')
           const r = await setHomeLook(hctx, who.player, body);
           if (!('error' in r)) return json(r, 200, origin);
           return no(r.error, r.error === 'no-home' ? 404 : r.error === 'decor-rate' ? 429 : 400, origin);

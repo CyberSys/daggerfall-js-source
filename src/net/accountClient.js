@@ -439,7 +439,7 @@ export const REFUSALS = Object.freeze({
   'guild-seat': 'Give up the guild\'s Charters first, at each seat\'s Notice Board.',   // SEAT1c
   'guild-battle': 'The guild is named in a siege or a Tourney this week. It cannot go until the battle is over.',   // SEAT1c
   'hall-item': 'A guild hall holds furniture from the catalogue alone - your own things stay yours.',
-  'hall-yard': 'A guild hall\'s yard cannot be furnished yet.',
+  'hall-yard': 'A palace\'s grounds cannot be furnished - only its Charter Room.',   // GUILD-YARD: a guild hall's yard is its keepers'; a palace's grounds stand none
   'bad-heraldry': 'Choose two different colours - Ash only as the border - and one device.',
   'heraldry-same': 'That is already your guild\'s heraldry.',
   'heraldry-moved': 'The guild\'s heraldry changed meanwhile. Look again.',

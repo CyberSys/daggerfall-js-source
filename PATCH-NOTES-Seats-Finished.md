@@ -21,6 +21,12 @@
 - **Standing's trend.** A seat's board now says which way its holder's Standing moved since the last Turning - "Standing 55, up 7 since the last Turning."
 - **A Festival you can hear and see.** While a Festival rules in a town, its streets play the tavern's songs, the holder's banners hang at the taverns' doors and over the bounty boards too, and a lantern glows before every banner after dusk.
 
+## Your guild hall's outside (online)
+- **Paint your hall.** A guild's Officers and its guildmaster can now choose the hall's outside - its walls, windows, roof and door - from the **Exterior** tab of the yard's decorator, just as you paint your own home. It costs nothing, and everyone walking past sees it.
+- **Furnish its yard.** Stand on the hall's lot and press Decorate: the same catalogue as a home's yard, up to sixty pieces, each paid in gold by whoever places it (from their purse, then the region's bank).
+- **The guild gets the half back.** Take a yard piece down, or shrink it, and half of what it cost goes into the guild's treasury - never into the pocket of whoever took it down. Sell the hall and its yard goes with it, half of each piece's cost paid back to the treasury along with the hall's own share.
+- **Members and visitors look, they don't touch.** Ranks below Officer, and anyone outside the guild, see the hall's colours and its yard but cannot change them.
+
 ## Fixes
 - **Voiding a revolt before it is fought no longer saves the Charter.** It now lapses, exactly as it would have at the Turning had nobody put the revolt down.
 - **A voided capture gives back the holder's building projects.** Anything the defenders were building when their seat fell starts again where it was, with the materials it held taken back from the seat's stockpile - the silver they spent on it is no longer lost. A voided revolt that stood does the same, and brings back the holder's Edict for next week.

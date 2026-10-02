@@ -83,8 +83,8 @@
   {
     "name": "ROAD-LOT-the-host-finds-no-road",
     "file": "src/scenes/homeYards.js",
-    "old": "return { yard: y, others, roads: yardRoadsOf(p, y.frame.at, y.lot) };",
-    "new": "return { yard: y, others, roads: [] };",
+    "old": "return { yard: y, others, roads: yardRoadsOf(p, y.frame.at, y.lot), hall: !!home.hall };",
+    "new": "return { yard: y, others, roads: [], hall: !!home.hall };",
     "tests": [
       "test/fb1001_yard.test.js"
     ]
