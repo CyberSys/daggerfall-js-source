@@ -78,6 +78,7 @@ import { setInfectionHost } from '../systems/infection.js';   // AUDIT 39 (#37):
 // point stands and is now made in ONE place instead of two.
 import { partyCompassPoints } from '../ui/partyMapMarks.js';   // COMPASS-PARTY
 import { loadHud, drawHud, hudScale as hudScaleFor, hideHudTextSurfaces } from '../ui/hud.js';   // AUDIT FONT F3: the two DOM text surfaces' one hide door, for the hosts' overlay branch
+import { isEnhanced } from '../systems/uiSkin.js';   // FONT3: the readied-spell line is the classic skin's
 import { largeHudOptions } from '../ui/hudLarge.js';   // U45: the classic bottom bar
 import { drawText, makeFont } from '../ui/text.js';
 import { HudText } from '../ui/hudText.js';
@@ -1926,7 +1927,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15139 / exterior.js:3766), set
+  // host's own townTalk sink (world.js:15180 / exterior.js:3766), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3055,7 +3056,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1118 against :1148; worldModes.js:8108 against :8128).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1118 against :1148; worldModes.js:8109 against :8129).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3879,8 +3880,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:25342,
-              // exterior.js:5385 and worldModes.js:8828 already ran;
+              // playerArrowHitFoe is the one copy world.js:25384,
+              // exterior.js:5385 and worldModes.js:8829 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6895,7 +6896,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       ];
       lines.forEach((t, i) => drawText(renderer, hudFont, t, 4 * s2, (4 + i * 9) * s2, s2, [0.4, 1, 0.5, 1]));
     }
-    if (hudFont && magic.readied()) {
+    // FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the classic skin's line
+    // alone. Under the enhanced skin the HUD's caption already says the readied spell in the pixel face ("Ready" and
+    // its name, ui/enhancedHud.js parts.readied), so this bitmap line stood under it in a second face, saying it twice.
+    if (hudFont && magic.readied() && !isEnhanced()) {
       // U2a's first consumer: the readied spell + cost, classic text
       // above the vitals (the spellbook window replaces this in U4).
       const s = hudScaleFor(canvas.width, canvas.height);
@@ -7500,6 +7504,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         // same signal through opts.dungeonOnline (worldModes.js), which
         // the standalone ?dungeon probe never sets, so it stays open there.
         loadingPrevented: () => !!opts.dungeonOnline?.(),
+        timers: (o) => opts.timers?.(o) ?? null,   // TIMERS1: the world host's source, through worldModes
         savingPrevented: () => isGateArena(dfLocation),   // WB3b: the pause's Save says why, in the court
         // SAV4: the slot window's seams over the same two verbs.
         playerName: () => playerEntity.name, playerId: () => playerEntity.characterId ?? null,
