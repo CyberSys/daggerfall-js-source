@@ -3,7 +3,7 @@
 ## The hourglass
 - **A new Timers window, online.** An hourglass now sits next to your profile icon on the pause menu. Press it to see
   every shared event in the world with a live countdown:
-  - **Oblivion Gates** - when the next one opens, and while one stands, when it seals and when it collapses
+  - **Dagon's Breach** - when the next one opens, and while one stands, when it seals and when it collapses
   - **Town raids** - every raid in your own region, when it starts and when the raiders withdraw, plus the next raid
     anywhere else and how many more are coming today
   - **The Sunday Turning** - the seat week's settlement at Sunday 18:00 UTC, and the Reckoning on Friday 18:00 UTC
