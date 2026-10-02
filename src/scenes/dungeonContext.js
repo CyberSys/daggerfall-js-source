@@ -8917,7 +8917,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       droppedLoot._piles.length = 0;
       // NT1 (F214): the context minted its own cast engine; a spell in
       // flight at the exit owned a batch nothing else can reach.
-      magic.handReadyTo(opts.outerCastEngine?.() ?? null);   // CAST-USE (AUDIT part five F1): a ready held at the way out (the door, a Recall, a load) goes with the player
+      magic.handReadyTo(opts.outerCastEngine?.() ?? null);   // CAST-USE (AUDIT part five CU1): a ready held at the way out (the door, a Recall, a load) goes with the player
       magic.destroy();
       // V2c: hand the sunlight seam back to whoever held it (the town
       // page's worldModes registration) - a latched dungeon answer

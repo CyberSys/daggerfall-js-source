@@ -1,10 +1,10 @@
-# FIELD BUGS 2026-10-01 - the runaway pet's tiger; and seven lines: the yard, the market, the paint, the rent, the road, the potions, the climb past 100; and eleven: the rain in a puddle, the sprinkle, the square clouds, the sea from under it, the slow frames, the Overworld; and seven more: mining, the regeneration spell, the King's Mark, the cloak's drape, the identified trade, the shrine
+# FIELD BUGS 2026-10-01 - the runaway pet's tiger; and seven lines: the yard, the market, the paint, the rent, the road, the potions, the climb past 100; and eleven: the rain in a puddle, the sprinkle, the square clouds, the sea from under it, the slow frames, the Overworld; and seven more: mining, the regeneration spell, the King's Mark, the cloak's drape, the identified trade, the shrine; and eight more: the cast when used, the friend list, the mountain, the slow fall, the 3D map, the gate's health, the cursor
 
-*The same date, four times (the merges of PR #498 and PR #499 with main, 2026-10-01, and part four's branch after
-them): KEPT-KILL was written on main (PR #497) while part two - a list of seven - was written on PR #498's branch, and
+*The same date, five times (the merges of PR #498 and PR #499 with main, 2026-10-01, and part four's and part five's
+branches after them): KEPT-KILL was written on main (PR #497) while part two - a list of seven - was written on PR #498's branch, and
 part three - two lists, eleven lines - on PR #499's, each under the same name; part four - seven screenshots and a line
-- on `claude/mining-life-skill-broken-s7ustd`. The merges keep all of them here, so every cite of this page stands; part
-two's numbers (1-7), part three's (1-11) and part four's (1-7), their tags and their pins' `fb1001_` are each their
+- on `claude/mining-life-skill-broken-s7ustd`; part five - eight threads - on `claude/new-session-4qdvn6`. The merges keep all of them here, so every cite of this page stands; part
+two's numbers (1-7), part three's (1-11), part four's (1-7) and part five's (1-8), their tags and their pins' `fb1001_` are each their
 own.*
 
 One #bug-reports thread, and Mac's ask on it: *"Report on other player's quest enemies being dead"*, then *"If someone
@@ -1114,7 +1114,7 @@ left. `test/fb1001_slowfall.test.js`.
 
 ## ORBIT-FREE: a drag turns and tilts once it means to (6; asked)
 
-**Reproduced first** (the real `HeldMapWindow`'s stage listeners): a right-drag of 20 px across, then 40 down, then 20
+**Reproduced first** (the real `HeldMapWindow`'s stage listeners): a right-drag of 30 px across, then 40 down, then 20
 on the diagonal handed the 3D sheet `[10,0] [20,0] [0,0] [0,0] [20,0]` - all 60 px down dropped. TURN-STEADY's lock
 (`ui/heldMap.js`), from Mac's "its a bit hard to control", let the first 8 px choose for the whole drag; Shift + left (a
 trackpad's) the same. DFU's automap turns and orbits from one drag (`ui/automapCamera.js` dragRotate - the classic
@@ -1161,8 +1161,8 @@ record renamed from the profile's id to the player's (a friend of both is one fr
 secret retired; the friends online are sent their picture again. A party seat under the old id is not carried; it
 lapses as any seat whose tabs went (PARTY_OFFLINE_MS). The client accepts its picture under the signed-in player's id
 or the profile's, from a relay before this (`net/social.js` AUDIT SOC B19), and a follower's cancel of a shared rest
-reads the id the hub seats me by (`social.acct`), not the profile's. **world142**; no frame changes shape, no account
-service change. Ship the client with the relay: a page loaded before it refuses the new picture until it reloads (the
+reads the id the hub seats me by (`social.acct`), not the profile's. **world142**; the hub hello gains `ps` (the
+audit's F5) and no other frame changes shape; no account service change. Ship the client with the relay: a page loaded before it refuses the new picture until it reloads (the
 relay-version notice tells it to).
 
 The older hub pins modelled one account as several tabs of several subjects; under ONE-SEAT one subject holds one hub
@@ -1173,7 +1173,7 @@ claims), `chatchan` (the party line by claims; the room's party budget over thre
 in `auditsoc` B5/B18/B10 and `soc3_socialpanel`. The harness signs a social hello's token for its account
 (`fakeRoom.mjs`), and its issued-at walk restarts from the clock past MAX_TTL_S. Mutant records re-aimed by content:
 `auditsoc.json` A7-replaced-socket-never-leaves, `soc1.json` S11-state-to-every-tab, and `soc1.json`
-S38-version-not-bumped (it still said world140 - missed at world141's bump - now world142); 157 dead, 2 equivalent as
+S38-version-not-bumped (it still said world140 - missed at world141's bump - now world142); 158 dead, 2 equivalent as
 recorded. `test/fb1001_friendsync.test.js`.
 
 **Main's red, ported.** `test/herald.test.js` still pinned world140 (CLIMB5's bump missed it), and five relay pins did
@@ -1227,8 +1227,8 @@ and fall? A werewolf or wereboar? Any `[online] checkpoint failed` on the consol
 
 ## The audit of part five (Mac: "audit this")
 
-Lanes over part five's diff, one a fix (CAST-USE; FRIENDS-SYNC; SLOW-SLIP, SLOW-GRASP, SLOW-PRESS; ORBIT-FREE with
-CURSOR-EDGE; the record and its housekeeping; WOD-ROCK as it lands), each reproducing on the real modules. Every finding
+Lanes over part five's diff, one a fix each (CAST-USE; FRIENDS-SYNC; SLOW-SLIP, SLOW-GRASP, SLOW-PRESS; ORBIT-FREE
+with CURSOR-EDGE; WOD-ROCK as it landed) and one the record's, each reproducing on the real modules. Every finding
 pinned red on the branch before its fix (a gap pin's mutants are its claim) and mutation-checked.
 
 | Tag | Lane | What it was | Done |
@@ -1245,6 +1245,7 @@ pinned red on the branch before its fix (a gap pin's mutants are its claim) and 
 | CU1 | CAST-USE | the same two engines at the transition: a ready held when the mode flipped stayed on the other one - a touch ready taken down the stairs (the dungeon door lets one through) fired at the first click back outside, and one held at the way out died with the dungeon's engine, the item's condition spent and no spell cast (a spellbook ready the same, before part five) | the ready, its freeness and its price, handed to the engine that fires where the player stands - down at the flip (`worldModes.js`), out in the dungeon context's teardown (the door, a Recall, a load) - `hostMagic.js` handReadyTo, takeReady |
 | CU2 | CAST-USE | the dungeon's ready line priced a free ready at the spell's full cost ("Ice Storm (150)" at 50 magicka, the click spending 0) - common now item readies land there | the line prints the ready's stored price (`readiedCost`) |
 | CU3 | CAST-USE | Cast When Strikes and reflection underground ride the live engine - true, and unpinned (either door on the mount-time engine passed every suite) | pinned |
+| R | the record | part five's own page and rows: the FRIENDS-SYNC section said no frame changed shape (F5 added the hello's `ps`), 157 dead where 158 died, ORBIT-FREE's repro 20 px across where it was 30, the H1, the preface and Active-Arcs silent on part five, the Ledger row naming one of its two pins, a Testing row overstating its source pins, CAST-USE's audit tags F where the page said CU; and main's struck Ledger row 821, re-aimed by half (its `world.js:2584-2589` now `8855-8867`) | corrected; the cast-use tags CU1-CU3 in the source, the pins and the mutant names |
 
 The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
 Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2.json` C2-one-half-sent. Pin moved:

@@ -1,11 +1,11 @@
 // AUDIT 2026-10-01 part five (Mac: "audit this") - CAST-USE, on the real engines (two createPlayerMagic, the street's and
 // the dungeon's, over one player), the real createEnchantCtx mounted through liveCastEngine, the real useItem:
-//   F1 a ready held when the mode flips was still on the other engine - one taken down the stairs (a touch ready lets the
+//   CU1 a ready held when the mode flips was still on the other engine - one taken down the stairs (a touch ready lets the
 //      dungeon door through) fired at the first click back outside, one held at the way out died with the dungeon's
 //      engine, the item's condition spent and no spell cast;
-//   F2 the dungeon's ready line priced an item's free ready at the spell's full price ("Ice Storm (150)", the click
+//   CU2 the dungeon's ready line priced an item's free ready at the spell's full price ("Ice Storm (150)", the click
 //      spending 0);
-//   F3 Cast When Strikes underground goes through the dungeon's engine both ways - true, and unpinned.
+//   CU3 Cast When Strikes underground goes through the dungeon's engine both ways - true, and unpinned.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -40,7 +40,7 @@ function host({ foes = [] } = {}) {
   return { player, street, dungeon, modes };
 }
 
-test('AUDIT CAST-USE F1: a ready taken across a mode flip goes with the player - free and at its stored price (worldModes hands it at each flip)', () => {
+test('AUDIT CAST-USE CU1: a ready taken across a mode flip goes with the player - free and at its stored price (worldModes hands it at each flip)', () => {
   try {
     const h = host();
     useItem(item(ENCHANTMENT_TYPES.CastWhenUsed, 31), h.player.items, { entity: h.player, isEnchanted: () => true });
@@ -69,7 +69,7 @@ test('AUDIT CAST-USE F1: a ready taken across a mode flip goes with the player -
   } finally { setDefaultEnchantCtx(null); }
 });
 
-test('AUDIT CAST-USE F2: the dungeon\'s ready line prices a free ready at what the click spends (0), a paid one at its stored price', () => {
+test('AUDIT CAST-USE CU2: the dungeon\'s ready line prices a free ready at what the click spends (0), a paid one at its stored price', () => {
   try {
     const h = host();
     h.modes.mode = 'dungeon'; h.modes.dungeonCtx = { castEngine: h.dungeon };
@@ -80,7 +80,7 @@ test('AUDIT CAST-USE F2: the dungeon\'s ready line prices a free ready at what t
   } finally { setDefaultEnchantCtx(null); }
 });
 
-test('AUDIT CAST-USE F3: Cast When Strikes underground lands through the dungeon\'s engine - on a foe, and on the player (mutants: either door on the mount-time engine)', () => {
+test('AUDIT CAST-USE CU3: Cast When Strikes underground lands through the dungeon\'s engine - on a foe, and on the player (mutants: either door on the mount-time engine)', () => {
   try {
     const foe = { entity: { level: 3, health: 50, maxHealth: 50, activeEffects: [], items: [] }, ai: { feet: [0, 0, 0], isHostile: true } };
     const h = host({ foes: [foe] });
