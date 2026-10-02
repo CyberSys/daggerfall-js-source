@@ -48,7 +48,7 @@
   {
     "name": "GALLEON-lay-unwired",
     "file": "src/scenes/navalHost.js",
-    "old": "      if (side === 'starboard' || side === 'port') galleonGuns.lay(boat, side, clock);   // GALLEON: laid - her shutters up, her guns out\n",
+    "old": "      if ((side === 'starboard' || side === 'port') && myBoatState(boat).guns.ready(side)) galleonGuns.lay(boat, side, clock);\n",
     "new": "",
     "tests": [
       "test/galleon_model.test.js"

@@ -332,7 +332,7 @@
   {
     "name": "AUDIT-GALLEON-R10-a-chainplate-in-the-air",
     "file": "src/world/galleonRig.js",
-    "old": "plateX: Object.freeze([5.419, 5.387])",
+    "old": "plateX: Object.freeze([5.387, 5.387])",
     "new": "plateX: Object.freeze([5.8, 5.8])",
     "tests": [
       "test/auditgalleon_rig.test.js"

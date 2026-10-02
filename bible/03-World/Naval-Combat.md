@@ -1667,13 +1667,22 @@ Small Ship's build is measured off her (`navalShips.js` HULL_BUILDS, `world/gall
 long guns a side, a gun a port, each muzzle at its port's middle a hair outside her planking (5.95 m out, 2.24 m over
 the sea - her gun deck at 1.085), so a broadside leaves her through the holes it is fired from; two chain chasers on
 swivels over her bow rail (7.45 m); her barrels under her castle astern. Her box is her MeshCollider's bounds - her
-hull's planking and her castle's (stem 21.93, stern -19.91, half beam 5.86, keel -4.64 - GALLEON-2, Mac's second export's deeper V, -3.89 on his first - roof 12.3); her rig four boxes
-of her set canvas over that roof (the fore course and topsail, the main topsail, the gaff, the jib).
+hull's planking and her castle's (stem 21.93, stern -19.91, half beam 5.86, keel -4.64 - GALLEON-2, Mac's second
+export's deeper V, -3.89 on his first - roof 12.3); her rig seven boxes of her set canvas (AUDIT GALLEON R5/G9): four
+riding the booms that set them, each turned with its boom about the mast as she is trimmed (the fore topsail, the main
+topsail and the gaff in the slots the old boxes held, and the fore course), and three askew along the jib's luff, leech
+and foot - every point of her set canvas, at every trim and every wind, inside one, each three quarters canvas across
+its face. Where her canvas lies inside her hull's box (the course but its outer clews, the gaff sail's foot, the jib
+under her roof) a ball strikes her hull first; out of it, it tears. `rigBand` reads her rig from her roof up.
 
-**Her gun deck works** (`systems/naval/galleonGunDeck.js`, stepped by the host for every ship of hers in play): a battery
-laid - my look at her helm, a captain's run-out tell - opens that side's shutters and runs its guns out; each gun kicks
-RECOIL inboard as its own ball leaves (`muzzle`, its index the port's) and is hauled out over HAUL_S; HOLD_S past the
-last word they run in to load and the shutters close. `scenes/navalHost.js gunDeckOf` reads it.
+**Her gun deck works** (`systems/naval/galleonGunDeck.js`, stepped by the host for every ship of hers in play, at the
+clock's own step - AUDIT GN-G7): a battery laid - my look at her helm while it is loaded (AUDIT GN-G8), a captain's
+run-out tell, another player's word while it is fresh (her `g`, PEER_LAY_S - AUDIT GN-G3) - opens that side's shutters
+and runs its guns out; each gun kicks RECOIL inboard as its own ball leaves (`muzzle`, its index the port's) and is
+hauled out over HAUL_S, and a gun fired before it is out - a quick click, a word read late - stands out at its shot with
+its shutter snapped open (AUDIT GN-G2): a ball leaves only through an open port, from her port as she heels (AUDIT
+GN-G5). HOLD_S past the last word they run in to load and the shutters close. Each side's shutters are their own mesh
+and clip, the port side's the starboard's mirrored (AUDIT GN-G1). `scenes/navalHost.js gunDeckOf` reads it.
 
 **What five guns moved.** Every hull-2 class (the pirate brig, the merchant galleon, the navy cutter) is a sixth lighter
 at the guns. The pins that stood on the six moved to the five's truth: a wary brig outguns no sound armed boat of the

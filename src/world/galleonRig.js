@@ -334,12 +334,13 @@ export function gaffSparsGeometry(sail, mastR) {
  * but a fore course brace, 2 cm into the aftmost fore shroud; the gaff swung past 30 still meets the main shrouds - its
  * sail at 45 and 60, its halyard at 60, its sheet at 75 and 90 (the gaff's sweep crosses the shrouds' sector, wherever
  * they stand). AUDIT GN-R10: each channel against her side (it stood 3.1-3.5 cm off it), its inner face where her
- * planking stands at its top edge (`inX` port and starboard: Mac's hull flares out under the main channels, the port
- * side 2.7 cm more than the starboard), its deadeyes on its top at its outer edge, each deadeye's chainplate down
+ * planking stands at its top edge (`inX` port and starboard, each side's own:
+ * since AUDIT GN-B1 cut her faces as Blender does they mirror - the first bake's own cut stood her port side 2.7 cm
+ * out under the main channels), its deadeyes on its top at its outer edge, each deadeye's chainplate down
  * through the channel's edge to her planking `chainDrop` under it (`plateX` her side there).
  */
 export const CHANNELS = Object.freeze({
-  main: Object.freeze({ feet: Object.freeze([-5.3, -4.9, -4.5, -4.1]), headY: 18.02, inX: Object.freeze([5.352, 5.325]), plateX: Object.freeze([5.419, 5.387]) }),
+  main: Object.freeze({ feet: Object.freeze([-5.3, -4.9, -4.5, -4.1]), headY: 18.02, inX: Object.freeze([5.325, 5.325]), plateX: Object.freeze([5.387, 5.387]) }),
   fore: Object.freeze({ feet: Object.freeze([2.75, 3.4, 4.05]), headY: 16.09, inX: Object.freeze([5.325, 5.325]), plateX: Object.freeze([5.376, 5.376]) }),
   topY: 6.7, thick: 0.14, width: 0.52, deadeyeR: 0.11, deadeyeH: 0.22, chainDrop: 0.42,
 });

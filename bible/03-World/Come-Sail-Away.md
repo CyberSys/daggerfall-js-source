@@ -2292,13 +2292,19 @@ her sails, booms and rudder found by their names:
 - **Her wheel** on the castle's roof before the helmsman's place (DrivePosition, the eye over it to the bow), turned
   `WHEEL_TURNS` hard over each way and her rudder `RUDDER_DEG` on its post, both by the mod's Rudder Wheel Controller's
   TurnAngle through her own ten clips.
-- **Her sails and ropes** (`world/galleonRig.js`) - a brigantine's five by the mod's own names, so its laws read them:
-  a fore course and a fore topsail and a main topsail (square, the two topsails small), a large main gaff sail and a
-  large jib; on four booms (the mod's trim turns them), each canvas skinned a bone a vertex and baked as the mod bakes
-  its own (FixDeformations), furled and set by the wind's side through her own clips over the mod's Sail and Staysail
-  Controllers (Stowed, or Unstowed blended by Wind); her shrouds with their deadeyes and
-  ratlines on channels outside her hull, her stays, backstays, bobstay and flagstaff (a mesh a piece, never one box
-  round the whole rig), her braces and sheets skinned to the yards and booms they work.
+- **Her sails and ropes** (`world/galleonRig.js`) - a brigantine's five by the mod's own names, so its laws read them: a
+  fore course and a fore topsail and a main topsail (square, the two topsails small), a large main gaff sail and a large
+  jib; on four booms pivoting on her masts' own axes (the mod's trim turns them), each canvas a grid skinned a bone a
+  grid point, head row first, and baked as the mod bakes its own (FixDeformations), furled on its yard and set by the
+  wind's side through her own clips over the mod's Sail and Staysail Controllers (Stowed, or Unstowed blended by Wind) -
+  a square sail's head on its yard and its belly from nothing there, the topsails' half the course's; her shrouds with
+  their deadeyes and ratlines on channels flush on her side, her stays (the forestay over the fore topsail's yard, the
+  main stay from under the crow's nest to the fore mast's after face), backstays, bobstay (under the bowsprit to her
+  stem) and flagstaff (a mesh a piece, never one box round the whole rig), her braces and sheets skinned to the yards
+  and booms they work and belayed on her rails and bulwark, the mainsheet on her main deck at the castle's foot. AUDIT
+  GALLEON R1-R10: inside the auto-trim's 30 degrees nothing of her rig meets anything else or passes through her (the
+  least clearance 5 cm); the manual trim's extremes still cross in 19 named places, the gaff's sweep over the main
+  shrouds' sector the most (13 cm at 60-90 degrees) - the mod's trim limits stand.
 - **Her guns out of her ports.** Ten gunports (five a side, Mac's) carry a shutter each on the mod's Door Controller
   (`LID_OPEN_DEG` up on its top hinge) and a gun behind it on her gun deck (1.085 m); two chasers on swivels over her
   bow rail. HULL_BUILDS' Small Ship is measured off her (`systems/naval/navalShips.js`, `GALLEON_BATTERIES`): each
