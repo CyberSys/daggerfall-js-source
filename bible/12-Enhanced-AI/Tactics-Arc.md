@@ -13,7 +13,7 @@ overdoing it"*. His calls, asked the same day:
 | Griefing | How is it done today? | **Guards blocking doors** - guards clump in a doorway so nobody can get in or out |
 | Blows | How many new telegraphed attacks? | **One or two, tier-based** - small wind-up attacks on tougher foes only, used sparingly, always readable and dodgeable |
 
-**Status: PROPOSED - nothing built.** Awaiting Mac's go on the slices below.
+**Status: DESIGNED 2026-10-02 - every call made (both tables); nothing built yet.**
 
 ## Where it stands (measured on the code, 2026-10-02)
 
@@ -90,11 +90,13 @@ TACT1 -> TACT3 -> TACT2 -> TACT4: cover first (everything else reads it), the cr
 third (it needs both), the blows last (they need the ring). Each slice: pins first, a real-collider harness in a real
 dungeon and town block, a mutation list, an audit before merge, patch notes in its PR.
 
-## OPEN - Mac's calls
+## Mac's calls, the second set (2026-10-02)
 
-1. **Attack tokens:** 2 melee + 2 ranged per target by default?
-2. **Backing off at low health:** which classes flee and which fight to the death (proposed: animals and the cowardly
-   human classes flee; undead, daedra, constructs and guards never)?
-3. **The classic lane:** the cross-pool spacing and the doorway rule are griefing fixes - apply them with Enhanced AI
-   off too, or only with it on?
-4. **Telegraph tier:** from which level (or meaner-monsters tier) do foes get a telegraphed blow?
+| | The question | Mac's call |
+|---|---|---|
+| Attack tokens | How many foes attack one player at once? | **2 melee + 2 ranged**; the rest hold the ring, circle and wait |
+| Fleeing | Who breaks and runs when badly hurt? | **Animals and the cowardly human classes**; undead, daedra, constructs and guards fight to the death (the others back off and circle) |
+| Classic lane | The anti-grief fixes with Enhanced AI off? | **Always on**: the cross-pool spacing and the doorway rule apply on the classic lane too (the grief works whatever the victim's setting) |
+| Telegraph tier | Who gets a telegraphed blow? | **Level 10 and up, or an elite (meaner-monsters) foe** |
+
+**Status: DESIGNED - all calls made.** Built slice by slice in the order above.
