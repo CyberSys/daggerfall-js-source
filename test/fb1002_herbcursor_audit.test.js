@@ -1,9 +1,9 @@
-// AUDIT of HERB-CURSOR (FIELD BUGS 2026-10-02 part three; Mac: "Audit this"). Four lenses over the batch as committed
+// AUDIT of HERB-CURSOR (FIELD BUGS 2026-10-02 part four; Mac: "Audit this"). Four lenses over the batch as committed
 // (8e5dcbe2), each against the base (1d2e8ce8): A the mouse and the lock in a browser, B the gathering host's acts and
 // the click, C every other minigame, D the records. Every finding was reproduced red here first; world.js's own lines
 // (the pointer seam, the Escape's keyup, the street ladder's act click) are lifted out of the source and run over the
 // real pointerLock.js, activateGate.js and gathering host, as test/fb1001_audit.test.js lifts the ladder.
-// bible/01-Overview/Field-Bugs-2026-10-02.md, part three's audit.
+// bible/01-Overview/Field-Bugs-2026-10-02.md, part four's audit.
 import './chargenDom.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

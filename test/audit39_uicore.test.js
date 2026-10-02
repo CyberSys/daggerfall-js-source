@@ -139,7 +139,8 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // drag seam is a corner slot the PLAYER chose Attack for - never by default (TI1's two stand there), and never on a
   // host with no attack hook, where it would be a door that opens nothing.
   assert.match(touch, /filter\(\(a\) => a\.kind !== 'attack' \|\| typeof hooks\.attack === 'function'\)/, 'no Attack slot where the host has no attack');
-  assert.match(touch, /const face = hooks\.enhanced \? `font-weight:500;font-size:15px;\$\{PIXEL_FONT_CSS\}` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';/, 'FONT1: the enhanced skin\'s layer is in the pixel face, the classic skin\'s in the system face');
+  // FONT3: the trio FIRST, so the layer's own weight after it is the one that holds (PIXEL_FONT_CSS carries 500 now)
+  assert.match(touch, /const face = hooks\.enhanced \? `\$\{PIXEL_FONT_CSS\}font-weight:500;font-size:15px;` : 'font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif';/, 'FONT1: the enhanced skin\'s layer is in the pixel face, the classic skin\'s in the system face');
   // AUDIT FONT F5: ALL FOUR HOSTS, not one. FONT1 wired `enhanced` in
   // scenes/world.js alone and this pin read that one file, so on
   // ?exterior, ?dungeon and ?interior every touch button, the nav row
@@ -155,7 +156,7 @@ test('AUDIT 39 F127 / TI1: the drag hook is live - the swipe calls it, and no bu
   // from the layer's root, so it set its own font shorthand and was the
   // one place on this layer a player TYPES that FONT1's face never
   // reached. Same size, this skin's letters.
-  assert.match(touch, /const entryFace = hooks\.enhanced \? `font-weight:600;font-size:18px;\$\{PIXEL_FONT_CSS\}` : 'font:600 18px system-ui,-apple-system,sans-serif';/,
+  assert.match(touch, /const entryFace = hooks\.enhanced \? `\$\{PIXEL_FONT_CSS\}font-weight:600;font-size:18px;` : 'font:600 18px system-ui,-apple-system,sans-serif';/,
     'AUDIT FONT F6: the entry field takes the skin\'s face too');
   assert.match(touch, /box-sizing:border-box;\$\{entryFace\};color:#eee;/,
     'mutants: the field back on its own hard-coded system-ui shorthand, whatever the layer around it wears');

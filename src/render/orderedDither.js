@@ -41,6 +41,19 @@ float bayer4(vec2 p) {
 }
 `;
 
+/** SHIP-FADE (2026-10-02, Mac: "If theyre going out to open sea, they should fade away"): A THING FADING IN OR OUT OF THE
+ *  WORLD - a ship of the sea's - keeps a fragment where bayer4's threshold over the screen's 4x4 tile stands under its
+ *  share (exactly k of 16 kept at k/16: no blending, no sorting, the depth written as any opaque's). The uniform is the
+ *  share CUT, `uDissolveCut`, so nought - every uniform's own start - is whole: a program needs no word to draw all of
+ *  everything, and the branch is never taken but about a fading ship's draws (renderer.js setDissolve). Wants
+ *  BAYER_GLSL above it; the mesh shaders call dissolveCut() after their slice. */
+export const DISSOLVE_GLSL = `
+uniform float uDissolveCut;
+void dissolveCut() {
+  if (uDissolveCut > 0.0 && bayer4(gl_FragCoord.xy) + 0.03125 >= 1.0 - uDissolveCut) discard;
+}
+`;
+
 export const DITHER_GLSL = `
 // A world-fixed cell: rings of constant elevation, each one stepRad tall,
 // each holding as many cells as fit at one stepRad wide. No faces, so no

@@ -90,7 +90,7 @@ export const GROUP_REFRESH_MS = 500;
 export const GROUP_LIFT_M = 2;
 /** GATHER-OW: a group's words - the profession and its count today. */
 export const groupLabel = (profession, n) => `${professionName(profession)} \u00d7${n}`;
-/** HERB-CURSOR (FIELD BUGS 2026-10-02 part three, "Doesn't make mouse appear when the minigame starts, so cant click on
+/** HERB-CURSOR (FIELD BUGS 2026-10-02 part four, "Doesn't make mouse appear when the minigame starts, so cant click on
  *  the targets"): WHAT AN ACT NEEDS OF THE MOUSE, by its machine's kind. The Basket's glints stand about the crosshair,
  *  where no look reaches them (the look turns the view, and they turn with it): its act holds the cursor free. A vein's
  *  points, a body's line and the net's throw (the school its release lands in - AUDIT C1) are aimed by the look itself:

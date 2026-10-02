@@ -101,8 +101,8 @@
  {
   "name": "HS-lookup-always-built",
   "file": "src/ui/heraldrySwatch.js",
-  "old": "    if (now.length !== seen.length || now.some((x, i) => x !== seen[i])) { seen = [...now]; index = heraldryByTag(...now); }",
-  "new": "    { seen = [...now]; index = heraldryByTag(...now); }",
+  "old": "    if (now.length !== seen.length || now.some((x, i) => x !== seen[i])) { seen = [...now]; index = heraldryIndex(...now); }",
+  "new": "    { seen = [...now]; index = heraldryIndex(...now); }",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -191,8 +191,8 @@
  {
   "name": "HS-index-last-kept",
   "file": "src/net/heraldryIndex.js",
-  "old": " && !out.has(g.tag)) out.set(g.tag, h);",
-  "new": ") out.set(g.tag, h);",
+  "old": " && !out.has(g.tag)) out.set(g.tag, {",
+  "new": ") out.set(g.tag, {",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -407,8 +407,8 @@
  {
   "name": "HS-chronicle-no-list",
   "file": "src/ui/seatTab.js",
-  "old": "const arms = heraldryByTag(data, book.data);",
-  "new": "const arms = heraldryByTag(data);",
+  "old": "const arms = heraldryIndex(data, book.data);",
+  "new": "const arms = heraldryIndex(data);",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -416,8 +416,8 @@
  {
   "name": "HS-chronicle-no-answer",
   "file": "src/ui/seatTab.js",
-  "old": "const arms = heraldryByTag(data, book.data);",
-  "new": "const arms = heraldryByTag(book.data);",
+  "old": "const arms = heraldryIndex(data, book.data);",
+  "new": "const arms = heraldryIndex(book.data);",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -443,8 +443,8 @@
  {
   "name": "HS-roll-twice",
   "file": "src/ui/hallOfRecords.js",
-  "old": "typeof g.name !== 'string' || seen.has(g.tag)) continue;",
-  "new": "typeof g.name !== 'string') continue;",
+  "old": "      if (seen.has(g.tag)) continue;\n",
+  "new": "",
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
@@ -452,7 +452,7 @@
  {
   "name": "HS-roll-wordless-rows",
   "file": "src/ui/hallOfRecords.js",
-  "old": "    if (!chronicleLine(r, seat)) continue;\n",
+  "old": "    if (!line) continue;\n",
   "new": "",
   "tests": [
    "test/seat_heraldry_ui.test.js"
@@ -511,5 +511,185 @@
   "tests": [
    "test/seat_heraldry_ui.test.js"
   ]
+ },
+ {
+  "name": "H1-voided-unmapped",
+  "file": "src/ui/heraldrySwatch.js",
+  "old": "const g = row?.kind === 'siege-voided' ? (d.restored ? d.holder : null) : d[",
+  "new": "const g = d[",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "A voided battle shows its attacker's shield."
+ },
+ {
+  "name": "H1-restored-unread",
+  "file": "src/ui/heraldrySwatch.js",
+  "old": "(d.restored ? d.holder : null)",
+  "new": "d.holder",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "An unrestored void shows the holder its line never names."
+ },
+ {
+  "name": "H2-roll-unnamed",
+  "file": "src/ui/hallOfRecords.js",
+  "old": " && line.includes(guildWords(g)))",
+  "new": ")",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The Roll names a guild its line never names."
+ },
+ {
+  "name": "H2-roll-key-order",
+  "file": "src/ui/hallOfRecords.js",
+  "old": "      .sort((a, b) => line.indexOf(guildWords(a)) - line.indexOf(guildWords(b)));",
+  "new": "      ;",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The Roll in the data's key order, not the line's."
+ },
+ {
+  "name": "H3-name-unkept",
+  "file": "src/net/heraldryIndex.js",
+  "old": "{ name: typeof g.name === 'string' ? g.name : null, heraldry: h }",
+  "new": "{ name: null, heraldry: h }",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The index forgets whose name the tag was."
+ },
+ {
+  "name": "H3-name-unchecked",
+  "file": "src/net/heraldryIndex.js",
+  "old": "return e && (name === undefined || e.name === name) ? e.heraldry : null;",
+  "new": "return e ? e.heraldry : null;",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "A reused tag shows the new guild's arms on the old guild's lines."
+ },
+ {
+  "name": "H3-tag-path-checked",
+  "file": "src/net/heraldryIndex.js",
+  "old": "(name === undefined || e.name === name)",
+  "new": "(e.name === name)",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "A name tag (by tag alone) loses its frame."
+ },
+ {
+  "name": "H3-roll-by-tag",
+  "file": "src/ui/hallOfRecords.js",
+  "old": "armsOf(g.tag, g.name)",
+  "new": "armsOf(g.tag)",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The Roll by tag alone."
+ },
+ {
+  "name": "H3-tab-by-tag",
+  "file": "src/ui/seatTab.js",
+  "old": "armsNamed(arms, g.tag, g.name)",
+  "new": "armsNamed(arms, g.tag)",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The Seat tab's Chronicle by tag alone."
+ },
+ {
+  "name": "H3-lookup-by-tag",
+  "file": "src/ui/heraldrySwatch.js",
+  "old": "return armsNamed(index, tag, name);",
+  "new": "return armsNamed(index, tag);",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The lookup drops the row's name."
+ },
+ {
+  "name": "H4-frame-gone",
+  "file": "src/ui/travelViewHud.js",
+  "old": "  if (P.gt && shieldW) {",
+  "new": "  if (false) {",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The Overworld's tag unframed."
+ },
+ {
+  "name": "H4-shield-undrawn",
+  "file": "src/ui/travelViewHud.js",
+  "old": "    drawShield(x, P.arms, px + A.pad,",
+  "new": "    void (x, P.arms, px + A.pad,",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The frame without its shield."
+ },
+ {
+  "name": "H4-border-colour",
+  "file": "src/ui/travelViewHud.js",
+  "old": "x.strokeStyle = heraldryColourOf(P.arms.border)?.hex ?? N.guild;",
+  "new": "x.strokeStyle = N.guild;",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The plate edged in steel, not the guild's border."
+ },
+ {
+  "name": "H4-key-no-arms",
+  "file": "src/ui/travelViewHud.js",
+  "old": "|${h ? `${h.field}/${h.border}/${h.device}` : ''}`;",
+  "new": "`;",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "New arms keep the old sprite."
+ },
+ {
+  "name": "H4-host-handoff",
+  "file": "src/scenes/world.js",
+  "old": "  setTravelViewArmsOf(seatArmsOf);   // AUDIT HERALDRY H4: and the Overworld's name face frames a tag as the name over a head does\n",
+  "new": "",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The host never hands the Overworld its lookup."
+ },
+ {
+  "name": "H4-shield-field",
+  "file": "src/ui/heraldryArt.js",
+  "old": "  ctx.fill(shield);\n",
+  "new": "",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The shield drawn without its field."
+ },
+ {
+  "name": "H4-shield-border",
+  "file": "src/ui/heraldryArt.js",
+  "old": "  ctx.lineWidth = SHIELD_BORDER_W * 2;\n  ctx.stroke(shield);\n",
+  "new": "",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The shield drawn without its border."
+ },
+ {
+  "name": "H4-device-ink",
+  "file": "src/ui/heraldryArt.js",
+  "old": "ink = p.bg ? field : border;",
+  "new": "ink = border;",
+  "tests": [
+   "test/seat_heraldry_ui.test.js"
+  ],
+  "note": "The device's holes in the border colour."
  }
 ]

@@ -34,7 +34,7 @@ ${R} .prof-pip, ${R} .prof-slot { width: calc(6px * ${S}); height: calc(6px * ${
 ${R} .prof-pip.on, ${R} .prof-slot.found { background: ${T.brass}; box-shadow: 0 0 0 1px ${T.outline}, inset 0 0 0 1px ${T.brassHi}; }
 ${R} .prof-slot.missed { background: #5a2a20; box-shadow: 0 0 0 1px ${T.outline}, inset 0 0 0 1px #8a4a3a; }
 ${R} .prof-slot.next { box-shadow: 0 0 0 1px ${T.outline}, inset 0 0 0 1px ${T.brassHi}; }
-${R} .prof-slips { color: ${HURT}; font-size: calc(10px * ${S}); }
+${R} .prof-slips { color: ${HURT}; font-size: calc(11px * ${S}); }
 ${R} .prof-slips:empty { display: none; }
 ${R} .prof-hint { position: absolute; left: 0; top: calc(34px * ${S}); transform: translateX(-50%); margin: 0; width: max-content;
   max-width: min(86vw, calc(330px * ${S})); white-space: normal; line-height: 1.3; color: #efe0b8; opacity: 1; transition: opacity 0.6s; }

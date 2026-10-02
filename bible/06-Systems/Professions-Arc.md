@@ -2667,7 +2667,7 @@ unmoved.
   motion; every cue a sound (`systems/profSounds.js`).
 - **The stations (PROF-STATIONS).** The heat, the stitch's beat and the plane keep their bars and rules, dressed in the
   plaque's frame and the kit's tones (`ui/profStationStyle.js`); no pictures.
-- **The mouse (HERB-CURSOR, `01-Overview/Field-Bugs-2026-10-02.md` part three, and its audit).** The Basket's glints
+- **The mouse (HERB-CURSOR, `01-Overview/Field-Bugs-2026-10-02.md` part four, and its audit).** The Basket's glints
   stand about the crosshair, where the look cannot put them under it: its act holds the cursor free while it plays (no
   hold with a pad in hand) and hands the look back at its end - an Escape's on its keyup (`scenes/gatherHost.js`
   `ACT_POINTER`/`actPointer`, `player/pointerLock.js` `holdCursor`); its hint is "click the glint". The mine's points,

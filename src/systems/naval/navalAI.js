@@ -585,6 +585,9 @@ export const turnRadius = (ship) => Math.max(hullLength(ship.hull) * 0.5, ship.c
  * @param {{ half?: number, from?: number, near?: number, step?: number }} [opts]
  */
 export function courseClear(pos, yaw, dist, isWater, { half = 10, from = 0, near = Infinity, step = SCAN_STEP } = {}) {
+  // AUDIT BAY A21: a reach or a start that is no number - a way gone NaN - is no clear course: the soundings stepped
+  // for ever toward it and the sea's frame never returned
+  if (!Number.isFinite(dist) || !Number.isFinite(from) || !(step > 0)) return false;
   const f = forwardOfYaw(yaw), r = [f[2], 0, -f[0]];
   let s = Math.max(0, from);
   for (;;) {

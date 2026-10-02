@@ -209,9 +209,10 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     try { storage?.setItem?.(SEAT_WATCH_KEY, JSON.stringify(list)); } catch { /* this page keeps them */ }
   };
 
-  /** The confirmed seats: the last answer inside SEAT_LIST_CACHE_MS (a refusal too), else the service's. */
+  /** The confirmed seats: the last answer inside SEAT_LIST_CACHE_MS (a refusal too) and this seat week, else the service's. */
   function read({ force = false } = {}) {
-    if (!force && nowMs() - at < SEAT_LIST_CACHE_MS) return Promise.resolve({ data, error: open === false ? 'seats-closed' : null });
+    // AUDIT FESTIVAL S1: a list read before the Turning is last week's - its holders' edicts (a Festival, a Curfew) gone
+    if (!force && nowMs() - at < SEAT_LIST_CACHE_MS && seatWeekOf(at) === seatWeekOf(nowMs())) return Promise.resolve({ data, error: open === false ? 'seats-closed' : null });
     if (pending) return pending;
     pending = (async () => {
       let r;
@@ -389,11 +390,15 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     breakPact(tag) {
       return this.politicsAct(() => door.pactBreak(character(), tag), (d) => (d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`));
     },
-    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS. */
+    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS -
+     *  AUDIT FESTIVAL S1: and once at the Turning. */
     redTick() {
       // AUDIT SEATS-3 C5: and a read that failed (the first at the session's start above all - the seats left shut, never
       // asked again by the frame) asked again every SEAT_LIST_RETRY_MS until one answers
       if (!pending && (open === true || failed) && nowMs() - at >= (failed ? SEAT_LIST_RETRY_MS : SEAT_RED_READ_MS)) read({ force: true });
+      // AUDIT FESTIVAL S1: and once when the seat week turns - a player who stays in a town sees the Festival (or Curfew)
+      // that ended at the Turning end, and the one that became law begin (the read is this week's: asked once)
+      else if (!pending && open === true && seatWeekOf(at) !== seatWeekOf(nowMs())) read({ force: true });
     },
     // ─── SEASON1 part two: THE TIDES AS THIS CLIENT READS THEM ───────
     /** The week Season 0 began, as the seats' list last said - or null (no Season counted: every land is Calm). */

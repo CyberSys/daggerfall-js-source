@@ -96,7 +96,7 @@ export function toggleCursorActive(canvas) {
   return _cursorActive;
 }
 
-// HERB-CURSOR (FIELD BUGS 2026-10-02 part three, "Herbalism minigame
+// HERB-CURSOR (FIELD BUGS 2026-10-02 part four, "Herbalism minigame
 // bugged": "Doesn't make mouse appear when the minigame starts, so cant
 // click on the targets"): A CURSOR AN ACT HOLDS FREE. The Basket's
 // glints stand about the crosshair, where no look reaches them - the

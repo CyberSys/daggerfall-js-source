@@ -21,6 +21,7 @@
 // stand no street; exterior.js (the bench) not wired - it draws no online homes.
 // ═══════════════════════════════════════════════════════════════════
 import { BANNER_W_M, BANNERS_MAX } from '../render/bannerPass.js';
+import { doorFaceSign } from '../systems/siegeField.js';
 
 /** The cloth's top over the door's foot, its gap beyond each jamb, and how far it hangs off the wall - metres. */
 export const BANNER_TOP_M = 3.5;
@@ -40,10 +41,22 @@ export function doorCornersOf(door, matrix) {
   return [...a, ...b].every(Number.isFinite) ? { a, b } : null;
 }
 
+/** CASTLE-GATE (AUDIT G1): a door record's outward normal (`normal`, the model's own space - world/meshReader.js, the one
+ *  DFU's exit landing steps out along: player/enterExit.js doorWorldNormal) through a column-major `matrix`'s rotation
+ *  alone (no translation), unit length, pixel-local - or null. Pure. */
+export function doorNormalOf(door, matrix) {
+  const n = door?.normal;
+  if (!n || !matrix) return null;
+  const m = matrix;
+  const v = [m[0] * n.x + m[4] * n.y + m[8] * n.z, m[1] * n.x + m[5] * n.y + m[9] * n.z, m[2] * n.x + m[6] * n.y + m[10] * n.z];
+  const l = Math.hypot(v[0], v[1], v[2]);
+  return l > 1e-9 ? v.map((c) => c / l) : null;
+}
+
 /**
- * THE TWO ANCHORS beside a hall's door - `frame` its `{ box, door: { a, b } }` in the pixel's frame. Each is the cloth's
- * top edge's middle (`top`), the wall's direction (`right`) and the face it hangs out along (`out`), pixel-local. Null
- * for a door narrower than a man or none. Pure.
+ * THE TWO ANCHORS beside a hall's door - `frame` its `{ box, door: { a, b } }` in the pixel's frame (a castle's entrance's
+ * also its `normal`, CASTLE-GATE). Each is the cloth's top edge's middle (`top`), the wall's direction (`right`) and the
+ * face it hangs out along (`out`), pixel-local. Null for a door narrower than a man or none. Pure.
  */
 export function hallBannerAnchors(frame) {
   const d = frame?.door;
@@ -55,10 +68,9 @@ export function hallBannerAnchors(frame) {
   rx /= w; rz /= w;
   const cx = (d.a[0] + d.b[0]) / 2, cz = (d.a[2] + d.b[2]) / 2;
   const foot = Math.min(d.a[1], d.b[1]);
-  // the face: square to the door's span, away from the building's middle
-  let ox = -rz, oz = rx;
-  const mx = (box[0] + box[3]) / 2, mz = (box[2] + box[5]) / 2;
-  if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }
+  // the face: square to the door's span, away from the building's middle - CASTLE-GATE (AUDIT G1): along the door's own
+  // outward normal where the frame carries it (a castle's entrance)
+  const [ox, oz] = doorFaceSign(-rz, rx, cx, cz, box, frame.normal);
   // AUDIT GUILD1d R4: the cloth's width runs from its face, never from the door record's own vertex order - under the
   // port's mirrored projection one of the two orders drew the device mirror-imaged
   rx = 0 - oz; rz = ox + 0;   // (+0: never a signed zero)

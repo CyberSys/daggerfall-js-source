@@ -443,8 +443,8 @@
   {
     "name": "H-dark-lamps",
     "file": "src/scenes/navalHost.js",
-    "old": "if (e.boat?.LightOn) boats.push(e.boat);",
-    "new": "if (e.boat) boats.push(e.boat);",
+    "old": "if (e.boat?.LightOn && (e.fade ?? 1) >= FADE_FLATS) boats.push(e.boat);",
+    "new": "if (e.boat && (e.fade ?? 1) >= FADE_FLATS) boats.push(e.boat);",
     "tests": [
       "test/shipwatch.test.js"
     ]

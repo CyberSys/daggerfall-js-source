@@ -21,8 +21,8 @@
   {
     "name": "P2-no-mark-at-pause",
     "file": "src/ui/enhancedMenu.js",
-    "old": "    home.append(profileMark());\n    if (accountOpen) {",
-    "new": "    if (accountOpen) {",
+    "old": "    home.append(profileMark());\n    // TIMERS1",
+    "new": "    // TIMERS1",
     "tests": [
       "test/profile2_pause_profile.test.js"
     ]
