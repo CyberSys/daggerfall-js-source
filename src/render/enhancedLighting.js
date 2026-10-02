@@ -625,6 +625,7 @@ uniform vec4 uConceal;
 uniform float uHitFlash;   // HITFLASH1
 uniform float uEliteGlow;  // ELITE FOES
 uniform float uEliteTime;  // ELITE FOES: the embers' clock
+uniform vec4 uDissolve;  // DISSOLVE: the burn's share and its edge (systems/dissolve.js)
 uniform vec3 uTint;
 uniform vec3 uBBSun;
 uniform int uPointCount;

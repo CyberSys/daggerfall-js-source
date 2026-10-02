@@ -8829,7 +8829,7 @@ export function createWorldModes(host) {
       // DaggerfallEntityBehaviour the struck collider carries and
       // AssignBowDamageToTarget (:661-688) hands it on. Both sibling
       // hosts already feed both of theirs.
-      foeTargets: interiorFoePool().filter((t) => !t.dead && t.ai && !t.yielded && !t.executing && !t.sparing).map((t) => ({ feet: t.ai.feet, ref: t })),
+      foeTargets: interiorFoePool().filter((t) => !t.dead && t.ai).map((t) => ({ feet: t.ai.feet, ref: t })),
       onFoeHit: (m, t) => interiorFoes?.arrowHitFoe(m, t),
       onPlayerArrowHitFoe: (m, t) => playerArrowHitFoe(m, t, {
         playerEntity, playerWeapon: interiorWeapon.playerWeapon, playerFeet: player.pos,

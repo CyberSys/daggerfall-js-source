@@ -5389,7 +5389,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // another foe (MT-ii's infighting selection) lands on BowDamage's
       // non-player arm. Both pools are candidates; the shooter is
       // excluded inside the flight module.
-      foeTargets: exteriorFoePool().filter((t) => !t.dead && t.ai && !t.yielded && !t.executing && !t.sparing).map((t) => ({ feet: t.ai.feet, ref: t })),
+      foeTargets: exteriorFoePool().filter((t) => !t.dead && t.ai).map((t) => ({ feet: t.ai.feet, ref: t })),
       onFoeHit: (m, t) => exteriorFoes.arrowHitFoe(m, t),
       onPlayerArrowHitFoe: (m, t) => playerArrowHitFoe(m, t, {
         playerEntity, playerWeapon: weaponRig.playerWeapon, playerFeet: player.pos,

@@ -68,6 +68,7 @@ const REAL = {
   maxHealth: 30, fatigue: 64, activeEffects: [{ name: 'Paralysis', rounds: 2 }],
   team: 'PlayerEnemy', mobileTeam: 'PlayerEnemy', wabbajackActive: false, specialTransformationCompleted: false,
   abyssDestroyed: true,   // AUDIT OH-F B1: the save's alone - sharedWorld strips it, and the door does not admit it
+  noBody: true,   // REVENANT-FATE (the 2026-10-02 audit): a foe gone with no body - the save's alone too, stripped the same way
 };
 
 test('RESPAWN1: the door admits the record the dungeon really publishes - every field, by the type the publisher writes', () => {

@@ -97,7 +97,7 @@ test('AUDIT A3: one standing as the save is made comes back later, never beside 
   assert.ok(flat.includes(r.id), 'the slot carries it');
   const m = flat.match(new RegExp(`"id":"${r.id}"[^}]*?"dueAt":(\\d+)`));
   assert.ok(m && Number(m[1]) >= N.REVENANT_LOST_MINUTES, `its due pushed on (${m?.[1]})`);
-  assert.match(read('src/scenes/exteriorFoes.js'), /!f\.sparing && !f\.entity\?\.revenant\)\.map\(\(f\) => \{/, 'the street\'s save leaves a revenant out');
+  assert.match(read('src/scenes/exteriorFoes.js'), /!f\.transient && !f\.entity\?\.revenant\)\.map\(\(f\) => \{/, 'the street\'s save leaves a revenant out');
 });
 
 test('AUDIT A4/A5: A SWORN ONE\'S PACK IS THE SAVE\'S - a load lays the save\'s pack over the mirror\'s (none where the save never knew it sworn); a release hands the pack back, gold to the purse (mutants: the mirror\'s pack kept; the pack destroyed)', async () => {
@@ -220,8 +220,7 @@ test('AUDIT B1/B4/B6: the window holds the wait; one held is no swing\'s, spell\
   assert.match(x, /const live = dropFateHeld\(foes\.filter\(\(f\) => !f\.dead && !isShipmate\(f\)\)\);/);
   assert.match(d, /const live = dropFateHeld\(foes\.filter\(\(f\) => !f\.dead && f\.companion == null\)\);/);
   assert.match(read('src/scenes/hostMagic.js'), /if \(foe\?\.yielded \|\| foe\?\.executing \|\| foe\?\.sparing \|\| foe\?\.leaving\) return null;/);
-  for (const [p, re] of [['src/scenes/world.js', /\.filter\(\(t\) => !t\.dead && t\.ai && !t\.yielded && !t\.executing && !t\.sparing\)/], ['src/scenes/exterior.js', /exteriorFoePool\(\)\.filter\(\(t\) => !t\.dead && t\.ai && !t\.yielded && !t\.executing && !t\.sparing\)/], ['src/scenes/worldModes.js', /interiorFoePool\(\)\.filter\(\(t\) => !t\.dead && t\.ai && !t\.yielded && !t\.executing && !t\.sparing\)/]]) assert.match(read(p), re, `${p}: a shaft flies past`);
-  assert.match(d, /if \(f\.yielded \|\| f\.executing \|\| f\.sparing\) continue;   \/\/ REVENANT-FATE \(the 2026-10-02 audit\): a shaft/);
+  assert.match(read('src/combat/arrowFlight.js'), /if \(foe\.yielded \|\| foe\.executing \|\| foe\.sparing \|\| foe\.leaving\) return 0;/, 'the player\'s shaft lands nothing on one held (every host\'s one copy)');
   assert.match(read('src/scenes/world.js'), /else if \(rec\.yielded\) rec\.yielded\.judging = \(\) => !w\.done;/, 'the host holds it while its window stands');
   // the pile takes the pack - the record keeps none
   fresh();
@@ -233,9 +232,9 @@ test('AUDIT B1/B4/B6: the window holds the wait; one held is no swing\'s, spell\
   assert.deepEqual(e.items, [], 'handed over, not copied');
   // the dungeon's save: gone with no body, laid with none
   assert.match(d, /\.\.\.\(f\.dead && \(f\.escaped \|\| f\.executed \|\| f\._swornAway\) \? \{ noBody: true \} : \{\}\)/);
-  assert.match(d, /if \(sf\.noBody && sf\.dead && !\(wire && respawnDue\(sf\.died, _now\)\)\) \{ if \(!f\.dead\) questPoolOps\.removeFoe\(f\);/);
+  assert.match(d, /if \(sf\.noBody && sf\.dead\) \{ if \(!f\.dead\) questPoolOps\.removeFoe\(f\);[^\n]*\n\s*patchFoe\(f, sf, wire\);/, 'ahead of the patch that lays a corpse');
   assert.match(d, /for \(const f of foes\) \{ if \(!f\) continue; f\.yielded = null; f\.executing = null; f\.sparing = null; f\.trophy = null; f\.yieldEvent = null; \}/, 'a same-dungeon load ends a judgement in flight');
-  assert.match(d, /delete f\.abyssDestroyed; delete f\.noBody;/, 'the room\'s door has no field for it');
+  assert.match(d, /for \(const f of w\.foes\) delete f\.noBody;/, 'the room\'s door has no field for it');
 });
 
 test('AUDIT B2/B3/B5/P1-P3: the execution pays its Renown and takes its soul; a flyer kneels on the ground and its pile lies there; an adopted foe stands as itself; a peer sees the oath; the dungeon\'s hover says beaten (mutants: no Renown past the assist window; no soul; a floating pile; a sworn one invisible to peers)', () => {
@@ -249,7 +248,6 @@ test('AUDIT B2/B3/B5/P1-P3: the execution pays its Renown and takes its soul; a 
   assert.match(x, /const feet = collider \? floorLanding\(collider, \[f\.ai\.feet\[0\], f\.ai\.feet\[1\] \+ 0\.1, f\.ai\.feet\[2\]\]\)/, 'the street\'s pile on the ground');
   assert.match(d, /const feet = floorLanding\(collider, \[f\.ai\.feet\[0\], f\.ai\.feet\[1\] \+ 0\.1, f\.ai\.feet\[2\]\]\);/, 'the dungeon\'s');
   assert.match(x, /f\._pupYield = false; f\._pupExec = null; f\._pupSpare = null;/, 'adopted: its owner\'s judgement goes with the owner');
-  assert.match(x, /if \(heirOf && !onWatch && !f\.dead && !f\.yielded && !f\.executing && !f\.sparing\)/, 'never handed over mid-judgement');
   assert.match(x, /\.\.\.\(f\.sparing \? \{ sp: 1 \} : \{\}\)/);
   assert.match(x, /f\._pupSpare = r\.sp === 1 \? \(f\._pupSpare \?\? Date\.now\(\)\) : null;/);
   const base = { i: 1, t: 2, x: 0, f: [0, 0, 0], y: 0 };

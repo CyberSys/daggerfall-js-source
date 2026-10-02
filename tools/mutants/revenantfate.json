@@ -29,8 +29,8 @@
   {
     "name": "REVENANT-FATE-kneeling-in-the-save",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "!f.transient && !f.yielded && !f.executing && !f.sparing && !f.entity?.revenant).map(",
-    "new": "!f.transient && !f.entity?.revenant).map(",
+    "old": "!f.transient && !f.entity?.revenant).map(",
+    "new": "!f.transient).map(",
     "tests": [
       "test/revenant_fate.test.js"
     ]

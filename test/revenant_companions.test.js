@@ -221,7 +221,8 @@ test('DISSOLVE the sprite burnt away or gathered: the batch\'s field (written on
     // AUDIT (2026-10-02): the lane's edge decoded into its linear light - a display colour mixed there came out washed
     assert.match(sh, name === 'lane' ? /lit = dissolveLit\(lit, uv, elDecode\(uDissolve\.yzw\)\);/ : /lit = dissolveLit\(lit, uv, uDissolve\.yzw\);/, `${name}: the edge blazes`);
   }
-  assert.match(D.DISSOLVE_GLSL, /uniform vec4 uDissolve;/);
+  for (const [name, src] of [['classic', read('src/render/renderer.js')], ['lane', read('src/render/enhancedLighting.js')]]) assert.match(src, /uniform vec4 uDissolve;/, `${name}: the program declares it (AUDIT 47)`);
+  assert.doesNotMatch(D.DISSOLVE_GLSL, /uniform /, 'the block declares none');
   assert.match(rd, /this\.bbUDissolve = gl\.getUniformLocation\(this\.bbProgram, 'uDissolve'\);/);
   assert.match(rd, /if \(dv \|\| this\._bbDissolveOn\) \{ gl\.uniform4f\(this\.bbUDissolve, dv \? dv\[0\] : 0, dv \? dv\[1\] : 0, dv \? dv\[2\] : 0, dv \? dv\[3\] : 0\); this\._bbDissolveOn = !!dv; \}/);
   // AUDIT (2026-10-02): the reset SENDS the zero - a shadow set false over a uniform still holding the last burning

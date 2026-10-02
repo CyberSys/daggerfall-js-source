@@ -232,7 +232,9 @@ test('REVENANT THE HOSTS: the open world\'s pool rolls the flee once under a fif
   assert.match(x, /function fleeWalk\(f, dt, eye\) \{\s*\n\s*f\._mout = f\.mobile\.update\(dt, \{ moving: f\.ai\.moving, striking: false, rangedStriking: false, hurting: f\.ai\.hurtKnock, casting: false \}/, 'no blow and no cast in it');
   assert.match(x, /else if \(_flee === 'cornered'\) revenantSay\(revenantCorneredEvent\(/, 'cornered: said');
   assert.match(x, /function escapeFoe\(f(?:, \{ slip = false \} = \{\})?\) \{\s*\n\s*releaseFoeBatch\(f\);\s*\n\s*f\.dead = true;[\s\S]{0,300}revenantDeed\(playerEntity, f\.entity, 'fled'/, 'gone without a corpse, made a revenant');
-  assert.doesNotMatch(x.slice(x.indexOf('function escapeFoe(f)'), x.indexOf('function escapeFoe(f)') + 600), /f\.corpse = true|sayEnemyDied|reportPlayerKill/, 'no corpse, no kill');
+  const esc = x.indexOf('function escapeFoe(f');   // AUDIT (2026-10-02): the slip's option widened the head - the old '(f)' read nothing, and this passed on an empty slice
+  assert.ok(esc > 0);
+  assert.doesNotMatch(x.slice(esc, esc + 600), /f\.corpse = true|sayEnemyDied|reportPlayerKill/, 'no corpse, no kill');
   assert.match(x, /if \(f\.entity\.revenant && !f\._taunted && f\.ai\.inSight && \(isLocalPlayerTarget\(f\.ai\.target\) \|\| !f\.ai\._armedTargeting\)/, 'the taunt, once a return');
   assert.match(x, /if \(f\.entity\?\.revenant\) \{ const nr = revenantSlain\(playerEntity, f\.entity\); if \(nr && !peer\) revenantSay\(revenantSlainEvent\(nr, playerEntity\?\.name, \{ archive: f\.archive \}\), say\); \}/, 'slain at last');
   const spawn = x.slice(x.indexOf('async function spawnFoe('), x.indexOf('const gender = MobileUnit.resolveGender'));
