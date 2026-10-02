@@ -2,6 +2,7 @@
 
 ## Ships
 - **Ship name tags no longer pile up.** Off a busy harbour, every ship's tag used to sit on top of the others. Now no tag is drawn over another: the ship you're looking at, then hostile ships, then the nearest ones get their tags first, and a tag with no room waits until there's space for it.
+- **Other players' AI ships sail smoothly.** Online, ships run by another player's game jumped forward, sped up to more than twice their real speed and sometimes slid backwards, whenever the network was a little slow or quick. They now keep sailing at their own speed and catch up gently.
 - **Only one ship shows its second line** (its class and where it's headed). That's the ship whose card is up, or else the one nearest your crosshair. Look at a ship to read it; the rest show just their name and health bar.
 
 ## Travel Options

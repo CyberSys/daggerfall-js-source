@@ -108,3 +108,26 @@ changes nothing at all, which is why the report's filter change did nothing eith
 `test/combatVisuals.test.js` ECV1's pin follows the mask.
 
 Mutation list: `tools/mutants/fb1002c.json` - 28 mutants over every fix above, 28 dead.
+
+## PUPPET-GLIDE (FIELD BUGS 2026-10-02d)
+
+The Discord, the same day: *"Ai ships move very janky and quick"* (the reporter could not say where). `scenes/navalHost.js`
+(the others' ships, PUPPET_CATCH, PUPPET_CATCH_MPS, PUPPET_CATCH_SHARE). **Measured first.** The captains' own sim is
+smooth and frame-rate blind: a galley, a cutter, a brig and a sloop at 60 Hz, 144 Hz and 8-40 ms frames drew no jump, no
+turn reversal and 0.002 m/s of speed jitter a frame; a harbour's traffic over fifteen minutes (arriving, berthing,
+departing, fighting) the same, but for the berthing's slide (under 2 m/s across her heading over MOOR_EASE_S). AI and
+player hulls make the same way (HELM-WAY's 7.6 m/s Small Ship). What moved badly was ANOTHER PLAYER'S ship: her copy was
+eased (PUPPET_EASE) straight onto each word and run on from the moment the word ARRIVED, so a word a little late or
+early moved her target by her way times the difference. Over a relay that keeps the order and jitters 50-400 ms, a
+galley at 4 m/s was drawn at up to 10 (p95 5.9), her speed jumping 3.3 m/s from one frame to the next, a step astern on
+86 frames of 5,394; at 50-150 ms she still wobbled 40%. test/navalRoom.mjs had only ever sent at a steady latency, where
+she was smooth.
+
+**The fix.** Under way (afloat, not orphaned, her word's way above nought) she sails on at her word's way along her own
+heading, the heading eased onto the word's as before, none once the word is PREDICT_MAX_S old; the gap to where the word
+puts her is taken up at PUPPET_CATCH (1 a second), never faster than PUPPET_CATCH_MPS + PUPPET_CATCH_SHARE of her way
+(0.3 m/s + a tenth). The same relay: drawn at 4.7 m/s at most (p95 4.4), 0.6 m/s a frame at the 99th, never astern,
+error 1.1 m at most (it was 2.1); at a steady 80 ms, a third of the old error. A ship lying still, struck, going down or
+orphaned is still eased onto her word; a boarding's haul (the stander's own ship moved 20 m at once) still snaps as it did.
+`test/puppetglide.test.js`; `tools/mutants/fb1002d.json`.
+
