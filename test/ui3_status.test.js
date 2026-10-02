@@ -49,7 +49,7 @@ test('UI3 the tiles: a spell mine on me a buff and another\'s a debuff, its roun
     ],
     powers: [{ key: 'wrath', set: 'ruhn', name: 'Wrath', text: '45s', state: 'active' }, { key: 'unbroken', set: 'malacath', name: 'Unbroken', text: '1:05', state: 'recovering' }],
     afflictions: [{ key: 'poison', name: 'Poisoned', glyph: 'poison' }],
-    needs: [{ key: 'hunger', text: 'Hungry', level: 'warn' }, { key: 'thirst', text: 'Parched', level: 'danger' }, { key: 'temp', text: 'Freezing', level: 'danger' }],
+    needs: [{ key: 'hunger', text: 'Hungry', level: 'warn', tier: 2, of: 3 }, { key: 'thirst', text: 'Parched', level: 'danger', tier: 2, of: 3 }, { key: 'temp', text: 'Freezing', level: 'danger', tier: 2, of: 3 }],
   });
   assert.deepEqual(tiles.map((t) => [t.kind, t.name]), [
     ['buff', 'Shield'], ['debuff', 'Paralysis'], ['buff', 'Ring of Warmth'], ['buff', 'Odd'],
@@ -64,6 +64,8 @@ test('UI3 the tiles: a spell mine on me a buff and another\'s a debuff, its roun
   assert.deepEqual([wrath.foot, wrath.set, wrath.recovering, unbroken.recovering, unbroken.foot], ['45s', 'ruhn', false, true, '1:05']);
   assert.deepEqual([poison.glyph, poison.foot, poison.blink], ['poison', null, false]);
   assert.deepEqual([hungry.glyph, parched.glyph, freezing.glyph], ['hunger', 'thirst', 'cold']);
+  assert.deepEqual([hungry.foot, parched.foot, freezing.foot], ['2/3', '2/3', '2/3'], 'NEED-TIER: how bad, at its foot');
+  assert.equal(statusTiles({ needs: [{ key: 'stiff', text: 'Stiff', level: 'warn' }] })[0].foot, null, 'one stage, no foot');
   assert.equal(new Set(tiles.map((t) => t.key)).size, tiles.length, 'every tile its own key');
   assert.deepEqual(statusTiles(), [], 'nothing: no tiles');
 });

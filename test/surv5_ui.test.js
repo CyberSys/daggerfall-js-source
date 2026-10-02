@@ -84,6 +84,16 @@ test('SURV5: the meal and the drink - the mod\'s marker law (too full under the 
   assert.equal(blackout({}, 1440 * 2 + 120).minutes, 4 * 60, 'blacked out at two in the morning, up at six the same day');
 });
 
+test('NEED-TIER: every felt need says how bad on its own ladder - its stage of its stages, mildest first, the temperature\'s two ways each their own; Stiff one stage and no tier (Mac: "the debuffs you get from Climates and Calories no longer show the severity")', () => {
+  const e = { survival: { ...newSurvival(0), lastAte: 0, thirst: 90, wet: 40, sleepDebt: 5, drunk: 45, felt: -35, stiffUntil: 5000 } };
+  assert.deepEqual(survivalHudChips(e, 800).map((c) => `${c.key}:${c.tier}/${c.of}`),
+    ['hunger:2/3', 'thirst:2/3', 'sleep:1/3', 'wet:2/4', 'temp:2/3', 'stiff:undefined/undefined', 'drunk:2/2']);
+  const hot = { survival: { ...newSurvival(0), lastAte: -10, felt: 25 } };
+  assert.deepEqual(survivalHudChips(hot, 0).filter((c) => c.key === 'temp').map((c) => [c.text, c.tier, c.of]), [['Warm', 1, 3]], 'the warm way\'s first stage, not the cold\'s fourth');
+  e.survival.drunk = 30;
+  assert.deepEqual(survivalHudChips(e, 800, { endurance: 50 }).filter((c) => c.key === 'drunk').map((c) => [c.text, c.tier, c.of]), [['Drunk', 1, 2]]);
+});
+
 test('SURV5: the strip and the page - one chip a felt need, nothing while every need is met; the page\'s lines, the vampire\'s one, the mod\'s drunk bands', () => {
   const e = { survival: null };
   assert.deepEqual(survivalHudChips(e, 0), [], 'no record, no strip');

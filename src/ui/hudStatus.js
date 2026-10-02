@@ -25,7 +25,8 @@
 //     survivalHudChips): the port's own pixel glyph for what the
 //     classic art has no icon for - hunger, thirst, sleep, wet, hot,
 //     cold, stiff, drunk - framed amber while it is felt and red while
-//     it costs (the chips' own two levels: RED MEANS IT COSTS);
+//     it costs (the chips' own two levels: RED MEANS IT COSTS), how bad
+//     at its foot ("2/3", NEED-TIER);
 //   - a POISON and a DISEASE, shown at last - on the Status box's own
 //     law (systems/healthStatus.js): a poison once it has left its
 //     waiting, a disease once its incubation is over and by the name
@@ -244,7 +245,9 @@ export function statusTiles({ spells = [], powers = [], afflictions = [], needs 
   }));
   for (const c of powers) tile({ key: `set:${c.key}`, kind: 'set', name: String(c.name ?? ''), foot: c.text ? String(c.text) : null, recovering: c.state === 'recovering', set: c.set ?? null });
   for (const a of afflictions) tile({ key: a.key, kind: 'debuff', name: a.name, glyph: a.glyph });
-  for (const c of needs) tile({ key: `need:${c.key}`, kind: c.level === 'danger' ? 'danger' : 'warn', name: String(c.text ?? ''), glyph: needGlyph(c) });
+  // NEED-TIER: and how bad, at its foot ("2/3" - Hungry of Peckish, Hungry, Starving), as a spell's rounds are: the glyph
+  // is one picture for every stage and the name goes where there is no room, so the foot is what says it there
+  for (const c of needs) tile({ key: `need:${c.key}`, kind: c.level === 'danger' ? 'danger' : 'warn', name: String(c.text ?? ''), glyph: needGlyph(c), foot: c.tier > 0 && c.of > 1 ? `${c.tier}/${c.of}` : null });
   return out;
 }
 

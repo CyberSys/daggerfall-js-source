@@ -213,8 +213,8 @@
   {
     "name": "AUDITSURV-the-hud-drunk-band-ignores-the-endurance",
     "file": "src/systems/survival/status.js",
-    "old": "  if (s.drunk > endurance / 2) out.push({ key: 'drunk', text: s.drunk > endurance - 10 ? 'Very drunk' : 'Drunk', level: s.drunk > endurance - 10 ? 'danger' : 'warn' });",
-    "new": "  if (s.drunk > 0) out.push({ key: 'drunk', text: s.drunk > 40 ? 'Very drunk' : 'Drunk', level: s.drunk > 40 ? 'danger' : 'warn' });",
+    "old": "  if (s.drunk > endurance / 2) out.push({ key: 'drunk', text: s.drunk > endurance - 10 ? 'Very drunk' : 'Drunk', level: s.drunk > endurance - 10 ? 'danger' : 'warn', tier: s.drunk > endurance - 10 ? 2 : 1, of: 2 });",
+    "new": "  if (s.drunk > 0) out.push({ key: 'drunk', text: s.drunk > 40 ? 'Very drunk' : 'Drunk', level: s.drunk > 40 ? 'danger' : 'warn', tier: s.drunk > 40 ? 2 : 1, of: 2 });",
     "tests": [
       "test/auditsurv.test.js"
     ]
