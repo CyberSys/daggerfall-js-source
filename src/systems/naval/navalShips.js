@@ -70,17 +70,35 @@ export const SIDE_DIR = Object.freeze({ starboard: Object.freeze([1, 0, 0]), por
  * bounds in the root's frame (its stem, its stern and its widest half beam - measured off the vendored prefabs
  * through the real pool): what a captain steers clear of, the length its turning circle is scaled by, and the stem a
  * ram strikes with; `keel` and `top` the same box's floor and roof - what a gun must lay between to strike her.
- * `rig` is her canvas and spars as boxes over that roof (`[min, max]` in the root's frame): the masts and yards measured
- * off the same prefabs (their rigid meshes - a skinned sail's bind-pose box is not where it hangs), the canvas hung
- * from each yard - the Small Ship's two lateens fore and aft along her centreline, the galley's one square sail across
- * her at the mast, the Carrack's two square courses across and her lateen mizzen along; a ball through one tears
- * canvas and flies on (systems/naval/navalShots.js). The rowboat carries none; the Large Galley's yard is 53 m end to
- * end, but a box that wide would be mostly air, so hers stops at the canvas's own 50. AUDIT NAV2 F28: `sailWay` is the
- * prefab's sail acceleration modifier (Come Sail Away's modifierMoveAccelerationSail) - the rate her way comes and goes
- * under sail and off it, the player's and the captains' alike (navalAI.js helm).
+ * `rig` is her canvas and spars as boxes (`[min, max]` in the root's frame, as she stands at rest): the mod's hulls'
+ * over that roof, their masts and yards measured off the same prefabs (their rigid meshes - a skinned sail's
+ * bind-pose box is not where it hangs), the canvas hung from each yard - the galley's one square sail across her at the
+ * mast, the Carrack's two square courses across and her lateen mizzen along; the Small Ship's (Mac's galleon, below)
+ * her five sails as each hangs set, wherever it hangs (AUDIT GN-R5/G9). A box may say how it stands: `boom` (the k-th
+ * of the boat's Booms, Come Sail Away's walk order) turns it about its `pivot` (that boom's mast's axis) by the boom's
+ * own rotation, so it goes where the trim swings its canvas; `obb` is the box itself where it lies askew (`c` its middle,
+ * `h` its half sizes along its own axes, the root's pitched `pitch` degrees about x), `[min, max]` then its bounds.
+ * scenes/navalHost.js rigBoxesOf stands each in the world; a ball through one tears canvas and flies on
+ * (systems/naval/navalShots.js). The rowboat carries none; the Large Galley's yard is 53 m end to end, but a box that
+ * wide would be mostly air, so hers stops at the canvas's own 50. AUDIT NAV2 F28: `sailWay` is the prefab's sail
+ * acceleration modifier (Come Sail Away's modifierMoveAccelerationSail) - the rate her way comes and goes under sail
+ * and off it, the player's and the captains' alike (navalAI.js helm).
  */
-/** A hull's rig boxes, frozen. */
-function rigOf(...boxes) { return Object.freeze(boxes.map((b) => Object.freeze(b.map((p) => Object.freeze(p))))); }
+/** A hull's rig boxes, frozen (a box's `boom`, `pivot` or `obb` riding on its pair). */
+function rigOf(...boxes) { return Object.freeze(boxes.map((b) => Object.freeze(Object.assign(b.slice(0, 2).map((p) => Object.freeze([...p])), b[2] ?? {})))); }
+/** AUDIT GN-R5: a box on the `k`-th boom, turned with it about `pivot` (`[min, max]` where it stands with the boom home). */
+const onBoom = (k, pivot, min, max) => [min, max, { boom: k, pivot: Object.freeze(pivot) }];
+/** AUDIT GN-R5: a box askew - middle `c`, half sizes `h` along its own axes, the root's turned `pitch` degrees about x
+ *  (Unity's turn: its y to (0, cos, sin), its z to (0, -sin, cos)) - with its bounds as its `[min, max]`. */
+function pitched(c, h, pitch) {
+  const a = pitch * Math.PI / 180, cs = Math.cos(a), sn = Math.sin(a);
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    const p = [c[0] + sx * h[0], c[1] + sy * h[1] * cs - sz * h[2] * sn, c[2] + sy * h[1] * sn + sz * h[2] * cs];
+    for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], p[k]); max[k] = Math.max(max[k], p[k]); }
+  }
+  return [min, max, { obb: Object.freeze({ c: Object.freeze(c), h: Object.freeze(h), pitch }) }];
+}
 
 export const HULL_BUILDS = Object.freeze([
   Object.freeze({   // 0 Rowboat - no guns; a rowboat is shot at, never fights
@@ -101,16 +119,30 @@ export const HULL_BUILDS = Object.freeze([
   // it): a gun at each of her ten gunports, its muzzle a hair outside her planking at the port's middle - the ports
   // 1.56 to 2.93 m over the sea, her gun deck at 1.085 - so a broadside leaves her through the holes it is fired from;
   // two chasers on swivels over her bow rail; the barrels over her stern under the castle. Her box is her hull's and
-  // her castle's MeshCollider's bounds (GALLEON-2: her keel 4.64 m down on Mac's second export's deeper V); her rig
-  // her five sails' and their spars', each as it hangs set, over her roof (her castle's 12.3 - under it her box is her:
-  // the canvas over her waist below it is struck as her hull is).
+  // her castle's MeshCollider's bounds (GALLEON-2: her keel 4.64 m down on Mac's second export's deeper V). AUDIT GN-R5/
+  // G9: her rig is each of her five sails as it hangs set in any wind (world/galleonRig.js's own canvas) - a square sail
+  // with its yard and her gaff sail with its gaff on their booms, turning with them as the trim does (the boxes stood
+  // still: at the auto-trim's 30 degrees a quarter of the fore topsail's canvas, a third of the main topsail's and 94% of
+  // the gaff sail's stood outside every one, and all of the fore course's at any trim), the jib in three askew along its
+  // luff, its leech and its foot (one box, from her roof to 27.9, held half of it) - each box three quarters and more
+  // canvas across its face. Where her canvas is inside her hull's box (the fore course but its outer clews, the gaff
+  // sail's foot, the jib aft of her stem and under her roof) a ball strikes her hull first; out of it (the course's outer
+  // clews, the topsails, the gaff sail over her roof or swung out, the jib over her bowsprit) it tears.
   Object.freeze({   // 2 Small Ship - five ports a side on her gun deck (1.085), the guns' axis at the ports' middle (2.24)
     hull: 2, gun: 'long',
     broadside: Object.freeze([[5.949, 2.2435, -7.595], [5.949, 2.2435, -4.417], [5.949, 2.2435, -0.714], [5.949, 2.2435, 2.8105], [5.949, 2.2435, 6.5135]].map(Object.freeze)),
     bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.15, 7.45, 19.15]), Object.freeze([1.15, 7.45, 19.15])]) }),
     stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 5.4, -20.6])]) }),
     hullHp: 420, sailHp: 160, crew: 24, deck: 6.2, beam: 5.4, ram: false, bowZ: 21.93, aftZ: -19.91, halfWidth: 5.86, keel: -4.64, top: 12.3, sailWay: 1,
-    rig: rigOf([[-6.3, 12.3, 8.2], [6.3, 17.7, 11.6]], [[-5.65, 13.0, -0.8], [5.65, 19.0, 2.6]], [[-1.45, 12.3, -8.8], [1.45, 18.0, -0.1]], [[-1.1, 12.3, 9.4], [1.1, 16.5, 27.9]]),
+    rig: rigOf(   // the fore mast's canvas over her roof, the main topsail and the gaff first, as they stood; then the rest
+      onBoom(1, [0, 16, 8.772], [-5, 12.42, 9.34], [5, 16.17, 10.33]),           // the fore topsail and its yard
+      onBoom(2, [0, 17.65, -0.191], [-5.2, 13.27, 0.42], [5.2, 17.82, 1.44]),    // the main topsail and its yard
+      onBoom(3, [0, 7.75, -0.191], [-1.07, 8.07, -8.2], [1.07, 15.03, -0.79]),   // the gaff sail and its gaff
+      onBoom(0, [0, 12.2, 8.772], [-6.3, 7.67, 9.34], [6.3, 12.37, 11.45]),       // the fore course and its yard
+      pitched([0, 11.92, 17.932], [1.06, 1.06, 9.37], 22.79),                     // the jib along its luff,
+      pitched([0, 12.375, 15.832], [1.03, 0.96, 7.35], 40.93),                    // its leech
+      pitched([0, 9.286, 22.488], [1.06, 0.91, 4.54], -10.23),                    // and its foot
+    ),
   }),
   Object.freeze({   // 3 Large Galley - four long guns a side on the upper deck (10.25), three heavy guns over the stem, a ram
     hull: 3, gun: 'long',

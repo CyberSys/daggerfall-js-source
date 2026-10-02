@@ -297,7 +297,7 @@ test('GALLEON HER HELM: a wheel on the castle\'s roof before the helmsman\'s pla
 
 // ── her rig ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-test('GALLEON HER RIG: five sails by Come Sail Away\'s names - three square (two of them small), a large gaff and a large staysail - on four booms the walk finds; raised, each comes down off its yard and the canvas hangs set, lowered it is furled again; every set sail over her roof, untrimmed, stands in HULL_BUILDS\' rig boxes, which stand over her roof (mutants: a kind misnamed, the canvas still, a box short of her canvas)', () => {
+test('GALLEON HER RIG: five sails by Come Sail Away\'s names - three square (two of them small), a large gaff and a large staysail - on four booms the walk finds; raised, each comes down off its yard and the canvas hangs set, lowered it is furled again; every set sail over her roof, untrimmed, stands in HULL_BUILDS\' rig boxes, each reaching out of her hull\'s box (mutants: a kind misnamed, the canvas still, a box short of her canvas)', () => {
   // her booms home (the auto trim off): the canvas as the rig boxes measure it, square to her
   const s = scene({ settings: { 'SailingAssist.AutoTrimming': false } });
   const boat = s.place(HULL.SmallShip, 0);
@@ -318,11 +318,18 @@ test('GALLEON HER RIG: five sails by Come Sail Away\'s names - three square (two
   const set = pts();
   const moved = set.filter((p, i) => Math.hypot(p[0] - furled[i][0], p[1] - furled[i][1], p[2] - furled[i][2]) > 0.5).length;
   assert.ok(moved > set.length / 2, `the canvas comes down off its yards (${moved} of ${set.length})`);
-  // the rig boxes: over her roof, and every point of her set canvas over it within them
+  // the rig boxes: each out of her hull's box, and every point of her set canvas over her roof within them. PIN MOVED
+  // (AUDIT GALLEON R5/G9): her boxes hang down to her canvas - the course's foot, the gaff sail's and the jib's lie under
+  // her roof, and her boxes with them - so each reaches out of her hull's box (over her roof, past her stem or her side)
+  // where every box stood over her roof; the chain shot's band starts at her roof (navalAI.js rigBand), and
+  // test/auditgalleon_rig.test.js holds every point of her set canvas in them at every trim
   const b = hullBuild(HULL.SmallShip);
-  for (const [mn] of b.rig) assert.ok(mn[1] >= b.top - 1e-9, 'a rig box over her roof');
-  const inv = boat.MeshObject.worldMatrix();
-  const local = (p) => [p[0] - inv[12], p[1] - inv[13], p[2] - inv[14]];   // she stands unturned
+  for (const [mn, mx] of b.rig) assert.ok(mx[1] > b.top || mx[2] > b.bowZ || mn[2] < b.aftZ || mx[0] > b.halfWidth || mn[0] < -b.halfWidth, 'a rig box out of her hull\'s box');
+  // PIN MOVED (AUDIT GALLEON R5/G9): her canvas read in her mesh object's own frame, her heel taken off - she heels 1.4
+  // degrees standing before the wind, and her boxes fit her canvas now (a main topsail's clew stood 0.32 m out of its
+  // box at its height on the translation alone, where the old boxes had a metre to spare)
+  const mw = boat.MeshObject.worldMatrix();
+  const local = (p) => { const d = [p[0] - mw[12], p[1] - mw[13], p[2] - mw[14]]; return [0, 1, 2].map((k) => d[0] * mw[k * 4] + d[1] * mw[k * 4 + 1] + d[2] * mw[k * 4 + 2]); };
   const out = set.map(local).filter((p) => p[1] > b.top + 0.3 && !b.rig.some(([mn, mx]) => p.every((v, k) => v >= mn[k] - 0.3 && v <= mx[k] + 0.3)));
   assert.deepEqual(out.map((p) => p.map((v) => +v.toFixed(2))), [], 'her set canvas inside her rig boxes');
   s.rt.LowerSails();

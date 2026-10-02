@@ -142,7 +142,8 @@ test('AUDIT NAV1 H4 the crosshair on her canvas: round shot is laid for her hull
   const abeam = { pos: [90, 0, 0], yaw: 0 };
   frames(h, [[h.e, abeam]], 3);
   // PIN MOVED (GALLEON, 2026-10-01): the new galleon's main topsail amidships (rig 1) - her fore course's yard (rig 0)
-  // reaches past her sides, as a square sail's does
+  // reaches past her sides, as a square sail's does (AUDIT GALLEON R5/G9: rig 0 her fore topsail's now, the course's
+  // after her gaff's - the main topsail still rig 1)
   const box = boxOf(h, h.e), rig = rigBoxesOf(h.e.boat)[1];
   const sail = [rig.c[0] - rig.h[0] - 0.05, rig.c[1], rig.c[2]];
   assert.ok(sail[0] > box.c[0] - box.h[0] && sail[1] > box.c[1] + box.h[1], 'her canvas stands inboard of her side, over her');
@@ -158,8 +159,10 @@ test('AUDIT NAV1 H4 the crosshair on her canvas: round shot is laid for her hull
   // dead ahead and broadside on: the chasers (chain) on her canvas, 14 m up
   const ahead = { pos: [0, 0, 90], yaw: Math.PI / 2 };
   frames(h, [[h.e, ahead]], 2);
+  // PIN MOVED (AUDIT GALLEON R5/G9): her main topsail's box is its canvas, forward of her mast (0.42 to 1.44 m forward
+  // of her middle) - the crosshair on its own middle along her, where her middle (0) was in the old box's metre and more
   const rig2 = rigBoxesOf(h.e.boat)[1], box2 = boxOf(h, h.e);
-  const canvas = [0, 14, rig2.c[2] - rig2.h[0] - 0.05];
+  const canvas = [rig2.c[0], 14, rig2.c[2] - rig2.h[0] - 0.05];
   const dir = toward(EYE, canvas);
   const atSide = (box2.c[2] - box2.h[0] - EYE[2]) / dir[2];
   assert.ok(EYE[1] + dir[1] * atSide > box2.c[1] + box2.h[1], 'the look clears her hull to meet her canvas');
