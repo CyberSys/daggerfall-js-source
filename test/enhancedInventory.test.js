@@ -99,7 +99,7 @@ test('U53: encumbrance is the same expression the sheet and the classic window u
     'LIVE strength - a drained player must not be told they can carry the undrained amount');
   // ...and the OTHER half. PlayerEntity.CarriedWeight (:184) is the
   // items PLUS the gold counter's weight, and the pane composes it by
-  // hand (enhancedInventory.js:228-250) because it is handed the list
+  // hand (enhancedInventory.js:229-251) because it is handed the list
   // and not the entity - so it must still land on inventory
   // .carriedWeight's answer.
   assert.equal(m.encumbrance.now, Math.trunc(carriedWeight(e)));
@@ -973,7 +973,7 @@ test('PX20c: the name is in the title bar, the count is gone, the tiles carry th
     'and no count under it');
   assert.match(src, /if \(name\) title\.append\(el\('span', 'pack-who', name\)\);/, 'the name rides the window title');
   const css = read('src/ui/enhancedStyle.js');
-  assert.match(css, /\.pack-shell \.pack-id \.pack-who \{ color: #7d7460;/);
+  assert.match(css, /\.pack-shell \.pack-id \.pack-who \{ color: #9c937d;/);
   // The tile is a ROW now, and the piece's NAME is visible again -
   // PX19g hid it because a 52px square clipped it, and that reason is
   // gone with the width.
@@ -1207,7 +1207,7 @@ test('PX21c / WORLD-HOVER: the plaque names a pile without opening it, on the ta
   // its own - but it is still that one list, built once, inside the call.
   assert.match(frame, /ground: pickActivatableHit\(eye, d, api\.dungeonActivationTargets\(\), collider\),/,
     'a THUNK, and the SAME list the press races - one construction seam, so the plaque cannot name what the button ignores');
-  assert.match(frame, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),/,
+  assert.match(frame, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),/,   // AUDIT TACT C7: a peaceful guard before a door is no hit
     '...and the live foes beside it, through the one precedence both readers share');
   assert.match(frame, /contents: api\.lootContents,/);
   assert.match(hov, /const hit = pick \? pick\(\) : pickActivatableHit\(eye, dir, targets\?\.\(\) \?\? \[\], collider\);/,

@@ -104,8 +104,8 @@
   {
     "name": "a-freed-cursor-is-taken-back-by-a-passing-gesture",
     "file": "src/player/pointerLock.js",
-    "old": "  if (_cursorActive) return;\n  _lastRequestAt = nowMs();",
-    "new": "  _lastRequestAt = nowMs();",
+    "old": "  if (_cursorActive || _cursorHolds.size) return;\n  _lastRequestAt = nowMs();",
+    "new": "  if (_cursorHolds.size) return;\n  _lastRequestAt = nowMs();",
     "tests": [
       "test/freemouse.test.js",
       "test/menu_pointer_relock.test.js"

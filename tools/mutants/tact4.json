@@ -1,0 +1,272 @@
+[
+  {
+    "name": "TACT4-tier-floor",
+    "file": "src/ai/foeBlows.js",
+    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;",
+    "new": "  return (entity.level ?? 0) >= 0 || entity.elite === true || entity.eliteFoe === true;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-elite-ignored",
+    "file": "src/ai/foeBlows.js",
+    "old": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;",
+    "new": "  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.eliteFoe === true;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-casters-blade",
+    "file": "src/ai/foeBlows.js",
+    "old": "  if (mobileType >= 128 && mobileType !== M.None) return CASTERS.has(mobileType) ? [] : BLADE;",
+    "new": "  if (mobileType >= 128 && mobileType !== M.None) return BLADE;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-lunge-endless",
+    "file": "src/ai/foeBlows.js",
+    "old": "return along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW; }",
+    "new": "return along >= -0.3 && Math.abs(across) <= P.halfW; }",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-lunge-wide",
+    "file": "src/ai/foeBlows.js",
+    "old": "return along >= -0.3 && along <= P.len && Math.abs(across) <= P.halfW; }",
+    "new": "return along >= -0.3 && along <= P.len; }",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-sweep-round",
+    "file": "src/ai/foeBlows.js",
+    "old": "    return Math.acos(Math.max(-1, Math.min(1, along / d))) <= P.halfArc;",
+    "new": "    return true;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-slam-at-feet",
+    "file": "src/ai/foeBlows.js",
+    "old": "  if (b.kind === 'slam') { const P = BLOW.slam; return Math.hypot(along - P.ahead, across) <= P.r; }",
+    "new": "  if (b.kind === 'slam') { const P = BLOW.slam; return Math.hypot(along, across) <= P.r; }",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-across-flipped",
+    "file": "src/ai/foeBlows.js",
+    "old": "  const along = rx * fx + rz * fz, across = -rx * fz + rz * fx;",
+    "new": "  const along = rx * fx + rz * fz, across = rx * fz + rz * fx;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-no-flash",
+    "file": "src/ai/foeBlows.js",
+    "old": "  if (after > BLOW_FLASH) return null;",
+    "new": "  if (after > 0) return null;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-spent-kept",
+    "file": "src/ai/foeBlows.js",
+    "old": "    if (!phase || (now < b.land && gone(ai, now))) { _live.delete(ai); continue; }",
+    "new": "    if (!phase || (now < b.land && gone(ai, now))) continue;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-range-ignored",
+    "file": "src/ai/foeBlows.js",
+    "old": "    if (near && Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) > range) continue;",
+    "new": "    void range;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-verdict-kept",
+    "file": "src/ai/foeBlows.js",
+    "old": "  ai._blowVerdict = null;\n  if (!fresh)",
+    "new": "  if (!fresh)",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-stale-honoured",
+    "file": "src/ai/foeBlows.js",
+    "old": "  const fresh = now == null || ai._blowAt == null || now - ai._blowAt <= BLOW_VERDICT_LIFE;",
+    "new": "  const fresh = true;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-dodge-keeps-weight",
+    "file": "src/ai/foeBlows.js",
+    "old": "  if (!v) ai._blowMult = undefined;   // dodged: the weight is spent with it",
+    "new": "  // dodged",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-weight-kept",
+    "file": "src/ai/foeBlows.js",
+    "old": "  ai._blowMult = undefined;\n  return dmg > 0",
+    "new": "  return dmg > 0",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-miss-scaled",
+    "file": "src/ai/foeBlows.js",
+    "old": "  return dmg > 0 ? Math.max(1, Math.round(dmg * m)) : dmg;",
+    "new": "  return Math.max(1, Math.round(dmg * m));",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-many-windups",
+    "file": "src/ai/foeBlows.js",
+    "old": "    if (ai === except || now >= b.land || gone(ai, now)) continue;",
+    "new": "    continue;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-no-cooldown",
+    "file": "src/ai/tactics.js",
+    "old": "ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder",
+    "new": "ai.canAct !== false) {   // AUDIT TACT: a token holder",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-no-tier-gate",
+    "file": "src/ai/tactics.js",
+    "old": "    if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {",
+    "new": "    if (!windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-knock-ignored",
+    "file": "src/ai/tactics.js",
+    "old": "  if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0) {",
+    "new": "  if (false) {",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-aim-follows",
+    "file": "src/ai/tactics.js",
+    "old": "  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up",
+    "new": "  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; ai.yaw += 0.05;   // AUDIT TACT A4: no shot, no spell, mid-wind-up",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-walks-in-windup",
+    "file": "src/ai/tactics.js",
+    "old": "  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up\n  return true;",
+    "new": "  ai._tacStrike = false; ai._tacShoot = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up\n  return false;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-verdict-always",
+    "file": "src/ai/tactics.js",
+    "old": "      ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);",
+    "new": "      ai._blowVerdict = true;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-no-forced-swing",
+    "file": "src/ai/tactics.js",
+    "old": "    ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;",
+    "new": "    ai._blowMult = s.blow.mult; ai._blowAt = now;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-sight-breaks",
+    "file": "src/ai/tactics.js",
+    "old": "  if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);\n  if (s.key !== key)",
+    "new": "  if (s.key !== key)",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-attack-ignores",
+    "file": "src/characters/enemyAttack.js",
+    "old": "      if (ai._blowSwing) {",
+    "new": "      if (false) {",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-shader-lane",
+    "file": "src/render/foeTelegraph.js",
+    "old": "    inside = along >= -0.3 && along <= uP.x && abs(across) <= uP.y;",
+    "new": "    inside = along >= -0.3 && along <= uP.x;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-field-sweep",
+    "file": "src/render/foeTelegraph.js",
+    "old": "    const inside = d <= P.r && (d < 0.5 || ang <= P.halfArc);",
+    "new": "    const inside = d <= P.r;",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-ex-reach-not-shape",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "    if (blowConnects(f.ai, meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG)))) {",
+    "new": "    if (meleeHitConnects(f.ai._dist, f.ai.inSight, withinYaw(f.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG))) {",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  },
+  {
+    "name": "TACT4-dungeon-unscaled",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "    const dmg = blowScaled(f.ai, _weighHit(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
+    "new": "    const dmg = ((_a, x) => x)(f.ai, _weighHit(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
+    "tests": [
+      "test/tact4.test.js"
+    ]
+  }
+]

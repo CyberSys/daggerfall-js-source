@@ -35,7 +35,8 @@ import { titleBadge, glyphBadges, cssRgba, GLYPH_STROKE, GLYPH_EDGE_W } from './
 import { PIXEL_STACK } from './pixelifyFive.js';   // AUDIT NAMES N1-4: the in-play name face
 import { renownText } from '../net/renown.js';
 import { guildTagText } from '../net/guildLaw.js';
-import { ribbonColours } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too
+import { ribbonColours, heraldryOf, heraldryColourOf } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too; AUDIT HERALDRY H4: the tag's frame
+import { drawShield } from './heraldryArt.js';   // AUDIT HERALDRY H4: the guild's shield, in its tag's frame, on the canvas
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
 import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the Overworld's block and the travel bar move too
 import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
@@ -639,12 +640,26 @@ export const TRAVEL_VIEW_NAME_COLORS = Object.freeze({
   renown: '#f2c46b', renownBack: 'rgba(14,16,19,0.78)', renownEdge: 'rgba(242,196,107,0.8)',   // .dfname-renown
   guild: '#a9c4dd',   // .dfname-guild
 });
+/** AUDIT HERALDRY H4: where a guild's heraldry is found by its tag - the host's (scenes/world.js seatArmsOf, the one
+ *  ui/nameLayer.js frames its tags with) - or null. */
+let armsOf = null;
+/** AUDIT HERALDRY H4: the lookup the name face frames a guild's tag with, as in play (ui/nameLayer.js setArmsOf). */
+export function setTravelViewArmsOf(fn) { armsOf = typeof fn === 'function' ? fn : null; }
+/** AUDIT HERALDRY H4: a badge's guild's heraldry, where the host knows it - or null. */
+const badgeArms = (b) => (guildTagText(b?.gt) && armsOf ? heraldryOf(armsOf(b.gt)) : null);
 /** The badge's own words and marks, off a mark's `badge` (the peer's, as the relay stamped them). */
 function badgeParts(b) {
-  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b), rb: ribbonColours(b?.rb) };
+  return { lv: renownText(b?.lv), gt: guildTagText(b?.gt), title: titleBadge(b), glyphs: glyphBadges(b), rb: ribbonColours(b?.rb), arms: badgeArms(b) };
 }
-/** Its key in the sprite cache and the frame's picture. */
-const badgeKey = (b) => (b ? `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}|${(Array.isArray(b.rb) ? b.rb : []).join('/')}` : '');
+/** Its key in the sprite cache and the frame's picture - H4: its tag's heraldry too, so new arms make a new sprite. */
+const badgeKey = (b) => {
+  if (!b) return '';
+  const h = badgeArms(b);
+  return `${b.title ?? ''}|${(b.glyphs ?? []).join(',')}|${b.lv ?? ''}|${b.gt ?? ''}|${(Array.isArray(b.rb) ? b.rb : []).join('/')}|${h ? `${h.field}/${h.border}/${h.device}` : ''}`;
+};
+/** AUDIT HERALDRY H4: the tag's frame as the in-play face's (.dfname-guild.armed) - a dark plate edged in the guild's
+ *  border colour, the shield at its left - px (the shield's width a share of the tag's size). */
+export const TRAVEL_VIEW_ARMS = Object.freeze({ back: 'rgba(14,16,19,0.78)', shield: 0.82, pad: 2, gap: 2 });
 /** AUDIT-SEATS: a Season's banner ribbon under the row - its field's band and its border's edge, px. */
 export const TRAVEL_VIEW_RIBBON = Object.freeze({ band: 2, edge: 1, gap: 1 });
 /**
@@ -668,7 +683,8 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   const rowFont = `${size}px ${PIXEL_STACK}`, smallFont = `${small}px ${PIXEL_STACK}`;   // N1-4: the face names wear in play
   x.font = smallFont;
   const lvW = P.lv ? Math.max(small * 1.2, x.measureText(P.lv).width + 6) : 0;
-  const gtW = P.gt ? x.measureText(P.gt).width : 0;
+  const shieldW = P.gt && P.arms ? Math.round(small * TRAVEL_VIEW_ARMS.shield) : 0;   // AUDIT HERALDRY H4
+  const gtW = P.gt ? x.measureText(P.gt).width + (shieldW ? shieldW + TRAVEL_VIEW_ARMS.gap + 2 * TRAVEL_VIEW_ARMS.pad : 0) : 0;
   const titleW = P.title ? x.measureText(P.title.text).width : 0;
   x.font = rowFont;
   const nameW = x.measureText(m.label ?? '').width, arrowW = journey ? x.measureText(' →').width : 0;
@@ -725,7 +741,15 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
   x.fillText(m.label ?? '', cx, ry);
   cx += nameW;
   if (journey) { x.fillStyle = TRAVEL_VIEW_MARK_COLORS.brass; x.fillText(' →', cx, ry); cx += arrowW; }
-  if (P.gt) { x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, cx + gap, ry + (size - small) / 2); cx += gap + gtW; }
+  if (P.gt && shieldW) {   // AUDIT HERALDRY H4: framed in its guild's heraldry - the plate, its edge, the shield, then the tag
+    const A = TRAVEL_VIEW_ARMS, px = cx + gap;
+    x.shadowBlur = 0; x.shadowOffsetY = 0;
+    x.fillStyle = A.back; x.fillRect(px, ry - 1, gtW, size + 2);
+    x.strokeStyle = heraldryColourOf(P.arms.border)?.hex ?? N.guild; x.lineWidth = 1; x.strokeRect(px + 0.5, ry - 0.5, gtW - 1, size + 1);
+    drawShield(x, P.arms, px + A.pad, ry + (size - shieldW * 1.04) / 2, shieldW);
+    x.shadowBlur = 3; x.shadowOffsetY = 1;
+    x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, px + A.pad + shieldW + A.gap, ry + (size - small) / 2); cx += gap + gtW;
+  } else if (P.gt) { x.font = smallFont; x.fillStyle = N.guild; x.fillText(P.gt, cx + gap, ry + (size - small) / 2); cx += gap + gtW; }
   if (glyphW && typeof globalThis.Path2D === 'function') {   // each in its own colour, as the DOM face draws them
     cx += gap;
     for (const g of P.glyphs) {
@@ -957,7 +981,7 @@ const markWidth = (q) => {
   if (q.sp) return q.sp.w;
   if (!m.badge) return Math.max(24, 9 * (m.label?.length ?? 0) + 16);
   const P = badgeParts(m.badge);
-  const row = 9 * (m.label?.length ?? 0) + (P.lv ? 22 : 0) + (P.gt ? 8 * P.gt.length + 4 : 0) + P.glyphs.length * 14 + 16;
+  const row = 9 * (m.label?.length ?? 0) + (P.lv ? 22 : 0) + (P.gt ? 8 * P.gt.length + 4 + (P.arms ? 16 : 0) : 0) + P.glyphs.length * 14 + 16;   // H4: its shield's frame
   return Math.max(24, row, P.title ? 8 * P.title.text.length + 16 : 0);
 };
 /** The lines a mark's label hangs below (or, at the foot, above) its point past the first: a far place's distance, a

@@ -38,8 +38,8 @@
   {
     "name": "NAVF-sweep-box-unturned",
     "file": "src/player/collider.js",
-    "old": "      if (R) {\n        const b = turnedBox(bucket, t, R, TURNED_BOX);\n        for (let i = 0; i < 3; i++) if (hi[i]",
-    "new": "      if (false) {\n        const b = turnedBox(bucket, t, R, TURNED_BOX);\n        for (let i = 0; i < 3; i++) if (hi[i]",
+    "old": "   // AUDIT NAV1 (#12): a mover's - its box as it stands turned, the start turned back\n      let apart = false;\n      if (R) {\n        const b = turnedBox(bucket, t, R, TURNED_BOX);\n        for (let i = 0; i < 3; i++) if (hi[i]",
+    "new": "   // AUDIT NAV1 (#12): a mover's - its box as it stands turned, the start turned back\n      let apart = false;\n      if (false) {\n        const b = turnedBox(bucket, t, R, TURNED_BOX);\n        for (let i = 0; i < 3; i++) if (hi[i]",
     "tests": [
       "test/navaudit_frame.test.js"
     ]

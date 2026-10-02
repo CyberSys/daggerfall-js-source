@@ -519,8 +519,8 @@
   {
     "name": "SEAT2b2c-svc-revolt-lapse",
     "file": "server-account/src/seatSiege.js",
-    "old": "      db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(K, b.defender),\n      db.prepare(\"UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'\").bind(K, W + 1),\n      history('revolt-stood'",
-    "new": "      db.prepare(\"UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND state = 'proclaimed'\").bind(K, W + 1),\n      history('revolt-stood'",
+    "old": "  db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(K, guild),\n",
+    "new": "",
     "tests": [
       "test/seat2b_revolt_service.test.js"
     ]

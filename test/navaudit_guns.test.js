@@ -18,7 +18,7 @@ import { createShotField, FLOAT_DRIFT } from '../src/systems/naval/navalShots.js
 import { orientedBox, launchVelocity, rangeAt, NAVAL_DEG } from '../src/systems/naval/navalBallistics.js';
 import { navalWireRecord } from '../src/systems/naval/navalWire.js';
 import { NAVAL_SFX, navalSoundRange } from '../src/systems/naval/navalSounds.js';
-import { hullBoxOf, rigBoxesOf, STRUCK_GRACE_S, TALLY_S } from '../src/scenes/navalHost.js';
+import { hullBoxOf, rigBoxesOf, STRUCK_GRACE_S, TALLY_S, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { navalHudText } from '../src/ui/navalHud.js';
 import { quatEuler } from '../src/world/unityAnimator.js';
 import { sea } from './navalSea.mjs';
@@ -290,7 +290,7 @@ test('AUDIT NAV1 G11 fire: a gun\'s FIRE_HP for FIRE_SECONDS, a barrel\'s BARREL
   // the host: many balls into one hull - through her rig, at her waterline, into her side
   const h = await sea({ hull: HULL.SmallShip, seed: 11, settings: { ShipsAtSea: 'off', Boarders: false } });
   const id = h.host.spawnShip('merchantCarrack', { range: 900, bearing: Math.PI / 2 });
-  h.run(0.3);
+  h.run(SHIP_FADE_S + 0.3);   // AUDIT BAY A14 PIN MOVED: come into the world whole first - a ship under FADE_FLATS raises no smoke, and the stream her rolls draw on moves with it
   const e = h.host._sea.get(id);
   const box = hullBoxOf(e.boat, h.pool.models);
   const volley = (y, n, tag, gun = 'swivel') => h.host._shots.fireVolley({ id: tag, shooter: 'me:42', launches: Array.from({ length: n }, (_, i) => ({ delay: i * 0.02, p0: [box.c[0] - 30, y, box.c[2] + (i % 9) - 4], v0: [150, 0, 0], gun, index: i })) });

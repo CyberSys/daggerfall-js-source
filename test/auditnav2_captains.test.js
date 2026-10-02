@@ -18,7 +18,7 @@ import { SHIP_STATES, STRUCK_AT } from '../src/systems/naval/navalDamage.js';
 import { NAVAL_DEG } from '../src/systems/naval/navalBallistics.js';
 import { DESPAWN_BEYOND, encounterClasses } from '../src/systems/naval/navalDirector.js';
 import { mulberry32 } from '../src/combat/bloodArt.js';
-import { HOSTILE_NEAR_M, RAM_SPEED } from '../src/scenes/navalHost.js';
+import { HOSTILE_NEAR_M, RAM_SPEED, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { FIELD_QUIET_S } from '../src/systems/naval/navalYard.js';
 import { HANDLING } from '../src/systems/comeSailAway.js';
 import { sea } from './navalSea.mjs';
@@ -275,10 +275,12 @@ test('AUDIT NAV2 F23 two ships struck to each other are let go: a ship that stri
     const { s, g, b } = await pair();
     s.host.frame(0.1);
     assert.deepEqual([g.ship.mode, g.ship.target, b.ship.mode, b.ship.target], ['struck', null, 'struck', null], 'each lies struck, fighting no one');
-    assert.ok(s.host._sea.has(g.id) && s.host._sea.has(b.id), 'in sight: kept');
+    assert.ok(s.host._sea.has(g.id) && s.host._sea.has(b.id) && !g.retiring && !b.retiring, 'in sight: kept');   // AUDIT BAY A15: never fading
     s.view.feet = [0, 0, -(DESPAWN_BEYOND + 3000)];
     s.host.frame(0.1);
-    assert.ok(!s.host._sea.has(g.id) && !s.host._sea.has(b.id), 'both let go on the next director step');
+    assert.ok(s.host._sea.get(g.id)?.retiring && s.host._sea.get(b.id)?.retiring, 'both let go on the next director step (SHIP-FADE: fading)');   // SHIP-FADE (2026-10-02) PIN MOVED
+    for (let t = 0; t < SHIP_FADE_S + 0.5; t += 0.1) s.host.frame(0.1);
+    assert.ok(!s.host._sea.has(g.id) && !s.host._sea.has(b.id), 'and gone once faded');
   }
   // the player gone the very step they struck - their last word still 'engage', each at the other: a ship fights only
   // afloat, so both go at once
@@ -286,7 +288,9 @@ test('AUDIT NAV2 F23 two ships struck to each other are let go: a ship that stri
     const { s, g, b } = await pair();
     s.view.feet = [0, 0, -(DESPAWN_BEYOND + 3000)];
     s.host.frame(0.1);
-    assert.ok(!s.host._sea.has(g.id) && !s.host._sea.has(b.id), 'both let go on the next director step');
+    assert.ok(s.host._sea.get(g.id)?.retiring && s.host._sea.get(b.id)?.retiring, 'both let go on the next director step (SHIP-FADE: fading)');
+    for (let t = 0; t < SHIP_FADE_S + 0.5; t += 0.1) s.host.frame(0.1);
+    assert.ok(!s.host._sea.has(g.id) && !s.host._sea.has(b.id), 'and gone once faded');
   }
 });
 
@@ -372,8 +376,8 @@ test('AUDIT NAV2 F27 a quarry is in the fight while she is chased: a merchantman
   assert.equal(n.ship.target, p.id);
   s.view.feet = [0, 0, -(DESPAWN_BEYOND + 3000)];
   s.host.frame(0.1);
-  assert.ok(s.host._sea.has(n.id), 'the pursuer kept');
-  assert.ok(s.host._sea.has(p.id), 'and her quarry with her');
+  assert.ok(s.host._sea.has(n.id) && !n.retiring, 'the pursuer kept');   // AUDIT BAY A15: a ship let go stands in the sea while she fades
+  assert.ok(s.host._sea.has(p.id) && !p.retiring, 'and her quarry with her');
 });
 
 // ── F28: the heavy hulls' way ────────────────────────────────────────────────────────────────────────────────────────

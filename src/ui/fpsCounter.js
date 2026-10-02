@@ -94,7 +94,7 @@ export function mountFpsCounter({ enabled = () => true, raf = (typeof requestAni
   // (tools/fpsCounterProbe.mjs measures it in Chromium)
   el.style.cssText = 'position:fixed;top:calc(8px + env(safe-area-inset-top, 0px));right:calc(8px + env(safe-area-inset-right, 0px));z-index:9;padding:4px 8px;border-radius:8px;'
     + 'max-width:calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));box-sizing:border-box;'
-    + 'font:600 13px/1.3 ui-monospace,Menlo,Consolas,monospace;color:#e9e4d9;background:rgba(14,16,19,.65);pointer-events:none;'
+    + 'font:600 13px/1.3 ui-monospace,Menlo,Consolas,monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;color:#e9e4d9;background:rgba(14,16,19,.65);pointer-events:none;'
     + '-webkit-user-select:none;user-select:none;white-space:pre-wrap;overflow-wrap:anywhere;text-align:right;display:none';
   el.style.display = 'none';   // set on the property too: the cssText above is a string to a stub document
   document.body.appendChild(el);

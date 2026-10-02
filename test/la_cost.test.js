@@ -231,7 +231,9 @@ test('LA-COST1: THE SECOND CALL IN A FRAME SENDS ONLY ITS OWN - a billboard call
   // merged beside DW-F: the billboard block carries the water column's switch and sampler (two more)
   // PROF4 (bible/06-Systems/Professions-Arc.md 25): and the felled tree's tip, set standing (one more)
   // ELITE FOES: and a batch's glow (uEliteGlow, one more on the billboards' every call)
-  assert.deepEqual(counts, ['billboards 101 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
+  // DISSOLVE (the 2026-10-02 audit): and the burn, set whole (one more - a reset that sends nothing left the last burning
+  // flat's share live under every flat after it)
+  assert.deepEqual(counts, ['billboards 102 -> 29', 'decals 85 -> 12', 'a character 86 -> 13']);
   // ...and the next frame sends them all again
   r.beginFrame(PROJ, VIEW, new Float32Array([0.3, 0.8, 0.2]), WORLD_FRAME);
   calls.length = 0; r.drawBillboards(bbs, R, UP);
@@ -367,7 +369,8 @@ test('LA-COST1: THE LAW, READ OFF THE SOURCE - every field the four gated frame 
     '_pointColorGen', '_pointColorDecGen', '_pointColorDecLane', '_pointColorDecCount', '_adaptOneTex', '_tex0Bound', '_activeUnit',
     '_bbFrameStamp', '_dFrameStamp', '_cFrameStamp', '_tFrameStamp', '_frameStamp', ...AUTOMAP,
     '_bbColumnOn', '_dwCamFwd',   // merged beside DW-F: the column switch's GL-state shadow, and the camera-forward scratch
-    '_bbTipOn'];   // PROF4: the felled tree's tip, the same kind of GL-state shadow
+    '_bbTipOn',   // PROF4: the felled tree's tip, the same kind of GL-state shadow
+    '_bbDissolveOn'];   // DISSOLVE: the burn's switch, the same kind of GL-state shadow
   const { canvas } = stateGl();
   const r = new Renderer(canvas);
   for (const lane of [null, EL_LANE]) {

@@ -78,7 +78,8 @@ async function verdict(m, cwd, env) {
     if (interrupted) return null;
     if (chk.status !== 0) return { kind: 'noapply', text: `  ${m.name}: DOES NOT PARSE - not a verdict; re-aim the record by content` };
   }
-  const r = await run(['--test', ...m.tests], { cwd, env });
+  // The verdict parses TAP; Node's default reporter may be spec (including on Node 24).
+  const r = await run(['--test', '--test-reporter=tap', ...m.tests], { cwd, env });
   if (interrupted) return null;
   const failing = (r.stdout.match(/^not ok/gm) ?? []).length;
   // A harness error is neither a death nor a survival; it is reported as itself and fails the run.
@@ -157,7 +158,7 @@ async function parallel(n) {
   await Promise.all(spaces.map(async (ws) => {
     while (t < tests.length && !interrupted) {
       const f = tests[t++];
-      const r = await run(['--test', f], { cwd: ws, env: envOf(ws) });
+      const r = await run(['--test', '--test-reporter=tap', f], { cwd: ws, env: envOf(ws) });
       if (r.status !== 0) fails.add(f);
     }
   }));

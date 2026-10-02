@@ -54,7 +54,7 @@
   {
     "name": "OW5-V1-late-lock-kept",
     "file": "src/player/pointerLock.js",
-    "old": "    document.addEventListener('pointerlockchange', () => { if (_cursorActive && document.pointerLockElement) releaseLook(); }, false);\n",
+    "old": "    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && document.pointerLockElement) releaseLook(); }, false);\n",
     "new": "",
     "tests": [
       "test/ow5_audit.test.js"

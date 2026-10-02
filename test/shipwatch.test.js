@@ -29,7 +29,7 @@ import { classById, HULL } from '../src/systems/naval/navalShips.js';
 import { createSeaShip, stepCaptain, WIND_RATED, ENGAGE_RANGE, GUNS_SEEN_S, FLEE_RANGE } from '../src/systems/naval/navalAI.js';
 import { findHarbour, createWaterGrid, errandFor, stepErrand, LURK_R, NIGHT_LURK_K } from '../src/systems/naval/shipLife.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
-import { SAIL_HO_RANGE } from '../src/scenes/navalHost.js';
+import { SAIL_HO_RANGE, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { CREW_ORDERS } from '../src/systems/naval/shipCrew.js';
 import { setLights } from '../src/systems/comeSailAwayBoat.js';
 import { sea } from './navalSea.mjs';
@@ -377,7 +377,7 @@ test('SHIP-WATCH THE FAR LAMPS ON THE REAL HOST: by night a lit ship past LAMP_N
   const h = await sea({ hull: HULL.SmallShip, where: { cityLights: true } });
   const m = h.host._sea.get(h.host.spawnShip('merchantGalleon', { range: 400, bearing: 1 }));
   const p = h.host._sea.get(h.host.spawnShip('pirateBrig', { range: 400, bearing: -1, temper: 'bold' }));
-  h.run(0.3);
+  h.run(SHIP_FADE_S + 0.3);   // AUDIT BAY A13 PIN MOVED: come into the world whole - under FADE_FLATS a ship shows no lamp
   m.ship.speed = 0; p.ship.speed = 0;
   const lamps = h.host.drawFrame().particles.filter((q) => q.kind === 'lamp');
   assert.ok(lamps.length >= 1 && lamps.length <= LAMP_MAX * 2, `lamps: ${lamps.length}`);

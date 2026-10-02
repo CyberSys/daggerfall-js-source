@@ -173,3 +173,43 @@ export function shieldSvg(heraldry, { size = 16 } = {}) {
     + `<path d="${SHIELD_CLOTH}" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="3"/>`
     + '</svg>';
 }
+
+/**
+ * AUDIT HERALDRY H4: THE SHIELD ON A CANVAS - the Overworld's name face (ui/travelViewHud.js badgeSprite) draws on a
+ * canvas, not the DOM: shieldSvg's drawing into `ctx` at (`x`, `y`), `size` pixels wide - the field, the border inside the
+ * edge, the device in the border colour on the field, the dark edge. Drawn once into a kept sprite, never a frame.
+ * Whether it drew one (none for no heraldry, or no Path2D).
+ * @param {CanvasRenderingContext2D} ctx @param {any} heraldry @param {number} x @param {number} y @param {number} size
+ */
+export function drawShield(ctx, heraldry, x, y, size) {
+  const h = heraldryOf(heraldry);
+  const P = globalThis.Path2D;
+  if (!h || typeof P !== 'function') return false;
+  const field = heraldryColourOf(h.field)?.hex ?? '', border = heraldryColourOf(h.border)?.hex ?? '';
+  const shield = new P(SHIELD_CLOTH);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 100, size / 100);
+  ctx.fillStyle = field;
+  ctx.fill(shield);
+  ctx.save();
+  ctx.clip(shield);
+  ctx.strokeStyle = border;
+  ctx.lineWidth = SHIELD_BORDER_W * 2;
+  ctx.stroke(shield);
+  ctx.restore();
+  ctx.save();
+  const d = SHIELD_DEVICE;
+  ctx.translate(d.x, d.y);
+  ctx.scale(d.scale, d.scale);
+  for (const p of DEVICE_ART[h.device] ?? []) {
+    const path = new P(p.d), ink = p.bg ? field : border;   // a hole in the field's colour, the device in the border's
+    if (p.w) { ctx.strokeStyle = ink; ctx.lineWidth = p.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(path); } else { ctx.fillStyle = ink; ctx.fill(path); }
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 3;
+  ctx.stroke(shield);
+  ctx.restore();
+  return true;
+}

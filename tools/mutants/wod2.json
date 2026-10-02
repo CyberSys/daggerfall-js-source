@@ -45,8 +45,8 @@
   {
     "name": "the-lerp-forgets-the-plus-one",
     "file": "src/world/wodLocationLoader.js",
-    "old": "      let t = f32(1 / f32(distanceFromRect(rect, x, y) + 1));",
-    "new": "      let t = f32(1 / f32(distanceFromRect(rect, x, y) + 2));",
+    "old": "      let t = f32(1 / f32(d + 1));",
+    "new": "      let t = f32(1 / f32(d + 2));",
     "tests": [
       "test/wod2_loader.test.js"
     ]

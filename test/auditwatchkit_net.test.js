@@ -130,7 +130,7 @@ test('AUDIT WK-SN the world: the cards drawn every frame of the layer; a card\'s
   // the card, lifted
   const at = WORLD.indexOf('function partyCompanions() {');
   const body = WORLD.slice(WORLD.indexOf('{', at) + 1, WORLD.indexOf('\n  }\n', at));
-  const cards = new Function('navalOn', 'csaRuntime', 'naval', 'crewAshore', 'composePartyFx', body);
+  const cards = new Function('navalOn', 'csaRuntime', 'naval', 'crewAshore', 'composePartyFx', 'swornCards', body);   // REVENANT-COMPANION: the sworn's cards (none here)
   const party = [{ boat: 42, name: 'Hilda', role: 'Bosun', health: 20, maxHealth: 60 }];
   const naval = { companions: { party } };
   const standing = { bodies: () => [{ companion: '42:Hilda', dead: false, entity: { health: 45, maxHealth: 60 } }] };

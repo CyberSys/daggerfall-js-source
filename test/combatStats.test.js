@@ -12,6 +12,7 @@ import {
 import { SKILLS } from '../src/systems/skills.js';
 import { EQUIP_SLOTS } from '../src/systems/equip.js';
 import { SWING_MODS } from '../src/combat/playerWeapon.js';
+import { STATS_CARD_CSS, FLIP_EDGE_MS, flipEdgeMs } from '../src/ui/statsCard.js';   // FIREFOX-FLIP
 
 const stats = (o = {}) => ({ strength: 50, intelligence: 50, willpower: 50, agility: 50, endurance: 50, personality: 50, speed: 50, luck: 50, ...o });
 const skillsAll = (v, o = {}) => ({ ...Object.fromEntries(Array.from({ length: 35 }, (_, i) => [i, v])), ...o });
@@ -96,7 +97,7 @@ test('bare hands, bows, and the critical model', () => {
   assert.ok(o.damageMult > 1);
 });
 
-test('the striking weapon is the right hand\'s, else the left\'s, else nothing', () => {
+test('the striking weapon defaults to the right hand, or nothing', () => {
   const w = longsword();
   const slots = []; slots[EQUIP_SLOTS.RightHand] = w;
   assert.equal(strikingWeaponOf({ equip: { slots } }), w);
@@ -145,4 +146,29 @@ test('the Stats button turns the card, builds the back, and the turn survives a 
   const plain = new FakeEl('div');
   assert.equal(statFlip(plain, null), plain);
   delete globalThis.document;
+});
+
+test('FIREFOX-FLIP: in Firefox alone (two tests, either enough) the turned-away face is hidden by visibility, swapped at the moment the card is EDGE-ON - the first leg\'s eased rotation crossing 90 degrees (~226ms of 900), not half the turn, where it is already 25 degrees past and showing its back; reduced motion keeps its crossfade (mutants: the swap at half the turn; the back never hidden; reduced motion swapped too; the keyframes off the constants)', () => {
+  // the eased first leg, evaluated forward (an independent spelling of cubic-bezier(.3,.7,.25,1) on 0..45% -> 0..96deg)
+  const bez = (t, p1, p2) => 3 * (1 - t) * (1 - t) * t * p1 + 3 * (1 - t) * t * t * p2 + t * t * t;
+  const angleAt = (ms) => {
+    const x = ms / (900 * 0.45);
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 40; i++) { const s = (lo + hi) / 2; if (bez(s, 0.3, 0.25) < x) lo = s; else hi = s; }
+    return 96 * bez(lo, 0.7, 1);
+  };
+  assert.equal(FLIP_EDGE_MS, flipEdgeMs());
+  assert.ok(Math.abs(angleAt(FLIP_EDGE_MS) - 90) < 0.6, `edge-on at ${FLIP_EDGE_MS}ms (${angleAt(FLIP_EDGE_MS).toFixed(2)}deg)`);
+  assert.ok(angleAt(900 * 0.45) > 95.9 && 900 * 0.45 < 450, 'the first leg ends past edge-on, before half the turn - a swap at half shows a face from behind');
+  assert.ok(FLIP_EDGE_MS > 200 && FLIP_EDGE_MS < 250);
+  const css = STATS_CARD_CSS;
+  const ff = css.slice(css.indexOf('@supports (-moz-appearance: none) or selector(:-moz-focusring) {'));
+  assert.ok(ff.length > 0 && css.includes('@supports (-moz-appearance: none) or selector(:-moz-focusring) {'), 'Firefox alone');
+  assert.match(ff, /^@supports \(-moz-appearance: none\) or selector\(:-moz-focusring\) \{\s*\n\s*@media \(prefers-reduced-motion: no-preference\) \{/, 'never under reduced motion');
+  assert.match(ff, new RegExp(`\\.pack-shell \\.statflip-front, \\.pack-shell \\.statflip-back \\{ transition: visibility 0s ${FLIP_EDGE_MS}ms; \\}`), 'the swap at the edge');
+  assert.match(ff, /\.pack-shell \.statflip-back \{ visibility: hidden; \}\s*\n\s*\.pack-shell \.statflip\.is-back \.statflip-back \{ visibility: visible; \}\s*\n\s*\.pack-shell \.statflip\.is-back \.statflip-front \{ visibility: hidden; \}/);
+  // the keyframes and the swap read one set of numbers
+  assert.match(css, /45% \{ transform: rotateY\(96deg\) translateZ\(70px\)/);
+  assert.match(css, /45% \{ transform: rotateY\(84deg\) translateZ\(70px\)/);
+  assert.match(css, /animation: sf-to-back 900ms cubic-bezier\(0\.3,0\.7,0\.25,1\) both;/);
 });
