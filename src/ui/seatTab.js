@@ -30,6 +30,8 @@ import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
 import { tideLine } from '../net/tideLaw.js';
 import { drawSeatWorks } from './seatWorks.js';   // SEAT2b: the works
 import { towersText } from '../net/fortLaw.js';   // SEAT2b part two: the Watchtowers' word
+import { heraldryByTag } from '../net/heraldryIndex.js';   // HERALDRY-SHOWN: the Chronicle's guilds' heraldry, by tag
+import { heraldrySwatch, chronicleGuildOf } from './heraldrySwatch.js';   // HERALDRY-SHOWN (Seats-Arc 8.1): a Chronicle line under its guild's shield
 
 /** SEAT1c: how long the relinquish button stays armed after its first press, ms. */
 export const SEAT_RELINQUISH_ARM_MS = 4000;
@@ -432,7 +434,17 @@ export function createSeatTab(host, ui) {
       if (lines.length) {
         body.append(el('p', 'notice-section', 'The Chronicle'));
         const ol = el('ol', 'notice-chronicle');
-        for (const l of lines) ol.append(el('li', null, l));
+        // HERALDRY-SHOWN (Seats-Arc 8.1: "drawn on ... the Chronicle"): each line under the shield of the guild it is about,
+        // where the client knows that guild's heraldry - this answer's (its holder, battle and standings), then the seats' list
+        const arms = heraldryByTag(data, book.data);
+        const about = (data.chronicle ?? []).filter((r) => chronicleLine(r, seat)).map(chronicleGuildOf);
+        lines.forEach((l, i) => {
+          const li = el('li');
+          const shield = heraldrySwatch(document, arms.get(about[i]?.tag));
+          if (shield) li.append(shield);
+          li.append(el('span', null, l));
+          ol.append(li);
+        });
         body.append(ol);
       }
       // AUDIT-SEATS (9.2: "the board's Chronicle pinboard ... read it as prose"): the whole Chronicle, the Hall of Records

@@ -25,7 +25,8 @@
 import { accountKind, displayName, overRate } from './accounts.js';
 import { CHAR_ID_RE } from './service.js';   // AUDIT SEATS-3 A3: an Honours character in the saves' shape
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
-import { fortifierAt, fortsCaptureWithSave, fortTierAt, siegewrightAt, fortsLapsedStatements } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two (b): the works a siege fights behind
+import { fortifierAt, fortsCaptureWithSave, fortTierAt, siegewrightAt, fortsLapsedStatements, fortsDueStatements, fortsGuildFallStatements } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two (b): the works a siege fights behind   // VOID: a capture's works given back
+import { canModerate } from './titles.js';   // VOID: a moderator's, or a developer's
 import { mustChange } from './realm.js';
 import { gatherStandings } from './seatInfluence.js';   // AUDIT-SEATS S8: a Tourney's dead heat as the Turning counted it
 import { utcDay, MARKS_MAX } from '../../src/net/marksLaw.js';
@@ -50,6 +51,13 @@ async function battleAt(db, week, key) {
   return b ? { ...b, starts_at: Number(b.starts_at), ends_at: Number(b.ends_at), week: Number(b.week), key: Number(b.key) } : null;
 }
 const resultAt = (db, week, key) => db.prepare('SELECT result, raised, winner FROM town_seat_results WHERE week = ? AND key = ?').bind(week, key).first();
+/** VOID (migration 0066): WHAT STOOD BEFORE A RESULT, kept in the result's own INSERT (`?1` the week, `?2` the seat) - the
+ *  seat's Charter row (null at an unheld seat) and every Legacy row at the seat from the battle's week on - so a
+ *  moderator's void (voidSiege) gives back exactly what the result moved. */
+const PRIOR_SQL = `json_object(
+  'hold', json((SELECT json_object('guild', guild_id, 'region', region, 'standing', standing, 'since', since_week, 'truce', truce_week,
+    'tithe', tithe, 'titheWeek', tithe_week, 'owed', owed) FROM town_seat_holds WHERE key = ?2)),
+  'legacy', json((SELECT json_group_array(json_array(week, guild_id, amount)) FROM town_seat_legacy WHERE key = ?2 AND week >= ?1)))`;
 
 /**
  * THE PASS (6.2, 6.4, 6.6): this week's battle at `key`, from ten minutes before its start until its window closes - a
@@ -201,7 +209,7 @@ async function applyResult(db, b, c, nowS, zero) {
   // AUDIT-SEATS S3 (17): the result only for a battle still scheduled, its week not yet settled - a Turning that came first
   // voided it (seatTurning.js), and a late receipt moves no Charter it has already reckoned without
   const head = (winner) => [
-    db.prepare(`INSERT INTO town_seat_results (week, key, result, raised, winner, rid, at) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+    db.prepare(`INSERT INTO town_seat_results (week, key, result, raised, winner, rid, at, prior) SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ${PRIOR_SQL}
       WHERE EXISTS (SELECT 1 FROM town_seat_battles WHERE week = ?1 AND key = ?2 AND state = 'scheduled')
         AND NOT EXISTS (SELECT 1 FROM town_seat_weeks WHERE week = ?1)`).bind(W, K, result, raised, winner, ridOf(), nowS),
     mustChange(db),
@@ -243,7 +251,7 @@ async function applyResult(db, b, c, nowS, zero) {
     return run([...head(null), history('tourney-unheld', {}), ...swords]);
   }
   const forfeitPaid = result === 'forfeit' && !!(await db.prepare(`SELECT 1 FROM town_seat_results r JOIN town_seat_battles x ON x.week = r.week AND x.key = r.key
-    WHERE r.result = 'forfeit' AND x.attacker = ? AND x.defender = ? AND r.week >= ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, seasonFloor(W, zero), W).first());   // SEASON1: this Season's
+    WHERE r.result = 'forfeit' AND x.state <> 'void' AND x.attacker = ? AND x.defender = ? AND r.week >= ? AND r.week < ? LIMIT 1`).bind(b.attacker, b.defender, seasonFloor(W, zero), W).first());   // SEASON1: this Season's   // VOID: a forfeit the Moderators voided paid nothing
   const throne = c.th === 1 ? 1 : 0;   // AUDIT-SEATS T1: the attackers reached the Throne (the receipt's `th`; absent, 0)
   const after = siegeAftermath('siege', result, raised, { forfeitPaid, throne: throne === 1 });
   const stmts = [...head(siegeWinner(result))];
@@ -251,6 +259,10 @@ async function applyResult(db, b, c, nowS, zero) {
     const seat = (await confirmedSeats(db, nowS)).get(K);
     // SEAT2b (6.8, 7.5): the seat's works a tier down with the Charter - a Fortifier's save keeping the Walls once a Season
     const seasonWeek = seasonFloor(W, zero);
+    // VOID (migration 0066): the works' tiers the siege was fought behind kept on the result - after the projects whose day
+    // had come are raised (the drop's own first step, idempotent), before the drop - so `/siege void` can give them back
+    stmts.push(...fortsDueStatements(db, nowS, K), db.prepare(`UPDATE town_seat_results SET prior = json_set(COALESCE(prior, '{}'), '$.forts',
+      json((SELECT json_group_object(work, tier) FROM town_seat_forts WHERE key = ?2))) WHERE week = ?1 AND key = ?2`).bind(W, K));
     const fortifier = await fortifierAt(db, W, K, nowS, seasonWeek);
     stmts.push(...fortsCaptureWithSave(db, K, { week: W, nowS, seasonWeek, fortifier, history }));
     stmts.push(
@@ -359,4 +371,118 @@ export async function claimSiege({ db, nowS, subtle }, player, env, { receipt, c
   }
   try { await db.batch(stmts); } catch { return { error: 'honours-twice' }; }
   return { ...out, honours: { side: c.sd, won, marks: give.marks, xp: give.xp, spoil, spent } };
+}
+
+/** VOID: what a result kept of the seat before it (migration 0066's `prior`), parsed - `{}` where it kept none. */
+function priorOf(row) {
+  try { const p = JSON.parse(String(row?.prior ?? '')); return p && typeof p === 'object' ? p : {}; } catch { return {}; }
+}
+
+/**
+ * VOID (Seats-Arc 18: "Moderators (MOD1) may **void a siege** (`/siege void`) - a history row, the holder keeping the
+ * seat - when a fight was won by an exploit found after it"): THE SEAT'S BATTLE OF THIS WEEK (a siege, a Tourney or a
+ * revolt) VOIDED - a moderator's or a developer's (titles.js canModerate). The battle's row void, so no pass opens to it
+ * and no receipt claims it (claimSiege's 'battle-void'), and a Chronicle row says the Moderators voided it. Then:
+ *   no result yet - as a Turning voids an unfinished one: every Sellsword's escrow home now (signed or not; nobody earns
+ *     a fee). DECIDED: the challenger's Right does NOT carry (an exploit's void, never a room lost - the Turning carries
+ *     a Right only for a battle still scheduled, and this one is void);
+ *   a seat taken (a siege's `attack`; a revolt that stood) - the Charter back to the guild that held it before the battle,
+ *     as its result's `prior` kept it (its Standing, the week it took the seat, its truce, Tithe and arrears; where none
+ *     was kept, Standing 50 from this week), its Legacy at the seat given back, the works' capture drop undone (each work
+ *     at least the tier it was fought behind) and a Fortifier's save it spent unspent; the capturer's own building
+ *     projects fall and its Edict for next week is void;
+ *   a seat held (a siege's `defend` or forfeit; a revolt put down) - the holder's Standing back to what it was before
+ *     (where none was kept, the result's Standing taken off) and its defence fifth struck; DECIDED: the challenger's bar
+ *     lifted too, its influence at the seat this week and its Legacy given back - the exploit's victim loses nothing;
+ *   a Tourney won - the winner's Charter gone (the seat unheld again), its projects fallen, its Edict void; DECIDED: the
+ *     claim fee it paid stays burnt.
+ * DECIDED: Honours, Marks, Renown and Spoils already claimed stand (never clawed back); the Sellswords paid at the result
+ * stay paid. No red line. Idempotent - a battle already void answers `repeat`; a seat with no battle this week, 'battle-none'.
+ * Answers `{ ok, key, week, battle, result, restored }` - `result` the voided result (null where none had come),
+ * `restored` whether a Charter went back to the guild that held it.
+ * @param {{db: any, nowS: number}} ctx
+ */
+export async function voidSiege({ db, nowS }, mod, env, { key } = {}) {
+  if (!canModerate(mod, env)) return { error: 'not-moderator' };
+  if (!seatKeyOk(key)) return { error: 'bad-seat' };
+  const W = weekAt(nowS);
+  // a receipt that lands between the read and the write rolls the void back whole, and it is read again with the result
+  for (let tries = 0; tries < 3; tries++) {
+    const b = await battleAt(db, W, key);
+    if (!b) return { error: 'battle-none' };
+    const out = { ok: true, key, week: W, battle: b.kind };
+    if (b.state === 'void') return { ...out, repeat: true };
+    const r = await db.prepare('SELECT result, raised, winner, rid, at, prior FROM town_seat_results WHERE week = ? AND key = ?').bind(W, key).first();
+    const { results: gs = [] } = await db.prepare('SELECT id, name, tag FROM guilds WHERE id IN (?, ?)').bind(b.attacker, b.defender).all();
+    const names = new Map(gs.map((g) => [g.id, { name: g.name, tag: g.tag }]));
+    const nameOf = (id) => names.get(id) ?? { name: '', tag: '' };
+    const stmts = r
+      ? [db.prepare(`UPDATE town_seat_battles SET state = 'void' WHERE week = ?1 AND key = ?2 AND state IN ('fought', 'forfeit')
+          AND EXISTS (SELECT 1 FROM town_seat_results WHERE week = ?1 AND key = ?2 AND rid = ?3)`).bind(W, key, r.rid), mustChange(db)]
+      : [db.prepare(`UPDATE town_seat_battles SET state = 'void' WHERE week = ?1 AND key = ?2 AND state = 'scheduled'
+          AND NOT EXISTS (SELECT 1 FROM town_seat_results WHERE week = ?1 AND key = ?2)`).bind(W, key), mustChange(db),
+        ...(await swordsSettled(db, W, key, nowS, { voided: true }))];   // the escrow home, as the Turning's void
+    let restored = false;
+    if (r) {
+      const p = priorOf(r);
+      const held = p.hold && typeof p.hold === 'object' && p.hold.guild === b.defender ? p.hold : null;
+      const legacyBack = (Array.isArray(p.legacy) ? p.legacy : []).filter((l) => Array.isArray(l) && Number.isSafeInteger(l[0]) && typeof l[1] === 'string' && Number.isSafeInteger(l[2]) && l[2] >= 0)
+        .map(([w, g, n]) => db.prepare('INSERT OR IGNORE INTO town_seat_legacy (week, key, guild_id, amount) VALUES (?, ?, ?, ?)').bind(w, key, g, n));
+      if (b.kind === 'tourney') {
+        const won = r.winner === 'attack' ? b.attacker : r.winner === 'defend' ? b.defender : null;
+        if (won) {
+          stmts.push(
+            db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ? AND since_week = ?').bind(key, won, W),
+            db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(key, W + 1, won),
+            ...fortsLapsedStatements(db, key, nowS),
+          );
+        }
+      } else if (r.result === 'attack') {
+        // the Charter back where it stood - over the capturer's row (a revolt that stood left none)
+        const seat = held ? null : (await confirmedSeats(db, nowS)).get(key);
+        const num = (v, d) => (Number.isSafeInteger(v) ? v : d);
+        const h = held ?? {};
+        stmts.push(
+          ...fortsDueStatements(db, nowS, key),
+          ...(b.kind === 'siege' ? fortsGuildFallStatements(db, key, b.attacker) : []),
+          db.prepare(`INSERT INTO town_seat_holds (key, guild_id, region, tier, since_week, standing, truce_week, tithe, tithe_week, owed, at)
+            SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11 WHERE EXISTS (SELECT 1 FROM guilds WHERE id = ?2)
+            ON CONFLICT (key) DO UPDATE SET guild_id = excluded.guild_id, region = excluded.region, since_week = excluded.since_week,
+              standing = excluded.standing, truce_week = excluded.truce_week, tithe = excluded.tithe, tithe_week = excluded.tithe_week,
+              owed = excluded.owed, at = excluded.at WHERE town_seat_holds.guild_id = ?12`)
+            .bind(key, b.defender, num(h.region, Number(seat?.region ?? 0)), b.tier, num(h.since, W), num(h.standing, STANDING_START),
+              num(h.truce, null), num(h.tithe, 0), num(h.titheWeek, null), num(h.owed, 0), nowS, b.attacker),
+          ...legacyBack,
+        );
+        if (b.kind === 'siege') {
+          stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(key, W + 1, b.attacker));
+          const forts = p.forts && typeof p.forts === 'object' ? Object.entries(p.forts).filter(([, t]) => Number.isSafeInteger(t) && t >= 0 && t <= 3) : [];
+          for (const [work, t] of forts) stmts.push(db.prepare('UPDATE town_seat_forts SET tier = MAX(tier, ?) WHERE key = ? AND work = ?').bind(t, key, work));
+          stmts.push(db.prepare('DELETE FROM town_seat_fortifier WHERE key = ? AND at = ?').bind(key, Number(r.at)));   // a Fortifier's save at this capture, unspent
+        }
+        restored = names.has(b.defender);
+      } else {
+        // the holder's Standing back where it stood; with none kept, the result's own change taken off
+        const gain = b.kind === 'siege' ? siegeAftermath('siege', r.result, Number(r.raised)).standing : 0;
+        if (held && Number.isSafeInteger(held.standing)) {
+          stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(held.standing, key, b.defender));
+        } else if (gain > 0) {
+          stmts.push(db.prepare('UPDATE town_seat_holds SET standing = MAX(0, standing - ?) WHERE key = ? AND guild_id = ?').bind(gain, key, b.defender));
+        }
+        if (b.kind === 'siege') {
+          stmts.push(
+            db.prepare(`DELETE FROM town_seat_aftermath WHERE week = ?1 AND key = ?2
+              AND ((guild_id = ?3 AND what = 'bonus') OR (guild_id = ?4 AND what = 'barred'))`).bind(W, key, b.defender, b.attacker),
+            db.prepare('UPDATE town_seat_influence SET voided = 0 WHERE week = ? AND key = ? AND guild_id = ?').bind(W, key, b.attacker),
+            ...legacyBack,
+          );
+        }
+      }
+    }
+    stmts.push(db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)').bind(key, W, 'siege-voided',
+      JSON.stringify({ battle: b.kind, result: r?.result ?? null, guild: nameOf(b.attacker), holder: nameOf(b.defender), restored, by: mod.handle ?? null }), nowS));
+    try { await db.batch(stmts); } catch { continue; }
+    return { ...out, result: r?.result ?? null, restored };
+  }
+  throw new Error('voidSiege: the battle would not hold still');   // a 500, never a quiet half-void
 }

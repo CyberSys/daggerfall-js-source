@@ -9,7 +9,8 @@
 // Not a DFU member: Daggerfall's books are files; this one is written from the server's Chronicle. Ledger A row.
 import { RSC, TOKEN_TEXT } from '../formats/textRsc.js';
 import { createBookReaderWindow } from './bookDoor.js';   // EB1: the reader's one door - it picks the skin's face
-import { hallOfRecordsChapters, hallOfRecordsTitle, HALL_OF_RECORDS_EMPTY } from '../net/townSeatLaw.js';
+import { hallOfRecordsChapters, hallOfRecordsTitle, HALL_OF_RECORDS_EMPTY, chronicleLine, guildWords } from '../net/townSeatLaw.js';
+import { heraldryOf, heraldryText } from '../net/heraldryLaw.js';   // HERALDRY-SHOWN: the Roll of Arms
 
 /** Who the book says wrote it. */
 export const HALL_OF_RECORDS_AUTHOR = 'the Chronicle of the Seats';
@@ -20,8 +21,9 @@ const nl = () => ({ formatting: RSC.NewLine });
 const upper = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** The book's tokens: the title, centred in the title face; then each chapter - its Season's name centred, or none for
- *  rows from no counted Season - and its lines, each a paragraph with a blank row after; an empty Hall says so. */
-export function hallOfRecordsTokens(seat, rows, zero = null) {
+ *  rows from no counted Season - and its lines, each a paragraph with a blank row after; an empty Hall says so.
+ *  HERALDRY-SHOWN: then the Roll of Arms (hallOfRecordsRoll), where `armsOf` knows any of its guilds'. */
+export function hallOfRecordsTokens(seat, rows, zero = null, armsOf = null) {
   /** @type {any[]} */
   const out = [{ formatting: RSC.JustifyCenter }, { formatting: RSC.FontPrefix, x: TITLE_FONT }, text(hallOfRecordsTitle(seat)), nl(), nl()];   // the blank row puts the face and the centring back
   const chapters = hallOfRecordsChapters(rows, seat, zero);
@@ -31,15 +33,43 @@ export function hallOfRecordsTokens(seat, rows, zero = null) {
     out.push({ formatting: RSC.JustifyLeft });
     for (const line of c.lines) out.push(text(line), nl(), nl());
   }
+  const roll = hallOfRecordsRoll(rows, seat, armsOf);   // HERALDRY-SHOWN
+  if (roll.length) {
+    out.push({ formatting: RSC.JustifyCenter }, text(HALL_OF_RECORDS_ROLL), nl(), nl(), { formatting: RSC.JustifyLeft });
+    for (const line of roll) out.push(text(line), nl(), nl());
+  }
+  return out;
+}
+
+// HERALDRY-SHOWN (2026-10-02, Mac: "lets finish the build work"; Seats-Arc 8.1: the heraldry "drawn on ... the
+// Chronicle"): the book reader draws text alone (a Daggerfall book has no pictures, on either face), so the Hall of
+// Records carries its guilds' arms IN WORDS - a Roll of Arms after its chapters: each guild its lines name, in the order
+// the book first names it, whose heraldry the client knows (`armsOf(tag)` - the host's seats' list and own guild).
+/** The Roll of Arms' heading. */
+export const HALL_OF_RECORDS_ROLL = 'The Roll of Arms';
+/** The Roll's lines - "The Silver Hand <SH>: Azure bordered Gold, a Wolf." - for each guild named in a row the Chronicle
+ *  has words for, once, whose heraldry `armsOf` knows. */
+export function hallOfRecordsRoll(rows, seat, armsOf = null) {
+  if (typeof armsOf !== 'function') return [];
+  const out = [], seen = new Set();
+  for (const r of rows ?? []) {
+    if (!chronicleLine(r, seat)) continue;
+    for (const g of Object.values(r?.data ?? {})) {
+      if (!g || typeof g !== 'object' || typeof g.tag !== 'string' || typeof g.name !== 'string' || seen.has(g.tag)) continue;
+      seen.add(g.tag);
+      const h = heraldryOf(armsOf(g.tag));
+      if (h) out.push(`${upper(guildWords(g))}: ${heraldryText(h)}.`);
+    }
+  }
   return out;
 }
 
 /** THE BOOK the reader's door takes (ui/bookDoor.js createBookReaderWindow - it reads `title`, `author`, `pageCount`
  *  and `getPageTokens`): one page holding every token, as the reader joins pages anyway. */
-export function hallOfRecordsBook(seat, rows, zero = null) {
-  const tokens = hallOfRecordsTokens(seat, rows, zero);
+export function hallOfRecordsBook(seat, rows, zero = null, armsOf = null) {
+  const tokens = hallOfRecordsTokens(seat, rows, zero, armsOf);
   return { title: hallOfRecordsTitle(seat), author: HALL_OF_RECORDS_AUTHOR, pageCount: 1, getPageTokens: () => tokens };
 }
 
 /** The book's window, through the reader's one door - what a seat's palace shelf opens. */
-export const hallOfRecordsWindow = (seat, rows, zero = null) => createBookReaderWindow(hallOfRecordsBook(seat, rows, zero));
+export const hallOfRecordsWindow = (seat, rows, zero = null, armsOf = null) => createBookReaderWindow(hallOfRecordsBook(seat, rows, zero, armsOf));   // HERALDRY-SHOWN: `armsOf`, the Roll's

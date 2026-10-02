@@ -480,7 +480,7 @@ import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the le
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
-import { createTownSeatBook, parseSeatCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed
+import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
@@ -557,7 +557,9 @@ import { DuelWallRenderer } from '../render/duelWall.js';   // DUEL1: the ring's
 import { BannerRenderer, BANNER_TEX_W, BANNERS_MAX } from '../render/bannerPass.js';   // GUILD1d: a guild's banners, the cloth
 import { createHallBanners, doorCornersOf } from './hallBanners.js';
 import { createSeatBanners, seatBannerAnchors, palaceKeysOf, townCentreOf } from './seatBanners.js';   // SEAT1a: a seat town's banners   // GUILD1d: ...hung beside its hall's door
+import { createFestivalStage, festivalBannerAnchors, festivalLanternsOf } from './seatFestival.js';   // FESTIVAL-STAGE: a Festival's music, banners and lanterns
 import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
+import { heraldryLookup } from '../ui/heraldrySwatch.js';   // HERALDRY-SHOWN: a guild's heraldry by its tag, off what this client holds
 import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS, duelStub } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
@@ -623,7 +625,7 @@ import { homeLookRemap, HOME_LOOK_BUILD_WAIT_MS } from '../world/homeLook.js';  
 import { createHomeYards } from './homeYards.js';   // HOME-YARD: the town's yards, and the owner's decorator outside
 import { loadIcon } from '../ui/textureCanvas.js';   // HOME-YARD: the decorator's pictures
 import { BLOCK_TYPES } from '../formats/blocksFile.js';   // HOME-YARD: the catalogue's town blocks
-import { GLOBAL_SCALE } from '../world/meshReader.js';
+import { GLOBAL_SCALE, DOOR_TYPE } from '../world/meshReader.js';
 import { homeLookSig } from '../net/homeLaw.js';
 import { setWeather, setHeardWeather, heardWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround } from '../systems/weatherSim.js';
 import { createDistantStorms, thunderSourceAt, THUNDER_SOURCE_M } from '../systems/distantStorms.js';   // WEATHER3d: the storms at a distance
@@ -709,7 +711,7 @@ import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../n
 import { SIEGE_UNITS_PER_M, SIEGE_REACH, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM } from '../net/siegeRef.js';   // SEAT2b part two (b): a swing at the Gatehouse or the Ram
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
-import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
+import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire, castleEntranceOf } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
 import { createRoyalSession } from '../net/royalSession.js';   // CROWN1 part two: a Royal Tourney as this client fights it
 import { createRoyalClaims } from '../net/siegeClaims.js';   // CROWN1 part two: its bouts' receipts carried to the service
 import { createSiegeHerald } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battles announced in the server's voice
@@ -1226,6 +1228,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
   const seatHere = (mapId) => (seatBook?.open === true ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);   // SEAT1c: dressed in its holder
+  /** HERALDRY-SHOWN (Seats-Arc 8.1): a guild's heraldry by its tag - the reader's own guild's, then the seats' list's (each
+   *  holder and each battle's two) - for the name tags' frames and the Hall of Records' Roll of Arms; null where unknown. */
+  const seatArmsOf = heraldryLookup(() => [guildBook?.guild, seatBook?.data]);
   // SEAT2b part two (Seats-Arc 7.5: "the town is a Travel Options port for members"): a Harbour standing at a seat my
   // guild holds is a port to the travel map, the ship's rules and the held map (systems/travelPorts.js hasPortFor)
   setSeatHarbours((mapId) => harbourPortFor(seatHere(mapId), guildBook?.guild?.id ?? null));
@@ -3550,6 +3555,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pixelBuildingKeys = new Set();   // HOME-LOOK: every building of the pixel, by its key
     /** @type {Map<number, {at: number[], box: number[]}>} HOME-YARD: each building's own place and the box round its models, pixel-local */
     const pixelHomeFrames = new Map();
+    const pixelDungeonDoors = [];   // CASTLE-GATE: the dungeon-entrance doors the town's blocks stand, each with its model's box
     if (dfLocation) {
       // AUDIT 39 (#18): the skin reaches the layout, because the mill's
       // subrecord widens the block's building count and must not exist
@@ -3717,6 +3723,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             // GUILD1d: the building's first door, measured where it stands - its hall's banners hang beside it
             const hf = homeKey != null ? pixelHomeFrames.get(homeKey) : null;
             if (hf && !hf.door) hf.door = doorCornersOf(cpu.doors[0], local);
+            if (dfLocation.hasDungeon) for (const d of cpu.doors) if (d.type === DOOR_TYPE.DUNGEON_ENTRANCE) pixelDungeonDoors.push({ door: doorCornersOf(d, local), box });   // CASTLE-GATE
             for (const door of staticDoors) {
               doorGeneration += 1;   // WORLD-HOVER: a pixel's doors arriving
               buildingDoors.push({
@@ -4141,18 +4148,24 @@ export async function bootWorld(canvas, renderer, params, status) {
     // never worked out again; null off a seat, and the memo asks it then)
     const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? boardSplitOf({ boards: pixelBoards }) : null;
     const seatPalaceKeys = pixelBoardSplit ? palaceKeysOf(locBlocks, makeBuildingKey) : [];
+    const seatTier = dfLocation ? seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace' : 'palace';
+    const castleGate = seatTier === 'crown' ? castleEntranceOf(pixelDungeonDoors) : null;   // CASTLE-GATE: a crown city's castle entrance
     const seatAnchors = pixelBoardSplit ? seatBannerAnchors({
-      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,
+      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys, castle: castleGate,
       gates: pixelGates.map((g) => ({ local: g.local, box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit,
       centre: townCentreOf(pixelHomeFrames),
     }) : null;
+    // FESTIVAL-STAGE (Seats-Arc 7.6): a Festival's more banners - its taverns' doors, the bounty boards - and a lantern
+    // before every banner the town flies, measured here; hung and lit while a Festival rules (scenes/seatFestival.js)
+    const festivalAnchors = pixelBoardSplit ? festivalBannerAnchors({ frames: pixelHomeFrames, tavernKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.Tavern), boards: pixelBoards, bounty: pixelBoardSplit }) : null;
+    const festivalLanterns = festivalAnchors ? festivalLanternsOf([...(seatAnchors ?? []), ...festivalAnchors]) : null;
     // SEAT2a part four (Seats-Arc 6.2): the battlefield the town's own records give - the banners, the Throne, the camps
     // (systems/siegeField.js), the same on every machine; sent for a battle's pass from the Seat tab
     const siegeField = pixelBoardSplit ? siegeFieldOf({
       frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,
       templeKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.Temple), hallKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.GuildHall),
       gates: pixelGates.map((g) => ({ box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit, centre: townCentreOf(pixelHomeFrames),
-      tier: seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace',
+      tier: seatTier, castle: castleGate,
     }) : null;
     if (siegeField) siegeFieldsByTown.set(dfLocation.mapTableData?.mapId, { key, px, py, field: siegeField });
     const wodKept = adoptWodCarry(key, wodSpawners, privateersHold);
@@ -4170,7 +4183,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       homeTown, homeKeys: pixelHomeKeys, buildingKeys: pixelBuildingKeys,   // HOME-LOOK: the homes drawn on their own, and every building's key
       _lookV: homeLookRead,   // HOME-LOOK (AUDIT)
       homeFrames: pixelHomeFrames, homeRegion: dfLocation?.regionIndex ?? 0,   // HOME-YARD: each building's frame, and the town's region (a yard's pieces are paid there)
-      seatAnchors, _boardSplit: pixelBoardSplit,   // SEAT1a (above)
+      seatAnchors, _boardSplit: pixelBoardSplit, festivalAnchors, festivalLanterns,   // SEAT1a (above); FESTIVAL-STAGE (above)
       px, py, terrain, water, tilemapTex, tilemap, groundArchive, models, windmills, batches, flatAnims, texRemap, lights: pixelLights, hearths: pixelHearths, animals: pixelAnimals, springs: pixelSprings, skyBase: climate.skyBase, samples, natureCount: nature.length,
       tilemapBytes, season,   // GR1: the placer reads the tiles and the season
       paths,   // GRASS-PATH1: which tiles the road painter wrote; null on a pixel built before the network arrived
@@ -9016,6 +9029,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     built: () => built, seatAt: (mapId) => seatHere(mapId), translation: (px, py) => state.pixelTranslation(px, py), eye: () => cam.pos,
     version: () => (seatBook.open === true ? 1 : 0),
   }) : null;
+  // FESTIVAL-STAGE (Seats-Arc 7.6): whether a Festival rules at a town - its streets' music, its lanterns lit
+  const festivalStage = seatBook ? createFestivalStage({ seatAt: (mapId) => seatHere(mapId), version: () => (seatBook.open === true ? 1 : 0) }) : null;
   /** GUILD1d + SEAT1a: this frame's banners - the halls' and the seats', the nearest BANNERS_MAX of them. */
   // AUDIT SEATS-3 C4: one kept list a frame (each side's own is kept - seatBanners.js, hallBanners.js), filled in place
   // and the nearest kept in it - no array, spread, slice or comparator made each frame
@@ -16089,6 +16104,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT NAME1 F7: the layer's gate is the CHAT's (ui/nameLayer.js nameLayerWanted) - one gate, one answer, so the
     // bubbles never stand over heads with no chat beside them. OVH3: that gate is a document now, on either skin.
     if (nameLayerWanted()) nameLayer = createNameLayer({});   // OVH3: on either skin, beside the chat it belongs to
+    nameLayer?.setArmsOf(seatArmsOf);   // HERALDRY-SHOWN: a guild tag framed in its guild's heraldry
     // AUDIT NAME1 F2/F5: the sight cache is the SESSION'S, not a frame's - it is keyed by peer id and it remembers
     // both the last ray and how long it has been saying "blocked". Made beside the layer and kept with it.
     nameSight = createSightCache();
@@ -16270,6 +16286,16 @@ export async function bootWorld(canvas, renderer, params, status) {
           if ('error' in seatCmd) { say(seatCmd.error); return true; }
           if (!seatBook) { say(accountRefusalText('seats-closed')); return true; }
           seatBook.strike(seatCmd.key).then((r) => say(r.text), () => say(accountRefusalText('server')));
+          return true;
+        }
+        // VOID (Seats-Arc 18): `/siege void <key>` - a moderator's void of the seat's battle this week, won by an exploit.
+        // NOT GUARDED HERE (RED1's law): the service asks whether this player may, and its refusal comes back as a line.
+        const siegeCmd = parseSiegeCommand(text);
+        if (siegeCmd) {
+          const say = (line) => chatLog.push(tabId, { text: line, system: true });
+          if ('error' in siegeCmd) { say(siegeCmd.error); return true; }
+          if (!seatBook) { say(accountRefusalText('seats-closed')); return true; }
+          seatBook.voidSiege(siegeCmd.key).then((r) => say(r.text), () => say(accountRefusalText('server')));
           return true;
         }
         const noteCmd = parseNoteCommand(text);
@@ -18865,7 +18891,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const r = st && seatBook ? await seatBook.records(st.key) : null;
     if (townTalk.overlay !== board) return false;
     if (!r?.data) return false;
-    townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero));
+    townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero, seatArmsOf));   // HERALDRY-SHOWN: its Roll of Arms
     return true;
   };
   /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
@@ -20623,7 +20649,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const seat = seatHere(mapId);
         if (!seat || !seatBook) return null;
         const r = await seatBook.records(seat.key);
-        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero) : null;
+        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero, seatArmsOf) : null;   // HERALDRY-SHOWN: its Roll of Arms
       },
     },
     // SEAT-HALL (Seats-Arc 7.2: "the palace interior is the holder's guild hall"): a palace seat's palace, as its visitor
@@ -23025,6 +23051,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // UpdatePlayerMusicArrested (:568-571). Checked FIRST in
       // AssignPlaylist and overrides the environment entirely.
       arrested: Boolean(playerEntity.arrested),
+      festival: festivalStage?.festive(_musicLoc?.mapTableData?.mapId) === true,   // FESTIVAL-STAGE: a Festival town's streets hear the tavern
     }, modes?.musicContext?.() ?? null);
 
     // AUDIT 64 F10 - PlayerEnterExit.Update's holiday-text drain
@@ -24434,7 +24461,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // jumped up to 1.8 of its 18 at once (the animator's whole band, four of its 0.4 steps) - a pulse through half
       // the town's lamps at every stream-out of a walk.
       // LA-AUDIT F2: the fill is cityLights.js's fillLanternPool, where its pin runs it
-      const _pool = fillLanternPool(built.values(), (p) => state.pixelTranslation(p.px, p.py, _lightT), _sceneLights, _litRanges, worldLightAnimator.ranges);
+      const _pool = fillLanternPool(built.values(), (p) => state.pixelTranslation(p.px, p.py, _lightT), _sceneLights, _litRanges, worldLightAnimator.ranges, festivalStage ? festivalStage.lanterns : null);   // FESTIVAL-STAGE: and a Festival town's lanterns
       const n = _pool.n;
       _litRanges = _pool.ranges;
       const wodSel = wodLit || csaLit.length ? _wodSelect(n, _csaFill(wodLit ? _wodFill(n) : n, csaLit)) : null;   // WOD2: the lanterns and the mod's lights, one selection; AUDIT PRE-MERGE 0928 R2: and the boats' lanterns

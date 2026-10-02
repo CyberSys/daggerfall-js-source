@@ -160,7 +160,7 @@ import { pledgeSeat, claimWatch, creditGate, creditRenown, readStandings, payTri
 import { settleDue, seatsWithHolders, relinquishSeat, seatBadgeOf, seatTitlesOf } from './seatTurning.js';   // SEAT1c: the Turning, the Charters, their titles and glyphs
 import { setTithe, proclaimEdict, claimBounty } from './seatHolding.js';   // SEAT1d: the holder's levers, a Bounty's camp
 import { setWindow, signBattle, unsignBattle, hireSellsword, withdrawHire, siegesLive } from './seatBattles.js';   // SEAT2a: the battles' week
-import { siegePass, claimSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours
+import { siegePass, claimSiege, voidSiege } from './seatSiege.js';   // SEAT2a part three: the pass, the result, Honours   // VOID: a moderator's void
 import { royalPass, claimRoyal, keptTitleOf, KEPT_TITLES } from './seatRoyal.js';   // CROWN1 part two: the Royal Tourney's pass, its bouts, its champion's title (SEASON1: every title kept)
 import { ribbonOf } from './seatRibbons.js';   // SEASON1 part two: a Season's banner ribbon, on the token
 import { seatWeekOf, seasonOf, seasonZeroOf } from '../../src/net/townSeatLaw.js';   // SEASON1: the Season counted
@@ -278,6 +278,7 @@ const BOARD_STATUS = Object.freeze({
  *  409, the hour's reports spent 429, a bad shape 400 (the default). */
 const SEAT_STATUS = Object.freeze({
   'seats-need-account': 403, 'seats-closed': 403, 'not-developer': 403, 'seat-struck': 409, 'seats-rate': 429,
+  'not-moderator': 403,   // VOID: `/siege void` asked by anyone but a moderator or a developer
   // SEAT1b: a rank, a guild or the Marks not this account's 403; no confirmed seat or guild 404; the week's phase, the
   // guild's reach, a pledge not there, Tribute's room, the treasury 409; no relay key 503
   'guild-rank': 403, 'guilds-need-account': 403, 'marks-closed': 403, 'no-guild': 404, 'seat-unconfirmed': 404,
@@ -998,6 +999,7 @@ const service = {
           // SEAT2a part three: a battle's pass (the field the fighter's game derived); a fighter's receipt claimed
           '/v1/seats/siege/pass': async () => siegePass(ctx, who.player, env, body, await signingKey(env, subtle)),
           '/v1/seats/siege/claim': async () => claimSiege(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
+          '/v1/seats/siege/void': () => voidSiege(ctx, who.player, env, body),   // VOID (Seats-Arc 18): a moderator's `/siege void <key>`
           // CROWN1 part two: a Royal Tourney's pass (the ring the contender's game derived); a bout's receipt claimed
           '/v1/seats/royal/pass': async () => royalPass(ctx, who.player, env, body, await signingKey(env, subtle)),
           '/v1/seats/royal/claim': async () => claimRoyal(ctx, who.player, env, body, await gatePublicKey(env, subtle)),
