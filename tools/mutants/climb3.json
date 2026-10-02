@@ -347,8 +347,8 @@
   {
     "name": "CLIMB3-sill-pressed-into",
     "file": "src/player/motor.js",
-    "old": "hug = out == null ? (this._wall?.past != null ? 0 : -this.speed * dt) : out;",
-    "new": "hug = out == null ? -this.speed * dt : out;",
+    "old": "hug = out == null ? (this._wall?.past != null ? 0 : -press) : out;",
+    "new": "hug = out == null ? -press : out;",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",
@@ -512,8 +512,8 @@
   {
     "name": "CLIMB3-free-climb-jump-does-nothing",
     "file": "src/player/motor.js",
-    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch }",
-    "new": "jumpPressed: false }",
+    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch, look:",
+    "new": "jumpPressed: false, look:",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",
@@ -824,8 +824,8 @@
   {
     "name": "CLIMB3-free-climb-jump-held-leaps",
     "file": "src/player/motor.js",
-    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch }",
-    "new": "jumpPressed: !!input.jump }",
+    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch, look:",
+    "new": "jumpPressed: !!input.jump, look:",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",

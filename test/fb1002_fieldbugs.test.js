@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { createHunting } from '../src/scenes/hunting.js';
+import { createHunting, HUNT_PENDING_NEAR_M } from '../src/scenes/hunting.js';
 import { HuntWindow, HUNT_PHASE } from '../src/ui/huntWindow.js';
 import { newSurvival } from '../src/systems/survival/needs.js';
 import { setPref, _resetForTests } from '../src/systems/uiPrefs.js';
@@ -85,7 +85,9 @@ test('HUNT-FOES: the search\'s minutes pass as the box closes, not under it - of
 
 test('HUNT-FOES by source: the world host hands the hunt its foes - a foe that sees me, or one still loading - for the roll and the box', () => {
   const world = src('src/scenes/world.js');
-  assert.match(world, /const huntFoesNear = \(\) => areEnemiesNearby\(exteriorFoePool\(\)\) \|\| exteriorFoes\.pendingFeet\(\)\.length > 0;/);
+  assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);
+  assert.match(world, /return exteriorFoes\.pendingFeet\(\)\.some\(\(p\) => Math\.hypot\(p\[0\] - f\[0\], p\[2\] - f\[2\]\) <= HUNT_PENDING_NEAR_M\);/);
+  assert.equal(HUNT_PENDING_NEAR_M, 30);
   assert.match(world, /enemiesNear: huntFoesNear\(\), resting:/);
   assert.match(world, /enemiesNear: \(\) => huntFoesNear\(\),   \/\/ HUNT-FOES/);
   assert.match(src('src/ui/huntWindow.js'), /if \(this\.done \|\| this\.phase === HUNT_PHASE\.Result\) return;/);

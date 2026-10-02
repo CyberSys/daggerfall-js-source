@@ -28,6 +28,10 @@ import { HuntWindow } from '../ui/huntWindow.js';
 
 const range = ([min, max], rolls) => min + Math.floor(rolls() * (max - min + 1));
 
+/** HUNT-FOES (FIELD BUGS 2026-10-02): a foe still loading this near the hunter (the encounter's own stand is 10-20 m
+ *  off) counts as near - the host's reader, `huntFoesNear`. */
+export const HUNT_PENDING_NEAR_M = 30;
+
 export function createHunting({
   entity, env, showOverlay = null, overlayActive = () => false, advanceMinutes = null, spawnBeast = null,
   inflictPoison = null, inflictDisease = null, tally = null, rolls = Math.random, enemiesNear = null,

@@ -42,7 +42,7 @@ over them (`combat/heldPose.js`, the held map's) for hands on a lip in first per
 | CLIMB5 | Online and third person: the climb on the wire, the peers turned to the wall and heard climbing, the own body facing the wall | **SHIPPED** 2026-10-01 |
 | PERF-CLIMB | The dense-mesh limit: a capsule resolve that moved nothing stops | **SHIPPED** 2026-10-01 |
 | AUDIT CLIMB-FIELD | The climb on Daggerfall's own town blocks: eaves, the real roofs' pitch, Jump on a wall, two collider wedges (Mac: "You cant mantle the bottom of roofs, you get stuck") | **FIXED** 2026-10-01 |
-| AUDIT CLIMB-DUNGEON | The climb in Daggerfall's dungeons, 25 of them: the 3.2 m unit's jamb, the press along a face's seam, the crack between a wall's pieces, the step back (Chilloutman: "A two blocks wall is too high for my character to climb up"; Mac: "Enhanced climbing needs a further perfection audit") | **FIXED** 2026-10-02 |
+| AUDIT CLIMB-DUNGEON | The climb in Daggerfall's dungeons, 25 of them: the 3.2 m unit's jamb, the press along a face's seam, the crack between a wall's pieces, the step back, the corner (Chilloutman: "A two blocks wall is too high for my character to climb up"; Mac: "Enhanced climbing needs a further perfection audit") | **FIXED** 2026-10-02 |
 
 ## CLIMB1 (2026-09-30): THE LEDGE SENSOR, THE MANTLE, THE CLAMBER AND THE VAULT - SHIPPED
 
@@ -938,14 +938,15 @@ passing), and found four faults the classic climb never had:
 | SEAM-STEP | A dungeon wall stands in 3.2 m units. Where the unit above has a jamb a hand's width over the climber, the head met its underside 1.4 m up, and the across clamp undid the resolve's push out from under it: the reporter's "two blocks" | Carololda's N0000035, N0000090 | stuck going straight up, the hands move along the wall (up to 0.45 m) to where the body rises 0.1 m, along and up at the diagonal pace (`motor.js _fcSidestep`) |
 | HUG-TOUCH | The free climb pressed 7 cm into the face each step (the classic hug's whole step). The push back out leans along a seam between two coplanar triangles: up a 25 m face split on the diagonal, 1.3 cm a step lost, and at Climbing 0 the climb never left the floor | Carololda's N0000090 | the press is the gap to the face plus 1 cm (`PARKOUR_HUG_PRESS`, `w.gap`) |
 | CRACK-LIP | Stacked pieces stand a unit (2.5 cm) apart. The hand-hold read the slot as a lip: hang, nothing there, let go, fall, repeated. The eave law read the slot's rung as no plain wall | The Pit of Sahoth's N0000008 | an opening with the face going on 3 cm above at its depth is a crack: no lip, no ledge, a plain wall's rung (`parkour.js faceGoesOn`) |
-| STEP-BACK | A piece set 0.2 m behind the one under it (too shallow a top to stand on) ended the hands' contact at the step | N0000033 (the Mordywyr Mines, the Convocation of Elona) | going up, a face that steps back, turned within the hold's 30 degrees, is reached for out to 0.5 m (`w.seek`) |
+| STEP-BACK | A piece set 0.2-0.3 m behind the one under it (too shallow a top to stand on) ended the hands' contact at the step, or hung the climber from it to let go and fall | N0000033 (the Mordywyr Mines, the Convocation of Elona) | going up, a face that steps back, turned within the hold's 30 degrees, is climbed on to as CLIMB3 passes a sill: straight past the step's top unpressed (`w.past`, `_fcFaceTop`), then the grab's 0.5 m reach (`w.seek`). Down past it stops above it, as above a sill |
+| CORNER-TOP | In a narrow corner the start can take the side wall, which runs on past the front wall's top, and the climb went on up it | Carololda's N0000090 pit, by hand | going up, the look turned 20 degrees or more along the held wall asks the top of a face on that side in contact (`_fcCornerWall`) |
 
 What still stalls: tops past 50 degrees (N0000014's and N0000011's 53-degree ramps, N0000041's slopes; AUDIT
 CLIMB-FIELD's own limit) and a lip with no landing right behind its edge (Castle Kingwing's N0000034, a pillar;
 Castle Faallem's N0000026, a gap). None is a trap. Over 3,214 walls and 9,642 climbs: 7,946 topped before and 8,059
 after; failures where the classic lane topped went from 81 to 33, all of them those.
 The grip at low skill and Fatigue is recorded there and not changed (Mac's "Free-climb on grip"). Pinned:
-`test/fb1002_climb.test.js` (6; its last on ARENA2); `tools/mutants/fb1002_climb.json` (11, all dead). PIN MOVED:
+`test/fb1002_climb.test.js` (7; its last on ARENA2); `tools/mutants/fb1002_climb.json` (15, all dead). PIN MOVED:
 `climb2.test.js`'s seam climb (165 steps at the honest pace: the old press shoved it up that seam).
 
 ## Still open

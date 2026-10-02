@@ -116,15 +116,48 @@ test('CRACK-LIP: a wall of two pieces a unit (2.5 cm) apart - the slot is no lip
   assert.ok(PARKOUR_CRACK >= 0.025 && PARKOUR_CRACK < 0.05, 'a unit, under a rung');
 });
 
-test('STEP-BACK: a wall piece set 20 cm behind the one under it (its top too shallow to stand on) - the climb reaches for it and goes on over the top, where it stood under the step (mutants: the step-back never reached for; any face reached for)', () => {
-  const col = room([-3, 0, 1, 3, 5.75, 3], [-3, 5.75, 1.2, 3, 6.4, 3]);
-  const r = climb(col, { top: 6.4 });
-  assert.ok(r.topped, `over the top (rose to ${r.high.toFixed(2)})`);
+test('STEP-BACK: a wall piece set back over the one under it (its top too shallow to stand on), the wall going on high over it - the climb passes the step and goes on up, where it hung from the step, let go and fell, over and over; it rises straight past the step, never pressed onto its edge (mutants: the step-back never reached for; any face reached for; the step not passed unpressed)', () => {
+  // set back 0.2 m at 5.75 (N0000033's) and 0.3 m at 3.0, the upper piece to 9 m - no top in reach from under the step
+  for (const [lo, back] of [[5.75, 0.2], [3.0, 0.3]]) {
+    const r = climb(room([-3, 0, 1, 3, lo, 3], [-3, lo, 1 + back, 3, 9, 3]), { top: 9, steps: 60 * 10 });
+    assert.ok(r.high > lo + 2, `${back} m back at ${lo}: up past the step (rose to ${r.high.toFixed(2)})`);
+    assert.equal(r.lets, 0, `${back} m back at ${lo}: never let go on the way`);
+  }
+  // held at the step, the climber is not lifted onto its edge by the reach: Left alone moves it along, at its height
+  const col = room([-3, 0, 1, 3, 1.6, 1.3], [-3, 0, 1.3, 3, 9, 3]);
+  const m = new PlayerMotor(col, { speed: 50, running: 30 }, { parkour: { enabled: () => true, inputs: () => ({ climbing: 100, fatigue: 1 }), say: () => {}, tally: () => {} } });
+  m.spawn(0, 0.02, 0.6);
+  for (let i = 0; i < 300 && !m._wall?.seek; i++) m.update(STEP, { forward: 1, strafe: 0, jump: false }, 0);
+  assert.equal(m._wall?.seek, true, 'reaching for the wall behind the plinth');
+  const y = m.pos[1];
+  for (let i = 0; i < 90; i++) m.update(STEP, { forward: 0, strafe: 1, jump: false }, 0);
+  assert.ok(Math.abs(m.pos[1] - y) < 0.02 && m.pos[2] < 0.7, `along, not up onto the plinth's edge (y ${y.toFixed(3)} -> ${m.pos[1].toFixed(3)}, z ${m.pos[2].toFixed(3)})`);
   // a face turned away from the wall (a corridor's side, not this wall set back) is not reached for: the climb up a
   // wall that simply ends under a ceiling-high opening still stands there
   const turned = room([-3, 0, 1, 3, 5.75, 3], [-3, 5.75, 1.2, -0.1, 9, 1.22]);
   const t = climb(turned, { steps: 60 * 8 });
   assert.ok(!t.m.onWall || t.m.pos[1] < 5.75, `no climb up a face turned across the wall (feet ${t.m.pos[1].toFixed(2)})`);
+});
+
+test('CORNER-TOP: in a corner, the hands holding the side wall (which runs on up past the lip of the wall the look is turned to) climb onto that wall\'s top, where they climbed the side wall on under it; either hand (mutants: the corner never asked; the look unread; one side only)', () => {
+  // the front wall (z 1) to 4 m with its top; the side wall to 12 m, its face at x -0.5 (or +0.5), the climber in the
+  // corner looking 45 or 60 degrees round toward the side wall - which the start takes, as N0000090's corner did
+  for (const flip of [1, -1]) {
+    for (const deg of [45, 60]) {
+      const side = flip > 0 ? [-3, 0, -3, -0.5, 12, 3] : [0.5, 0, -3, 3, 12, 3];
+      const col = room([-3, 0, 1, 3, 4, 3], side);
+      const m = new PlayerMotor(col, { speed: 50, running: 30 }, { parkour: { enabled: () => true, inputs: () => ({ climbing: 100, fatigue: 1 }), say: () => {}, tally: () => {} } });
+      m.spawn(-0.14 * flip, 0.02, 0.64);
+      const yaw = (-flip * deg * Math.PI) / 180;
+      let held = null;
+      for (let i = 0; i < 60 * 8 && !(m.grounded && m.pos[1] > 3.9); i++) {
+        m.update(STEP, { forward: 1, strafe: 0, jump: false }, yaw);
+        if (m.onWall && !held) held = [...m._wall.normal];
+      }
+      assert.ok(held && Math.abs(held[0]) > 0.9, `${flip > 0 ? 'left' : 'right'} ${deg}: the side wall held`);
+      assert.ok(m.grounded && Math.abs(m.pos[1] - 4) < 0.05, `${flip > 0 ? 'left' : 'right'} ${deg}: onto the front wall's top (feet ${m.pos[1].toFixed(2)})`);
+    }
+  }
 });
 
 test('FIELD BUGS 2026-10-02 by source: the four laws where the motor and the sensor ask them', () => {
@@ -134,7 +167,7 @@ test('FIELD BUGS 2026-10-02 by source: the four laws where the motor and the sen
   assert.match(motor, /const press = Math\.min\(this\.speed \* dt, Math\.max\(0, this\._wall\?\.gap \?\? Infinity\) \+ PARKOUR_HUG_PRESS\);/);
   assert.match(motor, /w\.gap = c\.dist - CAPSULE_RADIUS;/);
   assert.match(parkour, /if \(!Number\.isFinite\(at\(i - 1\)\) && faceGoesOn\(collider, ox, rungY\(i - 1\), oz, dir, dist\)\) continue;/);
-  assert.match(motor, /if \(s && s\.normal\[0\] \* n\[0\] \+ s\.normal\[2\] \* n\[2\] >= PARKOUR_FACE_FOLLOW\) w\.seek = true;/);
+  assert.match(motor, /if \(s && s\.normal\[0\] \* n\[0\] \+ s\.normal\[2\] \* n\[2\] >= PARKOUR_FACE_FOLLOW\) \{\n\s+w\.past = this\._fcFaceTop\(was, into\);\n\s+w\.seek = true;/);
 });
 
 /** The reporter's dungeon as the dungeon host builds its collider: every block's placed models and its doors. */

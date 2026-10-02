@@ -153,6 +153,12 @@ export const PARKOUR_SIDESTEP_RISE = 0.1;
 export const PARKOUR_SIDESTEP_CLEAR = 0.3;
 /** HUG-TOUCH (FIELD BUGS 2026-10-02): the free climb presses the body to the face and this far in each step. */
 export const PARKOUR_HUG_PRESS = 0.01;
+/** STEP-BACK (FIELD BUGS 2026-10-02): the free climb finds the top of the face it held, stepping back over it, by level
+ *  rays this far apart up the body. */
+export const PARKOUR_STEP_SCAN = 0.02;
+/** CORNER-TOP (FIELD BUGS 2026-10-02): the look turned this far along the held wall (sin 20 degrees) asks the top of
+ *  the corner's other wall on that side. */
+export const PARKOUR_CORNER_LOOK = Math.sin((20 * Math.PI) / 180);
 /** The path is proven at least this often - under a quarter of the radius. */
 export const PARKOUR_PATH_STEP = 0.08;
 /** After a lip is found and every way onto or over it refused, the air catch

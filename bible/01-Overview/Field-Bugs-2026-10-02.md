@@ -12,7 +12,7 @@ so this batch did that: on the reporter's own dungeon, then on 24 more, using th
 
 | | Report | Reporter | What it was | Done |
 |---|---|---|---|---|
-| 1 | "Stuck after Climbing Rework" - "A two blocks wall is too high for my character to climb up, so Im stuck in this hole. Luckily I have levitate. Its 'Ruins of Old Carololda's Farm'"; "I would have been able with old climbing mechanics" | Chilloutman | Daggerfall's dungeon walls are stacked in 3.2 m units. Where the unit above has a jamb a hand's width over the climber, the head met its underside 1.4 m up the first unit and the free climb stopped; the classic climb's resolve slid it out from under. On the same walls, three more faults the classic climb never had: the free climb's deep press slid it down along a big face's diagonal seam (at Climbing 0 it never left the floor); a 2.5 cm crack between stacked pieces read as a lip (hang, let go, fall, repeat); and a piece set back 20 cm over the one below stopped the climb at the step | fixed (SEAM-STEP, HUG-TOUCH, CRACK-LIP, STEP-BACK) |
+| 1 | "Stuck after Climbing Rework" - "A two blocks wall is too high for my character to climb up, so Im stuck in this hole. Luckily I have levitate. Its 'Ruins of Old Carololda's Farm'"; "I would have been able with old climbing mechanics" | Chilloutman | Daggerfall's dungeon walls are stacked in 3.2 m units. Where the unit above has a jamb a hand's width over the climber, the head met its underside 1.4 m up the first unit and the free climb stopped; the classic climb's resolve slid it out from under. On the same walls, three more faults the classic climb never had: the free climb's deep press slid it down along a big face's diagonal seam (at Climbing 0 it never left the floor); a 2.5 cm crack between stacked pieces read as a lip (hang, let go, fall, repeat); and a piece set back 20 cm over the one below stopped the climb at the step; in a narrow corner the start could take the side wall and climb on past the front wall's top | fixed (SEAM-STEP, HUG-TOUCH, CRACK-LIP, STEP-BACK, CORNER-TOP) |
 | 2 | "Enemies attacking during travel events" - "when an event occurs while traveling (Track a group of animals type stuff) and you press YES, enemies can attack you while the result loads"; "During this enemies can still attack you" | Aru | the hunt's box holds the player's motor and WINFOE1 runs the foes under every window: a foe that came near during the ask or the 4-8 s search hit a player who could not move. At the turn to the result, the search's minutes went through the encounter tick and could stand a wanderer 10-20 m away, facing a player the result page still held | fixed (HUNT-FOES) |
 | 3 | "New fishing context pop up clashes with come sail away!" - "Gets in the way especially when trying to aim bow guns" | Cruor | at sea the net's water is everywhere (`netHasWater`: the Ocean's climate, the sea region), so CAST-LOOK's cast stood under the crosshair at the helm and over the guns' aim, and E or a click there cast the net | fixed (HELM-NET) |
 | 4 | "Reports of audio cutting when taking helm of a ship" | (relayed) | every crossfade of a boat's two loops played the loop it was fading out again, and the host restarts a played source from its first sample. The first stroke past the wake's threshold (0.5 m/s), and every slowing under it, cut the boat's sound. Separately, a boat placed while another's fade-in ran stopped that fade at nothing and left the loop playing silent | fixed (HELM-HUSH) |
@@ -76,9 +76,26 @@ counts a rung through a crack as the wall's.
 
 The Mordywyr Mines' and the Convocation of Elona's N0000033: a lower piece to 5.75 m, the piece above set 0.2 m back.
 Its top is too shallow to stand on, so it is no ledge. The free climb's contact (the radius and 0.15 m) ended at the
-step and the climb stopped there. Going straight up, a face that steps back from the hands, turned within the hold's
-30 degrees, is reached for out to the grab's reach (0.5 m), as Back reaches for the wall under a sill (`w.seek`), and the
-press brings the body to it. A face turned across the wall (a corridor's side) is not reached for.
+step and the climb stopped there. Where the step-back runs high (0.2-0.3 m back at 2.4, 3.0 or 5.75 m, the wall going
+on to 9 m) the climber hung from the step, found no way up, let go and fell, over and over. Going straight up, a face
+that steps back from the hands, turned within the hold's 30 degrees, is now climbed on to the way CLIMB3 climbs past a
+sill: the step's top is found (`_fcFaceTop`, level rays 2 cm apart), the body rises straight past it unpressed
+(`w.past`), and then the grab's reach (0.5 m, `w.seek`) brings it to the face above. A face turned across the wall (a
+corridor's side) is not reached for.
+
+AUDIT of the batch (the review, before it was finished): the first cut reached for the face at once, and its press
+lifted the body onto the step's edge while it was still below it. Strafing there lifted it too, and Back then left it
+standing on the edge, off the floor. The climb past, unpressed, closed both. Climbing down past a step it passed now
+stops on the wall above it, as it does above a window sill (CLIMB2: "A ledge too narrow to stand on ... stops you on
+the wall above it"). Crouch lets go and Jump with Back pushes off.
+
+## CORNER-TOP: in a corner, the top the look is turned to (1, the audit)
+
+N0000090's pit, traced by hand at 5.49 radians: the start took the side wall, which runs on past the front wall's lip
+to the ceiling, and the climb went on up it under the front wall's top and stopped at the ceiling. At 5.5 radians it took
+the front wall and topped out. The reporter's pit is a narrow shaft. Going up, with the look turned 20 degrees or more
+along the held wall, a face on that side within the climber's contact is the corner's other wall, and its top in
+reach is climbed onto as the held wall's is (`_fcCornerWall`, `PARKOUR_CORNER_LOOK`).
 
 ## AUDIT CLIMB-DUNGEON (5)
 
@@ -119,10 +136,8 @@ height is its pace times its grip. Climbing 5 at Fatigue 34% (the reporter's scr
 10 m. So a 6.4 m dungeon wall is out of reach only for a near-untrained climber who is also tired. The classic climb
 had no grip, only a roll every 0.82 s that, when it failed, slipped the climber down the wall.
 
-**Not run:** the hang's shimmy, the leaps and the catches on dungeon walls (the probe holds Forward only), and a wall
-approached in a narrow corner. In one hand-traced corner (N0000090, 13.75, 6.4, -70.65, at 5.49 radians) the start took
-the side wall, which runs on past the front wall's lip, and the climb stopped under the ceiling. At 5.5 radians it took
-the front wall and topped out. The square and 8-degree runs never took the side wall.
+**Not run:** the hang's shimmy, the leaps and the catches on dungeon walls (the probe holds Forward only). Corners were
+traced by hand only (CORNER-TOP above).
 
 ## HUNT-FOES: a foe come near closes the hunt (2)
 
@@ -139,8 +154,9 @@ nothing searched, nothing charged, no minute passed, the player's hands back. Th
 its outcome is already given and is the player's to read. The search's minutes pass when the box closes
 (`onClosed`), including when the slot is taken from under a given result, before the beast stands. The world host's
 `huntFoesNear` counts a foe that sees the player (`areEnemiesNearby`) or a foe still loading
-(`exteriorFoes.pendingFeet()`: `spawnFoe` is async, and the frame's encounter roll runs before the hunt's). It feeds
-both the roll and the box.
+within 30 m (`HUNT_PENDING_NEAR_M`; `exteriorFoes.pendingFeet()`: `spawnFoe` is async, and the frame's encounter roll
+runs before the hunt's). It feeds both the roll and the box. The first cut counted every foe loading anywhere, and the
+review found that a site's garrison streaming in far away closed the box. The encounter's own stand is 10-20 m off.
 
 **Not changed.** WINFOE1 (Mac: "enemies should still be able to do damage") and QUEST-POPUP-PAUSE ("Pause them offline",
 a quest box only). The hunt's box does not pause the foes. It gets out of the player's way instead, offline and
@@ -171,14 +187,27 @@ a launch, a reposition) while another's fade-in was at its first step left that 
 
 ## Pins and mutants
 
-- `test/fb1002_climb.test.js` (6): SEAM-STEP (the jamb on either hand; a slab it cannot step out from holds it in
+- `test/fb1002_climb.test.js` (7): SEAM-STEP (the jamb on either hand; a slab it cannot step out from holds it in
   place), HUG-TOUCH (Climbing 0 up the real wall's two triangles, at its pace), CRACK-LIP (the climb past a 2.5 cm
-  slot; no grip and no ledge at the slot; a 10 cm sill still a hold), STEP-BACK (over a 20 cm step; a face turned
-  across the wall not reached for), the four by source, and the reporter's two walls on ARENA2.
+  slot; no grip and no ledge at the slot; a 10 cm sill still a hold), STEP-BACK (past 0.2 and 0.3 m step-backs to the
+  top of a 9 m wall with no let-go; the reach never lifts the body onto a step's edge; a face turned across the wall
+  not reached for), CORNER-TOP (either hand, 45 and 60 degrees), the laws by source, and the reporter's two walls on
+  ARENA2.
 - `test/fb1002_fieldbugs.test.js` (8): HUNT-FOES (the ask, the busy page, the result left alone, the minutes at the
   close and under a dropped box, by source), HELM-NET (a deck fishes, the helm does not; by source), HELM-HUSH (both
   crossfades leave the playing loop alone; a second boat placed under the first's fade).
-- Red on the code before, every test. `tools/mutants/fb1002_climb.json` (11) and `tools/mutants/fb1002_fieldbugs.json`
-  (11), all dead.
+- Red on the code before, every test. `tools/mutants/fb1002_climb.json` (15) and `tools/mutants/fb1002_fieldbugs.json`
+  (12), all dead.
 - PIN MOVED: `climb2.test.js` (HUG-TOUCH, above); `surv6_hunting.test.js`'s composed hunt (the minutes at the close)
-  and its source pin (`huntFoesNear`).
+  and its source pin (`huntFoesNear`). Mutant records re-aimed by content on the moved source: `climb3.json`
+  (CLIMB3-sill-pressed-into, the two free-climb-jump records), `climbfield.json` (E1-no-eave, E1-eave-up-every-wall),
+  `csa_time.json` (CSA-G-play-no-restart), `forage4.json` (FORAGE4-3), `prof8.json` (PROF8-kind-dry-land),
+  `surv6.json` (SURV6-the-search-runs-every-tick-after, SURV6-the-minutes-never-pass); all dead. The cites the change
+  moved were re-resolved (`tools/citeShift.mjs --base 66e98091`, 122, and seven struck ones by hand). Four real-data
+  tests fail on the base as well as here (audit18 social F2, court's AUDIT 21 F1 and F8, field_csa2's Bay): not
+  this change's.
+
+## Found on the way, not changed
+
+- Using the Fishing-Net from the hotbar at the helm finds no cast and says Foraging's general line about where nets
+  work, which tells a player already at sea to stand at sea. A helm-specific line would be polish.

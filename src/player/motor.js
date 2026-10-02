@@ -298,7 +298,7 @@ import {
   PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
   // CLIMB2: the hang, the shimmy, the grip and the free climb
   senseGrip, senseEaveAhead, senseEaveLedge, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
-  bandsClear, capsuleFits, PARKOUR_LEAN, PARKOUR_SIDESTEP_MAX, PARKOUR_SIDESTEP_PROBE, PARKOUR_SIDESTEP_RISE, PARKOUR_SIDESTEP_CLEAR, PARKOUR_HUG_PRESS,
+  bandsClear, capsuleFits, PARKOUR_LEAN, PARKOUR_SIDESTEP_MAX, PARKOUR_SIDESTEP_PROBE, PARKOUR_SIDESTEP_RISE, PARKOUR_SIDESTEP_CLEAR, PARKOUR_HUG_PRESS, PARKOUR_STEP_SCAN, PARKOUR_CORNER_LOOK,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
   PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_ARM_GRACE_S, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
@@ -2072,7 +2072,7 @@ export class PlayerMotor {
     if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); this._pkEmit('gripLow'); }
     this._wallTick(dt);
     const owned = w.mode === 'hang' ? this._hangStep(dt, input, side, vert, skill, inputs.climbing ?? 0)
-      : this._freeClimbStep(dt, side, vert, skill, { ...inputs, jumpPressed: !!input.jump && !this._pkJumpLatch });
+      : this._freeClimbStep(dt, side, vert, skill, { ...inputs, jumpPressed: !!input.jump && !this._pkJumpLatch, look: [Math.sin(yaw), 0, Math.cos(yaw)] });
     if (this._wall) this._pkHold();
     // the climb's own mirror (AUDIT 65 XL-5): the step returns above both writers of the cached pair
     this.standing = this.grounded;
@@ -2398,6 +2398,11 @@ export class PlayerMotor {
     }
     if (vert > 0) {
       if (this._fcTopOut(dt, skill, inputs, into, false)) return true;
+      // CORNER-TOP (FIELD BUGS 2026-10-02, the audit): in a corner the hands can hold the side wall, which runs on past
+      // the lip of the wall the look is turned to - and the climb went on up it under that top: the turned-to wall's
+      // top in reach is climbed onto as the held one's is
+      const turned = this._fcCornerWall(into, inputs.look);
+      if (turned && this._fcTopOut(dt, skill, inputs, turned, false)) return true;
       const face = [this.pos[0] + into[0] * c.dist, 0, this.pos[2] + into[2] * c.dist];
       const g0 = senseGrip(this.collider, face, c.normal, this.pos[1] + PARKOUR_HANG_DROP, this._pkGeo());
       const g = g0 && w.past != null && g0.lipY <= w.past + PARKOUR_LIP_FOLLOW ? null : g0;   // CLIMB3: not the sill climbed past
@@ -2436,13 +2441,18 @@ export class PlayerMotor {
     for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);
     if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);
     // STEP-BACK (FIELD BUGS 2026-10-02): going up, a face that steps back from the hands (a wall piece set 20 cm behind
-    // the one under it, its top too shallow to stand on) is reached for - the grab's own reach, as Back reaches for the
-    // wall under a sill (w.seek) - where the climb stopped under the step with nothing at its hands' contact
-    if (!held() && vert > 0 && !side && !w.seek) {
+    // the one under it, its top too shallow to stand on) is climbed on to as CLIMB3 climbs past a sill - the step's top
+    // passed (w.past: straight up in front of it, unpressed, so no press lifts the body onto its edge and leaves it
+    // perched there), then the grab's own reach to the face over it (w.seek) - where the climb stopped under the step
+    if (!held() && vert > 0 && !side && !w.seek && w.past == null) {
       this._fcMove(was, 0, vert, v, n, dt);
       const s = this.pos[1] - was[1] > 1e-4 && bandsClear(this.collider, this.pos, this.height)
         ? wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH) : null;
-      if (s && s.normal[0] * n[0] + s.normal[2] * n[2] >= PARKOUR_FACE_FOLLOW) w.seek = true;
+      if (s && s.normal[0] * n[0] + s.normal[2] * n[2] >= PARKOUR_FACE_FOLLOW) {
+        w.past = this._fcFaceTop(was, into);
+        w.seek = true;
+        this._fcMove(was, 0, vert, v, n, dt);
+      }
     }
     if (!held()) { this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2]; }
     w.stuck = vert > 0 && this.pos[1] - was[1] < 1e-4;
@@ -2487,6 +2497,28 @@ export class PlayerMotor {
       if (!held()) { this.pos[0] = along[0]; this.pos[1] = along[1]; this.pos[2] = along[2]; }
     }
     return true;
+  }
+
+  /** CORNER-TOP: the way into the corner's other wall - along the held wall, on the side the look is turned to by
+   *  PARKOUR_CORNER_LOOK or more - when a face turned to the body stands there within the climber's contact; else null. */
+  _fcCornerWall(into, look) {
+    if (!look) return null;
+    const t = [-into[2], 0, into[0]];
+    const a = look[0] * t[0] + look[2] * t[2];
+    if (Math.abs(a) < PARKOUR_CORNER_LOOK) return null;
+    const dir = [t[0] * Math.sign(a), 0, t[2] * Math.sign(a)];
+    const c = wallContact(this.collider, this.pos, dir, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT);
+    return c && -(c.normal[0] * dir[0] + c.normal[2] * dir[2]) >= PARKOUR_FACE_FOLLOW ? dir : null;
+  }
+
+  /** STEP-BACK: the top of the face the hands held, from the feet `at` up - the first level ray along `into` that no
+   *  longer meets it within the climber's contact. */
+  _fcFaceTop(at, into) {
+    const reach = CAPSULE_RADIUS + PARKOUR_CONTACT;
+    for (let h = 0; h <= this.height; h += PARKOUR_STEP_SCAN) {
+      if (!Number.isFinite(this.collider.raycast([at[0], at[1] + h, at[2]], into, reach))) return at[1] + h;
+    }
+    return at[1] + this.height;
   }
 
   /** AUDIT CLIMB2 H5: THE TOP-OUT. A lip coming within the hands' reach is climbed onto or over - CLIMB1's top-out of

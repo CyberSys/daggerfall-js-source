@@ -176,7 +176,7 @@ import { setMasterSkillsGate, MASTER_SKILLS_DUNGEON_TEXT } from '../systems/mast
 import { isOnlinePage } from '../systems/onlineLane.js';   // SOFTCAP3: Master Skills is online only
 // SOFTCAP1: mentor mode, the party's overlay
 import { inflictDisease } from '../systems/diseases.js';   // SURV6: a foul pool's water
-import { createHunting } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
+import { createHunting, HUNT_PENDING_NEAR_M } from './hunting.js';   // SURV6: hunting, foraging and the water search as real-time events
 import { createForagingWait } from './foragingWait.js';
 import { createMarksBook } from '../net/marksBook.js';   // MARKS1: the account's Marks - the balance, the Bank's sale, a guild's treasury   // FORAGE4: online, Foraging's quest time is a wait on the hunt's page
 import { createNoticeBook, parseNoteCommand, planNoteAnswer, NOTE_LETTER_LOST } from '../net/noticeBook.js';   // NOTICE1: this device's Notice Boards - a town's board read, a note pinned
@@ -3093,7 +3093,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  streamer is behind. A horse at the shipped default limit of sixty
    *  covers ~65 units in a 10 fps frame and ~120 at the mod's ceiling of
    *  a hundred - past a 64-unit probe, off the built world, and once the
-   *  motor is airborne `airControl` is false (motor.js:2985) so zeroing
+   *  motor is airborne `airControl` is false (motor.js:3072) so zeroing
    *  the drive on the NEXT frame no longer steers: the fall is already
    *  paid for. `travelLookahead` measures the frame that is about to
    *  run instead, and keeps 64 as its floor. */
@@ -7481,10 +7481,15 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  hunt, a bounty's trail, a wilderness band's chase - is none of theirs there. */
   const playerAfloat = () => !!csaRuntime?.isSailing?.() || (playerEntity.activeEffects ?? []).some((e) => isBoatEffectBundle(e?.bundleName))
     || !!csaAboard.aboard?.boat || !!naval?.aboard?.() || (walkMode && playerSpawned && !!player.isPlayerSwimming);
-  /** HUNT-FOES (FIELD BUGS 2026-10-02): a foe that sees me, or one still loading (spawnFoe is async - the frame's
-   *  encounter roll runs before the hunt's, and a foe on its way is in no pool yet), is near: no hunt opens over it,
-   *  and one open is closed. */
-  const huntFoesNear = () => areEnemiesNearby(exteriorFoePool()) || exteriorFoes.pendingFeet().length > 0;
+  /** HUNT-FOES (FIELD BUGS 2026-10-02): a foe that sees me, or one still loading within HUNT_PENDING_NEAR_M of my feet
+   *  (spawnFoe is async - the frame's encounter roll runs before the hunt's, and a foe on its way is in no pool yet), is
+   *  near: no hunt opens over it, and one open is closed. A stand loading far off (a site's garrison as its block
+   *  streams in) is no foe near. */
+  const huntFoesNear = () => {
+    if (areEnemiesNearby(exteriorFoePool())) return true;
+    const f = walkMode && playerSpawned ? player.pos : cam.pos;
+    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);
+  };
   const hunting = createHunting({
     entity: playerEntity,
     env: () => ({

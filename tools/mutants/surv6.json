@@ -110,8 +110,8 @@
   {
     "name": "SURV6-the-search-runs-every-tick-after",
     "file": "src/ui/huntWindow.js",
-    "old": "    if (this.phase !== HUNT_PHASE.Busy || this.done) return;\n    if (this._interruptWhen?.()) { this._end(false); return; }   // FORAGE4: a foe near ends it, the rest forgiven\n    this._elapsed += Math.max(0, dt || 0);",
-    "new": "    if (this._interruptWhen?.()) { this._end(false); return; }   // FORAGE4: a foe near ends it, the rest forgiven\n    this._elapsed += Math.max(0, dt || 0);",
+    "old": "    if (this.done || this.phase === HUNT_PHASE.Result) return;\n    // FORAGE4: a foe near ends it, the rest forgiven; HUNT-FOES: the ask too - its Yes was a hunter frozen for the search\n    if (this._interruptWhen?.()) { this._end(false); return; }\n    if (this.phase !== HUNT_PHASE.Busy) return;\n    this._elapsed += Math.max(0, dt || 0);",
+    "new": "    // FORAGE4: a foe near ends it, the rest forgiven; HUNT-FOES: the ask too - its Yes was a hunter frozen for the search\n    if (this._interruptWhen?.()) { this._end(false); return; }\n    this._elapsed += Math.max(0, dt || 0);",
     "tests": [
       "test/surv6_hunting.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "SURV6-the-minutes-never-pass",
     "file": "src/scenes/hunting.js",
-    "old": "        advanceMinutes?.(minutes);\n",
+    "old": "        if (outcome) advanceMinutes?.(minutes);\n",
     "new": "",
     "tests": [
       "test/surv6_hunting.test.js"

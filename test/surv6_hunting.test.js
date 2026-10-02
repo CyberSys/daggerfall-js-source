@@ -287,7 +287,7 @@ test('SURV6: by source - the overworld host alone rolls, opens in the slot, pass
   assert.match(world, /luck: liveStat\(playerEntity, 'luck'\), winter: seasonValue\(dateFromClassicMinutes\(worldMinutes\(\)\)\) === SEASONS\.Winter,/);
   assert.match(world, /outdoors: _mode\(\) === 'exterior' && !\(walkMode && playerSpawned && player\.isPlayerSwimming\), afloat: playerAfloat\(\), inLocationRect: _musicInLocationRect\(\), night: isNight\(minuteNow\(\)\),/);
   assert.match(world, /enemiesNear: huntFoesNear\(\), resting: !!playerEntity\.isResting \|\| !!playerEntity\.preventEnemySpawns,/);   // HUNT-FOES
-  assert.match(world, /const huntFoesNear = \(\) => areEnemiesNearby\(exteriorFoePool\(\)\) \|\| exteriorFoes\.pendingFeet\(\)\.length > 0;/);
+  assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);
   assert.match(world, /hasBow: weaponTypeForItem\(weaponRig\.playerWeapon\.weapon\) === WEAPON_TYPES\.Bow,/);
   assert.match(world, /skills: \{ archery: skillValue\(playerEntity, SKILLS\.Archery\), stealth: skillValue\(playerEntity, SKILLS\.Stealth\), criticalStrike: skillValue\(playerEntity, SKILLS\.CriticalStrike\), climbing: skillValue\(playerEntity, SKILLS\.Climbing\) \},/);
   assert.match(world, /showOverlay: \(w\) => townTalk\.showOverlay\(w\), overlayActive: \(\) => townTalk\.overlayActive,\n\s+advanceMinutes: \(n\) => \{ playerTicker\.advance\(n\); runEncounterTick\(walkMode && playerSpawned \? player\.pos : cam\.pos, true\); \},/);   // CAMP-REST: the search's minutes are spent through the tick as a skip (LIVED1: on the character's own clock)
