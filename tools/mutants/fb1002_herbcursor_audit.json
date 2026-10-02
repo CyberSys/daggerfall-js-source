@@ -11,8 +11,8 @@
   {
     "name": "AUDIT-HERB-CURSOR-A1-keyup-never-asks",
     "file": "src/scenes/world.js",
-    "old": "if (e.code === 'Escape') { backButtonHeld = false; const r = escRelock; escRelock = null; r?.(); }",
-    "new": "if (e.code === 'Escape') { backButtonHeld = false; escRelock = null; }",
+    "old": "if (e.code === 'Escape' && escRelock) { const r = escRelock; escRelock = null; r(); }",
+    "new": "if (e.code === 'Escape' && escRelock) { escRelock = null; }",
     "tests": [
       "test/fb1002_herbcursor_audit.test.js"
     ]
