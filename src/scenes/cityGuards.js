@@ -54,7 +54,7 @@ import { tallyCrimeGuildRequirements } from '../systems/crimeGuilds.js';   // CG
 import { entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags } from '../systems/effects.js';   // AUDIT 24 (wave 32): the watch is paralysable too   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { hasMagickaToCast } from '../characters/enemyCasting.js';   // AUDIT 24 (wave 35) / D9: GetDestination's magic term
 import { setEnemyAlert } from '../systems/encounters.js';   // AUDIT 24 (wave 36): EnemySenses:531-535 / EnemyDeath:131-136
-import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT 24 (wave 36): ApplyFallDamage, for the watch too   // ROAD-B: PlayerController.radius, for the indoor arm's door clearance
+import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../player/motor.js';   // AUDIT 24 (wave 36): ApplyFallDamage, for the watch too   // ROAD-B: PlayerController.radius, for the indoor arm's door clearance
 import { findLowestOuterInteriorDoor } from '../player/enterExit.js';   // ROAD-B: DaggerfallInterior.FindLowestOuterInteriorDoor
 import { SOUND } from '../systems/soundClips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
@@ -62,7 +62,7 @@ import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { MobileUnit } from '../characters/mobileUnit.js';
 import { EnemyAI, withinYaw, isBackFacing, foeFrameDt } from '../characters/enemyMotor.js';
-import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart
+import { spaceFoes, DOORWAY_DEPTH } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart   // TACT3c: past the threshold
 import { runTargetMachine, isPlayerTarget, PLAYER_TARGET, resetAllyTeamOnPlayerAttack, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // MT-ii   // ROAD-G G1: MakeEnemyHostileToAttacker's entity-side half, for the watch too
 import { applyDamageToNonPlayer, spawnEnemyLoot } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
@@ -390,10 +390,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         ];
         const guardCount = 2 + Math.floor(rand() * 4);   // Random.Range(2, 6), int-exclusive
         for (let i = 0; i < guardCount; i++) {
-          // SpawnCityGuard(lowestDoorPos, Vector3.forward): every one
-          // of them at the SAME point, facing +Z. They stack in the
-          // doorway and walk out of each other, which is classic.
-          await spawnGuardAt([...at], 0, playerFeet ?? null);
+          // SpawnCityGuard(lowestDoorPos, Vector3.forward), +Z; TACT3c
+          // (always on): not all at that ONE point - a guard wall in the
+          // doorway - but each into the room on its own lane (below).
+          await spawnGuardAt(indoorWatchSpot(at, door.normal, i, collider), 0, playerFeet ?? null);
         }
       }
       return;
@@ -1659,4 +1659,28 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // through `hurtGuard` and is the one a test drives (test/watch1.test.js).
     _damage: (i, dmg, opts) => { const g = guards[i]; if (g && !g.dead) damageGuard(g, dmg, [0, 0, 0], null, opts); },   // probe/test seam through the REAL death path
     _debug: () => guards.map((g) => ({ dead: g.dead, hp: g.entity.health, pos: g.ai.feet.map((v) => +v.toFixed(1)), detected: g.ai.detected, state: g.attack.machine.state, moving: g.ai.moving, dist: +(g.ai._dist ?? -1).toFixed(1), giveUp: g.ai.giveUpTimer })) };
+}
+
+/** TACT3c: how far into the room past the door's threshold the indoor watch stands, metres, and the gap between the
+ *  lanes of its fan (centre, right, left, two right, two left). */
+export const GUARD_INDOOR_INSET = DOORWAY_DEPTH + 0.6;
+export const GUARD_INDOOR_LANE = 0.9;
+/** TACT3c: the i-th watchman's spot - from the classic arrival point `at`, walked along the door's into-the-room
+ *  `normal` past the threshold and out to its lane, through `collider` so a wall or a drop stops it short (no
+ *  collider: straight there). */
+export function indoorWatchSpot(at, normal, i, collider = null) {
+  const nl = Math.hypot(normal[0], normal[2]) || 1;
+  const nx = normal[0] / nl, nz = normal[2] / nl;
+  const lane = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * GUARD_INDOOR_LANE;
+  const inset = GUARD_INDOOR_INSET - GUARD_INDOOR_DOOR_OFFSET;
+  const spot = [...at];
+  const legs = [[nx * inset, nz * inset], [-nz * lane, nx * lane]];
+  for (const [dx, dz] of legs) {
+    if (!(Math.hypot(dx, dz) > 1e-6)) continue;
+    if (!collider?.move) { spot[0] += dx; spot[2] += dz; continue; }
+    const was = [...spot];
+    const r = collider.move(spot, dx, 0, dz, CAPSULE_HEIGHT, true);
+    if (r && r.grounded === false) { spot[0] = was[0]; spot[1] = was[1]; spot[2] = was[2]; }
+  }
+  return spot;
 }

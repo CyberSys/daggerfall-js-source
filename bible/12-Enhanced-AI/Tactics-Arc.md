@@ -13,7 +13,7 @@ overdoing it"*. His calls, asked the same day:
 | Griefing | How is it done today? | **Guards blocking doors** - guards clump in a doorway so nobody can get in or out |
 | Blows | How many new telegraphed attacks? | **One or two, tier-based** - small wind-up attacks on tougher foes only, used sparingly, always readable and dodgeable |
 
-**Status: DESIGNED 2026-10-02 - every call made (both tables); nothing built yet.**
+**Status: TACT3 BUILT 2026-10-02 (Mac: anti-grief first) - see its record at the foot; TACT1, TACT2, TACT4 designed, not built.**
 
 ## Where it stands (measured on the code, 2026-10-02)
 
@@ -99,4 +99,25 @@ dungeon and town block, a mutation list, an audit before merge, patch notes in i
 | Classic lane | The anti-grief fixes with Enhanced AI off? | **Always on**: the cross-pool spacing and the doorway rule apply on the classic lane too (the grief works whatever the victim's setting) |
 | Telegraph tier | Who gets a telegraphed blow? | **Level 10 and up, or an elite (meaner-monsters) foe** |
 
-**Status: DESIGNED - all calls made.** Built slice by slice in the order above.
+**Status: DESIGNED - all calls made.** Built slice by slice; Mac moved TACT3 first ("anti-grief first").
+
+## TACT3 - BUILT 2026-10-02 (always on, both lanes)
+
+Every version of the door grief, fixed without asking further (Mac: "stop asking me questions"):
+- **a. Across pools** - `characters/foeSpacing.js spaceAcross`: the street's watch and encounters (`scenes/world.js`), and a
+  building's foes and the watch called in (`scenes/worldModes.js`), push apart pair by pair across pools, the same
+  capsule gap, push speed and edge rule as a pool's own `spaceFoes`; another player's foe (`_ownFrom`) is its owner's.
+- **b. No foe holds a doorway** - `clearDoorways` over `doorSpotsNear` (the street's building doors within 40 m; a
+  building's own doors within 30 m): a threshold 1.4 m deep each side and 1.2 m either way across; a foe in it is eased
+  along the door's normal to its own side's edge at 1.6 m/s - unless its way lies through the door, or it is hostile and
+  its quarry stands in the doorway itself (no sanctuary on a sill). Through the collider: never through a wall or off
+  an edge; another storey is not this door's.
+- **c. No guard wall** - `scenes/cityGuards.js indoorWatchSpot`: PlayerEntity's 2-5 watchmen no longer stand at ONE
+  point in the door; each walks from that point 2.0 m into the room and out to its own lane (0, -0.9, +0.9, -1.8,
+  +1.8 m), the collider stopping it at a wall.
+- **d. The door click** - `player/mobileEnemyActivate.js yieldsToDoor` and `player/activate.js peacefulFoePass`: a foe
+  NOT hostile to the player standing between the crosshair and a door (or the ladder's other winner) within the door's
+  3.2 m reach no longer takes the press, and the plaque names the door it opens; a hostile foe is still DFU's one hit.
+- Not built from the slice: attack tokens and ring slots (they need TACT2's ring); guards giving up a door they cannot
+  pass (the doorway rule makes it moot for now).
+- Pins `test/tact3.test.js` (15); mutants `tools/mutants/tact3.json` (23), all dead.

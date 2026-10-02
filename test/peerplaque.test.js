@@ -93,7 +93,7 @@ test('PEER-PLAQUE1 hosts by source: the street races the F key\'s own pick and n
   assert.match(w, /peerHoverPick: \(\) => _hoverPeerPick\(cam\.pos, socialFwd\(\)\),\s*\n\s*peerHoverName: \(key\) => peerHoverName\(key\),/, 'the two doors the modal hosts reach - the pick off the F key\'s OWN ray (AUDIT DROPS E3), never the mode\'s eye');
   assert.match(w, /const hit = peerInSight\(cam\.pos, socialFwd\(\)\);/, 'the same ray the key casts');
   const m = rd('src/scenes/worldModes.js');
-  assert.match(m, /foe: pickActivatableHit\(mwv\.eye, d, liveFoeTargets\(interiorFoePool\(\), 'mobileFoe'\), interiorCtx\.collider\),\s*\n\s*peer: host\.peerHoverPick\?\.\(\) \?\? null,/, 'the building races it off the key\'s own ray');
+  assert.match(m, /foe: peacefulFoePass\(pickActivatableHit\(mwv\.eye, d, liveFoes, interiorCtx\.collider\), liveFoes, ground\?\.distance \?\? Infinity\),[^\n]*\n\s*peer: host\.peerHoverPick\?\.\(\) \?\? null,/, 'the building races it off the key\'s own ray');
   const interiorNamer = m.slice(m.indexOf('const interiorHoverName = composeNamer(['), m.indexOf('if (!worldTooltipsOn()) return null;', m.indexOf('const interiorHoverName = composeNamer([')));
   assert.match(interiorNamer, /\(key\) => host\.peerHoverName\?\.\(key\) \?\? null,/, 'the building names it above the mod\'s switch');
   assert.match(m, /shareQuest: \(uid, questName, displayName\) => host\.shareQuest\?\.\(uid, questName, displayName\),\s*\n(?:\s*\/\/[^\n]*\n)*\s*peerHoverPick: \(\) => host\.peerHoverPick\?\.\(\) \?\? null,/, 'the dungeon is handed the pick with the quest doors');

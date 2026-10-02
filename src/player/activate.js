@@ -294,9 +294,18 @@ export function liveFoeTargets(foes, keyPrefix, { idOf = null } = {}) {
       aabb,
       distance: RAY_DISTANCE,
       reach: MOBILE_NPC_ACTIVATION_DISTANCE,
+      ...(f.ai && !f.ai.isHostile ? { peaceful: true } : {}),   // TACT3d: passes a door click (peacefulFoePass)
     });
   }
   return targets;
+}
+
+/** TACT3d: the plaque's half of mobileEnemyActivate's `yieldsToDoor` - a foe hit on a PEACEFUL foe (liveFoeTargets'
+ *  `peaceful`) with a door, or the ladder's other winner, within the door's reach behind it is no hit, so the plaque
+ *  names what the press opens. */
+export function peacefulFoePass(foeHit, targets, doorBehind) {
+  if (!foeHit || !(Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE)) return foeHit;
+  return targets.find((t) => t.key === foeHit.key)?.peaceful ? null : foeHit;
 }
 
 /** WHICH live foe a key names - `corpseEntryFor`'s twin, over the same
@@ -365,7 +374,7 @@ export function pickActivatable(eye, dir, targets, collider) {
  * `distance` is widened to RAY_DISTANCE so it can WIN the pick
  * therefore carries its real `reach` beside it, and the ladder speaks
  * the refusal when the winner came back out of reach. This is the
- * bulletin board's idiom (scenes/worldModes.js:5993-6006) given a
+ * bulletin board's idiom (scenes/worldModes.js:5994-6007) given a
  * field, not a second pick: one ray, one winner, the gate downstream.
  * Targets that were never widened answer `reach === distance`, which
  * the pre-gate has already enforced, so they can never refuse.

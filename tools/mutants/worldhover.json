@@ -513,8 +513,8 @@
   {
     "name": "WORLD-HOVER-the-mobile-band-reaches-as-far-as-the-ray",
     "file": "src/player/activate.js",
-    "old": "      distance: RAY_DISTANCE,\n      reach: MOBILE_NPC_ACTIVATION_DISTANCE,\n    });\n  }\n  return targets;\n}",
-    "new": "      distance: RAY_DISTANCE,\n      reach: RAY_DISTANCE,\n    });\n  }\n  return targets;\n}",
+    "old": "      distance: RAY_DISTANCE,\n      reach: MOBILE_NPC_ACTIVATION_DISTANCE,\n",
+    "new": "      distance: RAY_DISTANCE,\n      reach: RAY_DISTANCE,\n",
     "tests": [
       "test/worldhover.test.js"
     ]
