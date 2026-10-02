@@ -70,10 +70,10 @@ function row(k, v, title = null) {
   return r;
 }
 
-export function buildStatsPage(entity, repaint) {
+export function buildStatsPage(entity, repaint, opts = {}) {
   const page = el('div', 'sf-page');
   let s;
-  try { s = computeCombatStats(entity); } catch (e) {
+  try { s = computeCombatStats(entity, opts); } catch (e) {
     console.warn('[statsCard] the numbers could not be computed', e);
     page.append(el('p', 'sf-err', 'The stats could not be worked out for this character.'));
     return page;
@@ -208,7 +208,7 @@ function safeName(item) { try { return itemLongName(item); } catch { return item
  * Wrap the paperdoll `front` (the worn map) in a two-sided card with a Stats button, or hand `front` back untouched if
  * anything goes wrong - the pack must open whatever this page does.
  */
-export function statFlip(front, entity) {
+export function statFlip(front, entity, usingRightHand = () => true) {
   try {
     if (typeof document === 'undefined' || !entity) return front;
     ensureStyle();
@@ -226,7 +226,7 @@ export function statFlip(front, entity) {
     btn.setAttribute('aria-pressed', String(flipped));
     root.append(inner, btn);
 
-    const paintBack = () => { scroll.replaceChildren(buildStatsPage(entity, paintBack)); };
+    const paintBack = () => { scroll.replaceChildren(buildStatsPage(entity, paintBack, { usingRightHand: usingRightHand() })); };
     const setFaces = () => {
       fFace.inert = flipped; bFace.inert = !flipped;
       fFace.setAttribute('aria-hidden', String(flipped)); bFace.setAttribute('aria-hidden', String(!flipped));

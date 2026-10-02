@@ -1,0 +1,11 @@
+// @ts-check
+// TACT4 - THE THREE SHAPES (bible/12-Enhanced-AI/Tactics-Arc.md), a LEAF: the ground's pass (render/foeTelegraph.js) is
+// on the renderer's boot graph and must not bring the brain with it (test/boot2.test.js holds the entry's reach), so the
+// numbers both read live here, importing nothing. ai/foeBlows.js re-exports them.
+
+/** The shapes, and every number they carry. Metres, seconds, damage multipliers on the foe's own blow. */
+export const BLOW = Object.freeze({
+  lunge: Object.freeze({ windup: 0.7, len: 4.5, halfW: 0.6, mult: 1.5 }),
+  sweep: Object.freeze({ windup: 0.8, r: 3.2, halfArc: (65 * Math.PI) / 180, mult: 1.25 }),
+  slam: Object.freeze({ windup: 0.9, r: 2.0, ahead: 1.0, mult: 1.75 }),
+});

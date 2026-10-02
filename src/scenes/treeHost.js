@@ -26,6 +26,7 @@
 //   systems/chopAct.js; the Wood-Axe draws DFU's War Axe in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { trees, nodeKey, WOOD_TABLES } from '../net/nodeLaw.js';
+import { FELLED } from '../ai/cover.js';   // AUDIT TACT B1: a felled tree is no cover
 import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { createChopAct } from '../systems/chopAct.js';
 import { FT } from '../systems/foragingLaw.js';
@@ -108,7 +109,9 @@ export function sinkFelled(forest, sunk, renderer) {
     const had = g.sunkN ?? 0;
     let n = 0;
     const centers = g.centers.map((c, i) => {
-      if (!sunk.has(`${gk}#${i}`)) return c;
+      const felled = sunk.has(`${gk}#${i}`);
+      if (felled) FELLED.add(c); else FELLED.delete(c);   // AUDIT TACT B1: the tree's cover (ai/cover.js) - a felled one is no cover, a regrown one is
+      if (!felled) return c;
       n++;
       return [c[0], c[1] - g.size.h - 1, c[2]];
     });

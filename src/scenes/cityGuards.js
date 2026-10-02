@@ -54,8 +54,10 @@ import { tallyCrimeGuildRequirements } from '../systems/crimeGuilds.js';   // CG
 import { entityIsParalyzed, applyEnemyMotorEffectFlags, concealmentFlags } from '../systems/effects.js';   // AUDIT 24 (wave 32): the watch is paralysable too   // A5: the enemy Levitate arm, the foe-target concealment closure + EntityConcealmentBehaviour's visual
 import { hasMagickaToCast } from '../characters/enemyCasting.js';   // AUDIT 24 (wave 35) / D9: GetDestination's magic term
 import { setEnemyAlert } from '../systems/encounters.js';   // AUDIT 24 (wave 36): EnemySenses:531-535 / EnemyDeath:131-136
-import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT 24 (wave 36): ApplyFallDamage, for the watch too   // ROAD-B: PlayerController.radius, for the indoor arm's door clearance
+import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../player/motor.js';   // AUDIT 24 (wave 36): ApplyFallDamage, for the watch too   // ROAD-B: PlayerController.radius, for the indoor arm's door clearance
 import { findLowestOuterInteriorDoor } from '../player/enterExit.js';   // ROAD-B: DaggerfallInterior.FindLowestOuterInteriorDoor
+import { coverDistance } from '../ai/cover.js';   // TACT1: a witness does not see through a tree
+import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { SOUND } from '../systems/soundClips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { foeTitled } from '../systems/foeTitle.js';   // FOE-TITLE: a revenant, a champion or an elite is named on the hover even while hostile
@@ -63,7 +65,7 @@ import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
 import { MobileUnit } from '../characters/mobileUnit.js';
 import { EnemyAI, withinYaw, isBackFacing, foeFrameDt } from '../characters/enemyMotor.js';
-import { spaceFoes } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart
+import { spaceFoes, DOORWAY_DEPTH } from '../characters/foeSpacing.js';   // FOE-SPACING: the watch keeps apart   // TACT3c: past the threshold
 import { runTargetMachine, isPlayerTarget, PLAYER_TARGET, resetAllyTeamOnPlayerAttack, wireRecipient, bumpAtkCount, staticTeamOf } from '../characters/enemyTargets.js';   // AUDIT WATCH1: the wire's spellings, one home   // MT-ii   // ROAD-G G1: MakeEnemyHostileToAttacker's entity-side half, for the watch too
 import { applyDamageToNonPlayer, spawnEnemyLoot } from './hostCombat.js';   // MT-ii: EnemyAttack.ApplyDamageToNonPlayer
 import { stampWonWeapons } from '../systems/lootRarity.js';   // SIGIL1: a body's weapons won online
@@ -164,7 +166,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:223).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:224).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -282,7 +284,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         // the table ever changes.
         hasBowAttack: false,
         canCastRangedSpell: () => false,   // D9: no spell list and no EnemyCaster - CanCastRangedSpell's list half is empty
-        hasMagickaToCast: () => hasMagickaToCast(entity),   // GetDestination's own term (:539-540) still asks the entity
+        hasMagickaToCast: () => hasMagickaToCast(entity), vitals: () => entity,   // GetDestination's own term (:539-540) still asks the entity; TACT2: the brain reads his health
       });
       pending.feet = ai.feet;   // AUDIT-39r: the AI's copy is the live array from here
       // MakeEnemyHostileToAttacker + GiveUpTimer *= 3, verbatim: a
@@ -391,10 +393,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         ];
         const guardCount = 2 + Math.floor(rand() * 4);   // Random.Range(2, 6), int-exclusive
         for (let i = 0; i < guardCount; i++) {
-          // SpawnCityGuard(lowestDoorPos, Vector3.forward): every one
-          // of them at the SAME point, facing +Z. They stack in the
-          // doorway and walk out of each other, which is classic.
-          await spawnGuardAt([...at], 0, playerFeet ?? null);
+          // SpawnCityGuard(lowestDoorPos, Vector3.forward), +Z; TACT3c
+          // (always on): not all at that ONE point - a guard wall in the
+          // doorway - but each into the room on its own lane (below).
+          await spawnGuardAt(indoorWatchSpot(at, door.normal, i, collider), 0, playerFeet ?? null);
         }
       }
       return;
@@ -485,7 +487,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // wall or player - so a guard NPC in range and facing the
           // crime raises the watch even from behind a market stall.
           const hit = collider.raycast(eye, dir, dist);
-          const clear = !Number.isFinite(hit) || hit >= dist - 1e-3;
+          const clear = (!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3);   // TACT1: not through a tree or a stall's crates
           if (clear) seen = true;
           // ...and seenByGuard rides the RAYCAST ITSELF, not the clear
           // line. DFU's `Physics.Raycast(ray, out hit, 77.5f)` is aimed
@@ -597,7 +599,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       const eye = [p.pos[0], p.pos[1] + 0.7, p.pos[2]];
       const dir = [toPlayer[0] / (dist || 1), (toPlayer[1] + 0.6) / (dist || 1), toPlayer[2] / (dist || 1)];
       const hit = collider.raycast(eye, dir, dist);
-      if (!Number.isFinite(hit) || hit >= dist - 1e-3) return p;
+      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3)) return p;   // TACT1: cover hides him
     }
     return null;
   }
@@ -753,10 +755,10 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  and ALL THREE of this pool's arms reach the door: the melee swing
    *  and the spell through `damageGuard`'s `fromPlayer` gate below, and
    *  the player's ARROW through the hosts' `onAttackFromPlayer` seam,
-   *  which arrowFlight.js calls unconditionally (arrowFlight.js:321)
+   *  which arrowFlight.js calls unconditionally (arrowFlight.js:324)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2835). */
+   *  encounter pool's is (exteriorFoes.js:2843). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1165,7 +1167,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         const hdx = playerFeet[0] - g.ai.feet[0], hdz = playerFeet[2] - g.ai.feet[2];
         const wpn = chooseEnemyWeapon(g.entity.weapon, ENEMY_BASICS[GUARD_MOBILE_TYPE]);
         const gmid = [g.ai.feet[0], g.ai.feet[1] + 0.9, g.ai.feet[2]];
-        if (meleeHitConnects(g.ai._dist, g.ai.inSight, withinYaw(g.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG))) {
+        if (blowConnects(g.ai, meleeHitConnects(g.ai._dist, g.ai.inSight, withinYaw(g.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG)))) {   // TACT4: a telegraphed blow's shape decides
           // AUDIT 2026-08-17c: every resolved enemy attack on the
           // player tallies Dodging (EnemyAttack, before the damage
           // branch) - it was never tallied anywhere.
@@ -1175,11 +1177,11 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // InflictPoison seam the dungeon host already passes -
           // guard weapon poison was ROLLED at spawn and could never
           // be inflicted, because the exterior call dropped the hook.
-          const dmg = calculateAttackDamage(g.entity, playerEntity, {
+          const dmg = blowScaled(g.ai, calculateAttackDamage(g.entity, playerEntity, {   // TACT4: a telegraphed blow's weight
             weapon: wpn,   // AUDIT 18: target group derived from the entity (isPlayer -> Humanoid)
             onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(currentMinute()) }),
             say,   // C-slice: equipment breaks speak
-          });
+          }));
           // AUDIT 24 (wave 39): EnemyAttack.cs:406 -
           // `PlayerObject.SendMessage("RemoveHealth", damage)` - which
           // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW
@@ -1660,4 +1662,34 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
     // through `hurtGuard` and is the one a test drives (test/watch1.test.js).
     _damage: (i, dmg, opts) => { const g = guards[i]; if (g && !g.dead) damageGuard(g, dmg, [0, 0, 0], null, opts); },   // probe/test seam through the REAL death path
     _debug: () => guards.map((g) => ({ dead: g.dead, hp: g.entity.health, pos: g.ai.feet.map((v) => +v.toFixed(1)), detected: g.ai.detected, state: g.attack.machine.state, moving: g.ai.moving, dist: +(g.ai._dist ?? -1).toFixed(1), giveUp: g.ai.giveUpTimer })) };
+}
+
+/** TACT3c: how far into the room past the door's threshold the indoor watch stands, metres, and the gap between the
+ *  lanes of its fan (centre, right, left, two right, two left). */
+export const GUARD_INDOOR_INSET = DOORWAY_DEPTH + 0.6;
+export const GUARD_INDOOR_LANE = 0.9;
+/** TACT3c: the i-th watchman's spot - from the classic arrival point `at`, walked along the door's into-the-room
+ *  `normal` past the threshold and out to its lane, through `collider` so a wall or a drop stops it short (no
+ *  collider: straight there). */
+export function indoorWatchSpot(at, normal, i, collider = null) {
+  const nl = Math.hypot(normal[0], normal[2]) || 1;
+  const nx = normal[0] / nl, nz = normal[2] / nl;
+  const lane = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * GUARD_INDOOR_LANE;
+  const inset = GUARD_INDOOR_INSET - GUARD_INDOOR_DOOR_OFFSET;
+  const spot = [...at];
+  // AUDIT TACT C3: `at` is the door's CENTRE, a metre or more over the sill (a static door's quad middle) - down to the
+  // floor first, or the walk's step-down refuses both legs and every watchman stands at the one point after all
+  if (collider?.raycast) {
+    const down = collider.raycast([spot[0], spot[1] + 0.1, spot[2]], [0, -1, 0], 3.5);
+    if (Number.isFinite(down)) spot[1] = spot[1] + 0.1 - down;
+  }
+  const legs = [[nx * inset, nz * inset], [-nz * lane, nx * lane]];
+  for (const [dx, dz] of legs) {
+    if (!(Math.hypot(dx, dz) > 1e-6)) continue;
+    if (!collider?.move) { spot[0] += dx; spot[2] += dz; continue; }
+    const was = [...spot];
+    const r = collider.move(spot, dx, 0, dz, CAPSULE_HEIGHT, true);
+    if (r && r.grounded === false) { spot[0] = was[0]; spot[1] = was[1]; spot[2] = was[2]; }
+  }
+  return spot;
 }

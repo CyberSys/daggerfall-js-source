@@ -57,6 +57,8 @@ import { BUILDING_TYPES } from '../world/buildingNames.js';
 import { THIEVES_GUILD_FACTION_ID, DARK_BROTHERHOOD_FACTION_ID } from '../systems/crimeGuilds.js';   // FactionFile.cs:91/:135
 import { rollLootRarity, pileSource, INTERIOR_RARITY_TIER, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: a tavern's pile rolls at the town's tier; SIGIL1: its weapons' sigils
 import { generateItems as generateLootItems, addPileLootExtras, DUNGEON_LOOT_KEYS, DROP_ICON_ARCHIVES } from '../systems/loot.js';
+import { createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
+// TACT1: the Enhanced AI switch is ai/cover.js's to read (createCoverIndex's default), not this host's
 
 /** AUDIT 63 F22: DaggerfallInterior.AddFlats' treasure arm
  *  (DaggerfallInterior.cs:872-902), the one thing that walk does
@@ -328,6 +330,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
   const floorMaterials = [];
   const seenFloorMaterials = new Set();
   const collider = new Collider(() => -Infinity);
+  collider.cover = createCoverIndex();   // TACT1: the room's solid flats are cover, with the switch on
   // BASE-HIDE (2026-09-26, Mac: "Remove bought houses decor"): A ROOM ITS OWNER MAY FURNISH (`opts.baseEditable` - an
   // online home, anyone's, or the player's own house or ship) STANDS ITS OWN FURNITURE PIECE BY PIECE - each prop model
   // its own draw (never the merge) and collider bucket, each flat its own batch and light - so a piece can be taken out
@@ -678,6 +681,7 @@ export async function buildInteriorContext(deps, dfBlock, blockIndex, recordInde
     const batch = renderer.createBillboardBatch(archive, record, size, centers);
     armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
     billboardBatches.push(batch);
+    if (isCoverFlat(archive, record, size)) collider.cover.add('tact1:flats', centers.map((c) => coverProxy(c, size)));   // TACT1 (a furnishable room's own pieces, which can be taken out, are not)
   }
 
   // The build's stand: from this line SetActive is live (makeInteriorPersonHost), so a flip that lands while these

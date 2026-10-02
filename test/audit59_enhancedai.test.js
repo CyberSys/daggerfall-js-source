@@ -117,7 +117,7 @@ test('AUDIT 59 F3: the Enhanced tab row says what ships - dungeons, the motor li
   assert.ok(!/not yet driving/.test(row), 'the "not yet" clause died with ENHANCED AI 4');
   assert.ok(!/each dungeon, town and interior/.test(row), 'no promise of hosts the arc has not reached');
   assert.match(row, /Dungeons only for now/);
-  assert.match(row, /Takes effect on the next dungeon you enter/, 'a foe keeps the motor it was born with');
+  assert.match(row, /the dungeon pathfinding from the next dungeon you enter/, 'a foe keeps the motor it was born with (AUDIT TACT D7: the rest is at once)');
   assert.match(row, /Off keeps the classic movement/);
 });
 

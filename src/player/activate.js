@@ -173,7 +173,7 @@ export function activationTargets(objects, distance = DOOR_ACTIVATION_DISTANCE) 
   for (const o of objects.values()) {
     const aabb = objectAabb(o);
     if (!aabb) continue;
-    if (isActionDoorObject(o)) targets.push({ key: o.key, aabb, distance: RAY_DISTANCE, reach: distance });   // :686-689 speaks
+    if (isActionDoorObject(o)) targets.push({ key: o.key, aabb, distance: RAY_DISTANCE, reach: distance, door: true });   // :686-689 speaks; AUDIT TACT C5: a DOOR (doorDistanceOf)
     else targets.push({ key: o.key, aabb, distance, meshCollider: hasMeshCollider(o) });   // :380-383 is silent
   }
   return targets;
@@ -294,9 +294,25 @@ export function liveFoeTargets(foes, keyPrefix, { idOf = null } = {}) {
       aabb,
       distance: RAY_DISTANCE,
       reach: MOBILE_NPC_ACTIVATION_DISTANCE,
+      ...(f.ai && !(f.puppet ? f._pupMine : f.ai.isHostile) && f.companion == null ? { peaceful: true } : {}),   // TACT3d: passes a door click (peacefulFoePass); AUDIT TACT C1/C5: hostile to ME (a puppet on me), never my companion
     });
   }
   return targets;
+}
+
+/** AUDIT TACT C5/C7: how far along the ray the nearest DOOR of a host's targets is (the ones marked `door`: an exit,
+ *  an action door) - Infinity for none. The door click's pass is for a door, never a shelf or a chest behind a guard. */
+export function doorDistanceOf(eye, dir, targets, collider) {
+  const doors = (targets ?? []).filter((t) => t?.door === true);
+  return doors.length ? (pickActivatableHit(eye, dir, doors, collider)?.distance ?? Infinity) : Infinity;
+}
+
+/** TACT3d: the plaque's half of mobileEnemyActivate's `yieldsToDoor` - a foe hit on a PEACEFUL foe (liveFoeTargets'
+ *  `peaceful`) with a door, or the ladder's other winner, within the door's reach behind it is no hit, so the plaque
+ *  names what the press opens. */
+export function peacefulFoePass(foeHit, targets, doorBehind, mode = null) {
+  if (!foeHit || mode === 'steal' || !(Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE)) return foeHit;   // AUDIT TACT C5: a pickpocket is asked of him
+  return targets.find((t) => t.key === foeHit.key)?.peaceful ? null : foeHit;
 }
 
 /** WHICH live foe a key names - `corpseEntryFor`'s twin, over the same
@@ -365,7 +381,7 @@ export function pickActivatable(eye, dir, targets, collider) {
  * `distance` is widened to RAY_DISTANCE so it can WIN the pick
  * therefore carries its real `reach` beside it, and the ladder speaks
  * the refusal when the winner came back out of reach. This is the
- * bulletin board's idiom (scenes/worldModes.js:5996-6009) given a
+ * bulletin board's idiom (scenes/worldModes.js:5999-6012) given a
  * field, not a second pick: one ray, one winner, the gate downstream.
  * Targets that were never widened answer `reach === distance`, which
  * the pre-gate has already enforced, so they can never refuse.
