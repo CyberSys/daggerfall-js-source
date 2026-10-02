@@ -467,7 +467,9 @@ BUILT (CASTLE-GATE, 2026-10-02; Online-Arc CASTLE-GATE): a crown's field at its 
 box, and at a crown hands the lowest (`systems/siegeField.js` castleEntranceOf - DFU lands a player leaving the castle
 at its lowest, `player/enterExit.js` dungeonEntranceLanding) to siegeFieldOf's `castle` (AUDIT-SEATS G21): a crown's
 Throne, its Gatehouse, its defenders' camp and its Palace square - and the Royal Tourney's ring (7.6) - stand before it.
-A crown city whose blocks stand no such door keeps the palace door's field.
+A crown city whose blocks stand no such door keeps the palace door's field. AUDIT: the entrance faces along its door
+record's own outward normal (a U-shaped forecourt's or a recessed gate's box middle stands outside the door), "lowest" is
+the door's centre (as DFU's landing), and a door too narrow to face is passed over for the next.
 
 ### 6.3 Scheduling
 

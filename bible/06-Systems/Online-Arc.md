@@ -11946,9 +11946,18 @@ blocks stand.
   door's field. The service settles a battle's field on the two sides' agreeing, so every client measures it alike.
 - **The banners** (seatBannerAnchors' `castle`): two flanking it, after the palace's two and before the gates and
   boards, within SEAT_BANNERS_MAX.
+- **AUDIT (G1-G3)**: the door is gathered with its record's OUTWARD NORMAL too (`scenes/hallBanners.js` doorNormalOf -
+  meshReader's model-space normal through the model matrix's rotation alone, the one DFU's exit landing steps out
+  along), and the entrance's face - the field's (`doorFace`) and the banners' (`hallBannerAnchors`) - turns to agree with
+  it (`siegeField.js` doorFaceSign; a normal that does not lean along the face, or a palace's or hall's frame, which
+  carries none, keeps the box-middle rule): a U-shaped castle's forecourt or a recessed gate no longer faces the Throne,
+  the camps, the square, the ring and the banners into the keep. "Lowest" is the door's CENTRE, as DFU's landing measures
+  it (doorWorldPosition), not its lower corner; and a door no face can be taken from (narrower than 0.3 m) is passed
+  over for the town's next, never dropping the crown back to the palace door.
 
-Pinned: `test/castle_gate.test.js` (4). Mutants: `tools/mutants/castle_gate.json` (9, all dead). Client alone - no relay,
-no service version.
+Pinned: `test/castle_gate.test.js` (8). Mutants: `tools/mutants/castle_gate.json` (21, all dead; guild1d.json's
+GUILD1d-banner-faces-the-building and seat2a4.json's SEAT2a4-field-face re-aimed at the shared face). Client alone - no
+relay, no service version.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

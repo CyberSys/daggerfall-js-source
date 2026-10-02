@@ -560,8 +560,8 @@
  {
   "name": "SEAT2a4-field-face",
   "file": "src/systems/siegeField.js",
-  "old": "  if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }",
-  "new": "  if (false) { ox = -ox; oz = -oz; }",
+  "old": "  return (cx - mx) * ox + (cz - mz) * oz < 0 ? [-ox, -oz] : [ox, oz];",
+  "new": "  return false ? [-ox, -oz] : [ox, oz];",
   "tests": [
    "test/seat2a_siege_play.test.js"
   ]
