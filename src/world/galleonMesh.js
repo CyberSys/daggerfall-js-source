@@ -129,7 +129,10 @@ export class MeshBench {
 }
 
 /** A collider's triangles (positions and indices, the CSA geometry's two fields a collider reads) out of a geometry -
- *  every triangle, its corners welded where they meet so the collider's mesh is a closed one. */
+ *  every triangle, its corners welded where they coincide (to 0.1 mm), so triangles that meet share their corners.
+ *  AUDIT GN-NITS: welding closes nothing - a drawing open somewhere is a collider open there (her hull's: her planking
+ *  along the gun deck's line, her rail's and parapet's feet, her castle doorway's sill, and her stair wells where their
+ *  ramps are left out of it); this said the collider's mesh came out closed. */
 export function colliderOf(geometry) {
   if (!geometry) return null;
   const key = new Map(), pos = [], idx = [];
