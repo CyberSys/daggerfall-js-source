@@ -170,7 +170,7 @@ test('PROF11 law: the Sculptor\'s four (9.3) - a column, a bench, a font, a stat
     ['font:stone', 'font', 'Stone Font', 'furniture', 'stonework', 'masonry', 698, 0, 2, 10, 'sculptor', '10 stone:cut,3 stone:mortar'],
     ['plinth:stone', 'plinth', 'Statue Plinth', 'furniture', 'stonework', 'masonry', 699, 0, 2, 10, 'sculptor', '6 stone:cut,2 stone:mortar'],
   ]);
-  assert.deepEqual(RECIPES.slice(-4), [...MASONRY_RECIPES]);
+  assert.deepEqual(RECIPES.slice(-4 - 7, -7), [...MASONRY_RECIPES]);   // PIN MOVED (PROF9): the fire's seven dishes come after the Sculptor's four
   assert.equal(new Set(RECIPES.map((r) => r.id)).size, RECIPES.length, 'every id its own');
   assert.equal(recipeById('font:stone'), MASONRY_RECIPES[2]);
   assert.deepEqual(STONE_DECOR_ROWS.map((r) => [r.index, r.name, r.baseWeight, r.basePrice, r.hitPoints, r.stackable, r.rarity, r.worldTextureArchive, r.worldTextureRecord]), [
@@ -193,7 +193,7 @@ test('PROF11 law: the Sculptor\'s four (9.3) - a column, a bench, a font, a stat
   assert.equal(firstCraftPays(col), true);
   assert.deepEqual(qualityOdds(100 - col.rank), [0, 0, 40, 52, 8], 'a Master\'s margin, 90: the finest row');
   // the market lists them (Stonework) and a commission may name them
-  assert.deepEqual(CRAFTED_FAMILIES.at(-1), ['stonework', 'Stonework']);
+  assert.deepEqual(CRAFTED_FAMILIES.at(-2), ['stonework', 'Stonework']);   // PIN MOVED (PROF9): the fire's dishes list after it
   assert.deepEqual(MASONRY_RECIPES.map((r) => pieceListable(r.id)), [true, true, true, true]);
   assert.deepEqual([commissionable('column:stone'), commissionTakesQuality('plinth:stone')], [true, true]);
 });

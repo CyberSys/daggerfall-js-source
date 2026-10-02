@@ -9,6 +9,8 @@
 // PROF11 (Professions-Arc 3.2, 3.3, 9.3, 9.4): Masonry's - the Sculptor's four stone pieces for DECOR, the chisel the
 // mason's bench strikes with, and the bench's XP (its cut and its mix are the forge's works' shape: professionLaw
 // MASON_RECIPES).
+// PROF9 (Professions-Arc 3.3, 9.3, 9.4; section 35): Cooking's - the four dishes of 9.3 at any fire, into the pack, the
+// pan they are taken off the fire with, their effects (the feast's to the whole table), and Cooking's XP.
 //
 // PURE, and both ends import it: the account service decides a craft by it (server-account/src/professions.js
 // craftAtAnvil), the client draws the anvil by it (ui/profPages.js) and mints the piece by it (systems/smithItems.js).
@@ -106,10 +108,11 @@ const KIT_INGOTS = Object.freeze(SMITH_INGOTS.filter((k) => k !== WARFORGED));
 
 /**
  * @typedef {{ id: string, product: string, name: string, kind: string, family: string,
- *   profession: 'smithing'|'carpentry'|'outfitting'|'masonry', templateIndex: number, metal: string|null, wood?: string|null,
+ *   profession: 'smithing'|'carpentry'|'outfitting'|'masonry'|'cooking', templateIndex: number, metal: string|null, wood?: string|null,
  *   material: number, tier: number, rank: number, stack?: number, later?: string, group?: string, cloth?: string,
  *   leather?: string, dyes?: boolean, spec?: string, inputs: readonly { key: string, n: number }[] }} Recipe
  *   PROF11: `spec` the specialisation at 100 a recipe asks besides its rank (the Sculptor's stone decor)
+ *   PROF9: a dish's `kind` is 'dish' and its `family` 'dishes'
  */
 const FAMILY = Object.freeze({ weapon: 'weapons', plate: 'armour', shield: 'armour', chain: 'armour', tool: 'tools', kit: 'kits' });
 /** @returns {Recipe} */
@@ -316,8 +319,121 @@ export const MASONRY_RECIPES = Object.freeze(STONE_DECOR.map((d) => Object.freez
   inputs: Object.freeze([Object.freeze({ key: CUT_STONE.key, n: d.cut }), Object.freeze({ key: MORTAR.key, n: d.mortar })]),
 })));
 
-/** Every recipe, the anvil's, the workbench's and (PROF7) the loom's - PROF11: and the mason's bench's carvings. */
-export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES, ...MASONRY_RECIPES]);
+// ─── PROF9: COOKING'S DISHES (PROF0 3.3, 9.3; section 35) ────────────
+
+/**
+ * THE FOUR DISHES (9.3: "Cooking (any campfire, hearth or brazier ...). Every input comes from the Stores ... and every
+ * dish goes to the pack"), 4.8's templates 685-688, each its inputs as 9.3 writes them and its effect. DECIDED, each:
+ * - ITS RANK: the Novice's two are the hunter's and the fisher's - Hunter's Stew and Fisherman's Supper at rank 0 (tier
+ *   1); the Orchard Tart at rank 10 (tier 2: its Yellow Berries an uncommon herb, 4.3); the Feast of the Hearth at 9.3's
+ *   rank 70 (tier 6).
+ * - ITS HERB: Root Bulb, Green Leaves and Yellow Berries grow in both of DFU's plant groups (professionLaw
+ *   PLANT_GROUP_TEMPLATES), so the Stores keep each twice and a dish of one is two recipes, the northern herb's and the
+ *   southern's - the arrows' Twigs' law (PROF0 25). The dish is the same dish either way.
+ * - ITS EFFECT (`effect`): `stats` the attributes it raises and by how much, `stamina` the share a stamina lasts longer
+ *   (the Tart: 9.3's "stamina regained +20%" - FOUND: Daggerfall regains stamina only by rest and spells, so the Tart's
+ *   is the bar's: every minute's drain divided by 1.2, a bar a fifth longer), `minutes` how long, in game minutes (a
+ *   magic round each), and `party` the feast's - the whole party at the table (PARTY-BUFFS' frame).
+ * - ITS SERVINGS: one dish a cook, a Cook's two (3.3: "+1 serving a dish") - craftCount.
+ */
+/**
+ * @typedef {{ id: string, name: string, templateIndex: number, tier: number, herb: number|null, herbName: string|null,
+ *   inputs: readonly (readonly (string|number)[])[],
+ *   effect: { stats?: Readonly<Record<string, number>>, stamina?: number, minutes: number, party?: boolean } }} Dish
+ */
+/** @type {readonly Dish[]} */
+export const DISHES = Object.freeze([
+  Object.freeze({ id: 'stew', name: 'Hunter\'s Stew', templateIndex: 685, tier: 1, herb: 13, herbName: 'Root Bulb',
+    inputs: Object.freeze([Object.freeze(['food:meat', 2]), Object.freeze(['food:mushroom', 1])]),
+    effect: Object.freeze({ stats: Object.freeze({ endurance: 5 }), minutes: 120 }) }),
+  Object.freeze({ id: 'supper', name: 'Fisherman\'s Supper', templateIndex: 686, tier: 1, herb: 9, herbName: 'Green Leaves',
+    inputs: Object.freeze([Object.freeze(['food:fish', 2]), Object.freeze(['food:egg', 1])]),
+    effect: Object.freeze({ stats: Object.freeze({ agility: 5 }), minutes: 120 }) }),
+  Object.freeze({ id: 'tart', name: 'Orchard Tart', templateIndex: 687, tier: 2, herb: 17, herbName: 'Yellow Berries',
+    inputs: Object.freeze([Object.freeze(['food:apple', 2]), Object.freeze(['food:egg', 1])]),
+    effect: Object.freeze({ stamina: 20, minutes: 240 }) }),
+  Object.freeze({ id: 'feast', name: 'Feast of the Hearth', templateIndex: 688, tier: 6, herb: null, herbName: null,
+    inputs: Object.freeze([Object.freeze(['food:meat', 4]), Object.freeze(['food:fish', 4]), Object.freeze(['food:apple', 2]),
+      Object.freeze(['food:orange', 2]), Object.freeze(['food:mushroom', 2]), Object.freeze(['food:egg', 2])]),
+    effect: Object.freeze({ stats: Object.freeze({ strength: 5, endurance: 5, willpower: 5 }), minutes: 1440, party: true }) }),
+]);
+/** The dishes' templates (4.8's 685-688). */
+export const DISH_TEMPLATES = Object.freeze(DISHES.map((d) => d.templateIndex));
+/** A dish's row by its product id ('stew'), its recipe's id ('stew:north') or its template (685), or null. */
+export const dishOf = (what) => (typeof what === 'number' ? DISHES.find((d) => d.templateIndex === what)
+  : typeof what === 'string' ? DISHES.find((d) => d.id === what || what.startsWith(`${d.id}:`)) : null) ?? null;
+/** @returns {Recipe} */
+function dishRecipe(d, suffix, herbKey, word) {
+  return Object.freeze({
+    id: `${d.id}:${suffix}`, product: d.id, name: word ? `${d.name} (${word} ${d.herbName})` : d.name, kind: 'dish', family: 'dishes',
+    profession: 'cooking', templateIndex: d.templateIndex, metal: null, material: 0, tier: d.tier, rank: TIER_RANKS[d.tier - 1],
+    inputs: Object.freeze([...d.inputs, ...(herbKey ? [[herbKey, 1]] : [])].map(([key, n]) => Object.freeze({ key: String(key), n: Number(n) }))),
+  });
+}
+/** EVERY RECIPE THE FIRE KNOWS, in its window's order: each herb dish twice (the northern herb's, the southern's), then
+ *  the feast. */
+/** @type {readonly Recipe[]} */
+export const COOKING_RECIPES = Object.freeze(DISHES.flatMap((d) => (d.herb == null ? [dishRecipe(d, 'hearth', null, null)]
+  : [dishRecipe(d, 'north', `p1:${d.herb}`, 'northern'), dishRecipe(d, 'south', `p2:${d.herb}`, 'southern')])));
+/** The Cook (3.3: "+1 serving a dish"), Cooking's choice at 50; the Chef and the Provisioner its two at 100. */
+export const COOK = 'cook', CHEF = 'chef', PROVISIONER = 'provisioner';
+/** The Chef (3.3: "feasts last +50%"): a feast's time, half again. */
+export const CHEF_FEAST = 1.5;
+/**
+ * THE COOK'S HAND (the record's `f`, the service's `products.hand`): what of the cook's choice at 100 a dish carries
+ * wherever it goes - 1 a Chef's FEAST (it lasts half again, 3.3), 2 a Provisioner's dish (it never spoils, 3.3); none for
+ * a Chef's other dishes (a Chef's choice is a feast's) and every other piece. DECIDED: the dish's, never its eater's - a
+ * Chef's feast bought at the market lasts as long in the buyer's hands as in the Chef's.
+ */
+export const HAND_CHEF = 1, HAND_PROVISIONER = 2;
+export function dishHand(r, spec100) {
+  if (!r || r.kind !== 'dish') return null;
+  if (spec100 === PROVISIONER) return HAND_PROVISIONER;
+  if (spec100 === CHEF && dishOf(r.id)?.effect.party === true) return HAND_CHEF;
+  return null;
+}
+/** A dish's effect's minutes - a Chef's feast half again. */
+export const dishMinutes = (d, hand = null) => (d?.effect.party === true && hand === HAND_CHEF ? Math.round(d.effect.minutes * CHEF_FEAST) : d?.effect.minutes ?? 0);
+/** DFU's attribute order (statMods.js STAT_KEYS_ORDER - pinned equal): a Fortify Attribute's subType. */
+const STAT_SUBTYPE = Object.freeze({ strength: 0, intelligence: 1, willpower: 2, agility: 3, endurance: 4, personality: 5, speed: 6, luck: 7 });
+/** The level a dish's effect is laid on at - the cast frame's own most (net/wire.js CAST_LEVEL_MAX, pinned equal), so
+ *  a feast shared through ALLY-CAST's frame lasts exactly as long at the table as at its eater's. */
+export const DISH_LEVEL = 30;
+/** A dish's icon in the HUD's buff row (DFU's spell icons): the one every dish shows. */
+export const DISH_ICON = 3;
+/**
+ * A DISH'S EFFECT AS DFU'S OWN BUNDLE (the effect engine's Fortify Attribute, type 9 - effects.js applySpell): a
+ * CasterOnly spell record of Magic, a Fortify entry an attribute, each `magnitude` exactly (low = high, nothing a
+ * level) and `minutes` rounds at DISH_LEVEL (durationMod x the level: a magic round is a game minute) - the shape the
+ * cast frame carries (net/wire.js validCastData: every component a byte), so the feast reaches the party as it lands on
+ * its eater. Null for a dish that raises no attribute (the Tart's stamina is the port's own, cookItems.js).
+ */
+export function dishSpell(d, hand = null) {
+  const stats = Object.entries(d?.effect?.stats ?? {});
+  if (!stats.length) return null;
+  const minutes = dishMinutes(d, hand);
+  return {
+    name: d.name, element: 4, rangeType: 0, icon: DISH_ICON,
+    effects: stats.map(([stat, n]) => ({
+      type: 9, subType: STAT_SUBTYPE[stat], durationBase: 0, durationMod: Math.round(minutes / DISH_LEVEL), durationPerLevel: 1,
+      chanceBase: 0, chanceMod: 0, chancePerLevel: 1, magnitudeBaseLow: n, magnitudeBaseHigh: n, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1,
+    })),
+  };
+}
+/** What a dish does, as its card and the fire's list say it: "Endurance +5 for 2 hours". */
+export function dishEffectText(d, hand = null) {
+  if (!d) return '';
+  const m = dishMinutes(d, hand);
+  const span = m === 1440 ? 'a day' : m === 2160 ? 'a day and a half' : `${m / 60} hours`;
+  if (d.effect.stamina) return `Stamina lasts a fifth longer for ${span}`;
+  const names = Object.keys(d.effect.stats).map((k) => k[0].toUpperCase() + k.slice(1));
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+  return `${list} +${Object.values(d.effect.stats)[0]} for ${span}${d.effect.party ? ', for the whole party at your table' : ''}`;
+}
+
+/** Every recipe, the anvil's, the workbench's and (PROF7) the loom's - PROF11: and the mason's bench's carvings; PROF9:
+ *  and the fire's dishes. */
+export const RECIPES = Object.freeze([...SMITH_RECIPES, ...CARPENTRY_RECIPES, ...OUTFITTING_RECIPES, ...MASONRY_RECIPES, ...COOKING_RECIPES]);
 const BY_ID = new Map(RECIPES.map((r) => [r.id, r]));
 /** A recipe by its id (`longsword:mithril`, `chain-cuirass:steel`, `kit:iron`, `table-small:oak`), or null. */
 export const recipeById = (id) => (typeof id === 'string' ? BY_ID.get(id) ?? null : null);
@@ -400,7 +516,7 @@ export const QUALITY_EFFECTS = Object.freeze([
 export const TOOL_LIFE = Object.freeze([37, 50, 57, 65, 65]);
 /** Whether a recipe's piece takes a quality at all: a Repair Kit does not (it is measured by its work); PROF4: nor
  *  arrows (DFU mints a quiver at condition 0 - nothing for a quality to act on) nor the Ram Kit (a siege work). */
-export const takesQuality = (r) => r.kind !== 'kit' && r.kind !== 'arrows' && r.kind !== 'siege';
+export const takesQuality = (r) => r.kind !== 'kit' && r.kind !== 'arrows' && r.kind !== 'siege' && r.kind !== 'dish';   // PROF9: nor a dish - it is eaten, and its worth is its effect
 /** PROF4: a Master Joiner's furniture carries the maker's mark at any quality (PROF0 3.3); a Masterwork always does. */
 export const carriesMark = (r, quality, spec100 = null) => quality === MASTERWORK || (r?.family === 'furniture' && spec100 === 'master-joiner');
 
@@ -423,8 +539,9 @@ export function craftXp(tier, rank, first) {
  * @param {Recipe|null} r
  */
 export const firstCraftPays = (r) => !!r && !(r.inputs.length > 0 && r.inputs.every((i) => COUNTER_ONLY.includes(i.key)));
-/** The pieces a craft makes: one, a Quartermaster's kit two (3.3). */
-export const craftCount = (r, spec100) => (r.kind === 'kit' && spec100 === 'quartermaster' ? 2 : 1);
+/** The pieces a craft makes: one, a Quartermaster's kit two (3.3); PROF9: a Cook's dish two (3.3: "+1 serving a dish" -
+ *  a choice at 50). */
+export const craftCount = (r, spec100, spec50 = null) => ((r.kind === 'kit' && spec100 === 'quartermaster') || (r.kind === 'dish' && spec50 === COOK) ? 2 : 1);
 
 // ─── THE HEAT (PROF0 9.4) ────────────────────────────────────────────
 
@@ -524,6 +641,43 @@ export function masonXp(units, rank, { clean = false, first = false } = {}) {
   return xp + (first ? FIRST_CRAFT_XP : 0);
 }
 
+// ─── PROF9: THE PAN (PROF0 9.4) ──────────────────────────────────────
+
+/**
+ * "The fire: take the pan off in its window (the Skillet's is wider)". DECIDED: a dish is cooked in `pans` pans in turn (a
+ * feast `feastPans` - a table's worth), each on the fire from cold: its heat climbs from 0 (raw) to 1 (burnt) in
+ * `burnS` seconds x a pace the fire draws each pan (`paceLo` to `paceHi` - no two pans cook alike), and the pan is DONE
+ * while its heat stands in the window - from `lo`, `w` wide x the attribute band, widening by `masterWiden` at Master,
+ * and x `skillet` with C&C's Skillet in the pack. A pan taken off in its window is done; taken off early it is raw; left
+ * to 1 it burns and the next goes on. Every pan done is a clean act. Each take at least `gapS` after the last.
+ */
+export const PAN_ACT = Object.freeze({ pans: 3, feastPans: 5, burnS: 3.0, lo: 0.6, w: 0.12, masterWiden: 0.5, skillet: 1.5, paceLo: 0.85, paceHi: 1.2, gapS: 0.3 });
+/** Cooking's attribute pair - DECIDED: (INT + PER) / 2, the cook's judgement and a host's touch (no other act reads
+ *  Personality), on Foraging's four bands. */
+export const panBand = ({ intelligence, personality }) => actBand(Math.trunc((intelligence + personality) / 2));
+/** The pans a recipe's dish takes: a feast's five, every other dish's three. */
+export const panCount = (r) => (dishOf(r?.id ?? '')?.effect.party === true ? PAN_ACT.feastPans : PAN_ACT.pans);
+/** The pan's window at a rank, x the band, x C&C's Skillet: [lo, hi], never past 0.95 (a pan is never done at burnt). */
+export function panWindow(rank, band = 1, skillet = false) {
+  const w = PAN_ACT.w * band * (1 + (PAN_ACT.masterWiden * Math.max(0, Math.min(PROF_RANK_MAX, rank))) / PROF_RANK_MAX) * (skillet ? PAN_ACT.skillet : 1);
+  return [PAN_ACT.lo, Math.min(0.95, PAN_ACT.lo + w)];
+}
+
+// ─── PROF9: COOKING'S XP (PROF0 3.2) ─────────────────────────────────
+
+/**
+ * A DISH's XP (3.2: "a craft 20 x tier x units, +500 the first time a recipe is made"). DECIDED - XP FOLLOWS THE RANK
+ * (Mac, PROF8; Masonry's law, PROF11): four dishes, three of them tiers 1-2, would be quartered from rank 40 and Cooking
+ * could never reach its Chef - so a dish is cooked at the rank's own tier, 20 x it a cook (never a serving: a Cook's
+ * second earns nothing more, as a Quartermaster's second kit does not), half again for a CLEAN PAN (DECIDED: a dish
+ * takes no quality, so the clean act's step is its +50% - the bench's law). The first time's 500 is the service's to lay
+ * on, in its decision (firstCraftPays).
+ */
+export function cookXp(rank, { clean = false } = {}) {
+  const xp = CRAFT_XP_PER_TIER * topTierOf(rank);
+  return clean ? Math.floor((xp * 3) / 2) : xp;
+}
+
 /** A maker's name as the mark keeps it: the character's name at the moment of making (PROF0 18), trimmed, at most 32. */
 export const MAKER_MAX = 32;
 export function makerName(name) {
@@ -544,6 +698,12 @@ export function pieceLines(item) {
   if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // REPAIR-EASE: a looted kit has no provenance; KIT-CEILING
   if (!item || typeof item.provenance !== 'string' || !PROVENANCE_RE.test(item.provenance)) return [];
   if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // KIT-CEILING
+  if (recipeById(item.recipe)?.kind === 'dish') {   // PROF9: a dish says what it does, its keeping and its cook
+    const out = [dishEffectText(dishOf(item.recipe), item.chef === true ? HAND_CHEF : null)];
+    if (item.noRot === true) out.push('Never spoils');
+    if (typeof item.maker === 'string' && item.maker) out.push(`Cooked by ${item.maker}`);
+    return out;
+  }
   const out = [];
   if (Number.isInteger(item.quality) && item.quality >= 0 && item.quality <= MASTERWORK) out.push(QUALITY_NAMES[item.quality]);
   if (typeof item.maker === 'string' && item.maker) out.push(`Made by ${item.maker}`);

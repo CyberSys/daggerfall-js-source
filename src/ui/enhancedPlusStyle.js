@@ -1133,6 +1133,9 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-chisel-line.at { outline: 2px solid #efe0b8; outline-offset: -2px; }
 .prof-stone.prof-inband { box-shadow: 0 0 6px #f6d58a; }
 @media (pointer: coarse) { .prof-chisel-line { height: 40px; } }
+/* PROF9: the pan on the fire - its bar runs raw to burnt (a pale dough, a browned crust, the char), the heat's window
+   and marker over it; the window a shape as well as a colour (its edged band) */
+.prof-heatbar.prof-panbar { background: linear-gradient(90deg, #d9c9a0, #c79a58 40%, #9a5a24 62%, #5a2a14 82%, #1a0e08); }
 @media (pointer: coarse) { .prof-recipe { min-height: 40px; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }

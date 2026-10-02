@@ -78,6 +78,8 @@ export const CRAFTED_FAMILIES = Object.freeze([
   Object.freeze(['leather', 'Leather Armour']), Object.freeze(['clothing', 'Clothing']), Object.freeze(['furnishings', 'Furnishings']),
   // PROF11: the mason's bench's - the Sculptor's column, bench, font and plinth (recipeLaw STONE_DECOR)
   Object.freeze(['stonework', 'Stonework']),
+  // PROF9: the fire's - the four dishes (recipeLaw DISHES), a cook's hand carried with each
+  Object.freeze(['dishes', 'Dishes']),
 ]);
 /** The material families the Materials view filters by - the Stores' own (section 8). */
 export const MARKET_FAMILIES = MATERIAL_FAMILIES;

@@ -100,10 +100,12 @@ export function materialCountLabel(key, n, cc = survivalOn()) {
 /**
  * WITHDRAWN INTO THE PACK: `n` items of the material, each added as DFU's AddItem adds (a stackable one joins its
  * stack). Answers how many were added. PROF7: `slowRot` - a Butcher's meat, which spoils half as fast (PROF0 3.3).
+ * PROF9: `noRot` - a Provisioner's provisions, which never spoil (3.3: "rations and dishes never spoil" - the foods a
+ * Provisioner takes from the Stores; FACT, C&C's Rations never spoil already). Only a food takes it.
  * @param {{ items?: any[] }} entity @param {string} key @param {number} n @param {boolean} [cc]
- * @param {{ slowRot?: boolean }} [opts]
+ * @param {{ slowRot?: boolean, noRot?: boolean }} [opts]
  */
-export function withdrawIntoPack(entity, key, n, cc = survivalOn(), { slowRot = false } = {}) {
+export function withdrawIntoPack(entity, key, n, cc = survivalOn(), { slowRot = false, noRot = false } = {}) {
   if (!entity || !Number.isSafeInteger(n) || n < 1) return 0;
   if (!Array.isArray(entity.items)) entity.items = [];
   let added = 0;
@@ -111,6 +113,7 @@ export function withdrawIntoPack(entity, key, n, cc = survivalOn(), { slowRot = 
     const item = mintMaterialItem(key, cc);
     if (!item) break;
     if (slowRot === true) item.slowRot = true;
+    if (noRot === true && key.startsWith('food:')) item.noRot = true;   // PROF9: a Provisioner's
     addItem(entity.items, item, 'back');
     added++;
   }

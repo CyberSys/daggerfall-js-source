@@ -30,7 +30,9 @@
 //   weave) or a home's loom. PROF11: THE MASON'S BENCH - the cut (Rough
 //   Stone to Cut Stone) and the mix (Mortar) with the chisel, and the
 //   Sculptor's stone decor - at a General Store (its fee a cut, a mix
-//   or a carving) or a home's mason's bench.
+//   or a carving) or a home's mason's bench. PROF9: THE FIRE - Cooking's
+//   dishes with the pan, at any lit fire (a campfire, a hearth, a
+//   brazier), no fee.
 //
 // The pages draw with the menu's own kit (its `el`, divider and meter,
 // handed in), so they are the sheet's pages and not a second window.
@@ -45,9 +47,11 @@ import {
 import {
   RECIPES, recipeOpen, qualityOdds, QUALITY_NAMES, HEAT_ACT, takesQuality, recipeInputs, takesHeartwood, PLANE_ACT, STITCH_ACT,
   GARMENT_DYES, MASONRY_RECIPES, CHISEL_ACT, chiselStrikes, chiselMarkS, SCULPTOR,   // PROF11: the Sculptor's stone and the chisel
+  COOKING_RECIPES, dishOf, dishEffectText, dishHand, craftCount, cookXp, panCount, panWindow, HAND_PROVISIONER,   // PROF9: the fire's dishes and the pan
 } from '../net/recipeLaw.js';
 import { createStitchAct } from '../systems/stitchAct.js';
 import { createChiselAct } from '../systems/chiselAct.js';   // PROF11
+import { createPanAct } from '../systems/panAct.js';   // PROF9
 import { DYE_NAMES } from '../characters/dyes.js';
 import { isTextEntryTarget, isDomControlTarget } from './input.js';   // AUDIT 30 A9: a field's keys and a button's are their own
 import { createHeatAct } from '../systems/heatAct.js';
@@ -85,6 +89,10 @@ import { getPref, setPref } from '../systems/uiPrefs.js';
  * @property {() => boolean} [marksOpen]   AUDIT 32 P6: whether Marks are struck at all - a counter is offered only then
  * @property {() => ({ kind: 'shop'|'home', fee: number }|null)} [mason]   PROF11: the mason's bench the player stands at
  * @property {() => number} [chiselBand]   PROF11: the chisel's attribute band (recipeLaw chiselBand)
+ * @property {() => ({ kind: 'fire', fee: number }|null)} [fire]   PROF9: the fire the player stands at (a campfire, a hearth, a
+ *   brazier - within C&C's reach of its flame), or null
+ * @property {() => number} [panBand]   PROF9: the pan's attribute band (recipeLaw panBand)
+ * @property {() => boolean} [skillet]   PROF9: whether the pack holds C&C's Skillet (the pan's window half again)
  */
 let _provider = /** @type {ProfPagesProvider|null} */ (null);
 /** The host's book, or null to take the pages down (offline, a closed switch, the host gone). */
@@ -156,6 +164,12 @@ const _mason = {
   off: /** @type {(() => void)|null} */ (null), strike: /** @type {((e?: any) => void)|null} */ (null),
   actWhat: /** @type {{ kind: 'work'|'carve', id: string, count: number }|null} */ (null),
 };
+/** PROF9: the fire - the dish chosen, the pan on the fire and what it cooks (`actRecipe`), a dish in flight, its word. */
+const _cook = {
+  picked: /** @type {string|null} */ (null), act: /** @type {any} */ (null), crafting: false, word: /** @type {string|null} */ (null),
+  els: /** @type {any} */ (null), off: /** @type {(() => void)|null} */ (null), take: /** @type {((e?: any) => void)|null} */ (null),
+  actRecipe: /** @type {string|null} */ (null),
+};
 /** AUDIT 30 U20: the one row a smelt, burn or saw is under way on - its button alone says so. */
 let _workingOn = /** @type {string|null} */ (null);
 /**
@@ -165,7 +179,7 @@ let _workingOn = /** @type {string|null} */ (null);
  * @param {object} me
  */
 const handsAt = (me) => (me !== _anvil && _anvil.act ? 'the anvil' : me !== _bench && _bench.act ? 'the workbench' : me !== _loom && _loom.act ? 'the loom'
-  : me !== _mason && _mason.act ? 'the mason\'s bench' : null);   // PROF11
+  : me !== _mason && _mason.act ? 'the mason\'s bench' : me !== _cook && _cook.act ? 'the fire' : null);   // PROF11; PROF9: the fire
 /**
  * AUDIT 32 P1: AN ACT'S PRESS BUTTON (the heat's Strike, the stitch's Stitch) - pressed on the pointer's DOWN, the focus
  * left where it was (the click comes on the release: a tap on the beat was scored 90-150 ms late, and a phone has no
@@ -212,10 +226,11 @@ export function setDownProfAct() {
   if (_bench.act) { _bench.act.cancel?.(); _bench.act = null; _bench.actRecipe = null; _bench.word = 'You set the plane down; nothing is spent.'; return true; }
   if (_loom.act) { _loom.act.cancel(); endStitch(); _loom.word = 'You set the needle down; nothing is spent.'; return true; }
   if (_mason.act) { _mason.act.cancel(); endChisel(); _mason.word = CHISEL_DOWN_LINE; return true; }   // PROF11
+  if (_cook.act) { _cook.act.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; return true; }   // PROF9
   return false;
 }
 /** Whether an act is under way on the Stores page (the back stack's question). */
-export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act || _mason.act);   // PROF11: the chisel
+export const profActUnderWay = () => !!(_anvil.act || _bench.act || _loom.act || _mason.act || _cook.act);   // PROF11: the chisel; PROF9: the pan
 /** A fresh visit starts plain (the menu calls it with its own reset). */
 export function resetProfPages() {
   _armed = null; _profWord = null; _stores.word = null; _stores.picked = null; _stores.qty = 1; _forge.word = null; _forge.counts = {};
@@ -223,6 +238,7 @@ export function resetProfPages() {
   _bench.act?.cancel(); _bench.act = null; _bench.actRecipe = null; _bench.word = null; _bench.picked = null; _bench.counts = {}; _bench.heartwood = false;   // PROF4
   endStitch(); _loom.word = null; _loom.picked = null; _loom.counts = {}; _loom.dye = null;   // PROF7
   endChisel(); _mason.word = null; _mason.picked = null; _mason.counts = {};   // PROF11
+  endPan(); _cook.word = null; _cook.picked = null; _cook.crafting = false;   // PROF9
 }
 
 /** What the Professions page says a harvest earns for each profession PROF1 gathers, by tier. */
@@ -251,10 +267,12 @@ const UNLOCKS = Object.freeze({
   // PROF11: the bench's two works by their ranks - the cut Rough Stone's (tier 1), the mix Mortar's (tier 2); the
   // Sculptor's stone decor comes with its card at 100
   masonry: Object.freeze([['Cut Stone, from Rough Stone', 1], ['Mortar, from Sulphur, Lead and Rough Stone', 2]]),
+  // PROF9: the four dishes by their ranks (9.3; recipeLaw DISHES) - a dish's XP follows the rank, not the dish
+  cooking: Object.freeze([['Hunter\'s Stew, Fisherman\'s Supper', 1], ['Orchard Tart', 2], ['Feast of the Hearth', 6]]),
 });
 /** PROF4 (FOUND): Smithing was practised from PROF3 and the page never said so - its cards stood locked. PROF7: Hunting
  *  and Outfitting. */
-const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry
+const PRACTISED = Object.freeze(['herbalism', 'mining', 'hunting', 'fishing', 'logging', 'smithing', 'outfitting', 'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry; PROF9: Cooking
 /** PROF8: how a haul is made, as the page says it. */
 export const FISHING_HOW = 'With a Fishing-Net in your pack, stand in water, swim, or stand at sea, at any hour. Hold the use key to wind the net and let go to throw it; when the floats dip, press it again; then hold it to raise the band over the net\'s weight and let go to lower it - keep the weight inside to fill the net. Cast toward a rising school for an extra fish.';
 /** FIELD BUGS 2026-09-30b (TOOL-SAID): how the other three gathering professions gather, as the page says it - the page
@@ -481,6 +499,7 @@ export function drawStoresPage(detail, rerender, kit) {
   drawWorkbench(detail, rerender, kit);   // PROF4
   drawLoom(detail, rerender, kit);   // PROF7
   drawMasonBench(detail, rerender, kit);   // PROF11
+  drawCookFire(detail, rerender, kit);   // PROF9
 }
 
 /** What the Stores make of a recipe now: the most it can smelt (every input's units over its need), to SMELT_MAX. */
@@ -1475,4 +1494,182 @@ function drawMasonBench(detail, rerender, { el, divider }) {
     detail.append(box);
   }
   if (_mason.word) detail.append(el('p', 'prof-word', _mason.word));
+}
+
+// ─── PROF9: THE FIRE (bible/06-Systems/Professions-Arc.md 9.3, 9.4, 35) ─────
+
+/** What setting the pan aside says. */
+export const PAN_DOWN_LINE = 'You take the pan off the fire; nothing is spent.';
+/** Where Cooking is done, said away from a fire. */
+export const FIRE_AWAY_LINE = 'Cooking is done at a fire - a campfire, a hearth or a brazier: stand within reach of its flame. Your dishes go to your pack.';
+/** Tests: the fire's state - its pan ticked by hand, as a frame would. */
+export const _cookForTests = () => _cook;
+/** The pan let go: its loop, its keys and what it was cooking. */
+function endPan() {
+  _cook.off?.();
+  _cook.off = null;
+  _cook.take = null;
+  _cook.act = null;
+  _cook.els = null;
+  _cook.actRecipe = null;
+}
+/** The pan's bar redrawn from the act: its heat, the window lit while the pan is done, the pans so far. */
+function paintPan(reduced = false) {
+  const a = _cook.act, els = _cook.els;
+  if (!a || !els?.bar) return;
+  els.marker.style.left = `${(Math.min(1, a.state.heat) * 100).toFixed(1)}%`;
+  if (!reduced) els.bar.style.setProperty?.('--heat', a.state.heat.toFixed(3));
+  els.bar.classList.toggle('prof-inband', a.inWindow);
+  const n = a.state.takes.length;
+  for (let i = 0; i < (els.marks?.length ?? 0); i++) {
+    els.marks[i].classList.toggle('hit', i < n && a.state.takes[i] === true);
+    els.marks[i].classList.toggle('miss', i < n && a.state.takes[i] === false);
+  }
+}
+/** The pan's frame: its heat ticked and drawn, the act ended when the page is gone; the dish asked when the last pan is
+ *  off - taken, or burnt on the fire (the heat's loop, a pan for a glow). */
+function panLoop(finish) {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis) ?? ((fn) => setTimeout(() => fn(Date.now()), 16));
+  const caf = globalThis.cancelAnimationFrame?.bind(globalThis) ?? clearTimeout;
+  let last = null, id = 0, live = true, inStep = false;
+  const reduced = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  const clock = () => globalThis.performance?.now?.() ?? Date.now();
+  const next = () => { id = raf(() => { if (inStep) setTimeout(step, 16); else step(); }); };
+  const ended = () => { const clean = _cook.act?.report().clean === true; endPan(); finish(clean); };
+  const step = () => {
+    if (!live || !_cook.act) return;
+    inStep = true;
+    try {
+      const els = _cook.els;
+      if (!els?.bar || els.bar.isConnected === false) { _cook.act.cancel(); endPan(); return; }   // the page shut under the act: nothing spent
+      const t = clock();
+      const dt = last == null ? 0 : Math.min(0.1, (t - last) / 1000);
+      last = t;
+      _cook.act.tick(dt);
+      if (_cook.act.state.done) { ended(); return; }   // the last pan burnt on the fire
+      paintPan(reduced);
+      next();
+    } finally { inStep = false; }
+  };
+  const take = (e) => {
+    const a = _cook.act;
+    if (!a) return;
+    const ok = a.take(pressLead(e, last));   // AUDIT 32 P1: at the press's own moment
+    if (ok == null) return;
+    if (a.state.done) ended(); else paintPan(reduced);
+  };
+  const key = (e) => actKey(e, _cook.els?.hit, take);
+  globalThis.document?.addEventListener?.('keydown', key, true);
+  Promise.resolve().then(() => { if (live) next(); });
+  _cook.off = () => { live = false; caf(id); globalThis.document?.removeEventListener?.('keydown', key, true); };
+  return take;
+}
+
+/**
+ * PROF9: THE FIRE - Cooking's dishes (9.3), each its inputs as the Stores hold them, the rank it asks, its effect and its
+ * servings (a Cook's two); Cook (the pan, 9.4) and Quick cook. THE PAN: the dish's pans in turn, each heating from raw
+ * to burnt along a bar with its window on it - wider at a higher rank, with a better (INT + PER) / 2, and half again with
+ * C&C's Skillet in the pack; Space, Enter or "Take it off" takes the pan off, every pan done a clean act (half again the
+ * Cooking XP). At any lit fire - a campfire (anyone's), a hearth, a brazier - for no fee: a fire is nobody's. C&C's own
+ * cooking (a Raw Fish over the flame) is the fire's own menu, the mod's, untouched (scenes/camps.js openCook).
+ * @param {HTMLElement} detail @param {() => void} rerender @param {{ el: Function, divider: (w: string) => HTMLElement }} kit
+ */
+function drawCookFire(detail, rerender, { el, divider }) {
+  const p = _provider;
+  if (!p?.fire || !p.craft) return;
+  const book = p.book;
+  const fire = p.fire();
+  detail.append(divider('The Fire'));
+  if (!fire) {
+    endPan();
+    detail.append(el('p', 'px-note', FIRE_AWAY_LINE));
+    return;
+  }
+  const track = book.track('cooking');
+  const rank = track?.rank ?? 0;
+  const specs = track?.specs ?? {};
+  const skillet = p.skillet?.() === true;
+  detail.append(el('p', 'px-note', `A fire to cook at. Cooking ${rank} (${rankName(rank)}). ${skillet ? 'Your Skillet widens the pan\'s window.' : 'A Skillet in your pack would widen the pan\'s window.'}`));
+  // AUDIT 30 A2's law: Gentle acts switched on under the pan takes it off - nothing spent, the dish a plain one
+  if (_cook.act && getPref('gentleActs') === true) { _cook.act.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; }
+  const gentle = getPref('gentleActs') === true;
+  const elsewhere = handsAt(_cook);   // AUDIT 32 P2: one act a page
+  const held = (k) => book.held(k);
+  // WHAT THE PAN'S END ASKS (AUDIT 30 A3's law: the dish it began on)
+  const finishFor = (id) => async (clean) => {
+    _cook.crafting = true; rerender();
+    const res = await p.craft(id, { clean: clean === true && getPref('gentleActs') !== true });
+    _cook.crafting = false; _cook.word = res?.text ?? null; rerender();
+  };
+  if (_cook.act && _cook.actRecipe) {
+    const panel = el('div', 'prof-heat prof-pan');
+    panel.append(el('span', 'prof-heatword', `The pan (${dishOf(_cook.actRecipe)?.name ?? ''}) - take each pan off while it is done, in the window (Space): ${_cook.act.state.need} pans`));
+    const bar = el('div', 'prof-heatbar prof-panbar');
+    const band = el('div', 'prof-heatband');
+    band.style.left = `${(_cook.act.state.lo * 100).toFixed(1)}%`;
+    band.style.width = `${((_cook.act.state.hi - _cook.act.state.lo) * 100).toFixed(1)}%`;
+    const marker = el('div', 'prof-heatmark');
+    bar.append(band, marker);
+    const marks = el('div', 'prof-strikes');
+    const dots = [];
+    for (let i = 0; i < _cook.act.state.need; i++) {
+      const t = _cook.act.state.takes[i];
+      const d = el('span', `prof-strike${t === true ? ' hit' : t === false ? ' miss' : ''}`, 'o');
+      dots.push(d);
+      marks.append(d);
+    }
+    const hit = actButton(el, 'Take it off', (e) => _cook.take?.(e));
+    const cancel = el('button', 'act', 'Set the pan aside');
+    cancel.type = 'button';
+    cancel.onclick = () => { _cook.act?.cancel(); endPan(); _cook.word = PAN_DOWN_LINE; rerender(); };
+    panel.append(bar, marks, hit, cancel);
+    detail.append(panel);
+    _cook.els = { bar, marker, marks: dots, hit };
+    if (!_cook.off) _cook.take = panLoop(finishFor(_cook.actRecipe));
+  }
+  // THE DISHES (9.3), in the fire's order
+  for (const r of COOKING_RECIPES) {
+    const open = recipeOpen(r, rank, specs), can = open && craftable(r, held);   // the rank the dish asks, and its inputs held
+    const row = el('button', `prof-recipe${_cook.picked === r.id ? ' on' : ''}${can ? '' : ' prof-locked'}`);
+    row.type = 'button';
+    row.disabled = !!_cook.act;
+    row.append(el('b', null, r.name), el('span', 'prof-split', open ? (can ? 'can cook now' : 'wants its inputs') : `rank ${r.rank}`));
+    row.onclick = () => { _cook.picked = r.id; rerender(); };
+    detail.append(row);
+  }
+  const r = COOKING_RECIPES.find((x) => x.id === _cook.picked);
+  if (r) {
+    const box = el('div', 'prof-craft');
+    box.append(el('b', null, `${r.name} - rank ${r.rank}`));
+    for (const inp of r.inputs) {
+      const have = held(inp.key);
+      const line = el('div', `prof-input${have >= inp.n ? '' : ' prof-short'}`);
+      line.append(el('span', null, `${p.name(inp.key)} ${Math.min(have, inp.n)} / ${inp.n} (${have} stored)`));
+      box.append(line);
+    }
+    const hand = dishHand(r, specs[100]);
+    const serves = craftCount(r, specs[100], specs[50]);
+    box.append(el('p', 'px-note', `${dishEffectText(dishOf(r.id), hand)}.${hand === HAND_PROVISIONER ? ' Yours never spoil.' : ''}`));
+    box.append(el('p', 'px-note', `${serves > 1 ? 'Two servings (a Cook\'s)' : 'One serving'}, into your pack. ${panCount(r)} pans; every pan taken off done is a clean pan, half again its ${cookXp(rank)} Cooking XP.`));
+    const ready = recipeOpen(r, rank, specs) && craftable(r, held) && !_cook.crafting && !_cook.act && !elsewhere;
+    const go = el('button', 'act primary', _cook.crafting ? 'At the fire...' : 'Cook');
+    go.type = 'button';
+    go.disabled = !ready;
+    go.onclick = () => {
+      if (go.disabled) return;
+      if (gentle) { void finishFor(r.id)(false); return; }   // Gentle acts: a plain dish, no pan
+      _cook.act = createPanAct({ pans: panCount(r), done: panWindow(rank, p.panBand?.() ?? 1, skillet) });
+      _cook.actRecipe = r.id;
+      rerender();
+    };
+    const quick = el('button', 'act', 'Quick cook');
+    quick.type = 'button';
+    quick.disabled = !ready;
+    quick.onclick = () => { if (!quick.disabled) void finishFor(r.id)(false); };
+    box.append(go, quick);
+    detail.append(box);
+  }
+  detail.append(el('p', 'px-note', 'Raw Meat comes from a body you skin, Raw Fish from the net, the Mushroom, the Egg, the Apple and the Orange from the Basket, and the herbs from their patches - into your Stores. A Raw Fish cooked over the flame from your pack stays a plain meal, and teaches no Cooking.'));
+  if (elsewhere && !_cook.act) detail.append(el('p', 'px-note', `Your hands are at ${elsewhere} - finish there first.`));
+  if (_cook.word) detail.append(el('p', 'prof-word', _cook.word));
 }

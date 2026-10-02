@@ -998,7 +998,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
-| **PROF9** | Cooking | - |
+| **PROF9** - BUILT 2026-10-02 (section 35) | Cooking | A Hunter's Stew cooked with a clean pan at a fire from the Stores' Raw Meat, Mushroom and Root Bulb, into the pack, eaten for Endurance +5 two hours; a Chef's Feast of the Hearth shared with the party at the table; a Provisioner's dish that never spoils. Needs PROF7 (Raw Meat), PROF8 (Raw Fish), PROF1 (the herbs and the Basket's foods) and C&C's fires |
 | **PROF10** | Jewelcrafting | - |
 | **PROF11** - BUILT 2026-10-01 (section 34) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
 | **PROF12** | Alchemy and Enchanting layers; Disenchanting | - |
@@ -2714,6 +2714,103 @@ PROF11, DECIDED here, and what was found (FACT):
 - **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
   `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead). Patch notes:
   `PATCH-NOTES-Masonry.md`.
+
+## 35. PROF9 - Cooking, as built (BUILT 2026-10-02)
+
+Mac: **"2 and 4"** (2026-10-02: the Apothecary waits on Alchemy, Cooking and Jewelcrafting; Cooking is the first of the
+three). What sections 3.2, 3.3, 4.8, 9.3 and 9.4 left open for PROF9, DECIDED here, and what was found (FACT):
+
+- **What PROF9 is.** 15's row - Cooking - whole: the fire and its four dishes (9.3), the pan (9.4), the dishes as items and
+  what eating them does, the feast at the party's table; the Cooking track and its four specialisations practised. C&C's
+  own cooking at a fire - a Raw Fish from the pack turned to Cooked Fish (`scenes/camps.js` openCook) - is the mod's,
+  untouched, and earns nothing (9.3: "the service did not see it").
+- **The fire** (9.3: "any campfire, hearth or brazier"). DECIDED: any LIT fire within C&C's own reach of its flame
+  (`survival/camp.js` BY_FIRE_REACH, 4 m) - anyone's campfire, a peer's included, and the world's braziers and fire bowls
+  (`survival/hearth.js`, HEARTH1's records) - in the street and the wilderness (`scenes/world.js` cookFireHere), a building
+  (`worldModes.js` cookFireHere, the interior's own fires) and a dungeon (`dungeonContext.js` cookFire), **in every tier
+  of the arc** (`scenes/camps.js` fireNear - the world's fire, as a rest's place reads it: Cooking is a profession, never
+  C&C's switch). **No fee** - a fire is nobody's (`professionLaw.js` COOK_FIRE). The Stores page's **The Fire**, live
+  where one burns; away, it says where Cooking is done. The service cannot see the fire, as it cannot see the forge (23).
+- **The four dishes** (9.3; 4.8's 685-688; `recipeLaw.js` DISHES, COOKING_RECIPES). Their inputs as 9.3 writes them,
+  every one the Stores': **Hunter's Stew** 2 Raw Meat, 1 Mushroom, 1 Root Bulb; **Fisherman's Supper** 2 Raw Fish, 1 Egg,
+  1 Green Leaves; **Orchard Tart** 2 Apple, 1 Egg, 1 Yellow Berries; **Feast of the Hearth** 4 Raw Meat, 4 Raw Fish, 2
+  Apple, 2 Orange, 2 Mushroom, 2 Egg. DECIDED: **the Stew and the Supper at rank 0** (the hunter's and the fisher's -
+  tier 1), **the Tart at 10** (tier 2: its Yellow Berries an uncommon herb, 4.3), **the Feast at 9.3's 70** (tier 6).
+  FOUND: Root Bulb, Green Leaves and Yellow Berries grow in both of DFU's plant groups (22), so the Stores keep each twice
+  and a dish of one is **two recipes**, the northern herb's and the southern's - the arrows' Twigs' law (25). Seven recipes;
+  the dish is the same dish either way.
+- **A dish is a piece** (9.1's route, `/v1/prof/craft`): into the pack, each serving its own provenance id and signed record
+  - so a dish lists on the market's Crafted view, family **Dishes** (`marketLaw.js` CRAFTED_FAMILIES), and a commission
+  may name one. DECIDED: **no quality** (`takesQuality`; the record's -1, as a kit's) - a dish's worth is its effect; a
+  dish spoiled since it was cooked is **not as minted** (`smithItems.js` asMinted) and lists nowhere - the market mints a
+  piece again from its record, and would hand back a fresh stew for a rotten one.
+- **The servings** (3.3's Cook: "+1 serving a dish"): DECIDED **one dish a cook, a Cook's two** (`craftCount`) - a craft's
+  two pieces are the most a craft's row holds (`prof_crafts.provenance2`, the Quartermaster's kit's).
+- **XP FOLLOWS THE RANK** (PROF8's law, Mac's; Masonry's, 34): three of four dishes sit on tiers 1-2 and would be quartered
+  from rank 40, so a dish is cooked at the rank's own tier - **20 x it a cook** (never a serving), **half again for a
+  clean pan** (a dish takes no quality, so the clean act's step is its +50%, the bench's law), **+500 the first** of each
+  recipe (`recipeLaw.js` cookXp; the 500 laid on in the craft's own decision, as every craft's), under the crafter's
+  limit.
+- **The pan** (9.4: "take the pan off in its window (the Skillet's is wider)"; `systems/panAct.js`). DECIDED: a dish is
+  **three pans** in turn, a feast **five** (a table's worth); each goes on the fire cold and its heat climbs raw to burnt
+  in **3 s x a pace the fire draws each pan** (0.85-1.2 - no two pans cook alike); it is **done** in its window - from
+  0.6 of the bar, **0.12 wide x the band**, half again by Master, **half again with C&C's Skillet** in the pack
+  (`survival/camp.js` hasSkillet, imported), never past 0.95. Space, Enter or **Take it off** takes the pan off; before
+  the window it is raw; left to burn, the fire takes it and the next goes on. **Every pan done is a clean act.** Cooking's
+  attribute pair: **(INT + PER) / 2**, the cook's judgement and a host's touch (no other act reads Personality), on
+  Foraging's four bands. The bar runs dough to crust to char, its window an edged band (a shape as well as a colour);
+  under reduced motion the bar is still. **Quick cook**, **Gentle acts**, **one act a page**, **Escape sets the pan aside**
+  (nothing spent) and the page shut under it as every station's act (AUDIT 30-32's laws).
+- **The dishes as items** (4.8: "pack (food) | C&C's Meat / Cooked Fish / Bread"; `systems/profTemplates.js`). Each stands
+  on a C&C food's own row, **imported, never typed again**: the Stew and the Feast the Meat's picture, the Supper the Cooked
+  Fish's, the Tart the Bread's; the food's weight (a feast four times it) and three times its price (a feast twelve);
+  one a piece, never stacked, never shelved. NOT LAID ON, for Mac: 4.8's "tinted" - DFU's dye swatch reaches no food's
+  picture (Mortar's finding, 34), so the Feast wears the Meat's as the Stew does; their names tell them apart.
+- **A dish is C&C's food.** DECIDED: Cooking's dishes are food **by C&C's own law** - C&C's table stays as the mod wrote
+  it, and they come in through a door of its own (`survival/food.js` registerFoods), each on its C&C food's row (its
+  satiety, its keeping, its stale word) under its own name. So with the arc on a dish is **eaten by C&C's eat**
+  (`survival/items.js` eatFood - its food arm made an export of its own, imported by the dish's use): the hunger it must
+  meet (a full stomach refuses it whole), its stage, its sickness, its words; it **spoils by C&C's day**; withdrawn
+  raw food stays C&C's Raw Fish and Raw Meat (5.2, 29). With the arc off a dish is simply eaten.
+- **What eating does** (9.3; `systems/cookItems.js`). DECIDED: the attributes are **DFU's own Fortify Attribute**, one
+  bundle a dish - a buff of the player's own, on the HUD's row and the party card (PARTY-BUFFS) - for its minutes, a
+  magic round a game minute: **the Stew Endurance +5 for 2 hours**, **the Supper Agility +5 for 2 hours**, **the Feast
+  Strength, Endurance and Willpower +5 for a game day**. FOUND: 9.3's Tart - "stamina regained +20% for 4 hours" -
+  names nothing Daggerfall does: stamina is regained only by rest and spells. DECIDED: the Tart's +20% is the bar's - its
+  **every minute's drain divided by 1.2** while it lasts (a bar a fifth longer), the port's own `dishStamina` kind read
+  by the one fatigue multiplier (`scenes/shared.js` fatigueLossMultiplierFor, over the career's Athleticism). The same
+  dish eaten again while it lasts **renews** its effect, never stacks it.
+- **The feast is the whole party's** (9.3: "the whole party (the party's buff frame, PARTY-BUFFS)"). DECIDED: eaten, the
+  feast's spell record (`recipeLaw.js` dishSpell - three Fortify entries, each a byte's components at `DISH_LEVEL` 30, the
+  cast frame's own most) goes **to every party mate in the room through ALLY-CAST's own frame** (`allyCast.js`
+  allyCastFrame, `online.sendCast` - `scenes/world.js` setFeastShare), and each mate's client lays it on as a mate's
+  gift (`online.onCast`, unchanged) - the same day, the same +5. **No relay change**: a feast is a beneficial cast the relay
+  already carries. The eater hears "The feast is shared with Ann and Bob."; a mate hears the cast's own line ("Mac casts
+  Feast of the Hearth on you.").
+- **The specialisations** (3.3), all four chosen now: **Cook** - two servings a dish; **Field Cook** - DECIDED: a Campfire
+  Kit lit **spends no charge** (`survival/camp.js` placeCampItem's `keep`, a campfire's alone - a tent wears as ever), in
+  the street and underground (`scenes/camps.js` `fieldCook`, `world.js` fieldCookNow); **Chef** - a feast lasts **half
+  again** (a day and a half); **Provisioner** - "rations and dishes never spoil": FOUND, C&C's Rations never spoil already;
+  DECIDED, a Provisioner's **dishes** and the **foods they take from the Stores** never spoil (`noRot`, read by C&C's day
+  beside the Butcher's `slowRot` - 29). **The cook's hand** (`recipeLaw.js` dishHand): what of the choice at 100 a dish
+  carries wherever it goes - a Chef's feast (1), a Provisioner's dish (2) - DECIDED **the dish's, never its eater's**:
+  signed into its record (`f`, `net/productRecord.js`), kept on its piece (`products.hand`) and answered with the market's
+  pieces, so a Chef's feast bought at the market lasts as long in the buyer's hands.
+- **The pages**: the Stores page's **The Fire** (the seven dishes, their inputs as the Stores hold them, the rank each asks,
+  the effect, the servings, the pan's XP; a Skillet said); Cooking practised on the Professions page, its unlocks by rank.
+- **The four hosts** (17.1): **the streaming world** - the fire on the street and in the wilderness, the craft, the feast's
+  share, a Field Cook's kit; **building interiors** (`worldModes.js`) - a hearth's or a brazier's fire; **dungeons**
+  (`dungeonContext.js`) - its fire bowls and a campfire on its floor, a Field Cook's kit; **the fixed city**
+  (`scenes/exterior.js`) - **no Cooking**, as no profession (22's law): a dish carried there is eaten by every host
+  (`scenes/shared.js` installCooking - a dish is the pack's, offline too).
+- **The service** is **acct67** (acct66 another branch's at the same time - the two must not collide); migration
+  **`0069_cooking.sql`**: `products.hand` (`CHECK` 1 or 2). No route added: a dish is `/v1/prof/craft`'s; the market's
+  pieces answer their `hand`.
+- **Not built, named**: the dishes' tint (above); the Tart's "regained" (above); the feast's share is the room's party,
+  not the table's metres (a mate across the town is fed too - the room is the relay's own measure).
+- **Pinned**: `test/prof9_law.test.js` (9), `test/prof9_service.test.js` (5, through the real Worker),
+  `test/prof9_client.test.js` (9). Mutants: `tools/mutants/prof9.json` (126, all dead). Patch notes:
+  `PATCH-NOTES-Cooking.md`.
 
 ## Appendix A - a day of a gatherer
 

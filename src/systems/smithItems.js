@@ -58,6 +58,12 @@
 // furniture - DFU's Furniture group, among the home's things, their
 // quality their worth and their mark a Masterwork's - and stand in a
 // room as their one DFU model (systems/decorFurnish.js).
+//
+// PROF9 (Professions-Arc.md 9.3, 35): AND THE COOK'S. A dish (685-688)
+// is minted by systems/cookItems.js mintDish - a C&C food under its own
+// name, no quality, its cook's hand (a Chef's feast, a Provisioner's
+// dish) the record's; a dish spoiled since it was cooked is no longer
+// as minted, and lists nowhere.
 // ═══════════════════════════════════════════════════════════════════
 import {
   recipeById, QUALITY_EFFECTS, TOOL_LIFE, MASTERWORK, REPAIR_KIT_TEMPLATE, KIT_REPAIR, FIELD_KIT_REPAIR, KIT_CEILING, INGOT_MATERIAL, ARMOR_PLATE,
@@ -73,6 +79,7 @@ import { applyRarity, rarityEligible, RARE_FLAVOURS } from './lootRarity.js';
 import { unitWeightInKg, ARROW_TEMPLATE } from './inventory.js';   // MEND-AIM: the arrow, never mended
 import { seededRng } from './wind.js';
 import { createForagingItem } from './foragingInstall.js';
+import { mintDish, isDish } from './cookItems.js';   // PROF9: the fire's dishes
 
 /** DFU's metal names by material (itemInfo.js MATERIAL_NAMES' first ten) - a kit's word and its dye. */
 const METALS = Object.freeze(['Iron', 'Steel', 'Silver', 'Elven', 'Dwarven', 'Mithril', 'Adamantium', 'Ebony', 'Orcish', 'Daedric']);
@@ -98,14 +105,15 @@ export function garmentItem(r, seed, dye = null) {
 /**
  * One piece of a craft's answer - `{ recipe, quality, seed, maker, marked, dye }` and the piece's `provenance` - as the
  * pack (or, furniture, the home's things) holds it, or null for a recipe this client does not know.
- * @param {{ recipe: string, quality: number, seed: number, maker?: string|null, marked?: boolean, dye?: number|null }} made
+ * @param {{ recipe: string, quality: number, seed: number, maker?: string|null, marked?: boolean, dye?: number|null, hand?: number|null }} made
  * @param {string} provenance
  */
-export function mintPiece({ recipe, quality, seed, maker = null, marked = false, dye = null }, provenance) {
+export function mintPiece({ recipe, quality, seed, maker = null, marked = false, dye = null, hand = null }, provenance) {
   const r = recipeById(recipe);
   if (!r || typeof provenance !== 'string' || !PROVENANCE_RE.test(provenance)) return null;
   const mark = makerName(maker);
   if (r.kind === 'siege') return null;   // PROF4: the Ram Kit is the Stores' (and made with the sieges)
+  if (r.kind === 'dish') return mintDish({ recipe, maker, hand }, provenance);   // PROF9: a dish, its cook's hand the record's
   if (r.kind === 'arrows') {
     // PROF4: CreateWeapon's arrow arm (combat/enemyEquipment.js), the stack the recipe's - no quality, no provenance
     const arrows = createWeapon(r.templateIndex, 0, () => 0);
@@ -169,6 +177,7 @@ export function mintPiece({ recipe, quality, seed, maker = null, marked = false,
 export function asMinted(item) {
   if (!item?.provenance || item.legendary || item.customEnchantments?.length) return false;
   if (item.reforged !== undefined || item.imprint !== undefined) return false;   // AUDIT LOOT F3: a line the Reforge rolled again, a power imprinted - the record mints neither
+  if ((item.foodStage ?? 0) > 0) return false;   // PROF9: a dish spoiled since it was cooked - the record mints it fresh
   const e = item.enchantments ?? [];
   if (item.rarity !== 'rare') return e.length === 0;
   const roll = RARE_FLAVOURS[item.group] ?? RARE_FLAVOURS.Jewellery;
@@ -329,6 +338,8 @@ export function installSmithing() {
 export function craftedText(pieces) {
   if (!pieces.length) return 'You made nothing.';
   const it = pieces[0];
+  // PROF9: a dish is cooked, a Cook's two servings
+  if (isDish(it)) return pieces.length > 1 ? `You cooked ${pieces.length} servings of ${it.name}` : `You cooked ${/^[AEIOU]/.test(it.name) ? 'an' : 'a'} ${it.name}`;
   if ((it.stackCount ?? 1) > 1) return `You made ${it.stackCount} ${itemLongName(it)}s`;
   const name = itemLongName(it);
   // a piece whose name is its maker's mark ("Silverthorn's Mithril Longsword") takes no article and no quality word -
@@ -351,3 +362,5 @@ export const BENCH_KEPT_TEXT = 'The shavings fell, but no word came back - the w
 export const LOOM_KEPT_TEXT = 'The last stitch was pulled, but no word came back - the work is kept, and made when the word comes.';
 /** PROF11: the mason's bench's own. */
 export const MASON_KEPT_TEXT = 'The last chip fell, but no word came back - the work is kept, and made when the word comes.';
+/** PROF9: the fire's own. */
+export const COOK_KEPT_TEXT = 'The last pan came off the fire, but no word came back - the dish is kept, and made when the word comes.';

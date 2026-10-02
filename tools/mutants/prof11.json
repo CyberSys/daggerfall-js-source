@@ -481,13 +481,14 @@
   {
     "name": "PROF11-decor-unlisted",
     "file": "src/net/recipeLaw.js",
-    "old": "...OUTFITTING_RECIPES, ...MASONRY_RECIPES]",
-    "new": "...OUTFITTING_RECIPES]",
+    "old": "...OUTFITTING_RECIPES, ...MASONRY_RECIPES, ...COOKING_RECIPES]",
+    "new": "...OUTFITTING_RECIPES, ...COOKING_RECIPES]",
     "tests": [
       "test/prof11_law.test.js",
       "test/prof11_service.test.js",
       "test/prof11_client.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF11-sculptor-at-50",
@@ -895,11 +896,12 @@
   {
     "name": "PROF11-pages-masonry-unpractised",
     "file": "src/ui/profPages.js",
-    "old": "'carpentry', 'masonry']);   // PROF8: Fishing; PROF11: Masonry",
-    "new": "'carpentry']);   // PROF8: Fishing; PROF11: Masonry",
+    "old": "'carpentry', 'masonry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry",
+    "new": "'carpentry', 'cooking']);   // PROF8: Fishing; PROF11: Masonry",
     "tests": [
       "test/prof11_client.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF11-pages-fortifications-unsaid",
@@ -922,11 +924,12 @@
   {
     "name": "PROF11-pages-hands-not-at-the-bench",
     "file": "src/ui/profPages.js",
-    "old": ": me !== _mason && _mason.act ? 'the mason\\'s bench' : null);",
-    "new": ": null);",
+    "old": ": me !== _mason && _mason.act ? 'the mason\\'s bench' : me !== _cook",
+    "new": ": me !== _cook",
     "tests": [
       "test/prof11_client.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF11-pages-escape-forgets-the-chisel",
@@ -940,11 +943,12 @@
   {
     "name": "PROF11-pages-chisel-no-act",
     "file": "src/ui/profPages.js",
-    "old": "!!(_anvil.act || _bench.act || _loom.act || _mason.act)",
-    "new": "!!(_anvil.act || _bench.act || _loom.act)",
+    "old": "!!(_anvil.act || _bench.act || _loom.act || _mason.act || _cook.act)",
+    "new": "!!(_anvil.act || _bench.act || _loom.act || _cook.act)",
     "tests": [
       "test/prof11_client.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "PROF11-pages-bench-undrawn",

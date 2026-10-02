@@ -29,11 +29,12 @@
   {
     "name": "SURV2-eating-does-not-take-one-off-the-stack",
     "file": "src/systems/survival/items.js",
-    "old": "    takeOne();\n    if (entity && r.sick)",
-    "new": "    if (entity && r.sick)",
+    "old": "  if (list) {\n    if ((item.stackCount ?? 1) > 1) item.stackCount -= 1;\n    else { const i = list.indexOf(item); if (i >= 0) list.splice(i, 1); }\n  }\n  if (entity && r.sick)",
+    "new": "  if (entity && r.sick)",
     "tests": [
       "test/surv2_items.test.js"
-    ]
+    ],
+    "note": "PROF9 (RE-AIMED by content): the fire's code beside it."
   },
   {
     "name": "SURV2-the-drink-does-not-relieve-thirst",

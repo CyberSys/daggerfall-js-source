@@ -742,6 +742,15 @@ export const LOOM_FEE = 50;
  */
 export const MASON_FEE = 50;
 /**
+ * PROF9 (PROF0 9.3: "Cooking (any campfire, hearth or brazier ...)"): THE FIRE COOKING IS DONE AT. DECIDED: any LIT fire
+ * within Climates & Calories' own reach of its flame (survival/camp.js BY_FIRE_REACH) - a campfire (anyone's, a peer's
+ * included), a hearth or a brazier (survival/hearth.js's world fires) - in the street, a building and a dungeon, in every
+ * tier of the arc (scenes/camps.js fireNear: the world's fire, as a rest's place reads it). No fee: a fire is nobody's.
+ * The service cannot see the fire (as it cannot see the forge, PROF0 23): the inputs are the Stores' and their units the
+ * bound; the client asks only where one burns.
+ */
+export const COOK_FIRE = Object.freeze({ kind: 'fire', fee: 0 });
+/**
  * A forge's or a workbench's work, no act (PROF0 4.1, 4.2, 25): `out` made from `inputs`, `per` a unit - or `more.per`
  * for a character standing under `more.spec`, their `more.profession`'s choice at `more.rank` (100 unless it says: a
  * Quartermaster's ingots, a Charcoal Burner's charcoal, a Timberwright's planks; PROF7 a Tanner's leather, a choice at
