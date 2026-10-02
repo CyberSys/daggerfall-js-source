@@ -72,14 +72,11 @@ export function activeCore(modules = pcaaoModules()) {
   return { overhaul: !!formulaOverride('calculateAttackDamage') && !!modules.armorHitFormulaRedone, modules };
 }
 
-/** The hand's weapon the next swing strikes with: the right hand, else the left, else the bare hand (null). */
-export function strikingWeaponOf(entity) {
+/** The selected hand, including an empty hand used for unarmed combat. */
+export function strikingWeaponOf(entity, usingRightHand = true) {
   const t = equipTableOf(entity);
-  for (const slot of [EQUIP_SLOTS.RightHand, EQUIP_SLOTS.LeftHand]) {
-    const it = t[slot];
-    if (it && it.group === 'Weapons') return it;
-  }
-  return null;
+  const it = t[usingRightHand ? EQUIP_SLOTS.RightHand : EQUIP_SLOTS.LeftHand];
+  return it?.group === 'Weapons' ? it : null;
 }
 
 const weightsOf = (table) => {
@@ -189,7 +186,7 @@ function damageModel(ctx, swing, foe) {
 export function computeCombatStats(entity, opts = {}) {
   const modules = opts.modules ?? pcaaoModules();
   const core = opts.core ? { overhaul: opts.core === 'overhaul', modules } : activeCore(modules);
-  const weapon = opts.weapon !== undefined ? opts.weapon : strikingWeaponOf(entity);
+  const weapon = opts.weapon !== undefined ? opts.weapon : strikingWeaponOf(entity, opts.usingRightHand ?? true);
   const level = entity.level ?? 1;
   const ctx = swingContext(entity, weapon, core);
   const headlineKey = ctx.isBow ? 'StrikeDown' : 'StrikeLeft';

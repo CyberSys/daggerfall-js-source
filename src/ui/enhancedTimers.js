@@ -104,7 +104,8 @@ export function timersWindow(doc, { read, onClose, every = 1000 }) {
     const rows = src ? eventTimerRows(src) : [];
     const now = Number(src?.now) || Date.now();
     const offset = now - Date.now();   // the relay's clock against this machine's - the local time is the machine's
-    const nextShape = rows.map((r) => `${r.id}|${r.live ? 1 : 0}|${r.title}|${r.where ?? ''}`).join('\n');
+    // A cleared raid can change only the detail count while the displayed raid stays the same.
+    const nextShape = JSON.stringify(rows.map((r) => [r.id, r.live, r.title, r.where, r.detail]));
     if (nextShape !== shape) {
       shape = nextShape;
       cells = new Map();
