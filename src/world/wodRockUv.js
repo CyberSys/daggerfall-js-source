@@ -23,6 +23,8 @@
 // is free and the far view takes the chain). A plane's map is ONE affine function of the position, so the triangles
 // that make a plane meet without a seam. Each plane's UVs are then shifted by whole repeats to start near zero (REPEAT
 // makes the shift invisible; the real data's largest is 8,782, a sixteenth of a texel in float32).
+// A ROCK pebble's map is then held to no finer than a repeat per 8 m (ROCK-CAP, WOD_ROCK_MAX_REPEATS_PER_M - Mac's
+// call: at the pebble's own density a spire seen from hundreds of metres read as a lattice, then flat).
 // A vertex two planes share (not one dfMeshToModel makes) is given to the first and copied for the rest.
 //
 // Below the threshold the model comes back as the SAME object, so a camp, a house, a shrine statue (2.65 at most)
@@ -44,6 +46,12 @@ export const WOD_ROCK_STRETCH_MIN = 4;
  *  pebble is unfolded from any real stretch (WOD_ROCK_PEBBLE_MIN), and every rock face of an outcrop agrees. */
 export const WOD_ROCK_MODELS = new Set([60610, 60711, 60712, 60713, 60714, 60715, 60716, 60717, 60718, 60719, 60720, 41719]);
 export const WOD_ROCK_PEBBLE_MIN = 1.05;
+/** ROCK-CAP (AUDIT part five; Mac: "Cap at ~8 m a repeat"): a rock pebble's face tiles no finer than one repeat per 8 m
+ *  in any direction (8 texels a metre for the 64x64 rock). At the pebble's own density (12 to 150 texels a metre) model
+ *  art, mipped with no anisotropy, read as rock within some 10 m, a regular lattice at 30 to 100 m and its mean colour
+ *  from 300 m - and a spire is seen from hundreds of metres; at this cap its rock reads out to about a kilometre at
+ *  1080p. A pebble already coarser keeps its own. A plank, a dock's block or a palisade keeps its model's density. */
+export const WOD_ROCK_MAX_REPEATS_PER_M = 1 / 8;
 
 /** The longest column of a column-major matrix's upper 3x3 - the piece's largest |scale|, whatever its rotation. */
 export function pieceStretch(m) {
@@ -70,6 +78,7 @@ export function wodRockUvs(cpu, matrix, modelId = null, minStretch = WOD_ROCK_MO
   if (!cpu?.uvs || !cpu.indices?.length || !(pieceStretch(matrix) + 1e-4 >= minStretch)) return cpu;   // a float32 matrix holds a scale of 4 as 3.9999998
   const P = cpu.positions, UV = cpu.uvs, I = cpu.indices;
   const nV = P.length / 3, nT = I.length / 3;
+  const cap = WOD_ROCK_MODELS.has(modelId) ? WOD_ROCK_MAX_REPEATS_PER_M : Infinity;
   const pos = (v) => [P[v * 3], P[v * 3 + 1], P[v * 3 + 2]];
   const lin = (d) => [   // the matrix's linear part on a direction
     matrix[0] * d[0] + matrix[4] * d[1] + matrix[8] * d[2],
@@ -142,8 +151,13 @@ export function wodRockUvs(cpu, matrix, modelId = null, minStretch = WOD_ROCK_MO
       // the same frame on the scaled plane, along the image of the same rows
       const f1 = lin(rows), m1 = cross(lin(e1), lin(e2)), lf = len(f1), lm = len(m1);
       if (k !== 0 && lf > 0 && lm > 0 && Number.isFinite(lf * lm)) {
-        const ux = (du1 * y2 - du2 * y1) / k, uy = (du2 * x1 - du1 * x2) / k;
-        const vx = (dv1 * y2 - dv2 * y1) / k, vy = (dv2 * x1 - dv1 * x2) / k;
+        let ux = (du1 * y2 - du2 * y1) / k, uy = (du2 * x1 - du1 * x2) / k;
+        let vx = (dv1 * y2 - dv2 * y1) / k, vy = (dv2 * x1 - dv1 * x2) / k;
+        if (cap < Infinity) {   // ROCK-CAP: the map's finest direction (its larger singular value) held to the cap
+          const s1 = ux * ux + uy * uy + vx * vx + vy * vy, s2 = Math.sqrt((ux * ux + uy * uy - vx * vx - vy * vy) ** 2 + 4 * (ux * vx + uy * vy) ** 2);
+          const fine = Math.sqrt((s1 + s2) / 2);
+          if (fine > cap) { const q = cap / fine; ux *= q; uy *= q; vx *= q; vy *= q; }
+        }
         const t1 = scaled(f1, 1 / lf), b1 = cross(scaled(m1, 1 / lm), t1);
         const u0 = UV[a * 2], v0 = UV[a * 2 + 1];
         map = (v) => {

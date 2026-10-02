@@ -6,11 +6,13 @@
 //       14 - the frame is laid along the texture's own rows now;
 //   WR2 one outcrop mixes rock pebbles under and over the 4x threshold (60610 at 3.01 beside 4.69; 60718 at 3.5 beside
 //       60714 at 1.9), and touching pieces wore two to three and a half times each other's density - a pebble is
-//       unfolded from any real stretch, named by the model id the host hands in.
+//       unfolded from any real stretch, named by the model id the host hands in;
+//   and ROCK-CAP, asked (Mac: "Cap at ~8 m a repeat"): at the pebble's own density the rock read as rock within some
+//       10 m, a lattice at 30 to 100 m and flat from 300 m - a rock face now tiles no finer than a repeat per 8 m.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { wodRockUvs, WOD_ROCK_MODELS, WOD_ROCK_PEBBLE_MIN, WOD_ROCK_STRETCH_MIN } from '../src/world/wodRockUv.js';
+import { wodRockUvs, WOD_ROCK_MODELS, WOD_ROCK_PEBBLE_MIN, WOD_ROCK_STRETCH_MIN, WOD_ROCK_MAX_REPEATS_PER_M } from '../src/world/wodRockUv.js';
 import { objectMatrix } from '../src/world/wodLocationObjects.js';
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -49,9 +51,24 @@ test('AUDIT WR2: a rock pebble under the 4x threshold is unfolded like its outcr
   assert.ok(WOD_ROCK_MODELS.has(60610) && WOD_ROCK_PEBBLE_MIN < 3.01 && WOD_ROCK_STRETCH_MIN === 4);
   const rock = quad(), out = wodRockUvs(rock, at(3.01), 60610);
   assert.notEqual(out, rock, 'the 3.01 pebble is unfolded');
-  assert.ok(Math.abs(out.uvs[2] - out.uvs[0] - 3.01) < 1e-4, `its foot carries 3.01 repeats, as the 4.69 beside it carries its own density (${out.uvs[2] - out.uvs[0]})`);
+  assert.ok(Math.abs(out.uvs[2] - out.uvs[0] - 3.01 * WOD_ROCK_MAX_REPEATS_PER_M) < 1e-4, `its 3.01 m foot at the rock's capped density, as the 4.69 beside it (${out.uvs[2] - out.uvs[0]})`);
   assert.equal(wodRockUvs(rock, at(1.0), 60610), rock, 'a pebble at its own size is its own');
   const statue = quad();
   assert.equal(wodRockUvs(statue, at(2.65), 43301), statue, 'the shrine statue at 2.65 is its own');
   assert.match(readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8'), /const cpu = wodRockUvs\(cpuModels\.get\(m\.modelId\), m\.matrix, m\.modelId\);/, 'the host hands the piece\'s model id');
+});
+
+test('ROCK-CAP (Mac: "Cap at ~8 m a repeat"): a rock pebble\'s face tiles no finer than a repeat per 8 m in its finest direction, its grain\'s proportions kept; a palisade keeps its own density; a pebble already coarser keeps its own (mutants: no cap; the cap on every model; the cap by the coarse direction)', () => {
+  // a quad 1 x 1 m, its texture 1 repeat a metre across and 3 up (anisotropic on purpose), stretched 400 x 400
+  const quad = (ku, kv) => ({ positions: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0]), normals: new Float32Array(12), uvs: new Float32Array([0, 0, ku, 0, ku, kv, 0, kv]), indices: new Uint32Array([0, 1, 2, 0, 2, 3]), subMeshes: [{ textureArchive: 141, textureRecord: 2, startIndex: 0, primitiveCount: 2 }] });
+  const M = objectMatrix([0, 0, 0], { x: 0, y: 0, z: 0, w: 1 }, { x: 400, y: 400, z: 400 });
+  const rate = (o) => [(o.uvs[2] - o.uvs[0]) / 400, (o.uvs[7] - o.uvs[1]) / 400];   // repeats a metre along the foot, up the side
+  assert.equal(WOD_ROCK_MAX_REPEATS_PER_M, 1 / 8, 'Mac: "Cap at ~8 m a repeat"');
+  const [ru, rv] = rate(wodRockUvs(quad(1, 3), M, 60716));
+  assert.ok(Math.abs(rv - WOD_ROCK_MAX_REPEATS_PER_M) < 1e-6, `the finest direction at the cap: ${rv}`);
+  assert.ok(Math.abs(rv / ru - 3) < 1e-6, 'the grain\'s proportions kept (3 to 1)');
+  const [pu, pv] = rate(wodRockUvs(quad(1, 3), M, 43001));
+  assert.ok(Math.abs(pu - 1) < 1e-6 && Math.abs(pv - 3) < 1e-6, 'a palisade keeps its model\'s density');
+  const [cu, cv] = rate(wodRockUvs(quad(0.02, 0.04), M, 60716));
+  assert.ok(Math.abs(cu - 0.02) < 1e-6 && Math.abs(cv - 0.04) < 1e-6, 'a pebble already coarser than the cap keeps its own');
 });
