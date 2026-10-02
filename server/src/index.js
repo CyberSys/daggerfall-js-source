@@ -1067,7 +1067,8 @@ export class Room {
     if (c.gi) await this._loadGuildOuts(nowS);   // AUDIT MERGE-PLUS A3: the holds a wake left in storage
     const guild = c.gi && !this._guildOutAfter(c.gi, c.gm, c.i) ? { gi: c.gi, gt: c.gt, gm: c.gm } : {};
     // WB9g: and the aura at their feet - `au`, the one the token signed for (stamped by `badged` beside the title)
-    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, gx: c.gx, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };   // GLYPH-WEAR: `gx` the glyphs taken off, which `badged` leaves out
+    // GLYPH-WEAR: and `gx`, the glyphs taken off - `badged` leaves them out of every row; `glyphs` stays whole for the rights
+    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, gx: c.gx, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };
   }
 
   /** The verifying key, imported once. Shared by the hello and by

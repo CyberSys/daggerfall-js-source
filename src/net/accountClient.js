@@ -794,7 +794,7 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
           // GLYPH-WEAR: the glyphs my own name leaves out - `glyphs` stays all that is true (the staff rights read it)
-          glyphsOff: Array.isArray(answer.data.glyphsOff) ? answer.data.glyphsOff : [],
+          ...(Array.isArray(answer.data.glyphsOff) ? { glyphsOff: answer.data.glyphsOff } : {}),   // absent for none
           // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
           ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}) };
         adoptIdentity(storage, { ...who, secret: session.secret });   // AUDIT B4: into the session that asked

@@ -83,8 +83,8 @@
   {
     "name": "ACC3a-9-the-relay-believes-the-frame",
     "file": "server/src/index.js",
-    "old": "    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };",
-    "new": "    return { name: c.n, kind: c.k, subject: c.s, title: m.title, glyphs: m.glyphs, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };",
+    "old": "    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, gx: c.gx, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };",
+    "new": "    return { name: c.n, kind: c.k, subject: c.s, title: m.title, glyphs: m.glyphs, gx: c.gx, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };",
     "tests": [
       "test/acc3titles.test.js"
     ],
@@ -93,7 +93,7 @@
   {
     "name": "ACC3a-10-the-badge-nulled-rather-than-omitted",
     "file": "src/net/wire.js",
-    "old": "  const t = from?.title;\n  if (typeof t === 'string' && t) row.title = t;\n  const g = from?.glyphs;\n  if (Array.isArray(g) && g.length) row.glyphs = g;",
+    "old": "  const t = from?.title;\n  if (typeof t === 'string' && t) row.title = t;\n  // GLYPH-WEAR: LESS THE ONES TAKEN OFF (`gx`, off the same signature) - paint alone: `from.glyphs` stays whole on the\n  // attachment, where the rights read it (/red, /dm), and only the row anybody else is shown leaves them out\n  const gx = Array.isArray(from?.gx) ? from.gx : [];\n  const g = Array.isArray(from?.glyphs) ? from.glyphs.filter((x) => !gx.includes(x)) : null;\n  if (g && g.length) row.glyphs = g;",
     "new": "  row.title = from?.title ?? null;\n  row.glyphs = from?.glyphs ?? [];",
     "tests": [
       "test/acc3titles.test.js"

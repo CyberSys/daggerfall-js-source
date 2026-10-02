@@ -277,13 +277,16 @@ export function equipRefusal(title, player, env) {
   return titlesHeld(player, env).includes(title) ? null : 'not-held';
 }
 
+/** GLYPH-WEAR: `{ glyphsOff }` while a glyph is taken off, else nothing - a player hiding none reads the answer they always did. */
+const glyphsOffOf = (player, env, nowS) => { const off = glyphsHidden(player, env, nowS); return off.length ? { glyphsOff: off } : {}; };
+
 /** The account view's own half: what to show in the window. WB9g: and the auras held and the one worn, and the
  *  Broker's insignia the account bought (its ids). */
 export const wardrobeOf = (player, env, nowS) => ({
   titles: titlesHeld(player, env),
   title: titleWorn(player, env) ?? null,
   glyphs: glyphsOf(player, env, nowS),
-  glyphsOff: glyphsHidden(player, env, nowS),   // GLYPH-WEAR: the ones taken off - `glyphs` stays all that is true
+  ...glyphsOffOf(player, env, nowS),   // GLYPH-WEAR: the ones taken off, absent for none - `glyphs` stays all that is true
   auras: aurasHeld(player),
   aura: auraWorn(player) ?? null,
   insignia: insigniaHeld(player?.insignia),

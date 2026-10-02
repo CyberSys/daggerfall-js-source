@@ -45,11 +45,11 @@ test('GLYPH-WEAR service: /v1/account/glyph hides and shows; the token keeps `g`
   assert.deepEqual(t.body.glyphsOff, ['dev']);
   assert.ok(claimsValid(c));
   r = await call('/v1/account/glyph', { glyph: 'dev', on: true }, me.secret);
-  assert.deepEqual(r.body.glyphsOff, []);
+  assert.equal('glyphsOff' in r.body, false, 'none hidden is the answer it always was');
   t = await call('/v1/auth/token', {}, me.secret);
   c = claimsOf(t.body.token);
   assert.equal('gx' in c, false, 'nothing hidden is nothing signed');
-  assert.deepEqual(t.body.glyphsOff, []);
+  assert.equal('glyphsOff' in t.body, false);
   // refusals
   assert.equal((await call('/v1/account/glyph', { glyph: 'dm', on: false }, me.secret)).status, 403, 'not true of them');
   assert.equal((await call('/v1/account/glyph', { glyph: 'crown', on: false }, me.secret)).status, 400);

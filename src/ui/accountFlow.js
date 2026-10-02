@@ -387,10 +387,10 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       const r = await ask(() => equipGlyph(door(), glyph, on));
       if (!r) return false;
       if (!r.ok) return refuse(accountRefusalText(r.error));
-      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff ?? [], ...auraHalf(r.data) };   // absent is none
       self.busy = false;
       self.note = on ? 'Glyph shown.' : 'Glyph hidden.';
-      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });
+      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // my own screen's word: the shown glyphs dress my werewolf
       changed();
       return true;
     } catch {

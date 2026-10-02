@@ -604,7 +604,7 @@ const service = {
           kind: accountKind(who.player),
           title: wardrobe.t ?? null,
           glyphs: wardrobe.g,
-          glyphsOff: wardrobe.gx ?? [],   // GLYPH-WEAR: the ones my own name leaves out
+          ...(wardrobe.gx ? { glyphsOff: wardrobe.gx } : {}),   // GLYPH-WEAR: the ones my own name leaves out, absent for none
           mutedUntil: mu ?? 0,
           level: lv ?? null,
           xp: track ? track.xp : null,
