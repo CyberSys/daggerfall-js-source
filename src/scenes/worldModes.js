@@ -147,7 +147,7 @@ import { dungeonStartDoorFor } from '../systems/save.js';   // CASTLE1: the load
 import { composeNamer, composeContents } from '../systems/worldHover.js';   // INTERIOR-BODIES: the interior stands itemised bodies now, so its contents reader is a LADDER like the other three hosts' rather than one prefix
 import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER: the race's WINNER, so the plaque names what the press would open
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, and the hide door for the branches that return above it
-import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door
+import { quickLootTake, quickLootSpend, plaqueActionFor } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; HOME2: the verb the plaque lit over a door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { staticDoorName, npcHoverName, questResourceName, worldTooltipsOn, hideInteractTooltip,
   houseContainerName, houseContainerHover, actionName, actionDoorName, lootPileName,
@@ -6748,7 +6748,7 @@ export function createWorldModes(host) {
         // (world.js openBodyLoot's law: quick loot takes on a press only).
         const openBodyLoot = (lootKey, pileKeys = null) => {
           bodyPool(lootKey)?.takeLoot(lootKey, (l) => say(l), (loot) => {
-            if (!pileKeys && quickLootTake(lootKey, loot, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) return;   // AUDIT QL-WEIGHT1: the window's own resolver
+            if (!pileKeys && quickLootTake(lootKey, loot, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null, took: showPickups })) return;   // AUDIT QL-WEIGHT1: the window's own resolver; PICKUP-FEED: the cards
             const pile = lootPile(lootKey, { keys: pileKeys, describe: (k) => bodyPool(k)?.pileBody(k) ?? null, open: openBodyLoot });
             mountInterior(interiorInventory({ loot: pile ? { ...loot, pile } : loot }));
           });
@@ -6777,7 +6777,7 @@ export function createWorldModes(host) {
         if (pile) {
           const _hooks = droppedLootHooks(pile);   // G5
           // QUICK-LOOT B4: the same door, on the player's own pile.
-          if (!quickLootTake(key, _hooks, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null })) mountInterior(interiorInventory({ loot: _hooks }));   // AUDIT QL-WEIGHT1
+          if (!quickLootTake(key, _hooks, playerEntity, (l) => say(l), { getQuest: (uid) => questBridge?.machine.getQuest(uid) ?? null, took: showPickups })) mountInterior(interiorInventory({ loot: _hooks }));   // AUDIT QL-WEIGHT1; PICKUP-FEED: the cards
           else interiorDropped.releaseEmptied();   // AUDIT 68 S20-frame-return-kills-loop: the take is its own window close (the world hosts' law)
         }
         return true;
@@ -7168,6 +7168,8 @@ export function createWorldModes(host) {
           shareQuest: (uid, questName, displayName) => host.shareQuest?.(uid, questName, displayName),
           // PEER-PLAQUE1: the plaque's peer pick, delegated the same way - the dungeon's own eye, the outer host's peers
           peerHoverPick: () => host.peerHoverPick?.() ?? null,   // AUDIT DROPS E3: the F key's own ray, not the dungeon's eye
+          profHoverPick: (ray) => host.profHoverPick?.(ray) ?? null,   // PROF-MENU: a dungeon vein or body as the plaque's pick, over the race's winner
+          profHoverName: (key) => host.profHoverName?.(key) ?? null,   // ...and its acts as the plaque's rows
           pageShare: () => host.pageShare?.() ?? null,   // JOURNAL1: a note's Share, the outer host's word, delegated the same way
           // GUIDE2: the journal's two world questions, the outer host's, delegated the same way - the dungeon's journal
           // says where a quest points (the dungeon owns no map, so it offers no way there)
@@ -7322,7 +7324,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7805), so the OUTER host's one rides in.
+          // (dungeonContext.js:7806), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7585,6 +7587,9 @@ export function createWorldModes(host) {
     // alone, as on the street (C2/H3: a click or a finger's tap started an act a swipe could not play, and every swing
     // was held off until the player walked away); and first, so one press never clicks a quest foe AND starts an act (D3)
     if (interact && !pressCast && host.profPress?.()) return true;
+    // PROF-MENU: and the click on a node's lit row (the plaque's) is the node's, as a loot row's click takes it - never
+    // mid-act (that click is the act's, below)
+    if (!interact && !pressCast && !actClick && !host.profActing?.() && host.profClick?.()) return true;
     // AUDIT 32 H5: and a click mid-act is the act's (D3's law for E) - it opened the body's loot under the knife.
     // CLICK-LIFT (AUDIT 2026-10-01 part four): to its release - the click that struck a dungeon vein's last blow lifts
     // after the act has ended, onto the door, the chest, the body or the lever under the look
@@ -8532,7 +8537,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14536's own wave-46 note); the interior
+          // a blow (world.js:14575's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -11173,7 +11178,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3477-3499), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:10978). So an F9 pressed in a shop
+     *  unconditionally (world.js:11017). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11212,7 +11217,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11093)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11132)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11222,8 +11227,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:9971`
-     *  and `dungeonContext.js:7816` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10010`
+     *  and `dungeonContext.js:7817` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7317` read, on one physical line:
+`src/scenes/worldModes.js:7319` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8290` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8329` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:452`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -9009,6 +9009,27 @@ member pacing the radius under *Setting out* rebuilt the tab at every crossing (
 `status()` carries them with no round alone. Records: `test/partytravel.test.js` 37 -> 41,
 `test/soc3_socialpanel.test.js` 32 -> 33; `tools/mutants/auditpartyui2.json` (14, 14 dead); five
 `auditpartyui.json` records and the `mappov.json` one re-aimed.
+
+**PARTY-READY (2026-10-01, Mac: "when party readying up, the ui element is hidden"; `01-Overview/Field-Bugs-2026-10-01c.md`).**
+The ready-up took its own controls off the screen. The leader's Travel map opens the travel map, a window over the HUD,
+and the Social panel closes under any such cover (SOC3) - so the round's count and Call off stood nowhere for the whole
+round, and the HUD's "Waiting for the party to ready up" stood PARTY_REST_FAR_SECONDS (4) of a round that runs
+PARTY_READY_TIMEOUT_MS (60). A member with the Party tab open was asked by the Yes/No box anyway, whose pause took the
+tab, the chat and the party's HUD out of the page as the ready-up began. Now:
+- the Party tab a cover took mid-journey comes back when it lifts - after the travel map its own Travel map opened, or
+  after any window over an open round (`socialPanel.js` `resumeParty`); a cover still closes the panel, and one over a
+  round that has set out, over another tab or over no journey of the tab's keeps it closed;
+- the leader's wait stands the round: set for what is left of it, again only as the count moves (each label is a
+  notebook line), and the set-out, a call-off or a lapse says its own line over it (`partyTravel.js` `waitLabel`; the
+  host's `mid` takes the seconds);
+- a member with the Party tab open answers there - no box over it, no line to type what it offers - and one who closes
+  it unanswered is asked by the box (`tabOpen`, the host's `socialPanel` on its Party tab). `busy()` is left alone: it
+  gates the tab's own Travel to <leader>.
+Not changed: the party HUD still hides under a pausing window (the box a member without the tab open is asked by), as
+the whole enhanced HUD does. Records: `test/partytravel.test.js` 41 -> 44 (it did not parse since the merge before
+this one - an unescaped `'` in the RELAY_VERSION history; fixed - so every list naming it had killed nothing),
+`test/soc3_socialpanel.test.js` 33 -> 34; `tools/mutants/partyready.json` (14, 14 dead); one `auditpartyui.json` and
+one `party-travel.json` record re-aimed.
 
 ## EVENT1 (2026-09-25, Mac: "I wanna do a fun live event for the server. Wanna setup the infastructure for this without breaking anything. We have a lot of major updates today, but I want to turn the skies of Daggerfall into a detailed oblivion styled dread in prep for the world bosses. Red lightning and such") - a live event, staged for everyone online: the dread, world110
 

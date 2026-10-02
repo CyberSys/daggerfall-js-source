@@ -1651,7 +1651,7 @@ CAMP-SIGHT, CAMP-TRAVEL, CAMP-NOTIMER, TTL1, WORLD1's "True persistance"); the d
   quarter 12 or over, the label saying which is which - and its label its own number (PSCALE1's growth still comes at
   the stand, with the party that meets it). Offline there is one player, and the band reads theirs, as Daggerfall does.
 - **The journey slows as enemies close (systems/travelThreat.js; the third ask).** The clock is held so the traveller
-  always has THREAT_WARN_S (1.2 s: 5 at launch, 2 at OW6-LATE, 1.2 at OW6-NEAR, FB 29g) of real time before the nearest enemy's REACH along their way - a band's sight, a
+  always has THREAT_WARN_S (0.6 s: 5 at launch, 2 at OW6-LATE, 1.2 at OW6-NEAR, FB 29g, 0.6 at OW6-HALF, FB 2026-10-01c) of real time before the nearest enemy's REACH along their way - a band's sight, a
   raider's lookout (at sea), any hostile foe's sight (a camp's sixty metres, CAMP-SIGHT), or, for a chaser, its contact
   ring from any side at its own pace too (`metresToReach`, `threatCap`); stepped down the spinner's own ladder (1, 2, 3,
   4, 5, then fives), never under walking pace (the encounter stops a journey - AUDIT OW5b E1 - the governor only slows
