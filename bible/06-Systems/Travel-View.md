@@ -1793,3 +1793,16 @@ the nearest twelve within 3 km, read again twice a second (`scenes/gatherHost.js
 Gathering (`systems/travelViewFilters.js`); drawn by `ui/travelViewHud.js` (look `gather`, `m.color`); fed beside the
 camps in `scenes/world.js` travelViewMarks. Not pickable - a click there falls to the ground and walks to it. See
 `06-Systems/Professions-Arc.md` (MORE-NODES, GATHER-OW). Pins `test/gatherow.test.js`.
+
+## OW-CROWD - the region's travellers decluttered (2026-10-02, Mac)
+
+Mac: *"Can we also find a way to reduce the overwhelming player markers that flood the screen? I like it, dont get me
+wrong, but there must be a way to make it where its not overwhelming"*. Every player of the region was their own mark
+wearing their whole badge (the title, the Renown, the name, the guild's tag, the glyphs - OVERWORLD NAMES), and each off
+the picture their own arrow at the edge. Now, as the marks are placed on the screen (`ui/travelViewHud.js`
+declutterTravellers, between the placement and the edges' spread): travellers drawn within TV_CROWD_PX (36 px) of one
+another are one mark at their middle, a larger dot named "N travellers"; arrows at the edge within TV_CROWD_EDGE_PX
+(56 px) one arrow, the nearest's place and way; and of those still alone in the picture only the TV_BADGES_MAX (6)
+nearest my own mark wear their badge - the rest their name. My party (kind `party`), the places, the dungeons, the
+enemies, the gathering groups and the journey's end are never folded nor stripped. The Travellers filter's count is
+still every traveller. Pins `test/owcrowd.test.js`; mutants `tools/mutants/owcrowd.json`.

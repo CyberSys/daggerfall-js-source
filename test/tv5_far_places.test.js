@@ -127,7 +127,9 @@ test('PERF-TV readout: every mark on the one canvas; the screen read ONCE a fram
   hud.showTravelViewHud({}, doc);
   try {
     const marks = [];
-    for (let i = 0; i < 40; i++) marks.push({ key: `trav:${i}`, x: 3000 + i, y: 100, front: false, label: `Rider ${i}`, kind: 'traveller', edge: true });   // all held at the edge
+    // PIN MOVED (OW-CROWD): forty marks held at one edge - a band's each, never folded (forty travellers there are one
+    // crowd's arrow now, test/owcrowd.test.js)
+    for (let i = 0; i < 40; i++) marks.push({ key: `band:${i}`, x: 3000 + i, y: 100, front: false, label: `Rider ${i}`, kind: 'band', edge: true });   // all held at the edge
     marks.push({ key: 'place:1', x: 600, y: 300, front: true, label: 'Ripwych', kind: 'place', pick: true });
     const frame = { feet: { x: 640, y: 360, front: true }, heading: 0, yaw: 0, where: 'w', marks };
     reads.n = 0;
