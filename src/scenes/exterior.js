@@ -1897,7 +1897,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       if (!isResting && getPref('wildernessCamps') !== false) {
         const campHit = rollCampEncounter({
           gameMinutes: _lastEncMinutes + l + 1, inside: _m !== 'exterior',
-          skyMinutes: Math.floor(skyMinutes()),   // TIME1: the camp's day and night are the sky's - the minute above is the character's own
+          skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,   // TIME1: online the camp's day and night are the sky's - the minute above is the character's own; AUDIT TIME (second round): offline the minute WALKED, as the lone roll above
           inLocationRect: _musicInLocationRect(),
           climateIndex: locClimateIndex,
           playerLevel: effectiveLevel(playerEntity),   // SOFTCAP2

@@ -385,6 +385,25 @@ test('TIME3 AUDIT: a resync from a partner behind keeps what this copy has done 
   assert.ok(bw.created.length >= 1, 'and the fourth hour rested brings the wave');
 });
 
+test('TIME3 AUDIT (second round): a resync that keeps a run-out clock keeps its task\'s edge and its wave\'s count - "3 times" stays three in this holder\'s world', () => {
+  tables();
+  const world = () => { const w = { currentRegionIndex: () => 0, isPlayerInLocationRect: () => true, created: [], createFoeGameObjects: (foe, n) => { w.created.push(n); return Array.from({ length: n }, (_, i) => ({ i })); }, tryPlaceFoe: () => true, raiseOnEncounterEvent() {} }; return w; };
+  const wm = (c, w) => new QuestMachine({ nowSeconds: () => c.own, raisedSeconds: () => c.raised, worldSeconds: () => 5_000_000, questClockStepMax: () => PLAYED_STEP_MAX_SECONDS, world: w, showPopup() {} });
+  const SRC = ['Quest: __QZ', 'QRC:', 'Message:  1011', ' x', '', 'QBN:', 'Foe _rat_ is 2 Giant_rat', 'Clock _c_ 01:00', '', '_c_ task:', ' create foe _rat_ every 30 minutes 3 times with 100% success', '', 'variable _go_', 'until _go_ performed:', ' start timer _c_'];
+  const A = { own: 100_000, raised: 0 }, B = { own: 700_000, raised: 0 }, aw = world(), bw = world();
+  const am = wm(A, aw), bm = wm(B, bw);
+  const aq = am.scheduleQuest(SRC, 0, { rolls: () => 0.99 }); am.tick(); am.markQuestShared(aq.questName);
+  bm.receiveSharedQuest(am.getShareableQuestData(aq.uid)); bm.tick();
+  const rest = (n) => { for (let k = 0; k < n; k++) { B.own += 600; B.raised += 600; bm.tick(); } };
+  rest(6 * 4);
+  assert.equal(bw.created.length, 3, 'four hours rested: the clock out, its three waves');
+  bm.updateSharedQuest(aq.questName, am.getShareableQuestData(aq.uid));   // the partner, still counting their hour
+  const q = bm.sharedCandidateNamed(aq.questName), task = taskOf(q, '_c_');
+  assert.deepEqual([task.triggered, task.prevTriggered], [true, true], 'the task fired, and its edge already taken');
+  rest(6 * 4);
+  assert.equal(bw.created.length, 3, 'four more hours: no wave past the three');
+});
+
 test('TIME3 saves: an online save from before TIME3 has its countdowns moved onto the character\'s clock once, at the load; a TIME3 save and an offline one load as they stand; the doors between the lanes move only a TIME3 envelope\'s journal dates', () => {
   const own = 50 * D, world = 230 * D;
   const block = () => ({ machine: { quests: [{ questName: 'Q', questStartTime: world * 60 - 600, questTombstoneTime: 0, activeLogMessages: [{ stepID: 0, messageID: 1, time: world * 60 - 300 }], resources: [{ clock: { lastWorldTimeSample: world * 60 } }], tasks: [{ actions: [{ actionSpecific: { lastTimePlayed: world * 60 - 30, lastSpawnTime: 0 } }] }] }] } });

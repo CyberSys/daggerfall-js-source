@@ -163,14 +163,9 @@
   {
    "file": "src/scenes/exterior.js",
    "has": "skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null,",
+   "count": 2,
    "clock": "sky",
-   "why": "the encounter roll's day and night"
-  },
-  {
-   "file": "src/scenes/exterior.js",
-   "has": "skyMinutes: Math.floor(skyMinutes()),",
-   "clock": "sky",
-   "why": "the camp roll's day and night"
+   "why": "the encounter and camp rolls' day and night (the camp's offline the minute walked - AUDIT TIME second round)"
   },
   {
    "file": "src/scenes/exterior.js",

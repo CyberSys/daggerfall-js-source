@@ -1328,15 +1328,17 @@ export class QuestMachine {
     const clocksBefore = new Map(), finishedBefore = new Map(), wavesBefore = new Map();
     for (const r of quest.resources.values()) {
       if (r.isClock && r.clockEnabled && !r.clockFinished) clocksBefore.set(r.symbol?.name, { remaining: r.remainingTimeInSeconds, sample: r._lastWorldTimeSample, raised: r._lastRaisedSample });
-      if (r.isClock && r.clockFinished) finishedBefore.set(r.symbol?.name, quest.getTask?.(r.symbol)?.triggered ?? null);
+      if (r.isClock && r.clockFinished) { const tk = quest.getTask?.(r.symbol); finishedBefore.set(r.symbol?.name, tk ? { triggered: tk.triggered, prev: tk.prevTriggered } : null); }
     }
-    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { if (action.typeName === 'CreateFoe') wavesBefore.set(`${t}:${a}`, { last: action.lastSpawnTime, tick: action._lastTick, raised: action._lastRaised }); a++; } t++; } }
+    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { if (action.typeName === 'CreateFoe') wavesBefore.set(`${t}:${a}`, { last: action.lastSpawnTime, tick: action._lastTick, raised: action._lastRaised, count: action.spawnCounter }); a++; } t++; } }
     quest.restoreSaveData({ ...questData, uid }, this._saveResolvers());
     for (const r of quest.resources.values()) {
       if (r.isClock && !r.clockFinished && finishedBefore.has(r.symbol?.name)) {
         r.clockEnabled = false; r.clockFinished = true; r.remainingTimeInSeconds = 0;
-        const task = quest.getTask?.(r.symbol), fired = finishedBefore.get(r.symbol?.name);
-        if (task && fired) task.triggered = true;
+        const task = quest.getTask?.(r.symbol), was = finishedBefore.get(r.symbol?.name);
+        // AUDIT TIME (second round): the task's EDGE as well - prevTriggered from the envelope (false) made the next tick
+        // a fresh trigger, which re-initialised its actions (a wave's count and timing back to nought)
+        if (task && was?.triggered) { task.triggered = true; task.prevTriggered = was.prev; }
         continue;
       }
       const was = r.isClock && r.clockEnabled && !r.clockFinished ? clocksBefore.get(r.symbol?.name) : null;
@@ -1345,7 +1347,7 @@ export class QuestMachine {
       r._lastWorldTimeSample = was.sample;
       r._lastRaisedSample = was.raised;
     }
-    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { const w = action.typeName === 'CreateFoe' ? wavesBefore.get(`${t}:${a}`) : null; if (w && w.last) { action.lastSpawnTime = w.last; action._lastTick = w.tick; action._lastRaised = w.raised; } a++; } t++; } }
+    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { const w = action.typeName === 'CreateFoe' ? wavesBefore.get(`${t}:${a}`) : null; if (w && w.last) { action.lastSpawnTime = w.last; action._lastTick = w.tick; action._lastRaised = w.raised; action.spawnCounter = w.count | 0; } a++; } t++; } }   // the count is the holder's too: the waves spawn in this world, N of them here
     for (const r of quest.resources.values()) if (r.isItem && itemsBefore.has(r.symbol?.name)) r.daggerfallUnityItem = itemsBefore.get(r.symbol?.name);
     this._relinkQuestItems(quest);
     for (const r of quest.resources.values()) {

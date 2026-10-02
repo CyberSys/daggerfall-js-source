@@ -13,7 +13,8 @@
 // (Field-Bugs-2026-09-25 DISC25-C left it for Mac; this is Mac's call).
 //
 // Online, and for the quests named below alone, the window is the
-// player's ARRIVAL's: it opens `delaySeconds` of world time after they
+// player's ARRIVAL's: it opens `delaySeconds` of the character's own time
+// (TIME3; it was world time) after they
 // are first in the place, and stands `lengthSeconds`. A player who
 // leaves after it has closed and comes back opens it again - a watch
 // missed is not a quest lost - but one who stays (the thieves dead, the

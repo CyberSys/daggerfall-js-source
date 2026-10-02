@@ -338,7 +338,8 @@ should fold in the raid PR in the repo, since it has a new type of world event a
 every raid RUNNING now - `raidActive`: begun, not withdrawn, not cleansed, on the raids' own clock - at its town: a
 crimson ring about the town's mark with two blades crossed above it, *Town under attack* in the legend. A hover over it
 answers with a card: *RAIDING PARTY* / the town and its province / the party attacking / how many of the target were
-driven off (said only once this machine knows some) / *Withdraws at* the raid's end on the game's clock. The host hands
+driven off (said only once this machine knows some) / *Withdraws at* the raid's end on the game's clock [TIME1: online in this machine's local time, "... your time"; offline
+the game clock's]. The host hands
 the map `raids` (`ui/eventMapMarks.js raidMapMarks` over `raidState()`), none while the mod is off; the classic region
 page, DFU's window, draws no raids. The gate's ring answers the same way. `01-Overview/Field-Bugs-2026-09-28b.md`
 EVENT-TIP.

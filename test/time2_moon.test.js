@@ -142,4 +142,7 @@ test('TIME2 on the sky: a full moon\'s night is fifteen real minutes, and a were
   for (const n of nights) assert.ok(Math.abs(n.len - 15 * 60_000) <= 15_000, `a night of fifteen real minutes (${n.len / 60_000})`);
   const gaps = nights.slice(1).map((n, i) => (n.start - nights[i].start) / 3_600_000);
   assert.ok(gaps.every((g) => Math.abs(g - 2) < 0.01 || Math.abs(g - 14) < 0.01), `the gaps: ${gaps.join(', ')} real hours`);
+  // AUDIT TIME (second round): both gaps, alternating - a moon a night every two hours would pass the line above
+  const short = gaps.map((g) => Math.abs(g - 2) < 0.01);
+  assert.ok(short.includes(true) && short.includes(false) && short.every((s, i) => i === 0 || s !== short[i - 1]), `the gaps alternate: ${gaps.join(', ')} real hours`);
 });

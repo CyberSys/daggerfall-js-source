@@ -326,8 +326,9 @@ The machine gets two clocks where DFU has one: `nowSeconds` becomes the characte
   (`worldTick.js raisedMinutes`, counted where a raise is made: the ticker's advance and `advanceOwnMinutes`;
   the dungeon host's rest and exhaustion collapse raise through `advanceOwnMinutes` too, where they wrote the
   clock's view before). A Clock charges the raised part of its gap whole and the lived part one played step at
-  most (`quest/clock.js chargeSeconds`); never more than the clock moved. A clock restored or received has no
-  count beside its sample, and its first gap is a resume: one step at most. CreateFoe's interval keeps the
+  most (`quest/clock.js chargeSeconds`); never more than the clock moved. A clock restored or received samples
+  the session's count at the restore (AUDIT TIME): the time behind its sample is a resume, one step at most, and
+  a raise after it is charged whole. CreateFoe's interval keeps the
   same law: a rest spends it, a lived time away past one step is forgiven.
 - **The rest ticks the quests online** (`restSession.js`), every sub-tick, as offline. RESTX2's stand-down goes.
 - **Whole seconds.** DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction -
@@ -347,7 +348,9 @@ The machine gets two clocks where DFU has one: `nowSeconds` becomes the characte
   its partner's on every change, so a resync keeps this holder's running clocks - their remainder and samples, as
   it keeps each world's foe counts. A clock the partner's copy started, stopped or ran out takes the envelope's
   state, and the task it fired rides the resync: **a clock that runs out on one copy has run out for the party.**
-  A member's rest spends their own copy's days until then.
+  A member's rest spends their own copy's days until then. A clock THIS copy has run out stays run out, its task
+  fired and its edge kept (AUDIT TIME; the edge in the second round, or the next tick re-fired the task and
+  restarted its waves), and a wave's interval and count stay this holder's.
 
 ### 6.4 Weather keeps its pace
 
@@ -370,7 +373,7 @@ counts years, before the years run faster.
   hour and the half hour, dusk at :22 and :52. Your own time runs as Daggerfall's does - resting and
   travel spend it, being away does not." [TIME4, as built: `ui/enhancedMenu.js skyDayWords` says the first
   sentence as it is true when the pane opens - before the switch, "a day in the world is two hours of real time
-  until" the switch in the player's own time - and the paragraph after it adds that a full moon holds a
+  until" the switch in the player's own time - and the sentences after it add that a full moon holds a
   lycanthrope for its night alone and that quest timers run on the character's own time, so a rest spends a
   quest's days as in Daggerfall.]
 - **The vampire's nightfall words:** the sky's rate (6.2).
@@ -437,7 +440,8 @@ counts years, before the years run faster.
 5. **AUDIT TIME** over the arc, the house's four lenses.
 
 Each slice is pinned red first, with its own mutant campaign (`tools/mutants/time<n>.json`; TIME4, words alone,
-is held by `test/time4_words.test.js` instead), a Testing.md
+is held by `test/time4_words.test.js` instead; AUDIT TIME's one TIME4 mutant, the pane's minutes, rides
+`time1.json`), a Testing.md
 row, and its player-facing notes in its pull request's description. TIME2 and TIME3 are independent of
 each other once TIME1 has landed.
 
@@ -528,3 +532,14 @@ terms; 9 is new and not built.
   machine's own minutes (dusk at :22:30, or :37:30 where a clock is a quarter off); GUARD-ONLINE's watch pinned
   to the character's clock; stale words in this page, `Lived-Time.md` and three comments. Each fix has a pin and
   a mutant.
+- 2026-10-02: AUDIT TIME, second round (the fixes themselves; offline fidelity, base tree against this one; the
+  party end to end; the words and the tests). Fixed: a resync that kept a clock this copy had run out set its
+  task fired but took the envelope's EDGE, so the next tick re-fired the task and restarted its waves - the edge
+  and the wave's count are this holder's too; `tools/skyCutover.mjs` at another rate laid a new row after a row not
+  yet live - it lists instants to REPLACE that row, and says when the sky it lays on already runs at the rate; the
+  standalone host's camp roll read the sky's minute offline, the end of a catch-up span for every minute walked
+  (a raise across 18:00 rolled the night table) - online only now, as the lone roll beside it; stale words in this
+  page (6.3a's restore and resync, the pane), `Quest-Arc.md`, `Travel-View.md`, `Raiding-Parties.md`, the Port
+  Ledger (LIVED1's row, ONLINE's, TIME's), Testing.md, two test titles held to their bodies (the tool's "already
+  runs", the moon's alternating gaps) and five comments. The party lens found no disagreement between two players
+  on this build; the mixed-build skew after the switch is section 4's. Each code fix has a pin and a mutant.

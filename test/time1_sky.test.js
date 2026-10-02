@@ -114,6 +114,19 @@ test('TIME1 the tool: tools/skyCutover.mjs lists the aligned instants, and says 
   assert.ok(near(minuteOfDay(law.minutesAt(nextHalfHour(moved))), 0) || near(minuteOfDay(law.minutesAt(nextHalfHour(moved))), 1440), 'midnight on the half hour after it');
   assert.match(cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString(), '--scale', '60'])[1], /^ {2}\d{4}-/, 'another rate has instants of its own');
   assert.match(cutoverLines(['--after', 'never'])[0], /is not a date/);
+  // AUDIT TIME (second round): at ANOTHER rate the last row is REPLACED while it is not live yet - the instants laid on the
+  // sky without it, and one taken is seamless there - and only once it is live does a NEW row follow it, laid on the sky
+  // with it; a rate the sky already runs at then says so
+  assert.match(cutoverLines(['--after', new Date(SWITCH.fromMs - 2 * 86_400_000).toISOString(), '--scale', '12'])[1], /already runs at this rate/);
+  const RATE24 = 24 / 60 / 1000;
+  const early = cutoverLines(['--after', new Date(SWITCH.fromMs - 3_600_000).toISOString(), '--scale', '24']);
+  assert.match(early[0], /to replace the last row/, early.join('\n'));
+  const swap = Date.parse(early[1].trim().split(/\s+/)[0]);
+  assert.ok(near(skyLawOf([...SKY_SEGMENTS.slice(0, -1), { fromMs: swap, minutesPerMs: RATE24 }]).minutesAt(swap), sharedClassicMinutes(swap)), 'the replacing row: no jump where it starts');
+  const later = cutoverLines(['--after', new Date(SWITCH.fromMs + 86_400_000).toISOString(), '--scale', '24']);
+  assert.match(later[0], /for a new row/, later.join('\n'));
+  const next = Date.parse(later[1].trim().split(/\s+/)[0]);
+  assert.ok(next > SWITCH.fromMs && near(skyLawOf([...SKY_SEGMENTS, { fromMs: next, minutesPerMs: RATE24 }]).minutesAt(next), skyClassicMinutes(next)), 'the new row: after the last, no jump where it starts');
 });
 
 test('TIME1 the bundles: the relay never reaches the sky (RELAY_VERSION is not moved by it); the account service does, through the professions\' day, and its deploy filter names it', () => {
@@ -287,6 +300,9 @@ test('TIME1 by source - THE FOUR HOSTS RULE: world.js installs the sky beside th
   assert.match(world, /skyMinute: \(\) => Math\.floor\(skyMinutes\(\)\),   \/\/ TIME1: the wilds' night/, "the wilds' night");
   assert.match(rd('src/scenes/exteriorFoes.js'), /night = isNight\(\(skyMinute \?\? currentMinute\)\(\)\)/);
   assert.match(rd('src/systems/worldTick.js'), /skyMinutes: _sharedClock \? skyMinutes\(\) : null \}\);/, "the tick's rounds read the sky");
+  // AUDIT TIME (second round): the standalone host's camp roll reads the sky ONLINE only - offline its day and night are the
+  // minute the catch-up walks, as the lone roll's beside it (a raise across 18:00 rolled the night table for the day's window)
+  assert.match(exterior, /rollCampEncounter\(\{\n\s+gameMinutes: _lastEncMinutes \+ l \+ 1, inside: _m !== 'exterior',\n\s+skyMinutes: sharedClockOn\(\) \? Math\.floor\(skyMinutes\(\)\) : null,/, "exterior.js: the camp roll's sky, online only");
 });
 
 test('TIME1 AUDIT: the coven\'s re-roll is a STAMP on the event clock - the sky\'s days turning four times as fast re-roll nothing; the event clock\'s next day does; a prince\'s own day is the sky\'s', async () => {

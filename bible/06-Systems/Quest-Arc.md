@@ -6427,7 +6427,8 @@ reads one, all of them DFU's one clock offline:
 The machine hands all four seams at every door a live quest is born through (`_questClocks`). A quest envelope
 carries `ownSecondsAt`, the clock its countdowns stood on when it was taken (`quest/questStamps.js`): a party
 member's copy moves onto the receiver's clock on every share and resync, a resync keeps each holder's running
-clocks, and an online save from before TIME3 moves onto the character's clock once at the load.
+clocks (and a clock this copy ran out stays run out, its task's edge kept; a wave's interval and count stay the
+holder's - AUDIT TIME), and an online save from before TIME3 moves onto the character's clock once at the load.
 
 **Found on the way, a fidelity fix offline too:** the Clock sampled the fractional clock and cut each tick's GAP to
 whole seconds, where DFU samples `WorldTime.Now.ToSeconds()` - whole seconds of a clock that keeps its fraction - so

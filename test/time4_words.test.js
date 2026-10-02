@@ -16,7 +16,7 @@ const SWITCH = SKY_SEGMENTS[SKY_SEGMENTS.length - 1];
 const REAL_MIN_PER_SKY_DAY = 1440 / SWITCH.minutesPerMs / 60_000;
 const minuteOfDay = (m) => ((m % 1440) + 1440) % 1440;
 
-test('TIME4 the Online pane says the sky\'s day as it is when the pane opens: two hours until the switch (and when, in this machine\'s time), half an hour from it - midnight on the hour and the half hour, dusk at :22 and :52', () => {
+test('TIME4 the Online pane says the sky\'s day as it is when the pane opens: two hours until the switch (and when, in this machine\'s time), half an hour from it - midnight on the hour and the half hour, dusk at :22:30 and :52:30, in this machine\'s own minutes', () => {
   const utc = (ms) => new Date(ms).getUTCMinutes() + new Date(ms).getUTCSeconds() / 60;
   const before = skyDayWords(SWITCH.fromMs - 1, (ms) => `<${ms}>`, utc);
   assert.equal(before, `A day in the world is two hours of real time until <${SWITCH.fromMs}>; from then on it is half an hour: midnight falls on the hour and the half hour, and dusk at :22:30 and :52:30.`);
