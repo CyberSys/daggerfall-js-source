@@ -177,5 +177,8 @@ TAGS-liner-unsaid, `shipwatch.json` H-dark-lamps.
 
 Judged again - every record on navalHost.js, seaLanes.js, navalWire.js, navalAI.js, shadowPass.js,
 comeSailAwayPool.js, navalFlames.js and navalHud.js, the records whose suites this changed, and world.js's and
-renderer.js's near these: 1,480 records in 85 lists, judging as this record lands; their tally is the next commit's.
-Not seen in a browser.
+renderer.js's near these: 1,563 records in 92 lists, on this audit's own code - 1,547 dead, nine equivalent as
+recorded, and seven that survive on 168bf2587 alike, none of this change's: SHIPS OF THE BAY's six
+(A0928-R5-flat-scale-walks-again, NAV-B-her-colours-struck, NAV-C-the-tactic-ignored, NAV1-the-tacks-carry-dropped,
+NAV1-no-pay-off, NAV1-never-warped) and NAV1G-no-bear-free, whose list (`navaudit_guns.json`, its suite a moved pin's
+here) no re-judge of these arcs had judged. Not seen in a browser.
