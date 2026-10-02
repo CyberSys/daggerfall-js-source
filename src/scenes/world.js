@@ -37,7 +37,7 @@ import { createArenaSound } from '../systems/arenaSound.js';   // ARENA2: the cr
 import { arenaScoreSongs, ARENA_SCORE_SILENCE } from '../systems/arenaScore.js';   // ARENA2: the march and the fanfare
 import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, the crowd's meter, the clock
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
-import { exhibitionFor, nextLadderBout, arenaLadderRestore } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
+import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { heraldChoice } from '../systems/arenaHerald.js';   // ARENA2: the Herald's choice at the gate
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
@@ -276,7 +276,7 @@ import { makeInView } from '../player/cameraView.js';   // AUDIT 17e F24
 import { isBackFacing, SIGHT_RADIUS } from '../characters/enemyMotor.js';   // OW6: SIGHT_RADIUS, a foe's own sight (a camp's is its own)   // DUEL1: a duel opponent's blow from behind me is a backstab's chance
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
-import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
+import { reportPlayerAttack, registerAttackResolutionListener } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
 import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { keysHeading, axesToward, tvOwnGrow } from '../player/travelCamera.js';   // OW-FACE: the body faces the keys' way under the Overworld; OW-PEERS: the others grown as the traveller is
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
@@ -460,7 +460,7 @@ import { jumpSpeedMultiplier, isEnhancedJumping, tallySkill, SKILLS } from '../s
 import { playerEntity, surfacePlayer, hurtPlayer, playerBlowCameToNothing, setDeathPresenter, presentPlayerDeath, setAvoidDeathHook, registerDuelFell, duelSpare, setStaffPowers, staffPowers } from '../characters/playerEntity.js';
 import { SOUND } from '../systems/soundClips.js';
 import { createWeaponRig, autoBuildArms, armIdentityOf, armBuiltFor, armsReady, sheetHolderOf, buildArmsFor, prebuildArmsForSave } from '../combat/weaponRig.js';   // MWA1: the arms at boot; MWA3: the identity the arm should stand for, beside the one it does; MW-EARLY: and before the world is read
-import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
+import { weaponPoseOf, applyWeaponPose, mergeWeaponPose, playerMeleeCanHit, registerPlayerSwingListener } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law, and SL-2's per-field merge with the mode host's live rig
 import { ArrowFlight, playerArrowHitFoe } from '../combat/arrowFlight.js';   // C13: visible exterior arrows; AUDIT 39 (#64): and the shaft that LANDS
 import { addItem, addGoldPieces, isGoldPieces, spendAmmoFor, carriedWeight } from '../systems/inventory.js';
 import { storesIn, spendStore, mintStores } from '../systems/naval/navalStores.js';
@@ -7804,6 +7804,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     heal: arenaHeal,
     crime: () => { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); },   // the watch for a brawler, by the street's own law
   });
+  // ARENA-FIX 9/10: every attack's resolution and every swing of mine, told to the bout (its misses, its crits)
+  registerAttackResolutionListener('arena', (r) => arenaBouts.attackResolved(r));
+  registerPlayerSwingListener('arena', (n) => arenaBouts.playerSwing(n));
   /** THE CITY'S FLOOR as a stage: the colosseum's sand where its block stands in a built pixel (null off it), its
    *  fighters through this host's own pool - `loose` (no cap), `transient` (no save holds them), `managed` (no cull),
    *  no champion, no loot - and the ground under a seat asked of the collider from above. */
@@ -7837,7 +7840,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const ARENA_NEAR_M = 150, ARENA_FAR_M = 260;
   function arenaStageNow() {
     const mode = modes?.mode ?? 'exterior';
-    if (mode === 'dungeon') return modes?.arenaFloorStage?.() ?? null;
+    if (mode === 'dungeon') return modes?.arenaFloorStage?.() ?? modes?.arenaPitStage?.() ?? null;   // ARENA-FIX 4: the undercroft's training pit
     if (mode !== 'exterior' || !walkMode || !playerSpawned || !arenaCityPixel()) return null;
     const c = arenaCityStage.centre();
     const d = Math.hypot(player.pos[0] - c[0], player.pos[2] - c[2]);
@@ -8555,10 +8558,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2769 mounts the same one, gated on
+  // and dungeonContext.js:2792 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6684
+  // that context through modes.dungeonCtx - so worldModes.js:6697
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -11145,7 +11148,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7799), so exterior mode and a
+    // composer, dungeonContext.js:7824), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -14000,7 +14003,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10248-10312 -
+  // worldModes answers it in BOTH modes (worldModes.js:10297-10361 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20443,6 +20446,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the instance, the duel's law while my bout stands, and where the way out of the instance lands (before the
     // Herald, facing the market)
     arenaHerald: () => arenaHerald(),
+    // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter
+    // of my tier on the pit's stage; refused while a bout of mine stands
+    arenaPractice: () => {
+      if (arenaBouts.holds() || arenaBouts.pending()) return false;
+      arenaBouts.ask({ where: 'pit', kind: 'practice', next: practiceBout(playerEntity.arenaLadder) });
+      return true;
+    },
+    arenaBusy: () => arenaBouts.holds() || !!arenaBouts.pending(),
     arenaPlayerSpare: () => arenaBouts.playerSpare(),
     arenaHolds: () => arenaBouts.holds(),
     arenaLanding: () => {

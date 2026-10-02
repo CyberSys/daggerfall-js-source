@@ -23,7 +23,9 @@
 //     (`droppedPiles`) carried into the NEW HOUSE'S FIRST CONTAINER (`container:0` of its cached scene, marked `crate`
 //     - and where the new house stands no container, a crate set down where the owner first walks in:
 //     scenes/worldModes.js restoreInteriorScene). Its other layouts' visits go the same way, into the same chest.
-// A torch left burning on the old floor has burnt out, and a camp is no house's.
+// ARENA-FIX 11: a torch (or a candle) left burning on the old floor is carried too - put out and into the chest, the
+// item PickupLightSource mints of it (scenes/droppedTorches.js pickupLightSource: its group, its template, ceil(burn
+// left / 20 s) of condition) - where ARENA2 had let it burn out. A camp is no house's.
 //
 // Online homes are the account service's (ARENA4): the service moves each home row in one migration - see
 // bible/11-Multiplayer/Arena.md "ARENA1 record". Every other record keyed to the cell (a rented room, a repair
@@ -33,6 +35,7 @@
 import { inArenaCell, arenaRecordDisplaced, ARENA_REGION } from '../world/arenaCity.js';
 import { interiorSceneName, cacheScene, containsPermanentScene, addPermanentScene, removePermanentScene } from './sceneCache.js';
 import { isResidence } from '../world/buildingNames.js';
+import { templateByIndex } from './itemTemplates.js';   // ARENA-FIX 11: a torch left burning, back into an item
 
 /** The market's generator (banking.js housesForSale), seeded by what names this move. */
 function pick(n, mapId, oldKey) {
@@ -62,15 +65,28 @@ export function arenaHouseFor({ mapId, oldKey, oldType }, summaries, { held = ne
 /** The key of the new house's first container in its scene (scenes/worldModes.js restoreInteriorScene's `container:i`). */
 export const ARENA_CRATE_KEY = 'container:0';
 const copyItem = (it) => ({ ...it });
+/** HT1's light sources by template (systems/useItem.js TEMPLATES: Torch 247, Candle 253, Holy_candle 269) and their
+ *  item groups - scenes/droppedTorches.js GROUP_FOR; SECONDS_PER_CONDITION systems/handheldTorches.js's. */
+const LIGHT_GROUPS = Object.freeze({ 247: 'UselessItems2', 253: 'UselessItems2', 269: 'ReligiousItems' });
+const LIGHT_SECONDS_PER_CONDITION = 20;
+/** ARENA-FIX 11: a dropped light's saved entry (HandheldTorchesSaveData: `{ position, time, itemTemplateIndex }`) as the
+ *  item picking it up gives, or null for no light. Pure. */
+export function droppedLightItem(t) {
+  const template = t?.itemTemplateIndex | 0;
+  const group = LIGHT_GROUPS[template];
+  if (!group) return null;
+  return { group, templateIndex: template, maxCondition: templateByIndex(template)?.hitPoints ?? 0, currentCondition: Math.max(1, Math.ceil((Number(t.time) || 0) / LIGHT_SECONDS_PER_CONDITION)) };
+}
 /**
  * THE OLD HOUSE'S SCENE EMPTIED INTO THE NEW ONE (the fix above): every entry of `from` (and its other layouts' visits,
  * `from|<layout>`) taken out of the cache, what it held answered, and one entry cached under `to` - permanent if the old
  * one was - whose first container holds every item. Answers `{ own, refund, crate, pieces, hidden }`: the owner's own
  * things (to give back), the gold the placed pieces cost (to pay back whole), the items put in the new house's chest,
- * how many pieces were placed and how many furniture marks were dropped. Pure on the cache.
+ * how many pieces were placed, how many furniture marks were dropped, and (ARENA-FIX 11) how many burning lights were
+ * put out and carried. Pure on the cache.
  */
 export function emptyArenaScene(cache, from, to) {
-  const out = { own: [], refund: 0, crate: [], pieces: 0, hidden: 0 };
+  const out = { own: [], refund: 0, crate: [], pieces: 0, hidden: 0, lights: 0 };
   if (!cache?.scenes) return out;
   const moved = (name) => name === from || name.startsWith(`${from}|`);
   let permanent = false;
@@ -83,6 +99,7 @@ export function emptyArenaScene(cache, from, to) {
     for (const c of d?.lootContainers ?? []) if (Array.isArray(c?.items) && !String(c.key ?? '').startsWith('shelf')) out.crate.push(...c.items.map(copyItem));
     for (const list of Object.values(d?.decorItems ?? {})) if (Array.isArray(list)) out.crate.push(...list.map(copyItem));
     for (const pile of d?.droppedPiles ?? []) if (Array.isArray(pile?.items)) out.crate.push(...pile.items.map(copyItem));
+    for (const t of d?.droppedTorches ?? []) { const it = droppedLightItem(t); if (it) { out.crate.push(it); out.lights++; } }   // ARENA-FIX 11
   }
   for (const name of [...cache.permanent]) if (moved(name)) { permanent = true; cache.permanent.delete(name); }
   removePermanentScene(cache, from);

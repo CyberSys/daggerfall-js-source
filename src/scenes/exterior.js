@@ -274,7 +274,16 @@ import { STREAMING_TERRAIN_SCALE } from '../world/terrainSampler.js';   // TERRA
 import { locationWorldRect } from '../world/streamingWorld.js';   // TP2: the native frame this host's origin stands at
 import { GLOBAL_SCALE, DOOR_TYPE } from '../world/meshReader.js';   // TP2: scene units <-> native world units; ARENA1: the undercroft's stair
 import { isClimateFreeModel, NO_CLIMATE_REMAP } from '../world/customModels.js';   // ARENA1: the colosseum wears its own pictures
-import { isUndercroftDoor, isArenaCity, undercroftLocation } from '../world/arenaCity.js';   // ARENA1: the undercroft below the city
+import { isUndercroftDoor, isArenaCity, undercroftLocation, ARENA_BLOCK, ARENA_GATE_PEOPLE } from '../world/arenaCity.js';   // ARENA1: the undercroft below the city; ARENA-FIX 12: the colosseum's block and its Herald
+import { createArenaBouts } from './arenaBouts.js';   // ARENA-FIX 12: THE FOUR HOSTS - the bout driver on this host too
+import { createArenaSound } from '../systems/arenaSound.js';
+import { drawArenaHud } from '../ui/arenaHud.js';
+import { heraldChoice } from '../systems/arenaHerald.js';
+import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';
+import { cityFloorCentre } from '../world/arenaFloor.js';
+import { setPlayerBout } from '../characters/enemyTargets.js';
+import { registerAttackResolutionListener } from '../combat/formulas.js';
+import { registerPlayerSwingListener } from '../combat/playerWeapon.js';
 import { raceDisplayName } from '../systems/talkSession.js';   // MACRO-ONE: %ra's display name, as world.js reads it
 
 export async function bootExterior(canvas, renderer, params, status) {
@@ -586,11 +595,11 @@ export async function bootExterior(canvas, renderer, params, status) {
   let colliderTris = 0;
   const buildingDoors = []; // {door, dfBlock, recordIndex, climateBase, season (A1: INTERIOR_SEASON), dfLocation, group}
   let undercroft = null;   // ARENA1: the undercroft's record, one for the location
-  // ARENA2: FLAGGED - THE BOUTS ARE THE WORLD HOST'S (scenes/world.js createArenaBouts: the city's exhibitions on the
-  // hour, the Herald's choice, the floor's instance and the ladder). This standalone city host stands the colosseum and
-  // its gate's people as ARENA1 left them, but runs no bout driver: its world-modes host bag hands no `arenaHerald`, so
-  // the Herald's click keeps ARENA1's notice here (scenes/worldModes.js), and no exhibition, crowd or HUD stands.
-  // bible/11-Multiplayer/Arena.md "ARENA2 record" names it.
+  // ARENA-FIX 12 (2026-10-02): WIRED - THE FOUR HOSTS. This standalone city host runs the bout driver as the world host
+  // does (scenes/arenaBouts.js): the city's exhibitions on the hour, the Herald's choice, the floor's instance and the
+  // ladder through the mode machine, the undercroft's training pit - below, after the street pools (arenaCityOrigin is
+  // the colosseum's block's origin in this host's frame, null in any other town). [SUPERSEDES ARENA2's FLAG here.]
+  let arenaCityOrigin = null;
   const flatGroups = new Map(); // "archive_record" -> [centers]
   const springs = [];   // SURV3: the mod's water sources - fountains, wells, the dry fountain, the troughs - {pos, dry}
   const ambientAnimals = [];    // A4: archive-201 town animals as audio sources
@@ -609,6 +618,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   const cityNav = new CityNavigation(loc.width, loc.height);   // T1 towns
   for (const b of loc.blocks) {
     const originMatrix = trs(b.originX, 0, b.originZ, 0, 0, 0);
+    if (b.blockName === ARENA_BLOCK && isArenaCity(dfLocation)) arenaCityOrigin = [b.originX, 0, b.originZ];   // ARENA-FIX 12
     if (holdOn && b.blockName === PRIVATEERS_HOLD_BLOCK) holdBlocks.push(originMatrix);   // WOD4
     // AUDIT 64 F11: DFU's `firstModel` is a LOCAL, reset once per
     // subrecord inside AddModels (RMBLayout.cs:824-832), and AddModels
@@ -1789,6 +1799,97 @@ export async function bootExterior(canvas, renderer, params, status) {
     },
   });
 
+  // ═══ ARENA-FIX 12: THE ARENA'S BOUTS ON THIS HOST (the world host's ARENA2 block, scenes/world.js, the same law) ══════
+  const arenaSound = createArenaSound(audio);
+  const arenaHeal = () => {
+    if (!(playerEntity.health > 0)) return;
+    playerEntity.health = playerEntity.maxHealth;
+    playerEntity.fatigue = maxFatigue(playerEntity);
+    playerEntity.magicka = playerEntity.maxMagicka ?? playerEntity.magicka;
+    surfacePlayer();
+  };
+  const arenaBouts = createArenaBouts({
+    now: () => performance.now(), playerEntity, setPlayerBout,
+    say: (l) => setMidScreenText(l, 2.6),
+    notice: (lines) => { for (const l of lines) townTalk.say(l); },
+    sound: arenaSound, drawHud: (m, o) => drawArenaHud(m, o),
+    renderer, getTexture, uploadRecordFrame,
+    pay: (g) => addGold(playerEntity, g),
+    heal: arenaHeal,
+    crime: () => { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); },
+  });
+  registerAttackResolutionListener('arena', (r) => arenaBouts.attackResolved(r));
+  registerPlayerSwingListener('arena', (n) => arenaBouts.playerSwing(n));
+  const _arenaCityC = [0, 0, 0];
+  /** The city's floor as a stage: this host's frame, its street pool's loose, transient, managed stands. */
+  const arenaCityStage = {
+    kind: 'city',
+    centre: () => {
+      const f = cityFloorCentre();
+      for (let i = 0; i < 3; i++) _arenaCityC[i] = (arenaCityOrigin?.[i] ?? 0) + f[i];
+      return _arenaCityC;
+    },
+    spawn: (mobile, feet, o) => exteriorFoes.spawnFoe(mobile, feet, { yaw: o.yaw, gender: o.gender, level: o.level, loose: true, transient: true, managed: true, champion: null })
+      .then((f) => { if (f) { f.entity.bout = o.bout; f.entity.items = []; } return f; }),
+    remove: (f) => exteriorFoes.removeFoe(f),
+    heightAt: (x, z) => { const top = _arenaCityC[1] + 30; const d = collider.raycast([x, top, z], [0, -1, 0], 60); return Number.isFinite(d) ? top - d : null; },
+  };
+  function arenaHeraldAt() {
+    const h = ARENA_GATE_PEOPLE.find((g) => g.role === 'herald');
+    if (!arenaCityOrigin || !h) return null;
+    return [arenaCityOrigin[0] + h.x * 0.025, arenaCityOrigin[1] + GROUND_OFFSET * 0.025, arenaCityOrigin[2] + (h.z + 4096) * 0.025];
+  }
+  const ARENA_NEAR_M = 150, ARENA_FAR_M = 260;
+  let _arenaHourRun = null;
+  function arenaStageNow() {
+    const mode = modes?.mode ?? 'exterior';
+    if (mode === 'dungeon') return modes?.arenaFloorStage?.() ?? modes?.arenaPitStage?.() ?? null;
+    if (mode !== 'exterior' || !walkMode || !arenaCityOrigin) return null;
+    const c = arenaCityStage.centre();
+    const d = Math.hypot(player.pos[0] - c[0], player.pos[2] - c[2]);
+    if (d > (arenaBouts.stageKind() === 'city' ? ARENA_FAR_M : ARENA_NEAR_M)) return null;
+    return arenaCityStage;
+  }
+  function arenaFrame(dt) {
+    const stg = arenaStageNow();
+    arenaBouts.setStage(stg);
+    if (stg === arenaCityStage && !arenaBouts.bout() && !arenaBouts.pending() && !gamePaused()) {
+      const ex = exhibitionFor(worldMinutes());
+      if (ex?.open && ex.hour !== _arenaHourRun) { _arenaHourRun = ex.hour; arenaBouts.ask({ where: 'city', kind: 'exhibition', ex }); }
+    }
+    if (!stg) { arenaBouts.frame(dt, {}); if (!arenaBouts.bout()) arenaSound.stop(); return; }
+    const rig = (modes?.mode ?? 'exterior') === 'dungeon' ? modes?.dungeonCtx?.weaponRig?.() : weaponRig;
+    arenaBouts.frame(gamePaused() ? 0 : dt, {
+      playerFeet: player.pos, sheathed: rig?.playerWeapon ? !!rig.playerWeapon.sheathed : null,
+      stamina: (playerEntity.fatigue ?? 0) / Math.max(1, maxFatigue(playerEntity)),
+      hidden: gamePaused() || !!townTalk.hudHidden, touch: false,
+    });
+  }
+  /** The Herald's choice (systems/arenaHerald.js) - watch, fight, the fighters' hall, leave. */
+  function arenaHerald() {
+    if (!arenaCityOrigin) return false;
+    const ladder = arenaLadderRestore(playerEntity.arenaLadder);
+    const sand = arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null;
+    const ch = heraldChoice({ gameMinutes: worldMinutes(), cityBout: sand, ladder, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1) });
+    const act = (a) => {
+      if (a === 'watch') {
+        const ex = exhibitionFor(worldMinutes());
+        if (!ex) return;
+        _arenaHourRun = ex.hour;
+        arenaBouts.dismiss();
+        arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
+        modes?.enterArenaFloor?.('watch');
+      } else if (a === 'fight') {
+        const next = nextLadderBout(ladder);
+        if (!next) return;
+        arenaBouts.ask({ where: 'floor', kind: 'ladder', next });
+        modes?.enterArenaFloor?.('ladder');
+      } else if (a === 'hall') modes?.enterArenaUndercroft?.();
+    };
+    townTalk.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => act(o.act) })) }));
+    return true;
+  }
+
   // AUDIT-RR F15: EnhancedRiding is a component on the player in EVERY exterior (RoleplayRealism.cs:139-151) - this
   // host had the draw and nothing else. CanRun and the axis limits read these seams; the contacts run each frame.
   setRrHostSeams({ inTown: () => _isPlayerInTownStrict(), transportMode: () => player.transportMode, riding: () => player.riding });
@@ -2046,7 +2147,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // The MASTERY box (RaiseSkills :1390-1401) - TEXT.RSC 4020.
     box: (rows) => townTalk.showOverlay(new ActionTextBox(rows)),
     ask: (rows, onYes, onNo, opts = {}) => townTalk.showOverlay(new YesNoBoxWindow({ rows, onYes, onNo, ...opts })),   // SOFTCAP3: the Master Skills box - DFU's Yes/No or OK box (both skins)
-    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest   // ROAD-G TAIL: the catch-up loop rides the rest's minutes, as world.js:9467 has it
+    advanceMinutes: (n) => { playerTicker.advance(n); runEncounterTick(walkMode ? player.pos : cam.pos, true); },   // CAMP1-REST: every tick this drives IS a rest   // ROAD-G TAIL: the catch-up loop rides the rest's minutes, as world.js:9470 has it
     // QX1: TickRest's per-hour QuestMachine.Instance.Tick (:379),
     // through THIS host's own bridge. It used to be `null` with a note
     // saying "grep questBridge in this file returns nothing" - true
@@ -2387,7 +2488,7 @@ export async function bootExterior(canvas, renderer, params, status) {
   /** AUDIT 58 (f2/hosts): HOISTED, because the enchant ctx below needs
    *  the same object. A caster reaches applySpell as `{ entity, sinks }`
    *  and the sinks are what a Transfer effect heals the caster through
-   *  (effects.js:960/:974) - world.js:8376 hoisted its copy for exactly
+   *  (effects.js:960/:974) - world.js:8379 hoisted its copy for exactly
    *  that reason when reflection was wired, and this host's stayed
    *  inline only because nothing else had asked for it. */
   const playerSpellSinks = {
@@ -2438,8 +2539,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     // neither key, so on this route - and, because worldModes takes THIS
     // instance indoors, in every shop entered from it - `cast X spell do`
     // and `cast X effect do` could never latch and never fire. The other
-    // two engine-owning hosts wire the identical pair (world.js:8164-8165,
-    // dungeonContext.js:2544-2545); `questBridge` is assigned below this
+    // two engine-owning hosts wire the identical pair (world.js:8167-8168,
+    // dungeonContext.js:2567-2568); `questBridge` is assigned below this
     // mount, so the chain is optional both ways.
     onNewReadySpell: (sp) => questBridge?.machine?.notifyNewReadySpell?.(sp),
     onCastReadySpell: (sp) => questBridge?.machine?.notifyCastReadySpell?.(sp),
@@ -2696,7 +2797,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // (chronicleDoor.js:110 `if (!questJournalArtLoaded()) return null`),
     // so a readiness test placed AHEAD of the preload that satisfies it
     // made the classic skin answer null for ever - the warm behind the
-    // gate could never run. dungeonContext.js:1691-1696 is the shape:
+    // gate could never run. dungeonContext.js:1714-1719 is the shape:
     // warm, then let the door refuse.
     preloadQuestJournalArt({ renderer, fetchBytes, palette });
     return createChronicleWindow({
@@ -2763,6 +2864,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     window.__player = {
       get pos() { return [...player.pos]; },
       warp: (x, y, z) => player.spawn(x, y, z),
+      // ARENA-FIX 1: the climb's state, for the stair walk (world.js __climb's fields)
+      get climb() { return { climbing: !!player.climb?.isClimbing, mantling: !!player.mantling, wall: player._wall?.mode ?? null, move: player._pkMove?.kind ?? null, grounded: !!player.grounded }; },
     };
   }
   const extentX = loc.width * RMB_SIDE;
@@ -3540,14 +3643,14 @@ export async function bootExterior(canvas, renderer, params, status) {
     // below) has always been the clone, so a read off the file was a
     // read of a different Map: `change repute with _npc_ by 30` landed
     // on one and `when repute with _npc_ is at least N` asked the
-    // other. world.js:14233 is the same line.
+    // other. world.js:14236 is the same line.
     getFactionData: (id) => _questStore()?.dict.get(id) ?? null,
     /** PersistentFactionData.FindFactions by type - Person.cs's
      *  _getRandomFactionOfType (:967-1018). Unmounted, a Person
      *  declared `factiontype Temple/Daedra/Witches_Coven` threw. */
     findFactionsOfType: (type) => { const s = _questStore(); return s ? [...s.dict.values()].filter((f) => f.type === type) : []; },
     /** FindFactionByTypeAndRegion (PersistentFactionData.cs:236-265),
-     *  %rn/%rt's producer - world.js:14129-14142. */
+     *  %rn/%rt's producer - world.js:14132-14145. */
     findFactionByTypeAndRegion: (type, regionIndex) => {
       const s = _questStore();
       return s ? findFactionByTypeAndRegion(s.dict, type, regionIndex) : null;
@@ -3586,7 +3689,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     currentWeatherKey: () => currentWeather() ?? null,   // Q5: the Weather trigger's read
     isPlayerInLocationRect: () => _musicInLocationRect(),
     playerPixel: () => _locPixel,   // F114: the quest clock's travel arm
-    // QG1: CastSpellDo's two world reads, world.js:14039-14042's pair.
+    // QG1: CastSpellDo's two world reads, world.js:14042-14045's pair.
     // Without them the action self-completes at parse (actions.js:2781/:2788)
     // and a `cast X spell do` on this route could never be armed, whatever
     // the ready-spell doors above raise.
@@ -3617,7 +3720,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     /** Place.AssignQuestResource's hot-place tail (Place.cs:508-527) -
      *  AddQuestResourceObjects over whatever site the player already
      *  stands in. The mode machine owns the mount and is already
-     *  mode-aware (worldModes:1258), so this is world.js:13991's line
+     *  mode-aware (worldModes:1258), so this is world.js:13994's line
      *  over this host's own modes bag. */
     mountCurrentSiteQuestResources: () => modes?.mountQuestResources?.(),
     /** AUDIT 63 F1: the same static-NPC behaviour cache
@@ -3630,7 +3733,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // meets a Foe could complete on this route.
     /** GameObjectHelper.CreateFoeGameObjects (:1243-1305), data side:
      *  `count` inactive handles, activation deferred to placement.
-     *  Bridge-only, no host state - world.js:13999's call verbatim. */
+     *  Bridge-only, no host state - world.js:14002's call verbatim. */
     createFoeGameObjects: (foe, count) => mintQuestFoeWave(questBridge.machine, foe, count),
     /** CreateFoe.TryPlacement (:183-211), ALL THREE ARMS. The INSIDE
      *  two are the mode machine's - worldModes.tryPlaceQuestFoe places
@@ -3645,7 +3748,7 @@ export async function bootExterior(canvas, renderer, params, status) {
      *  city's rect for its whole life (`_musicInLocationRect` is
      *  `() => true`), so the wilderness arm (:252-257) has no reachable
      *  branch here at all and the ring is the default one, unqualified.
-     *  Everything else is world.js:14130's arm term for term: the cast
+     *  Everything else is world.js:14133's arm term for term: the cast
      *  origin is the controller CENTRE (DFU rays from
      *  PlayerObject.transform.position, not the feet), the FOV is
      *  handed over in DEGREES (`fieldOfView()` answers radians), the
@@ -3751,7 +3854,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // to the pending pile rather than straight into the pack. The
     // flagless form is a different question and has its own caller
     // below (`inTownLocation`, CanRest's second arm). This is the
-    // closure S40 gave this host, and world.js:14817's line.
+    // closure S40 gave this host, and world.js:14820's line.
     isPlayerInTown: () => _isPlayerInTownStrict(),
     // Q5: the un-pended quest actions' doors, all of them this host's
     // own arms - the crime setter (V4's SuppressCrime gate), the gold
@@ -3776,7 +3879,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // which is the one seam that really does ask the narrower question.
     makeEnemiesHostile: _makeEnemiesHostile,
     // GameManager.ClearEnemies destroys every active enemy object; the
-    // encounter half is world.js:14918's line and the watch half is this
+    // encounter half is world.js:14921's line and the watch half is this
     // host's own (cityGuards owns its live list).
     clearEnemies: () => { cityGuards.clearLive?.(); for (const f of [...exteriorFoes.foes]) { if (!f.dead) exteriorFoes.removeFoe(f); } lockOn.unlock(); },   // AUDIT 62 F16: a removed foe is never flagged dead, so the lock must be let go here
     // MT-iii/MT-iv: ChangeFoeInfighting / ChangeFoeTeam's instance walk
@@ -3801,13 +3904,13 @@ export async function bootExterior(canvas, renderer, params, status) {
   // (:10916) alone, so on ?exterior every HUD line this host and its
   // interior arm spoke was dropped from the journal's Messages page -
   // a page exterior.js:1102 wires up and can reach. Same moment and
-  // same order as world.js:14815/:14820, for the same reason: the
+  // same order as world.js:14818/:14823, for the same reason: the
   // notebook only exists once the bridge above is built.
   townTalk.hudMessageSink = (t) => questBridge?.notebook?.addMessage(t);
   // AUDIT 63 F5: DaggerfallTalkWindow.OnPop's notebook filing
   // (DaggerfallTalkWindow.cs:319). townTalk holds the one talk-window
   // door and no notebook; the bridge holds the notebook and is built
-  // here, so the sink is handed down at this moment - world.js:15119's
+  // here, so the sink is handed down at this moment - world.js:15122's
   // line for this host.
   townTalk.notebookSink = (tokens) => questBridge?.notebook?.addNoteTokens(tokens);
   questBridge.onInitWorld();   // QuestMachine's OnInitWorld - this route's ONE city is its world
@@ -3836,6 +3939,24 @@ export async function bootExterior(canvas, renderer, params, status) {
     weaponPose: () => weaponPoseOf(weaponRig.playerWeapon),   // JAN1: the pose is the player's - a door in or out hands the pair through these; DISC8-E: in THIS bag, which worldModes reads
     applyWeaponPose: (p) => applyWeaponPose(weaponRig.playerWeapon, p),
     questBoxHoldsFoes: () => _questBoxHoldsFoes(),   // QUEST-POPUP-PAUSE: the interior pools' half
+    // ARENA-FIX 12: THE ARENA'S DOORS for the mode machine, as the world host's (scenes/world.js)
+    arenaHerald: () => arenaHerald(),
+    arenaPractice: () => {
+      if (arenaBouts.holds() || arenaBouts.pending()) return false;
+      arenaBouts.ask({ where: 'pit', kind: 'practice', next: practiceBout(playerEntity.arenaLadder) });
+      return true;
+    },
+    arenaBusy: () => arenaBouts.holds() || !!arenaBouts.pending(),
+    arenaPlayerSpare: () => arenaBouts.playerSpare(),
+    arenaHolds: () => arenaBouts.holds(),
+    arenaLanding: () => {
+      const at = arenaHeraldAt();
+      if (!at) return null;
+      const x = at[0], z = at[2] + 2.5;
+      return { pos: [x, collider.heightAt(x, z), z], normal: [0, 0, 1] };
+    },
+    arenaCity: () => (isArenaCity(dfLocation) ? dfLocation : null),
+    extraBillboards: () => ((modes?.mode ?? 'exterior') === 'dungeon' ? arenaBouts.batches() : []),
     questLocationName: () => dfLocation.name ?? locationName,   // AUDIT GUIDE W6: a building's Quests tab asks the city it stands in, as its chronicle and the card do (no map to ask here)
     activateDir: () => _tapDir,   // TI1: the tap's ray for the modal ladders (eyeDir)
     activateLockOnly: () => _tapLockOnly,   // TS1: the stick-half tap - the modal ladders stop after the lock pick
@@ -4041,7 +4162,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       // search; an empty list means an owned house never resolves even
       // in its OWN town, so this host sold every deed for nothing
       // before F26's guard and would refuse every sale after it. Same
-      // two inputs the world host uses (world.js:20169).
+      // two inputs the world host uses (world.js:20172).
       buildings: locationBuildings(dfLocation.exterior?.buildings ?? [], loc.blocks, { locationIndex: dfLocation.locationIndex ?? 0 }),
       mapId: dfLocation?.mapTableData?.mapId ?? 0,
       regionIndex: dfLocation.regionIndex ?? 0,
@@ -4126,7 +4247,7 @@ export async function bootExterior(canvas, renderer, params, status) {
    *  host's only pool is the WATCH, which mints watchmen and exposes
    *  no free spawn pair", so a soul released or a Rose used in the
    *  street released nothing at all. That premise died with the
-   *  encounter mount above, and world.js:8562-8578 is the shape.
+   *  encounter mount above, and world.js:8565-8581 is the shape.
    *  INTERIOR still refuses - worldModes' interior pool exposes no
    *  loose-spawn door - which is EC1's answer and world.js's own for
    *  the same mode. AUDIT 68 S23-coven-punishment-interior-only: at
@@ -4213,7 +4334,7 @@ export async function bootExterior(canvas, renderer, params, status) {
      *  been another host's. The encounter pool mounted above owns both,
      *  so an encounter or quest foe struck in the street is removed and
      *  re-stood by the pool that owns its billboard, exactly as
-     *  world.js:8509-8510 does it. ROAD-G TAIL: a WATCHMAN transforms
+     *  world.js:8512-8513 does it. ROAD-G TAIL: a WATCHMAN transforms
      *  too, through removeGuard. (The sentence that stood here:) it was left standing:
      *  the street pool cannot remove a record it does not own, which is
      *  the same departure worldModes records for the indoor watch. */
@@ -4295,6 +4416,20 @@ export async function bootExterior(canvas, renderer, params, status) {
       if (walkMode) player.spawn(x, y, z); else { cam.pos = [x, y, z]; _shotPosed = true; }   // DS1: a posed fly camera leaves the scout's fixed framing (tools/shotPoses.mjs)
     };
     modes.installShotProbes();
+    // ARENA-FIX 12 probe surface (world.js __arena's shape, this host's): the bout standing, its fighters' feet
+    window.__arena = () => {
+      const b = arenaBouts.bout(), c = arenaBouts.crowd();
+      return {
+        centre: arenaCityOrigin ? [...arenaCityStage.centre()] : null, herald: arenaHeraldAt(), stage: arenaBouts.stageKind(), kind: arenaBouts.kind(),
+        phase: b?.phase ?? null, result: b?.result ?? null, mood: c?.mood ?? null, crowd: arenaBouts.batches().length, mode: modes?.mode ?? 'exterior',
+        fighters: b ? b.fighters.map((f) => ({ id: f.id, name: f.name, side: f.side, health: f.health, max: f.maxHealth, out: f.out, atMark: !!f.atMark, misses: f.misses, crits: f.crits, pos: f.pos ? f.pos.map((v) => +v.toFixed(2)) : null })) : [],
+        ladder: arenaLadderRestore(playerEntity.arenaLadder), pit: modes?.dungeonCtx?.arenaPit ?? null,
+        // the undercroft's hall: its people with their offices, its chained beasts, every foe standing
+        hall: (modes?.dungeonCtx?.people ?? []).filter((p) => p.position >= 0x55430000).map((p) => ({ role: p.arenaRole, a: p.textureArchive, r: p.textureRecord, at: [p.x, p.y, p.z].map((v) => +v.toFixed(2)) })),
+        foes: (modes?.dungeonCtx?.foes ?? []).filter((f) => !f.dead).map((f) => ({ t: f.mobileType, chained: !!f.entity?.bout?.chained, hostile: !!f.ai?.isHostile, at: f.ai?.feet?.map((v) => +v.toFixed(2)) })),
+      };
+    };
+    window.__arenaHerald = () => arenaHerald();
     window.__magic = () => JSON.stringify({ mp: playerEntity.magicka, readied: magic.readied()?.name ?? null, armed: magic.spellArmed(), missiles: magic.missileCount(), mode: modes?.mode ?? 'exterior', book: (playerEntity.spells ?? []).map((sp) => ({ name: sp.name, range: sp.rangeType })) });   // M5 cast probe
     // X11c: the self-cast door, named as the dungeon host names it. A
     // spell that opens a WINDOW (Identify, Dispel Magic, Create Item)
@@ -4614,6 +4749,8 @@ export async function bootExterior(canvas, renderer, params, status) {
     // AT2: AmbientTextMod.Update, above the modal gate - see the note
     // at the same line in scenes/world.js.
     tickAmbientText();
+    arenaFrame(dt);   // ARENA-FIX 12: the bout on the city's floor or the instance's - before the modal return, as the world host's
+    player.arena = arenaBouts.ring();   // my bout's ring on the sand (the duel's clamp) - this host holds no other
     // AUDIT 66 F11: the torch sweep runs HERE, above the modal
     // return, because that is where the transition is. It used to sit
     // with the tick at the foot of the exterior frame - which this
@@ -5359,7 +5496,7 @@ export async function bootExterior(canvas, renderer, params, status) {
     // ROAD-G G2: THE ENEMY ARM EXISTS NOW - the note here said "this
     // host mounts no bow-armed pool", which stopped being true with the
     // encounter mount above, and an archer's shaft would have flown
-    // through the player for ever. world.js:24036-24299 is the shape.
+    // through the player for ever. world.js:24047-24310 is the shape.
     arrows.update(dt, {
       // enemy arrows hunt only a WALKING player - the fly camera has no
       // capsule to hit
@@ -5449,6 +5586,7 @@ export async function bootExterior(canvas, renderer, params, status) {
       }
       _visBatches.push(b);
     }
+    for (const b of arenaBouts.batches()) _visBatches.push(b);   // ARENA-FIX 12: the crowd in the colosseum's tiers, and what it throws
     bloodMarks.draw(camRight, UP_Y);   // BLOOD1a: the marks go down BEFORE the billboards, so a body standing in its own blood is over it and not under it. ABOVE setFlatWind for the reason its own neighbour gives: WIND3 pins the wind and the draw as ADJACENT.
     renderer.setFlatWind(floraSwayOn() && wd.on ? [wd.windV[0], wd.windV[1], now / 1000, wd.gust] : null);   // WIND3: the flats lean with the one wind; the flora batches carry their share (sway)
     renderer.drawBillboards(_visBatches, camRight, UP_Y);
@@ -5617,7 +5755,7 @@ export async function bootExterior(canvas, renderer, params, status) {
         const swing = {};   // AUDIT DISC19: one swing, one attack grunt, however many pools it is offered to
         if (!cityGuards.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {
           // ROAD-G G2: encounter foes resolve AFTER the watch and
-          // BEFORE civilians - world.js:24431's order, and the order
+          // BEFORE civilians - world.js:24442's order, and the order
           // matters because a watchman standing over a quest foe must
           // still be the one the swing finds.
           if (exteriorFoes.resolvePlayerHit(weaponRig.playerWeapon, eye, fwd, player.pos, makeInView(proj, view, multiply), guardHitSound, { swing })) {

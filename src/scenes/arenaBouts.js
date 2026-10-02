@@ -23,20 +23,30 @@
 // Not a DFU member. Ledger A (ARENA).
 
 import {
-  newBout, boutTick, boutHit, boutFell, boutYield, boutPos, boutHealth, boutAtMarks, takeBoutEvents, boutLive, boutOver, boutFighter,
+  newBout, boutTick, boutHit, boutMiss, boutFell, boutYield, boutPos, boutHealth, boutAtMarks, takeBoutEvents, boutLive, boutOver, boutFighter,
   fighterShare, boutPurse, sideNames, otherNames, YIELD_SHARE,
 } from '../systems/arenaBout.js';
 import { newCrowd, crowdHear, crowdTick, crowdBark, crowdCount, crowdFlipFps, crowdHop, verdictThrows, seatPeople, THROWN_FLOWERS, THROWN_REFUSE } from '../systems/arenaCrowd.js';
-import { fighterIdentity, boutMarks } from '../systems/arenaFighters.js';
+import { fighterIdentity, boutMarks, boutGateOf } from '../systems/arenaFighters.js';
 import { EXHIBITION_PURSE, ladderAfter, arenaLadderRestore, arenaHash, seededRng } from '../systems/arenaLadder.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
 import { arenaScoreFor } from '../systems/arenaScore.js';
 import { crowdSeats, pickSeats, RING_R } from '../world/arenaFloor.js';
 import { arenaHudModel } from '../ui/arenaHud.js';
 
-/** A blow of this share of the struck's whole health is the crowd's "crit" - a telling blow (the critical-strike roll
- *  is the formula's, not the damage door's: the door hears only the damage). */
+/** ARENA-FIX 10: A CRIT is the formula's own critical-strike roll (combat/formulas.js calculateAttackDamage's notes,
+ *  told through `observeAttackResolution` and matched to the blow the damage door hears - `attackResolved` below).
+ *  Where no resolution was told for the blow (a spell, a host whose blow skips the formula), a blow of this share of
+ *  the struck's whole health stands in for it - the old approximation, kept only as the fallback. */
 export const CRIT_SHARE = 0.15;
+/** A resolution told this long before the damage door hears its blow is that blow's, ms. */
+export const RESOLUTION_MS = 400;
+/** ARENA-FIX 8: a fighter on its walk in is at its mark within this, metres; it walks at this share of its pace. */
+export const MARK_ARRIVE_M = 0.6;
+export const WALK_PACE = 0.7;
+/** ARENA-FIX 13: TEXTURE.185 carries the court's nobles at a scale of +128 (6 m - drawn for Castle Daggerfall's great
+ *  hall); in the stands they sit at TEXTURE.183's -128, the same figures' own court scale. */
+export const CROWD_SCALE = Object.freeze({ 185: -128 });
 /** An AI fighter's id; the player's. */
 export const YOU = 'you';
 /** How long after the healers the fighters stand before they leave the sand, ms; how long the crowd stays after. */
@@ -97,18 +107,24 @@ export function createArenaBouts(deps) {
     if (!stage) return null;
     dismiss();
     const t = now();
-    const ladder = p.kind === 'ladder';
+    // ARENA-FIX 4: the training pit's PRACTICE bout is a ladder bout's shape (the player on side 0) - no purse, no
+    // step on the ladder, no crowd, no music (`quiet`)
+    const ladder = p.kind === 'ladder' || p.kind === 'practice';
+    const practice = p.kind === 'practice';
     const seed = ladder ? arenaHash(Math.floor(t) & 0x7fffffff, 7) : p.ex.seed;
     const opps = ladder ? p.next.opponents : p.ex.opponents;
     const free = ladder && !!p.next.free;
-    const id = ladder ? `ladder:${p.next.tier}:${p.next.bout}:${seed}` : `ex:${p.ex.hour}`;
+    const id = practice ? `practice:${seed}` : ladder ? `ladder:${p.next.tier}:${p.next.bout}:${seed}` : `ex:${p.ex.hour}`;
     // the sides: an exhibition's two, a ladder bout's player against the rest (a Grand Melee every fighter its own)
     const specs = opps.map((o, i) => ({ ...o, i, side: free ? i + 1 : ladder ? 1 : i }));
     const sides = free ? specs.length + 1 : 2;
     const perSide = Array(sides).fill(0);
     if (ladder) perSide[0] = 1;
     for (const s of specs) perSide[s.side]++;
-    const marks = boutMarks(sides, perSide);
+    // the marks on the floor's long axis - or, on a stage with its own way (the undercroft's pit, a passage), along it
+    // and `markScale` as far apart
+    const k = stage.markScale ?? 1, ax = stage.axis;
+    const marks = boutMarks(sides, perSide).map((side) => side.map(([x, z]) => (ax ? [(x * ax[0] - z * ax[1]) * k, (x * ax[1] + z * ax[0]) * k] : [x * k, z * k])));
     const used = Array(sides).fill(0);
     if (ladder) used[0] = 1;
     const fighters = [];
@@ -129,17 +145,21 @@ export function createArenaBouts(deps) {
     cur = {
       kind: p.kind, id, seed, stage, ladder, next: ladder ? p.next : null, ex: ladder ? null : p.ex, fighters: new Map(), tags, marks,
       roster: fighters, b: null, crowd: null, you: ladder ? YOU : null, playerTag: ladder ? { id, side: 0, out: false, hold: true } : null,
+      practice, quiet: practice, ring: stage.radius ?? RING_R, lastBlow: new Map(), walking: new Set(),
       lastHealth: P?.health ?? 0, lastSheathed: null, verdictAt: NaN, doneAt: NaN, paid: false, said: false, crowdSeats: null,
       crowdBatches: [], throws: [], spawning: 0, title: false, startedAt: t, bark: '', barkAt: -Infinity, ringed: null,
     };
     if (ladder) deps.setPlayerBout?.(cur.playerTag);
-    // the fighters stand at their marks, facing the middle; the law starts once every body stands
+    // ARENA-FIX 8: THE ENTRANCE - each fighter stands at the mouth of its side's passage under the tiers (the floor's
+    // two gates, systems/arenaFighters.js boutGateOf; a pit has no gates - its fighter stands on the mark) facing in,
+    // and walks to its mark when the Herald cries its name (`hear`, 'crier'); the law starts once every body stands
     const C = cur;
     for (const f of fighters) {
       if (!f.ai) continue;
-      const feet = floorFeet(f.mark);
+      const from = stage.gates === false ? f.mark : boutGateOf(f.mark);
+      const feet = floorFeet(from);
       C.spawning++;
-      Promise.resolve(stage.spawn(f.spec.mobile, feet, { level: f.spec.level, gender: f.who.gender, yaw: yawTo(f.mark, [0, 0]), bout: tags.get(f.id) }))
+      Promise.resolve(stage.spawn(f.spec.mobile, feet, { level: f.spec.level, gender: f.who.gender, yaw: yawTo(from, f.mark[0] === from[0] && f.mark[1] === from[1] ? [0, 0] : f.mark), bout: tags.get(f.id) }))
         .then((foe) => {
           C.spawning--;
           if (cur !== C || !foe) { if (foe) stage?.remove?.(foe); if (cur === C && !foe) dismiss(); return; }
@@ -160,12 +180,12 @@ export function createArenaBouts(deps) {
     const t = now();
     const c = stage.centre();
     C.b = newBout({
-      id: C.id, kind: C.ladder ? (C.next.grand ? 'grand' : C.next.champion ? 'champion' : C.next.free ? 'melee' : 'ladder') : 'exhibition',
+      id: C.id, kind: C.practice ? 'practice' : C.ladder ? (C.next.grand ? 'grand' : C.next.champion ? 'champion' : C.next.free ? 'melee' : 'ladder') : 'exhibition',
       fighters: C.roster.map((f) => ({ id: f.id, name: f.name, side: f.side, maxHealth: f.maxHealth, health: f.health, temper: f.temper, ai: f.ai, home: f.home, epithet: f.epithet })),
-      ring: { centre: [c[0], c[2]], radius: RING_R }, now: t, tier: C.ladder ? C.next.tier : C.ex.tier, label: C.ladder ? C.next.label : '',
+      ring: { centre: [c[0], c[2]], radius: C.ring }, now: t, tier: C.ladder ? C.next.tier : C.ex.tier, label: C.ladder ? C.next.label : '',
     });
     C.crowd = newCrowd({ fighters: C.roster.map((f) => ({ id: f.id, home: f.home, ai: f.ai })), beasts: C.ladder ? !!C.next.beasts : !!C.ex.beasts });
-    buildCrowd(C);
+    if (!C.quiet) buildCrowd(C);
   }
 
   // ── THE BODIES' DOORS (the pools' bout hooks) ───────────────────────────────────────────────────────────
@@ -181,7 +201,46 @@ export function createArenaBouts(deps) {
     const from = fromPlayer ? (C.ladder ? YOU : null) : idOf(C, striker);
     if (!from) { boutHealth(C.b, fid, foe?.entity?.health ?? 0); return; }
     const f = boutFighter(C.b, fid);
-    boutHit(C.b, { from, to: fid, dmg, health: foe?.entity?.health, crit: !!f && dmg >= f.maxHealth * CRIT_SHARE, now: t });
+    boutHit(C.b, { from, to: fid, dmg, health: foe?.entity?.health, crit: critOf(C, fid, dmg, f?.maxHealth ?? 1, t), now: t });
+  }
+  /** ARENA-FIX 10: whether a blow on `to` was a critical strike - the formula's own roll when the resolution was told
+   *  for it (`attackResolved`), else the CRIT_SHARE stand-in. */
+  function critOf(C, to, dmg, maxHealth, t) {
+    const r = C.lastBlow.get(to);
+    if (r && t - r.at <= RESOLUTION_MS) { C.lastBlow.delete(to); return r.critical; }
+    return dmg >= maxHealth * CRIT_SHARE;
+  }
+  /** The bout's id of an entity (a fighter's body, or the player in my own bout), or null. */
+  const idOfEntity = (C, ent) => {
+    if (!ent) return null;
+    if (C.ladder && ent === P) return YOU;
+    for (const [id, foe] of C.fighters) if (foe.entity === ent) return id;
+    return null;
+  };
+  /**
+   * ARENA-FIX 9 + 10: AN ATTACK RESOLVED (combat/formulas.js observeAttackResolution - every calculateAttackDamage,
+   * whoever swung: the player's blows and arrows, a fighter's on the player, a fighter's on a fighter). Inside a live
+   * bout, between two of its fighters on different sides: no damage is a MISS for the striker (the judges' third count);
+   * a blow that lands leaves its critical-strike flag for the damage door to read (critOf).
+   */
+  function attackResolved(r) {
+    const C = cur;
+    if (!C?.b || !boutLive(C.b) || !r) return;
+    const from = idOfEntity(C, r.attacker), to = idOfEntity(C, r.target);
+    if (!from || !to || from === to) return;
+    const a = boutFighter(C.b, from), b = boutFighter(C.b, to);
+    if (!a || !b || a.side === b.side) return;
+    const t = now();
+    if (!(r.damage > 0)) boutMiss(C.b, { from, now: t });
+    else C.lastBlow.set(to, { critical: !!r.critical, at: t });
+  }
+  /** ARENA-FIX 9: the player's swing reached nobody (combat/playerWeapon.js observePlayerSwing, `struck` 0) - in my own
+   *  live bout, a miss. */
+  function playerSwing(struck) {
+    const C = cur;
+    if (!C?.ladder || !C.b || !boutLive(C.b) || struck > 0) return;
+    const you = boutFighter(C.b, YOU);
+    if (you && !you.out) boutMiss(C.b, { from: YOU, now: now() });
   }
   function floorFoe(fid, foe) {
     const C = cur;
@@ -238,6 +297,12 @@ export function createArenaBouts(deps) {
       if (foe.dead) { if (boutLive(C.b)) boutFell(C.b, fid, t); continue; }
       if (foe.ai?.feet) boutPos(C.b, fid, [foe.ai.feet[0], foe.ai.feet[2]]);
       if (tag) tag.hold = !boutLive(C.b);
+      // ARENA-FIX 8: a fighter on its walk in, at its mark: it turns to the middle, and the law hears it there
+      if (C.walking.has(fid) && arrived(C, fid, foe)) {
+        C.walking.delete(fid);
+        if (foe.ai) { foe.ai.walkGoal = null; foe.ai.yaw = yawTo(markOf(C, fid), [0, 0]); }
+        if (C.b.phase === 'walk') boutAtMarks(C.b, fid, t);
+      }
     }
     if (C.playerTag) C.playerTag.hold = !boutLive(C.b);
     if (C.ladder && P) {
@@ -245,7 +310,7 @@ export function createArenaBouts(deps) {
       const h = P.health ?? 0;
       if (boutLive(C.b) && h < C.lastHealth) {
         const from = attackerOfMe(C, o.playerFeet);
-        if (from) boutHit(C.b, { from, to: YOU, dmg: C.lastHealth - h, health: h, crit: (C.lastHealth - h) >= (P.maxHealth || 1) * CRIT_SHARE, now: t });
+        if (from) boutHit(C.b, { from, to: YOU, dmg: C.lastHealth - h, health: h, crit: critOf(C, YOU, C.lastHealth - h, P.maxHealth || 1, t), now: t });
         else boutHealth(C.b, YOU, h);
       } else if (h !== C.lastHealth) boutHealth(C.b, YOU, h);
       C.lastHealth = h;
@@ -266,7 +331,7 @@ export function createArenaBouts(deps) {
     for (const tag of C.tags.values()) tag.hold = !boutLive(C.b);
     if (C.playerTag) C.playerTag.hold = !boutLive(C.b);
     crowdTick(C.crowd, dt);
-    deps.sound?.bed(C.crowd.mood, near);
+    if (!C.quiet) deps.sound?.bed(C.crowd.mood, near);
     // the fighters out of the bout stand down; at the end everyone does
     for (const f of C.b.fighters) {
       const foe = C.fighters.get(f.id);
@@ -282,10 +347,28 @@ export function createArenaBouts(deps) {
     }
     if (Number.isFinite(C.doneAt) && t - C.doneAt >= CROWD_STAYS_MS && C.stage?.kind === 'city') { dismiss(); return; }
     const bark = t - C.barkAt < BARK_SHOWN_MS ? C.bark : '';
-    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark }) : null, { hidden: !!o.hidden, touch: !!o.touch });
+    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: C.quiet }) : null, { hidden: !!o.hidden, touch: !!o.touch });
     crowdFrame(C, t);
   }
   const nearOf = (d) => (d <= NEAR_M ? 1 : d >= FAR_M ? 0 : 1 - (d - NEAR_M) / (FAR_M - NEAR_M));
+  /** ARENA-FIX 8: a fighter's mark in the stage's frame ([x, z] from the centre), its feet there, and whether its body
+   *  has reached it (its motor's walk done, or within MARK_ARRIVE_M). */
+  const markOf = (C, fid) => C.roster.find((f) => f.id === fid)?.mark ?? [0, 0];
+  function arrived(C, fid, foe) {
+    if (!foe.ai?.feet) return true;
+    if (foe.ai.walkArrived) return true;
+    const m = floorFeet(markOf(C, fid));
+    return Math.hypot(foe.ai.feet[0] - m[0], foe.ai.feet[2] - m[2]) <= MARK_ARRIVE_M;
+  }
+  /** ARENA-FIX 8: THE WALK IN - a fighter cried by the Herald walks from its gate to its mark (characters/enemyMotor.js
+   *  walkTo, its own pursuit walk through the collider at WALK_PACE). One already there is at its mark at once. */
+  function walkIn(C, fid) {
+    const foe = C.fighters.get(fid);
+    if (!foe?.ai || C.walking.has(fid)) return;
+    C.walking.add(fid);
+    if (arrived(C, fid, foe)) return;
+    if (typeof foe.ai.walkTo === 'function') foe.ai.walkTo(floorFeet(markOf(C, fid)), { pace: WALK_PACE });
+  }
   /** The opponent striking me: of those whose target is a player, the nearest. */
   function attackerOfMe(C, feet) {
     let best = null, bd = Infinity;
@@ -304,16 +387,36 @@ export function createArenaBouts(deps) {
   function hear(C, e, t, near) {
     const title = C.ladder && C.next.champion && C.b.result?.side === 0;
     const cues = crowdHear(C.crowd, e, { share: (id) => { const f = boutFighter(C.b, id); return f ? fighterShare(f) : 1; }, title, now: t });
-    deps.sound?.cue(cues, near);
-    if (near > 0.3) { const line = crowdBark(C.crowd, e, t, rng); if (line) { C.bark = line; C.barkAt = t; deps.bark?.(line); } }
+    if (!C.quiet) {   // the training pit: no crowd to hear it, no music
+      deps.sound?.cue(cues, near);
+      if (near > 0.3) { const line = crowdBark(C.crowd, e, t, rng); if (line) { C.bark = line; C.barkAt = t; deps.bark?.(line); } }
+    }
     const say = (line) => { if (near > 0.3) deps.say?.(line); };
     switch (e.k) {
       case 'call':
-        say(C.ladder ? (C.next.grand ? ARENA_TEXT.call.grand : C.next.champion ? ARENA_TEXT.call.champion(C.next.tierName) : C.next.free ? ARENA_TEXT.call.melee : ARENA_TEXT.call.ladder(C.next.tierName, C.next.label)) : ARENA_TEXT.call.exhibition);
+        say(C.practice ? ARENA_TEXT.undercroft.practiceCall : C.ladder ? (C.next.grand ? ARENA_TEXT.call.grand : C.next.champion ? ARENA_TEXT.call.champion(C.next.tierName) : C.next.free ? ARENA_TEXT.call.melee : ARENA_TEXT.call.ladder(C.next.tierName, C.next.label)) : ARENA_TEXT.call.exhibition);
         break;
-      case 'crier': { const f = boutFighter(C.b, e.a); if (f) say(f.ai ? ARENA_TEXT.call.fighter(`${f.name}, ${f.epithet || ''}`.replace(/, $/, ''), f.home) : ARENA_TEXT.call.fighter(f.name, '')); break; }
-      case 'walk': say(ARENA_TEXT.call.marks); for (const f of C.b.fighters) boutAtMarks(C.b, f.id, t); break;   // every fighter stood on their mark at the spawn
-      case 'count': say(ARENA_TEXT.count[3 - (e.n ?? 3)]); break;
+      case 'crier': {
+        const f = boutFighter(C.b, e.a);
+        if (f) say(f.ai ? ARENA_TEXT.call.fighter(`${f.name}, ${f.epithet || ''}`.replace(/, $/, ''), f.home) : ARENA_TEXT.call.fighter(f.name, ''));
+        if (f?.ai) walkIn(C, f.id);   // ARENA-FIX 8: named, they walk in from their gate
+        break;
+      }
+      case 'walk':
+        // to the marks: the player stands on theirs; a fighter already there (or with no body to walk) is at it
+        say(ARENA_TEXT.call.marks);
+        for (const f of C.b.fighters) {
+          if (!f.ai) { boutAtMarks(C.b, f.id, t); continue; }
+          walkIn(C, f.id);
+          const foe = C.fighters.get(f.id);
+          if (!foe || arrived(C, f.id, foe)) { C.walking.delete(f.id); boutAtMarks(C.b, f.id, t); }
+        }
+        break;
+      case 'count':   // the walk's limit came first: whoever is still walking stops where they are
+        for (const fid of C.walking) { const foe = C.fighters.get(fid); if (foe?.ai) { foe.ai.walkGoal = null; foe.ai.yaw = yawTo(markOf(C, fid), [0, 0]); } }
+        C.walking.clear();
+        say(ARENA_TEXT.count[3 - (e.n ?? 3)]);
+        break;
       case 'fight': say(ARENA_TEXT.count[3]); break;
       case 'verdict': verdict(C, t); break;
       case 'heal': heal(C); break;
@@ -334,7 +437,11 @@ export function createArenaBouts(deps) {
     const throws = verdictThrows(C.crowd, r.winners, r.losers);
     throwAt(C, r.winners, throws.flowers, THROWN_FLOWERS);
     throwAt(C, [...r.losers, ...r.winners], throws.refuse, THROWN_REFUSE);
-    if (C.ladder) {
+    if (C.practice) {
+      // ARENA-FIX 4: the pit's bout - no purse, no step on the ladder, the Pit Master's word
+      const U = ARENA_TEXT.undercroft;
+      deps.notice?.([line, r.side === null ? U.practiceDraw : r.side === 0 ? U.practiceWon : U.practiceLost]);
+    } else if (C.ladder) {
       const won = r.side === 0;
       const purse = won ? boutPurse(C.next.purse, C.crowd.favour[YOU] ?? 0) : 0;
       if (won && purse > 0 && !C.paid) { C.paid = true; deps.pay?.(purse); }
@@ -379,7 +486,7 @@ export function createArenaBouts(deps) {
       let tex;
       try { tex = await deps.getTexture(g.archive); } catch { continue; }
       if (cur !== C) return;
-      const size = sizeOf(tex, g.record);
+      const size = sizeOf(tex, g.record, CROWD_SCALE[g.archive]);
       const frames = Math.max(1, tex?.getFrameCount?.(g.record) ?? 1);
       const batch = r.createBillboardBatch(g.archive, g.record, size, g.at);
       batches.push({ batch, archive: g.archive, record: g.record, frames, half: g.half, origin: [0, 0, 0], size, uploaded: new Set() });
@@ -387,8 +494,8 @@ export function createArenaBouts(deps) {
     if (cur !== C) { for (const x of batches) r.destroyBillboardBatch?.(x.batch); return; }
     C.crowdBatches = batches;
   }
-  const sizeOf = (tex, record) => {
-    try { const s = tex.getSize(record), k = tex.getScale(record); return { w: (s.width + Math.trunc(s.width * (k.width / 256))) * 0.025, h: (s.height + Math.trunc(s.height * (k.height / 256))) * 0.025 }; } catch { return { w: 1.1, h: 1.95 }; }
+  const sizeOf = (tex, record, scale = null) => {
+    try { const s = tex.getSize(record), k = scale == null ? tex.getScale(record) : { width: scale, height: scale }; return { w: (s.width + Math.trunc(s.width * (k.width / 256))) * 0.025, h: (s.height + Math.trunc(s.height * (k.height / 256))) * 0.025 }; } catch { return { w: 1.1, h: 1.95 }; }
   };
   function crowdFrame(C, t) {
     if (!C.crowdBatches.length || !stage) return;
@@ -460,17 +567,17 @@ export function createArenaBouts(deps) {
   }
 
   return {
-    setStage, ask, start, dismiss, frame, batches, playerSpare, holds,
+    setStage, ask, start, dismiss, frame, batches, playerSpare, holds, attackResolved, playerSwing,
     /** The ring the motor keeps me in while my bout stands (player/motor.js `arena`), or null. */
     ring: () => {
       if (!holds() || !stage || cur.stage !== stage) return null;
       const c = stage.centre();
-      const r = (cur.ringed ??= { centre: [0, 0, 0], radius: RING_R });
+      const r = (cur.ringed ??= { centre: [0, 0, 0], radius: cur.ring ?? RING_R });
       r.centre[0] = c[0]; r.centre[1] = c[1]; r.centre[2] = c[2];
       return r;
     },
     /** What the floor plays now (systems/arenaScore.js), or null (no bout heard here). */
-    scoreWant: (t = now()) => (cur?.b ? arenaScoreFor(cur.b.phase, cur.verdictAt, t) : null),
+    scoreWant: (t = now()) => (cur?.b && !cur.quiet ? arenaScoreFor(cur.b.phase, cur.verdictAt, t) : null),   // the pit has no band
     /** The bout standing (its law's state), its crowd, its kind, its stage's kind. */
     bout: () => cur?.b ?? null,
     crowd: () => cur?.crowd ?? null,

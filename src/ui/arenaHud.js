@@ -35,10 +35,10 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
  * WHAT THE HUD SAYS for `bout` (systems/arenaBout.js) and `crowd` (systems/arenaCrowd.js) at `now`, or null (no bout,
  * or one done). `you` my fighter's id when I fight (null when I watch), `stamina` my fatigue's share (0..1).
  * `bark` the crowd's last shout (systems/arenaCrowd.js crowdBark), shown under its meter while it rings.
- * `{ phase, left: Row[], right: Row[], timer, crowd: { frac, band, word }, stamina, hint, bark }` - each
+ * `{ phase, left: Row[], right: Row[], timer, crowd: { frac, band, word } | null (`quiet`: no crowd), stamina, hint, bark }` - each
  * Row `{ id, name, frac, out, you, tag, banner }`. Pure.
  */
-export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, bark = '' } = {}) {
+export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, bark = '', quiet = false } = {}) {
   if (!bout || bout.phase === 'done' || !Array.isArray(bout.fighters)) return null;
   const mine = you != null ? bout.fighters.find((f) => f.id === String(you)) ?? null : null;
   const leftSide = mine ? mine.side : bout.fighters[0].side;
@@ -57,7 +57,7 @@ export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, ba
   const live = bout.phase === 'fight';
   return {
     phase: bout.phase, left, right, timer: ARENA_TEXT.hud.timeLeft(Math.max(0, secs)),
-    crowd: { frac: Math.round(((mood + 1) / 2) * 1000) / 1000, band, word: ARENA_TEXT.mood[band] },
+    crowd: quiet ? null : { frac: Math.round(((mood + 1) / 2) * 1000) / 1000, band, word: ARENA_TEXT.mood[band] },   // ARENA-FIX 4: the training pit has no crowd - no meter
     stamina: mine && Number.isFinite(stamina) ? Math.round(clamp01(/** @type {number} */ (stamina)) * 1000) / 1000 : null,
     hint: mine && live && !mine.out && fighterShare(mine) <= YIELD_SHARE ? ARENA_TEXT.hud.yieldHint : '',
     bark: typeof bark === 'string' ? bark : '',
@@ -166,7 +166,7 @@ function build(doc) {
   plate.append(row, stam, crowd);   // the fight, my stamina and the crowd on one plate
   root.append(plate, bark, hint);
   (doc.body ?? doc.documentElement)?.append(root);
-  parts = { L: L.rows, R: R.rows, timer, stam, stamFill, crowdFill, word, bark, hint };
+  parts = { L: L.rows, R: R.rows, timer, stam, stamFill, crowd, crowdFill, word, bark, hint };
   shown = fresh();
 }
 
@@ -209,8 +209,13 @@ export function drawArenaHud(model, { hidden = false, touch = false, doc = globa
     parts.stam.style.display = st < 0 ? 'none' : '';
     if (st >= 0) parts.stamFill.style.width = `${(st * 100).toFixed(1)}%`;
   }
-  if (model.crowd.frac !== shown.crowd) { shown.crowd = model.crowd.frac; parts.crowdFill.style.width = `${(model.crowd.frac * 100).toFixed(1)}%`; }
-  if (model.crowd.word !== shown.word) { shown.word = model.crowd.word; parts.word.textContent = model.crowd.word; parts.word.dataset.band = model.crowd.band; }
+  const cf = model.crowd ? model.crowd.frac : -2;
+  if (cf !== shown.crowd) {
+    shown.crowd = cf;
+    parts.crowd.style.display = model.crowd ? '' : 'none';   // ARENA-FIX 4: no crowd, no meter
+    if (model.crowd) parts.crowdFill.style.width = `${(model.crowd.frac * 100).toFixed(1)}%`;
+  }
+  if (model.crowd && model.crowd.word !== shown.word) { shown.word = model.crowd.word; parts.word.textContent = model.crowd.word; parts.word.dataset.band = model.crowd.band; }
   if (model.bark !== shown.bark) { shown.bark = model.bark; parts.bark.textContent = model.bark; }
   if (model.hint !== shown.hint) { shown.hint = model.hint; parts.hint.textContent = model.hint; }
 }
