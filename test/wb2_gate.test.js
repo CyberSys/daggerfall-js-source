@@ -368,13 +368,14 @@ test('WB2 the seams: online alone, stood before the lights, the stone in the wor
   assert.match(w, /ready: \(\) => !!online\?\.gateOk,   \/\/ WB3b/, 'the door opens at a relay that runs a gate\'s boss room (WB3b; it said "not yet" to every relay until then)');
   const frameAt = w.indexOf('try { if (gatePool?.frame(dt)) warmGateVeil(); }'), lightsAt = w.indexOf('const wodLit = wod ? _wodLitCount() : 0;');   // AUDIT WB D5: and the step's veil warmed when a gate stands
   assert.ok(frameAt > 0 && frameAt < lightsAt, 'stood before the lights read it');
-  assert.equal((w.match(/\.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)\);/g) ?? []).length, 2, 'its fire lights the ground by night and by day - after the hand lights, before the camps and the dropped torches the renderer\'s cap cuts first');
+  assert.equal((w.match(/\.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.\(riteHost\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)\);/g) ?? []).length, 2,   // WB12d: the rite's braziers beside it
+    'its fire lights the ground by night and by day - after the hand lights, before the camps and the dropped torches the renderer\'s cap cuts first');
   assert.match(w, /gatePool\?\.draw\(renderer\);[^\n]*\n\s*camps\.draw\(renderer\);/, 'the stone in the world pass beside the tents (before them: the tents and the wagon keep their HCC pair)');
   const duel = w.indexOf('duelWall.draw(rings'), pass = w.indexOf('gatePool.drawPass(proj, view');
   assert.ok(duel > 0 && pass > duel, 'the fire after the duel wall');
-  assert.match(w, /if \(_race\.gateWins\) \{ if \(_gatePick\.distance > _gatePick\.reach\) setMidScreenText\(TOO_FAR_AWAY_TEXT\); else gatePool\.activate\(_gatePick\.key\); \}/, 'the press\'s arm, refusing out loud past its reach');
+  assert.match(w, /if \(_race\.gateWins\) \{ if \(_gatePick\.distance > _gatePick\.reach\) setMidScreenText\(TOO_FAR_AWAY_TEXT\); else if \(!riteHost\?\.activate\(_gatePick\.key\)\) gatePool\.activate\(_gatePick\.key\); \}/, 'the press\'s arm, refusing out loud past its reach (WB12d: the faithful\'s casket rides its slot)');
   assert.match(w, /gate: _gatePick,   \/\/ WB2/);
-  assert.match(w, /gate: gatePool \? pickActivatableHit\(cam\.pos, _hd, gatePool\.targets\(\), collider\) : null,/, 'the plaque races it too');
+  assert.match(w, /gate: gatePool \? pickActivatableHit\(cam\.pos, _hd, \[\.\.\.gatePool\.targets\(\), \.\.\.\(riteHost\?\.targets\(\) \?\? \[\]\)\], collider\) : null,/, 'the plaque races it too');
   assert.match(w, /\(key\) => gatePool\?\.hoverName\(key\) \?\? null,/);
   assert.match(w, /if \(gatePool && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) drawGateBanner\(null\);/, 'the countdown leaves with the street');
   assert.match(read('src/player/activationRace.js'), /firmFirst\(\[gate, broker, camp, water,/, 'the gate heads the tie order (SET7: the Broker who stands beside it right after)');

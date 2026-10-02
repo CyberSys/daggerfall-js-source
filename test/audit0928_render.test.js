@@ -160,7 +160,7 @@ function exteriorFrame({ lane, night, town, boats, eye }) {
     worldLightAnimator: { tick() {}, ranges: new Float32Array(64).fill(18) },
     wod: null, csaOn: () => true, csa: { lights: () => boats },
     magic: null, _dwFogP: null, playerTorchLight: () => null, thunderlockMuzzleLight: () => null, playerEntity: {}, player: { feetAt: () => [0, 0, 0] },
-    peerTorchLights: () => [], gatePool: null, camps: { lights: () => [] }, droppedTorches: { lights: () => [] },
+    peerTorchLights: () => [], gatePool: null, riteHost: null, camps: { lights: () => [] }, droppedTorches: { lights: () => [] },
     naval: null,   // NAV-B: the broadsides' flashes and the burning decks join the hand lights - no sea in this pin
     CITY_LIGHT_COLOR_F32: lanternColor(lane, new Float32Array(CITY_LIGHT_COLOR)),
     fillLanternPool, nearestLights, rangesFor, capFadeColors, capFadePairs, withPlayerLights, wodLightColors,

@@ -1646,7 +1646,7 @@ the Covenant, the faithful and their rite, the Warden, why the doors close, the 
 **The site.** Each breach's faithful work their rite in a circle **90-180 m from where the breach will stand** -
 inside its own map pixel (the site keeps every guarantee the gate's scan gives: land, no town, no dungeon), never
 within 60 m of the arch (its banner) and never on its approach - at a bearing and distance the day's rolls give
-(`riteSiteOf(day)`, pure, so every client and the relay agree with no word sent).
+(`riteLocalOf(day)`, pure, so every client and the relay agree with no word sent).
 
 **The window: from the omen to the opening** (about 15 real minutes - three game hours). With the omen, a **pillar of
 smoke** rises from the circle, visible across the omen's ring. When the breach opens, the faithful still standing
@@ -1685,19 +1685,44 @@ when it was said, not each blow - a lie can buy a liar one ember.
 rarely), and a small chance (one in twenty) at **a piece of Dagon's Brand** - a Magic piece
 of armour bearing the set's sigil.
 
-**The words.** At the omen: *"Dagon's faithful gather in the wilds near N to work the rite. Cut down their Summoner
-before the breach opens and the breach will pay you an ember more."* Near the circle: *"Chanting rises from the
-smoke - Dagon's faithful work their rite here."* Broken (everyone online): *"The faithful's rite near N is broken.
-Those who broke it carry an ember more out of the breach, if the breach is closed."* At the opening, unbroken (those
-near): *"The faithful finish their rite and pass into the breach."* The Discord omen post adds *His faithful work the
-rite nearby*; a broken rite is posted with who broke it.
+**The words** (as built - short, each one thing). At the omen: *"Dagon's faithful work their rite near N. Kill their
+Summoner before the breach opens for an ember more."* Near the circle: *"Chanting rises from the smoke."* Broken
+(everyone online): *"The faithful's rite near N is broken."* At the opening, unbroken (those near): *"The faithful
+finish their rite and pass into the breach."* The casket: *The Faithful's Chest*, *Sealed* until the rite is broken
+(*"Sealed by the faithful's rite."*). A receipt of the rite alone: *"Rite recorded."* and *"An ember from the broken
+rite is in your pack."* The Discord omen post ends *The faithful work their rite nearby.*; a broken rite is posted as
+***The faithful's rite near N is broken** by A, B and C.*
+
+**As built (WB12d):**
+- `net/gateRite.js` is the law. The Summoner is a **Sorcerer** - a caster none of the faithful is, so every screen
+  knows him by his kind (a peer's copy carries no name). The word's reach is 60 m.
+- The relay (world141): the cell keeps who struck the faithful from a pose within reach, in the window, by account.
+  The Summoner's fall tells the hub, retried on the alarm until it answers. The hub says the broken rite once, and at
+  every hello while the circle stands. At the kill, fighters who helped carry `r`; helpers who did not fight are
+  minted the rite's own receipt.
+- acct46: `r` is two embers in the purse; the rite's own receipt one, with no breach closed and no Drakes.
+  **Deploy acct46 before world141**: an older service refuses the rite's own receipt, and the game keeps it for its
+  week.
+- `scenes/riteHost.js` stands the circle (`world/riteModel.js`: the sigil riding the land's highs, so no fold shows
+  through it; six lit braziers, the altar and the casket, cut from the gate's stone; the camp's tents and fire behind)
+  and the smoke (`render/riteSmoke.js`: 340 m tall and leaning, rising over 8 s from the omen, thinning over 30 s after
+  the opening, a dark line on the horizon from kilometres off).
+- The faithful spring for the first player within 100 m (site `px,py:rite`), chanting half-blind (12 m), one camp; a
+  blow on one wakes them all. The word goes to the circle's cell every 5 s from within 60 m, at once on a change; a
+  Summoner who walked away is no fall.
+- The casket (`systems/riteChest.js`) is a pile for a player within 40 m once the hub says the rite is broken: gold
+  (20-40 a level), two to four reagents (a Daedra's Heart 8% of draws), one chest in twenty a Magic piece of Dagon's
+  Brand at Faint. Open, its pile keeps the chest's name; anything taken and the day is the character's.
+- Pins `test/wb12d_rite_law.test.js` (6), `test/wb12d_rite_relay.test.js` (4), `test/wb12d_rite_world.test.js` (15);
+  mutants `tools/mutants/wb12d.json` (94).
 
 ### Versions and the deploy
 
 The relay's law moves to **world141** (the words of `gateLaw.js` and `gateHerald.js`, the rite's word and the
 receipt's `r`); the brain's law stays 5. The account service moves to **acct46** (migration 0046's `stones` - the
-rite's ember in the purse - and the claim of `r` and of a rite alone). Each deploy drops connected players once, as every relay
-deploy does; a game from before it is refused at the breach and told to reload.
+rite's ember in the purse - and the claim of `r` and of a rite alone). **Deploy acct46 first**: acct45 refuses the
+rite's own receipt. Each deploy drops connected players once, as every relay deploy does; a game from before it is
+refused at the breach and told to reload.
 
 ### What does not change
 
@@ -2516,3 +2541,12 @@ developed"*):
 - A character's first Deadlands Ember brings a copy by courier.
 - No relay or account change.
 - Pins `test/wb12c_burning_doors.test.js` (7); mutants `tools/mutants/wb12c.json` (19).
+
+**WB12d (2026-10-02) - the faithful's rite.** Section 19 above:
+- Each breach's faithful work their rite in a circle near it, under a pillar of smoke, from the omen to the opening.
+- Kill their Summoner before the breach opens: everyone who struck the faithful takes an ember more when the breach is
+  closed, whether or not they fought the Warden.
+- The faithful's chest opens once the rite is broken, once a day a character.
+- world141 re-hashed in place; acct46 (migration 0046) - deploy it first. The brain's law stays 5.
+- Pins `test/wb12d_rite_law.test.js` (6), `test/wb12d_rite_relay.test.js` (4), `test/wb12d_rite_world.test.js` (15);
+  mutants `tools/mutants/wb12d.json` (94).

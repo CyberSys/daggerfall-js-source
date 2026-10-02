@@ -209,6 +209,8 @@ import { WORLD_SALT, spawnsDungeon, spawnedMapId, pathFreePixel, createSpawnGrou
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
 import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
+import { createRiteHost } from './riteHost.js';   // WB12d: the faithful's rite - its circle, its smoke, its faithful, its word and its chest
+import { RANDOM_TREASURE_ARCHIVE } from '../systems/lootDataTables.js';   // WB12d: the casket's pile, undrawn
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
 import { brokerStock, brokerDay, brokerBought, makeBrokerSale, spendableStonesIn, lockedStonesIn, stoneCount, insigniaSale, stonesText } from '../systems/sigilBroker.js';   // SET7: the day's stock, the record, the sale   // SS1: the stones counted over their stacks
@@ -467,7 +469,7 @@ import { accountTokenMinter, storedSession, accountPlayBeat, muteAccount, servic
 import { parseModCommand, runModCommand, mutedText, mutedNotices } from '../net/moderation.js';   // MOD1: /mute and /unmute, and the line a muted player reads
 import { startPlayClock } from '../net/playClock.js';   // ACC4: time played, knocked from here and measured by the account service's clock
 import { renownKillXp, renownQuestXp, renownPartyXp, renownText } from '../net/renown.js';   // RENOWN1: what a kill and a quest are worth, and the party's bonus (RENOWN3: read against my Renown)
-import { createRenownTracker, setRenownKillHandler, renownFoeLevel, renownAnswer, renownFoeCarry } from '../net/renownTracker.js';   // RENOWN1: what this character earns online, carried to the account service
+import { createRenownTracker, setRenownKillHandler, renownFoeLevel, renownAnswer, renownFoeCarry, renownStruckAt } from '../net/renownTracker.js';   // RENOWN1: what this character earns online, carried to the account service
 import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the level's health and magicka, on top of Daggerfall's while online
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
@@ -7463,6 +7465,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const _hoverNamers = [
     (key) => gatePool?.hoverName(key) ?? null,   // WB2: the Oblivion Gate, and its countdown
     (key) => sigilBroker?.hoverName(key) ?? null,   // SET7: the Sigil Broker beside it
+    (key) => riteHost?.hoverName(key) ?? null,   // WB12d: the faithful's chest - its own keys, and its pile's before the piles' word
     (key) => camps.hoverName?.(key) ?? null,
     (key) => droppedTorches.hoverName?.(key) ?? null,
     (key) => exteriorFoes.hoverName?.(key) ?? null,
@@ -9853,6 +9856,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reason, rather than because a splice happened to run first.
     doorGeneration += 1;   // WORLD-HOVER: the origin was re-anchored, so every door's WORLD matrix moved with it
     bountyFarms?.destroyAll();   // BOUNTY-FARM: the frame moves under it - it stands again from the bounty, in the new one
+    riteHost?.destroyAll();   // WB12d: and the faithful's circle - its faithful went with the live pools; it stands again the next frame
     csaReanchor(state.initOffset);   // FIELD-CSA1: and every placed boat with it
     _streamSince = null;   // PERF-EXT24 (the review): the sweep ended the old world's stream - the new one's two seconds start at its first pump
     // RESPAWN-GROUND (FIELD BUGS 2026-09-30, "Respawning high in the air after death"): THE EYE STANDS ON THE NEW PIXEL
@@ -15599,6 +15603,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     online.onDuel = (id, d, sub = null) => { duelMgr.onFrame(id, d, sub); };
     online.onGate = (g) => gateLink?.word(g);   // WB3b: the court's room's word about its boss
     online.onRaid = (f, room) => raidRelayWord(f, room);   // RAID3: a town cell's word about its raid - the ledger, the cleanse, my receipt
+    online.onRite = (w) => riteHost?.onBroken(w);   // WB12d: the hub's broken rite
     // JOURNAL1 (Addison Knox: "Player journals ... shared in-world for storytelling"): A PAGE HELD OUT TO ME. Held,
     // never opened over my game (net/journalPage.js PageOffers: a writer's newest replaces their last and waits
     // PAGE_HOLD_MS), under the name the room knows them by now, and said on the social tab once in a while per writer
@@ -15710,6 +15715,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       if (tab.room) link.join(tab.room);   // CHAT-CHAN: the Region tab's room waits for the region and the relay (chatRegionFrame)
       chatLinks.set(tab.id, link);
       if (tab.room === SOCIAL_ROOM) link.onGate = (g) => gateLink?.word(g);   // WB3b: the hub's word of a kill, and a fighter's receipt outside the court
+      if (tab.room === SOCIAL_ROOM) link.onRite = (w) => riteHost?.onBroken(w);   // WB12d: the hub's word of a broken rite, and at my hello
       if (tab.room === SOCIAL_ROOM) link.onRaid = (f, room) => (f.k === 'tw' ? offerRaidTowns(link, f.h) : raidRelayWord(f, room));   // RAID3: the hub's word of a cleanse anywhere, and the day's at my hello; RAID-ROLL: its ask for the towns table
       if (tab.id === 'region') {   // TV3: the region's travellers, into the book
         link.onTraveller = (f) => travellerBook.put(f, Date.now());
@@ -16590,7 +16596,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   function grantSpoilsOutside(r) {
     const c = readReceipt(r);
     if (!c || !spoilsPool || modes?.gateArenaDay?.() === c.d) return;
-    spoilsLock(() => spoilsPool.grant({ day: c.d, seed: c.c, level: spoilsLevel(playerEntity.level ?? 1, c.l), acct: c.s }))   // AUDIT WBX S2: never past the level the fight admitted
+    spoilsLock(() => spoilsPool.grant({ day: c.d, seed: c.c, level: spoilsLevel(playerEntity.level ?? 1, c.l), acct: c.s, claims: c, text: c.x === 'rite' ? SPOILS_TEXT.rite : SPOILS_TEXT.granted }))   // AUDIT WBX S2: never past the level the fight admitted; WB12d: the rite's ember
       .catch((e) => console.warn('[gate] spoils', e?.message ?? e));
   }
   /** RAID4b: A TOWN'S THANKS, off a receipt the relay signed at the cleanse - AUDIT RAID R4: given when the account
@@ -16805,6 +16811,38 @@ export async function bootWorld(canvas, renderer, params, status) {
     ready: () => !!online?.gateOk,   // WB3b: a relay that runs a gate's boss room (net/wire.js relaySupportsGate)
     landBefore: (g) => landBeforeGate(g),   // AUDIT WBX W1: a player sealed in a rising horn's root, set down before the gate
     enter: (g) => { modes?.enterGateArena?.(g); },   // WB3b: into the Burning Court (scenes/worldModes.js)
+  }) : null;
+  /** WB12d: THE FAITHFUL'S RITE (scenes/riteHost.js) - online alone, as the gate is: each breach's circle from the omen to
+   *  its collapse, its smoke until the breach opens, its faithful shared by the World of Daggerfall camps' law (one site,
+   *  `px,py:rite`), the rite's word to its cell, the hub's broken word, and the casket's pile once it is broken. */
+  const riteHost = gateOmen ? createRiteHost({
+    renderer, gl: renderer.gl, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
+    now: () => Date.now() + _sharedOffsetMs,
+    omen: () => gateOmen.current(),
+    pixelTranslation: (px, py) => state.pixelTranslation(px, py),
+    groundAt: (x, z) => surfaceAt(x, z),   // the drawn triangles' height - what a placed thing stands on
+    coarseGround: (px, py, x, z) => gateGroundAt(px, py, x, z),   // the smoke beyond the streamed grid
+    feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
+    online: () => !!online,
+    foes: {
+      spawn: (career, [x, z], { yaw, site }) => {
+        const y = surfaceAt(x, z);
+        if (!Number.isFinite(y)) return Promise.resolve(null);
+        const hit = collider.surfaceHit([x, y + 0.2, z], _DOWN, 3);
+        return exteriorFoes.spawnFoe(career, [x, y, z], { yaw, placed: true, groundAlign: { hitDist: hitDistance(hit) }, site });   // WOD7: tagged with its site - shared, as a marker's foe is
+      },
+      list: () => exteriorFoes.foes,
+      removeSite: (site) => exteriorFoes.removeSiteFoes(site),
+      campId: () => exteriorFoes.newCampId(),
+    },
+    peerSprang: (site) => _wodPeerSprung.has(site),
+    sprang: (site) => wodSprang(site),
+    struckAt: (f) => renownStruckAt(f),
+    send: (w, cell) => !!online?.sendRite?.(w, cell),
+    say: (text) => chatNotice(text),
+    sayNear: (text) => setMidScreenText(text),
+    loot: { seed: (items, feet, pixelKey) => droppedLoot.seedPile(items, feet, { archive: RANDOM_TREASURE_ARCHIVE, record: 0 }, null, pixelKey, { unsaved: true, drawn: false }), keyOf: (p) => `droppedLoot:${p.id}` },   // the casket is its picture, and its name
+    level: () => playerEntity.level ?? 1,
   }) : null;
   /** SET7: THE SIGIL BROKER (scenes/sigilBrokerPool.js) - beside the gate while it stands whole, online alone as the gate
    *  is: her body, her post, her box and her name, and the press that opens her window (ui/brokerDoor.js). The stock is
@@ -22991,7 +23029,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
           const _campPick = pickActivatableHit(cam.pos, useFwd, camps.targets(), collider);   // SURV3: a camp's fire or tent, the same one ray
           const _hccPick = pickActivatableHit(cam.pos, useFwd, hcc.targets(), collider);   // HCC: the parked wagon's box, the following team's, the standing horse's (RegisterCustomActivation at 3.2), the same one ray
           const _springPick = pickActivatableHit(cam.pos, useFwd, springTargets(), collider);   // SURV3: a fountain, a well, a trough
-          const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, gatePool.targets(), collider) : null;   // WB2: an Oblivion Gate's fire
+          const _gatePick = gatePool ? pickActivatableHit(cam.pos, useFwd, [...gatePool.targets(), ...(riteHost?.targets() ?? [])], collider) : null;   // WB2: an Oblivion Gate's fire; WB12d: and the faithful's casket, on its ray
           const _brokerPick = sigilBroker ? pickActivatableHit(cam.pos, useFwd, sigilBroker.targets(), collider) : null;   // SET7: the Sigil Broker beside it
           const _csaBoatPick = csaActivationPick(cam.pos, useFwd);   // CSA-D: a boat's box or hull (RegisterCustomActivation 112400-112406 at 3.2), the same one ray
           // HARD2: the race is ONE law now (player/activationRace.js) - the
@@ -23054,7 +23092,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             const _torchNearest = _race.torchWins;
             // EOTB-IL: the mod's cart under the same ray (RegisterCustomActivation(41239, CheckWagon, 3.2)) - Info names it, any other mode opens the pack with the wagon
             // SURV3: a camp under the ray - Info and Talk name it, any other mode opens its menu; a water source fills the skins
-            if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else gatePool.activate(_gatePick.key); }   // WB2: the gate's own door
+            if (_race.gateWins) { if (_gatePick.distance > _gatePick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else if (!riteHost?.activate(_gatePick.key)) gatePool.activate(_gatePick.key); }   // WB2: the gate's own door; WB12d: the casket's its own
             else if (_race.brokerWins) { if (_brokerPick.distance > _brokerPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else sigilBroker.activate(_brokerPick.key, getInteractionMode()); }   // SET7: Info names her, Steal is watched, anything else opens her window
             else if (_race.campWins) { if (_campPick.distance > _campPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else camps.activate(_campPick.key, getInteractionMode()); }
             else if (_race.waterWins) { if (_springPick.distance > _springPick.reach) setMidScreenText(TOO_FAR_AWAY_TEXT); else drinkAtSpring(_springPick.key); }
@@ -23604,6 +23642,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // WB2: the gate stood for this frame - before the lights (its fire lights the ground) and the world pass (its stone)
     try { if (gatePool?.frame(dt)) warmGateVeil(); } catch (e) { console.warn('[gate] pool', e?.message ?? e); }   // AUDIT WB D5: a gate stands - the step's veil is built ahead
     try { sigilBroker?.frame(dt); } catch (e) { console.warn('[broker] pool', e?.message ?? e); }   // SET7: the Broker stands where the gate stood her
+    try { riteHost?.frame(); } catch (e) { console.warn('[rite] host', e?.message ?? e); }   // WB12d: the faithful's circle, before the lights (its braziers light the ground)
     // Lanterns on 17:00-08:00, flickering verbatim; pixel-local lights
     // placed under the current compensation, nearest 16 to the camera.
     // WOD2: the mod's lights burn at every hour and each carries its own
@@ -23637,7 +23676,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       const _lanterns = wodSel ? null : nearestLights(_sceneLights, cam.pos, renderer.maxPointLights + (renderer.lightingLane ? 1 : 0), _litRanges, null, 0, n);
       // DW-D: UnderwaterPresentationEffects.SuppressPlayerTorch - EnablePlayerTorch's light dark under the fog (the fuel burns on, the light is the only thing it takes)
       const lit = withPlayerLights(wodSel ? wodSel.data : _lanterns,   // EL1: the installed set's cap (16 classic, 48 on the lane); PERF-LIGHTS: `n` is how much of the pool is live
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle; T1 torch; HT1 the dropped lights; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the broadsides' flashes and the burning decks beside the Thunderlock's own flash - the brightest things for a frame, cut last by the cap
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32, renderer.lightingLane ? capFadeColors(lit, lit.length / 4 - _lanterns.length / 4, cam.pos, renderer.maxPointLights, CITY_LIGHT_COLOR_F32) : null);   // LA-LIGHTS2
     } else {
@@ -23648,7 +23687,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // WOD2: ...and the mod's lights, which burn at every hour.
       const wodSel = wodLit || csaLit.length ? _wodSelect(0, _csaFill(wodLit ? _wodFill(0) : 0, csaLit)) : null;   // AUDIT PRE-MERGE 0928 R2: the boats' lanterns by day too (DungeonLightHandler lights them near)
       const lit = withPlayerLights(wodSel ? wodSel.data : new Float32Array(0),
-        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
+        magic?.candleLight(), _dwFogP?.under ? null : playerTorchLight(playerEntity, player.feetAt(), cam.yaw), thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // HT1; FIELD-GUN13 the muzzle flash; DISC13-A the hand lights ride the render feet (feetAt), as the camera does; NAV-B the flashes by day too
       if (wodSel) _wodSetLights(lit, wodSel);
       else renderer.setPointLights(lit, CITY_LIGHT_COLOR_F32);
     }
@@ -23667,6 +23706,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     mwViewDrawBody(canvas, { proj, view, eye: mwv.eye, feet: player.bodyFeetAt(), yaw: cam.yaw, face: tvFace });   // DISC18: the body at the capsule's own feet, not the camera's smoothed ones
     drawPeerBodies(proj, view, mwv.eye, tvf ? tvFace : null);   // MWBODY1: the others' bodies, the same pass; OW-PEERS: grown under the Overworld
     mwViewDrawWagon(renderer);   // EOTB-IL: the cart, when the transport is the cart
+    riteHost?.draw(renderer);   // WB12d: the faithful's circle and their tents
     gatePool?.draw(renderer);   // WB2: the Oblivion Gate's stone
     camps.draw(renderer);   // SURV3: the tents, the cart's own pass
     hcc.draw(renderer);   // HCC: the trailing / parked / following wagon and its cargo, mine and the peers' (the horses ride the flats' pass)
@@ -24115,6 +24155,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // HT1: the dropped torches burn, the thrown one flies, a burning foe's flame follows it (the transition sweep is at the mode branch above, AUDIT 66 F11)
     if (_mode() === 'exterior') { droppedTorches.tick(dt); livePersonBatches.push(...droppedTorches.batches()); camps.tick(dt); livePersonBatches.push(...camps.batches()); livePersonBatches.push(...navalFlames.batches()); }   // SURV3: the fires burn on the same axis; NAV-B: and a burning ship's
     if (sigilBroker && _mode() === 'exterior') livePersonBatches.push(...sigilBroker.batches());   // SET7: the Broker on the flats' axis, as a foe stands
+    if (riteHost && _mode() === 'exterior') { riteHost.tick(dt); livePersonBatches.push(...riteHost.batches()); }   // WB12d: the braziers' flames and the faithful's fire
     // HCC: the horse billboards on the flats' axis (the runtime ticked above, hccTick - AUDIT HCC H1)
     if (hcc.enabled && _mode() === 'exterior') livePersonBatches.push(...hcc.batches());
     if (csaOn() && _mode() === 'exterior') pushSeenShipFlats(csa.batches(), livePersonBatches);   // CSA-B: the boats' crews and lanterns; SHIP-FLATS: none under a pixel
@@ -24384,6 +24425,9 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     // the horns in front of the fire hide it
     if (gatePool?.stands() && gatePool.drawPass(proj, view, new Float32Array(mwv.eye), now / 1000,   // AUDIT WB C7: its arguments built only when a gate stands
       { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();   // AUDIT DEEP R-1: the travel view's focus
+    // WB12d: the rite's pillar of smoke, the gate's fire's eye and fog - from the omen, before the gate stands
+    if (riteHost?.smoking() && riteHost.drawSmoke(proj, view, new Float32Array(mwv.eye), now / 1000,   // AUDIT WB C7: its arguments built only while it shows
+      { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, focus: renderer._focus })) renderer.markForeignPass();
     // LOOT11 (the Loot arc): THE LINES OF LIGHT over my bodies and the street's piles holding a Rare or better - after the
     // gate's fire, the same eye and fog (scenes/lootLines.js: the nearest eight within 40 m)
     if (lootLines.draw(() => [...exteriorFoes.lootFinds(), ...droppedLoot.lootFinds()], proj, view, new Float32Array(mwv.eye), now / 1000,
@@ -24665,7 +24709,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             horseCart: pickActivatableHit(cam.pos, _hd, hcc.targets(), collider),   // HCC
             camp: pickActivatableHit(cam.pos, _hd, camps.targets(), collider),
             water: pickActivatableHit(cam.pos, _hd, springTargets(), collider),
-            gate: gatePool ? pickActivatableHit(cam.pos, _hd, gatePool.targets(), collider) : null,   // WB2
+            gate: gatePool ? pickActivatableHit(cam.pos, _hd, [...gatePool.targets(), ...(riteHost?.targets() ?? [])], collider) : null,   // WB2; WB12d: the casket
             broker: sigilBroker ? pickActivatableHit(cam.pos, _hd, sigilBroker.targets(), collider) : null,   // SET7
             boat: csaActivationPick(cam.pos, _hd),   // CSA-D
             // WORLD-HOVER H2: the two the PRESS races in its own arms

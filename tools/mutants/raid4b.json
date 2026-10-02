@@ -542,8 +542,8 @@
   {
     "name": "RAID4b-pool-roll-ignored",
     "file": "src/scenes/spoilsPool.js",
-    "old": "const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0));",
-    "new": "const list = spoilsList(seed >>> 0, Math.max(1, level | 0));",
+    "old": "const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0), claims);",
+    "new": "const list = spoilsList(seed >>> 0, Math.max(1, level | 0), claims);",
     "tests": [
       "test/raid4b_sets.test.js"
     ]

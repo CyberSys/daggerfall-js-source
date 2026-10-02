@@ -26,6 +26,8 @@ export const insideGateRing = (mark, px, py, slack = 1) => !!mark && Math.hypot(
 /** The gate's spot in the SCENE's x/z: its pixel's translation (the streaming host's `pixelTranslation`, the pixel's
  *  south-west corner) plus the spot, [east, north] metres - spawned dungeons' own sum (scenes/world.js, the sight line). */
 export const gateSceneXZ = (standing, t) => [t[0] + standing.spot[0], t[2] + standing.spot[1]];
+/** WB12d: the faithful's rite, said beside the omen's line while it holds (scenes/riteHost.js stands its circle). */
+export const riteOmenLine = ({ place }) => `Dagon's faithful work their rite near ${place}. Kill their Summoner before the breach opens for an ember more.`;
 
 // ═══ WBX8: THE SKY BURNS ═════════════════════════════════════════════════════════════════════════════════════════
 // Mac (2026-09-26): "Improve the sky effect to be more like the /event dread command" - "When I say sky effect, I mean
@@ -132,6 +134,7 @@ export const OMEN_SETTLE_MS = 1500;
 export function createGateOmen({ now, site, say, localTime = () => null, fellAt = () => null, ready = () => true, settleMs = 0 }) {
   let saidDay = null, saidRank = -1;   // the day the last line was said for, and how far through its lines
   let marksDay = null;   // WB8c: the day whose marks were said (once, beside the first of its omen, rise or open)
+  let riteDay = null;   // WB12d: the day whose rite was said (once, beside its omen or its rise)
   let readyAt = null, settled = false; // when the host was first ready (the relay's clock), and whether its settle is over
   let cache = { day: null, site: null };
   const siteOf = (day) => {
@@ -172,6 +175,8 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
         if ((line === 'omen' || line === 'rise' || line === 'open') && marksDay !== t.day) { marksDay = t.day; say(marksLine({ boss: words.boss, md: gateModsOf(t.day) })); }
         else if (line === 'seal') say(sealLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));   // GATE-COLLAPSE: and when it goes
         else if (line === 'wrath') say(wrathLine(words));
+        // WB12d: the faithful's rite, while it holds - beside the omen's or the rise's line, once a day
+        if ((line === 'omen' || line === 'rise') && riteDay !== t.day) { riteDay = t.day; say(riteOmenLine(words)); }
       }
       return current;
     },

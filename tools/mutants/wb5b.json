@@ -146,7 +146,7 @@
   {
     "name": "WB5b-the-count-unsaid",
     "file": "src/net/gateClaims.js",
-    "old": "          if (n != null) { onClosed(n); say(GATE_CLAIM_TEXT.recorded(n)); }",
+    "old": "          if (n != null) { onClosed(n); say(answer.data.rite === true ? GATE_CLAIM_TEXT.rite : GATE_CLAIM_TEXT.recorded(n)); }",
     "new": "          if (n != null) { onClosed(n); }",
     "tests": [
       "test/wb5b_gate_claim.test.js"

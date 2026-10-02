@@ -1,0 +1,73 @@
+// @ts-check
+// WB12d (2026-10-01, Mac: "faithful and a Summoner"): THE FAITHFUL'S CHEST - what the faithful keep in their circle,
+// opened once their rite is broken, for each character once a day: gold, two to four reagents of the rite (Sulphur,
+// Ichor, Ectoplasm, Lich Dust - a Daedra's Heart rarely) and, one time in twenty, a piece of Dagon's Brand - a Magic
+// piece of armour bearing the set's sigil. Design: bible/11-Multiplayer/World-Bosses.md section 19 D.
+//
+// The day it was opened is the character's own record in the save (systems/modSaveData.js), as the Broker's is.
+//
+// Not a DFU member. Ledger A (WB).
+import { createRandomArmor } from './loot.js';
+import { setItemFields, mintCondition } from './itemTemplates.js';
+import { applyRarity } from './lootRarity.js';
+import { goldStack } from './inventory.js';
+import { sigilParty } from './sigil.js';
+import { registerModSaveData } from './modSaveData.js';
+
+/** Gold a level of the opener's, the low and high of the roll. */
+export const RITE_CHEST_GOLD = Object.freeze([20, 40]);
+/** The rite's reagents (their templates and groups), two to four of them. */
+export const RITE_REAGENTS = Object.freeze([
+  Object.freeze({ templateIndex: 69, group: 'MetalIngredients' }),           // Sulphur
+  Object.freeze({ templateIndex: 64, group: 'MiscellaneousIngredients1' }),  // Ichor
+  Object.freeze({ templateIndex: 39, group: 'CreatureIngredients1' }),       // Ectoplasm
+  Object.freeze({ templateIndex: 45, group: 'CreatureIngredients1' }),       // Lich Dust
+]);
+export const RITE_REAGENTS_MIN = 2;
+export const RITE_REAGENTS_MAX = 4;
+/** A reagent drawn is a Daedra's Heart this often. */
+export const RITE_HEART = Object.freeze({ templateIndex: 53, group: 'CreatureIngredients1' });
+export const RITE_HEART_CHANCE = 0.08;
+/** A piece of Dagon's Brand, one chest in this many. */
+export const RITE_BRAND_IN = 20;
+/** The set the brand bears (systems/sigilSets.js). */
+export const RITE_BRAND_SET = 'dagon';
+
+/**
+ * What one chest holds for a character of `level`: gold first, the reagents, then the brand when the roll gives one.
+ * @param {number} level @param {() => number} [rolls]
+ */
+export function riteChestItems(level, rolls = Math.random) {
+  const lv = Math.max(1, Math.floor(Number(level) || 1));
+  const [lo, hi] = RITE_CHEST_GOLD;
+  const items = [goldStack(Math.round(lv * (lo + rolls() * (hi - lo))))];
+  const n = RITE_REAGENTS_MIN + Math.floor(rolls() * (RITE_REAGENTS_MAX - RITE_REAGENTS_MIN + 1));
+  for (let i = 0; i < n; i++) {
+    const r = rolls() < RITE_HEART_CHANCE ? RITE_HEART : RITE_REAGENTS[Math.floor(rolls() * RITE_REAGENTS.length) % RITE_REAGENTS.length];
+    items.push(mintCondition(setItemFields({ group: r.group, templateIndex: r.templateIndex })));
+  }
+  if (rolls() * RITE_BRAND_IN < 1) items.push(riteBrand(lv, rolls));
+  return items;
+}
+
+/** A piece of Dagon's Brand: a Magic piece of armour bearing the set's sigil, at Faint. */
+export function riteBrand(level, rolls = Math.random) {
+  const it = createRandomArmor(level, rolls);
+  applyRarity(it, 'magic', rolls);
+  it.isIdentified = true;
+  it.sigil = { set: RITE_BRAND_SET, party: sigilParty(1), xp: 0 };
+  return it;
+}
+
+// ── the record: the day this character last opened a chest ──
+export const RITE_CHEST_SAVE_VENDOR = 'RiteChest';
+let _day = -1;
+/** Whether this character has opened `day`'s chest. */
+export const riteChestOpened = (day) => _day === day;
+/** This character has opened `day`'s chest. */
+export function markRiteChest(day) { if (Number.isSafeInteger(day)) _day = day; }
+registerModSaveData(RITE_CHEST_SAVE_VENDOR, {
+  newSaveData: () => ({ day: -1 }),
+  getSaveData: () => ({ day: _day }),
+  restoreSaveData: (r) => { _day = Number.isSafeInteger(r?.day) ? r.day : -1; },
+});

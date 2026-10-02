@@ -234,12 +234,12 @@ opposite of their own code and deserve a slice's attention:
 ## Line-citation drift (low, batched)
 
 `Port-Ledger.md:635` (save.js:36/:586/:605 → :28/:681/:713), `:636`
-(world.js:5017 → :2412); `Quest-Arc.md:724`/`:2911`
+(world.js:5019 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:646 → :903); `Player-Arc.md:979` (worldModes.js:974 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`
-(interiorContext.js:214 → :199); `Rendering.md:172`
+(interiorContext.js:214 → :199); `Rendering.md:173`
 (CHAR_SPRITE_RT_SIZE "256" → 512).
 
 ## What checked out clean

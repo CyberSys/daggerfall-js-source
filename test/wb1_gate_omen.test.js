@@ -12,7 +12,7 @@ import {
 } from '../src/net/gateLaw.js';
 import { scanGatePixels, findGateSite, gateRegions, politicClaimed, gateSeaPixel, GATE_TOWN_MIN_PX, GATE_TOWN_MAX_PX, GATE_TOWN_TYPES } from '../src/systems/gateSite.js';
 import { isWaterPixel } from '../src/ui/overworldModel.js';
-import { createGateOmen, insideGateRing, gateSceneXZ } from '../src/systems/gateOmen.js';
+import { createGateOmen, insideGateRing, gateSceneXZ, riteOmenLine } from '../src/systems/gateOmen.js';
 import { readGateMark, gateMarkKey, gateRingKey, gateRingTexels, GATE_RING_BAND } from '../src/ui/gateMapMark.js';
 import { paintGateRing } from '../src/ui/inkMap.js';
 import { hash32, spawnsDungeon, WORLD_SALT } from '../src/world/spawnedDungeons.js';
@@ -263,21 +263,22 @@ function omenOver(day, site = { place: 'Copperham, Wrothgarian Mountains', near:
 test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears where the gate stands now', () => {
   const { t, clock, lines, omen } = omenOver(600);
   for (let ms = clock.now; ms <= t.wrathAt + GATE_COLLAPSE_MS + 5000; ms += 1000) { clock.now = ms; omen.frame(); }
-  assert.equal(lines.length, 6, lines.join('\n'));
+  assert.equal(lines.length, 7, lines.join('\n'));
   assert.equal(lines[0], omenLine({ place: 'Copperham, Wrothgarian Mountains', at: `L${600 * 1440 + 1200}` }));
   assert.match(lines[0], /^The sky burns near Copperham, Wrothgarian Mountains\. Dagon's faithful open a breach at 20:00 \(L\d+ your time\)\.$/);   // WB13b
   assert.equal(lines[1], marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(600) }), 'WB8c: tonight\'s marks, beside the omen - once');
-  assert.equal(lines[2], riseLine({ near: 'Copperham', left: '5:00' }));
-  assert.equal(lines[3], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
-  assert.equal(lines[4], sealLine({ near: 'Copperham', at: `L${600 * 1440 + 1440}` }));
-  assert.match(lines[4], /^The Covenant has sealed Dagon's Breach near Copperham\. It collapses at 00:00 \(L865440 your time\)\.$/, 'GATE-COLLAPSE: the seal says when it goes - the wrath, midnight');
-  assert.equal(lines[5], wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }));
+  assert.equal(lines[2], riteOmenLine({ place: 'Copperham, Wrothgarian Mountains' }), 'WB12d: the faithful\'s rite, beside the omen - once');
+  assert.equal(lines[3], riseLine({ near: 'Copperham', left: '5:00' }));
+  assert.equal(lines[4], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
+  assert.equal(lines[5], sealLine({ near: 'Copperham', at: `L${600 * 1440 + 1440}` }));
+  assert.match(lines[5], /^The Covenant has sealed Dagon's Breach near Copperham\. It collapses at 00:00 \(L865440 your time\)\.$/, 'GATE-COLLAPSE: the seal says when it goes - the wrath, midnight');
+  assert.equal(lines[6], wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }));
   // a player arriving 90 s into the sealed wait hears the rise line with what is LEFT, and nothing before it - and
   // (WB8c) tonight's marks beside it
   const late = omenOver(601);
   late.clock.now = late.t.riseAt + GATE_RISE_MS + 90_000;
   late.omen.frame(); late.omen.frame();
-  assert.deepEqual(late.lines, [riseLine({ near: 'Copperham', left: countdownText(late.t.openAt - late.clock.now) }), marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(601) })]);
+  assert.deepEqual(late.lines, [riseLine({ near: 'Copperham', left: countdownText(late.t.openAt - late.clock.now) }), marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(601) }), riteOmenLine({ place: 'Copperham, Wrothgarian Mountains' })]);   // WB12d: and the rite, while it holds
 });
 
 test('WB1 the chat: a fallen boss\'s gate says no wrath, and a host with no map data says nothing at all', () => {

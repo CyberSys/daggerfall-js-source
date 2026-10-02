@@ -555,7 +555,7 @@ export function createGateCourt({
     const at = courtToDungeon(x, profileOf(s).bossH * 0.55, z), f = feet();   // his chest - WB8b: Colossal's stands higher
     const bearing = f ? Math.atan2(f[0] - at[0], f[2] - at[2]) : s.yaw;
     const keep = spoilsKeep(x, z);   // WB9f: on the floor of the court he fell in, never off its edge into the fire
-    if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s, keep })) {   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account
+    if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s, keep, claims })) {   // WB12d: and the rite's ember   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account
       say(COURT_STRIKE_TEXT.spilled());   // WBX3: and said to be theirs
       addBurst(at, t, FX_KINDS.spoils, SPOILS_BURST_COLOR, keep.floorY);   // WB9f: his chest bursts in gold as they leave it
     }

@@ -54,12 +54,13 @@ test('WB12d the circle in the relay\'s frame: native units off the gate\'s pixel
   }
 });
 
-test('WB12d the faithful and the window: the Summoner first - a Mage - then 6 to 8 of the four robed careers by the day\'s roll; the rite holds from the omen until the breach opens, and its circle stands until the breach collapses (mutants: the count one short; the window to the seal; the circle gone at the opening)', () => {
+test('WB12d the faithful and the window: the Summoner first - a Sorcerer, known by his kind on every screen - then 6 to 8 of the four robed careers by the day\'s roll; the rite holds from the omen until the breach opens, and its circle stands until the breach collapses (mutants: the count one short; the window to the seal; the circle gone at the opening)', () => {
   const counts = new Set();
   for (const d of DAYS) {
     const f = riteFaithfulOf(d);
     assert.deepEqual(f[0], { career: RITE_SUMMONER_CAREER, summoner: true });
-    assert.equal(RITE_SUMMONER_CAREER, 128, 'a Mage');
+    assert.equal(RITE_SUMMONER_CAREER, 131, 'a Sorcerer');
+    assert.ok(!RITE_CAREERS.includes(RITE_SUMMONER_CAREER), 'none of the faithful is his kind');
     const rest = f.slice(1);
     assert.ok(rest.length >= RITE_FAITHFUL_MIN && rest.length <= RITE_FAITHFUL_MAX, `day ${d}: ${rest.length}`);
     assert.ok(rest.every((x) => !x.summoner && RITE_CAREERS.includes(x.career)));

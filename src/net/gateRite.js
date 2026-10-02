@@ -21,9 +21,10 @@ export const RITE_UNITS_PER_M = 40;
 /** The faithful at a circle beside the Summoner: the day's roll in [MIN, MAX]. */
 export const RITE_FAITHFUL_MIN = 6;
 export const RITE_FAITHFUL_MAX = 8;
-/** Their robed careers (characters/mobileTypes.js): Mage, Battlemage, Healer, Nightblade. The Summoner is a Mage. */
+/** Their robed careers (characters/mobileTypes.js): Mage, Battlemage, Healer, Nightblade. The Summoner is a Sorcerer -
+ *  a caster none of them is, so every screen knows him by his kind alone (a copy of a peer's carries no name). */
 export const RITE_CAREERS = Object.freeze([128, 130, 132, 133]);
-export const RITE_SUMMONER_CAREER = 128;
+export const RITE_SUMMONER_CAREER = 131;
 /** The Summoner's health over a caster's. */
 export const RITE_SUMMONER_HEALTH = 3;
 /** The most accounts a rite counts among those who broke it (a raid's bound). */
@@ -78,8 +79,8 @@ export const riteHolds = (day, now) => { const w = riteWindow(day); return now >
 export const riteStands = (day, now) => { const t = gateTimes(day); return isGateDay(day) && now >= t.omenAt && now < t.wrathAt + GATE_COLLAPSE_MS; };
 
 /**
- * The day's faithful, the Summoner first: `{ career, summoner }` - RITE_FAITHFUL_MIN to RITE_FAITHFUL_MAX of Dagon's
- * Faithful beside him, each one of the four robed careers by the day's roll. Pure.
+ * The day's faithful, the Summoner first (a Sorcerer): `{ career, summoner }` - RITE_FAITHFUL_MIN to RITE_FAITHFUL_MAX of
+ * Dagon's Faithful beside him, each one of the four robed careers by the day's roll. Pure.
  * @param {number} day
  */
 export function riteFaithfulOf(day) {

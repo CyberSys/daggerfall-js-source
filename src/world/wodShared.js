@@ -12,8 +12,8 @@
 // the owner's sprung list ride the foes frame beside `c` (SURV3's camps) - validated here, at the reader, never by
 // the relay, which reads a frame's record count and nothing else. No wire or relay change.
 
-/** A site id: `px,py:objectID` or `px,py:hold`. */
-export const WOD_SITE_RE = /^-?\d{1,5},-?\d{1,5}:(?:\d{1,10}(?:\.\d{1,3})?|hold)$/;
+/** A site id: `px,py:objectID` or `px,py:hold` - WB12d: or `px,py:rite`, a breach's faithful (scenes/riteHost.js). */
+export const WOD_SITE_RE = /^-?\d{1,5},-?\d{1,5}:(?:\d{1,10}(?:\.\d{1,3})?|hold|rite)$/;
 /** The most sites one frame may name, as tags or as the sprung list. */
 export const WOD_SITES_MAX = 64;
 /** A reader's allowance for one owner's camp foes - apart from CELL_PUPPETS_MAX, as the watch's is (WATCH1): a camp
