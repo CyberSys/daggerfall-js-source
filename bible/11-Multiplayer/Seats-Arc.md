@@ -861,8 +861,17 @@ treasury; "refused in a siege week" waits on SEAT2 (no siege stands) - BUILT (AU
 (a siege or a Tourney; the free first choice stands). Drawn so far on the Guild tab and on the hall's
 two banners (3.4's anchor 2 at the hall's door - `render/bannerPass.js`, `scenes/hallBanners.js`); the map ring, the
 tag's frame, the siege HUD, the board and the Chronicle come with SEAT1a-SEASON1 - of these, the board's Seat tab
-(`ui/seatTab.js`) and the map ring draw it. NOT YET (the audit of the arc): heraldry on the guild tag's frame, on the
-siege HUD (`ui/siegeHud.js`) and in the Chronicle.
+(`ui/seatTab.js`) and the map ring draw it. BUILT (HERALDRY-SHOWN, 2026-10-02; Online-Arc HERALDRY-SHOWN): heraldry on
+the guild tag's frame, on the siege HUD (`ui/siegeHud.js`) and in the Chronicle - one swatch, a small shield of the field,
+the border and the device (`ui/heraldrySwatch.js` over `ui/heraldryArt.js` shieldSvg): a peer's `<TAG>` framed in its
+border colour with its shield; each side's shield at its end of the HUD's bar; each Seat tab Chronicle line under the
+shield of the guild it is about, and the Hall of Records' book closed by a Roll of Arms in words. DECIDED: no wire
+carries a guild's heraldry to these faces (a peer's token names its tag alone), so each reads it by the guild's tag
+(unique) off what the client already holds - the reader's own guild, the seats' list's holders and battles, a seat's
+standings (`net/heraldryIndex.js` heraldryByTag) - and a guild the client knows no heraldry of wears the plain tag, no
+shield, no Roll line; no relay or service change. DECIDED: a Chronicle line shows the guild's heraldry as it is now, not
+as it was that day (a row keeps the name and tag alone). DECIDED: the book reader draws text alone, so the Hall of
+Records names the arms in words.
 
 ### 8.2 The guild hall (GUILD1d)
 

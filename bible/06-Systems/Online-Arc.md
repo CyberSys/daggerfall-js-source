@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8567` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8571` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11851,6 +11851,32 @@ use it, the seams of main's merges with the repository's health, the tests' own 
 Pinned: `test/audit_seats3_service.test.js` (11), `test/audit_seats3_relay.test.js` (7), `test/audit_seats3_client.test.js`
 (9). Mutants: `tools/mutants/audit_seats3_client.json` (20), `audit_seats3_service.json` (27), `audit_seats3_relay.json` (14),
 `audit_seats3_world.json` (5), and `seat_hall.json` +2, all dead; older records re-aimed by content, all still dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
+
+### HERALDRY-SHOWN - a guild's heraldry on its tag, the siege HUD and the Chronicle (2026-10-02)
+
+Mac: "lets finish the build work" - Seats-Arc 8.1's NOT YET: the heraldry "drawn on ... the frame of the guild tag, the
+siege HUD ... and the Chronicle".
+
+- **One swatch** (`ui/heraldrySwatch.js`): a small shield of the field, the border inside its edge and the device in the
+  border colour (`ui/heraldryArt.js` shieldSvg - the banner's own device parts), set as a picture's data: URI, never
+  markup; `paintSwatch` writes a picture only when its heraldry changes.
+- **Where it is found**: no wire carries it to these faces (a peer's token names its tag alone; the fight's answer, its
+  guilds' names and tags; a Chronicle row, the names and tags as they were), so each reads it by the guild's tag (the
+  guilds table's unique) off what the client already holds - `net/heraldryIndex.js` heraldryByTag: the reader's own guild,
+  then the seats' list (each holder, each battle's two), a seat's standings. The host's lookup (`scenes/world.js`
+  seatArmsOf) builds the index again only when a source is another object.
+- **The tag's frame** (`ui/nameLayer.js`): a peer's `<TAG>` whose heraldry is known sits on a dark plate edged in its
+  border colour, its shield at the plate's left - written when it changes. Unknown: the plain tag.
+- **The siege HUD** (`ui/siegeHud.js`): the defender's shield at the bar's left, the challenger's at its right
+  (`net/siegeLink.js` siegeHudModel's `arms`; the session dresses the Seat tab's fight in the dressed seat's heraldry
+  once, at its entering - fightArmed). A revolt's rising town and a Royal Tourney show none.
+- **The Chronicle**: each Seat tab line under the shield of the guild it is about (`chronicleGuildOf`, the one its line
+  names first), known from the standings' answer or the seats' list; the Hall of Records' book - the reader draws text
+  alone - closes with **a Roll of Arms**, each guild it names, once, with its heraldry in words.
+- DECIDED: a guild the client knows no heraldry of (no seat held or fought for, not the reader's own) wears none; the
+  Chronicle shows a guild's heraldry as it is now, not as it was that day. No relay or service change, no version.
+
+Pinned: `test/seat_heraldry_ui.test.js` (6). Mutants: `tools/mutants/seat_heraldry_ui.json` (57, all dead).
 
 ### CASTLE-GATE - a crown's field and banners at its castle's entrance (2026-10-02)
 

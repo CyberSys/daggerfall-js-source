@@ -327,8 +327,8 @@
  {
   "name": "RECORDS-wd-read",
   "file": "src/scenes/world.js",
-  "old": "        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero) : null;",
-  "new": "        return r.data ? hallOfRecordsWindow(seat, r.data.rows, null) : null;",
+  "old": "        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero, seatArmsOf) : null;",
+  "new": "        return r.data ? hallOfRecordsWindow(seat, r.data.rows, null, seatArmsOf) : null;",
   "tests": [
    "test/season1_records.test.js"
   ]

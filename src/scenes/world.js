@@ -555,6 +555,7 @@ import { BannerRenderer, BANNER_TEX_W, BANNERS_MAX } from '../render/bannerPass.
 import { createHallBanners, doorCornersOf } from './hallBanners.js';
 import { createSeatBanners, seatBannerAnchors, palaceKeysOf, townCentreOf } from './seatBanners.js';   // SEAT1a: a seat town's banners   // GUILD1d: ...hung beside its hall's door
 import { drawBanner } from '../ui/heraldryArt.js';   // GUILD1d: ...its heraldry painted on it
+import { heraldryLookup } from '../ui/heraldrySwatch.js';   // HERALDRY-SHOWN: a guild's heraldry by its tag, off what this client holds
 import { AuraRingRenderer, auraWearers, AURA_KINDLE_S } from '../render/auraRing.js';   // WB9g: Dagon's Fire at a wearer's feet
 import { duelAttackerOf, duelWeaponOf, duelSwingOf, resolveDuelStrike, duelBlowPlausible, duelSpellOf, duelSpellFromWire, duelWearDamage, DUEL_TRAIL_MS, duelStub } from '../combat/duelCombat.js';   // DUEL1: the blow between two duellists, both halves
 import { createPageWindow, pageView } from '../ui/pageWindow.js';   // JOURNAL1: a page another player holds out, read and kept
@@ -1223,6 +1224,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   /** SEAT1a: the seat a location IS, while the seats are open to this account - off the client's own derivation (a seat
    *  it lacks is never drawn, listed or honoured). */
   const seatHere = (mapId) => (seatBook?.open === true ? seatBook.dressed(seatAtMapId(townSeats, mapId)) : null);   // SEAT1c: dressed in its holder
+  /** HERALDRY-SHOWN (Seats-Arc 8.1): a guild's heraldry by its tag - the reader's own guild's, then the seats' list's (each
+   *  holder and each battle's two) - for the name tags' frames and the Hall of Records' Roll of Arms; null where unknown. */
+  const seatArmsOf = heraldryLookup(() => [guildBook?.guild, seatBook?.data]);
   // SEAT2b part two (Seats-Arc 7.5: "the town is a Travel Options port for members"): a Harbour standing at a seat my
   // guild holds is a port to the travel map, the ship's rules and the held map (systems/travelPorts.js hasPortFor)
   setSeatHarbours((mapId) => harbourPortFor(seatHere(mapId), guildBook?.guild?.id ?? null));
@@ -16073,6 +16077,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // AUDIT NAME1 F7: the layer's gate is the CHAT's (ui/nameLayer.js nameLayerWanted) - one gate, one answer, so the
     // bubbles never stand over heads with no chat beside them. OVH3: that gate is a document now, on either skin.
     if (nameLayerWanted()) nameLayer = createNameLayer({});   // OVH3: on either skin, beside the chat it belongs to
+    nameLayer?.setArmsOf(seatArmsOf);   // HERALDRY-SHOWN: a guild tag framed in its guild's heraldry
     // AUDIT NAME1 F2/F5: the sight cache is the SESSION'S, not a frame's - it is keyed by peer id and it remembers
     // both the last ray and how long it has been saying "blocked". Made beside the layer and kept with it.
     nameSight = createSightCache();
@@ -18773,7 +18778,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const r = st && seatBook ? await seatBook.records(st.key) : null;
     if (townTalk.overlay !== board) return false;
     if (!r?.data) return false;
-    townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero));
+    townTalk.showOverlay(hallOfRecordsWindow(st, r.data.rows, r.data.zero, seatArmsOf));   // HERALDRY-SHOWN: its Roll of Arms
     return true;
   };
   /** THE ONE CONSTRUCTION SEAM (PROF0 17.2): every Notice Board window this host opens - a town's, and (GUILD1e) the
@@ -20528,7 +20533,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         const seat = seatHere(mapId);
         if (!seat || !seatBook) return null;
         const r = await seatBook.records(seat.key);
-        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero) : null;
+        return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero, seatArmsOf) : null;   // HERALDRY-SHOWN: its Roll of Arms
       },
     },
     // SEAT-HALL (Seats-Arc 7.2: "the palace interior is the holder's guild hall"): a palace seat's palace, as its visitor

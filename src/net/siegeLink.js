@@ -11,6 +11,8 @@
 //
 // Not a DFU member. Ledger A (EVERY PALACE A SEAT's row).
 import { SIEGE_THRONE, SIEGE_BANNER_NAMES, SIEGE_SPECTATORS_MAX, SIEGE_NPC_KINDS, siegeNextWave, siegeWaveMs, siegeNpcAt, isSiegeNpcId } from './siegeRef.js';
+import { heraldryOf } from './heraldryLaw.js';   // HERALDRY-SHOWN: each side's heraldry on the HUD
+import { heraldryByTag } from './heraldryIndex.js';   // HERALDRY-SHOWN: the dressed seat's guilds, by tag
 
 /**
  * @typedef {{ hp: number, max: number, down: boolean, side: 'attack'|'defend'|null }} SiegeFighter
@@ -236,5 +238,21 @@ export function siegeHudModel(s, battle, me, now, { watching = false, honours = 
     sides: siegeSidesLine(s, battle),
     self: siegeSelfLines(s, me, now, { tier: battle.tier, watching }),
     card,
+    // HERALDRY-SHOWN (Seats-Arc 8.1: "drawn on ... the siege HUD"): each side's heraldry where its guild carries one - a
+    // revolt's rising town has none
+    arms: { defend: heraldryOf(battle.defender?.heraldry), attack: battle.kind === 'revolt' || s.revolt ? null : heraldryOf(battle.attacker?.heraldry) },
   };
+}
+
+/**
+ * HERALDRY-SHOWN: THE SEAT TAB'S FIGHT, ITS TWO GUILDS DRESSED IN THEIR HERALDRY - the fight's answer names each guild's
+ * name and tag alone (server-account/src/seatBattles.js fightOf), and the seat the tab was opened on is dressed in the
+ * seats' list's word of it (net/townSeatBook.js dressed: its holder's guild, its battle's two, each with its heraldry);
+ * a guild already dressed, or one the seat's dress does not know, is left as it came.
+ */
+export function fightArmed(fight, seat) {
+  if (!fight) return fight;
+  const arms = heraldryByTag(seat);
+  const dress = (g) => (g && !heraldryOf(g.heraldry) && arms.has(g.tag) ? { ...g, heraldry: arms.get(g.tag) } : g);
+  return { ...fight, attackerGuild: dress(fight.attackerGuild), defenderGuild: dress(fight.defenderGuild) };
 }
