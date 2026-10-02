@@ -42,9 +42,11 @@ export const SPOILS_GOLD_PER_LEVEL = 250;
 export const SPOILS_LEGENDARY = 0.1;
 /** The source the two Magic-or-better pieces are laddered at: a boss, at the ladder's top tier, a player's even luck. */
 export const SPOILS_SOURCE = Object.freeze({ boss: true, tier: 21, luck: 50 });
-/** The gate's trophy: its template, its name and its price. */
+/** The gate's trophy: its template, its name and its price. WB12a (2026-10-01, Mac: "I'd like to rename the stones" -
+ *  "Deadlands Ember"): a coal of the breach's fire, carried out when the Warden falls - only the NAME moved; the id, the
+ *  binding and every key are the Sigil Stone's (bible World-Bosses.md section 19 A). */
 export const SIGIL_STONE_TEMPLATE = 570;
-export const SIGIL_STONE = Object.freeze({ name: 'Sigil Stone', value: 5000 });
+export const SIGIL_STONE = Object.freeze({ name: 'Deadlands Ember', value: 5000 });
 
 /** The Sigil Stone's row, in DFU's ItemTemplates.txt columns: a gem's weight and wear, the gate's price, the rarest
  *  rarity, the Ruby's art (TEXTURE.254 record 0) - and the port's two (SS1): it stacks, with its own kind alone, and it
@@ -107,6 +109,18 @@ export function restackStones(list) {
     folded++;
   }
   return folded;
+}
+
+/** WB12a: THE EMBER'S NAME, GIVEN TO EVERY STONE. A stone's name is written into its record at the mint and kept by
+ *  every save, so a stone won before the rename still said "Sigil Stone" - and a stack it heads keeps its name through
+ *  every merge (inventory.js stacksWith never compares names). Every record of the template under another name takes
+ *  the template's (systems/save.js, beside the rarity names' repair; the crash record's pieces, scenes/spoilsPool.js).
+ *  Answers how many it renamed. */
+export function nameEmbers(list) {
+  if (!Array.isArray(list)) return 0;
+  let renamed = 0;
+  for (const it of list) if (isSigilStone(it) && it.name !== SIGIL_STONE.name) { it.name = SIGIL_STONE.name; renamed++; }
+  return renamed;
 }
 
 const pick = (list, rolls) => list[Math.floor(rolls() * list.length)];

@@ -69,7 +69,7 @@ const opts = (sel) => [...sel.querySelectorAll('option')];
 
 // ─── THE LAW ─────────────────────────────────────────────────────────
 
-test('MARKET-ANY law: a looted weapon and armour list from the pack; bound (a Sigil Stone, the Broker\'s ware), worn, locked, a quest\'s, gold, a letter, a boat\'s deed and arrows do not, each in words - the shapes the producers mint (mutants: each refusal dropped; the arrow\'s row)', () => {
+test('MARKET-ANY law: a looted weapon and armour list from the pack; bound (a Deadlands Ember, the Broker\'s ware), worn, locked, a quest\'s, gold, a letter, a boat\'s deed and arrows do not, each in words - the shapes the producers mint (mutants: each refusal dropped; the arrow\'s row)', () => {
   const { weapon, armour, gold } = lootDrop();
   assert.equal(goodRefusal(plain(weapon)), null, `a looted ${weapon.name} lists`);
   assert.equal(goodRefusal(plain(armour)), null, `a looted ${armour.name} lists`);
@@ -459,7 +459,7 @@ test('MARKET-ANY tab: Goods after the Auctions - each piece its name, condition,
   selects().find((x) => x.getAttribute('aria-label') === 'What to list').onchange();
   const pick = selects().find((x) => x.getAttribute('aria-label') === 'Piece from your pack');
   assert.deepEqual(opts(pick).map((o) => o.textContent), [eve.goods.goodName(weapon), eve.goods.goodName(armour), eve.goods.goodName(theirs)]);
-  assert.match(text(), new RegExp(`Not for the market: Sigil Stone \\(bound to you\\); ${eve.goods.goodName(own)} \\(your own make - list it as a crafted piece\\)\\.`));
+  assert.match(text(), new RegExp(`Not for the market: Deadlands Ember \\(bound to you\\); ${eve.goods.goodName(own)} \\(your own make - list it as a crafted piece\\)\\.`));
   assert.match(text(), /A piece from your pack sells for gold alone\./);
   assert.equal(selects().some((x) => x.getAttribute('aria-label') === 'Currency'), false, 'no Drakes to choose');
   const price = [...root.querySelectorAll('input')].find((i) => i.getAttribute('data-focus') === 'list-price');

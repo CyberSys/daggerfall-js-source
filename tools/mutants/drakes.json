@@ -83,8 +83,8 @@
   {
     "name": "DRAKES-the-gate-line-old",
     "file": "src/net/marksBook.js",
-    "old": "The counting-houses strike silver for two gates a day.",
-    "new": "The counting-houses strike Marks for two gates a day.",
+    "old": "The counting-houses strike it for two breaches a day.",
+    "new": "The counting-houses strike Marks for two breaches a day.",
     "tests": [
       "test/drakes.test.js"
     ]

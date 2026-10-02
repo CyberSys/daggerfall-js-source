@@ -9,6 +9,7 @@
 //
 // Not a DFU member. Ledger A (WB).
 import { GATE_RING_CSS } from './gateMapMark.js';
+import { injectEnhancedFonts } from './enhancedStyle.js';   // WB13c: the classic face, loaded by the gate's own screens
 
 /** Where it stands: under the compass strip, centred. */
 export const GATE_BANNER_TOP = '64px';
@@ -33,6 +34,7 @@ export function drawGateBanner(text, { hidden = false, doc = globalThis.document
       st.id = GATE_BANNER_STYLE_ID;
       st.textContent = GATE_BANNER_CSS;
       (doc.head ?? doc.body)?.append(st);
+      if (doc.head) injectEnhancedFonts(doc);   // WB13c: Cormorant on the classic skin too (it came only if another window had asked)
     }
     node = doc.createElement('div');
     node.className = 'wb-gate-banner';

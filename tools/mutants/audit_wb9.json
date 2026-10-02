@@ -190,20 +190,19 @@
     ]
   },
   {
-    "name": "AUDIT-WB9-the-rim-read-off-the-edge",
+    "name": "AUDIT-WB9-the-cone-edge-jumping",
     "file": "src/render/gateTelegraph.js",
-    "old": "  float px = max(length(fwidth(vCourt)), 1e-4);",
-    "new": "  float px = max(fwidth(edge), 1e-4);",
+    "old": "    edge = abs(min(sector, d - uBody));",
+    "new": "    edge = min(ang <= uHalfArc ? abs(d - uR) : 1e3, d > uBody && d <= uR ? abs(ang - uHalfArc) * d : 1e3);",
     "tests": [
-      "test/audit_wb9.test.js",
-      "test/wb9e_gate_blows.test.js"
+      "test/audit_wb9.test.js"
     ]
   },
   {
     "name": "AUDIT-WB9-the-throb-three-times-too-fast",
     "file": "src/render/gateTelegraph.js",
-    "old": "  float hz = 1.5 + (5.0 / 3.0) * uT * uT;",
-    "new": "  float hz = 1.5 + (5.0 / 1.0) * uT * uT;",
+    "old": "  float hz = 1.5 + 0.5 * T2;",
+    "new": "  float hz = 1.5 + 1.5 * T2;",
     "tests": [
       "test/audit_wb9.test.js"
     ]
@@ -238,8 +237,8 @@
   {
     "name": "AUDIT-WB9-the-courts-drawn-twice-under-a-walkway",
     "file": "src/render/gateTelegraph.js",
-    "old": "  else if (length(vCourt - uWalkC0) <= uFloorR || length(vCourt - uWalkC1) <= uFloorR) discard;\n",
-    "new": "",
+    "old": "  bool clipOut = uOnWalk == 0 ? c > uFloorR : (length(vCourt - uWalkC0) <= uFloorR || length(vCourt - uWalkC1) <= uFloorR);",
+    "new": "  bool clipOut = uOnWalk == 0 ? c > uFloorR : false;",
     "tests": [
       "test/audit_wb9.test.js"
     ]

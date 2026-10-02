@@ -56,8 +56,8 @@
   {
     "name": "PLUS-DRESS-the-paint-back-inline",
     "file": "src/ui/gateBossBar.js",
-    "old": "  const part = (cls) => { const n = doc.createElement('div'); n.className = cls; return n; };",
-    "new": "  const part = (cls) => { const n = doc.createElement('div'); n.className = cls; n.style.cssText = 'pointer-events:none'; return n; };",
+    "old": "  const part = (cls, tag = 'div') => { const n = doc.createElement(tag); n.className = cls; return n; };",
+    "new": "  const part = (cls, tag = 'div') => { const n = doc.createElement(tag); n.className = cls; n.style.cssText = 'pointer-events:none'; return n; };",
     "tests": [
       "test/plusdress1.test.js"
     ]

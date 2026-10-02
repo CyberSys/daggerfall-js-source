@@ -15,10 +15,10 @@
 // Deterministic (its own mulberry32 on fixed seeds): every client's gate is the same stone.
 //
 // Not a DFU member. Ledger A (WB).
-import { GATE_ARCHIVE, GATE_STONE_RECORD, GATE_PLINTH_RECORD } from './gateModel.js';
+import { GATE_ARCHIVE, GATE_STONE_RECORD, GATE_PLINTH_RECORD, RITE_SIGIL_RECORD } from './gateModel.js';
 import { COURT_ARCHIVE, COURT_FLOOR_RECORD, COURT_RUNE_RECORD, COURT_LAVA_RECORD, COURT_MEMBRANE_RECORD } from './gateArena.js';   // WB3b: the court's own
 
-export { GATE_ARCHIVE, GATE_STONE_RECORD, GATE_PLINTH_RECORD, COURT_ARCHIVE };
+export { GATE_ARCHIVE, GATE_STONE_RECORD, GATE_PLINTH_RECORD, RITE_SIGIL_RECORD, COURT_ARCHIVE };
 /** A texture's side, texels. */
 export const GATE_ART_SIZE = 64;
 /** The fire's veins down a tile of the horns' stone - few enough that the basalt still reads as stone. */
@@ -153,6 +153,70 @@ export function gatePlinthArt(seed = 0x0f1a) {
 /** Every texture the gate wears, by record: `[record, { albedo, emission }]`.
  *  @returns {Array<[number, ReturnType<typeof gateStoneArt>]>} */
 export const gateArt = () => [[GATE_STONE_RECORD, gateStoneArt()], [GATE_PLINTH_RECORD, gatePlinthArt()]];
+
+// ═══ WB12d: THE FAITHFUL'S SIGIL ═════════════════════════════════════════════════════════════════════════════════
+/** AUDIT WB12d (G11): the sigil's art, one disc across its whole tile (never a tile repeated - the plinth's flags read
+ *  as a paved square), and its fire's colour. */
+export const RITE_SIGIL_ART_SIZE = 128;
+const CHAR = Object.freeze([40, 31, 25]);
+const ASH = Object.freeze([92, 85, 77]);
+const BURNT = Object.freeze([10, 7, 6]);
+
+/**
+ * AUDIT WB12d (G11): DAGON'S SIGIL BURNED INTO THE EARTH - scorched ground, char and pooled ash, ragged where the burn
+ * gave out (alpha 0 there, so the land shows through and no disc's edge is drawn); a double ring cut round it with the
+ * faithful's runes between; Dagon's seven-pointed star burned across it, its first point at the top (+v - the circle's
+ * model turns it toward the gate); the altar's ring at the heart. Every cut smoulders (the emission), so the sigil glows
+ * at night as the braziers do. `{ albedo, emission }`, RITE_SIGIL_ART_SIZE square.
+ */
+export function riteSigilArt(seed = 0x5161) {
+  const S = RITE_SIGIL_ART_SIZE, albedo = image(S), emission = image(S);
+  const tone = noiseField(seed, 6), grain = noiseField(seed + 1, 32), edge = noiseField(seed + 2, 10);
+  const r = rng(seed + 3);
+  const c = (S - 1) / 2;
+  const glow = (t) => mix([0, 0, 0], RUNE_GLOW, t);
+  // the ground: char, ash pooled toward the heart, the grain of burnt soil - and nothing past the burn's ragged rim
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const d = Math.hypot(x - c, y - c) / c;
+    if (d > 0.9 + 0.16 * (edge(x, y, S) - 0.5)) { put(albedo, x, y, CHAR, 0); put(emission, x, y, [0, 0, 0], 0); continue; }
+    const ash = Math.min(1, Math.max(0, tone(x, y, S) - 0.5) * 2.2 * (1.1 - d));
+    const g = 0.72 + 0.56 * grain(x, y, S);
+    put(albedo, x, y, mix(CHAR, ASH, ash).map((v) => Math.min(255, Math.round(v * g))));
+    put(emission, x, y, [0, 0, 0]);
+  }
+  // a cut: burnt black at its heart, its fire in the emission, a halo of heat about it
+  const burn = (x, y) => {
+    const px = Math.round(x), py = Math.round(y);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const k = ((py + j) * S + (px + i)) * 4;
+      if (i === 0 && j === 0) { put(albedo, px, py, BURNT); put(emission, px, py, glow(1)); }
+      else if (albedo.colors[k + 3] && emission.colors[k] < 40) { put(albedo, px + i, py + j, mix(albedo.colors.subarray(k, k + 3), BURNT, 0.5)); put(emission, px + i, py + j, glow(0.3)); }
+    }
+  };
+  const line = (x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2); for (let t = 0; t <= n; t++) burn(x0 + ((x1 - x0) * t) / n, y0 + ((y1 - y0) * t) / n); };
+  const ring = (R) => { const n = Math.ceil(2 * Math.PI * R * 2); for (let k = 0; k < n; k++) { const a = (k / n) * 2 * Math.PI; burn(c + Math.cos(a) * R, c + Math.sin(a) * R); } };
+  // the double ring, and the faithful's runes between its two cuts
+  ring(0.8 * c); ring(0.68 * c);
+  const glyphs = 21, mid = 0.74 * c;
+  for (let g = 0; g < glyphs; g++) {
+    const a = (g / glyphs) * 2 * Math.PI, gx = c + Math.cos(a) * mid, gy = c + Math.sin(a) * mid;
+    const ta = a + Math.PI / 2, cuts = 2 + Math.floor(r() * 2);
+    for (let k = 0; k < cuts; k++) {
+      const ang = r() * Math.PI, len = 1.5 + r() * 2.5, off = (k - (cuts - 1) / 2) * 2.2;
+      const ox = gx + Math.cos(ta) * off, oy = gy + Math.sin(ta) * off;
+      line(ox - Math.cos(ang) * len, oy - Math.sin(ang) * len, ox + Math.cos(ang) * len, oy + Math.sin(ang) * len);
+    }
+  }
+  // Dagon's star, {7/3}: its first point at the top
+  const pts = Array.from({ length: 7 }, (_, i) => { const a = Math.PI / 2 + (i / 7) * 2 * Math.PI; return [c + Math.cos(a) * 0.64 * c, c + Math.sin(a) * 0.64 * c]; });
+  for (let i = 0; i < 7; i++) line(...pts[i], ...pts[(i + 3) % 7]);
+  // and the ring the altar stands in
+  ring(0.17 * c);
+  return { albedo, emission };
+}
+/** WB12d: every texture the faithful's circle wears beside the gate's own, by record.
+ *  @returns {Array<[number, ReturnType<typeof riteSigilArt>]>} */
+export const riteArt = () => [[RITE_SIGIL_RECORD, riteSigilArt()]];
 
 // ═══ WB3b: THE BURNING COURT'S ART ═════════════════════════════════════════════════════════════════════════════════
 //
