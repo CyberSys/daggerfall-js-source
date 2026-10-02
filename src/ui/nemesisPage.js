@@ -1,0 +1,157 @@
+// @ts-check
+// NEMESIS-PAGE (2026-10-02, Mac: "Definitely finish this with love. Any new UI elements need to be enhanced UI plus"):
+// THE NEMESES PAGE on the Enhanced pause menu's Stats rail (ui/enhancedMenu.js pauseStats) - every foe that has earned
+// the character's name (systems/nemesis.js), the living first, strongest first: its portrait in a sunk well with its
+// rank on a chip, its name and what it is, what it has done to you, when it will come, and its deeds in order; then
+// the FALLEN, greyed and struck through, with the day each fell. A character with none is told how one is made.
+//
+// Dressed by the stone-and-brass kit's roles (ui/enhancedFrame.js FRAME_ROLES: a row a tile, the portrait a well, the
+// rank a chip) - this sheet writes geometry and the words' colours alone, as the stats card's does.
+
+import { nemesesFor, nemesisOn, nemesisPortrait, nemesisRankNumeral, NEMESIS_MAX } from '../systems/nemesis.js';
+import { ownMinutes } from '../systems/worldTick.js';
+import { requestFittedIcon, fittedImg } from './textureCanvas.js';
+
+export const NEMESIS_PAGE_SECTIONS = Object.freeze([['nemeses', 'Nemeses']]);
+export const NEMESIS_PAGE_STYLE_ID = 'nemesis-page-css';
+const FACE_BOX = 56;
+let _icon = (p, onReady) => requestFittedIcon(p.archive, p.record, { box: FACE_BOX, dpr: Number(globalThis.devicePixelRatio) || 1, cap: 8, onReady });
+/** Tests: the portrait source. */
+export function _setNemesisPageIconForTests(fn) { _icon = fn ?? ((p, onReady) => requestFittedIcon(p.archive, p.record, { box: FACE_BOX, dpr: Number(globalThis.devicePixelRatio) || 1, cap: 8, onReady })); }
+
+/** The rail shows the page while nemeses are made (the loot-rarity row), or while any is remembered. */
+export const nemesisPageShown = (player = null) => nemesisOn() || nemesesFor(player).length > 0;
+
+export const NEMESIS_PAGE_CSS = `
+.px-sys .nem-list { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 10px; }
+.px-sys .nem-row { display: grid; grid-template-columns: ${FACE_BOX + 8}px 1fr; gap: 10px; padding: 7px 10px 8px 7px;
+  border-width: 2px; border-style: solid; box-sizing: border-box; text-align: left; }
+.px-sys .nem-face { position: relative; box-sizing: border-box; width: ${FACE_BOX + 8}px; height: ${FACE_BOX + 8}px; border-width: 2px;
+  border-style: solid; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+.px-sys .nem-face img.fit { image-rendering: pixelated; }
+.px-sys .nem-face .nem-glyph { margin: auto; font-size: 24px; color: #8b8578; }
+.px-sys .nem-rank { position: absolute; right: 2px; bottom: 2px; z-index: 1; min-width: 18px; padding: 0 3px; box-sizing: border-box;
+  border-width: 1px; border-style: solid; font-size: 10px; line-height: 1.3; text-align: center; color: #f3cf86; }
+.px-sys .nem-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.px-sys .nem-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.px-sys .nem-name { font-size: 15px; color: #f3cf86; overflow-wrap: anywhere; }
+.px-sys .nem-when { flex: none; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #d0604f; }
+.px-sys .nem-when.is-waiting { color: #b8b0a0; }
+.px-sys .nem-when.is-out { color: #e0a54a; }
+.px-sys .nem-sub { font-size: 11px; color: #8b8578; }
+.px-sys .nem-deeds { font-size: 12px; color: #e9e4d9; }
+.px-sys .nem-come { font-size: 12px; color: #b8b0a0; }
+.px-sys .nem-history { margin: 3px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 10px; color: #8b8578; }
+.px-sys .nem-history li::before { content: '\\25C6 '; color: #c08a3e; }
+.px-sys .nem-row.is-fallen .nem-face img { filter: grayscale(1) brightness(0.6); }
+.px-sys .nem-row.is-fallen .nem-face::before { content: ''; position: absolute; left: -10%; right: -10%; top: 50%; z-index: 1;
+  border-top: 3px solid #8c3a32; transform: rotate(-38deg); }
+.px-sys .nem-row.is-fallen .nem-name { color: #b8b0a0; text-decoration: line-through; text-decoration-color: #8c3a32; }
+:root[data-plus-theme="stone"] .px-sys .nem-sub, :root[data-plus-theme="stone"] .px-sys .nem-history { color: #e2d9c4; }
+:root[data-plus-theme="stone"] .px-sys .nem-come { color: #efe8d8; }
+`;
+
+function ensureStyle(doc) {
+  if (!doc?.getElementById || doc.getElementById(NEMESIS_PAGE_STYLE_ID)) return;
+  const st = doc.createElement('style');
+  st.id = NEMESIS_PAGE_STYLE_ID;
+  st.textContent = NEMESIS_PAGE_CSS;
+  (doc.head ?? doc.body)?.append(st);
+}
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** How long ago a minute was, in the words a journal uses. */
+export function agoWords(minute, now) {
+  const days = Math.floor(Math.max(0, now - minute) / 1440);
+  return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+}
+/** When a living nemesis will come, in words: out in the world now, due (any road), or in so long. */
+export function comeWords(r, now) {
+  if (r.out) return { tag: 'Abroad', cls: 'is-out', line: 'Out in the world, looking for you.' };
+  const left = r.dueAt - now;
+  if (left <= 0) return { tag: 'Hunting', cls: '', line: 'Hunting you - it may come on any road.' };
+  const days = Math.round(left / 1440);
+  return { tag: 'Biding', cls: 'is-waiting', line: days >= 1 ? `It will come for you in about ${plural(days, 'day')}.` : `It will come for you within the day.` };
+}
+const times = (n) => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
+/** What it has done to you. */
+export function deedWords(r) {
+  const parts = [];
+  if (r.kills) parts.push(`killed you ${times(r.kills)}`);
+  if (r.escapes) parts.push(`escaped you ${times(r.escapes)}`);
+  if (r.returns) parts.push(`came back ${times(r.returns)}`);
+  const s = parts.join(', ');
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) + '.' : '';
+}
+const DEED_WORDS = Object.freeze({ slew: 'killed you', fled: 'escaped', returned: 'came back', fell: 'fell' });
+
+function face(el, r) {
+  const f = el('div', 'nem-face');
+  f.setAttribute('aria-hidden', 'true');
+  const p = nemesisPortrait(r);
+  const put = (pic) => {
+    if (!pic?.src) return false;
+    f.querySelector?.('.nem-glyph')?.remove();
+    f.insertBefore(fittedImg(pic), f.firstChild ?? null);
+    return true;
+  };
+  let shown = false;
+  if (p) {
+    const ask = (onReady) => _icon(p, onReady);
+    try { shown = put(ask(() => { if (f.isConnected !== false) { try { put(ask(null)); } catch { /* the glyph stands */ } } })); } catch { shown = false; }
+  }
+  if (!shown) f.append(el('span', 'nem-glyph', '☠'));
+  if (r.rank > 0) f.append(el('span', 'nem-rank', nemesisRankNumeral(r.rank)));
+  return f;
+}
+
+function row(el, r, now, kindName) {
+  const fallen = !!r.defeated;
+  const item = el('div', `nem-row${fallen ? ' is-fallen' : ''}`);
+  const text = el('div', 'nem-text');
+  const head = el('div', 'nem-head');
+  head.append(el('span', 'nem-name', r.name));
+  const come = fallen ? null : comeWords(r, now);
+  if (come) head.append(el('span', `nem-when ${come.cls}`.trim(), come.tag));
+  const trait = typeof r.trait === 'string' && r.trait ? r.trait.charAt(0).toUpperCase() + r.trait.slice(1) : null;
+  text.append(head, el('span', 'nem-sub', [`Rank ${nemesisRankNumeral(r.rank)}`, kindName(r.mobileType), trait, r.elite ? 'Elite' : null].filter(Boolean).join(' · ')));
+  const deeds = deedWords(r);
+  if (deeds) text.append(el('span', 'nem-deeds', deeds));
+  text.append(el('span', 'nem-come', fallen ? `Fell ${agoWords(r.defeatedAt ?? now, now)}.` : come.line));
+  const hist = (r.history ?? []).slice(-5);
+  if (hist.length) {
+    const ul = el('ul', 'nem-history');
+    for (const d of hist) ul.append(el('li', '', `${DEED_WORDS[d.deed] ?? d.deed}, ${agoWords(d.at, now)}`));
+    text.append(ul);
+  }
+  item.append(face(el, r), text);
+  return item;
+}
+
+/**
+ * THE PAGE (ui/enhancedMenu.js pauseStats' dispatch): `detail` the rail's detail pane, `kit` the menu's own makers
+ * ({ el, divider }) and the player whose nemeses these are.
+ */
+export function drawNemesesPage(detail, rerender, { el, divider, player = null, kindName = (t) => String(t) } = /** @type {any} */ ({})) {
+  ensureStyle(typeof document === 'undefined' ? null : document);
+  const now = Math.floor(ownMinutes());
+  const all = nemesesFor(player);
+  const living = all.filter((r) => !r.defeated).sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);
+  const fallen = all.filter((r) => r.defeated).sort((a, b) => (b.defeatedAt ?? 0) - (a.defeatedAt ?? 0));
+  detail.append(divider(`Nemeses (${living.length} of ${NEMESIS_MAX})`));
+  if (!living.length) {
+    detail.append(el('p', 'px-note', nemesisOn()
+      ? 'No foe has earned your name yet. An elite or a champion that kills you - or breaks, runs and gets away - will remember you, and come back for you.'
+      : 'Nemeses come with Loot rarity, which is off.'));
+  } else {
+    const list = el('div', 'nem-list');
+    for (const r of living) list.append(row(el, r, now, kindName));
+    detail.append(list);
+  }
+  if (fallen.length) {
+    detail.append(divider('Fallen'));
+    const list = el('div', 'nem-list');
+    for (const r of fallen) list.append(row(el, r, now, kindName));
+    detail.append(list);
+  }
+}

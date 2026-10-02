@@ -31,12 +31,21 @@
 // OFF IS DFU EXACTLY: with the loot-rarity row off (the Loot arc's switch, as LOOT7's), no nemesis is made, flees or
 // returns.
 //
-// ONLINE: a nemesis is its character's own memory; a returning one is my own foe, streamed as any (its kind, health,
-// trait and glow - its NAME is mine alone, for now).
+// ONLINE: a nemesis is its character's own memory; a returning one is my own foe, streamed as any - its kind, health,
+// trait, glow and (NEMESIS-WIRE) its NAME, the foe record's `nm`, so every puppet is called what its owner calls it.
+//
+// NEMESIS-CARD: everything a nemesis says or does is an EVENT (below) - its portrait, its name, its words - which the
+// enhanced skin draws as a card (ui/nemesisCard.js, through systems/nemesisVoice.js) and the classic says as a line.
+// NEMESIS-HARM: a death no blow names (a spell, a lingering effect, a poison) goes to the foe whose harm last reached
+// the player (systems/harmMark.js). NEMESIS-DUNGEON: a dungeon foe of mine alone may run and escape too.
+// NEMESIS-PAGE: the pause menu's Stats rail lists them (ui/nemesisPage.js).
 // ═══════════════════════════════════════════════════════════════════
 
 import { lootRarityOn } from './lootRarity.js';
 import { registerPlayerBlowLanded } from './sigilSetPowers.js';
+import { registerPlayerHurtListener } from '../characters/playerEntity.js';   // NEMESIS-HARM: a death no blow names
+import { registerPlayerStruckListener } from '../combat/formulas.js';   // NEMESIS-HARM: a foe's blow leaves its mark (its poison's ticks come later)
+import { markPlayerHarm, playerHarmMark, HARM_MARK_STRUCK_MS } from './harmMark.js';
 import { playerDoor } from './playerDoor.js';
 import { registerModSaveData } from './modSaveData.js';
 import { appStorage } from './appStorage.js';
@@ -44,7 +53,7 @@ import { characterIdOf, mintCharacterId } from './characterId.js';
 import { ownMinutes } from './worldTick.js';
 import { tieredGear } from './eliteFoes.js';
 import { goldStack } from './inventory.js';
-import { enemyDisplayName } from '../characters/enemyBasics.js';
+import { enemyDisplayName, ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { KNIGHT_CITY_WATCH, MOBILE_TYPES } from '../characters/mobileTypes.js';
 import { firstName, monsterName, BANK_TYPES, GENDERS } from '../characters/nameHelper.js';
 import { getSeed, setSeed, srand } from '../formats/dfRandom.js';
@@ -140,7 +149,7 @@ const GROWLS = Object.freeze([
 /** @typedef {{ id: string, rev: number, mobileType: number, gender: 'male'|'female', given: string, epithet: string,
  *   name: string, rank: number, kills: number, escapes: number, returns: number, trait: string|null, elite: boolean,
  *   born: number, dueAt: number, out: boolean, outAt: number, defeated: boolean, defeatedAt: number|null,
- *   notice: string|null, history: NemesisDeed[] }} NemesisRecord */
+ *   notice: string|null, history: NemesisDeed[], archive: number|null }} NemesisRecord */
 
 /** @type {{ list: NemesisRecord[], mirrorId: string|null }} */
 const _state = { list: [], mirrorId: null };
@@ -192,6 +201,8 @@ export function nemesisEpithet(deed, rank, playerName, rolls = Math.random, curr
 export const livingNemeses = () => _state.list.filter((r) => !r.defeated);
 /** Every record, the slain too - a journal's page. */
 export const allNemeses = () => _state.list.slice();
+/** NEMESIS-PAGE: this character's records (the mirror read in first), the slain too - the pause menu's page. */
+export function nemesesFor(player) { ensureMirror(player); return _state.list.slice(); }
 export const nemesisById = (id) => _state.list.find((r) => r.id === id) ?? null;
 
 const isStr = (v) => typeof v === 'string';
@@ -209,6 +220,7 @@ function sanitize(r) {
     out: false, outAt: 0,   // never out across a load: the foe that stood for it is not in a fresh world
     defeated: !!r.defeated, defeatedAt: isNum(r.defeatedAt) ? r.defeatedAt : null,
     notice: isStr(r.notice) ? r.notice : null,
+    archive: Number.isInteger(r.archive) ? r.archive : null,
     history: Array.isArray(r.history) ? r.history.filter((d) => d && isStr(d.deed) && isNum(d.at)).slice(-HISTORY_MAX) : [],
   };
 }
@@ -261,7 +273,7 @@ export function nemesisCandidate(entity, rec = null) {
 /** Make `entity` a nemesis for what it just did (`deed` 'slew' or 'fled'), or rank up the one it already is. Answers
  *  the record, or null when it may not be one. `mobileType`/`gender` from the pool's record where the entity lacks
  *  them. */
-export function nemesisDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, now = nowMinutes(), rolls = Math.random } = {}) {
+export function nemesisDeed(player, entity, deedName, { mobileType = entity?.mobileType, gender = 'male', rec = null, archive = null, now = nowMinutes(), rolls = Math.random } = {}) {
   if (!nemesisCandidate(entity, rec) || !Number.isInteger(mobileType)) return null;
   ensureMirror(player);
   const pName = player?.name ?? '';
@@ -277,6 +289,7 @@ export function nemesisDeed(player, entity, deedName, { mobileType = entity?.mob
       epithet: nemesisEpithet(deedName, 1, pName, rolls), name: '', rank: 1, kills: 0, escapes: 0, returns: 0,
       trait: typeof entity.champion === 'string' && entity.champion ? entity.champion : null, elite: !!entity.eliteFoe,
       born: now, dueAt: 0, out: false, outAt: 0, defeated: false, defeatedAt: null, notice: null, history: [],
+      archive: Number.isInteger(archive) ? archive : null,   // NEMESIS-CARD: the sprite it wore (a retextured kind's own), for its portrait
     };
     _state.list.push(r);
     // past the cap: the weakest, oldest living one is forgotten
@@ -299,17 +312,38 @@ export function nemesisDeed(player, entity, deedName, { mobileType = entity?.mob
   return r;
 }
 
-/** The killing blow (the struck seam's attacker, systems/sigilSetPowers.js's landed blow): confirmed once the hurt is
- *  done - a death a Stendarr's mercy undoes made nobody a nemesis. */
-function onBlowLanded(entity, attacker) {
-  if (!entity?.isPlayer || entity.peer || !(entity.health <= 0) || !attacker || attacker.isPlayer) return;
+/** THE KILL. A killing BLOW names its foe (the struck seam's attacker, systems/sigilSetPowers.js's landed blow); a
+ *  death no blow names - a spell's burn, a lingering effect's round, a poison's tick (NEMESIS-HARM) - goes to the foe
+ *  whose harm last reached the player (systems/harmMark.js). Either is confirmed once the hurt is done (a microtask
+ *  after it): a death a Stendarr's mercy undoes made nobody a nemesis. */
+let _blowKiller = null;
+let _deathCheck = false;
+function armDeathCheck(entity) {
+  if (_deathCheck) return;
+  _deathCheck = true;
   Promise.resolve().then(() => {
-    if (!(entity.health <= 0)) return;
-    const rec = playerDoor()?.foes?.()?.find((x) => x?.entity === attacker) ?? null;
-    nemesisDeed(entity, attacker, 'slew', { mobileType: rec?.mobileType ?? attacker.mobileType, gender: rec?.gender ?? 'male', rec });
+    _deathCheck = false;
+    const killer = _blowKiller ?? playerHarmMark();
+    _blowKiller = null;
+    if (!(entity.health <= 0) || !killer || killer.isPlayer) return;
+    const rec = playerDoor()?.foes?.()?.find((x) => x?.entity === killer) ?? null;
+    nemesisDeed(entity, killer, 'slew', { mobileType: rec?.mobileType ?? killer.mobileType, gender: rec?.gender ?? 'male', rec, archive: rec?.archive ?? rec?.mobileArchive ?? null });
   });
 }
+function onBlowLanded(entity, attacker) {
+  if (!entity?.isPlayer || entity.peer || !(entity.health <= 0) || !attacker || attacker.isPlayer) return;
+  _blowKiller = attacker;
+  armDeathCheck(entity);
+}
+function onPlayerHurt(entity, { after } = /** @type {any} */ ({})) {
+  if (!entity?.isPlayer || entity.peer || !(after <= 0)) return;
+  armDeathCheck(entity);
+}
 registerPlayerBlowLanded('nemesis', onBlowLanded);
+registerPlayerHurtListener('nemesis', onPlayerHurt);
+registerPlayerStruckListener('nemesis', (attacker, target) => {
+  if (target?.isPlayer && !target.peer && attacker && !attacker.isPlayer) markPlayerHarm(attacker, { ms: HARM_MARK_STRUCK_MS });
+});
 
 /** THE FLEE ROLL: does this special foe, under NEMESIS_FLEE_HEALTH of its health for the first time, run? */
 export function rollNemesisFlee(entity, rolls = Math.random) {
@@ -404,14 +438,42 @@ export function grantNemesisLoot(entity, level, rolls = Math.random) {
 }
 
 // ── what is said ────────────────────────────────────────────────────
+// Every word below comes two ways: the EVENT a face draws (NEMESIS-CARD - ui/nemesisCard.js on the enhanced skin: the
+// portrait, the name, what it says in its own voice, what happens in the narrator's) and the one LINE a text surface
+// says instead (the classic skin, a page without a document). `nemesisSay` hands an event to the face, or its line to
+// the host's own `say`.
+const ESCAPES = Object.freeze([
+  'You will see me again, {p}.',
+  'Not today. But soon.',
+  'Count your days, {p}.',
+]);
+const LAST_WORDS = Object.freeze([
+  'This... is not... the end...',
+  'Remember... my name...',
+  'You were... worthy...',
+  'Curse you, {p}...',
+]);
+const GLOATS = Object.freeze([
+  'Rest while you can, {p}. I am coming.',
+  'Your blood is on my blade still.',
+  'Sleep lightly, {p}.',
+]);
+const capFirst = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+/** What a returning nemesis greets the player with: its words (a speaker's) or what it does (a beast's). */
+function tauntParts(r, playerName, rolls) {
+  const p = firstWord(playerName);
+  if (!nemesisSpeaks(r.mobileType)) {
+    const g = pick(GROWLS, rolls);
+    return { speech: null, body: capFirst(fill(g, { n: '' }).trim()), line: fill(g, { n: r.name }) };
+  }
+  const last = [...(r.history ?? [])].reverse().find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
+  const pool = r.rank >= 3 ? TAUNTS.risen : TAUNTS[last];
+  const speech = fill(pick(pool, rolls), { p });
+  return { speech, body: null, line: `${r.name}: "${speech}"` };
+}
 /** The line a returning nemesis greets the player with (a beast's, what it does). */
 export function nemesisTaunt(r, playerName, rolls = Math.random) {
-  if (!r) return null;
-  const p = firstWord(playerName);
-  if (!nemesisSpeaks(r.mobileType)) return fill(pick(GROWLS, rolls), { n: r.name });
-  const last = [...r.history].reverse().find((d) => d.deed === 'slew' || d.deed === 'fled')?.deed ?? 'slew';
-  const pool = r.rank >= 3 ? TAUNTS.risen : TAUNTS[last];
-  return `${r.name}: "${fill(pick(pool, rolls), { p })}"`;
+  return r ? tauntParts(r, playerName, rolls).line : null;
 }
 /** A special foe breaking and running. */
 export function nemesisFleeLine(entity, base) {
@@ -429,17 +491,100 @@ export function nemesisRiseLine(r) {
     ? `${r.name} has killed you ${r.kills} times. It grows stronger.`
     : `The ${kind} that killed you lives on as ${r.name}. It will come for you again.`;
 }
-/** The first pending notice, taken (said once): a nemesis's kill, read when the player stands alive again. */
+
+// ── NEMESIS-CARD: the events a face draws ───────────────────────────
+const ROMAN = Object.freeze(['', 'I', 'II', 'III', 'IV', 'V']);
+/** A rank as the card writes it (I to V). */
+export const nemesisRankNumeral = (rank) => ROMAN[Math.max(0, Math.min(NEMESIS_MAX_RANK, rank | 0))];
+/** The picture a nemesis is drawn by: the sprite it wore (`archive` - a retextured kind's own), else its kind's by
+ *  gender, and its front-facing record - the idle's (15) where its kind has one, else the walk's (0)
+ *  (characters/mobileUnit.js's tables). Null for a kind with no sprite. */
+export function nemesisPortrait({ mobileType, gender = 'male', archive = null } = /** @type {any} */ ({})) {
+  const b = ENEMY_BASICS[mobileType];
+  const a = Number.isInteger(archive) ? archive : (b ? (gender === 'female' && b.femaleTexture ? b.femaleTexture : b.maleTexture) : null);
+  if (!Number.isInteger(a)) return null;
+  return { archive: a, record: b?.hasIdle ? 15 : 0 };
+}
+const KICKERS = Object.freeze({ taunt: 'Nemesis', flee: 'Fleeing', escape: 'Escaped', slain: 'Nemesis slain', rise: 'A nemesis rises' });
+/** @typedef {{ kind: string, kicker: string, id: string|null, name: string, rank: number, sub: string,
+ *   portrait: { archive: number, record: number } | null, speech: string|null, body: string|null, line: string }} NemesisEvent */
+/** One thing a nemesis (or a special foe about to become one) says or does, as a face draws it: `kind` (taunt, flee,
+ *  escape, slain, rise), its name and what it is (rank, kind, trait, elite), its portrait, what it SAYS (its own voice,
+ *  quoted) and what HAPPENS (the narrator's), and `line` - the one sentence a text surface says instead.
+ *  @returns {NemesisEvent} */
+export function nemesisEvent(kind, src, { speech = null, body = null, line = '', archive = null } = /** @type {any} */ ({})) {
+  const r = src ?? {};
+  const kindName = enemyDisplayName(r.mobileType) ?? '';
+  const trait = typeof r.trait === 'string' && r.trait ? capFirst(r.trait) : null;
+  return {
+    kind, kicker: KICKERS[kind] ?? 'Nemesis', id: r.id ?? null, name: r.name || kindName, rank: r.rank | 0,
+    sub: [kindName, trait, r.elite ? 'Elite' : null].filter(Boolean).join(' · '),
+    portrait: nemesisPortrait({ mobileType: r.mobileType, gender: r.gender, archive: archive ?? r.archive }),
+    speech, body, line,
+  };
+}
+/** The record a live foe stands for, or what it is when it is no nemesis yet (a special foe running). */
+function liveSource(entity, base, gender) {
+  const r = entity?.nemesis?.id ? nemesisById(entity.nemesis.id) : null;
+  if (r) return r;
+  return { id: null, name: entity?.nemesis?.name ?? base, rank: entity?.nemesis?.rank ?? 0, mobileType: entity?.mobileType, gender,
+    trait: typeof entity?.champion === 'string' ? entity.champion : null, elite: !!entity?.eliteFoe };
+}
+/** A returning nemesis, in sight: its taunt. */
+export function nemesisTauntEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
+  const t = tauntParts(r, playerName, rolls);
+  return nemesisEvent('taunt', r, { speech: t.speech, body: t.body, line: t.line, archive });
+}
+/** A special foe breaking and running. */
+export function nemesisFleeEvent(entity, base, { gender = 'male', archive = null } = {}) {
+  const src = liveSource(entity, base, gender);
+  const speaks = nemesisSpeaks(entity?.mobileType);
+  return nemesisEvent('flee', src, { speech: speaks ? 'This isn\'t over!' : null, body: speaks ? null : 'Breaks and runs!', line: nemesisFleeLine(entity, base), archive });
+}
+/** Out of reach - a nemesis now, or a stronger one. */
+export function nemesisEscapeEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
+  const speaks = nemesisSpeaks(r.mobileType);
+  return nemesisEvent('escape', r, {
+    speech: speaks ? fill(pick(ESCAPES, rolls), { p: firstWord(playerName) }) : null,
+    body: `Got away. ${r.rank > 1 ? `Now rank ${nemesisRankNumeral(r.rank)} - it` : 'It'} will remember this.`,
+    line: nemesisEscapeLine(r), archive,
+  });
+}
+/** Slain at last - its last words, a speaker's. */
+export function nemesisSlainEvent(r, playerName, { rolls = Math.random, archive = null } = {}) {
+  const speaks = nemesisSpeaks(r.mobileType);
+  return nemesisEvent('slain', r, {
+    speech: speaks ? fill(pick(LAST_WORDS, rolls), { p: firstWord(playerName) }) : null,
+    body: 'Has fallen. Your nemesis is no more.', line: nemesisSlainLine(r), archive,
+  });
+}
+/** Alive again after its kill: it lives on, and gloats. */
+export function nemesisRiseEvent(r, playerName, { rolls = Math.random } = {}) {
+  const kind = enemyDisplayName(r.mobileType) ?? 'foe';
+  const speaks = nemesisSpeaks(r.mobileType);
+  return nemesisEvent('rise', r, {
+    speech: speaks ? fill(pick(GLOATS, rolls), { p: firstWord(playerName) }) : null,
+    body: r.kills > 1 ? `Has killed you ${r.kills} times. It grows stronger.` : `The ${kind} that killed you lives on. It will come for you again.`,
+    line: nemesisRiseLine(r),
+  });
+}
+
+// THE FACE (`setNemesisPresenter`, `nemesisSay`) is a leaf's - systems/nemesisVoice.js - so the HUD's card asks it
+// without this file's imports.
+export { setNemesisPresenter, nemesisSay } from './nemesisVoice.js';
+
+/** The first pending notice, taken (said once): a nemesis's kill, read when the player stands alive again - as the
+ *  event a face draws (its `line` the text surfaces'). */
 export function takeNemesisNotice(player) {
   if (!player || !(player.health > 0)) return null;
   ensureMirror(player);
   const r = _state.list.find((x) => x.notice && !x.defeated);
   if (!r) return null;
-  const line = r.notice === 'slew' ? nemesisRiseLine(r) : null;
+  const ev = r.notice === 'slew' ? nemesisRiseEvent(r, player.name) : null;
   r.notice = null;
   touch(r);
   persist();
-  return line;
+  return ev;
 }
 
 // ── the save ────────────────────────────────────────────────────────

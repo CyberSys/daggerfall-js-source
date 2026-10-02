@@ -21,8 +21,19 @@ Two deeds make one:
 | **Slew** | Its blow takes the player's last health (melee or an arrow) | The struck seam marks the attacker (`combat/formulas.js`), the damage door takes the mark, the hurt tells `registerPlayerBlowLanded` (`systems/sigilSetPowers.js`). Confirmed a microtask later, after `hurtPlayer` is done, so a death Stendarr's mercy (`setAvoidDeathHook`) undoes makes no nemesis. |
 | **Fled** | Under 20% of its health for the first time, it wins a roll (5%; 15% for a nemesis already) and runs. Out of reach before its run ends, it has escaped. | `scenes/exteriorFoes.js` update: `nemesisFleeHealth` and `rollNemesisFlee`, then `ai.flee(playerFeet, 8 s)` (`characters/enemyMotor.js`). While fleeing it does nothing else. At the end of its run or 45 m off, `escapeFoe` removes it with no corpse and no kill. |
 
-A spell's or a poison's kill names no attacker, so it makes no nemesis. Fleeing is the open world's alone: a dungeon's
-foes are the layout's on every client, and one that vanished would need its own wire word.
+A kill no blow names (a spell's burn, a lingering effect's round, a poison's tick) goes to the foe whose harm last
+reached the player (**NEMESIS-HARM**, `systems/harmMark.js`, a leaf):
+
+- a spell landing on the player marks its caster for 30 s (`scenes/hostMagic.js applySpellToPlayer`);
+- a lingering effect's round marks its caster again as it lands (`systems/effects.js runEffectRound`);
+- any foe's blow marks it for 120 s (the struck seam), since a poisoned weapon's dose rides that blow and its ticks come later.
+
+A killing blow always outranks the mark.
+
+**NEMESIS-DUNGEON** applies the same flee law in a dungeon to a foe of the player's alone: offline, or past the room's
+shared run online (a room's layout foe vanishing on one client would leave it standing on the rest). It aims at nothing
+while running, its walk still drawn. It is retired through the quest pool's own door (`escapeDungeonFoe`). A slain
+nemesis closes there too.
 
 ## 2. What it becomes
 
@@ -87,14 +98,51 @@ nemeses are its own.
 
 ## 6. Online
 
-A nemesis is its character's own memory. A returning one is my own foe, streamed as any: its kind, health, trait and
-glow. Its **name** is not on the wire yet, so the others see a champion's or an elite's name, or the plain kind.
+A nemesis is its character's own memory. A returning one is my own foe, streamed as any: its kind, health, trait, glow
+and (**NEMESIS-WIRE**) its name. The foe record's `nm` is printable and at most `NEMESIS_NAME_MAX` (64) characters,
+validated in `net/wire.js validFoeRecord`; the relay is `world144`. Every puppet is called what its owner calls it.
 
 ## 7. Names everywhere (FOE-TITLE)
 
 `systems/foeTitle.js` is the one home for what a special foe is called. In order: a nemesis's own name, then a
 champion's trait before its kind, then "Elite" before its kind. The target bar, the hover (named even while hostile:
 `foeTitled`), the death line and the body's title all ask it.
+
+## 7a. The card (NEMESIS-CARD, Enhanced Plus)
+
+Everything a nemesis says or does is an **event** (`nemesisEvent` and the builders `nemesisTauntEvent`, `nemesisFleeEvent`,
+`nemesisEscapeEvent`, `nemesisSlainEvent`, `nemesisRiseEvent`). An event carries:
+
+- a kicker: *Nemesis*, *Fleeing*, *Escaped*, *Nemesis slain* or *A nemesis rises*;
+- its name, and what it is (rank, kind, trait, elite);
+- its **portrait**: the sprite it wore (a retextured kind's own), else its kind's by gender, at the front-facing record (the idle's, 15, else the walk's, 0);
+- its **words** in its own voice: a taunt, "This isn't over!", an escape's promise, last words, a gloat;
+- what happens in the narrator's voice (a beast never speaks: "Bares its teeth - it remembers you.");
+- the one `line` a text surface says instead.
+
+`systems/nemesisVoice.js` (a leaf) hands an event to the registered face, or speaks its line through the host's `say`.
+
+The face is `ui/nemesisCard.js`, on the enhanced skin only:
+
+- **Placement and lifetime**: the notices' twin at the LEFT edge, sliding in and out. One card per nemesis, two at most. The words are typed at 42 letters a second, then held 3.5 to 7.5 s.
+- **Colours**: a blood edge for a taunt or a rise, amber for a flight or an escape, brass for a fall (the portrait grey and struck through).
+- **Drawing**: drawn on drawHud's one call, behind the HUD's hide gate (hidden, its clock stops) and its hide door. The DISC29-D watchdog hides it when a host stops drawing. HUD-MOVE moves it (`'nemesis'`, with a preview).
+- **Plus dressing**: the kit dresses it by role: panel and accent edge, the portrait a well, the rank a chip, the name a header rule. Stone gets brighter words, as the stats card does.
+- **Accessibility**: a screen reader gets the whole line at once; reduced motion types and slides nothing.
+- **Classic skin**: the presenter declines and the line is said, as before.
+
+## 7b. The page (NEMESIS-PAGE)
+
+`ui/nemesisPage.js` is the **Nemeses** page on the Enhanced pause menu's Stats rail, shown while nemeses are made or
+any is remembered. The living come first, strongest first, each with:
+
+- its portrait and rank;
+- what it is;
+- what it has done to you ("Killed you twice, escaped you once");
+- when it will come (*Hunting*, *Biding*: "in about 2 days", or *Abroad*);
+- its last deeds.
+
+Then the **Fallen**, struck through, with when each fell. A character with none is told how one is made.
 
 ## 8. The numbers
 
@@ -118,10 +166,13 @@ Every number is a named constant at the top of `systems/nemesis.js`:
 | `NEMESIS_TAUNT_DISTANCE` | 25 |
 | `NEMESIS_LOOT` | see section 4 |
 
-## 9. Not yet
+## 9. Every host
 
-- Spell and poison kills (no attacker reaches the hurt).
-- Fleeing in dungeons.
-- The name on the wire.
-- Returns in the single-location host (`scenes/exterior.js`).
-- A journal page listing your nemeses (`allNemeses()` is ready for one).
+The streaming world (`scenes/world.js`) and the single-location host (`scenes/exterior.js`) both:
+
+- stand a due nemesis on an open-world roll;
+- read its presence;
+- tell the player of a kill once alive again.
+
+The open world's pool (`scenes/exteriorFoes.js`) and the dungeon (`scenes/dungeonContext.js`) both run a fleeing foe
+and close a slain one. Returns stay in the open world: a dungeon's foes are its layout's.

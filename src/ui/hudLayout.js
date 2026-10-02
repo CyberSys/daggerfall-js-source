@@ -51,6 +51,7 @@ export const HUD_PIECES = Object.freeze([
   { id: 'party', sel: '.dfparty', name: 'Party', dummy: true, ghost: 'party' },
   { id: 'notices', sel: '.notice-stack', name: 'Notifications', dummy: true, ghost: 'notices' },
   { id: 'boss', sel: '.wb-boss-bar', name: 'Boss bar', dummy: true, ghost: 'boss' },
+  { id: 'nemesis', sel: '.nemcard-stack', name: 'Nemesis taunts', dummy: true, ghost: 'nemesis' },   // NEMESIS-CARD
   { id: 'fps', sel: '#fps-counter', name: 'FPS counter' },
   { id: 'midtext', sel: '#enhanced-midtext, .hudmid[data-hm-ghost="midtext"]', name: 'Screen messages', dummy: true, ghost: 'midtext' },
   { id: 'netstatus', sel: '#enhanced-netstatus, .hudstatus[data-hm-ghost="netstatus"]', name: 'Online status', dummy: true, ghost: 'netstatus' },
@@ -240,12 +241,12 @@ let ghostDeps = null, ghostDepsLoading = false;
 function ensureGhostDeps() {
   if (ghostDeps || ghostDepsLoading) return;
   ghostDepsLoading = true;
-  Promise.all([import('./gateBossBar.js'), import('./partyPanel.js')])
-    .then(([boss, party]) => { ghostDeps = { BOSS_BAR_CSS: boss.BOSS_BAR_CSS, BOSS_BAR_STYLE_ID: boss.BOSS_BAR_STYLE_ID, injectPartyStyle: party.injectPartyStyle }; })
+  Promise.all([import('./gateBossBar.js'), import('./partyPanel.js'), import('./nemesisCard.js')])
+    .then(([boss, party, nemesis]) => { ghostDeps = { BOSS_BAR_CSS: boss.BOSS_BAR_CSS, BOSS_BAR_STYLE_ID: boss.BOSS_BAR_STYLE_ID, injectPartyStyle: party.injectPartyStyle, buildNemesisPreview: nemesis.buildNemesisPreview }; })
     .catch(() => { ghostDeps = {}; });
 }
 function buildGhost(doc, kind) {
-  if ((kind === 'party' || kind === 'boss') && !ghostDeps) { ensureGhostDeps(); return null; }   // next sweep
+  if ((kind === 'party' || kind === 'boss' || kind === 'nemesis') && !ghostDeps) { ensureGhostDeps(); return null; }   // next sweep
   const div = (cls, text) => { const n = doc.createElement('div'); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   let g = null;
   if (kind === 'notices') {
@@ -272,6 +273,8 @@ function buildGhost(doc, kind) {
     g = div('wb-boss-bar');
     const track = div('wb-boss-track'); const fill = div('wb-boss-fill'); fill.style.width = '70%'; track.append(fill);
     g.append(div('wb-boss-name', 'Boss (preview)'), track);
+  } else if (kind === 'nemesis') {
+    try { g = ghostDeps.buildNemesisPreview?.(doc) ?? null; } catch { g = null; }   // NEMESIS-CARD: a card as one will stand
   }
   if (g) { g.setAttribute('data-hm-ghost', kind); doc.body.append(g); }
   return g;

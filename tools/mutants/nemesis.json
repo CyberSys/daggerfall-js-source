@@ -29,8 +29,8 @@
   {
     "name": "NEMESIS-the-mercy-ignored",
     "file": "src/systems/nemesis.js",
-    "old": "    if (!(entity.health <= 0)) return;\n    const rec = playerDoor()",
-    "new": "    const rec = playerDoor()",
+    "old": "    if (!(entity.health <= 0) || !killer || killer.isPlayer) return;",
+    "new": "    if (!killer || killer.isPlayer) return;",
     "tests": [
       "test/nemesis.test.js"
     ]
@@ -119,8 +119,8 @@
   {
     "name": "NEMESIS-a-beast-that-talks",
     "file": "src/systems/nemesis.js",
-    "old": "  if (!nemesisSpeaks(r.mobileType)) return fill(pick(GROWLS, rolls), { n: r.name });\n",
-    "new": "",
+    "old": "  if (!nemesisSpeaks(r.mobileType)) {\n    const g = pick(GROWLS, rolls);",
+    "new": "  if (false) {\n    const g = pick(GROWLS, rolls);",
     "tests": [
       "test/nemesis.test.js"
     ]
@@ -159,6 +159,159 @@
     "new": "  return named;",
     "tests": [
       "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-HARM-no-mark-read",
+    "file": "src/systems/nemesis.js",
+    "old": "    const killer = _blowKiller ?? playerHarmMark();",
+    "new": "    const killer = _blowKiller;",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-HARM-the-mark-outranks-the-blow",
+    "file": "src/systems/nemesis.js",
+    "old": "    const killer = _blowKiller ?? playerHarmMark();",
+    "new": "    const killer = playerHarmMark() ?? _blowKiller;",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-HARM-no-time-limit",
+    "file": "src/systems/harmMark.js",
+    "old": "  return _mark && now <= _mark.until ? _mark.entity : null;",
+    "new": "  return _mark ? _mark.entity : null;",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-the-line-lost",
+    "file": "src/systems/nemesisVoice.js",
+    "old": "  if (!shown && ev.line) say?.(ev.line);",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-the-classic-skin-drawn",
+    "file": "src/ui/nemesisCard.js",
+    "old": "    if (!ev || !isEnhanced()) return false;",
+    "new": "    if (!ev) return false;",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-no-typing",
+    "file": "src/ui/nemesisCard.js",
+    "old": "typed: still ? full.length : 0,",
+    "new": "typed: full.length,",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-the-clock-runs-hidden",
+    "file": "src/ui/nemesisCard.js",
+    "old": "  if (hidden) return _cards.length;\n",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-a-nemesis-twice",
+    "file": "src/ui/nemesisCard.js",
+    "old": "    if (ev.id) for (const c of _cards) if (c.ev.id === ev.id && !c.out) c.out = NEMESIS_SLIDE_MS;\n",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-no-cap",
+    "file": "src/ui/nemesisCard.js",
+    "old": "    for (const c of _cards.slice(NEMESIS_CARDS_MAX)) if (!c.out) c.out = NEMESIS_SLIDE_MS;\n",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-the-portrait-the-walk",
+    "file": "src/systems/nemesis.js",
+    "old": "  return { archive: a, record: b?.hasIdle ? 15 : 0 };",
+    "new": "  return { archive: a, record: 0 };",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-CARD-no-hide-door",
+    "file": "src/ui/hud.js",
+    "old": "  drawNemesisCards({ hidden: true });   // NEMESIS-CARD: the same door\n",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-PAGE-the-fallen-among-the-living",
+    "file": "src/ui/nemesisPage.js",
+    "old": "  const living = all.filter((r) => !r.defeated)",
+    "new": "  const living = all.filter((r) => r)",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-PAGE-the-order",
+    "file": "src/ui/nemesisPage.js",
+    "old": ".sort((a, b) => b.rank - a.rank || a.dueAt - b.dueAt);",
+    "new": ".sort((a, b) => a.rank - b.rank || a.dueAt - b.dueAt);",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-DUNGEON-a-room-foe-runs",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "!f._fleeRolled && (!onlineRoom() || !_roomFoe) && f.ai.isHostile",
+    "new": "!f._fleeRolled && f.ai.isHostile",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-WIRE-the-name-unbounded",
+    "file": "src/net/wire.js",
+    "old": "!r.nm.length || r.nm.length > NEMESIS_NAME_MAX || ",
+    "new": "!r.nm.length || ",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-WIRE-the-puppet-unnamed",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "    if (typeof r.nm === 'string' && r.nm && f.entity.nemesis?.name !== r.nm) f.entity.nemesis = { id: null, name: r.nm, rank: 0 };",
+    "new": "    if (false) f.entity.nemesis = { id: null, name: r.nm, rank: 0 };",
+    "tests": [
+      "test/nemesis_card.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-EXTERIOR-the-host-forgets",
+    "file": "src/scenes/exterior.js",
+    "old": "      if (_nemesis) { _standEncounterFoe({ ...hit, mobileType: _nemesis.mobileType, nemesis: _nemesis }, playerFeet); break; }\n",
+    "new": "",
+    "tests": [
+      "test/nemesis_card.test.js"
     ]
   }
 ]
