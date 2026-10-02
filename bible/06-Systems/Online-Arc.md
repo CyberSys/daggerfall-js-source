@@ -1881,8 +1881,8 @@ pins restamped where the law moved. Relay change: yes - REDEPLOY.
 
 [TIME1-TIME3, 2026-10-01 (`Online-Time-Arc.md`): the clock below is the EVENT clock now - the world's business
 (gates, raids, prices, shelves, terms, every stamp) keeps it, unchanged, and the relay with it. The SKY a player
-sees - the hour, the date, the moons, the seasons - runs at its own rate (`net/skyLaw.js`), a day every thirty real
-minutes from 2026-10-03T16:22:30Z; the weather keeps this clock's pace and wears the sky's season. A quest's
+sees - the hour, the date, the moons, the seasons - runs at its own rate (`net/skyLaw.js`), a day every real
+hour from 2026-10-03T17:07:30Z (SKY-SLOW; designed at thirty minutes); the weather keeps this clock's pace and wears the sky's season. A quest's
 countdowns run on the character's own clock (LIVED1), its hours and dates on the sky.]
 
 **Mac: "Let's tackle slice 5 first."** Slice 5 of the persistent shared

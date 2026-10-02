@@ -19,8 +19,8 @@ import { sharedClassicMinutes, wallMsForClassicMinutes, ONLINE_MINUTES_PER_MS } 
  * minutes per real ms; before the first segment the sky IS the event clock. Each segment starts at the minute the one
  * before it reached, so a new row turns the dial again with no jump. Each `fromMs` is an ALIGNED instant
  * (`node tools/skyCutover.mjs` lists them): there the old sky's hour already equals the new schedule's, so nothing
- * skips at the switch and the new rate's midnights fall on whole fractions of the real day for good - at TimeScale 48
- * on the hour and the half hour (test/time1_sky.test.js pins both).
+ * skips at the switch and the new rate's midnights fall on whole fractions of the real day for good - at TimeScale 24
+ * on the hour (test/time1_sky.test.js pins both).
  *
  * The first switch must not fall before the build that carries it is live: a tab that loads after it reads the new sky
  * at once, so the sky would jump once at the deploy. Nothing stores the sky, so that jump is only seen, never kept -
@@ -28,8 +28,9 @@ import { sharedClassicMinutes, wallMsForClassicMinutes, ONLINE_MINUTES_PER_MS } 
  * @type {ReadonlyArray<Readonly<{fromMs: number, minutesPerMs: number}>>}
  */
 export const SKY_SEGMENTS = Object.freeze([
-  // TimeScale 48: a day every thirty real minutes, midnight on the hour and the half hour (Mac's call 1).
-  Object.freeze({ fromMs: Date.UTC(2026, 9, 3, 16, 22, 30), minutesPerMs: 48 / 60 / 1000 }),
+  // TimeScale 24: a day every real hour, midnight on the hour (SKY-SLOW, 2026-10-02: 48's thirty-minute day zoomed by -
+  // the row replaced before it went live).
+  Object.freeze({ fromMs: Date.UTC(2026, 9, 3, 17, 7, 30), minutesPerMs: 24 / 60 / 1000 }),
 ]);
 
 /**
@@ -81,7 +82,7 @@ export const skyMinutesPerMsAt = (nowMs) => LAW.rateAt(nowMs);
 
 /**
  * TIME1: the instants after `afterMs` at which the sky could switch to `minutesPerMs` with no jump AND with a midnight
- * at every whole multiple of the new day's length since the Unix epoch (on the hour and the half hour at TimeScale 48):
+ * at every whole multiple of the new day's length since the Unix epoch (on the hour at TimeScale 24):
  * where the sky's hour as it stands (`skyClassicMinutes`) already equals the new schedule's. Whole seconds, at most
  * `count`, within `withinMs`; an instant where the sky already runs at that rate is no switch, and is never listed.
  * `segments` is the sky the switch is laid on - SKY_SEGMENTS for a new row after the last; AUDIT TIME: the list

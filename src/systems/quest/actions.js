@@ -679,7 +679,7 @@ export class DailyFrom extends ActionTemplate {
       const place = this.parentQuest.getPlace?.(new QuestSymbol(`_${win.place}_`)) ?? null;
       return guardWindowStep(this, !!place?.isPlayerHere?.(), this.parentQuest.nowSeconds?.() ?? 0, win);
     }
-    const now = dateFromSeconds(skySecondsOf(this.parentQuest));   // TIME3: the hour is the sky's - a window comes round every thirty real minutes online
+    const now = dateFromSeconds(skySecondsOf(this.parentQuest));   // TIME3: the hour is the sky's - a window comes round every real hour online
     const currentDailySeconds = now.hour * 3600 + now.minute * 60;
     return currentDailySeconds >= this.minDailySeconds && currentDailySeconds <= this.maxDailySeconds;
   }
