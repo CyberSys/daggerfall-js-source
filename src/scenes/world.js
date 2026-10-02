@@ -29,6 +29,11 @@ import { attachTouch } from '../ui/touch.js';
 import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks the same hooks
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
+import { isClimateFreeModel, NO_CLIMATE_REMAP } from '../world/customModels.js';   // ARENA1: RuntimeMaterials' ApplyClimate 0 - the colosseum wears its own pictures
+import { isUndercroftDoor, undercroftLocation, isArenaUndercroft, isArenaCity, inArenaCell, ARENA_REGION, ARENA_LOCATION } from '../world/arenaCity.js';   // ARENA1: the undercroft's stair and its record, the city's cell
+import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
+import { moveArenaRecords } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once
+import { DOOR_TYPE } from '../world/meshReader.js';   // ARENA1: the undercroft's stair is a dungeon entrance
 import { loadModWorldData, ensureWorldDataPack, worldDataPacksMissing } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
 import { configureLayoutPins, layoutRecordsOf, pinsFrom, setLayoutPins, stampLayout, layoutStampOfPixel, HOME_LAYOUTS_WAIT_MS, HOME_LAYOUTS_RETRIES, PINS_DROPPED_LINE } from '../systems/layoutPins.js';   // WD3: a town keeps the layout a save's things were made in
 import { DFPalette } from '../formats/dfPalette.js';
@@ -3379,6 +3384,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // mills (whose rotor turns) stay individual draws.
     const staticBuilder = new StaticBatchBuilder();
     const resolveTexKey = keyResolver(texRemap);
+    const ownTexKey = keyResolver(NO_CLIMATE_REMAP);   // ARENA1: a climate-free model (RuntimeMaterials, ApplyClimate 0) wears its own pictures in the merge
     const pixelGates = [];   // AUDIT 64 F14: {gate, entry, local, bucketKey} - this pixel's DaggerfallCityGates
     made.cityGates = pixelGates;   // BUILD-FAIL1
     // AUDIT 64 F11: this pixel's StaticBuildings (RMBLayout.cs:864-882),
@@ -3467,13 +3473,15 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (placed.enhancedOnly && !isEnhanced()) continue;
           const gpu = await getGpuMesh(placed.modelIdNum);
           if (!gpu) continue;
-          await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline);
+          const climateFree = isClimateFreeModel(placed.modelIdNum);   // ARENA1: the colosseum - never swapped, nor a key of the pixel's table
+          if (!climateFree) await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline);
           const local = multiply(originMatrix, placed.matrix);
           if (WATER_SOURCE_MODELS.includes(placed.modelIdNum)) pixelSprings.push({ pos: [local[12], local[13], local[14]], dry: false });   // SURV3: a trough is a water source
           const cpu = cpuModels.get(placed.modelIdNum);
           const box = transformedAabb(archAabb(placed.modelIdNum, cpu.positions), local);
           unionBox(box);
           const entry = { gpu, local, _box: box, _order: placed.modelIdNum };   // EV6: sort key
+          if (climateFree) entry.texRemap = NO_CLIMATE_REMAP;   // ARENA1: drawn by its own table (an empty one - never the pixel's)
           // HOME-LOOK / HOME-YARD
           const homeKey = Number.isSafeInteger(placed.recordIndex) ? makeBuildingKey(b.x, b.y, placed.recordIndex) : null;
           if (homeKey != null) {
@@ -3493,7 +3501,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             pixelHomeKeys.add(homeKey);
           }
           models.push(entry);
-          if (!entry._home && !isCityGate(placed.modelIdNum) && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, local, resolveTexKey); entry._batched = true; }   // PERF4: the remap for this model's textures is in the map by now (awaited above); HOME-LOOK: a home stays out
+          if (!entry._home && !isCityGate(placed.modelIdNum) && cpu.normals && cpu.uvs) { staticBuilder.add(cpu, local, climateFree ? ownTexKey : resolveTexKey); entry._batched = true; }   // PERF4: the remap for this model's textures is in the map by now (awaited above); HOME-LOOK: a home stays out
           await breather.breathe();   // PERF7: a warm build gives the frame back every few milliseconds
           // AUDIT 64 F14: a city gate takes a collider bucket of its own
           // (the pixel's shared bucket has no per-mesh removal), keyed
@@ -8429,7 +8437,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2762 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6667
+  // that context through modes.dungeonCtx - so worldModes.js:6673
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -11158,6 +11166,48 @@ export async function bootWorld(canvas, renderer, params, status) {
     _hearing = homesApi.layouts().catch(() => null).then((heard) => takeHomeLayouts(heard)).finally(() => { _hearing = null; });
     return _hearing;
   }
+  /** ARENA1 (Mac: "Move them to a new house"): a deed whose house stood in Daggerfall's cell (4,3) - where the arena
+   *  stands now, in every layout - moved once to a house of its kind in the city, with everything in it
+   *  (systems/arenaMove.js). Offline only; an online home is the account service's (ARENA4). */
+  function moveArenaDeed() {
+    try {
+      const city = maps.getLocation(ARENA_REGION, ARENA_LOCATION);
+      const ed = city?.exterior?.exteriorData;
+      if (!ed?.arenaTook) return null;
+      const list = [];
+      for (let y = 0; y < ed.height; y++) for (let x = 0; x < ed.width; x++) {
+        const dfBlock = blocks.getBlockByName(maps.getRmbBlockName(city, x, y));
+        if (dfBlock) list.push({ dfBlock, x, y });
+      }
+      const summaries = buildingSummaries(city.exterior.buildings, list, { locationIndex: city.locationIndex, locationName: city.name, regionName: city.regionName });
+      const mapId = city.mapTableData.mapId;
+      const held = new Set([
+        ...(playerEntity.rentedRooms ?? []).filter((r) => r?.mapId === mapId).map((r) => r.buildingKey),
+        ...(questBridge?.machine?.getAllActiveQuestSites?.() ?? []).filter((q) => q?.mapId === mapId).map((q) => q.buildingKey),
+        ...(playerEntity.otherItems ?? []).map((it) => it?.repairData).filter((d) => d?.mapId === mapId).map((d) => d.buildingKey),
+      ]);
+      const took = blocks.getBlockByName(ed.arenaTook);
+      const locId = `${city.regionIndex}:${city.name}`;
+      // the cell's discovered buildings are forgotten whatever the save holds - the cell has none to find now
+      const forgetCell = () => { for (const b of discoveredBuildings(locId)) if (inArenaCell(b.buildingKey)) undiscoverBuilding(locId, b.buildingKey); };
+      forgetCell();
+      const moved = moveArenaRecords({
+        houses: playerEntity.houses, summaries, held, scenes: (playerEntity.sceneCache ??= createSceneCache()),   // _sceneCache's own law - that const is declared after the boot walk reaches here
+        oldTypeOf: (key) => took?.rmbBlock?.fldHeader?.buildingDataList?.[key & 0xff]?.buildingType ?? null,
+        isActiveQuestBuilding: (b) => !!questBridge?.machine?.isActiveQuestBuilding?.(mapId, b.buildingKey, b.buildingType),
+      }, {
+        undiscoverCell: forgetCell,
+        discover: (to) => discoverBuilding(locId, to, `${playerEntity.name ?? ''}'s residence`),
+        addNote: (to) => questBridge?.notebook?.addNote(ARENA_TEXT.deedMovedNote.replace('%s', to.name || 'a house in Daggerfall')),
+        notice: () => { const show = () => { try { townTalk.showOverlay(new ActionTextBox([...ARENA_TEXT.deedMoved])); } catch { setTimeout(show, 500); } }; show(); },
+      });
+      if (moved) console.log(`[arena] the deed to house ${moved.from} moved to ${moved.to} (${moved.name})`);
+      return moved;
+    } catch (e) {
+      console.warn('[arena] the displaced deed could not be moved:', e?.message ?? e);
+      return null;
+    }
+  }
   /**
    * WD3: THE SAVE'S TOWNS, IN THE LAYOUTS ITS THINGS WERE MADE IN (systems/layoutPins.js). Called once a save's
    * player and quests are restored and before its place is built: the deeds, the rented rooms, the active quests'
@@ -11168,6 +11218,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    * discoveries were made forgets them (systems/discovery.js). `extras` is the restore's - the inside save's building.
    */
   async function applyLayoutPins(extras = null) {
+    if (!homeLayoutsOnline) moveArenaDeed();   // ARENA1: before the pins are read - a deed the arena displaced names its new house
     const gen = ++_pinsGen;
     // ONLINE THE TOWNS ARE THE ROOM'S: only the service's homes hold one (every client the same pins - a save's own
     // records would stand one player's town apart from the room's); offline, the save's
@@ -13725,6 +13776,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // copy of the location renamed (Name, MapTableData.MapId), the location itself untouched
   let _ohGpsLoc = null;
   const _questLoc = () => {
+    // ARENA1: underground in the arena's undercroft the current location is the undercroft's own record - its own map
+    // id, so the castle's quest sites (the city's dungeon, DaggerfallCastle) are never found to be here
+    const under = modes?.mode === 'dungeon' ? modes?.dungeonLocation : null;
+    if (isArenaUndercroft(under)) return under;
     const px = playerTravelPixel();
     const key = `${px.x},${px.y}`;
     const loc = locationIndex.get(key) ?? null;
@@ -13735,6 +13790,17 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     return _ohGpsLoc.loc;
   };
+  /** ARENA1: a door's location and its exit group. The arena's 43600 stair is the undercroft's door - its own record
+   *  (world/arenaCity.js undercroftLocation, one per city record) and its own group, so the way home out of the castle
+   *  never lands at the stair and the undercroft's never at the castle's doors. */
+  const _undercrofts = new WeakMap();
+  function arenaDoorTarget(e) {
+    const city = locationIndex.get(e.pixelKey);
+    if (!isUndercroftDoor(e, DOOR_TYPE.DUNGEON_ENTRANCE) || !isArenaCity(city)) return { dfLocation: city, group: e.pixelKey };
+    let u = _undercrofts.get(city);
+    if (!u) { u = undercroftLocation(city); _undercrofts.set(city, u); }
+    return { dfLocation: u, group: `${e.pixelKey}:undercroft` };
+  }
   // AUDIT 24 (the seven-slice sweep): PlayerGPS.CurrentRegionIndex is
   // derived from the POLITIC map at the player's pixel, which answers
   // everywhere - it is NOT the current location's regionIndex, which
@@ -13780,7 +13846,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10175-10239 -
+  // worldModes answers it in BOTH modes (worldModes.js:10181-10245 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20193,7 +20259,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     pipeline: { ...pipeline, arch, palette },   // PORTRAIT1: THE WHOLE PIPELINE, as the standalone ?dungeon scene has always handed it (dungeon.js) - see the note above
     doorTargets: () => buildingDoors.map((e) => ({
       ...e, door: shiftedDoor(e), localDoor: e.door,   // AUDIT 68 S22: the pixel-local door rides the hit - it is the block INSTANCE's, which the world one no longer says
-      dfLocation: locationIndex.get(e.pixelKey), group: e.pixelKey,
+      ...arenaDoorTarget(e),   // ARENA1: the colosseum's stair goes down to the undercroft, never into the castle
     })),
     // CRUX1: THE DOORLESS DUNGEON START - the player's own pixel's
     // location, when it has a dungeon, in the shape a door hit has
