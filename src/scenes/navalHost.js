@@ -1586,7 +1586,8 @@ export function createNavalHost(deps) {
    *  CAPSULE_RADIUS), never the feet's own cell alone - a 0.5 m cell read a man between her guns, on a gun, on her
    *  mast's step as ashore (the galleon's 891 of 25197 standable points under her main deck, the Carrack's 638, the
    *  Large Galley's 3829: no Sail ho!, no alarm, rest and journeys open, playerAfloat false), while the capsule's reach
-   *  misses none of the galleon's and reads 0.37% of the points round her hull aboard (a metre read 3.8%). */
+   *  misses none of the galleon's, and with her floors read only where they face up (AUDIT GN-D-wall: her bottom's
+   *  underside stood a swimmer on it) reads none of the points round her hull aboard (a metre read 3.8%). */
   const _aboardLocal = [0, 0, 0];
   const standsOn = (boat, feet) => {
     const r = boat.GameObject?.worldMatrix?.(), b = hullBuild(boat.hull);

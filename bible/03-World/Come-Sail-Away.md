@@ -2329,24 +2329,29 @@ her sails, booms and rudder found by their names:
   once.
 
 **Her deck** (`systems/naval/navalDeck.js`, `systems/naval/crewLife.js`). Her castle's roof is her deck, up its two
-flights - each 1.4 m wide between its well's walls, its treads 0.385 m on 0.25 m risers: two risers between two cells'
-centres as often as one (0.51 m, over the motors' step), and a cell clear between the walls the inset took. So a flight
-finer than a cell joins over the tread between (`linked`: a floor at the midpoint of the side two cells share, a step
-from each, within `FLIGHT_JOIN`), and a raised deck the inset parted from her open deck keeps every way up to it a cell
-wide (`keepFlights`) - the Carrack's forecastle up its stair joined with hers. The well's ramp under each flight is no
-collider of hers (it rose 4 cm through the top tread). Her hands work her main deck (`spots(n, level)`), her officer
-and her coxswain stand at their posts on the castle (a flat on a raised deck a station), her hatch is amidships of her
-main deck, and a boarding's musters stand on it; her castle is the walk's, up either flight - a boarder can reach the
-helm.
+flights - each 1.4 m wide between its well's walls, its treads 0.385 m on 0.25 m risers: four of its fourteen gaps
+between two cells' centres cross two risers (0.51 m, over the motors' step), so each flight is cut three times, and the
+inset leaves a cell clear in the port well and two in the starboard. So a flight finer than a cell joins over the tread
+between (`linked`: a floor at the midpoint of the side two cells share, a step from each, within `FLIGHT_JOIN`), and a
+raised deck the inset parted from her open deck keeps every way up to it a cell wide (`keepFlights`) - the Carrack's
+forecastle up its stair joined with hers. The well's ramp under each flight is no collider of hers (it rose 4 cm through
+the top tread). Her hands work her main deck (`spots(n, level)`; AUDIT GALLEON D10: an idle hand goes back down to it,
+and a talk's place is on it), her officer and her coxswain stand at their posts on the castle (a flat on a raised deck a
+station), the crew's hatch post stands beside her fore hatchway (D7: the hatchways themselves are no deck - their covers
+open), and a boarding's musters stand on her main deck (T4); her castle is the walk's, up either flight - a boarder can
+reach the helm. The leash keeps a body on the piece it stood on (D1: the port flight dropped boarders into the great
+cabin, 192 of 1275 times), a landing comes down across from where it came from (D2), and her lookout keeps her main
+deck's bow (D4).
 
 **What it moved elsewhere.** Her guns are five a side where the mod's galleon had six, so every hull-2 class is a sixth
 lighter at the guns: a wary brig outguns no sound armed boat of the player's now (a crewless Large Galley 1.10 to one; a
 Small Ship hurt to four fifths and alone at her guns, 1.37), and the navy cutter's odds on the corsair galley fell to
-1.23 (fought four to four). Her low gun deck (1.08 m over the sea) brought the aboard reach to her rail's height
-(`scenes/navalHost.js standsOn`); her canvas aback in the wind's eye drives her astern, so the in-irons tell reads her
-way ahead (`systems/comeSailAway.js inIrons`); her narrower hull lies closer in to a boat she boards, so a boarding
-comes in on a sounded berth unswung by the lookout and sounds the berth as wide as its legs (`systems/naval/navalAI.js
-boardCourse`, `berthOpen`).
+1.23 (fought four to four). Her low gun deck (1.08 m over the sea) brought the aboard reach to a step under her main
+deck, every hull's (`scenes/navalHost.js standsOn`: under it a capsule's reach of the feet - AUDIT GALLEON D3); her
+canvas aback in the wind's eye drives her astern, so the in-irons tell reads her way ahead
+(`systems/comeSailAway.js inIrons`); her narrower hull lies closer in to a boat she boards, so a boarding comes in on a
+sounded berth unswung by the lookout and sounds the berth as wide as its legs (`systems/naval/navalAI.js boardCourse`,
+`berthOpen`).
 
 Pins: `test/galleon_model.test.js` (13, GALLEON-2's two among them); the naval suites' PIN MOVED rows (`test/auditnav2_deck.test.js`,
 `auditnav2_crew`, `auditnav2_captains`, `auditnav2_helm`, `auditnav2_online`, `auditwatchkit_crew`, `deckwalk`,

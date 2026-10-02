@@ -996,23 +996,33 @@ the hull's box (one of the Small Ship's sixteen stood on her outer bow at 5.21 m
 Carrack's hold).
 
 - **THE DECK** (`systems/naval/navalDeck.js buildDeck`, baked once a hull by `comeSailAwayPool.js deckOf` while the
-  world loads - every rig of a hull shares her deck; AUDIT NAV2 F57: keyed by rig too, a Large Boat's rig first seen
-  was baked mid-voyage, 7-15 ms, and the rigs' colliders are proven equal): her colliders' triangles in her mesh node's frame on a DECK_CELL grid - the floors (within
-  DECK_FLAT of level) with DECK_HEADROOM clear above and no wall through the cell rising more than a tread off them (a
-  wall's footprint marks every cell its edges cross: a 0.4 m mast between two cells' centres, a gun's side, a cabin's),
-  joined to her main level cell to cell within DECK_STEP, a cell in from every edge, and of that her open deck alone -
-  the largest piece a walk joins. Measured: the Small Ship's 651 cells at 6.77 m (her poop cabin aft of 12.8 m walled
-  off), the Large Galley's 4013 at 10.25, the Carrack's 515 at 3.64 (her rooms under the half deck walled off); every
-  cell a floor her colliders stand under a head's height clear. AUDIT NAV2: EVERY FLOOR AT HER MAIN DECK OR OVER IT
-  (F34: one level a cell cut the Small Ship's forecastle stair at 8.55, and the leash dragged a body on her forecastle
-  2.5 m down - a player there was out of every boarder's reach): her floors join cell to cell within DECK_JOIN, the
-  motors' step; her open deck is the grid's `y`, a cell's highest floor, and her poop, her cabins and the room under
-  her forecastle are pieces beside it (`more`; `heightAt`, `pieceAt` and `clamp` answer per piece) - the Small Ship's
-  690 (her forecastle and its stair joined; her poop cabin 259, her poop 247 and under her forecastle 19 as pieces),
-  the Galley's 4013, the Carrack's 515 with 1586 floors in 31 pieces. NEVER INSET AGAINST A BENCH (F32: the Large
-  Boat's thwarts ate 18 of her waist's 30 cells - her deck 12 cells to 18 now, the Rowboat's 4 to 13), and no inset
-  that would cost half her deck. Under her main deck nothing is deck; every floor of hers at any level is what
-  standing aboard her is (`under`, SEA-PEACE above).
+  world loads - every rig of a hull shares her deck; AUDIT NAV2 F57: keyed by rig too, a Large Boat's rig first seen was
+  baked mid-voyage, 7-15 ms, and the rigs' colliders are proven equal): her colliders' triangles in her mesh node's
+  frame on a DECK_CELL grid - the floors (within DECK_FLAT of level) with DECK_HEADROOM clear above and no wall through
+  the cell rising more than a tread off them (a wall marks each cell it stands in with its own height there - a 0.4 m
+  mast between two cells' centres, a gun's side, a cabin's; AUDIT GALLEON D-wall: it marked every cell its edges crossed
+  with the whole triangle's height, so her deck hung on how a face was cut - Blender's cut of her castle front walled
+  her port flight's tread at 8.28 under a face 6.87 m high there, and her castle roof and upper flight, 168 cells, were
+  lost - and the deck is the same over either cut now, each wall clipped to each cell), joined to her main level cell to
+  cell within DECK_STEP, a cell in from every edge, and of that her open deck alone - the largest piece a walk joins.
+  Measured at AUDIT NAV1: the mod's galleon's 651 cells at 6.77 m (her poop cabin aft of 12.8 m walled off), the Large
+  Galley's 4013 at 10.25, the Carrack's 515 at 3.64 (her rooms under the half deck walled off); every cell a floor her
+  colliders stand under a head's height clear. AUDIT NAV2: EVERY FLOOR AT HER MAIN DECK OR OVER IT (F34: one level a
+  cell cut the Small Ship's forecastle stair at 8.55, and the leash dragged a body on her forecastle 2.5 m down - a
+  player there was out of every boarder's reach): her floors join cell to cell within DECK_JOIN, the motors' step; her
+  open deck is the grid's `y`, a cell's highest floor, and her poop, her cabins and the room under her forecastle are
+  pieces beside it (`more`; `heightAt`, `pieceAt` and `clamp` answer per piece) - the mod's galleon's 690 then (her
+  forecastle and its stair joined; her poop cabin 259, her poop 247 and under her forecastle 19 as pieces), the Galley's
+  4013, the Carrack's 515 with 1586 floors in 31 pieces. Now (AUDIT GALLEON, the walls marked as they stand): Mac's
+  galleon's 838 - her main deck 664 at 6.20, one cell further out at her entry ports where her side stands under her
+  deck there, and her castle and its flights 174 - the Large Galley's 4016, the Carrack's 511 (her main deck 465,
+  running under her half-deck stairs and into the room under her forecastle; her forecastle 39 and its stair 7), the
+  mod's galleon's 750 when she stands in; her hatchways no deck (D7: a part that opens and shuts is no floor), and her
+  open deck one walk on every hull. NEVER INSET AGAINST A BENCH (F32: the Large Boat's thwarts ate 18 of her waist's 30
+  cells - her deck 12 cells to 18 now, the Rowboat's 4 to 13), and no inset that would cost half her deck. Under her
+  main deck nothing is deck; every floor of hers that faces up, at any level, is what standing aboard her is (`under`,
+  SEA-PEACE above; AUDIT GALLEON D3 and D-wall: below a step under her main deck within the capsule's reach of the feet,
+  and never her bottom's underside - it read swimmers aboard round 1% of her hull).
 - **Her frame is her mesh node's** (`intoDeck`, `outOfDeck`): the swell rolls and pitches `Boat.MeshObject`, never her
   root, so a body on a rolled deck is read where it stands (the root's frame read it as off her deck).
 - **THE LEASH** (`scenes/world.js navalLeash`, after the foes move): a deck body whose step carried it off her cells (up
@@ -1696,7 +1706,8 @@ the odds (the merge-base's against the head's, `classPower`): a wary brig no lon
 merchant galleon (1.29, was 1.08), so from level 7 the plunder roll that draws her - 18% of them - launches an encounter
 where it launched none; a war galley outguns a brig (1.06, was 0.89), so a wary brig runs from one, and their duels go
 seven to one for the galley (five to three with six); a crewed Large Galley of the player's outguns a wary brig too
-(1.06): she runs from it. Her low gun deck brought the aboard reach to her rail's height (her gun deck lies 1.08 m over
+(1.06): she runs from it. Her low gun deck brought the aboard reach to a step under her main deck on every hull
+(mainLevel - DECK_STEP; under it a capsule's reach of the feet - AUDIT GALLEON D3 - for her gun deck lies 1.08 m over
 the sea: a metre's reach of it read a swimmer against her side aboard); a boarding comes in on a sounded berth unswung
 by the lookout (`boardCourse` `berthing`: LOOKAHEAD_MIN held her 60 m off a prize lying 31 m from a spit, her narrower
 hull needing to close 5 m nearer than the mod's to grapple) and sounds a berth as wide as the legs that reach it
