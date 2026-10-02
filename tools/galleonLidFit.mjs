@@ -14,6 +14,7 @@
 // line between the row's outer ones. Pure: the bake in, numbers out. Not a DFU member. Ledger A (GALLEON).
 import { readFileSync } from 'node:fs';
 import { MEASURED, LID } from '../src/world/galleonModel.js';
+import { isMain } from './lib/isMain.mjs';
 
 /** The hull's triangles of a bake, each with its bounds in y and z (a ray's quick reject). */
 export function hullTriangles(bake) {
@@ -66,7 +67,7 @@ export function measureLidFit(bake) {
   return { fit, starboard, port };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   const bake = JSON.parse(readFileSync(new URL('../src/assets/galleon/galleon.json', import.meta.url), 'utf8'));
   const { fit, starboard, port } = measureLidFit(bake);
   const f = (x) => x.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');

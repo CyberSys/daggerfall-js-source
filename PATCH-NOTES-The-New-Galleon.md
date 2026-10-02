@@ -14,6 +14,17 @@
 - **Deck beams.** Six heavy oak beams now carry the main deck over the gun deck. The gun deck's lanterns hang from them.
 - **64x64 textures.** Every texture on her is 64x64, the size of Daggerfall's own. The painted bands on her hull, castle and stern gallery still run unbroken round her.
 
+## Update: the audit
+- **Broadsides always leave through open ports.** A quick click now runs each gun out and swings its shutter up as it fires. Other players see your shutters open and your guns run out when you lay a broadside. Each ball leaves from its own port even while she heels.
+- **The port side's shutters swing up and out** like the starboard side's, instead of into the gun deck. Every shutter now fits snugly against her hull and is solid, so you can't crawl out through a shut port.
+- **Standing at the helm,** you now stand on the castle roof with a clear view over the wheel and binnacle. Before, you stood sunk into the great cabin below.
+- **Her sails and rigging fit.** Square sails hang from their yards, the jib and stays no longer pass through the topsails, and every rope ends where it is made fast. Shots that pass through her sails now tear them wherever the canvas actually hangs, however you trim.
+- **A cleaner hull.** Her shape now matches Mac's model exactly, side to side, and each face is lit as one smooth panel.
+- **Small fixes:** the anchor no longer pokes into her bow, the stern lanterns stand on the rail, the hatch covers open flat onto the deck, clear of the big sail's boom, the rudder turns on the sternpost, the bed sits on the floor, the stove has its flue, and the crow's nest is capped.
+- **Her deck.** Boarders can no longer drop through the port staircase into the great cabin, the crew stays on the main deck between jobs, nobody walks over an open hatchway, and standing on her gun deck counts as being aboard.
+- **If her model fails to load,** the old galleon takes her place with its own guns, decks and sails.
+- **Ships of hers** keep to water deep enough for her keel.
+
 ## Balance
 - The new galleon carries five guns a side instead of the old one's six, so ships built on this hull hit a little lighter in a broadside. A cautious pirate brigantine is less eager to attack a boat on its own.
 - That lighter broadside changes who picks a fight at sea. A cautious pirate brigantine no longer goes after merchant carracks, so from level 5 the brigantines' raids are on merchant galleons only. A cautious corsair galley now attacks merchant galleons, so from level 7 you can come across those fights. A cautious brigantine now runs from a navy war galley, and from a crewed Large Galley of yours.

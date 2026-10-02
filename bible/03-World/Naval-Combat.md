@@ -1675,7 +1675,7 @@ AUDIT NAV2's own suites - `test/auditnav2_online.test.js`, `auditnav2_boarding`,
 Hull 2 is Mac's own galleon now (`03-World/Come-Sail-Away.md` The new galleon; the Port-Ledger's GALLEON row), and the
 Small Ship's build is measured off her (`navalShips.js` HULL_BUILDS, `world/galleonModel.js` GALLEON_BATTERIES): five
 long guns a side, a gun a port, each muzzle at its port's middle a hair outside her planking (5.95 m out, 2.24 m over
-the sea - her gun deck at 1.085), so a broadside leaves her through the holes it is fired from; two chain chasers on
+the sea - her gun deck at 1.083), so a broadside leaves her through the holes it is fired from; two chain chasers on
 swivels over her bow rail (7.45 m); her barrels under her castle astern. Her box is her MeshCollider's bounds - her
 hull's planking and her castle's (stem 21.93, stern -19.91, half beam 5.86, keel -4.64 - GALLEON-2, Mac's second
 export's deeper V, -3.89 on his first - roof 12.3); her rig seven boxes of her set canvas (AUDIT GALLEON R5/G9): four

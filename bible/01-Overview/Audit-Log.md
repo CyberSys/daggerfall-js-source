@@ -8,6 +8,17 @@
 
 Newest first.
 
+**2026-10-02 - AUDIT GALLEON.** Mac: *"Audit this. It must be perfect"*, of his galleon (GALLEON and GALLEON-2) on its own
+branch. Six lenses - the bake, the rig and her pictures, her prefab and loader, her deck and crew, her guns, the tests -
+and 70 pins, each red on the code as it stood. Paid: her faces cut as Blender cuts them (the bake's ear clip laid a 22 m
+wedge on one side alone), and her deck's walls marked as they stand in a cell (Blender's cut of her castle front had
+walled her castle roof out); her port side's shutters swung into her gun deck, a quick click and another player's
+volley fired through shut ports, and her balls left her upright root as she heeled; the helmsman stood in the great
+cabin; the anchor, the board triggers and the lantern poles stood in her; her rig met itself trimmed and its hit boxes
+stood still while her canvas swung; boarders fell off her port flight into the cabin; the fallback hull kept her
+numbers. 211 mutants, 210 dead and one recorded equivalent. Her sternway head to wind (4.05 m/s) stated, damping it
+Mac's call. Record: `Audit-Galleon.md` (AUDIT GALLEON).
+
 **2026-10-02 - AUDIT GRASS-LIT2.** Mac: *"Audit this."* Three read-only lenses over GRASS-LIT2
 (the shader, the host, the tests and docs). Paid: each grass cell walks only the lanterns that
 reach it, eight at most, where every blade walked all 48; a draw without shadows resets the
