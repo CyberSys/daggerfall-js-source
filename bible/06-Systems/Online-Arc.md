@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8563` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8567` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11851,6 +11851,27 @@ use it, the seams of main's merges with the repository's health, the tests' own 
 Pinned: `test/audit_seats3_service.test.js` (11), `test/audit_seats3_relay.test.js` (7), `test/audit_seats3_client.test.js`
 (9). Mutants: `tools/mutants/audit_seats3_client.json` (20), `audit_seats3_service.json` (27), `audit_seats3_relay.json` (14),
 `audit_seats3_world.json` (5), and `seat_hall.json` +2, all dead; older records re-aimed by content, all still dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
+
+### CASTLE-GATE - a crown's field and banners at its castle's entrance (2026-10-02)
+
+Mac: "lets finish the build work" - the first of the Seats arc's NOT YETs after its merge (#482). Seats-Arc 3.4's anchor
+4, 6.2 and 7.6: a crown's Throne, Gatehouse, defenders' camp and Palace square, the Royal Tourney's ring and two of its
+banners stand at the castle's entrance in the city - which is no building record but a dungeon-entrance door the city's
+blocks stand.
+
+- **Found where the pixel is built** (`scenes/world.js`): a town with a dungeon gathers every dungeon-entrance door
+  (`DOOR_TYPE.DUNGEON_ENTRANCE`, meshReader's archive-56 planes) its models carry, each as its two corners and its
+  model's box (`pixelDungeonDoors`); at a crown the lowest is the entrance (`systems/siegeField.js` castleEntranceOf -
+  DFU lands a player leaving the castle at its lowest, `player/enterExit.js` dungeonEntranceLanding; a tie keeps the
+  records' first, so every machine finds the same door).
+- **The field** (siegeFieldOf's `castle`, AUDIT-SEATS G21's door): the Throne, the Gatehouse on it, the defenders' camp,
+  the Palace square and royalRingWire's ring stand before it; a crown city whose blocks stand none keeps the palace
+  door's field. The service settles a battle's field on the two sides' agreeing, so every client measures it alike.
+- **The banners** (seatBannerAnchors' `castle`): two flanking it, after the palace's two and before the gates and
+  boards, within SEAT_BANNERS_MAX.
+
+Pinned: `test/castle_gate.test.js` (4). Mutants: `tools/mutants/castle_gate.json` (9, all dead). Client alone - no relay,
+no service version.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

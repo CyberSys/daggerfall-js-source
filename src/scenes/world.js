@@ -620,7 +620,7 @@ import { homeLookRemap, HOME_LOOK_BUILD_WAIT_MS } from '../world/homeLook.js';  
 import { createHomeYards } from './homeYards.js';   // HOME-YARD: the town's yards, and the owner's decorator outside
 import { loadIcon } from '../ui/textureCanvas.js';   // HOME-YARD: the decorator's pictures
 import { BLOCK_TYPES } from '../formats/blocksFile.js';   // HOME-YARD: the catalogue's town blocks
-import { GLOBAL_SCALE } from '../world/meshReader.js';
+import { GLOBAL_SCALE, DOOR_TYPE } from '../world/meshReader.js';
 import { homeLookSig } from '../net/homeLaw.js';
 import { setWeather, setHeardWeather, heardWeather, currentWeather, currentWeatherRaw, tickWeather, weatherRespawn, applyClimateWeather, importClimateWeathers, weatherJumpStamp, setSharedWeather, rollClimateWeathersForDay, sampleWeatherField, weatherCrossingStamp, currentFieldCells, currentWeatherIntensity, currentCloudBase, currentWindApproach, currentMapSystems, sampleWeatherIndoors, weatherArrivalStamp, mapGround } from '../systems/weatherSim.js';
 import { createDistantStorms, thunderSourceAt, THUNDER_SOURCE_M } from '../systems/distantStorms.js';   // WEATHER3d: the storms at a distance
@@ -706,7 +706,7 @@ import { createSiegeSession, isBattleLeaveCommand, BATTLE_NONE_TEXT } from '../n
 import { SIEGE_UNITS_PER_M, SIEGE_REACH, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM } from '../net/siegeRef.js';   // SEAT2b part two (b): a swing at the Gatehouse or the Ram
 import { createSiegeClaims } from '../net/siegeClaims.js';   // SEAT2a part four: its receipts carried to the service
 import { createSiegeHud } from '../ui/siegeHud.js';   // SEAT2a part four: the bar, the sides, the result card
-import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
+import { siegeFieldOf, siegeFieldWire, buildingKeysOfType, royalRingWire, castleEntranceOf } from '../systems/siegeField.js';   // SEAT2a part four: the battlefield the town's records give   // CROWN1 part two: and a crown's ring
 import { createRoyalSession } from '../net/royalSession.js';   // CROWN1 part two: a Royal Tourney as this client fights it
 import { createRoyalClaims } from '../net/siegeClaims.js';   // CROWN1 part two: its bouts' receipts carried to the service
 import { createSiegeHerald } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battles announced in the server's voice
@@ -3536,6 +3536,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pixelBuildingKeys = new Set();   // HOME-LOOK: every building of the pixel, by its key
     /** @type {Map<number, {at: number[], box: number[]}>} HOME-YARD: each building's own place and the box round its models, pixel-local */
     const pixelHomeFrames = new Map();
+    const pixelDungeonDoors = [];   // CASTLE-GATE: the dungeon-entrance doors the town's blocks stand, each with its model's box
     if (dfLocation) {
       // AUDIT 39 (#18): the skin reaches the layout, because the mill's
       // subrecord widens the block's building count and must not exist
@@ -3703,6 +3704,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             // GUILD1d: the building's first door, measured where it stands - its hall's banners hang beside it
             const hf = homeKey != null ? pixelHomeFrames.get(homeKey) : null;
             if (hf && !hf.door) hf.door = doorCornersOf(cpu.doors[0], local);
+            if (dfLocation.hasDungeon) for (const d of cpu.doors) if (d.type === DOOR_TYPE.DUNGEON_ENTRANCE) pixelDungeonDoors.push({ door: doorCornersOf(d, local), box });   // CASTLE-GATE
             for (const door of staticDoors) {
               doorGeneration += 1;   // WORLD-HOVER: a pixel's doors arriving
               buildingDoors.push({
@@ -4127,8 +4129,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     // never worked out again; null off a seat, and the memo asks it then)
     const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId(townSeats, dfLocation.mapTableData?.mapId) ? boardSplitOf({ boards: pixelBoards }) : null;
     const seatPalaceKeys = pixelBoardSplit ? palaceKeysOf(locBlocks, makeBuildingKey) : [];
+    const seatTier = dfLocation ? seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace' : 'palace';
+    const castleGate = seatTier === 'crown' ? castleEntranceOf(pixelDungeonDoors) : null;   // CASTLE-GATE: a crown city's castle entrance
     const seatAnchors = pixelBoardSplit ? seatBannerAnchors({
-      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,
+      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys, castle: castleGate,
       gates: pixelGates.map((g) => ({ local: g.local, box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit,
       centre: townCentreOf(pixelHomeFrames),
     }) : null;
@@ -4138,7 +4142,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,
       templeKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.Temple), hallKeys: buildingKeysOfType(locBlocks, makeBuildingKey, TALK_BUILDING_TYPES.GuildHall),
       gates: pixelGates.map((g) => ({ box: g.entry?._box })), boards: pixelBoards, bounty: pixelBoardSplit, centre: townCentreOf(pixelHomeFrames),
-      tier: seatAtMapId(townSeats, dfLocation.mapTableData?.mapId)?.tier ?? 'palace',
+      tier: seatTier, castle: castleGate,
     }) : null;
     if (siegeField) siegeFieldsByTown.set(dfLocation.mapTableData?.mapId, { key, px, py, field: siegeField });
     const wodKept = adoptWodCarry(key, wodSpawners, privateersHold);

@@ -1,0 +1,64 @@
+// CASTLE-GATE (2026-10-02, Mac: "lets finish the build work"): A CROWN'S FIELD AND BANNERS AT ITS CASTLE'S ENTRANCE IN
+// THE CITY (bible/11-Multiplayer/Seats-Arc.md 3.4 anchor 4, 6.2, 7.6). The city's host finds the castle's door - the
+// lowest of the pixel's dungeon-entrance doors (systems/siegeField.js castleEntranceOf; DFU lands a player leaving the
+// castle at its lowest, player/enterExit.js dungeonEntranceLanding) - and hands it, at a crown alone, to the battlefield
+// (siegeFieldOf's `castle`: the Throne, the Gatehouse, the defenders' camp, the Palace square and the Royal Tourney's ring)
+// and to the seat's banners (seatBannerAnchors' `castle`: two more flanking it, after the palace's two).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { castleEntranceOf, siegeFieldOf, royalRingWire, siegeWorldPoint, SIEGE_FIELD } from '../src/systems/siegeField.js';
+import { seatBannerAnchors } from '../src/scenes/seatBanners.js';
+import { SEAT_BANNERS_MAX } from '../src/net/townSeatLaw.js';
+
+const door = (a, b, box) => ({ door: { a, b }, box });
+const near = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-9;
+
+test('CASTLE-GATE castleEntranceOf: the LOWEST of the dungeon-entrance doors, the first on a tie, a fresh box; a door with no corners or no box passed over; none, null (mutants: the highest; the last on a tie; the box shared)', () => {
+  const box = [60, 0, -20, 100, 30, 20];
+  const upper = door([60, 12, -1], [60, 15, 1], box);
+  const lower = door([60, 0, -1], [60, 3, 1], box);
+  const twin = door([70, 0, -1], [70, 3, 1], box);
+  const got = castleEntranceOf([upper, lower, twin]);
+  assert.deepEqual(got.door, lower.door, 'the lowest - the one DFU lands a leaving player at');
+  assert.notEqual(got.box, box, 'its own copy of the box');
+  assert.deepEqual(got.box, box);
+  assert.deepEqual(castleEntranceOf([twin, lower]).door, twin.door, 'a tie keeps the records\' first');
+  assert.equal(castleEntranceOf([{ door: null, box }, { door: lower.door, box: [1, 2] }]), null);
+  assert.equal(castleEntranceOf([]), null);
+  assert.equal(castleEntranceOf(null), null);
+});
+
+test('CASTLE-GATE the crown\'s field before the castle the town stands: the Throne, the defenders\' camp and the Palace square before the entrance castleEntranceOf found, and the Royal Tourney\'s ring with them; a palace seat\'s field untouched (mutants: the castle unpassed; the ring at the palace)', () => {
+  const frames = new Map([['palace', door([-1, 0, 0], [1, 0, 0], [-10, 0, -20, 10, 10, 0])]]);
+  const castle = castleEntranceOf([door([60, 9, -1], [60, 12, 1], [60, 0, -20, 100, 30, 20]), door([60, 0, -1], [60, 3, 1], [60, 0, -20, 100, 30, 20])]);
+  const base = { frames, palaceKeys: ['palace'], gates: [{ box: [-1, 0, 299, 1, 6, 301] }], centre: [0, 100] };
+  const crown = siegeFieldOf({ ...base, tier: 'crown', castle });
+  assert.ok(near(crown.throne, [60 - SIEGE_FIELD.thronePaceM, 0]), `the Throne (and the Gatehouse on it) at the castle: ${crown.throne}`);
+  assert.ok(near(crown.camps.defend, [60 - SIEGE_FIELD.defendCampM, 0]));
+  assert.ok(near(crown.banners[3], [60 - SIEGE_FIELD.squareM, 0]));
+  assert.deepEqual(royalRingWire(10, 20, crown), [siegeWorldPoint(10, 20, [60 - SIEGE_FIELD.squareM, 0])], 'the Tourney\'s ring in the castle\'s square');
+  const palace = siegeFieldOf({ ...base, tier: 'palace', castle: null });
+  assert.ok(near(palace.throne, [0, SIEGE_FIELD.thronePaceM]));
+});
+
+test('CASTLE-GATE the crown\'s two banners flank its castle\'s entrance, after the palace\'s two and before the gates and boards; with no castle the town hangs what it did (mutants: the castle\'s pair dropped; hung last)', () => {
+  const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const frames = new Map([['p', { box: [-5, 0, -5, 5, 8, 5], door: { a: [-1, 0, 5], b: [1, 0, 5] } }]]);
+  const castle = { box: [60, 0, -20, 100, 30, 20], door: { a: [60, 0, -1], b: [60, 6, 1] } };
+  const gates = Array(10).fill({ local: I, box: [-2, 0, -0.5, 2, 6, 0.5] });
+  const without = seatBannerAnchors({ frames, palaceKeys: ['p'], gates, centre: [0, 20] });
+  const withCastle = seatBannerAnchors({ frames, palaceKeys: ['p'], castle, gates, centre: [0, 20] });
+  assert.equal(withCastle.length, SEAT_BANNERS_MAX);
+  assert.deepEqual(withCastle.slice(0, 2), without.slice(0, 2), 'the palace\'s two first');
+  for (const a of withCastle.slice(2, 4)) assert.ok(a.top[0] < 60 && a.top[0] > 59, `a castle banner beside its door: ${a.top}`);
+  assert.deepEqual(seatBannerAnchors({ frames, palaceKeys: ['p'], castle: null, gates, centre: [0, 20] }), without);
+});
+
+test('CASTLE-GATE wired in the city\'s host: a town with a dungeon gathers its dungeon-entrance doors with their models\' boxes, and a crown hands the entrance to its banners and its field alike; a palace seat hands none (mutants: the doors ungathered; the tier\'s gate; one call unhanded)', () => {
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /if \(dfLocation\.hasDungeon\) for \(const d of cpu\.doors\) if \(d\.type === DOOR_TYPE\.DUNGEON_ENTRANCE\) pixelDungeonDoors\.push\(\{ door: doorCornersOf\(d, local\), box \}\);/);
+  assert.match(w, /const castleGate = seatTier === 'crown' \? castleEntranceOf\(pixelDungeonDoors\) : null;/);
+  assert.match(w, /seatBannerAnchors\(\{\n\s*frames: pixelHomeFrames, palaceKeys: seatPalaceKeys, castle: castleGate,/);
+  assert.match(w, /tier: seatTier, castle: castleGate,\n\s*\}\) : null;/);
+});

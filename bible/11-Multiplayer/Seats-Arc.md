@@ -221,8 +221,9 @@ DECIDED (Mac, the Holdings plan: "the holder's banners and colours in the city")
 BUILT (SEAT1a; scenes/seatBanners.js): anchors 1-3 as written - a banner at each city gate (on its town side, beside a
 post), the palace door's two (GUILD1d's measure of a building's first door record), a pennant over each rumour board -
 at most 8, measured where the pixel is built; the kingdom's plain banner (townSeatLaw.js seatPlainBanner; a March's its
-two claimants' metals, field and border), drawn by GUILD1d's cloth pass. NOT YET: anchor 4, the crown seats' two at the
-castle's entrance in the city (the castle is a dungeon door the city block stands, not a building record).
+two claimants' metals, field and border), drawn by GUILD1d's cloth pass. BUILT since (CASTLE-GATE, 2026-10-02; Online-Arc CASTLE-GATE): anchor 4, the crown
+seats' two at the castle's entrance in the city - the lowest of the pixel's dungeon-entrance doors
+(`systems/siegeField.js` castleEntranceOf), hung after the palace's two.
 
 ## 4. Influence - the currency of a claim
 
@@ -461,11 +462,12 @@ the breach as written; a palace with a gate of its own the same); the Rams one a
 to it), the next at the attackers' wave; a defender's wave the Walls' quicker. The DECIDED above (the banners alone)
 moved.
 
-NOT YET (the audit of the arc, 2026-10-02): a crown's field at its castle's entrance. `systems/siegeField.js`
-siegeFieldOf takes the castle's door (`castle`, AUDIT-SEATS G21), but its one caller (`scenes/world.js`, the pixel's
-field) never passes it, so a crown's Throne, its Gatehouse, its defenders' camp and its Palace square - and the Royal
-Tourney's ring (7.6) - stand at the PALACE door, as a palace seat's do. Waits on the castle's dungeon-entrance door
-being found in the city block (3.4's anchor 4 waits on the same).
+BUILT (CASTLE-GATE, 2026-10-02; Online-Arc CASTLE-GATE): a crown's field at its castle's entrance. The city's host
+(`scenes/world.js`, the pixel's build) gathers the dungeon-entrance doors the town's blocks stand, each with its model's
+box, and at a crown hands the lowest (`systems/siegeField.js` castleEntranceOf - DFU lands a player leaving the castle
+at its lowest, `player/enterExit.js` dungeonEntranceLanding) to siegeFieldOf's `castle` (AUDIT-SEATS G21): a crown's
+Throne, its Gatehouse, its defenders' camp and its Palace square - and the Royal Tourney's ring (7.6) - stand before it.
+A crown city whose blocks stand no such door keeps the palace door's field.
 
 ### 6.3 Scheduling
 
@@ -775,7 +777,7 @@ its week - the prize to its account, "Champion of <Kingdom>, Season N" kept for 
 DECIDED: the ladder's ties go to fewer losses, then to whoever reached its wins first.
 
 BUILT (CROWN1 part two, the client; Online-Arc CROWN1 part two): the Seat tab's doors (to contend, to watch); the ring at
-the crown's Palace square, derived from the city (before the palace door - NOT YET at the castle's entrance, 6.2); the
+the crown's Palace square, derived from the city (before the castle's entrance - CASTLE-GATE, 6.2); the
 room joined by its pass; a challenge and its accept on the profile card's own Challenge button; the bout's one foe for
 the melee arm, the motor and the relay holding the ring; the HUD (the ring, the ladder, the challenges, a bout's end);
 the receipts carried. With it CROWN1 is whole.
@@ -1107,8 +1109,8 @@ bible updated in the same change, mutants recorded.
 | **SEAT-HALL** | The palace as the holder's guild hall: the Charter Room (7.2) - **BUILT** 2026-10-02 (`06-Systems/Online-Arc.md` SEAT-HALL; migration `0065_seat_hall.sql`, `acct61` with SEAT2b part two) | A holder's Officer places a piece in the Charter Room; the seat changing hands clears it |
 | **CROWN-HALL** | The crown's castle as its holder's hall: the throne room (7.2) - **BUILT** 2026-10-02 (`06-Systems/Online-Arc.md` CROWN-HALL; client alone) | The holder's banners, roster board and Stores chest in the throne room, no decor |
 
-NOT YET (the audit of the arc, 2026-10-02): a crown's field at its castle's entrance (6.2's NOT YET) - its Throne,
-Gatehouse, camp, Palace square and the Royal Tourney's ring stand at the palace door; SEAT2b is whole without it.
+BUILT since (CASTLE-GATE, 2026-10-02): a crown's field at its castle's entrance (6.2) - its Throne, Gatehouse, camp,
+Palace square and the Royal Tourney's ring stand before the castle's door.
 
 ## 14. What remains to measure
 
