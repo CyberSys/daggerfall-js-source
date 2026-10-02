@@ -10,7 +10,7 @@
 - **Fewer player marks.** Other players no longer flood the Overworld:
   - Players standing close together on screen show as one larger dot, such as "5 travellers".
   - Players off the edge of your screen in roughly the same direction share one arrow.
-  - Only the six players nearest you on screen show their full title, Renown, guild tag and glyphs; others show just their name.
+  - Only the six players nearest you on screen show their full title, Renown, guild tag and glyphs; others, and players off the edge of the screen, show just their name.
   - Your party is always shown in full.
 
 ## Server

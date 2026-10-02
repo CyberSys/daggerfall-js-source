@@ -613,8 +613,8 @@
   {
     "name": "OVERWORLD-NAMES-a-bare-label",
     "file": "src/ui/travelViewHud.js",
-    "old": "    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(",
-    "new": "    if (false) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(",
+    "old": "    if (q.m.badge) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(",
+    "new": "    if (false) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(",
     "tests": [
       "test/tv5_far_places.test.js"
     ],

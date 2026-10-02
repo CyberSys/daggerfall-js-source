@@ -1806,3 +1806,10 @@ another are one mark at their middle, a larger dot named "N travellers"; arrows 
 nearest my own mark wear their badge - the rest their name. My party (kind `party`), the places, the dungeons, the
 enemies, the gathering groups and the journey's end are never folded nor stripped. The Travellers filter's count is
 still every traveller. Pins `test/owcrowd.test.js`; mutants `tools/mutants/owcrowd.json`.
+
+AUDIT OW-CROWD (Mac: "Audit thid"): the badges were made before the crowds were folded - the frame's sixteen builds
+(BADGE_BUILDS_PER_FRAME) spent on players a crowd or the cap then dropped, the badges kept late a frame or more, and a
+crowd's arrow laid out by its lead's badge rather than its own words; they are made after now, for the marks still
+wearing one. And a lone arrow at the edge wore its whole badge, uncapped, round the screen - it wears the name alone now
+(my party's keeps its badge). PIN MOVED: `tv5_far_places` N1-8 feeds the cache six a frame, N1-5 and N1-6 ask the held
+badge's box of my party's arrows.

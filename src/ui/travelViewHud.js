@@ -752,17 +752,20 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
     const held = m.edge ? (edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) ?? (m.front ? notchHold(m, vh) : null)) : null;   // OW-EDGES
     if (!m.front && !held) continue;
     const at = held ?? m;
-    const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null };
-    // AUDIT NAMES N1-5: a player's badge made (or found) BEFORE the layout, so every box is the drawn one's - the
-    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread
-    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(doc, m, held ? 11 : 12, q.look === 'party', dpr, q.bk); }
-    if (held) q.side = heldSide(q, vw);
-    placed.push(q);
+    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null });
   }
   // OW-CROWD: the region's travellers decluttered - a crowd one mark, the edge's arrows together, the badges the nearest's
   const kept = declutterTravellers(placed, feet ?? { x: vw / 2, y: vh / 2 });
   placed.length = 0;
   placed.push(...kept);
+  for (const q of placed) {
+    // AUDIT NAMES N1-5: a player's badge made (or found) BEFORE the layout, so every box is the drawn one's - the
+    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread.
+    // AUDIT OW-CROWD: and AFTER the crowds are folded - the frame's sixteen builds were spent on badges a crowd or the
+    // cap then dropped, and a crowd's arrow was laid out by its lead's badge, not its own words
+    if (q.m.badge) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(doc, q.m, q.held ? 11 : 12, q.look === 'party', dpr, q.bk); }
+    if (q.held) q.side = heldSide(q, vw);
+  }
   spreadHeld(placed, vw, vh);
   // OW-EDGES: along the top and the foot, each held mark at the edge - stepped in only where its box meets a notch
   for (const q of placed) {
@@ -862,7 +865,8 @@ function drawMarks(marks, vw, vh, dpr, feet = null) {
  * are placed on the screen. Travellers drawn within TV_CROWD_PX of one another are one mark, a dot named for how many
  * ("4 travellers"), at their middle; arrows held at the screen's edge within TV_CROWD_EDGE_PX of one another one arrow,
  * the nearest's, named the same; and of the travellers still drawn alone in the picture, only the TV_BADGES_MAX nearest
- * my own mark wear their badge (the title, the Renown, the guild's tag, the glyphs) - the rest their name alone. My
+ * my own mark wear their badge (the title, the Renown, the guild's tag, the glyphs) - the rest, and every arrow at the
+ * edge (AUDIT OW-CROWD), their name alone. The badges are made after (drawMarks), for the marks still wearing one. My
  * party is never folded nor stripped (it is not a traveller's mark), nor is anything else. Pure over the placements:
  * `{ m, x, y, held, look, side, bk, sp }`, the travellers' order nearest first, after the rest.
  * @param {Array<any>} placed @param {{ x: number, y: number }} feet my mark on the screen
@@ -885,9 +889,11 @@ export function declutterTravellers(placed, feet) {
   for (const g of groups) {
     const lead = g.members[0];
     if (g.members.length === 1) {
-      if (!lead.held && lead.m.badge) {
-        if (badges < TV_BADGES_MAX) badges++;
-        else { lead.m = { ...lead.m, badge: undefined }; lead.sp = null; lead.bk = ''; }   // past the nearest few: the name alone
+      if (lead.m.badge) {
+        // past the nearest few, or held at the edge (AUDIT OW-CROWD: a region's lone arrows wore every badge, uncapped,
+        // round the screen): the name alone - the badge comes with them into the picture
+        if (!lead.held && badges < TV_BADGES_MAX) badges++;
+        else { lead.m = { ...lead.m, badge: undefined }; lead.sp = null; lead.bk = ''; }
       }
       out.push(lead);
       continue;

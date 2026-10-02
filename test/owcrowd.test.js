@@ -67,7 +67,7 @@ test('OW-CROWD: arrows held at the edge close together are one arrow - the neare
   assert.ok(out.some((q) => q.m.key === 'trav:d' && !q.held), 'the one in the picture: its own');
 });
 
-test('OW-CROWD: of the travellers alone in the picture, the TV_BADGES_MAX nearest my mark wear their badge, the rest their name; an arrow at the edge keeps its own (mutants: no cap; the farthest kept)', () => {
+test('OW-CROWD: of the travellers alone in the picture, the TV_BADGES_MAX nearest my mark wear their badge, the rest their name; an arrow at the edge its name alone - AUDIT: they wore every badge round the screen, uncapped (mutants: no cap; the farthest kept; the edge\'s badges kept)', () => {
   assert.equal(TV_BADGES_MAX, 6);
   const placed = [];
   for (let i = 0; i < 9; i++) placed.push(at(`trav:${i}`, FEET.x + 80 * (i + 1), FEET.y));   // 80 px apart, farther each
@@ -83,7 +83,11 @@ test('OW-CROWD: of the travellers alone in the picture, the TV_BADGES_MAX neares
     assert.equal(q.m.label, k, 'the name kept');
   }
   assert.ok(frameMark.badge, 'the frame\'s own mark untouched (a copy stripped)');
-  assert.ok(out.find((q) => q.m.key === 'trav:edge').m.badge, 'the edge\'s arrow keeps its badge');
+  const edge = out.find((q) => q.m.key === 'trav:edge');
+  assert.equal(edge.m.badge, undefined, 'the edge\'s arrow: its name alone');
+  assert.equal(edge.m.label, 'trav:edge');
+  const party = declutterTravellers([at('peer:p', 1252, 100, { kind: 'party', held: { x: 1252, y: 100, angle: 45 }, side: 1 })], FEET);
+  assert.ok(party[0].m.badge, 'my party\'s arrow keeps its badge');
 });
 
 test('OW-CROWD through the readout: forty travellers held at one edge are one arrow and one label; a crowd in the picture a larger dot with its count (by the HUD over a stub canvas)', () => {
@@ -94,18 +98,21 @@ test('OW-CROWD through the readout: forty travellers held at one edge are one ar
   });
   const win = { devicePixelRatio: 1, innerWidth: 1280, innerHeight: 720, addEventListener() {}, removeEventListener() {} };
   const doc = { defaultView: win, fonts: null };
+  let canvases = 0;
   const mk = (tag) => {
     const n = { tagName: tag.toUpperCase(), className: '', children: [], style: { setProperty() {} }, ownerDocument: doc, attrs: {}, dataset: {}, setAttribute(k, v) { this.attrs[k] = v; }, append(...c) { this.children.push(...c); }, remove() {}, addEventListener() {}, isConnected: true, width: 0, height: 0, getBoundingClientRect() { return { width: 0, height: 0 }; } };
-    if (tag === 'canvas') n.getContext = () => ctx;
+    if (tag === 'canvas') { canvases++; n.getContext = () => ctx; }
     return n;
   };
   Object.assign(doc, { createElement: mk, createElementNS: (_, tag) => mk(tag), getElementById: () => null, querySelectorAll: () => [], head: mk('head'), body: mk('body') });
   hud.showTravelViewHud({}, doc);
   try {
     const marks = [];
-    for (let i = 0; i < 40; i++) marks.push({ key: `trav:${i}`, x: 3000 + i, y: 100, front: false, label: `Rider ${i}`, kind: 'traveller', edge: true });
+    for (let i = 0; i < 40; i++) marks.push({ key: `trav:${i}`, x: 3000 + i, y: 100, front: false, label: `Rider ${i}`, kind: 'traveller', edge: true, badge: { title: 'founder', glyphs: ['dev'], lv: 12 + i, gt: 'HND' } });
+    const before = canvases;
     hud.updateTravelViewHud({ feet: { x: 640, y: 360, front: true }, heading: 0, yaw: 0, where: '', marks });
     assert.equal(calls.filter((c) => c[0] === 'drawImage').length, 1, 'one label for forty');
+    assert.equal(canvases - before, 1, 'AUDIT: the crowd\'s label alone made - no badge built for a player folded into it (the frame\'s sixteen were spent on them)');
     calls.length = 0;
     hud.updateTravelViewHud({ feet: { x: 640, y: 360, front: true }, heading: 0, yaw: 0, where: '', marks: [
       { key: 'trav:a', x: 300, y: 300, front: true, label: 'Ann', kind: 'traveller' }, { key: 'trav:b', x: 310, y: 305, front: true, label: 'Bo', kind: 'traveller' },
