@@ -13,6 +13,7 @@ import { RENOWN_XP_HOUR_MAX } from '../src/net/renown.js';
 import {
   seatReportText, seatWeekOf, seatWeekStartMs, SEAT_MEMBER_WAIT_S, WATCH_DAY_CAP, SEAT_WATCH_CLAIM_MAX, SEAT_PLEDGE_REGIONS_MAX, ACCOUNT_SEAT_WEEK_CAP,
 } from '../src/net/townSeatLaw.js';
+import { agreedGateRegions } from '../server-account/src/seatInfluence.js';
 
 const subtle = webcrypto.subtle;
 const ANTICLERE = { key: 3021, name: 'Anticlere', region: 21, tier: 'palace', pixel: [402, 151] };
@@ -193,6 +194,10 @@ test('SEAT1b GATE KILLS: a claim names its region; a kill counts 300 for the war
   await kill(others[0], days[1], 21); await kill(others[1], days[1], 21);
   for (const o of others.slice(2, 5)) await kill(o, days[1], 30);
   assert.equal((await standings(gm)).standings[0].influence, 300, 'a level top agrees on nothing');
+  // PIN MOVED (AUDIT SEATS-3 F2): the tie's claims are none of the Hand's, so the standing above holds either way - the
+  // day's agreement itself is asked
+  assert.equal((await agreedGateRegions(svc.env.DB, [days[1]])).has(days[1]), false, 'a level top agrees on nothing');
+  assert.equal((await agreedGateRegions(svc.env.DB, [days[0]])).get(days[0]), 21);
   await kill(others[1], days[2], 30);
   // the week's cap: four agreed kills, 900
   for (const d of days.slice(2)) { await kill(gm, d, 21); for (const o of others.slice(2, 4)) await kill(o, d, 21); }

@@ -601,8 +601,8 @@
  {
   "name": "CROWN2-svc-red-day",
   "file": "server-account/src/seatPolitics.js",
-  "old": "WHERE at > ? ORDER BY seq').bind(nowS - SEAT_RED_S)",
-  "new": "WHERE at > ? ORDER BY seq').bind(0)",
+  "old": ".bind(nowS - SEAT_RED_S, SEAT_RED_MAX).all();",
+  "new": ".bind(0, SEAT_RED_MAX).all();",
   "tests": [
    "test/crown2_service.test.js"
   ]
@@ -944,8 +944,8 @@
  {
   "name": "CROWN2-red-clock",
   "file": "src/net/townSeatBook.js",
-  "old": "      if (open === true && !pending && nowMs() - at >= SEAT_RED_READ_MS) read({ force: true });",
-  "new": "      if (open === true && !pending) read({ force: true });",
+  "old": "      if (!pending && (open === true || failed) && nowMs() - at >= (failed ? SEAT_LIST_RETRY_MS : SEAT_RED_READ_MS)) read({ force: true });",
+  "new": "      if (!pending && (open === true || failed)) read({ force: true });",
   "tests": [
    "test/crown2_client.test.js"
   ]
@@ -953,8 +953,8 @@
  {
   "name": "CROWN2-red-shut",
   "file": "src/net/townSeatBook.js",
-  "old": "      if (open === true && !pending && nowMs() - at >= SEAT_RED_READ_MS)",
-  "new": "      if (!pending && nowMs() - at >= SEAT_RED_READ_MS)",
+  "old": "      if (!pending && (open === true || failed) && nowMs()",
+  "new": "      if (!pending && nowMs()",
   "tests": [
    "test/crown2_client.test.js"
   ]

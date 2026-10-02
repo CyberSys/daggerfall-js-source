@@ -528,8 +528,8 @@
   {
     "name": "SEAT2b-market-hall-unread",
     "file": "server-account/src/market.js",
-    "old": "  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));",
-    "new": "  const listingsMax = MARKET_LISTINGS_MAX;",
+    "old": "  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // SEAT2b (7.5)",
+    "new": "  const listingsMax = 30;   // SEAT2b (7.5)",
     "tests": [
       "test/seat2b_service.test.js"
     ]

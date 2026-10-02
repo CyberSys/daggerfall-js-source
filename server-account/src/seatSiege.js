@@ -23,6 +23,7 @@
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
 import { accountKind, displayName, overRate } from './accounts.js';
+import { CHAR_ID_RE } from './service.js';   // AUDIT SEATS-3 A3: an Honours character in the saves' shape
 import { seatsOpenFor, confirmedSeats } from './townSeats.js';
 import { fortifierAt, fortsCaptureWithSave, fortTierAt, siegewrightAt, fortsLapsedStatements } from './seatForts.js';   // SEAT2b: a capture's drop, a Fortifier's save; part two (b): the works a siege fights behind
 import { mustChange } from './realm.js';
@@ -315,7 +316,12 @@ export async function claimSiege({ db, nowS, subtle }, player, env, { receipt, c
   }
   const out = { result: r.result, winner: r.winner ?? null, applied };
   if (c.h !== 1 || b.kind === 'revolt') return { ...out, honours: null };   // SEAT2b part two (c): a revolt earns none (net/siegeRef.js honoured)
-  if (typeof character !== 'string' || !character || character.length > 64) return { error: 'honours-character' };
+  if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'honours-character' };
+  // AUDIT SEATS-3 A3 (6.8: Honours "to the character"): the character this account signed onto the battle's roster, and no
+  // other - not a Renown track or a Stores row opened under any id the request names. The result above is written whatever
+  // the answer here; a device playing another character keeps its receipt (net/siegeClaims.js) for the one that fought
+  const rostered = await db.prepare('SELECT char_id FROM town_seat_rosters WHERE week = ? AND key = ? AND account = ?').bind(c.sw, c.sk, player.id).first();
+  if (!rostered || rostered.char_id !== character) return { error: 'honours-character' };
   if (await db.prepare('SELECT 1 FROM town_seat_honours WHERE week = ? AND key = ? AND account = ?').bind(c.sw, c.sk, player.id).first()) return { error: 'honours-twice' };
   // the pair's Honours this Season: any other battle between the two guilds, either way round, since the Season began (SEASON1;
   // with none counted, in the last 8 weeks)

@@ -586,11 +586,12 @@
  {
   "name": "SEAT2a3-honours-char",
   "file": "server-account/src/seatSiege.js",
-  "old": "  if (typeof character !== 'string' || !character || character.length > 64) return { error: 'honours-character' };",
-  "new": "  if (character === 7) return { error: 'honours-character' };",
+  "old": "  if (!rostered || rostered.char_id !== character) return { error: 'honours-character' };",
+  "new": "  if (!rostered) return { error: 'honours-character' };",
   "tests": [
    "test/seat2a_siege_service.test.js",
-   "test/seat2a_siege_client.test.js"
+   "test/seat2a_siege_client.test.js",
+   "test/audit_seats3_service.test.js"
   ]
  },
  {

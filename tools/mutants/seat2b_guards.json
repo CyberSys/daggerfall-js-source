@@ -708,8 +708,8 @@
   {
     "name": "SEAT2b2c-world-body",
     "file": "src/scenes/world.js",
-    "old": "?? siegeNpcs?.body(peerId) ?? null) : null);",
-    "new": "?? null) : null);",
+    "old": "(peersNear()?.find((x) => x.id === peerId) ?? siegeNpcs?.body(peerId) ?? null) : null);",
+    "new": "(peersNear()?.find((x) => x.id === peerId) ?? null) : null);",
     "tests": [
       "test/seat2b_guards_client.test.js"
     ]

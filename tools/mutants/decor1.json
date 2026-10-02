@@ -443,8 +443,8 @@
   {
     "name": "DECOR1c-the-kept-record-wiped",
     "file": "src/scenes/worldModes.js",
-    "old": "    const decor = interiorHome || interiorSeatHall ? interiorDecor.kept() : interiorDecor.list();",
-    "new": "    const decor = interiorHome || interiorSeatHall ? [] : interiorDecor.list();",
+    "old": "    const decor = interiorHome || _seatHallVisit ? interiorDecor.kept() : interiorDecor.list();",
+    "new": "    const decor = interiorHome || _seatHallVisit ? [] : interiorDecor.list();",
     "tests": [
       "test/decor1.test.js"
     ]

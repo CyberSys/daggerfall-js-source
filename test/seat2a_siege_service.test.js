@@ -192,8 +192,14 @@ test('SEAT2a part three A SEAT HELD AND THE TURNING\'S MEMORY: held with a banne
   await s.call('/v1/seats/list', {}, sh.gm);
   assert.equal(s.raw.prepare('SELECT COUNT(*) AS n FROM town_seat_rights WHERE week = ? AND key = ?').get(W + 2, ANTICLERE.key).n, 0, 'the Oath barred, the Circle short of the x1.2');
   // a forfeit by the same challenger in week W+2: +10 and x1.2; a second within the Season: no Standing; no Honours either
-  const fight = (week) => s.raw.prepare(`INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, state, at)
-    VALUES (?, ?, 'siege', 'palace', ?, ?, ?, ?, 0, 'scheduled', ?)`).run(week, ANTICLERE.key, eo.gid, sh.gid, START + (week - W - 1) * 7 * DAY, START + (week - W - 1) * 7 * DAY + 1800, s.getNow());
+  const fight = (week) => {
+    s.raw.prepare(`INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, state, at)
+      VALUES (?, ?, 'siege', 'palace', ?, ?, ?, ?, 0, 'scheduled', ?)`).run(week, ANTICLERE.key, eo.gid, sh.gid, START + (week - W - 1) * 7 * DAY, START + (week - W - 1) * 7 * DAY + 1800, s.getNow());
+    // PIN MOVED (AUDIT SEATS-3): A3 - Honours go to the character on the battle's roster, so its two fighters sign it
+    for (const [who, g, side] of [[d1, sh, 'defend'], [a1, eo, 'attack']]) {
+      s.raw.prepare('INSERT INTO town_seat_rosters (week, key, account, char_id, guild_id, side, at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(week, ANTICLERE.key, who.id, who.character, g.gid, side, s.getNow());
+    }
+  };
   fight(W + 2);
   const st0 = s.holdOf().standing;
   const f = await s.claim(d1, { s: d1.id, sw: W + 2, sd: 'defend', r: 'forfeit', a: 0 });

@@ -83,7 +83,7 @@
   {
     "name": "AUDIT-SEATS2-R1-reach",
     "file": "server/src/index.js",
-    "old": "    if (!siegeNpcInReach(n, by.pose)) return;",
+    "old": "    if (!siegeNpcInReach(n, by.pose, b.ground ?? null)) return;",
     "new": "    if (false) return;",
     "tests": [
       "test/audit_seats2_relay.test.js"
@@ -101,8 +101,8 @@
   {
     "name": "AUDIT-SEATS2-R1-leash",
     "file": "src/net/siegeRef.js",
-    "old": "<= (SIEGE_NPC[n.kind]?.leashM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0);",
-    "new": "<= (SIEGE_NPC[n.kind]?.aggroM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0);",
+    "old": "n.post[0], n.post[1]) <= (SIEGE_NPC[n.kind]?.leashM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0)\n",
+    "new": "n.post[0], n.post[1]) <= (SIEGE_NPC[n.kind]?.aggroM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0)\n",
     "tests": [
       "test/audit_seats2_relay.test.js"
     ]

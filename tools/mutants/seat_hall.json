@@ -363,5 +363,23 @@
     "tests": [
       "test/seathall_client.test.js"
     ]
+  },
+  {
+    "name": "SEAT-HALL-realm-clause",
+    "file": "server-account/src/decor.js",
+    "old": "\n    AND EXISTS (SELECT 1 FROM realm_characters rc WHERE rc.id = g.char_id AND rc.player = k.p)))`;",
+    "new": "))`;",
+    "tests": [
+      "test/seathall_service.test.js"
+    ]
+  },
+  {
+    "name": "SEAT-HALL-region-unread",
+    "file": "server-account/src/decor.js",
+    "old": "const seatRegionOf = async (db, mapId) => (await db.prepare('SELECT region FROM town_seat_holds WHERE key = ?').bind(mapId).first())?.region ?? null;",
+    "new": "const seatRegionOf = async () => null;",
+    "tests": [
+      "test/seathall_service.test.js"
+    ]
   }
 ]

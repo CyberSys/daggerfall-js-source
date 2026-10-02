@@ -211,8 +211,8 @@
   {
     "name": "WB9g-an-unheld-aura-a-400",
     "file": "server-account/src/index.js",
-    "old": "        const r = await equipAura(ctx, who.player, env, body.aura ?? null);\n        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin)",
-    "new": "        const r = await equipAura(ctx, who.player, env, body.aura ?? null);\n        return r.error ? no(r.error, 400, origin)",
+    "old": "        const r = await equipAura(ctx, await withSeatTitles(ctx, who.player, env), env, body.aura ?? null);   // AUDIT SEATS-3 E2: the wardrobe it answers keeps a Charter's titles\n        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin)",
+    "new": "        const r = await equipAura(ctx, await withSeatTitles(ctx, who.player, env), env, body.aura ?? null);   // AUDIT SEATS-3 E2: the wardrobe it answers keeps a Charter's titles\n        return r.error ? no(r.error, 400, origin)",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]

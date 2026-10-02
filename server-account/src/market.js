@@ -67,7 +67,7 @@ import { STORES_MAX } from '../../src/net/professionLaw.js';
 import { material, regionOk, WITNESS } from '../../src/net/nodeLaw.js';
 import { recipeById } from '../../src/net/recipeLaw.js';
 import {
-  MARKET_LISTING_S, MARKET_ORDER_S, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
+  MARKET_LISTING_S, MARKET_ORDER_S, MARKET_ORDERS_MAX, MARKET_POSTS_MAX, MARKET_OPS_MAX, MARKET_WINDOW_S,
   MARKET_SHOWN, MARKET_HISTORY_SHOWN, MARKET_TRADES_SHOWN, MARKET_MEDIAN_DAYS, MARKET_KEEP_DAYS, MARKET_RID_RE, MARKET_ID_RE,
   MARKET_VIEWS, CRAFTED_FAMILIES, unitsOk, priceOk, wearOk, provenanceOk, listingFee, saleTaxOn, saleTithe, saleTitheOn, hubReport, hubPixelOk,
   MARKET_WORTH_MAX, UNYIELDED, pieceListable, MARKET_TAX_PCT, MARKET_TITHE_PCT,
@@ -469,7 +469,7 @@ async function mediansOf(db, keys, today, currency = 'marks') {
  * views (marketLaw MARKET_VIEWS), after the account's own market is settled. Every answer carries what is on its way
  * to the account, its balance and its live counts.
  */
-export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs, currency = 'marks', pieces = null } = {}) {
+export async function marketRead(ctx, player, env, { character, region, view, family = null, tier = null, material: key = null, materials = null, hubs, currency = 'marks', pieces = null, board = null } = {}) {
   const { db, nowS } = ctx;
   const refused = asks(player, { character, needRid: false });
   if (refused) return refused;
@@ -502,6 +502,9 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
     return {
       ok: true, view, region, currency, road: await roadOf(db, me, nowS), balance: await balanceOf(db, me),
       counts: { listings: Number(counts?.listings ?? 0), orders: Number(counts?.orders ?? 0), bids: Number(counts?.bids ?? 0) },
+      // AUDIT SEATS-3 D2: the open listings this account may hold at the board read from (`board`, its map pixel, as the
+      // post's), a Market Hall's quarter a tier in it - the count's measure, so the board never says thirty where it lists more
+      listingsMax: await listingsCapAt(db, nowS, boardOf(board)),
       held: Number(counts?.held ?? 0), stores, goldHeld: Number(gold?.gold ?? 0),
     };
   };
@@ -680,7 +683,7 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
  */
 export async function marketList(ctx, player, env, { character, region, kind, material: key = null, units = 1, provenance = null, wear = null, price, hubs, rid, currency = 'marks', board = null, item = null, pick = null, realm = null } = {}) {
   // MARKET-ANY: a piece from the pack moves its seller's realm record - its own door, where the record stands asked first
-  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm });
+  if (kind === 'item') return listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board });   // AUDIT SEATS-3 D2: and its board
   const { db, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -793,7 +796,7 @@ export async function marketList(ctx, player, env, { character, region, kind, ma
  * as a crafted piece ('market-piece-route' - its record's owner then moves with its sale); one whose record names
  * another lists from the pack like any piece. Answers the listing and the record's new sequence (`realm.seq`).
  */
-async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm }) {
+async function listGood(ctx, player, env, { character, region, item, pick, price, hubs, rid, currency, realm, board = null }) {
   const { db, bucket, nowS, rand } = ctx;
   const refused = asks(player, { character, rid });
   if (refused) return refused;
@@ -818,7 +821,8 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);
   const open = await db.prepare(`SELECT ${openSalesSql('?2')} AS n`).bind(me, nowS).first();
-  if (Number(open?.n ?? 0) >= MARKET_LISTINGS_MAX) return { error: 'market-listings-max' };
+  const listingsMax = await listingsCapAt(db, nowS, boardOf(board));   // AUDIT SEATS-3 D2: a Market Hall's town lists a piece a quarter more a tier too, as every other listing
+  if (Number(open?.n ?? 0) >= listingsMax) return { error: 'market-listings-max' };
   // THE RECORD'S OWN PIECE: the very record at `pick`, as offered, out of it - never what the tab says it holds
   let moved = null;
   const prep = await prepareRealmRecord(ctx, me, side.at, (save) => {
@@ -837,7 +841,7 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
       // THE DECISION: a place among the thirty, the id not spent - the record's piece on the listing, for gold
       db.prepare(`INSERT OR IGNORE INTO market_listings (id, seller, char_id, region, kind, units, own, bought, price, fee, at, expires_at, rid, n, currency, item)
         SELECT ?3, ?1, ?2, ?4, 'item', 1, 1, 0, ?5, ?6, ?7, ?8, ?9, ?10, 'gold', ?11 WHERE ${openSalesSql('?7')} < ?12`)
-        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + MARKET_LISTING_S, rid, nonce, JSON.stringify(moved), MARKET_LISTINGS_MAX),
+        .bind(me, character, id, region, price, listingFee(price), nowS, nowS + MARKET_LISTING_S, rid, nonce, JSON.stringify(moved), listingsMax),
       mustChange(db),   // no listing, no piece out of the record: the record's step rolls back with it
       ...witnessStatements(db, player, nowS, [region], hubsOf(hubs), 'EXISTS (SELECT 1 FROM market_listings WHERE seller = ?6 AND rid = ?7 AND n = ?8)', [me, rid, nonce]),
     ]);

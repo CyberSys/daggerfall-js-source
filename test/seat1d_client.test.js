@@ -275,10 +275,10 @@ test('SEAT1d THE HOSTS BY SOURCE: the service\'s routes and the Turning\'s write
   assert.match(w, /seatShopFactor: \(b\) => seatEdicts\.shopFactor\(b\),/);
   assert.match(w, /registerEntityFold\(FESTIVE_FOLD, \(e\) => \(e === playerEntity && seatEdicts\.festive\(\) \? festiveMods\(STAT_KEYS_ORDER\) : EMPTY_MODS\)\);/);
   assert.match(w, /setCrimeRepFactor\(\(\) => seatEdicts\.crimeFactor\(\)\);/);
-  assert.match(w, /levelBonus: \(\) => seatEdicts\.guardLevelBonus\(Math\.floor\(playerTicker\.ownMinutes\)\),/);
+  assert.match(w, /levelBonus: \(\) => seatEdicts\.guardLevelBonus\(Math\.floor\(skyMinutes\(\)\)\),/);   // PIN MOVED (AUDIT SEATS-3 E1): the sky's night
   assert.match(w, /if \(seatEdicts\.bountyAt\(p\.px, p\.py\)\) items\.push\(\.\.\.generateLootItems\(lootKey,/);
   assert.match(w, /sigilDrinks\(xp\); seatEdicts\.campCleared\(foe\?\.site\)\.catch\(\(\) => \{\}\); \}\);/);
-  assert.match(w, /regionAt: \(px, py\) => maps\.getRegionIndexAt\(px, py\),/);
+  assert.match(w, /minutes: \(\) => worldMinutes\(\),\n\s*regionAt: \(px, py\) => maps\.getRegionIndexAt\(px, py\),/);   // PIN MOVED (AUDIT SEATS-3 F5): the edicts' own, not REP4's
   assert.match(w, /board: \[town\.px, town\.py\],/);
   const wm = rd('src/scenes/worldModes.js');
   assert.match(wm, /const f = mode === 'Buy' \|\| mode === 'Repair' \? host\.seatShopFactor\?\.\(b\) \?\? 1 : 1;/);

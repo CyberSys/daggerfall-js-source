@@ -272,7 +272,7 @@ export const REFUSALS = Object.freeze({
   'seat-not-held': 'Your guild does not hold that Charter.',
   'seat-held-here': 'Your guild holds a Charter in this region, and is pledged to it.',
   // SEAT1d: the holder's levers
-  'bad-tithe': 'A Tithe is a whole percent: at most 10% at a palace seat, 15% at a crown.',
+  'bad-tithe': 'A Tithe is a whole percent, at most the seat\'s cap: 10% at a palace and 15% at a crown, a point more for each tier of its Market Hall.',   // AUDIT SEATS-3 C6: the Market Hall raises the cap (fortLaw.js marketHallTitheCap)
   'tithe-this-week': 'The Tithe has been set this week already. It may change again after the Turning.',
   'bad-edict': 'There is no such Edict.',
   'edict-twice': 'That Edict rules this week, and only Market Day may be proclaimed two weeks running.',
@@ -366,7 +366,7 @@ export const REFUSALS = Object.freeze({
   'market-no-road': 'The couriers do not know the road there yet.',
   'market-price-moved': 'The market has moved since you looked. Look again.',
   'market-seller-full': 'The seller cannot hold any more Drakes just now.',
-  'market-listings-max': `You have ${MARKET_LISTINGS_MAX} listings up already. Cancel one first.`,
+  'market-listings-max': `You have as many listings up as this board allows (${MARKET_LISTINGS_MAX}, more in a town with a Market Hall). Cancel one first.`,   // AUDIT SEATS-3 D2: a Market Hall's town lists more
   'market-orders-max': `You have ${MARKET_ORDERS_MAX} buy orders up already. Withdraw one first.`,
   // MARKET-KEEP: the piece stays with its holder - said so, and where it may still go
   'market-not-yours': 'That piece\'s maker\'s record names another owner, so only they can sell it at the counting-house. It stays in your pack - a piece from your pack sells for gold.',

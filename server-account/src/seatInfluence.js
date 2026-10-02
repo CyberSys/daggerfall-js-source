@@ -192,9 +192,13 @@ export async function pledgeSeat({ db, nowS }, player, env, { character, key = n
   const heldBy = (await db.prepare('SELECT guild_id FROM town_seat_holds WHERE key = ?').bind(key).first())?.guild_id ?? null;
   const barred = pledgeBarred(gid, heldBy, await bansOf(db, gid, week));
   if (barred) return { error: barred };
+  // AUDIT SEATS-3 D5 (4.1: "A guild holding a seat is pledged to it automatically", at most five regions): the reach counted
+  // over the regions pledged AND held, each once - a guild holding two regions pledges in three more, as the Muster's
+  // count shows it - the region pledged now never among them
   const r = await db.prepare(`INSERT INTO town_seat_pledges (week, guild_id, region, key, set_by, at)
     SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE ${rankHeld}
-      AND (SELECT COUNT(*) FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?2 AND region <> ?3) < ?7
+      AND (SELECT COUNT(*) FROM (SELECT region FROM town_seat_pledges WHERE week = ?1 AND guild_id = ?2 AND region <> ?3
+        UNION SELECT region FROM town_seat_holds WHERE guild_id = ?2 AND region <> ?3)) < ?7
     ON CONFLICT (week, guild_id, region) DO UPDATE SET key = excluded.key, set_by = excluded.set_by, at = excluded.at`)
     .bind(week, gid, seat.region, key, displayName(player), nowS, SEAT_PLEDGE_REGIONS_MAX).run();
   if (!r?.meta?.changes) {

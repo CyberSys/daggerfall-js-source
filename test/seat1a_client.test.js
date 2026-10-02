@@ -260,10 +260,11 @@ test('SEAT1a the hosts by source: the boot pass derives the seats over the hubs\
   assert.match(w, /if \(seat\) \{ townTalk\.say\(seatArrivalLine\(seat\), 5\); seatBook\.witness\(seat\); \}\n\s*else if \(hub\) townTalk\.say\(hubArrivalLine\(hub\), 5\);/);
   assert.match(w, /seatAt: seatBook \? \(summary\) => seatHere\(summary\?\.mapID \?\? summary\?\.mapId\) : null,/);
   assert.match(w, /const seatAnchors = pixelBoardSplit \? seatBannerAnchors\(\{/);
-  assert.match(w, /boards: pixelBoards, bounty: pixelBoardSplit,/);
+  assert.match(w, /gates: pixelGates\.map\(\(g\) => \(\{ local: g\.local, box: g\.entry\?\._box \}\)\), boards: pixelBoards, bounty: pixelBoardSplit,/);   // PIN MOVED (AUDIT SEATS-3 F5): the anchors' own, not the siege field's
   assert.match(w, /const pixelBoardSplit = dfLocation && locBlocks && seatAtMapId\(townSeats, dfLocation\.mapTableData\?\.mapId\) \? boardSplitOf\(\{ boards: pixelBoards \}\) : null;/, 'BOUNTY1\'s split through its one memo (AUDIT 28 H8)');
   assert.match(w, /if \(isBulletinBoard\(placed\.modelIdNum\)\) pixelBoards\.push\(\{ box, local \}\);/);
-  assert.match(w, /const all = \[\.\.\.\(hallBanners\?\.list\(\) \?\? \[\]\), \.\.\.\(seatBanners\?\.list\(\) \?\? \[\]\)\];/);
+  // PIN MOVED (AUDIT SEATS-3): the halls' and the seats' merged into one kept list (C4: no spread a frame)
+  assert.match(w, /for \(const b of hallBanners\?\.list\(\) \?\? \[\]\) all\.push\(b\);\n\s*for \(const b of seatBanners\?\.list\(\) \?\? \[\]\) all\.push\(b\);/);
   assert.match(w, /const hung = bannersHung\(\);/);
   assert.match(w, /const seatCmd = parseSeatCommand\(text\);/);
   assert.match(src('src/ui/heldMap.js'), /seatAt: \(s\) => this\.deps\.seatAt\?\.\(s\) \?\? null,/);

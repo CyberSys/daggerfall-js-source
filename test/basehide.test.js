@@ -289,8 +289,8 @@ test('BASE-HIDE by source: the build stands a furnishable room\'s props and flat
   assert.match(m, /houseOwned, peopleVisible, baseEditable,/);
   for (const [list, v] of [['containers', 'c'], ['shelves', 's']]) assert.match(m, new RegExp(`interiorCtx\\.${list}\\.forEach\\(\\(${v}, i\\) => \\{\\s*if \\(${v}\\.hidden\\) return;`), `${list}: a piece out is no target`);
   assert.match(m, /interiorCtx\.beds\?\.forEach\(\(bd, i\) => \{[^\n]*\n\s*if \(bd\.hidden\) return;/);
-  assert.match(m, /const hiddenBase = interiorHome \|\| interiorSeatHall \? \[\.\.\._keptHidden\] : \(ctx\.base\?\.hidden\(\) \?\? \[\]\);/, 'the scene keeps the list - an online home\'s save record as it came');   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
-  assert.match(m, /if \(interiorHome \|\| interiorSeatHall\) _keptHidden = \[\.\.\.\(data\.hiddenBase \?\? \[\]\)\]; else interiorCtx\.base\?\.setHidden\(data\.hiddenBase \?\? \[\]\);/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
+  assert.match(m, /const hiddenBase = interiorHome \|\| _seatHallVisit \? \[\.\.\._keptHidden\] : \(ctx\.base\?\.hidden\(\) \?\? \[\]\);/, 'the scene keeps the list - an online home\'s save record as it came');   // PIN MOVED (SEAT-HALL): the palace's hall shares the line   // PIN MOVED (AUDIT SEATS-3): the visit's latch (C2)
+  assert.match(m, /if \(interiorHome \|\| _seatHallVisit\) _keptHidden = \[\.\.\.\(data\.hiddenBase \?\? \[\]\)\]; else interiorCtx\.base\?\.setHidden\(data\.hiddenBase \?\? \[\]\);/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line   // PIN MOVED (AUDIT SEATS-3): the visit's latch (C2)
   assert.match(m, /interiorCtx\?\.base\?\.setHidden\(Array\.isArray\(r\.data\.hidden\) \? r\.data\.hidden : \[\]\);/, 'the room its owner cleared, for everyone');
   assert.match(m, /function decorSold\(sceneName, region\) \{\s*clearSceneHidden\(sceneCache\(\), sceneName\);/, 'a sale brings it back');
   assert.match(m, /base: \(\) => interiorCtx\?\.base \?\? null,/, 'the tool\'s door');

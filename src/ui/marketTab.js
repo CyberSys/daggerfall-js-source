@@ -42,7 +42,7 @@ import { accountRefusalText } from '../net/accountClient.js';
 import { MARKET_MOVED } from '../net/marketBook.js';   // AUDIT 31 B8
 import {
   MARKET_VIEWS, MARKET_FAMILIES, CRAFTED_FAMILIES, MARKET_PRICE_MAX, MARKET_UNITS_MAX, MARKET_LISTINGS_MAX, MARKET_ORDERS_MAX,
-  listingFee, saleTax, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
+  listingFee, saleTax, sellerGets, courierFee, wearOf, wearText, medianText, marketCatalogue, AUCTION_S, AUCTION_RAISE_PCT, AUCTION_LATE_S, AUCTION_ADD_S, AUCTION_BID_MAX,
   goldText, goldSaleOf, GOODS_FAMILIES, MARKET_HELD_MAX,
 } from '../net/marketLaw.js';
 import { QUALITY_NAMES, MASTERWORK } from '../net/recipeLaw.js';
@@ -143,11 +143,12 @@ export function medianLineNode(line) {
  *   weavers: ReadonlyArray<{ key: string, marks: number }>, stock: (key: string, n: number) => Promise<{ ok: boolean, text?: string }>,
  *   goods?: () => Array<{ item: any, name: string, why: string|null }>, good?: (item: any) => { offered: any, pick: number, take: () => ((() => void) | null) },
  *   goodName?: (rec: any) => string,
- *   board?: number[]|null,
+ *   board?: number[]|null, tithe?: () => number|null,
  * }} m the host's market (scenes/world.js); `drop` - a piece a settled listing took, out of the save (AUDIT 30 C3); MARKET-ANY:
  *   `goods` - the pack's pieces, each with why it may not list (null: it may), `good(item)` - the piece's wire record, its
  *   index in the save and its taking, `goodName` - a pack piece's record named as the pack names it
- *   SEAT1d: `board` the board's town pixel - a listing's, an auction's and a buy's courier's Tithe is its seat's
+ *   SEAT1d: `board` the board's town pixel - a listing's, an auction's and a buy's courier's Tithe is its seat's;
+ *   AUDIT SEATS-3 D3: `tithe()` that seat's Tithe in whole percents (0: unheld), or null while the seats' list is unread
  * @param {{ busy: () => boolean, run: (start: () => Promise<any>) => Promise<void>, rerender: () => void, nowS: () => number,
  *   alive: () => boolean }} ui the window's
  */
@@ -184,6 +185,7 @@ export function createMarketTab(m, ui) {
   const q = () => {
     const found = st.view === 'materials' ? searched() : null;
     return { region: m.region, hubs: m.hubs, ...(['materials', 'orders', 'crafted', 'auctions', 'goods'].includes(st.view) ? { family: st.family } : {}),
+      ...at(),   // AUDIT SEATS-3 D2: the board read from - the listings its Market Hall allows answered with the counts
       ...(st.view === 'mine' ? { pieces: heldIds() } : {}),   // MARKET-ANY
       ...(st.view === 'materials' && st.tier ? { tier: st.tier } : {}), ...(found ? { materials: found } : {}),
       ...(viewCurrency() === 'gold' ? { currency: 'gold' } : {}) };   // GOLD-MARKET: a gold view asks gold's rows
@@ -482,7 +484,8 @@ export function createMarketTab(m, ui) {
     const price = numberInput(st.list.price, 1, MARKET_PRICE_MAX, `Price in ${unitWord}`, 'list-price');
     const hint = el('p', 'notice-tip');
     const b = button('primary market-list', 'List', () => send());
-    const full = (m.book.state.counts?.listings ?? 0) >= MARKET_LISTINGS_MAX;
+    const listingsMax = m.book.state.listingsMax ?? MARKET_LISTINGS_MAX;   // AUDIT SEATS-3 D2: the board's own cap, as the service says it
+    const full = (m.book.state.counts?.listings ?? 0) >= listingsMax;
     let can = () => false, send = () => {}, worth = () => 0;
     if (st.list.kind === 'material') {
       // GOLD-MARKET: the units a listing in its currency may take - never the other currency's bought ones
@@ -547,14 +550,18 @@ export function createMarketTab(m, ui) {
     // AUDIT 30 U13: a listing the fee or the board's limit would refuse is not offered - the words say which
     const refresh = () => {
       const fee = listingFee(worth());
-      hint.textContent = full ? `You have ${MARKET_LISTINGS_MAX} listings standing, the most one account may. Cancel one, or wait for one to sell.`
+      // AUDIT SEATS-3 D3: a sale in Drakes pays the seat's Tithe at the board's bailiwick too - its rate where the seats' list
+      // is read (m.tithe), else said
+      const pct = m.tithe?.() ?? null;
+      const less = pct == null ? `${saleTax(100)}% tax and the seat's Tithe, if its town's seat is held` : pct > 0 ? `${saleTax(100)}% tax and the seat's ${pct}% Tithe` : `${saleTax(100)}% tax`;
+      hint.textContent = full ? `You have ${listingsMax} listings standing, the most one account may here. Cancel one, or wait for one to sell.`
         // GOLD-MARKET: no fee now - each sale pays its share and the tax; the gold is held for the seller to collect
         // MARKET-ANY: a piece from the pack - where it goes, and why gold alone
         : st.list.kind === 'item' ? `No fee to list: its sale pays 1% and ${saleTax(100)}% tax out of its price. It leaves your pack now and stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it sells). If you cancel, or it does not sell, it comes back to your pack. A piece from your pack sells for gold alone.`
         : gold ? `No fee to list: each sale pays 1% and ${saleTax(100)}% tax out of its price. It stands on the boards of ${m.regionName} for 72 hours; the gold is held for you to collect into your bank (${goldText(goldSaleOf(0, worth()).gets)} if it all sells). Only what you gathered, made or bought with gold sells for gold.`
         : st.list.kind === 'auction'
-          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${saleTax(100)}%.`
-          : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${saleTax(100)}% (${marksText(worth() - saleTax(worth()))} if it all sells).`;
+          ? `Listing fee ${marksText(fee)}, kept if you cancel (only while no bid stands). It stands on the boards of ${m.regionName} for ${AUCTION_S / 3600} hours; each bid must be ${AUCTION_RAISE_PCT}% over the last, and a bid with less than ${AUCTION_LATE_S / 60} minutes left adds ${AUCTION_ADD_S / 60} more. The highest bid buys it; you receive it less ${less}.`
+          : `Listing fee ${marksText(fee)}, kept if you cancel. It stands on the boards of ${m.regionName} for 72 hours; a sale pays you its price less ${less} (${marksText(sellerGets(worth(), pct ?? 0))} if it all sells${pct == null ? ', before any Tithe' : ''}).`;
       b.disabled = ui.busy() || full || !can() || (!gold && short(fee));
     };
     price.oninput = () => { st.list.price = intOf(price.value, 1, MARKET_PRICE_MAX); refresh(); };

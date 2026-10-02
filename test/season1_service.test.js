@@ -167,6 +167,8 @@ test('SEASON1 THE ONCE-A-SEASON RULES OVER THE SEASON ITSELF: a Pact runs to its
       const start = Math.floor(seatWeekStartMs(week) / 1000) + 3 * DAY;
       s.raw.prepare(`INSERT INTO town_seat_battles (week, key, kind, tier, attacker, defender, starts_at, ends_at, moved, state, at)
         VALUES (?, ?, 'siege', 'palace', ?, ?, ?, ?, 0, 'scheduled', ?)`).run(week, ALCAIRE.key, eo.gid, sh.gid, start, start + 1800, T0);
+      // PIN MOVED (AUDIT SEATS-3): A3 - Honours go to the character on the battle's roster, so the Guildmaster signs it
+      s.raw.prepare("INSERT INTO town_seat_rosters (week, key, account, char_id, guild_id, side, at) VALUES (?, ?, ?, ?, ?, 'defend', ?)").run(week, ALCAIRE.key, sh.gm.id, sh.gm.character, sh.gid, T0);
       const before = s.held(ALCAIRE.key).standing;
       const receipt = await mintSiegeReceipt({ s: sh.gm.id, sk: ALCAIRE.key, sw: week, sd: 'defend', r: 'forfeit', a: 0, h: 1 }, s.svc.gateKey, { subtle, nowS: s.getNow() });
       const r = (await s.call('/v1/seats/siege/claim', { receipt, character: sh.gm.character }, sh.gm)).body;

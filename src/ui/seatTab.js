@@ -23,6 +23,7 @@ import {
   seatRuleLine, seatHoldingLines, edictLine, edictMayFollow, edictForTier, royalTourneyLines, EDICTS, seatTitheCap, SEAT_LEVER_RANKS, BOUNTY_MARKS,
   politicsRows, POLITICS_ACTS, seasonLine, guildWords,
   sideLine, siegeWindowText, SIEGE_WINDOW_DAYS, SIEGE_WINDOW_HOURS, SIEGE_WINDOW_DEFAULT, SELLSWORD_FEE_MAX, passOpens, passWindowEnds,
+  CROWN_SIEGE_SLOT, CROWN_SEAT_REGIONS,
 } from '../net/townSeatLaw.js';
 import { fightAnnouncement } from '../net/siegeHerald.js';   // AUDIT-SEATS G1: the battle's line, its start in the service's seconds
 import { GUILD_RANK_MASTER } from '../net/guildLaw.js';
@@ -210,6 +211,13 @@ export function createSeatTab(host, ui) {
   function windowNode(w) {
     const out = el('div', 'notice-seat-levers');
     const busy = ui.busy();
+    // AUDIT SEATS-3 D6 (6.3, DECIDED): a crown's sieges are its Saturday slot, whatever the holder's window - said, and no
+    // lever to set a window that moves nothing
+    const slot = seat.tier === 'crown' ? CROWN_SIEGE_SLOT[CROWN_SEAT_REGIONS[seat.region]] ?? null : null;
+    if (slot) {
+      out.append(el('p', 'notice-seat-mine', `Sieges here are fought on the crown's Saturday slot, ${siegeWindowText(slot)}, whatever the holder's window.`));
+      return out;
+    }
     out.append(el('p', 'notice-seat-mine', `Battles here are fought from ${siegeWindowText(w ?? SIEGE_WINDOW_DEFAULT)}${w ? '' : ' (the default)'}.`));
     const want = windowAsk ?? w ?? SIEGE_WINDOW_DEFAULT;
     const day = /** @type {HTMLSelectElement} */ (el('select', 'notice-input notice-seat-window-day'));

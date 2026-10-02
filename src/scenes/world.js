@@ -476,7 +476,7 @@ import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown a
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
 import { createTownSeatBook, parseSeatCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed
-import { seatArrivalLine, seatHallOf, seatBannerOf } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners
+import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
@@ -7848,7 +7848,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     renderer, collider, fetchBytes, getTexture, uploadRecordFrame, playerEntity, audio, hitEffects, groundStands: (x, z) => Number.isFinite(heightAt(x, z)),   // FALL-HOLD: a watchman over a pixel not built is held, not stepped
     playerWeaponSheathed: () => !!weaponRig.playerWeapon.sheathed,   // AUDIT 24 (wave 42): pacification's drawn-weapon penalty
     raidHere: () => raidDefendingHere(),   // RAID-GUARDS: a raid on in this town spares its defenders every blow of the player's
-    levelBonus: () => seatEdicts.guardLevelBonus(Math.floor(playerTicker.ownMinutes)),   // SEAT1d: a Curfew's night watch
+    levelBonus: () => seatEdicts.guardLevelBonus(Math.floor(skyMinutes())),   // SEAT1d: a Curfew's night watch - AUDIT SEATS-3 E1: the sky's night (TIME1), the one the town sees
     fightHere: () => areEnemiesNearby([...cityGuards.guards, ...exteriorFoes.foes]),   // PROTECT-FIGHT: under the protection, a fight spares the street's walkers
     say: (l) => townTalk.say(l),   // C-slice: equipment breaks speak
     currentMinute: () => Math.floor(playerTicker.ownMinutes),   // AUDIT 23 (hosts-3): the poison clock
@@ -8954,11 +8954,21 @@ export async function bootWorld(canvas, renderer, params, status) {
     version: () => (seatBook.open === true ? 1 : 0),
   }) : null;
   /** GUILD1d + SEAT1a: this frame's banners - the halls' and the seats', the nearest BANNERS_MAX of them. */
+  // AUDIT SEATS-3 C4: one kept list a frame (each side's own is kept - seatBanners.js, hallBanners.js), filled in place
+  // and the nearest kept in it - no array, spread, slice or comparator made each frame
+  const _hung = [];
+  let _hungEye = null;
+  const _hungByEye = (x, y) => Math.hypot(x.top[0] - _hungEye[0], x.top[2] - _hungEye[2]) - Math.hypot(y.top[0] - _hungEye[0], y.top[2] - _hungEye[2]);
   const bannersHung = () => {
-    const all = [...(hallBanners?.list() ?? []), ...(seatBanners?.list() ?? [])];
+    const all = _hung;
+    all.length = 0;
+    for (const b of hallBanners?.list() ?? []) all.push(b);
+    for (const b of seatBanners?.list() ?? []) all.push(b);
     if (all.length <= BANNERS_MAX) return all;
-    const e = cam.pos;
-    return all.sort((x, y) => Math.hypot(x.top[0] - e[0], x.top[2] - e[2]) - Math.hypot(y.top[0] - e[0], y.top[2] - e[2])).slice(0, BANNERS_MAX);
+    _hungEye = cam.pos;
+    all.sort(_hungByEye);
+    all.length = BANNERS_MAX;
+    return all;
   };
   const yards = homeDecor && onlineHomes ? createHomeYards({
     api: homeDecor, homes: onlineHomes, built: () => built, translation: (px, py) => state.pixelTranslation(px, py),
@@ -15898,7 +15908,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       const siegeMoveTo = (p) => { const q = onlineToScene(p); player.pos[0] = q[0]; player.pos[2] = q[2]; if (Number.isFinite(q[1])) player.pos[1] = Math.max(player.pos[1], q[1]); player._airVelX = 0; player._airVelZ = 0; };
       // AUDIT-SEATS C6: the receipts' lives and the sessions' windows on the relay's clock; C7: every settling answer, with
       // the receipt it answers, to the card; C1: the HUD's Leave and the card's Close leave whichever is entered
-      siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs, onClaimed: (a, r) => siegeSession?.claimed(a, r) });
+      siegeClaims = createSiegeClaims({ claim: (r) => seatBook.claimSiege(r), me: () => _seatDoor?.me() ?? null, storage: appStorage(), nowMs: battleNowMs, onClaimed: (a, r) => siegeSession?.claimed(a, r) });
       siegeHud = createSiegeHud(document, { onClaim: () => siegeClaims.offer({ force: true }), onLeave: () => leaveBattle() });
       siegeSession = createSiegeSession({ online, pass: (seat, field) => seatBook.siegePass(seat, field), claims: siegeClaims, hud: siegeHud, movePlayer: siegeMoveTo, say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.siegeOk,
         nowMs: battleNowMs, here: (seat) => atSeat(seat) });
@@ -15906,7 +15916,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       siegeNpcs = createSiegeNpcs({ renderer, getTexture, uploadRecordFrame, audio, cam: () => cam.pos,
         toScene: (x, z) => { const q = onlineToScene({ x, y: 0, z }); const y = heightAt(q[0], q[2]); return [q[0], Number.isFinite(y) ? y : player.feetAt()[1], q[2]]; } });
       // CROWN1 part two: A ROYAL TOURNEY - the same room's words, the same HUD; the bouts won carried to the service
-      royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => accountId(), storage: appStorage(), nowMs: battleNowMs });
+      royalClaims = createRoyalClaims({ claim: (r) => seatBook.claimRoyal(r), me: () => _seatDoor?.me() ?? null, storage: appStorage(), nowMs: battleNowMs });
       royalSession = createRoyalSession({ online, pass: (seat, field, watch) => seatBook.royalPass(seat, field, watch), claims: royalClaims, hud: siegeHud, movePlayer: siegeMoveTo,
         say: (t) => { if (t) townTalk.say(t); }, relayOk: () => online.royalOk, name: (id) => peerName(id) ?? '', nowMs: battleNowMs, here: (seat) => atSeat(seat) });
       online.onSiege = (g, room) => { siegeSession?.onSiege(g, room); royalSession?.onSiege(g, room); };
@@ -16560,6 +16570,9 @@ export async function bootWorld(canvas, renderer, params, status) {
   function duelEnemyNear() { return !!duelMgr?.live; }
   /** A peer's body in THIS scene (peersNear's { id, feet, height }), or null. */
   const duelBody = (peerId) => (peerId ? (peersNear()?.find((x) => x.id === peerId) ?? siegeNpcs?.body(peerId) ?? null) : null);   // SEAT2b part two (c): or one of a siege's relay-run fighters
+  /** AUDIT SEATS-3 C3: duelBody's answer over a peer list the caller read ONCE (peersNear walks the room and mints a body
+   *  per peer) - a battle's sweeps ask it per foe, every frame. */
+  const duelBodyIn = (near, peerId) => (peerId ? (near?.find((x) => x.id === peerId) ?? siegeNpcs?.body(peerId) ?? null) : null);
   /** A peer's feet in the WORLD frame - their pose's own (net/online.js `shown`) - or null. */
   const duelWorldOf = (peerId) => { const q = peerId ? online?.peers.get(peerId)?.shown : null; return q && Number.isFinite(q.x) && Number.isFinite(q.y) && Number.isFinite(q.z) ? [q.x, q.y, q.z] : null; };
   /** Can I duel now: null, or the wire's word for why not. OUTDOORS ONLY (Mac's answer): the streaming world's exterior,
@@ -16679,8 +16692,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     const foes = battle?.foes() ?? [];
     if (!foes.length) return battle === siegeSession && siegeWorkHit();   // SEAT2b part two (b): no foe - the work in reach
     let best = null, bestD = Infinity;
+    const near = peersNear();   // AUDIT SEATS-3 C3: the room's bodies read once for the sweep, not once per foe
     for (const id of foes) {
-      const b = duelBody(id);
+      const b = duelBodyIn(near, id);
       if (!b) continue;
       const c = [b.feet[0], b.feet[1] + (b.height ?? CAPSULE_HEIGHT) / 2, b.feet[2]];
       const dx = c[0] - eye[0], dy = c[1] - eye[1], dz = c[2] - eye[2];
@@ -16734,8 +16748,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const NO_BODIES = Object.freeze([]);
   const battleFoeBodies = (battle) => {
     if (!battle?.active()) return NO_BODIES;
-    const out = [];
-    for (const id of battle.foes()) { const b = duelBody(id); if (b) out.push(b); }
+    const out = [], near = peersNear();   // AUDIT SEATS-3 C3: the room's bodies read once a sweep, not once per foe
+    for (const id of battle.foes()) { const b = duelBodyIn(near, id); if (b) out.push(b); }
     return out;
   };
   /** My opponent's body as the arrows' target list takes one (arrowFlight.js foeTargets) - [] outside a fight.
@@ -18633,6 +18647,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       book: marketBook, stores: () => profBook.state.stores, region, regionName: REGION_NAMES[region] ?? 'the region',
       regionNameOf: (r) => REGION_NAMES[r] ?? 'another region', hubs: marketHubs, name: (k) => materialLabel(k), countName: materialCountLabel,
       board: [town.px, town.py],   // SEAT1d (Seats-Arc 7.2): the board's town - the seat whose bailiwick takes the Tithe
+      tithe: () => (seatBook?.open === true ? boardTithePct(seatBook.data?.seats ?? [], region, [town.px, town.py]) : null),   // AUDIT SEATS-3 D3: its rate as the seats' list says it (null: not read)
       pieces: marketPieces, take: marketTake, putBack: marketPutBack, mint: marketMint, pieceName: marketPieceName, drop: marketDrop, goods: () => marketGoods.goods(), good: (it) => marketGoods.good(it), goodName: (rec) => marketGoods.goodName(rec),   // MARKET-ANY: a piece from the pack, for gold
       weavers: WEAVERS_STOCK,
       stock: async (key, n) => {

@@ -202,7 +202,7 @@ const GUILD_OUT_KEEP_S = MAX_TTL_S + ORDER_TTL_S + 60;
 // pure law - it imports nothing) and net/gateReceipt.js (the kill's receipt, the relay's first signature - it imports
 // identityToken.js, already here). bible/11-Multiplayer/World-Bosses.md sections 5, 6 and 8.
 import { isGateRoom, gateDayOfRoom, gateAdmits, gateHolds, gateTimes, gateBossOf, gateModsOf, GATE_COLLAPSE_MS } from '../../src/net/gateLaw.js';
-import { isSiegeRoom, newFighter, isSiegeNpcId, siegeNpcFoe, siegeNpcPose, siegeNpcFell, siegeNpcInReach, siegeNpcProvoked, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP, siegePlaceFree, siegeReturn, royalPrune, worksOf, refereeWorkBlow, siegeWaveMs, siegeRamDown, siegeBreach, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle   // AUDIT-SEATS T3/R5: a side's places, a fighter's return, a tourney's records   // SEAT2b part two (b): the works in battle
+import { isSiegeRoom, newFighter, isSiegeNpcId, siegeNpcFoe, siegeNpcPose, siegeNpcFell, siegeNpcInReach, siegeNpcProvoked, refereeBlow, refereeCast, refereeStep, siegeHeld, siegeNextWave, siegeRise, SIEGE_WAVE_MS, SIEGE_FIGHTERS_MAX, SIEGE_SPECTATORS_MAX, SIEGE_OPENS_MS, SIEGE_TICK_MS, siegeNextBeat, fieldOf, newBattle, battleStep, honoured, siegeCampPose, siegeFieldFrame, isBattleRoom, isRoyalRoom, battleOfRoom, royalAsk, royalAccept, royalMarks, royalMayStrike, royalStepOk, royalEnd, royalStep, royalLadder, royalNextBeat, ROYAL_RC_KEEP, siegePlaceFree, siegeReturn, royalPrune, worksOf, refereeWorkBlow, siegeWaveMs, siegeRamDown, siegeBreach, SIEGE_WORK_IDS, SIEGE_GATEHOUSE, SIEGE_RAM, siegeGroundOf, siegeOffGround, siegeStepLevel, royalLevel, SIEGE_HEIGHT_M } from '../../src/net/siegeRef.js';   // PVP-REF: a siege's referee - siegeRef.js imports nothing, so the worker's graph stays flat   // SEAT2a: and its battle   // AUDIT-SEATS T3/R5: a side's places, a fighter's return, a tourney's records   // SEAT2b part two (b): the works in battle
 import { mintSiegeReceipt, SIEGE_RECEIPT_TTL_S, mintRoyalReceipt } from '../../src/net/siegeReceipt.js';   // SEAT2a: the relay's fourth signature - a fighter's result and Honours
 import { newFight, joinFight, applyHit, applyCrystalHit, applyHostHit, applyHeal, stepBrain, stateOf, earned, earnedBy, COURT_CENTRE, BRAIN_TICK_MS, CHECKPOINT_MS, GATE_FIGHTERS_MAX } from '../../src/net/gateBrain.js';
 import { mintReceipt, importReceiptKey, readReceipt, RECEIPT_TTL_S } from '../../src/net/gateReceipt.js';
@@ -223,7 +223,7 @@ import { heraldWebhook, heraldRole, omenPost, fellPost, heraldOmenDue, heraldFel
 // dungeons' clocks - pure law; it imports wire.js, gateLaw.js and raidLaw.js, all three here already).
 import { owIdInCell, owRowInCell, owRowSane, owFoldSpent, owFoldRows, owRowsBehind, owPrune, owLedgerOf, owLedgerEmpty, toWelcome } from '../../src/net/overworldLaw.js';
 
-import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, siegeGate, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD } from './relay.js';
+import { roomOf, parseClient, inRange, poseGate, chatGate, redGate, dmGate, muteGate, tokenGate, rosterFor, badged, isChatRoom, isWorldRoom, isCellRoom, streamsFoes, hitOwnerOf, worldFrameMaxFor, CELL_FRAME_RECORDS_MAX, HELLO_HZ_MAX, CHAT_HELLO_HZ_MAX, CHAT_ROOM_HZ_MAX, SOCKETS_MAX, CHAT_SOCKETS_MAX, DROP_STRIKES_MAX, CHAT_STRIKES_MAX, WORLD_MIN_MS, WORLD_CHUNK, WORLD_TTL_MS, WORLD_PREFIX, FOES_PREFIX, OWN_PREFIX, foesGate, byteGate, FOES_ROOM_BYTES_PER_S, HIT_ROOM_HZ_MAX, ACT_ROOM_HZ_MAX, ACT_ROOM_BYTES_PER_S, actGate, MAX_FRAME_BYTES, CLOSE_REPLACED, CLOSE_POLICY, CLOSE_BUSY, HIT_ROOM_BYTES_PER_S, whoGate, whoIdOf, WHO_ROOM_HZ_MAX, poseFan, poseChanged, RELAY_VERSION, KEEPALIVE_FAN_MS, ACT_SENDER_BYTES_PER_S, CHAT_ROSTER_MAX, isSocialRoom, socialGate, partyGate, SOCIAL_ROOM_HZ_MAX, FRIENDS_MAX, PENDING_MAX, PARTY_MAX, PARTY_INVITES_MAX, INVITE_TTL_MS, PARTY_OFFLINE_MS, ACCOUNT_TABS_MAX, mintPartyId, SOCIAL_REPEAT_MS, ACCOUNT_IDLE_MS, ACCOUNT_SWEEP_MS, SWEEP_STEP_MS, SWEEP_PAGE, questShareGate, amapShareGate, AMAP_ROOM_HZ_MAX, QUEST_ROOM_HZ_MAX, QUEST_ROOM_BYTES_PER_S, QUEST_PREFIX, QUEST_FRAME_MAX, tradeGate, TRADE_ROOM_HZ_MAX, TRADE_ROOM_BYTES_PER_S, castGate, CAST_HZ_MAX, CAST_DEST_SENDERS_MAX, parkGate, parkKey, parkKeyOf, PARK_KEY_RE, parkRegistryRoom, cellRoomOfWire, PARK_INTERNAL_REG, PARK_INTERNAL_DROP, PARK_CELL_MAX, PARK_ACCOUNT_MAX, PARK_TTL_MS, PARK_REFRESH_MS, PARTY_CHAT_ROOM_HZ_MAX, rollGate, rollDice, cardGate, pageGate, duelGate, DUEL_HZ_MAX, renownGate, renownRoomGate, lookGate, eventGate, EVENT_KEY, validLiveEvent, gateGate, siegeGate, SIEGE_IN_MS, GATE_INTERNAL_FELL, SOCIAL_ROOM, validGateOut, HELLO_WAIT_MS, GATE_TELL_RETRY_MS, gateReceiptKey, GATE_BRAIN_MIN, GATE_HERE_HOLD_MS, guildGate, guildRoomGate, GUILD_CHAT_ROOM_HZ_MAX, SEAT_ELSEWHERE, raidGate, RAID_INTERNAL_CLEAN, RAID_INTERNAL_DAY, RAID_DAY_ASK_MS, raidTownsGate, RAID_TELL_RETRY_MS, RAID_CLEANS_MAX, RAID_LEDGER_PREFIX, raidLedgerKey, RAID_RC_PREFIX, raidReceiptKeyOf, RAID_RC_KEEP, RAID_RC_KEEP_MS, mapPixelOfWire, validRaidOut, worldRoom, sharedClassicMinutes, wallMsForClassicMinutes, isRegionRoom, travHubGate, travRoomGate, TRAV_STALE_MS, TRAV_WELCOME_MAX, owGate, owRoomGate, OW_LEDGER_KEY, REALM_DOOR_WORD } from './relay.js';
 
 // AUDIT WORLD34 D4: the relay names itself in /health. SLAM13 (AUDIT SLAM A5): the name lives in net/wire.js, so the
 // welcome can carry it; /health reads it through the import above. LOCALDEV1: it is NOT re-exported from this module -
@@ -2298,6 +2298,13 @@ export class Room {
     for (const [ws, b] of this._all()) if (b.id && b.sub === sub && (!best || (b.since ?? 0) >= (best[1].since ?? 0))) best = [ws, b];
     return best;
   }
+  /** AUDIT SEATS-3 B4: every account's newest socket here and its attachment (`_siegeSocketOf`'s rule), in ONE pass over
+   *  the sockets - a roll call asked it once per fighter, fighters x sockets for every `in`. */
+  _siegeSockets() {
+    const out = new Map();
+    for (const [ws, b] of this._all()) if (b.id && b.sub) { const best = out.get(b.sub); if (!best || (b.since ?? 0) >= (best[1].since ?? 0)) out.set(b.sub, [ws, b]); }
+    return out;
+  }
   /** AUDIT-SEATS T2: an attachment as a battle room tells it to others - a fighter's as it is, anyone else's (a spectator, a
    *  fighter before its `in`) standing nowhere (`pose` null: no body drawn - Seats-Arc 6.6). Any other room's as it is. */
   _drawn(b, key) {
@@ -2394,7 +2401,20 @@ export class Room {
       if (mine.side !== c.sd) return { no: 'that pass is for another side' };
       // AUDIT-SEATS T3: a fighter back after its five minutes has a place only where its side has one free (a substitute
       // may have taken it); inside them, its own is kept (siegePlaceFree counts every place but the asker's)
-      if (s.battle && (c.sd === 'attack' || c.sd === 'defend') && !siegePlaceFree(s.fighters, c.sd, s.battle.tier, (x) => !!this._siegeSocketOf(x), now, who.subject)) return { no: 'your place was taken' };
+      // AUDIT SEATS-3 B5: after the result, a fighter the room holds a receipt for comes for it - its place is nothing now
+      if (s.battle && !(s.battle.result && s.receipts?.[who.subject]) && (c.sd === 'attack' || c.sd === 'defend') && !siegePlaceFree(s.fighters, c.sd, s.battle.tier, (x) => !!this._siegeSocketOf(x), now, who.subject)) return { no: 'your place was taken' };
+      // AUDIT SEATS-3 B3: a contender back is counted with the contenders in the room as a new one is - this branch skipped
+      // the count, so a 49th came in and the roll call's 49 rows were more than a client reads (wire.js SIEGE_ROLL_MAX)
+      if (c.sd === 'duel') { const no = this._siegeRoomFor(s, who.subject, c.sd, now); if (no) return { no }; }
+      // AUDIT SEATS-3 B2: BACK FROM A DROP AT THE DOOR, not at its `in` - a reconnect that never said `in` stood where it
+      // dropped, struck and was struck there. Put at its camp and down until its side's wave here (siegeReturn, the `in`
+      // arm's law below); its leave's stamp kept for that `in` (the camp said to it) - or for a hello refused after this
+      if (s.battle && !s.battle.result && (mine.side === 'attack' || mine.side === 'defend') && Number.isFinite(mine.goneAt)) {
+        const gone = mine.goneAt;
+        if (siegeReturn(s.battle, mine, now)) await this._siegeArm(mine.upAt);
+        mine.goneAt = gone;
+        await this._siegeSave(now, true);
+      }
     } else if (s) { const no = this._siegeRoomFor(s, who.subject, c.sd, now); if (no) return { no }; }   // AUDIT-SEATS T3/R5: a side's places, a tourney's contenders in the room
     if (!s?.battle) {
       const field = fieldOf(c.sf, c.st, c.sn);
@@ -2414,6 +2434,11 @@ export class Room {
     const s = (await this._siegeOf()) ?? (this._siege = { fighters: {} });
     const b = s.battle ?? null;
     if (m.k === 'in') {
+      // AUDIT SEATS-3 B4: answered once each SIEGE_IN_MS a socket - a client says it once a session, and sixty spectators
+      // saying it at the siege gate's 8 Hz each rebuilt the roll call; a repeat inside it is nothing (no strike)
+      const mt = this._meterOf(ws);
+      if (Number.isFinite(mt.siegeInAt) && now - mt.siegeInAt < SIEGE_IN_MS) return;
+      mt.siegeInAt = now;
       const mine = s.fighters[a.sub];
       if (a.sd !== 'watch' && !mine) {
         const side = a.sd === 'attack' || a.sd === 'defend' || a.sd === 'duel' ? a.sd : null;   // CROWN1 part two: a Royal Tourney's contender
@@ -2433,7 +2458,8 @@ export class Room {
         await this._siegeSave(now, true);
       }
       const st = [];
-      for (const [sub, f] of Object.entries(s.fighters)) { const sk = this._siegeSocketOf(sub); if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side === 'attack' || f.side === 'defend' ? [f.side === 'attack' ? 1 : 2] : [])]); }   // SEAT2a: a sided fighter's side (1 attacking, 2 defending)
+      const socks = this._siegeSockets();   // AUDIT SEATS-3 B4: one pass over the sockets, not one a fighter
+      for (const [sub, f] of Object.entries(s.fighters)) { const sk = socks.get(sub); if (sk) st.push([sk[1].id, f.hp, f.max, f.down ? 1 : 0, ...(f.side === 'attack' || f.side === 'defend' ? [f.side === 'attack' ? 1 : 2] : [])]); }   // SEAT2a: a sided fighter's side (1 attacking, 2 defending)
       this._send(ws, JSON.stringify({ t: 'siege', k: 'st', f: st }));
       if (b?.kind === 'royal') { this._royalSay(ws, s, b, a.sub); return; }   // CROWN1 part two: the ladder, the bout on, this contender's receipts - no banners
       if (b) this._send(ws, JSON.stringify({ t: 'siege', ...siegeFieldFrame(b, this._siegeCounts(s), now) }));   // CROWN1 part two: the ladder, the bout on, this contender's receipts   // SEAT2b part two (c): the relay's own fighters where they stand now
@@ -2445,6 +2471,9 @@ export class Room {
     if (m.k === 'ask' || m.k === 'yes') { if (b?.kind === 'royal' && by.side === 'duel') await this._royalHand(ws, a, s, b, m, now); else this._junk(ws); return; }   // CROWN1 part two   // AUDIT-SEATS R9: a contender's alone
     if (b && (b.result || now < b.startMs)) return;   // SEAT2a: the battle is not joined yet, or over
     if (m.to === SIEGE_WORK_IDS.gate || m.to === SIEGE_WORK_IDS.ram) { await this._siegeWorkBlow(ws, a, s, b, by, m, now); return; }   // SEAT2b part two (b): a blow on a work
+    // AUDIT SEATS-3 B1: and none struck from more than SIEGE_HEIGHT_M off the field's ground (siegeGroundOf - a bout's for
+    // its two) - a defender 45 m over the Rebel Captain shot every rebel down where none of their blows reached it
+    if (siegeOffGround(siegeGroundOf(b, a.sub), by.pose) > SIEGE_HEIGHT_M) return;
     if (isSiegeNpcId(m.to)) { await this._siegeNpcBlow(ws, a, s, b, by, m, now); return; }   // SEAT2b part two (c): on one of the relay's own fighters
     let target = null;
     for (const [, t] of this._all()) if (t.id === m.to) { target = t; break; }
@@ -2517,7 +2546,7 @@ export class Room {
     const n = b && b.kind !== 'royal' ? (b.npcs ?? []).find((x) => x.id === m.to) ?? null : null;
     if (!n) { this._junk(ws); return; }
     if ((m.k === 'cast' && m.h === 1) || !siegeNpcFoe(n, by.side) || n.down) return;
-    if (!siegeNpcInReach(n, by.pose)) return;   // AUDIT SEATS-2 R1: none felled from where it can never answer
+    if (!siegeNpcInReach(n, by.pose, b.ground ?? null)) return;   // AUDIT SEATS-2 R1: none felled from where it can never answer   // AUDIT SEATS-3 B1: nor from above or below the field
     let look = this._looks.get(a.id) ?? null;
     if (m.k === 'blow' && !look) { look = (await this.state.storage.get(lookKey(a.id))) ?? null; if (look) this._looks.set(a.id, look); }
     const at = siegeNpcPose(n, now, b.ground ?? null, by.pose?.y ?? 0);
@@ -2555,6 +2584,10 @@ export class Room {
     // CROWN1 part two: and a Royal Tourney's bout kept in its ring - asked first (AUDIT-SEATS R2: a step the ring refuses
     // spends none of the fighter's run); AUDIT-SEATS R1/R2: the referee's step judges the climb, on the fighter's own
     // carried allowance (`f`)
+    // AUDIT SEATS-3 B1: AND HELD TO THE FIELD'S GROUND - a step more than SIEGE_HEIGHT_M above or below it refused (one
+    // walking back toward it kept: siegeStepLevel), a siege's the field's, a bout's its marks' (siegeGroundOf). The climb
+    // cost a run and a fall nothing, so a fighter rose 45 m or sank 100 m and stood where no blow reached it
+    if (!siegeStepLevel(siegeGroundOf(s.battle, a.sub), f.pose, p)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }
     if (!royalStepOk(s.battle, a.sub, p) || !refereeStep(f.pose, p, now - (f.poseAt ?? now), f)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'back', p: f.pose })); return false; }
     f.pose = p; f.poseAt = now;
     return 'body';
@@ -2672,6 +2705,7 @@ export class Room {
       if (sk) this._send(sk[0], JSON.stringify({ t: 'siege', k: 'ask', id: a.id }));
       return;
     }
+    if (!royalLevel(s.fighters[other].pose, s.fighters[a.sub]?.pose)) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: 'the ring is not level' })); return; }   // AUDIT SEATS-3 B1: no bout begun from where its marks' ground leaves one out of reach
     const r = royalAccept(b, a.sub, other, now);
     if (r.no) { this._send(ws, JSON.stringify({ t: 'siege', k: 'no', m: r.no })); return; }
     const fa = s.fighters[r.bout.a], fb = s.fighters[r.bout.b];

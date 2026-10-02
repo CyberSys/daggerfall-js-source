@@ -114,8 +114,12 @@ const chats = (ws) => ws.sent.filter((m) => m.t === 'chat');
 const ofType = (ws, t) => ws.sent.filter((m) => m.t === t);
 const upgrade = (path) => new Request('https://relay.test' + path, { headers: { Upgrade: 'websocket' } });
 
-test('CHAT1 / AUDIT CHAT: the Room as a CHANNEL - a hello keeps the secret and no look, is told an empty roster and announced to no one; a pose and a ping are gated and counted, then reach no one; a line reaches everyone, the sender included, shaped {t,id,name,text,at} on the relay\'s clock; the leave says nothing; the secret still guards the id; the hello gate runs deeper, never off; the socket cap is CHAT_SOCKETS_MAX; the Worker opens no object for a channel it does not run; a room that drains sweeps its storage', async () => {
-  const r = fakeRoom(CHAT_WORLD_ROOM);
+test('CHAT1 / AUDIT CHAT: the Room as a CHANNEL - a hello keeps the secret and no look, is told an empty roster and announced to no one; a pose and a ping are gated and counted, then reach no one; a line reaches everyone, the sender included, shaped {t,id,name,text,at} on the relay\'s clock; the leave says nothing; the secret still guards the id; the hello gate runs deeper, never off; the socket cap is CHAT_SOCKETS_MAX; the Worker opens no object for a channel it does not run; a room that drains sweeps its storage', async (t) => {
+  // AUDIT SEATS-3 F7: ON A HELD CLOCK - the Room reads Date.now() itself, and on a loaded runner the pose and ping storms
+  // below refilled their bucket between frames and never reached the strikes
+  const clock = Date.now();
+  t.mock.method(Date, 'now', () => clock);
+  const r = fakeRoom(CHAT_WORLD_ROOM, { now: () => clock });
   const a = r.connect(), b = r.connect(), c = r.connect();
   await r.hello(a, 'aaaa-0001'); await r.hello(b, 'bbbb-0002', at(3, 3));
   // ROSTER-G (Mac: "Players dont show in online"): a channel HAS a roster now - names alone, with the true count -
@@ -201,8 +205,10 @@ test('CHAT1 / AUDIT CHAT: the Room as a CHANNEL - a hello keeps the secret and n
   assert.equal(drain.store.size, 0, 'the last one out sweeps everything - the secrets, the leftovers, the hello bucket');
 });
 
-test('CHAT1 / AUDIT CHAT: the Room - a line in a PLACE room reaches as far as a pose (the sender always); the chat gate is CHAT_HZ_MAX with its OWN bucket and strikes (a mover over the pose rate may still talk) - an over-rate line is dropped, never queued, and past CHAT_STRIKES_MAX in a row the socket is closed; the room spends CHAT_ROOM_HZ_MAX lines a second for everyone, and a line over that is dropped with no strike', async () => {
-  const r = fakeRoom('world:0,0');
+test('CHAT1 / AUDIT CHAT: the Room - a line in a PLACE room reaches as far as a pose (the sender always); the chat gate is CHAT_HZ_MAX with its OWN bucket and strikes (a mover over the pose rate may still talk) - an over-rate line is dropped, never queued, and past CHAT_STRIKES_MAX in a row the socket is closed; the room spends CHAT_ROOM_HZ_MAX lines a second for everyone, and a line over that is dropped with no strike', async (tc) => {
+  const clock = Date.now();   // AUDIT SEATS-3 F7: one instant held - a loaded runner refilled the room's budget mid-crowd
+  tc.mock.method(Date, 'now', () => clock);
+  const r = fakeRoom('world:0,0', { now: () => clock });
   const a = r.connect(), near = r.connect(), far = r.connect(), mute = r.connect();
   await r.hello(a, 'aaaa-0001', at(2, 2)); await r.hello(near, 'near-0002', at(4, 4)); await r.hello(far, 'farr-0003', at(9, 9)); await r.hello(mute, 'mute-0004');
   await r.chat(a, 'over here');

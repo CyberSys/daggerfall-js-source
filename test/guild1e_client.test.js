@@ -22,6 +22,8 @@ const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const TOWN = 7;
 const noWait = () => Promise.resolve();
 const tick = async (n = 6) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
+/** AUDIT SEATS-3 F1: the real service answers when it answers - wait for the state, not a count of ticks (bounded). */
+const until = async (pred, n = 400) => { for (let i = 0; i < n && !pred(); i++) await tick(); };
 
 /** A guild of Gwen's with heraldry, Rhea a Member; each one's notice book over the real service. */
 async function stood() {
@@ -98,11 +100,11 @@ test('GUILD1e the Guilds tab: the reader\'s guild\'s notes under its banner, the
   const book = bookOf(rhea);
   const host = document.createElement('div');
   const v = mountNoticeBoard(host, { town: { name: 'Daggerfall', mapId: TOWN }, book, guilds: true, character: () => rhea.character });
-  await tick();
+  await until(() => /pinned here/.test(host.textContent));   // AUDIT SEATS-3 F1: the town's board read
   const tabs = byClass(host, 'notice-tab');
   assert.deepEqual(tabs.map((x) => x.textContent), ['Notices', 'Guilds']);
   tabs[1].onclick();
-  await tick();
+  await until(() => /on The Silver Hand's board/.test(host.textContent));   // AUDIT SEATS-3 F1: the guild's board read
   const text = host.textContent;
   assert.match(text, /<SH> The Silver Hand - for its members/);
   assert.match(text, new RegExp(GUILD_BOARD_EMPTY.none('The Silver Hand')));
@@ -119,7 +121,7 @@ test('GUILD1e the Guilds tab: the reader\'s guild\'s notes under its banner, the
   const area = byClass(host, 'notice-textarea')[0];
   area.value = 'Friday at the hall.'; area.oninput();
   byClass(host, 'notice-dopin')[0].click();
-  await tick(12);
+  await until(() => /Your note is up on the guild's board\./.test(host.textContent));   // AUDIT SEATS-3 F1
   assert.match(host.textContent, /Your note is up on the guild's board\./);
   assert.equal(byClass(host, 'notice-card').filter((c) => c.textContent.includes('Muster')).length, 1);
   v.unmount();
@@ -128,9 +130,9 @@ test('GUILD1e the Guilds tab: the reader\'s guild\'s notes under its banner, the
   const L = await seatRealm(svc.env, loner.secret, 'Lone', { name: 'Lone', level: 3, goldPieces: 10, items: [] });
   const host2 = document.createElement('div');
   const v2 = mountNoticeBoard(host2, { town: { name: 'Daggerfall', mapId: TOWN }, book: bookOf(loner), guilds: true, character: () => L.id });
-  await tick();
+  await until(() => /pinned here/.test(host2.textContent));   // AUDIT SEATS-3 F1
   byClass(host2, 'notice-tab')[1].onclick();
-  await tick();
+  await until(() => !/Reading/.test(host2.textContent));   // AUDIT SEATS-3 F1: the guild read answered (a refusal)
   assert.match(host2.textContent, new RegExp(GUILD_BOARD_EMPTY['no-guild'].replace(/[.']/g, '.')));
   assert.equal(byClass(host2, 'notice-pinbtn').length, 0, 'nothing to pin to');
   v2.unmount();
@@ -148,7 +150,7 @@ test('GUILD1e the hall\'s board: the guild\'s notes ALONE under the guild\'s nam
   const book = createNoticeBook({ door: { ...counting, guildRead: (c) => gmBook.readGuild(c).then((r) => (r.data ? { ok: true, data: r.data } : { ok: false, error: r.error })) }, sleep: noWait });
   const host = document.createElement('div');
   const v = mountNoticeBoard(host, { town: { name: 'The Silver Hand', mapId: 0 }, guildOnly: { name: 'The Silver Hand' }, book, character: () => gm.character });
-  await tick();
+  await until(() => /on The Silver Hand's board/.test(host.textContent));   // AUDIT SEATS-3 F1
   assert.equal(townReads, 0, 'the hall\'s board reads no town');
   assert.deepEqual(byClass(host, 'notice-tab').map((x) => x.textContent), ['Guild notes']);
   assert.match(host.textContent, /The board of The Silver Hand/);
@@ -158,7 +160,7 @@ test('GUILD1e the hall\'s board: the guild\'s notes ALONE under the guild\'s nam
   assert.equal((await gmBook.pinGuild(gm.character, { subject: 'Gwen\'s', body: 'hers', days: 1 })).ok, true);
   const hr = document.createElement('div');
   const vr = mountNoticeBoard(hr, { town: { name: 'x', mapId: 0 }, guildOnly: { name: 'The Silver Hand' }, book: bookOf(rhea), character: () => rhea.character });   // a fresh book: Rhea's has the minute's read
-  await tick();
+  await until(() => byClass(hr, 'notice-card').length === 2);   // AUDIT SEATS-3 F1
   const cardOf = (h, words) => byClass(h, 'notice-card').find((c) => c.textContent.includes(words));
   cardOf(hr, 'Gwen\'s').onclick();
   assert.equal(byClass(hr, 'notice-takedown').length, 0, 'a Member takes down nobody else\'s');
@@ -168,11 +170,11 @@ test('GUILD1e the hall\'s board: the guild\'s notes ALONE under the guild\'s nam
   vr.unmount();
   const host2 = document.createElement('div');
   const v2 = mountNoticeBoard(host2, { town: { name: 'x', mapId: 0 }, guildOnly: { name: 'The Silver Hand' }, book: gmBook, character: () => gm.character });
-  await tick();
+  await until(() => byClass(host2, 'notice-card').length === 2);   // AUDIT SEATS-3 F1
   byClass(host2, 'notice-card').find((c) => c.textContent.includes('Rhea\'s')).onclick();
   assert.equal(byClass(host2, 'notice-takedown').length, 1, 'a keeper takes down anyone\'s');
   byClass(host2, 'notice-takedown')[0].click();
-  await tick(12);
+  for (let i = 0; i < 400 && !/The note is taken down\./.test(host2.textContent); i++) await tick();   // AUDIT SEATS-3 E3: the service's answer, however loaded the run
   assert.match(host2.textContent, /The note is taken down\./);
   assert.deepEqual(gmBook.cachedGuild(gm.character).notes.map((x) => x.subject), ['Gwen\'s']);
   v2.unmount();

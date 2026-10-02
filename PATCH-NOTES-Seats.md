@@ -207,6 +207,23 @@ The first part of guild town control is in. It is open to the developers first, 
 - **A fallen guard or rebel** no longer replays its fall every second.
 - **The siege bar** is hidden when you die or another window takes your seat.
 - **A Charter Room chest** pressed by a visitor now says whose it is.
+- **Siege and Royal Tourney results** now reach the server. Your client had been checking receipts against the wrong account id, so no result was ever claimed.
+- **Edicts at the Turning.** An Edict changed while the Turning was being settled could pay out more than was set aside. The Turning now settles it again.
+- **Flying and sinking in battle.** A fighter can no longer climb above the field or sink under it. Blows and spells from high up don't count, and a Tourney bout won't start unless both contenders are level.
+- **Back from a drop.** A fighter who reconnects returns to their side's camp straight away.
+- **The Tourney's 48** now counts a returning contender too.
+- **Your receipt** can be collected as soon as a battle ends, even if your place was taken while you were away.
+- **Honours** go to the character who signed for the battle.
+- **A crown's upkeep** shown in the Seat tab now uses the same week the Turning uses.
+- **A Market Hall's extra listings** can now be used from the market tab, and listing hints include the seat's Tithe.
+- **A Tithe above its cap** after a Season's wear lowers the Market Hall comes down with it.
+- **Five regions** now counts the regions your guild holds as well as those it pledged.
+- **A crown's Seat tab** shows its Saturday siege slot instead of the holder's window.
+- **A palace hall lost while you're inside** no longer leaves its furniture in your save.
+- **The seats** are read again a minute after a failed read, instead of waiting until you travel.
+- **Titles.** Changing your aura, buying an insignia or unlinking Patreon no longer hides a Charter's title.
+- **The Curfew's night watch** comes out at the sky's night.
+- **Pact breaks** are limited per guild, and the day's red announcements are capped at 20.
 
 ## Behind the scenes
 - **The registry.** Each client works out the seats from its own game files. When you stand in a seat town, your game reports it to the server once a day. The server trusts a seat once three players whose accounts are at least a week old agree on it exactly.

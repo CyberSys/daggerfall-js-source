@@ -723,7 +723,7 @@ const service = {
         // PATREON-LINK: the account's Patreon taken off it, and nothing about the pledge kept. The answer is the wardrobe
         // after it (an equip's shape - a title the pledge held is no longer held, nor worn) and the card's row.
         await unlinkPatreon(ctx, who.player.id);
-        const after = { ...who.player, patreon_user: null, patreon_tiers: null, patreon_status: null, patreon_at: null };
+        const after = { ...(await withSeatTitles(ctx, who.player, env)), patreon_user: null, patreon_tiers: null, patreon_status: null, patreon_at: null };   // AUDIT SEATS-3 E2: a Charter's titles still held
         return json({ ok: true, ...accountWardrobe(after, env, nowS), patreon: await patreonCardOf(after, env, { subtle, rand, nowS, origin: url.origin }) }, 200, origin);
       }
 
@@ -1101,7 +1101,7 @@ const service = {
 
       if (path === '/v1/account/aura' && request.method === 'POST') {
         // WB9g: WEAR ONE AURA, OR NONE - the title's door at the feet. 403 for `not-held`, as the title's.
-        const r = await equipAura(ctx, who.player, env, body.aura ?? null);
+        const r = await equipAura(ctx, await withSeatTitles(ctx, who.player, env), env, body.aura ?? null);   // AUDIT SEATS-3 E2: the wardrobe it answers keeps a Charter's titles
         return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin) : json(r, 200, origin);
       }
 
@@ -1109,7 +1109,7 @@ const service = {
         // WB9g: THE BROKER'S INSIGNIA, BOUGHT (accounts.js buyInsignia - one UPDATE, the account's closed gates paying).
         // 403 for a guest (the credential is good, the sale is not theirs to keep); 409 for one owned or one the gates
         // cannot pay - the row is as it was, and the answer says why (`purse`, `price` for `short`).
-        const r = await buyInsignia(ctx, who.player, env, body.item);
+        const r = await buyInsignia(ctx, await withSeatTitles(ctx, who.player, env), env, body.item);   // AUDIT SEATS-3 E2: and so does this one
         if (r.error) return r.error === 'short' ? json({ error: 'short', purse: r.purse, price: r.price }, 409, origin) : no(r.error, r.error === 'guest' ? 403 : r.error === 'owned' ? 409 : 400, origin);
         return json(r, 200, origin);
       }

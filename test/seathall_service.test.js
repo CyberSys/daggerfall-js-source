@@ -7,8 +7,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { standService, T0 } from './accountDb.mjs';
-import { seatRealm } from './realmSeat.mjs';
+import { seatRealm, layRecord } from './realmSeat.mjs';
 import { SEAT_HALL_DECOR_CAP } from '../src/net/townSeatLaw.js';
+import { REALM_EMPIRE_ACCOUNT } from '../src/net/realmGoldLaw.js';
 
 const PALACE = { key: 3021, region: 21, buildingKey: 512 };
 const piece = (over = {}) => ({ id: 'bench1', model: 41000, flat: null, pos: [2, 0, 2], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 120, ...over });
@@ -93,6 +94,35 @@ test('SEAT-HALL the Charter Room MOVED and TAKEN DOWN by its keepers: half of a 
   assert.equal(s.treasury(), t0 + 100, 'half of what it cost, into the holder\'s treasury');
   assert.equal(s.goldOf(s.gm), had, 'nothing to the purse of whoever took it down');
   assert.equal(s.count(), 0);
+});
+
+test('SEAT-HALL a keeper is a REALM character (AUDIT SEATS-3 F3, the Charter Room\'s copy of AUDIT GUILD1d S2): an Officer seated under a made-up id moves and places nothing; the realm Officer\'s own move still lands (mutants: SEAT_OWNS\'s realm clause)', async (t) => {
+  const s = await held(t);
+  assert.equal((await s.place(s.officer)).status, 200);
+  const madeUp = `r${'f'.repeat(20)}`;   // a realm id's shape, no realm character's
+  s.raw.prepare('INSERT INTO guild_members (player, char_id, guild_id, rank, name, joined_at) VALUES (?, ?, ?, 1, ?, ?)').run(s.officer.id, madeUp, s.gid, 'Otto', T0);
+  const shape = { pos: [5, 0, 5], rot: [0, 0, 0], scale: 1, light: null, storage: false, paid: 120 };
+  const lie = await s.svc.call('/v1/homes/decor/move', { ...s.at(), character: madeUp, id: 'bench1', place: shape }, s.officer.secret);
+  assert.equal(lie.body.error, 'no-decor', 'no keeper on a client\'s word');
+  assert.deepEqual(JSON.parse(s.raw.prepare('SELECT place FROM seat_hall_decor').get().place).pos, [2, 0, 2]);
+  const put = await s.svc.call('/v1/homes/decor/place', { ...s.at(), character: madeUp, piece: piece({ id: 'free1', paid: 0 }) }, s.officer.secret);
+  assert.equal(put.body.error, 'no-home');
+  assert.equal(s.count(), 1);
+  const moved = await s.svc.call('/v1/homes/decor/move', { ...s.at(), character: s.officer.character, realm: s.officer.at(), id: 'bench1', place: shape }, s.officer.secret);
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+});
+
+test('SEAT-HALL a placement PAYS AS THE WALLET PAYS, its shortfall off the bank in the seat\'s region (AUDIT SEATS-3 F4; realmGoldLaw.js payFromSave) - the Officer\'s purse short, the Empire\'s account covers the rest (mutants: the seat\'s region unread)', async (t) => {
+  const s = await held(t);
+  const bankAccounts = Array.from({ length: REALM_EMPIRE_ACCOUNT + 1 }, () => ({ accountGold: 0 }));
+  bankAccounts[REALM_EMPIRE_ACCOUNT].accountGold = 1000;
+  layRecord(s.svc.env, s.officer.character, { level: 5, goldPieces: 50, items: [], bankAccounts });
+  const p = await s.place(s.officer);
+  assert.equal(p.status, 200, JSON.stringify(p.body));
+  assert.equal(s.goldOf(s.officer), 0, 'the purse first');
+  const save = JSON.parse(new TextDecoder().decode(s.svc.env.SAVES._map.get(s.raw.prepare('SELECT obj FROM realm_characters WHERE id = ?').get(s.officer.character).obj)));
+  assert.equal(save.bankAccounts[REALM_EMPIRE_ACCOUNT].accountGold, 1000 - 70, 'the rest off the bank');
+  assert.equal(s.count(), 1);
 });
 
 test('SEAT-HALL AT MOST A HUNDRED over the seat (7.2), whichever building the keeper\'s client named; another seat\'s pieces count for none (mutants: the cap; the cap\'s scope the building)', async (t) => {

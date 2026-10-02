@@ -310,9 +310,11 @@ test('AUDIT-SEATS R5 THE ROYAL TOURNEY\'S BOUND IS WHO IS IN THE ROOM: forty-eig
     refused(await enter('duel-0300', 'duel', {}, { pose: ring }), 'the field is full');
     assert.ok(r.room._siege.fighters[next.att.sub], 'a contender in the room is never pruned');
     // a contender back from a drop: its record as it was, the ladder said
+    // PIN MOVED (AUDIT SEATS-3): a place made for it first - a contender back is counted as a new one is (B3: the
+    // forty-ninth row was the roll call no client reads)
+    await r.drop(inRoom0(r, 'duel-0201'));
     const back = await enter('duel-0001', 'duel', {}, { pose: ring, lv: 11 });
     assert.equal(back.closed, null);
-    await r.drop(inRoom0(r, 'duel-0201'));
     await say(back, { k: 'in' });
     assert.ok(sieges(back, 'lad').length, 'its `in` answered with the ladder');
   }, { start: T + 3600_000 });

@@ -353,6 +353,28 @@ export function siegeGround(fighters) {
   const h = ys.length >> 1;
   return ys.length % 2 ? ys[h] : (ys[h - 1] + ys[h]) / 2;
 }
+/** AUDIT SEATS-3 B1: how far `p` stands above or below the field's `ground` (both in the room's units), metres - 0 where
+ *  either is unknown (no ground judges no height). */
+export const siegeOffGround = (ground, p) => (ground == null || !Number.isFinite(ground) || !Number.isFinite(p?.y) ? 0 : Math.abs(p.y - ground) / SIEGE_UNITS_PER_M);
+/** AUDIT SEATS-3 B1: THE GROUND A FIGHTER (`sub`) IS HELD TO in battle `b`, in the room's units, or null for none - a
+ *  siege's the field's (`b.ground`, siegeGround's at the last beat); a Royal Tourney's the bout's (`bout.y`, its marks'
+ *  height - royalMarks) for the bout's two alone, a contender outside a bout held to none (it strikes nobody). */
+export function siegeGroundOf(b, sub) {
+  if (!b) return null;
+  if (b.kind === 'royal') return b.bout && (b.bout.a === sub || b.bout.b === sub) && Number.isFinite(b.bout.y) ? b.bout.y : null;
+  return Number.isFinite(b.ground) ? b.ground : null;
+}
+/**
+ * AUDIT SEATS-3 B1: A STEP'S HEIGHT JUDGED - `next` kept within SIEGE_HEIGHT_M of the field's `ground`, or nearer it than
+ * `last` (a fighter the ground left behind walks back to it, never further off); a first pose, or no ground, is kept.
+ * refereeStep prices a climb as a run and a fall as nothing, and the ground was judged at a point alone - so a defender
+ * climbed 45 m over the Rebel Captain, where no rebel's blow reached and every one of its own shafts did, a Tourney's
+ * contender rose 30 m out of its rival's reach, and a fighter sunk 100 m under the field stood where nothing struck it.
+ */
+export const siegeStepLevel = (ground, last, next) => {
+  const off = siegeOffGround(ground, next);
+  return off <= SIEGE_HEIGHT_M || !last || off < siegeOffGround(ground, last);
+};
 /** The standing fighters of each side within a point's radius - AUDIT-SEATS R1: and within SIEGE_HEIGHT_M of the field's
  *  `ground` (siegeGround; null judges no height). */
 function presentAt(fighters, point, ground = null) {
@@ -625,8 +647,9 @@ export function siegeNpcFell(b, n, now) {
 /** AUDIT SEATS-2 R1: WHERE A BLOW ON ONE OF THEM MAY COME FROM - a striker standing within its leash of its post and a
  *  blow's reach beyond (`from` a pose in the room's units): ground it could come to and answer. A shaft or a spell from
  *  farther lands on none of them, so none is felled from where it can never strike back. */
-export const siegeNpcInReach = (n, from) => !!n && !!from && Array.isArray(n.post)
-  && metresFlat(from.x, from.z, n.post[0], n.post[1]) <= (SIEGE_NPC[n.kind]?.leashM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0);
+export const siegeNpcInReach = (n, from, ground = null) => !!n && !!from && Array.isArray(n.post)
+  && metresFlat(from.x, from.z, n.post[0], n.post[1]) <= (SIEGE_NPC[n.kind]?.leashM ?? 0) + (SIEGE_NPC[n.kind]?.landM ?? 0)
+  && siegeOffGround(ground, from) <= SIEGE_HEIGHT_M;   // AUDIT SEATS-3 B1: and on the field's ground (`ground`, the room's units - null judges no height), as their own blow asks of its mark
 /** AUDIT SEATS-2 R1: ONE OF THEM STRUCK MARKS ITS STRIKER (`sub`) at `now` - it comes for whoever struck it, the gate
  *  host's own answer to a blow. */
 export function siegeNpcProvoked(n, sub, now) {
@@ -951,12 +974,18 @@ export function royalAccept(b, by, from, now) {
   return { bout: b.bout };
 }
 /** The bout's two marks as poses - the challenger's west of the centre, the other's east, each facing it (the height
- *  kept from `was`, the ground's to settle). */
+ *  kept from `was`, the ground's to settle). AUDIT SEATS-3 B1: and the bout's ground recorded (`bout.y`, the marks'
+ *  middle height - siegeGroundOf), each step and blow of its two held within SIEGE_HEIGHT_M of it. */
 export function royalMarks(b, wasA, wasB) {
   const [x, z] = b.field.ring, d = ROYAL_RING.markM * SIEGE_UNITS_PER_M;
   const at = (dx, was, yaw) => ({ x: x + dx, y: Number.isFinite(was?.y) ? was.y : 0, z, yaw, pitch: 0 });
-  return [at(-d, wasA, Math.PI / 2), at(d, wasB, -Math.PI / 2)];
+  const marks = [at(-d, wasA, Math.PI / 2), at(d, wasB, -Math.PI / 2)];
+  if (b.bout) b.bout.y = (marks[0].y + marks[1].y) / 2;   // AUDIT SEATS-3 B1
+  return marks;
 }
+/** AUDIT SEATS-3 B1: whether a bout's two stand level enough to meet - within SIEGE_HEIGHT_M of each other's height (an
+ *  unknown height level), so neither starts a bout from where its marks' ground leaves the other out of reach. */
+export const royalLevel = (p, q) => !Number.isFinite(p?.y) || !Number.isFinite(q?.y) || Math.abs(p.y - q.y) / SIEGE_UNITS_PER_M <= SIEGE_HEIGHT_M;
 /** Whether `by` may strike `to` now: the running bout's two, its countdown run. */
 export const royalMayStrike = (b, by, to, now) => !!b?.bout && now >= b.bout.startMs && now < b.bout.endMs
   && ((b.bout.a === by && b.bout.b === to) || (b.bout.b === by && b.bout.a === to));

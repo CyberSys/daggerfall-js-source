@@ -240,7 +240,8 @@ test('HOME-RENT held rent comes with a sale, and a delete waits for it: rent nob
   assert.equal(homeSoldLine(tab.refund, tab.decorBack, tab.rent), 'You sold your home. 2540 gold went to this region\'s bank account, 40 of it rent you had not collected.');
 });
 
-test('HOME-RENT the client\'s registry and door: the town is asked for the playing character, a row keeps its rooms free and its tenancy, a tenant\'s door opens, and the door\'s rows say "Go in" where it opens, "Rent a room" from the cheapest, and a tenant\'s own room to renew (mutants: the character unsent; the tenancy dropped; the rent row where none is free)', async () => {
+test('HOME-RENT the client\'s registry and door: the town is asked for the playing character, a row keeps its rooms free and its tenancy, a tenant\'s door opens, and the door\'s rows say "Go in" where it opens, "Rent a room" from the cheapest, and a tenant\'s own room to renew (mutants: the character unsent; the tenancy dropped; the rent row where none is free)', async (t) => {
+  t.mock.method(Date, 'now', () => T0 * 1000);   // AUDIT SEATS-3 F6: the door asks the clock - a tenancy of T0 + 100 ran out on the real one
   const asked = [];
   const api = {
     town: async (mapId, character) => {

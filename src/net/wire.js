@@ -3318,6 +3318,9 @@ export const SIEGE_DMG_WIRE_MAX = 10_000;
 /** The siege frames' own bucket: blows at the referee's SIEGE_BLOWS_HZ (4), the `in`, a cast's burst. */
 export const SIEGE_HZ_MAX = 8;
 export const siegeGate = (bucket, nowMs) => tokenGate(bucket, nowMs, SIEGE_HZ_MAX);
+/** AUDIT SEATS-3 B4: the least time between two `in` frames a socket has answered - a client says it once a session
+ *  (net/siegeSession.js, royalSession.js `sentIn`); each answer is the whole roll call, so a repeat inside it is nothing. */
+export const SIEGE_IN_MS = 3000;
 /** The first relay that referees a siege's room. An older one CLOSES the socket on the frame. */
 export const SIEGE_RELAY_MIN = 145;   // world144 until the merge of main's FRIENDS-SYNC (#517), which took world142 - the arc's seven moved up one
 export const relaySupportsSiege = (v) => { const m = /^world(\d+)$/.exec(typeof v === 'string' ? v : ''); return !!m && Number(m[1]) >= SIEGE_RELAY_MIN; };

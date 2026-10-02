@@ -285,6 +285,8 @@ test('AUDIT-SEATS S3: A BATTLE NO RESULT REACHED BY ITS TURNING IS VOID - its Se
   // the carried siege is a siege like any other: its result taken in its own week
   s.setNow(S(siegeStartMs(W + 2, 1, 21)) + 1500);
   s.raw.prepare('INSERT OR IGNORE INTO town_seat_binds (week, account, guild_id, char_id, at) VALUES (?, ?, ?, ?, ?)').run(W + 2, a1.id, eo.gid, a1.character, T0);
+  // PIN MOVED (AUDIT SEATS-3): A3 - Honours go to the character on the battle's roster, so a1 signs the carried siege's
+  s.raw.prepare("INSERT INTO town_seat_rosters (week, key, account, char_id, guild_id, side, at) VALUES (?, ?, ?, ?, ?, 'attack', ?)").run(W + 2, ANTICLERE.key, a1.id, a1.character, eo.gid, T0);
   const fought = await s.claim(a1, { sw: W + 2 });
   assert.deepEqual([fought.status, fought.body.result, s.holdOf().guild_id], [200, 'attack', eo.gid]);
 });

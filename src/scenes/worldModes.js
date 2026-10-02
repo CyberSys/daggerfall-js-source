@@ -1401,6 +1401,10 @@ export function createWorldModes(host) {
    *  seat's - `{ key, name, member, keeper }` (host.seatHall.here: the holder's guild's name; whether this character is of
    *  it, and one of its keepers) - else null. Committed and cleared with interiorHome; never a home (the court stays). */
   let interiorSeatHall = null;
+  /** AUDIT SEATS-3 C2: whether this visit's palace was a seat's hall at any moment of it - latched with interiorSeatHall
+   *  and cleared with it, never by its lapse mid-visit: a hall read again as none (the seat lapsed, the list shut) leaves
+   *  the service's Charter Room standing, and the save's own record for the building is still the kept one to go back. */
+  let _seatHallVisit = false;
   // UL1: what Unleveled Loot reads of PlayerEnterExit, PlayerGPS and the
   // player - IsPlayerInsideOpenShop, Interior.BuildingData.Quality,
   // IsPlayerInsideDungeon, CurrentRegionIndex, CurrentLocation's
@@ -3429,10 +3433,10 @@ export function createWorldModes(host) {
     // an online home's are the account service's and are never written here, and a visit to one writes back the save's
     // own record for the building exactly as it came (the pool's `kept`) - and what the storage pieces hold, the owner's
     // own either way
-    const decor = interiorHome || interiorSeatHall ? interiorDecor.kept() : interiorDecor.list();   // SEAT-HALL: a palace's Charter Room is the service's too
+    const decor = interiorHome || _seatHallVisit ? interiorDecor.kept() : interiorDecor.list();   // SEAT-HALL: a palace's Charter Room is the service's too - AUDIT SEATS-3 C2: for the whole visit
     const decorItems = interiorDecor.itemsSnapshot();
     const decorOwn = interiorDecor.ownSnapshot();   // DECOR2a: the owner's own things standing here - the save's, in every room
-    const hiddenBase = interiorHome || interiorSeatHall ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
+    const hiddenBase = interiorHome || _seatHallVisit ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
     const guildShelves = ctx.guildShelves ?? {};   // GUILD-SHELF: the day's guild shelves, as bought down - the building's, as its shop shelves are
     return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE, guildShelves };
   }
@@ -3518,12 +3522,12 @@ export function createWorldModes(host) {
     // home's pieces come from the account service after the restore (loadHomeDecor), and the save's own record for the
     // building is kept, unstood, to be written back as it came; what the pieces hold is this save's.
     const placed = (data.decor ?? []).map(decorPieceOf).filter(Boolean);
-    if (interiorHome || interiorSeatHall) interiorDecor.keep(placed); else interiorDecor.set(placed);   // SEAT-HALL
+    if (interiorHome || _seatHallVisit) interiorDecor.keep(placed); else interiorDecor.set(placed);   // SEAT-HALL (AUDIT SEATS-3 C2: the visit's latch)
     interiorDecor.setItems(data.decorItems);
     interiorDecor.setOwn(data.decorOwn);   // DECOR2a
     // BASE-HIDE: what the owner took out of the offline house's or ship's own furniture; an online home's comes from the
     // account service with its pieces (loadHomeDecor), and the save's own record for the building is kept to go back
-    if (interiorHome || interiorSeatHall) _keptHidden = [...(data.hiddenBase ?? [])]; else interiorCtx.base?.setHidden(data.hiddenBase ?? []);
+    if (interiorHome || _seatHallVisit) _keptHidden = [...(data.hiddenBase ?? [])]; else interiorCtx.base?.setHidden(data.hiddenBase ?? []);
   }
   /** BASE-HIDE: the save's own list for an online home's building, written back as it came (the service's is the room's). */
   let _keptHidden = [];
@@ -3659,6 +3663,7 @@ export function createWorldModes(host) {
       const was = interiorSeatHall;
       interiorSeatHall = h;
       if (h && !was) loadHomeDecor();
+      if (h) _seatHallVisit = true;   // AUDIT SEATS-3 C2: latched for the visit - a lapse to none later never unlatches it
     } else if (mode === 'dungeon' && dungeonCtx && dungeonLoc && _crownTried !== dungeonCtx && crownHere()) {
       standCrownHall(dungeonCtx, dungeonLoc).catch(() => {});
     }
@@ -6733,6 +6738,7 @@ export function createWorldModes(host) {
       _insidePartyRestExempt = partyRestExempt;
       interiorHome = home;   // HOME1: the visit's latch, committed with the identity and its three latches
       interiorSeatHall = building?.buildingType === BUILDING_TYPES.Palace ? (host.seatHall?.here?.(homeTownOf(building)) ?? null) : null;   // SEAT-HALL
+      _seatHallVisit = !!interiorSeatHall;   // AUDIT SEATS-3 C2: the visit's latch, begun with it
       if (home && !home.own && rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000)) > 0) say(rentWelcomeLine(rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000))));   // HOME-RENT: a tenant is told their days
       // ...and my home's scene is KEPT, whichever page bought it: a purchase on a page that was never saved left the
       // service's word standing and the save's permanent set without it, and the next clearing of the scene cache would
@@ -7164,6 +7170,7 @@ export function createWorldModes(host) {
     interiorBuilding = null;   // E2: the identity + overlay leave with the interior
     interiorHome = null;   // HOME1: and the visit's home with it
     interiorSeatHall = null;   // SEAT-HALL
+    _seatHallVisit = false;   // AUDIT SEATS-3 C2: and the visit's latch
     exteriorDoor = null;       // IS1: ...and the way back in with them
 // ROAD-B B1: the whole stack leaves with the interior, not just its
     // top - a rest suspended under a message box is a real occupant.
@@ -11139,7 +11146,7 @@ export function createWorldModes(host) {
         // the stack holds (ROAD-B B1).
         interiorWindows.reconcile(interiorOverlay);
         interiorWindows.clear((w) => w.dispose?.());
-        interiorCtx = null; interiorBuilding = null; interiorHome = null; interiorSeatHall = null; interiorOverlay = null; exteriorDoor = null;   // HOME1: the visit's home with the identity
+        interiorCtx = null; interiorBuilding = null; interiorHome = null; interiorSeatHall = null; interiorOverlay = null; exteriorDoor = null; _seatHallVisit = false;   // HOME1: the visit's home with the identity
         _insideTavern = false;   // ROAD-B B4: PlayerEnterExit.cs:874, the same latch on the teleport/load arm
         _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same teleport/load arm as the tavern latch above
       }

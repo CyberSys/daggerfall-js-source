@@ -11806,6 +11806,52 @@ Pinned: `test/audit_seats2.test.js` (3), `test/audit_seats2_service.test.js` (8)
 (24, all dead), `tools/mutants/audit_seats2_service.json` (32, all dead); older records re-aimed by content, all still
 dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
 
+### AUDIT SEATS-3 - the Seats arc audited a third time, every lane new
+
+2026-10-02, Mac: "Audit everything". Six lanes, each a lens the two audits before had not held - the service's security
+and its money, the relay against a cheating client, the client at runtime, the law as the client and the service each
+use it, the seams of main's merges with the repository's health, the tests' own quality - every finding reproduced
+(a probe through the real Worker or the real Room, a harness over the real source) before it was fixed and pinned.
+
+- **The service (A1-A4, E2)**: an Edict re-proclaimed while a Turning settled was made law at its new terms over the
+  old one's escrow - a 20-Drake Bounty paid out 100,000, a Festival swapped for a Royal Tourney paid its return and prize
+  from nothing; the law write now asks the edict and the set-aside the plan funded, `mustChange` after, so a changed
+  row rolls the settle back and the next read plans it again. A Season's wear lowering a Market Hall brings a Tithe set
+  at the higher cap down with it (in the wear's batch, and `titheAt` clamps besides). A siege's Honours go to the
+  character on the battle's roster, never any id the claim named. A guild's Pact breaks have their own hour's bucket,
+  and the red lines a list carries are the day's newest 20 (`SEAT_RED_MAX`). The aura, the insignia and the Patreon
+  unlink answer the wardrobe with a Charter's titles still held (it had dropped a worn "warden" until the next read).
+- **The law as each side uses it (D1-D6)**: a crown holder's upkeep is read over the week the Turning settles (it had
+  read last week's accounts - 6,000 shown, 22,500 burnt); a Market Hall's extra listings reach the market tab (the read
+  carries the board and answers `listingsMax`; a piece from a realm record counts against the same cap); the listing
+  hints name the seat's Tithe (`boardTithePct`, `sellerGets`); the five regions count the regions a guild holds
+  (4.1: a holder is pledged to its seat); a crown's Seat tab says its Saturday slot and offers no window.
+- **The relay (B1-B5)**: a fighter is held to the field's ground - a step more than `SIEGE_HEIGHT_M` off it is sent
+  back (one coming nearer is kept), no blow or cast counts from higher, the relay's own fighters measure it, and a bout
+  is not begun between two not level (`'the ring is not level'`); a fighter back from a drop is put to its camp at its
+  hello, `in` or no `in`; a returning contender counts against the 48; a socket's `in` answered once in
+  `SIEGE_IN_MS`, the roll call's sockets mapped once; a fighter whose place was taken collects its receipt once the
+  battle has ended. `world149` re-hashed in place (undeployed). OPEN (a design call): a bout's height bound is the
+  siege's 8 m, above melee's reach - a contender 7 m up can still bow-kite.
+- **The client (C1-C6)**: the siege and Royal claims carry the account service's id (they had compared the hub's
+  device id, so no receipt was ever claimed - no capture, no Honours, no bout counted); a palace hall that lapses
+  mid-visit no longer writes the Charter Room into the save (`_seatHallVisit`); a battle frame reads the peers once a
+  sweep; the watchtowers, the hall banners and the joined banner list allocate nothing a frame; a seats list that failed
+  its first read is read again each minute; the `bad-tithe` and `market-listings-max` words say the seat's own caps.
+- **The seams (E1, E3, E4)**: the Curfew's night watch reads the sky's night (TIME1 - it read the character's own
+  clock); the guild board's take-down test waits for the service's answer however loaded the run. E4's dead exports
+  (`SIEGE_SIDES`, the vestigial `SIEGE_RELAY_MIN`) left as they are. `auditworld34` A1 fails on main too - main's.
+- **The tests (F1-F7)**: the guild board's client test polls for each reply (fixed ticks failed under load, and every
+  time with WebCrypto slowed); a seat1b pin moved at AUDIT-SEATS could no longer fail (the tie day's claim now a war
+  guild member's, and the agreed regions asked directly); the Charter Room's realm-character clause and its seat-region
+  bank payment pinned (`seathall_service`, +2); three world.js pins that matched two sites each anchored to one; main's
+  `homerent` (a tenancy read on the real clock - it fails from 2027-01-16) and `chat1` (storms on the real clock) held
+  to a stubbed one.
+
+Pinned: `test/audit_seats3_service.test.js` (11), `test/audit_seats3_relay.test.js` (7), `test/audit_seats3_client.test.js`
+(9). Mutants: `tools/mutants/audit_seats3_client.json` (20), `audit_seats3_service.json` (27), `audit_seats3_relay.json` (14),
+`audit_seats3_world.json` (5), and `seat_hall.json` +2, all dead; older records re-aimed by content, all still dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
+
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
 Mac, asked how quest enemies should work online (each player's quests are their own, so two party members on the

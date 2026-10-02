@@ -20,8 +20,8 @@
   {
     "name": "SEAT1b-pledge-reach-off-by-one",
     "file": "server-account/src/seatInfluence.js",
-    "old": "AND region <> ?3) < ?7",
-    "new": "AND region <> ?3) <= ?7",
+    "old": "UNION SELECT region FROM town_seat_holds WHERE guild_id = ?2 AND region <> ?3)) < ?7",
+    "new": "UNION SELECT region FROM town_seat_holds WHERE guild_id = ?2 AND region <> ?3)) <= ?7",
     "tests": [
       "test/seat1b_service.test.js"
     ]

@@ -582,7 +582,7 @@
  {
   "name": "AUDIT-SEATS-T3-relay-place-not-asked",
   "file": "server/src/index.js",
-  "old": "      if (s.battle && (c.sd === 'attack' || c.sd === 'defend') && !siegePlaceFree(s.fighters, c.sd, s.battle.tier, (x) => !!this._siegeSocketOf(x), now, who.subject)) return { no: 'your place was taken' };\n",
+  "old": "      if (s.battle && !(s.battle.result && s.receipts?.[who.subject]) && (c.sd === 'attack' || c.sd === 'defend') && !siegePlaceFree(s.fighters, c.sd, s.battle.tier, (x) => !!this._siegeSocketOf(x), now, who.subject)) return { no: 'your place was taken' };\n",
   "new": "",
   "tests": [
    "test/audit_seats_relay.test.js",

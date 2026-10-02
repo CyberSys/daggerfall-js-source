@@ -283,7 +283,9 @@ test('CROWN1 THE SEAT TAB\'S DOORS: a crown\'s Royal Tourney said - its prize, i
   assert.match(w, /online\.onSiege = \(g, room\) => \{ siegeSession\?\.onSiege\(g, room\); royalSession\?\.onSiege\(g, room\); \};/);
   assert.match(w, /key = siegeSession\?\.room\(\) \?\? royalSession\?\.room\(\) \?\? roomKeyFor/);
   assert.match(w, /if \(royalSession\?\.active\(\)\) \{ if \(!royalSession\.challenge\(peerId\)\)/);
-  assert.match(w, /const battle = royalSession\?\.active\(\) \? royalSession : siegeSession;/);
+  // PIN MOVED (AUDIT SEATS-3 F5): each arm's own - the line stands in both
+  assert.match(w, /const battle = royalSession\?\.active\(\) \? royalSession : siegeSession;   \/\/ CROWN1 part two/);
+  assert.match(w, /const battle = royalSession\?\.active\(\) \? royalSession : siegeSession;\n\s*if \(!to \|\| !battle\?\.active\(\)/);
   assert.match(w, /if \(royalRing\) player\.arena = \{ centre: campToScene/);
   assert.match(w, /const rc = royalSession\?\.ringCentre\(\);/);
   assert.match(w, /royalSession\?\.tick\(\);/);

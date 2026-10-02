@@ -286,7 +286,11 @@ export async function settleWeek(db, week, nowS, zero = null) {
       stmts.push(history(u.key, u.state === 'revolt' ? 'revolt-stood' : 'lapse', { guild: names.get(u.guild) }));   // SEAT2b part two (c): a revolt's lapse
     }
   }
-  // the coming week's Edicts: law, their cost burnt (a Bounty's escrowed) - or fallen
+  // the coming week's Edicts: law, their cost burnt (a Bounty's escrowed) - or fallen. AUDIT SEATS-3 A1: each row's state
+  // asked to be the Edict the plan read - its edict and its set-aside, a re-proclaim racing the settle (a request stamped
+  // before the boundary) or one taken back rolls the settle back whole, and the next read plans it again; never a
+  // 20-Drake escrow made law as a 100000-Drake Bounty, a Festival's cost paid for a Royal Tourney
+  const askedAside = (e) => Number(proclaimed.find((x) => Number(x.key) === e.key && x.guild_id === e.guild)?.set_aside ?? 0);
   for (const e of plan.edicts) {
     if (e.state === 'law') {
       if (e.cost > 0) {
@@ -297,10 +301,12 @@ export async function settleWeek(db, week, nowS, zero = null) {
               WHERE COALESCE((SELECT balance FROM guild_marks WHERE guild_id = ?1), 0) >= ?3`).bind(e.guild, `${held}:${e.key}:${next}`, e.cost, utcDay(nowS), nowS, `${held}-escrow`)
           : burn(e.guild, 'seat-edict', e.cost, `edict-${next}-${e.key}`), mustChange(db));
       }
-      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'law', cost = ? WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(e.cost, e.key, next, e.guild));
+      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'law', cost = ? WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed' AND edict = ? AND set_aside = ?")
+        .bind(e.cost, e.key, next, e.guild, e.edict, askedAside(e)), mustChange(db));
       stmts.push(history(e.key, 'edict', { guild: names.get(e.guild), edict: e.edict }));
     } else {
-      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'unpaid' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'").bind(e.key, next, e.guild));
+      stmts.push(db.prepare("UPDATE town_seat_edicts SET state = 'unpaid' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed' AND edict = ? AND set_aside = ?")
+        .bind(e.key, next, e.guild, e.edict, askedAside(e)), mustChange(db));
       stmts.push(history(e.key, 'edict-unpaid', { guild: names.get(e.guild), edict: e.edict }));
     }
   }

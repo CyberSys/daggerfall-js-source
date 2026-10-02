@@ -83,6 +83,14 @@ export function createHallBanners({ built, homes, translation, eye = () => null,
   let held = [];
   let at = -Infinity;
   let seen = -1;
+  // AUDIT SEATS-3 C4: THE LIST HANDED OUT IS KEPT, as the seats' (seatBanners.js, AUDIT-SEATS C12) - one banner object
+  // each, made at a read and its top refilled in place each frame; the nearest BANNERS_MAX chosen into one kept array
+  /** @type {any[]} */
+  let outs = [];
+  /** @type {any[]} */
+  const nearest = [];
+  let eyeAt = null;
+  const byEye = (x, y) => Math.hypot(x.top[0] - eyeAt[0], x.top[2] - eyeAt[2]) - Math.hypot(y.top[0] - eyeAt[0], y.top[2] - eyeAt[2]);
   function read() {
     const out = [];
     for (const [, p] of built?.() ?? []) {
@@ -96,19 +104,24 @@ export function createHallBanners({ built, homes, translation, eye = () => null,
       }
     }
     held = out;
+    outs = held.map((b) => ({ key: b.key, heraldry: b.heraldry, phase: b.phase, top: [0, 0, 0], right: b.a.right, out: b.a.out }));
   }
   return {
     list() {
       const v = homes?.version?.() ?? 0;
       if (v !== seen || now() - at >= BANNER_REFRESH_MS) { read(); seen = v; at = now(); }
-      if (!held.length) return [];
+      if (!held.length) return outs;   // (empty)
+      for (let i = 0; i < held.length; i++) {
+        const b = held[i], t = translation(b.px, b.py), top = outs[i].top;
+        top[0] = t[0] + b.a.top[0]; top[1] = t[1] + b.a.top[1]; top[2] = t[2] + b.a.top[2];
+      }
+      if (outs.length <= BANNERS_MAX) return outs;
       const e = eye();
-      const all = held.map((b) => {
-        const t = translation(b.px, b.py);
-        return { key: b.key, heraldry: b.heraldry, phase: b.phase, top: [t[0] + b.a.top[0], t[1] + b.a.top[1], t[2] + b.a.top[2]], right: b.a.right, out: b.a.out };
-      });
-      if (all.length > BANNERS_MAX && e) all.sort((x, y) => Math.hypot(x.top[0] - e[0], x.top[2] - e[2]) - Math.hypot(y.top[0] - e[0], y.top[2] - e[2]));
-      return all.slice(0, BANNERS_MAX);
+      nearest.length = 0;
+      for (const o of outs) nearest.push(o);
+      if (e) { eyeAt = e; nearest.sort(byEye); }
+      nearest.length = BANNERS_MAX;
+      return nearest;
     },
   };
 }

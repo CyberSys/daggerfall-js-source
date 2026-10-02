@@ -55,6 +55,9 @@ export const SEAT_RED_SEEN_KEY = 'crown2.redSeen';
 export const SEAT_RED_SEEN_MAX = 100;
 /** CROWN2: how often an online client reads the seats' list again for the server's red lines, ms. */
 export const SEAT_RED_READ_MS = 15 * 60_000;
+/** AUDIT SEATS-3 C5: how long after a list read that FAILED (offline, a timeout, the service's fault - never a refusal)
+ *  the frame asks again, ms. */
+export const SEAT_LIST_RETRY_MS = 60_000;
 /** SEAT2b part two (7.5): the Watchtowers' words said on this device (`week:seat:guild:share`) - its key, the most kept -
  *  and how often a holder's member asks its towers. */
 export const SEAT_TOWERS_KEY = 'seat2b.towers';
@@ -123,6 +126,8 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
   /** whether the seats are open to this account, as the last read said: true, false, or null not yet asked */
   let open = null;
   let data = null, at = -Infinity, pending = null;
+  /** AUDIT SEATS-3 C5: whether the last list read failed (no answer, or the service's fault) - redTick asks again */
+  let failed = false;
   /** @type {Map<number, string>} the confirmed seats' states, by key */
   let states = new Map();
   /** SEAT1c: each confirmed seat's holder and this week's battle at it, by key */
@@ -166,7 +171,16 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     return towersSaid;
   };
   /** SEAT2b part two: the seats `guild` holds whose Watchtowers stand, as the list last said them. */
-  const towerSeats = (guild) => (guild ? (data?.seats ?? []).filter((s) => s?.holder?.guild?.id === guild && Number(s?.forts?.watchtowers ?? 0) >= 1) : []);
+  // AUDIT SEATS-3 C4: asked each frame (towersDue) - kept by the list read and the guild, filtered again only when either moves
+  let _towersOf = null, _towersGuild = null, _towers = [];
+  const towerSeats = (guild) => {
+    if (!guild) return [];
+    if (data !== _towersOf || guild !== _towersGuild) {
+      _towersOf = data; _towersGuild = guild;
+      _towers = (data?.seats ?? []).filter((s) => s?.holder?.guild?.id === guild && Number(s?.forts?.watchtowers ?? 0) >= 1);
+    }
+    return _towers;
+  };
   /** SEAT1b: the Watch's receipts held - read from the device once, kept in memory where the store refuses writes */
   let watchList = null, watchBusy = false;
   const watchHeld = () => {
@@ -194,6 +208,7 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       // a session not yet there is asked again at the next ask (a player who signs in sees the seats then); any other
       // answer, a refusal too, holds the list's minutes
       at = r?.error === 'no-session' ? -Infinity : nowMs();
+      failed = !r?.ok && !SHUT.includes(r?.error);   // AUDIT SEATS-3 C5
       if (r?.ok) {
         open = true; data = r.data;
         states = new Map((data?.seats ?? []).map((s) => [s.key, s.state]));
@@ -364,7 +379,9 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     },
     /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS. */
     redTick() {
-      if (open === true && !pending && nowMs() - at >= SEAT_RED_READ_MS) read({ force: true });
+      // AUDIT SEATS-3 C5: and a read that failed (the first at the session's start above all - the seats left shut, never
+      // asked again by the frame) asked again every SEAT_LIST_RETRY_MS until one answers
+      if (!pending && (open === true || failed) && nowMs() - at >= (failed ? SEAT_LIST_RETRY_MS : SEAT_RED_READ_MS)) read({ force: true });
     },
     // ─── SEASON1 part two: THE TIDES AS THIS CLIENT READS THEM ───────
     /** The week Season 0 began, as the seats' list last said - or null (no Season counted: every land is Calm). */

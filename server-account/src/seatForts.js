@@ -364,6 +364,12 @@ export async function campsSpent(db, week, next, rights, tierOf) {
 export const fortsSeasonStatements = (db) => {
   const lowered = 'EXISTS (SELECT 1 FROM town_seat_forts f WHERE f.key = town_seat_fort_held.key AND f.work = town_seat_fort_held.work AND f.tier > 0 AND f.building IS NOT NULL)';
   const wear = [db.prepare('UPDATE town_seat_forts SET tier = MAX(0, tier - 1) WHERE tier > 0')];   // SEAT2b's wear, after its projects are lowered
+  // AUDIT SEATS-3 A2 (7.5: "the Tithe's cap +1%" a tier): A TITHE SET UNDER A MARKET HALL THE WEAR LOWERED, down to the cap
+  // its worn tier gives (marketHallTitheCap over the holder's tier, the law's own numbers spelt out for SQL) - a palace's
+  // 11% under a first-tier Hall worn to nought is 10% from this Turning; a Tithe under the new cap stands as it was
+  const capSql = `CASE ${Object.entries(TITHE_CAP).flatMap(([t, c]) => Array.from({ length: fortMaxTier('market') + 1 }, (_, m) =>
+    `WHEN town_seat_holds.tier = '${t}' AND COALESCE((SELECT f.tier FROM town_seat_forts f WHERE f.key = town_seat_holds.key AND f.work = 'market'), 0) = ${m} THEN ${marketHallTitheCap(c, m)}`)).join(' ')} END`;
+  wear.push(db.prepare(`UPDATE town_seat_holds SET tithe = ${capSql} WHERE tithe > ${capSql}`));
   return [
     db.prepare(`INSERT INTO town_seat_stockpile (key, material, qty) SELECT key, material, qty FROM town_seat_fort_held WHERE qty > 0 AND ${lowered}
       ON CONFLICT (key, material) DO UPDATE SET qty = town_seat_stockpile.qty + excluded.qty`),

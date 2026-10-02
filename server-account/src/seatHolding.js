@@ -22,11 +22,12 @@
 import { accountKind, displayName, mintId, overRate } from './accounts.js';
 import { guildActorOf } from './guilds.js';
 import { titheCapAt } from './seatForts.js';   // SEAT2b: the Market Hall's Tithe cap
+import { marketHallTitheCap } from '../../src/net/fortLaw.js';   // AUDIT SEATS-3 A2: and a Tithe charged under it
 import { confirmedSeats, seatsOpenFor } from './townSeats.js';
 import { MARKS_MAX, utcDay } from '../../src/net/marksLaw.js';
 import {
   seatWeekOf, seatWeekStartMs, SEAT_WEEK_MS, seatKeyOk, seatRegionOk, edictOk, edictForTier, edictMayFollow, bailiwickOf, bountySitePixel, overreachOf, seatUpkeep,
-  SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, CROWN_SCALE,
+  SEAT_LEVER_RANKS, SEAT_EDICTS_HOUR, BOUNTY_MARKS, BOUNTY_CAMPS_DAY, CROWN_SCALE, TITHE_CAP,
 } from '../../src/net/townSeatLaw.js';
 
 const weekAt = (nowS) => seatWeekOf(nowS * 1000);
@@ -121,7 +122,7 @@ export async function edictsOf(db, week) {
 /**
  * THE HOLDER'S OWN VIEW of its Charter (the Seat tab's lines, SEAT0 7.9) - `{ standing, tithe, titheWeek, edict, next,
  * last, upkeep, owed }`: this week's Edict and the one proclaimed for the next, the upkeep the Turning will ask (its
- * Overreach over the guild's Charters, the crown's scale over last week's accounts), what it owes from Neglect. Null for
+ * Overreach over the guild's Charters, the crown's scale over this week's accounts so far - the week it settles), what it owes from Neglect. Null for
  * a seat not held.
  */
 export async function holdingOf(db, key, nowS) {
@@ -131,7 +132,7 @@ export async function holdingOf(db, key, nowS) {
   const { results: es = [] } = await db.prepare("SELECT week, edict, state FROM town_seat_edicts WHERE key = ? AND week IN (?, ?) AND state IN ('law', 'proclaimed')")
     .bind(key, week, week + 1).all();
   const { results: tiers = [] } = await db.prepare('SELECT tier FROM town_seat_holds WHERE guild_id = ?').bind(h.guild_id).all();
-  const active = h.tier === 'crown' ? await activeIn(db, week - 1) : CROWN_SCALE.per;
+  const active = h.tier === 'crown' ? await activeIn(db, week) : CROWN_SCALE.per;   // AUDIT SEATS-3 D1: the week the Turning settles, as it reads it
   return {
     standing: Number(h.standing), tithe: Number(h.tithe), titheWeek: h.tithe_week == null ? null : Number(h.tithe_week),
     edict: es.find((e) => Number(e.week) === week && e.state === 'law')?.edict ?? null,
@@ -148,11 +149,16 @@ export async function holdingOf(db, key, nowS) {
  */
 export async function titheAt(db, nowS, region, pixel = null) {
   if (!seatRegionOk(region)) return null;
-  const { results: held = [] } = await db.prepare('SELECT key, guild_id, tithe FROM town_seat_holds WHERE region = ?').bind(region).all();
+  // AUDIT SEATS-3 A2: and the Market Hall standing under it - a Tithe never charged above the cap its Hall gives now (the
+  // Season's wear clamps the row in its own batch, seatForts.js fortsSeasonStatements; this is the belt to those braces).
+  // The stored tier, no project raised: a Tithe was set under a cap read after its rise (titheCapAt), and only a wear or
+  // a lapse lowers a tier after that
+  const { results: held = [] } = await db.prepare(`SELECT h.key, h.guild_id, h.tithe, h.tier,
+    (SELECT f.tier FROM town_seat_forts f WHERE f.key = h.key AND f.work = 'market') AS market FROM town_seat_holds h WHERE h.region = ?`).bind(region).all();
   if (!held.length) return null;
   const seat = bailiwickOf((await confirmedSeats(db, nowS)).values(), region, pixel);
   const h = seat ? held.find((x) => Number(x.key) === seat.key) : null;
-  return h ? { key: seat.key, guild: h.guild_id, pct: Number(h.tithe) } : null;
+  return h ? { key: seat.key, guild: h.guild_id, pct: Math.min(Number(h.tithe), marketHallTitheCap(TITHE_CAP[h.tier] ?? 0, Number(h.market ?? 0))) } : null;
 }
 
 /** THE LEVY'S SEAT for a harvest at `pixel` in `region` (SEAT0 7.6: "from the nodes of the region nearer this seat than

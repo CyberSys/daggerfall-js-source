@@ -952,6 +952,14 @@ export function edictLine(edict, tier, tide = 'calm') {   // SEASON1 part two: `
 /** AUDIT SEATS-2 L1 (7.5: "the Tithe's cap +1%" a Market Hall tier): a held seat's Tithe cap, its works as the seats'
  *  list dresses them (`forts.market`) - the service's titheCapAt, read on the client. */
 export const seatTitheCap = (seat) => marketHallTitheCap(TITHE_CAP[seat?.tier] ?? 0, seat?.forts?.market ?? 0);
+/** AUDIT SEATS-3 D3: THE TITHE A SALE POSTED AT A BOARD PAYS, as the seats' list (`seats`, the confirmed registry with
+ *  each holder) says it - the board's bailiwick's holder's rate, never over its cap (the service's titheAt, read on the
+ *  client); 0 where the seat is unheld or the region has none. */
+export function boardTithePct(seats, region, pixel = null) {
+  const seat = bailiwickOf(seats ?? [], region, pixel);
+  const pct = Number(seat?.holder?.tithe ?? 0);
+  return seat?.holder && pct > 0 ? Math.min(Math.trunc(pct), seatTitheCap(seat)) : 0;
+}
 export function seatHoldingLines(seat, h) {
   if (!h) return [];
   const out = [h.next ? `Proclaimed for next week: ${EDICTS[h.next]?.name ?? h.next}.` : 'No Edict is proclaimed for next week.'];
@@ -1199,7 +1207,7 @@ export const SIEGE_WHY = Object.freeze({
   'pass-late': 'The battle\'s window has closed.',
   'field-bad': 'Your game could not work out this town\'s field.',
   'field-unsettled': 'Waiting for the other side\'s scouts to agree on the field - try again in a moment.',
-  'honours-character': 'Honours are claimed for a character.',
+  'honours-character': 'Honours go to the character who signed for this battle - play them to claim it.',   // AUDIT SEATS-3 A3
   'honours-twice': 'Your Honours from this battle are claimed already.',
   // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle
   'battle-void': 'That battle was void at the Turning - its result came too late to count.',

@@ -397,8 +397,8 @@
   {
     "name": "SEAT1a-seat-banners-dropped",
     "file": "src/scenes/world.js",
-    "old": "const all = [...(hallBanners?.list() ?? []), ...(seatBanners?.list() ?? [])];",
-    "new": "const all = [...(hallBanners?.list() ?? [])];",
+    "old": "    for (const b of seatBanners?.list() ?? []) all.push(b);",
+    "new": "    for (const b of []) all.push(b);",
     "tests": [
       "test/seat1a_client.test.js"
     ]

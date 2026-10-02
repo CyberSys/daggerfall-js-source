@@ -386,6 +386,12 @@
   },
   {
    "file": "src/scenes/world.js",
+   "has": "levelBonus: () => seatEdicts.guardLevelBonus(Math.floor(skyMinutes())),",
+   "clock": "sky",
+   "why": "a Curfew's night watch (SEAT1d; AUDIT SEATS-3 E1)"
+  },
+  {
+   "file": "src/scenes/world.js",
    "has": "skyMinute: () => Math.floor(skyMinutes()),",
    "clock": "sky",
    "why": "the wilds' night (SOFTCAP5)"

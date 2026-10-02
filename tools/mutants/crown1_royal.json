@@ -183,8 +183,8 @@
  {
   "name": "CROWN1R-marks-side",
   "file": "src/net/siegeRef.js",
-  "old": "  return [at(-d, wasA, Math.PI / 2), at(d, wasB, -Math.PI / 2)];",
-  "new": "  return [at(d, wasA, Math.PI / 2), at(-d, wasB, -Math.PI / 2)];",
+  "old": "  const marks = [at(-d, wasA, Math.PI / 2), at(d, wasB, -Math.PI / 2)];",
+  "new": "  const marks = [at(d, wasA, Math.PI / 2), at(-d, wasB, -Math.PI / 2)];",
   "tests": [
    "test/crown1_royal_law.test.js",
    "test/crown1_royal_relay.test.js"
