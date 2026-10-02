@@ -2533,7 +2533,9 @@ export function createComeSailAwayRuntime(deps) {
   }
   /** CrossfadeAudioSource (6559-6566): only when none is running. */
   function CrossfadeAudioSource(from, to, duration = 2) {
-    if (fading == null) startFading(CrossfadeAudioSourceCoroutine(from, to, duration));
+    // AUDIT HELM-HUSH: a crossfade stopped by a fade lands too - `to` heard whole, `from` stopped - where it was left
+    // with both loops part-way and the wake's check (it asks only for a silent loop) never asked again
+    if (fading == null) startFading(CrossfadeAudioSourceCoroutine(from, to, duration), () => { audioStop(from); audioPlay(to); to.volume = loopVolume(); });
   }
   /** FadeAudioSourceCoroutine (6568-6584): played, its volume lerped over the duration a frame's end at a time, stopped
    *  at the end if faded to nothing. */

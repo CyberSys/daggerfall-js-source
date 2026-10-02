@@ -85,7 +85,7 @@ test('HUNT-FOES: the search\'s minutes pass as the box closes, not under it - of
 
 test('HUNT-FOES by source: the world host hands the hunt its foes - a foe that sees me, or one still loading - for the roll and the box', () => {
   const world = src('src/scenes/world.js');
-  assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);
+  assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);
   assert.match(world, /return exteriorFoes\.pendingFeet\(\)\.some\(\(p\) => Math\.hypot\(p\[0\] - f\[0\], p\[2\] - f\[2\]\) <= HUNT_PENDING_NEAR_M\);/);
   assert.equal(HUNT_PENDING_NEAR_M, 30);
   assert.match(world, /enemiesNear: huntFoesNear\(\), resting:/);

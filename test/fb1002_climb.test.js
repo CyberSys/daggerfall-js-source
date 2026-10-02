@@ -2,8 +2,8 @@
 // my character to climb up, so Im stuck in this hole. Luckily I have levitate. Its 'Ruins of Old Carololda's Farm'" -
 // "I would have been able with old climbing mechanics"). The enhanced climb had been proven on boxes and on town blocks
 // (AUDIT CLIMB-FIELD); it had never climbed a dungeon. Climbed on the reporter's own dungeon with the freeware ARENA2 -
-// every wall in reach of a floor that has a top, Forward held square to it - and on 23 more, four faults the classic
-// climb never had, each built here in the shape the real models have:
+// every wall in reach of a floor that has a top, Forward held square to it - and on 24 more, five faults the classic
+// climb never had (CORNER-TOP the batch's own audit's), each built here in the shape the real models have:
 //   SEAM-STEP - Daggerfall's dungeon walls stand in 3.2 m units; where the unit above has a jamb a hand's width over, the
 //               climber's head met its underside 1.4 m up the first unit - the reporter's "two blocks";
 //   HUG-TOUCH - the free climb pressed 7 cm into the face every step, and the push back out of that press leans along a
@@ -11,7 +11,8 @@
 //               Climbing 0 the climb never left the floor;
 //   CRACK-LIP - stacked wall pieces stand a unit (2.5 cm) apart: the hand-hold read the slot as a lip, the climb hung
 //               from it, found nothing there and let go - over and over;
-//   STEP-BACK - a wall piece set 20 cm behind the one under it: the hands' contact ended at the step and the climb stood.
+//   STEP-BACK - a wall piece set 20 cm behind the one under it: the hands' contact ended at the step and the climb stood;
+//   CORNER-TOP - in a narrow corner the hands took the side wall and climbed on past the top the look was turned to.
 // The real wall half runs where ARENA2_PATH names the game's data, as every real-data test does.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +67,8 @@ test('SEAM-STEP: the report - a 6.4 m wall of two 3.2 m units, the upper unit\'s
   const r = climb(col, { top: 6.4 });
   assert.ok(r.on, 'on the wall');
   assert.ok(r.topped, `over the top (rose to ${r.high.toFixed(2)})`);
-  assert.ok(r.m.pos[0] - 0 >= 0.24 - 1e-3 && r.m.pos[0] <= PARKOUR_SIDESTEP_MAX + 0.01, `along the wall past the jamb, no further than the step's reach (x ${r.m.pos[0].toFixed(3)})`);
+  assert.ok(r.m.pos[0] - 0 >= 0.24 - 1e-3 && r.m.pos[0] <= 0.45 + 0.01, `along the wall past the jamb, no further than the step's reach (x ${r.m.pos[0].toFixed(3)})`);
+  assert.equal(PARKOUR_SIDESTEP_MAX, 0.45);
   // the other hand: the jamb on the body's right, the step goes left
   const mirror = climb(room([-3, 0, 1, 3, 6.4, 3], [0.1, 3.2, 0, 0.12, 6.4, 1]), { top: 6.4 });
   assert.ok(mirror.topped && mirror.m.pos[0] < -0.24 + 1e-3, `the mirror steps the other way (x ${mirror.m.pos[0].toFixed(3)})`);
@@ -120,7 +122,7 @@ test('STEP-BACK: a wall piece set back over the one under it (its top too shallo
   // set back 0.2 m at 5.75 (N0000033's) and 0.3 m at 3.0, the upper piece to 9 m - no top in reach from under the step
   for (const [lo, back] of [[5.75, 0.2], [3.0, 0.3]]) {
     const r = climb(room([-3, 0, 1, 3, lo, 3], [-3, lo, 1 + back, 3, 9, 3]), { top: 9, steps: 60 * 10 });
-    assert.ok(r.high > lo + 2, `${back} m back at ${lo}: up past the step (rose to ${r.high.toFixed(2)})`);
+    assert.ok(r.topped, `${back} m back at ${lo}: up past the step and over the top (rose to ${r.high.toFixed(2)})`);
     assert.equal(r.lets, 0, `${back} m back at ${lo}: never let go on the way`);
   }
   // held at the step, the climber is not lifted onto its edge by the reach: Left alone moves it along, at its height
@@ -166,7 +168,7 @@ test('FIELD BUGS 2026-10-02 by source: the four laws where the motor and the sen
   assert.match(motor, /if \(!side && vert > 0 && \(w\.stuck \|\| \(w\.sidestep && w\.sidestep\.gone < w\.sidestep\.want\)\)\) this\._fcSidestep\(v, n, dt, held\);/);
   assert.match(motor, /const press = Math\.min\(this\.speed \* dt, Math\.max\(0, this\._wall\?\.gap \?\? Infinity\) \+ PARKOUR_HUG_PRESS\);/);
   assert.match(motor, /w\.gap = c\.dist - CAPSULE_RADIUS;/);
-  assert.match(parkour, /if \(!Number\.isFinite\(at\(i - 1\)\) && faceGoesOn\(collider, ox, rungY\(i - 1\), oz, dir, dist\)\) continue;/);
+  assert.match(parkour, /if \(!Number\.isFinite\(at\(i - 1\)\) && faceGoesOn\(collider, ox, rungY\(i - 1\), oz, dir, dist, PARKOUR_GRIP_RUNG\)\) continue;/);
   assert.match(motor, /if \(s && s\.normal\[0\] \* n\[0\] \+ s\.normal\[2\] \* n\[2\] >= PARKOUR_FACE_FOLLOW\) \{\n\s+w\.past = this\._fcFaceTop\(was, into\);\n\s+w\.seek = true;/);
 });
 

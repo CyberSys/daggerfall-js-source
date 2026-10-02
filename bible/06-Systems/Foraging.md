@@ -1022,8 +1022,9 @@ The three loot hooks, 1:1 off IL_0520-IL_0b8f, and the two DFU events they hang 
 
 Online Foraging - the wait (13.1), and with it Foraging whole in both lanes:
 
-- **The page**, `src/ui/huntWindow.js`: C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options the hunt
-  leaves at their defaults (`ask`, `escape`, `interruptWhen`, `result`), and `remaining` / `extend(seconds)` for the
+- **The page**, `src/ui/huntWindow.js`: C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options (`ask`,
+  `escape`, `interruptWhen`, `result`; the hunt leaves three at their defaults and, since HUNT-FOES, FIELD BUGS
+  2026-10-02, gives `interruptWhen` a foe near, asked on its ask page too), and `remaining` / `extend(seconds)` for the
   wait's queue. The busy page's caption says "Escape to walk away" only where Escape does.
 - **The wait**, `src/scenes/foragingWait.js` (`createForagingWait`): a quest's game seconds become real ones at
   `huntRealSeconds` (8 s a game hour, imported); the record `{ seconds, label, held }` lives on the player

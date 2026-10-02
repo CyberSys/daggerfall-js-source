@@ -931,15 +931,15 @@ mechanics"*; and Mac: *"Enhanced climbing needs a further perfection audit"*. Th
 three town blocks, never in a dungeon. The record (`01-Overview/Field-Bugs-2026-10-02.md`) climbed every wall with a
 top in reach of a floor in the reporter's dungeon and in 24 more (the collider as the dungeon host builds it, Forward
 held square and 8 degrees either side, Climbing 100, each failure run again on the classic lane with every roll
-passing), and found four faults the classic climb never had:
+passing), and found five faults the classic climb never had (the fifth, CORNER-TOP, the batch's own review's):
 
 | | Finding | Where | Fix |
 |---|---|---|---|
-| SEAM-STEP | A dungeon wall stands in 3.2 m units. Where the unit above has a jamb a hand's width over the climber, the head met its underside 1.4 m up, and the across clamp undid the resolve's push out from under it: the reporter's "two blocks" | Carololda's N0000035, N0000090 | stuck going straight up, the hands move along the wall (up to 0.45 m) to where the body rises 0.1 m, along and up at the diagonal pace (`motor.js _fcSidestep`) |
+| SEAM-STEP | A dungeon wall stands in 3.2 m units. Where the unit above has a jamb a hand's width over the climber, the head met its underside 1.4 m up, and the across clamp undid the resolve's push out from under it: the reporter's "two blocks" | Carololda's N0000035, N0000090 | stuck going straight up, the hands move along the wall (up to 0.45 m) to where the body rises 0.1 m, along and up at the diagonal pace; still stuck there, on the same way; a failed search kept, not asked every frame (`motor.js _fcSidestep`) |
 | HUG-TOUCH | The free climb pressed 7 cm into the face each step (the classic hug's whole step). The push back out leans along a seam between two coplanar triangles: up a 25 m face split on the diagonal, 1.3 cm a step lost, and at Climbing 0 the climb never left the floor | Carololda's N0000090 | the press is the gap to the face plus 1 cm (`PARKOUR_HUG_PRESS`, `w.gap`) |
-| CRACK-LIP | Stacked pieces stand a unit (2.5 cm) apart. The hand-hold read the slot as a lip: hang, nothing there, let go, fall, repeated. The eave law read the slot's rung as no plain wall | The Pit of Sahoth's N0000008 | an opening with the face going on 3 cm above at its depth is a crack: no lip, no ledge, a plain wall's rung (`parkour.js faceGoesOn`) |
-| STEP-BACK | A piece set 0.2-0.3 m behind the one under it (too shallow a top to stand on) ended the hands' contact at the step, or hung the climber from it to let go and fall | N0000033 (the Mordywyr Mines, the Convocation of Elona) | going up, a face that steps back, turned within the hold's 30 degrees, is climbed on to as CLIMB3 passes a sill: straight past the step's top unpressed (`w.past`, `_fcFaceTop`), then the grab's 0.5 m reach (`w.seek`). Down past it stops above it, as above a sill |
-| CORNER-TOP | In a narrow corner the start can take the side wall, which runs on past the front wall's top, and the climb went on up it | Carololda's N0000090 pit, by hand | going up, the look turned 20 degrees or more along the held wall asks the top of a face on that side in contact (`_fcCornerWall`) |
+| CRACK-LIP | Stacked pieces stand a unit (2.5 cm) apart. The hand-hold read the slot as a lip: hang, nothing there, let go, fall, repeated. The eave law read the slot's rung as no plain wall | The Pit of Sahoth's N0000008 | the slot measured, top and foot: no taller than 3 cm is a crack: no lip, no ledge, a plain wall's rung (`parkour.js faceGoesOn`); a 6 cm slot is a hold |
+| STEP-BACK | A piece set 0.2-0.3 m behind the one under it (too shallow a top to stand on) ended the hands' contact at the step, or hung the climber from it to let go and fall | N0000033 (the Mordywyr Mines, the Convocation of Elona) | going up (straight or across), a face that steps back, turned within the hold's 30 degrees, is climbed on to as CLIMB3 passes a sill: straight past the step's top unpressed (`w.past`, `_fcFaceTop`), then the grab's 0.5 m reach (`w.seek`, a save's retake too). Down past it stops above it, as above a sill; down from under its top reaches as the grab does (`w.down`) and gets to the floor |
+| CORNER-TOP | In a narrow corner the start can take the side wall, which runs on past the front wall's top, and the climb went on up it | Carololda's N0000090 pit, by hand | going up, the look turned 20 degrees or more along the held wall as the hands took it (read once a hold) asks the top of a face on that side in contact (`_fcCornerSide`, `_fcCornerWall`) |
 
 What still stalls: tops past 50 degrees (N0000014's and N0000011's 53-degree ramps, N0000041's slopes; AUDIT
 CLIMB-FIELD's own limit) and a lip with no landing right behind its edge (Castle Kingwing's N0000034, a pillar;
@@ -948,6 +948,19 @@ after; failures where the classic lane topped went from 81 to 33, all of them th
 The grip at low skill and Fatigue is recorded there and not changed (Mac's "Free-climb on grip"). Pinned:
 `test/fb1002_climb.test.js` (7; its last on ARENA2); `tools/mutants/fb1002_climb.json` (15, all dead). PIN MOVED:
 `climb2.test.js`'s seam climb (165 steps at the honest pace: the old press shoved it up that seam).
+
+The audit (Mac: *"Audit this"*; the record's "The audit") ran four lenses over the batch, the climb's in the modes the
+Forward-only probe never ran (Back from every height, strafes, catches, leaps, the shimmy, 15-45 degree approaches,
+Climbing 5 tired) on 8 dungeons and 3 town blocks. Its climb findings, each fixed: CORNER-TOP read the look every step
+and mantled a climber sideways onto a crate or over a fence (now read once a hold); SEAM-STEP asked a failed search
+every frame (311 collider calls a frame under Carololda's slabs, the base's 59) and stood 0.2 m along a jamb over the body's middle; a
+save in STEP-BACK's pass loaded at contact and fell 5.84 m; the step was passed going straight up only; an 11.5 m
+Sahoth wall approached off square let go at 10.96 m when the contact switched to a corner's sloped face, and a strafe
+into a 43-degree face let go (the hold now turns to a new face only when that face is met along its own normal,
+`PARKOUR_TURN_HOLDS`); Back just past N0000033's step-back froze at 5.27 m or let go 5.45 m up over a 12 cm recess
+(`w.down`); the crack law read slots to 9 cm as cracks by where the rung fell (now measured). Still stalling, no fall:
+the leaning top past 50 degrees, and a 2 m by 0.4 m niche whose lintel the hang meets. Pinned:
+`test/fb1002_audit.test.js` (12, its last on ARENA2); `tools/mutants/fb1002_audit.json` (19).
 
 ## Still open
 

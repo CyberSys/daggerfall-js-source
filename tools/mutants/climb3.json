@@ -362,8 +362,8 @@
   {
     "name": "CLIMB3-sill-pass-held-short",
     "file": "src/player/motor.js",
-    "old": "w.seek || w.past != null ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
-    "new": "w.seek ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
+    "old": "w.seek || w.past != null || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
+    "new": "w.seek || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",
@@ -512,8 +512,8 @@
   {
     "name": "CLIMB3-free-climb-jump-does-nothing",
     "file": "src/player/motor.js",
-    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch, look:",
-    "new": "jumpPressed: false, look:",
+    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch }",
+    "new": "jumpPressed: false }",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",
@@ -824,8 +824,8 @@
   {
     "name": "CLIMB3-free-climb-jump-held-leaps",
     "file": "src/player/motor.js",
-    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch, look:",
-    "new": "jumpPressed: !!input.jump, look:",
+    "old": "jumpPressed: !!input.jump && !this._pkJumpLatch }",
+    "new": "jumpPressed: !!input.jump }",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",

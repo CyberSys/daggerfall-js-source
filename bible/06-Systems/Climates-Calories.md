@@ -383,23 +383,27 @@ minutes run at HUNT_WAIT_PER_HOUR (eight) real seconds an hour under
 the overlay's `tick(dt)`, a row of dots for the wait, no key or click
 taken (the hunter is committed); RESULT, the outcome's lines and the
 gains in a click-anywhere box. The outcome is rolled and applied ONCE,
-at the turn from busy to result; the search's minutes pass on the
-clock offline (the host's ticker - the survival minutes with them) and
-online the clock stands (WORLD5) so the wait alone is the cost; the
-skills the search used are tallied. (FORAGE4, 2026-09-28: the same page is Foraging's online
-wait, THE ONE CONSTRUCTION SEAM - four constructor options the hunt
-leaves at their defaults: `ask`, `escape`, `result`, and since HUNT-FOES
-not `interruptWhen`; `bible/06-Systems/Foraging.md` 13.1.) The beast stands when the box
+at the turn from busy to result, and the skills the search used are
+tallied there; the search's minutes pass when the box CLOSES (HUNT-FOES,
+FIELD BUGS 2026-10-02, Aru: "enemies can attack you while the result
+loads" - spent at the turn, their encounter tick stood a wanderer facing
+a hunter the result page held), on the clock offline (the host's ticker
+- the survival minutes with them) and online the clock stands (WORLD5)
+so the wait alone is the cost; a box taken from under a given result (a
+death screen, a load - which now closes it before the save is read)
+spends them quiet, the clock alone. (FORAGE4, 2026-09-28: the same page
+is Foraging's online wait, THE ONE CONSTRUCTION SEAM - four constructor
+options, of which the hunt leaves `ask`, `escape` and `result` at their
+defaults and, since HUNT-FOES, gives `interruptWhen` the host's
+`huntFoesNear` - a duel's foe, one that sees the player, or one still
+loading within 30 m: a foe come near closes the ask or the search as a
+No, nothing searched and no minute spent, and only the result page is
+left to be read; `bible/06-Systems/Foraging.md` 13.1,
+`01-Overview/Field-Bugs-2026-10-02.md`.) The beast stands when the box
 CLOSES, not under it - a foe keeps its clock under a window (WINFOE1)
 and would have had the first blow free - through the overworld host's
 own encounter placement (`_standEncounterFoe` on the wilderness arm,
-one call a head). HUNT-FOES (FIELD BUGS 2026-10-02, Aru: "enemies can
-attack you while the result loads"): the search's minutes pass at the
-close too - their encounter tick stood a wanderer under the result page
-- and a foe come near (the host's `huntFoesNear`: one that sees the
-player, or one still loading) closes the ask or the search as a No,
-nothing searched and no minute spent, the result page alone left to be
-read (`01-Overview/Field-Bugs-2026-10-02.md`). `scenes/hunting.js` composes it for a host from
+one call a head). `scenes/hunting.js` composes it for a host from
 readers (`env()`: the minute, the climate, luck, winter, outdoors,
 the rect, night, foes near, resting, the bow in hand, the four skills)
 and doors (the slot, the ticker, the placement, the two formulas, the

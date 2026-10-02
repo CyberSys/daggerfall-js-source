@@ -11,8 +11,8 @@
   {
     "name": "SEAM-STEP-the-search-one-way",
     "file": "src/player/motor.js",
-    "old": "        for (const s of [1, -1]) if (rises(s * k * PARKOUR_SIDESTEP_PROBE))",
-    "new": "        for (const s of [1]) if (rises(s * k * PARKOUR_SIDESTEP_PROBE))",
+    "old": "const f = search([1, -1], PARKOUR_SIDESTEP_MAX);",
+    "new": "const f = search([1], PARKOUR_SIDESTEP_MAX);",
     "tests": [
       "test/fb1002_climb.test.js"
     ]
@@ -20,8 +20,8 @@
   {
     "name": "SEAM-STEP-no-rise-in-the-step",
     "file": "src/player/motor.js",
-    "old": "        const q = [from[0] + t[0] * s, from[1] + PARKOUR_SIDESTEP_RISE, from[2] + t[2] * s];",
-    "new": "        const q = [from[0] + t[0] * s, from[1], from[2] + t[2] * s];",
+    "old": "const q = [from[0] + t[0] * s, from[1] + PARKOUR_SIDESTEP_RISE, from[2] + t[2] * s];",
+    "new": "const q = [from[0] + t[0] * s, from[1], from[2] + t[2] * s];",
     "tests": [
       "test/fb1002_climb.test.js"
     ]
@@ -29,8 +29,8 @@
   {
     "name": "SEAM-STEP-the-reach-unbounded",
     "file": "src/player/motor.js",
-    "old": "      for (let k = 1; k * PARKOUR_SIDESTEP_PROBE <= PARKOUR_SIDESTEP_MAX + 1e-9 && w.sidestep == null; k++) {",
-    "new": "      for (let k = 1; k * PARKOUR_SIDESTEP_PROBE <= 4 && w.sidestep == null; k++) {",
+    "old": "k * PARKOUR_SIDESTEP_PROBE <= room + 1e-9;",
+    "new": "k * PARKOUR_SIDESTEP_PROBE <= 4;",
     "tests": [
       "test/fb1002_climb.test.js"
     ]
@@ -56,7 +56,7 @@
   {
     "name": "CRACK-LIP-the-crack-read-as-a-lip",
     "file": "src/player/parkour.js",
-    "old": "    if (!Number.isFinite(at(i - 1)) && faceGoesOn(collider, ox, rungY(i - 1), oz, dir, dist)) continue;",
+    "old": "    if (!Number.isFinite(at(i - 1)) && faceGoesOn(collider, ox, rungY(i - 1), oz, dir, dist, PARKOUR_GRIP_RUNG)) continue;",
     "new": "",
     "tests": [
       "test/fb1002_climb.test.js"
@@ -65,7 +65,7 @@
   {
     "name": "CRACK-LIP-the-plain-wall-asks-an-eave",
     "file": "src/player/parkour.js",
-    "old": "    if (!Number.isFinite(d) && faceGoesOn(collider, ox, lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG, oz, dir, back)) continue;",
+    "old": "    if (!Number.isFinite(d) && faceGoesOn(collider, ox, lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG, oz, dir, back, PARKOUR_GRIP_RUNG)) continue;",
     "new": "",
     "tests": [
       "test/fb1002_climb.test.js"
@@ -119,8 +119,8 @@
   {
     "name": "CORNER-TOP-the-look-unread",
     "file": "src/player/motor.js",
-    "old": "      const turned = this._fcCornerWall(into, inputs.look);",
-    "new": "      const turned = this._fcCornerWall(into, null);",
+    "old": "w.corner ??= this._fcCornerSide(into, w.look);",
+    "new": "w.corner ??= this._fcCornerSide(into, null);",
     "tests": [
       "test/fb1002_climb.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "CORNER-TOP-one-side-only",
     "file": "src/player/motor.js",
-    "old": "    const dir = [t[0] * Math.sign(a), 0, t[2] * Math.sign(a)];",
-    "new": "    const dir = [t[0], 0, t[2]];",
+    "old": "const dir = [-into[2] * side, 0, into[0] * side];",
+    "new": "const dir = [-into[2], 0, into[0]];",
     "tests": [
       "test/fb1002_climb.test.js"
     ]

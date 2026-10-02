@@ -12,7 +12,7 @@
 // bare fists. By the time it was found the two restore lines had
 // drifted six and thirteen lines apart inside their own hosts, and the
 // comment that pointed between them cited line numbers that no longer
-// existed (worldModes.js named `world.js:11290` and `dungeonContext
+// existed (worldModes.js named `world.js:11291` and `dungeonContext
 // .js:5451` for lines that live at :4418 and :5457).
 //
 // HARD2's three rules, and how this slice meets them:
@@ -81,7 +81,7 @@ test('HARD2c: the WRITE differential - the old inline arithmetic, carried verbat
 });
 
 test('HARD2c: the RESTORE differential - all three copies were the same law', () => {
-  // world.js:11374/:11406, dungeonContext.js:7838/:7838 and
+  // world.js:11375/:11407, dungeonContext.js:7838/:7838 and
   // worldModes.js:11283-11284 - three copies, one law, carried verbatim.
   const oldApply = (w, pose) => {
     if (!pose) return;

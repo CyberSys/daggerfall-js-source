@@ -298,7 +298,7 @@ import {
   PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
   // CLIMB2: the hang, the shimmy, the grip and the free climb
   senseGrip, senseEaveAhead, senseEaveLedge, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
-  bandsClear, capsuleFits, PARKOUR_LEAN, PARKOUR_SIDESTEP_MAX, PARKOUR_SIDESTEP_PROBE, PARKOUR_SIDESTEP_RISE, PARKOUR_SIDESTEP_CLEAR, PARKOUR_HUG_PRESS, PARKOUR_STEP_SCAN, PARKOUR_CORNER_LOOK,
+  bandsClear, capsuleFits, PARKOUR_LEAN, PARKOUR_SIDESTEP_MAX, PARKOUR_SIDESTEP_PROBE, PARKOUR_SIDESTEP_RISE, PARKOUR_SIDESTEP_CLEAR, PARKOUR_HUG_PRESS, PARKOUR_STEP_SCAN, PARKOUR_CORNER_LOOK, PARKOUR_TURN_HOLDS,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
   PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_ARM_GRACE_S, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
@@ -1716,6 +1716,7 @@ export class PlayerMotor {
   _parkourStep(dt, input, yaw) {
     const pk = this.parkour;
     this._pkOn = false;
+    this._pkLookNow = [Math.sin(yaw), 0, Math.cos(yaw)];   // CORNER-TOP (AUDIT): the look a hold is taken with (_wallBegin)
     if (!pk) return false;
     // THE TAP CATCH (PARKOUR_ARM_GRACE_S): a fresh press arms the air catch for the jump it makes - the body down
     // again (or never off the ground), a move or a let-go ends it (the water asks no catch: mode, below)
@@ -1864,7 +1865,11 @@ export class PlayerMotor {
       return;
     }
     const c = wallContact(this.collider, this.pos, [-r.normal[0], 0, -r.normal[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH);
-    if (c) this._wallBegin('climb', c.normal, null, c.key);
+    if (!c) return;
+    this._wallBegin('climb', c.normal, null, c.key);
+    // AUDIT FIELD BUGS 2026-10-02: the wall was found at the grab's reach - it is reached for as it was found (a save in a
+    // STEP-BACK pass loaded 0.2 m off the face, and the next step's contact let go: a 5.8 m fall)
+    this._wall.seek = true;
   }
 
   /** The ledge sensor's opts for this body: the band, and the stair check. */
@@ -1989,7 +1994,7 @@ export class PlayerMotor {
    *  shield, the motion bag) with none of the classic machine's rolls. */
   _wallBegin(mode, normal, lipY, key) {
     this._pkUnsink();
-    this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false };
+    this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false, look: this._pkLookNow ?? null };
     this._pkSide = null;   // AUDIT CLIMB2 A3: a new wall asks the look afresh (a corner is no new wall: C7)
     if (key != null) this._wall.carrier = this.collider.bucketPose?.(key) ?? null;
     this._wallTally = 0;
@@ -2072,7 +2077,7 @@ export class PlayerMotor {
     if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); this._pkEmit('gripLow'); }
     this._wallTick(dt);
     const owned = w.mode === 'hang' ? this._hangStep(dt, input, side, vert, skill, inputs.climbing ?? 0)
-      : this._freeClimbStep(dt, side, vert, skill, { ...inputs, jumpPressed: !!input.jump && !this._pkJumpLatch, look: [Math.sin(yaw), 0, Math.cos(yaw)] });
+      : this._freeClimbStep(dt, side, vert, skill, { ...inputs, jumpPressed: !!input.jump && !this._pkJumpLatch });
     if (this._wall) this._pkHold();
     // the climb's own mirror (AUDIT 65 XL-5): the step returns above both writers of the cached pair
     this.standing = this.grounded;
@@ -2371,8 +2376,12 @@ export class PlayerMotor {
    *  floor under the body, not going up, ends the climb standing (A1). */
   _freeClimbStep(dt, side, vert, skill, inputs) {
     const w = this._wall;
-    const c = wallContact(this.collider, this.pos, [-w.normal[0], 0, -w.normal[2]], this.height, CAPSULE_RADIUS,
-      w.seek || w.past != null ? PARKOUR_WALL_REACH : PARKOUR_CONTACT);
+    // AUDIT FIELD BUGS 2026-10-02: climbing down, the hands reach for the wall under them as far as the grab does (as
+    // Back from a hang does, w.seek) - down past a step-back only the lowest ray was still on the wall, and over a
+    // recess in it nothing was: the climb froze, or the hands let go 5.4 m up (N0000033)
+    w.down = vert < 0;
+    const reach = w.seek || w.past != null || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT;
+    const c = wallContact(this.collider, this.pos, [-w.normal[0], 0, -w.normal[2]], this.height, CAPSULE_RADIUS, reach);
     if (!c) { this._wallEnd(); return false; }
     if (w.seek && c.dist <= CAPSULE_RADIUS + PARKOUR_CONTACT) w.seek = false;
     // AUDIT CLIMB2 A1: not going up with the floor this near under the feet is standing, not a hold - ClimbingMotor's
@@ -2383,7 +2392,12 @@ export class PlayerMotor {
       return false;
     }
     const into = [-w.normal[0], 0, -w.normal[2]];
-    w.normal = c.normal;
+    // AUDIT FIELD BUGS 2026-10-02: the hold turns onto a face its contact met only where the body holds along that face
+    // too - one ray on a corner's other face under a leaning top turned it, the next step's contact along it met
+    // nothing, and the hands let go 11 m up (the Pit of Sahoth's N0000008; the old deep press had pushed the body on up)
+    const turnsTo = c.normal[0] * w.normal[0] + c.normal[2] * w.normal[2] < PARKOUR_TURN_HOLDS
+      && !wallContact(this.collider, this.pos, [-c.normal[0], 0, -c.normal[2]], this.height, CAPSULE_RADIUS, reach) ? null : c.normal;
+    w.normal = turnsTo ?? w.normal;
     w.gap = c.dist - CAPSULE_RADIUS;   // HUG-TOUCH: how far the face stands off the body (_fcMove's press)
     if (c.key !== w.key) { w.key = c.key; w.carrier = c.key != null ? (this.collider.bucketPose?.(c.key) ?? null) : null; }
     // CLIMB3: a fresh Jump on the free climb leaps - Back off the wall, Left or Right along it, else up it (Mac's
@@ -2401,7 +2415,10 @@ export class PlayerMotor {
       // CORNER-TOP (FIELD BUGS 2026-10-02, the audit): in a corner the hands can hold the side wall, which runs on past
       // the lip of the wall the look is turned to - and the climb went on up it under that top: the turned-to wall's
       // top in reach is climbed onto as the held one's is
-      const turned = this._fcCornerWall(into, inputs.look);
+      // AUDIT: the side is the look's when the hands took this wall (`w.look`), and kept - a view turned during the climb
+      // toward a crate, a garden wall or a fence beside it mantled the climber sideways onto it, or over into the next yard
+      w.corner ??= this._fcCornerSide(into, w.look);
+      const turned = this._fcCornerWall(into, w.corner);
       if (turned && this._fcTopOut(dt, skill, inputs, turned, false)) return true;
       const face = [this.pos[0] + into[0] * c.dist, 0, this.pos[2] + into[2] * c.dist];
       const g0 = senseGrip(this.collider, face, c.normal, this.pos[1] + PARKOUR_HANG_DROP, this._pkGeo());
@@ -2440,11 +2457,11 @@ export class PlayerMotor {
     const held = () => this._fcHeld(n, w);
     for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);
     if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);
-    // STEP-BACK (FIELD BUGS 2026-10-02): going up, a face that steps back from the hands (a wall piece set 20 cm behind
+    // STEP-BACK (FIELD BUGS 2026-10-02): going up (straight or across), a face that steps back from the hands (a piece set 20 cm behind
     // the one under it, its top too shallow to stand on) is climbed on to as CLIMB3 climbs past a sill - the step's top
     // passed (w.past: straight up in front of it, unpressed, so no press lifts the body onto its edge and leaves it
     // perched there), then the grab's own reach to the face over it (w.seek) - where the climb stopped under the step
-    if (!held() && vert > 0 && !side && !w.seek && w.past == null) {
+    if (!held() && vert > 0 && !w.seek && w.past == null) {
       this._fcMove(was, 0, vert, v, n, dt);
       const s = this.pos[1] - was[1] > 1e-4 && bandsClear(this.collider, this.pos, this.height)
         ? wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH) : null;
@@ -2473,23 +2490,36 @@ export class PlayerMotor {
     const w = this._wall;
     const t = [-n[2], 0, n[0]];   // the across move's own +1 (_fcMove: -nz * side, nx * side)
     const from = [this.pos[0], this.pos[1], this.pos[2]];
+    const into = [-n[0], 0, -n[2]];
+    const rises = (s) => {
+      const q = [from[0] + t[0] * s, from[1] + PARKOUR_SIDESTEP_RISE, from[2] + t[2] * s];
+      return capsuleFits(this.collider, q, this.height) && !!wallContact(this.collider, q, into, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT);
+    };
+    /** the nearest place within `room` that rises, each of `dirs` asked at every probe: { s, k } or null */
+    const search = (dirs, room) => {
+      for (let k = 1; k * PARKOUR_SIDESTEP_PROBE <= room + 1e-9; k++) for (const s of dirs) if (rises(s * k * PARKOUR_SIDESTEP_PROBE)) return { s, k };
+      return null;
+    };
     if (w.sidestep == null) {
-      const into = [-n[0], 0, -n[2]];
-      const rises = (s) => {
-        const q = [from[0] + t[0] * s, from[1] + PARKOUR_SIDESTEP_RISE, from[2] + t[2] * s];
-        return capsuleFits(this.collider, q, this.height) && !!wallContact(this.collider, q, into, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT);
-      };
-      for (let k = 1; k * PARKOUR_SIDESTEP_PROBE <= PARKOUR_SIDESTEP_MAX + 1e-9 && w.sidestep == null; k++) {
-        for (const s of [1, -1]) if (rises(s * k * PARKOUR_SIDESTEP_PROBE)) { w.sidestep = { dir: s, want: k * PARKOUR_SIDESTEP_PROBE, gone: 0, y0: from[1] }; break; }
-      }
-      if (w.sidestep == null) return false;
+      const f = search([1, -1], PARKOUR_SIDESTEP_MAX);
+      // AUDIT: a search that found nothing is kept as one (no way), and not asked again every step while the climber
+      // stays stuck under the same top - until the climb moves (Back, Left or Right, or a rise clears it)
+      w.sidestep = f ? { dir: f.s, want: f.k * PARKOUR_SIDESTEP_PROBE, gone: 0, y0: from[1] } : { dir: 0, want: 0, gone: 0, y0: from[1] };
+      if (!f) return false;
     }
     const st = w.sidestep;
-    if (st.gone >= st.want) return false;
+    if (st.gone >= st.want) {
+      // AUDIT: there and still stuck (the search's fit admits the touch of an edge the resolve then refuses - a jamb
+      // over the body's middle): on the same way, the next place that rises, within what is left of the reach
+      if (!st.dir || st.gone >= PARKOUR_SIDESTEP_MAX) return false;
+      const f = search([st.dir], PARKOUR_SIDESTEP_MAX - st.gone);
+      if (!f) { st.want = st.gone = PARKOUR_SIDESTEP_MAX; return false; }
+      st.want = st.gone + f.k * PARKOUR_SIDESTEP_PROBE;
+    }
     const d = v * DIAGONAL_FACTOR;   // along and up in the one step, at the climb's diagonal pace
     this._fcMove(from, st.dir, 0, Math.min(d, (st.want - st.gone) / dt), n, dt);
     const gone = Math.abs(t[0] * (this.pos[0] - from[0]) + t[2] * (this.pos[2] - from[2]));
-    if (gone < 1e-4 || !held()) { this.pos[0] = from[0]; this.pos[1] = from[1]; this.pos[2] = from[2]; st.gone = st.want; return false; }
+    if (gone < 1e-4 || !held()) { this.pos[0] = from[0]; this.pos[1] = from[1]; this.pos[2] = from[2]; st.gone = st.want = PARKOUR_SIDESTEP_MAX; return false; }
     st.gone += gone;
     if (w.stuck) {
       const along = [this.pos[0], this.pos[1], this.pos[2]];
@@ -2499,16 +2529,20 @@ export class PlayerMotor {
     return true;
   }
 
-  /** CORNER-TOP: the way into the corner's other wall - along the held wall, on the side the look is turned to by
-   *  PARKOUR_CORNER_LOOK or more - when a face turned to the body stands there within the climber's contact; else null. */
-  _fcCornerWall(into, look) {
-    if (!look) return null;
-    const t = [-into[2], 0, into[0]];
-    const a = look[0] * t[0] + look[2] * t[2];
-    if (Math.abs(a) < PARKOUR_CORNER_LOOK) return null;
-    const dir = [t[0] * Math.sign(a), 0, t[2] * Math.sign(a)];
-    const c = wallContact(this.collider, this.pos, dir, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT);
-    return c && -(c.normal[0] * dir[0] + c.normal[2] * dir[2]) >= PARKOUR_FACE_FOLLOW ? dir : null;
+  /** CORNER-TOP: which way along the held wall (+1, -1) the look is turned by PARKOUR_CORNER_LOOK or more, else 0. */
+  _fcCornerSide(into, look) {
+    if (!look) return 0;
+    const a = look[0] * -into[2] + look[2] * into[0];
+    return Math.abs(a) < PARKOUR_CORNER_LOOK ? 0 : Math.sign(a);
+  }
+
+  /** CORNER-TOP: the way into the corner's other wall - along the held wall, on the `side` the look was turned to as the
+   *  hands took it - when a face stands there within the climber's contact; else null. How square that
+   *  face must stand is the ledge sensor's own law (its facing test, 50 degrees), asked by the top-out along it. */
+  _fcCornerWall(into, side) {
+    if (!side) return null;
+    const dir = [-into[2] * side, 0, into[0] * side];
+    return wallContact(this.collider, this.pos, dir, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT) ? dir : null;
   }
 
   /** STEP-BACK: the top of the face the hands held, from the feet `at` up - the first level ray along `into` that no
@@ -2570,7 +2604,7 @@ export class PlayerMotor {
 
   /** CLIMB2: is the free climber where the move put it still on the wall, and clear of everything (bandsClear)? */
   _fcHeld(n, w) {
-    return !!wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, w.seek || w.past != null ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)
+    return !!wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, w.seek || w.past != null || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)
       && bandsClear(this.collider, this.pos, this.height);
   }
 

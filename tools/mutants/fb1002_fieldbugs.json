@@ -38,8 +38,8 @@
   {
     "name": "HUNT-FOES-the-minutes-lost-with-the-slot",
     "file": "src/scenes/hunting.js",
-    "old": "        if (outcome) advanceMinutes?.(minutes);",
-    "new": "        if (searched && outcome) advanceMinutes?.(minutes);",
+    "old": "if (outcome) advanceMinutes?.(minutes, { quiet: !searched });",
+    "new": "if (searched && outcome) advanceMinutes?.(minutes, { quiet: !searched });",
     "tests": [
       "test/fb1002_fieldbugs.test.js"
     ]

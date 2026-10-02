@@ -12,8 +12,9 @@
 //                       hasBow, skills: { archery, stealth,
 //                       criticalStrike, climbing } }
 //   showOverlay(w) - the slot; overlayActive() - the slot's latch
-//   advanceMinutes(n) - the host's ticker (offline the clock moves;
-//                       online it stands, WORLD5)
+//   advanceMinutes(n, { quiet }) - the host's ticker (offline the clock
+//                       moves; online it stands, WORLD5); `quiet`, no
+//                       encounter roll on the replay (a box taken away)
 //   spawnBeast({ mobileType, count }) - the host's placement door
 //   inflictPoison / inflictDisease - the formulas (the law is pure)
 //   tally(skillId) - the host's tallySkill
@@ -77,8 +78,10 @@ export function createHunting({
       onClosed: (searched) => {
         _win = null;
         // HUNT-FOES: the search's minutes pass as the box closes, not under it - offline the host spends them through
-        // the encounter tick, whose wanderer was stood 10-20 m off, facing a hunter the result page still held
-        if (outcome) advanceMinutes?.(minutes);
+        // the encounter tick, whose wanderer was stood 10-20 m off, facing a hunter the result page still held. AUDIT:
+        // a box taken from under a given result (a death screen, a load) spends them `quiet` - the clock alone, no
+        // encounter rolled over a corpse or the game being replaced
+        if (outcome) advanceMinutes?.(minutes, { quiet: !searched });
         if (searched && outcome?.beast) spawnBeast?.(outcome.beast);   // AUDIT SURV C: only after a search - a window dropped from under (a death) stands nothing
       },
     });

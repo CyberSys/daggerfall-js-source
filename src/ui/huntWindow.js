@@ -12,7 +12,8 @@
 //
 // FORAGE4 (2026-09-28): THE ONE CONSTRUCTION SEAM - Foraging's online
 // wait (scenes/foragingWait.js) is this page, not a second one. Four
-// options, the hunt keeping its defaults: `ask: false` opens on the busy
+// options (the hunt keeps three at their defaults and, since HUNT-FOES,
+// hands `interruptWhen` a foe near): `ask: false` opens on the busy
 // page; `escape: false` takes no Escape (the wait is the cost - offline
 // the hours are gone at once), and the page's caption says nothing it
 // does not keep; `interruptWhen` is asked every busy frame (and every

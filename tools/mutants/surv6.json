@@ -146,7 +146,7 @@
   {
     "name": "SURV6-the-minutes-never-pass",
     "file": "src/scenes/hunting.js",
-    "old": "        if (outcome) advanceMinutes?.(minutes);\n",
+    "old": "        if (outcome) advanceMinutes?.(minutes, { quiet: !searched });\n",
     "new": "",
     "tests": [
       "test/surv6_hunting.test.js"
