@@ -3532,7 +3532,8 @@ ${badgeCss()}
    element wears (the gauntlet included); a ::-webkit-scrollbar one takes its scroller's. Chromium (121+) draws the
    native one wherever scrollbar-color or scrollbar-width applies - and scrollbar-color inherits, so the standard pair
    stands only where ::-webkit-scrollbar does not (Firefox). Unscoped, so a scroller outside .shell and .px-win is held. */
-::-webkit-scrollbar { width: 10px; height: 10px; }
+@media (any-pointer: fine) {   /* AUDIT part five UI2: a touch screen keeps its overlay scrollbar - no cursor to keep */
+::-webkit-scrollbar { width: 10px; height: 10px; } }
 ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
 ::-webkit-scrollbar-thumb {
   background: rgba(125,116,96,0.5); border: 2px solid rgba(0,0,0,0.3); border-radius: 0; }

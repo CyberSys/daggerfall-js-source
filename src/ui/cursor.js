@@ -15,6 +15,14 @@ const SCALE = 2;   // the 32x16 source reads too small at modern DPI
 // inside the viewport, and the OS arrow anywhere else (64 px wide was the arrow within 64 px of the right edge). The
 // image is cropped to what it draws first; the hotspot is (0,0), so the crop keeps it.
 export const MAX_CURSOR_DIP = 32;
+/** CURSOR-EDGE (AUDIT part five UI1): a native scrollbar shows the OS arrow whatever <html> wears, and a classic page
+ *  never lays ENHANCED_CSS (the chat, the social panel, the profile and the decorator mount on either skin) - so the
+ *  document cursor brings the enhanced sheet's dress itself; a pointer device only (UI2: a touch screen keeps its
+ *  overlay scrollbar, and has no cursor to keep). */
+export const CURSOR_SCROLLBAR_CSS = `@media (any-pointer: fine) {
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+::-webkit-scrollbar-thumb { background: rgba(125,116,96,0.5); border: 2px solid rgba(0,0,0,0.3); border-radius: 0; } }`;
 export const cursorScale = (w, h) => Math.max(1, Math.min(SCALE, Math.floor(MAX_CURSOR_DIP / Math.max(w, h))));
 /** The drawn extent from the (0,0) corner: one past the right- and bottom-most pixel with any alpha (RGBA bytes). */
 export function drawnExtent(rgba, w, h) {
@@ -44,6 +52,11 @@ export async function installCursor(fetchBytes) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(src, 0, 0, w, h, 0, 0, out.width, out.height);
     document.documentElement.style.cursor = `url(${out.toDataURL()}) 0 0, auto`;
+    if (!document.getElementById('df-cursor-scrollbars')) {
+      const st = document.createElement('style');
+      st.id = 'df-cursor-scrollbars'; st.textContent = CURSOR_SCROLLBAR_CSS;
+      document.head.append(st);
+    }
     return true;
   } catch (e) {
     console.warn('[cursor] CURSOR.IMG unavailable; the OS cursor stands in', e);
