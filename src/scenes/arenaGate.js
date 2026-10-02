@@ -2,7 +2,8 @@
 // ARENA3 (2026-10-02, Mac: "join a team (red and blue)"; "Joining a team comes with it's own enhanced UI"): THE GATE'S
 // PEOPLE WHO ARE NOT THE HERALD - the Red and Blue Banners' recruiters, and (with the book) the bookmaker - answered in
 // ONE place for both hosts that stand the colosseum (scenes/world.js, the streaming world; scenes/exterior.js, the city
-// alone), so the two never drift. Design: bible/11-Multiplayer/Arena.md "3. The teams", "5. The Arena window".
+// alone), so the two never drift; and THE ARENA WINDOW's model and its presses (ui/arenaDoor.js, systems/arenaBoard.js).
+// Design: bible/11-Multiplayer/Arena.md "3. The teams", "5. The Arena window".
 //
 // Each person's word is a keyed choice (ui/talkWindow.js ChoiceWindow - the enhanced dialog on the Plus skin, the panel
 // on the classic one) built by the pure law (systems/arenaHerald.js recruiterChoice); this file only does what a choice
@@ -15,10 +16,19 @@ import { ChoiceWindow } from '../ui/talkWindow.js';
 import { recruiterChoice, quitAsk } from '../systems/arenaHerald.js';
 import { joinBanner, quitBanner, rollLeague } from '../systems/arenaLeague.js';
 import { ARENA_TEXT } from '../systems/arenaText.js';
-import { bookmakerChoice, stakeChoice, placeWager, settleBook, bookVerdict, collectWinnings, priceText, exhibitionOdds, priceFor } from '../systems/arenaBook.js';
+import { bookmakerChoice, stakeChoice, placeWager, settleBook, bookVerdict, collectWinnings, oddsText, exhibitionOdds, priceFor } from '../systems/arenaBook.js';
 import { exhibitionFor } from '../systems/arenaLadder.js';
 import { fighterIdentity } from '../systems/arenaFighters.js';
 import { totalGoldAmount, deductGold, addGold } from '../systems/court.js';
+import { arenaBoard } from '../systems/arenaBoard.js';
+import { nextLadderBout } from '../systems/arenaLadder.js';
+import { FIGHT_HEALTH_MIN } from '../systems/arenaHerald.js';
+import { createArenaOverlay, closeArenaDoor } from '../ui/arenaDoor.js';
+
+/** How near the Herald the Arena window's Watch, Fight and Wager may be pressed, metres (the gate and its plaza). */
+export const AT_GATE_M = 60;
+/** Whether feet stand at the gate: within AT_GATE_M of the Herald's place (`herald` null - no gate here). */
+export const nearArenaGate = (feet, herald) => !!feet && !!herald && Math.hypot(feet[0] - herald[0], feet[2] - herald[2]) <= AT_GATE_M;
 
 /** The recruiters by their office (world/arenaCity.js ARENA_GATE_PEOPLE `role`) and the banner each keeps. */
 export const RECRUITER_BANNER = Object.freeze({ redRecruiter: 'red', blueRecruiter: 'blue' });
@@ -27,12 +37,17 @@ export const RECRUITER_BANNER = Object.freeze({ redRecruiter: 'red', blueRecruit
  * @param {{
  *   playerEntity: any, gameMinutes: () => number, showOverlay: (w: any) => void, say?: (line: string) => void,
  *   openWindow?: ((page?: string) => any) | null, liveHour?: () => (number|null), begun?: () => boolean,
- * }} deps `openWindow` the host's door to the Arena window (ui/arenaDoor.js), or null where it does not open;
+ *   heraldAct?: (a: string) => void, atGate?: () => boolean, onSand?: () => ({ a: string, b: string } | null),
+ * }} deps `openWindow` a door to the Arena window in place of the gate's own (ui/arenaDoor.js - null: none opens);
+ *   `heraldAct` the Herald's own doors (watch, fight - the window's presses), `atGate` whether the player stands at the
+ *   gate (systems/arenaGate.js nearArenaGate), `onSand` the names on the city's sand now;
  *   `liveHour` the hour whose exhibition stands on a floor here (its wager waits for its verdict), `begun` whether that
  *   bout's fight has begun (the book shuts at the word)
  */
 export function createArenaGate(deps) {
   const P = deps.playerEntity;
+  /** The window's door: the host's own, or the gate's (ui/arenaDoor.js, shown in the host's slot). */
+  const openWindow = deps.openWindow === undefined ? (page) => { const ov = windowOverlay(page); if (ov) deps.showOverlay(ov); return !!ov; } : deps.openWindow;
   const gm = () => Math.floor(Number(deps.gameMinutes()) || 0);
   const say = (line) => deps.say?.(line);
   /** The league on today's season, written back so the save carries the roll. */
@@ -47,13 +62,13 @@ export function createArenaGate(deps) {
   function recruiter(role) {
     const banner = RECRUITER_BANNER[role];
     if (!banner) return false;
-    const name = ARENA_TEXT.teams.name[banner];
-    const ch = recruiterChoice({ banner, league: league(), gameMinutes: gm(), window: typeof deps.openWindow === 'function' });
+    const name = ARENA_TEXT.teams.the[banner];
+    const ch = recruiterChoice({ banner, league: league(), gameMinutes: gm(), window: typeof openWindow === 'function' });
     choice(ch, (a) => {
       if (a === 'join') {
         const r = joinBanner(league(), banner, gm());
         P.arenaLeague = r.league;
-        if (r.ok) { say(ARENA_TEXT.recruiter.joined(name)); deps.openWindow?.('team'); }
+        if (r.ok) { say(ARENA_TEXT.recruiter.joined(name)); openWindow?.('team'); }
       } else if (a === 'quit') {
         choice(quitAsk(banner), (b) => {
           if (b !== 'quit') return;
@@ -61,7 +76,7 @@ export function createArenaGate(deps) {
           P.arenaLeague = r.league;
           if (r.ok) say(ARENA_TEXT.recruiter.quitDone(name));
         });
-      } else if (a === 'window') deps.openWindow?.('team');
+      } else if (a === 'window') openWindow?.('team');
     });
     return true;
   }
@@ -86,12 +101,12 @@ export function createArenaGate(deps) {
     deductGold(P, r.cost);
     setBook(r.book);
     const name = fighterIdentity(ex.seed, side, ex.opponents[side].mobile).name;
-    return { ok: true, text: B.taken(r.cost, name, priceText(priceFor(exhibitionOdds(ex)[side]))) };
+    return { ok: true, text: B.taken(r.cost, name, oddsText(priceFor(exhibitionOdds(ex)[side]))) };
   }
   /** THE BOOKMAKER'S CHOICE: collect, back a fighter (then the stake), the window, leave. True: it is up. */
   function bookmaker() {
     settle();
-    const ch = bookmakerChoice({ league: league(), gameMinutes: gm(), gold: totalGoldAmount(P), begun: begun(), window: typeof deps.openWindow === 'function' });
+    const ch = bookmakerChoice({ league: league(), gameMinutes: gm(), gold: totalGoldAmount(P), begun: begun(), window: typeof openWindow === 'function' });
     choice(ch, (a) => {
       if (a === 'collect') {
         const r = collectWinnings(league().book);
@@ -102,16 +117,48 @@ export function createArenaGate(deps) {
         if (!ex) return;
         const side = a === 'back1' ? 1 : 0;
         const name = fighterIdentity(ex.seed, side, ex.opponents[side].mobile).name;
-        const price = priceText(priceFor(exhibitionOdds(ex)[side]));
+        const price = oddsText(priceFor(exhibitionOdds(ex)[side]));
         choice(stakeChoice({ name, price, gold: totalGoldAmount(P) }), (b, o) => {
           if (b !== 'stake') return;
           const r = wager(ex.hour, side, o.stake);
           say(r.text);
         });
-      } else if (a === 'window') deps.openWindow?.('bouts');
+      } else if (a === 'window') openWindow?.('bouts');
     });
     return true;
   }
 
-  return { recruiter, bookmaker, wager, settle, verdictSeen };
+  // ── THE ARENA WINDOW ────────────────────────────────────────────────────────────────────────────────────
+  /** THE WINDOW'S MODEL now (systems/arenaBoard.js): the save's ladder and league (the book settled first), the clock,
+   *  the gate's state. */
+  function board() {
+    settle();
+    return arenaBoard({
+      ladder: P.arenaLadder, league: league(), gameMinutes: gm(), name: P.name ?? '', atGate: !!deps.atGate?.(), onSand: deps.onSand?.() ?? null,
+      healthShare: (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1), gold: totalGoldAmount(P), liveHour: liveHour(), begun: begun(),
+    });
+  }
+  /** A PRESS IN THE WINDOW: Watch and Fight are the Herald's (the window goes, the floor's instance comes); Wager is the
+   *  book's. Each refused at the host too - a press the model allowed a frame ago may not stand now. */
+  function windowAct(kind, data = {}) {
+    const atGate = !!deps.atGate?.();
+    if (kind === 'wager') {
+      if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
+      return wager(data.hour, data.side === 1 ? 1 : 0, Math.floor(Number(data.stake) || 0));
+    }
+    if (kind === 'watch' || kind === 'fight') {
+      if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
+      if (kind === 'fight' && (!nextLadderBout(P.arenaLadder) || (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN)) return { ok: false, text: ARENA_TEXT.window.whyHurt };
+      closeArenaDoor();
+      deps.heraldAct?.(kind);
+      return { ok: true, text: '' };
+    }
+    return { ok: false, text: '' };
+  }
+  /** THE ARENA WINDOW as an overlay for a host's slot (not shown - the host shows it where it holds overlays), on `page`. */
+  function windowOverlay(page = 'bouts') {
+    return createArenaOverlay({ page, board: () => board(), act: (k, d) => windowAct(k, d) });
+  }
+
+  return { recruiter, bookmaker, wager, settle, verdictSeen, board, windowAct, windowOverlay, openWindow: (page) => openWindow?.(page) ?? false };
 }

@@ -3568,6 +3568,9 @@ function pauseStats(body) {
   // opens nothing is PX14's drawn door.
   const doors = statsSec === 'master' ? [] : [   // SOFTCAP6: the Master Skills page carries none of the sheet's doors
     ['Pack', hooks.openPack], ['Spellbook', hooks.openSpellbook], ['Chronicle', hooks.openChronicle],
+    // ARENA3: THE ARENA WINDOW, once a banner is worn (bible/11-Multiplayer/Arena.md 5 - "from the pause menu's Arena entry
+    // once you have joined"): the host's arm (scenes/arenaGate.js windowOverlay, shown in its own slot)
+    ['Arena', hooks.arenaJoined?.() ? hooks.openArena : undefined],
   ].filter(([, fn]) => typeof fn === 'function');
   if (doors.length) {
     const row = el('div', 'px-sheetdoors');

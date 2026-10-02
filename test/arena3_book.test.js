@@ -64,8 +64,8 @@ test('ARENA3 book: the price - the fair price less the house\'s tenth, rounded d
   assert.ok(BK.priceFor(0.2)[0] / BK.priceFor(0.2)[1] > BK.priceFor(0.6)[0] / BK.priceFor(0.6)[1], 'the outsider pays more');
   assert.deepEqual(BK.priceFor(0.999), [1, 5], 'the shortest price he gives');
   assert.deepEqual(BK.priceFor(0.001), [10, 1], 'the longest');
-  assert.equal(BK.priceText([1, 1]), 'evens');
-  assert.equal(BK.priceText([7, 4]), '7 to 4');
+  assert.equal(BK.oddsText([1, 1]), 'evens');
+  assert.equal(BK.oddsText([7, 4]), '7 to 4');
   assert.equal(BK.payoutFor(100, [7, 4]), 275);
   assert.equal(BK.payoutFor(10, [5, 6]), 18, 'whole gold, rounded down');
   assert.equal(BK.payoutFor(50, [1, 1]), 100);
@@ -165,7 +165,7 @@ test('ARENA3 the gate\'s stall: back a fighter over a real purse, the verdict se
   const P = { goldPieces: 400, items: [], arenaLeague: null };
   const shown = [], said = [];
   let live = null, begun = false;
-  const gate = createArenaGate({ playerEntity: P, gameMinutes: () => gm, showOverlay: (w) => shown.push(w), say: (l) => said.push(l), liveHour: () => live, begun: () => begun });
+  const gate = createArenaGate({ playerEntity: P, gameMinutes: () => gm, showOverlay: (w) => shown.push(w), say: (l) => said.push(l), liveHour: () => live, begun: () => begun, openWindow: null });
   assert.equal(gate.bookmaker(), true);
   assert.ok(!shown.at(-1).options.some((o) => o.code === 'KeyW'), 'no window from a host without one');
   shown.at(-1).input('KeyB');
@@ -173,7 +173,7 @@ test('ARENA3 the gate\'s stall: back a fighter over a real purse, the verdict se
   assert.equal(P.goldPieces, 300, 'paid from the purse');
   const w = P.arenaLeague.book.wagers[0];
   assert.deepEqual([w.side, w.stake], [1, 100]);
-  assert.equal(said.at(-1), ARENA_TEXT.book.taken(100, w.names[1], BK.priceText([w.num, w.den])));
+  assert.equal(said.at(-1), ARENA_TEXT.book.taken(100, w.names[1], BK.oddsText([w.num, w.den])));
   assert.deepEqual(gate.wager(ex.hour, 0, 50), { ok: false, text: ARENA_TEXT.book.whyRefused.placed });
   assert.deepEqual(gate.wager(ex.hour + 1, 0, 50), { ok: false, text: ARENA_TEXT.book.whyRefused.closed }, 'only the hour\'s bout');
   live = ex.hour;

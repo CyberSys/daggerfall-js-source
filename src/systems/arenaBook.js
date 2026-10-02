@@ -100,7 +100,7 @@ export function priceFor(p) {
   return /** @type {[number, number]} */ ([best[0], best[1]]);
 }
 /** A price said: "evens", "7 to 4". */
-export const priceText = ([num, den]) => (num === den ? B().evens : B().price(num, den));
+export const oddsText = ([num, den]) => (num === den ? B().evens : B().price(num, den));
 /** What a winning stake pays back, stake and winnings, in whole gold. */
 export const payoutFor = (stake, [num, den]) => Math.max(0, Math.floor(stake)) + Math.floor((Math.max(0, Math.floor(stake)) * num) / den);
 
@@ -189,7 +189,7 @@ export function collectWinnings(book) {
 // ── WHAT THE WINDOW AND THE STALL SAY ────────────────────────────────────────────────────────────────────────
 /** A wager in a line: "50 gold on Gorlak gro-Mazgul at 7 to 4 - won 137 gold". */
 export function wagerLine(w) {
-  const on = B().wagerOn(w.stake, w.names[w.side] || ARENA_TEXT.window.fighter, priceText([w.num, w.den]));
+  const on = B().wagerOn(w.stake, w.names[w.side] || ARENA_TEXT.window.fighter, oddsText([w.num, w.den]));
   if (w.status === 'open') return `${on} - ${B().open}`;
   if (w.status === 'won') return `${on} - ${B().wonLine(w.paid)}`;
   if (w.status === 'draw') return `${on} - ${B().drawLine}`;
@@ -210,7 +210,7 @@ export function exhibitionCard(league, ex, gameMinutes, { gold = 0, begun = fals
   const w = wagerOn(book, ex.hour);
   const why = !ex.open || begun ? B().whyClosed : w ? B().whyPlaced : !atGate ? ARENA_TEXT.window.whyGate : gold < STAKE_MIN ? B().whyGold : null;
   return {
-    records: recs.map((r) => ARENA_TEXT.window.wl(r.wins, r.losses)), odds: prices.map(priceText), prices,
+    records: recs.map((r) => ARENA_TEXT.window.wl(r.wins, r.losses)), odds: prices.map(oddsText), prices,
     favourite: odds[0] >= odds[1] ? 0 : 1, chances: odds, why, wager: w ? wagerLine(w) : '',
     stakes: STAKES.filter((s) => s <= gold), lines: [],
     kinds: ex.opponents.map((o) => enemyDisplayName(o.mobile) ?? ''),
@@ -234,8 +234,8 @@ export function bookmakerChoice({ league, gameMinutes, gold, begun = false, wind
     const prices = exhibitionOdds(ex).map(priceFor);
     lines.push(B().bout(names[0], names[1]));
     const recs = [0, 1].map((i) => exhibitionRecord(ex, i));
-    lines.push(B().priced(names[0], priceText(prices[0]), ARENA_TEXT.window.recordLine(recs[0].wins, recs[0].losses)));
-    lines.push(B().priced(names[1], priceText(prices[1]), ARENA_TEXT.window.recordLine(recs[1].wins, recs[1].losses)));
+    lines.push(B().priced(names[0], oddsText(prices[0]), ARENA_TEXT.window.recordLine(recs[0].wins, recs[0].losses)));
+    lines.push(B().priced(names[1], oddsText(prices[1]), ARENA_TEXT.window.recordLine(recs[1].wins, recs[1].losses)));
     const w = wagerOn(book, ex.hour);
     const why = wagerRefusal(book, ex, Math.min(gold, STAKE_MIN), { gold, begun });
     if (w) lines.push(B().standing(wagerLine(w)));
@@ -243,8 +243,8 @@ export function bookmakerChoice({ league, gameMinutes, gold, begun = false, wind
     else if (why === 'gold' || why === 'stake') lines.push(B().whyGold);
     else {
       lines.push(B().edge);
-      options.push({ code: 'KeyA', label: B().back('A', names[0], priceText(prices[0])), act: 'back0' });
-      options.push({ code: 'KeyB', label: B().back('B', names[1], priceText(prices[1])), act: 'back1' });
+      options.push({ code: 'KeyA', label: B().back('A', names[0], oddsText(prices[0])), act: 'back0' });
+      options.push({ code: 'KeyB', label: B().back('B', names[1], oddsText(prices[1])), act: 'back1' });
     }
   }
   if (window) options.push({ code: 'KeyW', label: B().window, act: 'window' });

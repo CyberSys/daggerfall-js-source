@@ -17,9 +17,10 @@ import { rollLeague, leagueStandings, joinRefusal, laurelWorn, otherBanner } fro
 export const FIGHT_HEALTH_MIN = 0.5;
 
 /**
- * @param {{ gameMinutes: number, cityBout?: { a: string, b: string } | null, ladder?: any, healthShare?: number }} o
+ * ARENA3: `window` - the host opens the Arena window ("A - The Arena window").
+ * @param {{ gameMinutes: number, cityBout?: { a: string, b: string } | null, ladder?: any, healthShare?: number, window?: boolean }} o
  */
-export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, healthShare = 1 }) {
+export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, healthShare = 1, window = true }) {
   const H = ARENA_TEXT.herald;
   const lines = [];
   const hour = Math.floor(Math.max(0, gameMinutes) / 60);
@@ -41,6 +42,7 @@ export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, heal
   const options = [];
   if (canWatch) options.push({ code: 'KeyW', label: H.watch, act: 'watch' });
   if (next && fit) options.push({ code: 'KeyF', label: H.fight, act: 'fight' });
+  if (window) options.push({ code: 'KeyA', label: H.window, act: 'window' });   // ARENA3: the Arena window's first door
   options.push({ code: 'KeyH', label: H.hall, act: 'hall' });
   options.push({ code: 'KeyL', label: H.leave, act: 'leave' });
   options.push({ code: 'Escape', label: null, act: 'leave' });   // the key alone: Escape leaves him
@@ -57,7 +59,7 @@ export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, heal
  */
 export function recruiterChoice({ banner, league, gameMinutes, window = true }) {
   const R = ARENA_TEXT.recruiter, T = ARENA_TEXT.teams;
-  const me = T.name[banner];
+  const me = T.the[banner];
   const L = rollLeague(league, gameMinutes);
   const st = leagueStandings(L, gameMinutes);
   const lines = [...R.greet[banner], ''];
@@ -65,8 +67,8 @@ export function recruiterChoice({ banner, league, gameMinutes, window = true }) 
   lines.push(T.standing(st.red, st.blue));
   const why = joinRefusal(L, banner, gameMinutes);
   if (why === 'already') { lines.push(R.yours(me)); lines.push(T.given(st.given)); if (laurelWorn(L, gameMinutes)) lines.push(T.laurelYou); }
-  else if (why === 'other') lines.push(R.theirs(T.name[otherBanner(banner)]));
-  else if (why === 'season') lines.push(R.wait(T.name[otherBanner(banner)]));
+  else if (why === 'other') lines.push(R.theirs(T.the[otherBanner(banner)]));
+  else if (why === 'season') lines.push(R.wait(T.the[otherBanner(banner)]));
   else { lines.push(R.pitch); lines.push(R.rule); }
   const options = [];
   if (!why) options.push({ code: 'KeyJ', label: R.join(me), act: 'join' });
@@ -80,7 +82,7 @@ export function recruiterChoice({ banner, league, gameMinutes, window = true }) 
 export function quitAsk(banner) {
   const R = ARENA_TEXT.recruiter;
   return {
-    lines: [R.askQuit(ARENA_TEXT.teams.name[banner])],
+    lines: [R.askQuit(ARENA_TEXT.teams.the[banner])],
     options: [{ code: 'KeyY', label: R.yes, act: 'quit' }, { code: 'KeyN', label: R.no, act: 'stay' }, { code: 'Escape', label: null, act: 'stay' }],
   };
 }

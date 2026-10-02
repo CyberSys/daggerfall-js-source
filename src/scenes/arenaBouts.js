@@ -491,7 +491,7 @@ export function createArenaBouts(deps) {
         const league = leagueAfterBout(P.arenaLeague, { gameMinutes: gm, tier: C.next.tier, label: C.next.label, opp, won, how: r.side === null ? 'draw' : won ? r.how : (boutFighter(C.b, YOU)?.out ?? r.how), purse, champion: C.next.champion, grand: C.next.grand });
         P.arenaLeague = league;
         const pts = league.bouts[0]?.points ?? 0;
-        if (pts > 0 && league.team) lines.push(ARENA_TEXT.ladder.points(pts, ARENA_TEXT.teams.name[league.team]));
+        if (pts > 0 && league.team) lines.push(ARENA_TEXT.ladder.points(pts, ARENA_TEXT.teams.the[league.team]));
       }
       deps.ladderChanged?.(out.ladder, out);
       deps.notice?.(lines);

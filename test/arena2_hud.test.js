@@ -153,9 +153,11 @@ test('ARENA2 HUD sheet and dress: the pixel face, reduced motion, touch sizes, t
 test('ARENA2 Herald: his choice - watch while a bout stands or the hour\'s is open, fight when fit, the hall, leave; each refusal said', () => {
   const day = 400 * 1440;
   const open = heraldChoice({ gameMinutes: day + 12 * 60 + 5, ladder: newArenaLadder() });
-  assert.deepEqual(open.options.map((o) => o.act), ['watch', 'fight', 'hall', 'leave', 'leave']);
-  assert.deepEqual(open.options.map((o) => o.code), ['KeyW', 'KeyF', 'KeyH', 'KeyL', 'Escape']);
-  assert.equal(open.options[4].label, null, 'Escape is a key alone');
+  // ARENA3 moved this pin: the Herald is the Arena window's first door (bible/11-Multiplayer/Arena.md 5 - "opened by the
+  // Herald"), so his choice carries "A - The Arena window" between Fight and the hall
+  assert.deepEqual(open.options.map((o) => o.act), ['watch', 'fight', 'window', 'hall', 'leave', 'leave']);
+  assert.deepEqual(open.options.map((o) => o.code), ['KeyW', 'KeyF', 'KeyA', 'KeyH', 'KeyL', 'Escape']);
+  assert.equal(open.options[5].label, null, 'Escape is a key alone');
   assert.ok(open.lines.includes(ARENA_TEXT.herald.ladderNext('The Pit', 'bout 1 of 3')));
   const shut = heraldChoice({ gameMinutes: day + 23 * 60, ladder: newArenaLadder() });
   assert.ok(!shut.options.some((o) => o.act === 'watch'));

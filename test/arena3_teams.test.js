@@ -173,17 +173,17 @@ test('ARENA3 recruiters: the pitch and the standing; join where it will take you
   assert.ok(red.lines.includes(R.pitch) && red.lines.includes(R.rule));
   assert.ok(red.lines.some((l) => l.startsWith('The season of 3E 405, day 14 of 360')));
   assert.deepEqual(red.options.map((o) => o.act), ['join', 'window', 'leave', 'leave']);
-  assert.equal(red.options[0].label, 'J - Join The Red Banner');
+  assert.equal(red.options[0].label, 'J - Join the Red Banner');
   const L1 = LG.joinBanner(L0, 'red', at(10)).league;
   const mine = recruiterChoice({ banner: 'red', league: L1, gameMinutes: at(10) });
   assert.deepEqual(mine.options.map((o) => o.act), ['quit', 'window', 'leave', 'leave']);
-  assert.ok(mine.lines.includes(R.yours('The Red Banner')));
+  assert.ok(mine.lines.includes(R.yours('the Red Banner')));
   const theirs = recruiterChoice({ banner: 'blue', league: L1, gameMinutes: at(10) });
   assert.deepEqual(theirs.options.map((o) => o.act), ['window', 'leave', 'leave'], 'nothing to join while you wear the Red');
-  assert.ok(theirs.lines.includes(R.theirs('The Red Banner')));
+  assert.ok(theirs.lines.includes(R.theirs('the Red Banner')));
   const quit = LG.quitBanner(L1, at(11)).league;
   const wait = recruiterChoice({ banner: 'blue', league: quit, gameMinutes: at(11) });
-  assert.ok(wait.lines.includes(R.wait('The Red Banner')), 'the season, said');
+  assert.ok(wait.lines.includes(R.wait('the Red Banner')), 'the season, said');
   assert.ok(!wait.options.some((o) => o.act === 'join'));
   assert.ok(recruiterChoice({ banner: 'red', league: quit, gameMinutes: at(11) }).options.some((o) => o.act === 'join'), 'the banner quit takes you back');
   assert.ok(!recruiterChoice({ banner: 'red', league: L0, gameMinutes: at(10), window: false }).options.some((o) => o.act === 'window'), 'no window, no button');
@@ -202,7 +202,7 @@ test('ARENA3 the gate: a recruiter\'s choice joins, quits after asking, opens th
   assert.equal(gate.recruiter('blueRecruiter'), true);
   shown.at(-1).input('KeyJ');
   assert.equal(P.arenaLeague.team, 'blue');
-  assert.deepEqual(said, [ARENA_TEXT.recruiter.joined('The Blue Banner')]);
+  assert.deepEqual(said, [ARENA_TEXT.recruiter.joined('the Blue Banner')]);
   assert.deepEqual(opened, ['team'], 'joining opens the Team page');
   gate.recruiter('blueRecruiter');
   shown.at(-1).input('KeyQ');
@@ -213,7 +213,7 @@ test('ARENA3 the gate: a recruiter\'s choice joins, quits after asking, opens th
   shown.at(-1).input('KeyQ');
   shown.at(-1).input('KeyY');
   assert.equal(P.arenaLeague.team, null);
-  assert.equal(said.at(-1), ARENA_TEXT.recruiter.quitDone('The Blue Banner'));
+  assert.equal(said.at(-1), ARENA_TEXT.recruiter.quitDone('the Blue Banner'));
   gate.recruiter('redRecruiter');
   assert.ok(!shown.at(-1).options.some((o) => o.code === 'KeyJ'), 'the Red waits a season');
   shown.at(-1).input('KeyA');
@@ -262,7 +262,7 @@ test('ARENA3 driver: my banner on the versus bar, an exhibition the Red against 
   assert.equal(P.arenaLeague.bouts.length, 1, 'kept for the Records page');
   assert.deepEqual([P.arenaLeague.bouts[0].won, P.arenaLeague.bouts[0].points, P.arenaLeague.points.blue], [true, 1, 1]);
   assert.ok(P.arenaLeague.bouts[0].opp.length > 0, 'the opponent named');
-  assert.ok(r.log.notice.includes(ARENA_TEXT.ladder.points(1, 'The Blue Banner')));
+  assert.ok(r.log.notice.includes(ARENA_TEXT.ladder.points(1, 'the Blue Banner')));
   // an exhibition: the Red's fighter against the Blue's; the laurel's banner favoured
   const P2 = { name: 'Hero', health: 100, maxHealth: 100, arenaLadder: newArenaLadder(), arenaLeague: { ...LG.newArenaLeague(), season: 405, since: 405, laurel: { banner: 'red', season: 405 } } };
   const r2 = rig(P2);

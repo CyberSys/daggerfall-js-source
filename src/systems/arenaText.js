@@ -67,6 +67,7 @@ export const ARENA_TEXT = F({
     fight: 'F - Fight on the ladder',
     hall: "H - Go down to the fighters' hall",
     leave: 'L - Leave',
+    window: 'A - The Arena window',   // ARENA3
     /** The refusals said in his box, beside the choice that cannot be taken. */
     noWatch: 'No bout on the sand right now - come back on the hour.',
     noFight: 'You are in no state to fight. Rest first, then come back.',
@@ -219,6 +220,8 @@ export const ARENA_TEXT = F({
     /** The banners' names, their short names and their mottoes, as the recruiters and the window say them. */
     name: F({ red: 'The Red Banner', blue: 'The Blue Banner' }),
     short: F({ red: 'Red', blue: 'Blue' }),
+    /** The banners named inside a sentence ("You fight under the Red Banner."). */
+    the: F({ red: 'the Red Banner', blue: 'the Blue Banner' }),
     motto: F({ red: 'Blood before bread.', blue: 'Steel before silver.' }),
     /** What each company is, in a line - the Team page's and the recruiter's. */
     lore: F({
@@ -307,6 +310,7 @@ export const ARENA_TEXT = F({
     gold: (n) => `${n} gold`,
     days: (n) => `${n} day${n === 1 ? '' : 's'}`,
     cleared: (n, tier) => `Tier ${n}, ${tier}`,
+    allTen: 'All ten tiers taken',
     leading: (b) => `${b} leads`,
     won: (b) => `${b} won`,
     levelShort: 'Level',
@@ -363,7 +367,7 @@ export const ARENA_TEXT = F({
       team: 'The banners', teamSub: 'Each season\'s points - the banner with more wears the laurel the next.',
     }),
     cols: F({
-      pve: F(['Title', 'Reached', 'Record']), fast: F(['Days', 'Season']), pvp: F(['Rating', 'Record']),
+      pve: F(['Title', 'Fights in', 'Record']), fast: F(['Days', 'Season']), pvp: F(['Rating', 'Record']),
       team: F(['Red', 'Blue', 'Result', 'You']),
     }),
     rank: 'Rank',

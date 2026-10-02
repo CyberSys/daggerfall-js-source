@@ -39,7 +39,8 @@ import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, t
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { heraldChoice } from '../systems/arenaHerald.js';   // ARENA2: the Herald's choice at the gate
-import { createArenaGate } from './arenaGate.js';   // ARENA3: the recruiters (and the bookmaker) at the gate
+import { createArenaGate, nearArenaGate } from './arenaGate.js';
+import { rollLeague } from '../systems/arenaLeague.js';   // ARENA3: the banner worn (the pause window's Arena door)   // ARENA3: the recruiters (and the bookmaker) at the gate
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once
@@ -7812,8 +7813,11 @@ export async function bootWorld(canvas, renderer, params, status) {
   registerPlayerSwingListener('arena', (n) => arenaBouts.playerSwing(n));
   // ARENA3: the banners' recruiters (and the book's bookmaker) at the gate - one home for both hosts (scenes/arenaGate.js)
   const arenaGate = createArenaGate({
-    playerEntity, gameMinutes: () => worldMinutes(), showOverlay: (w) => townTalk.showOverlay(w), say: (l) => townTalk.say(l), openWindow: null,
+    playerEntity, gameMinutes: () => worldMinutes(), showOverlay: (w) => townTalk.showOverlay(w), say: (l) => townTalk.say(l),
     liveHour: () => arenaBouts.hour(), begun: () => arenaBoutBegun(),
+    // the Arena window's Watch and Fight are the Herald's own, and are pressed only at the gate
+    heraldAct: (a) => arenaHeraldAct(a), atGate: () => (modes?.mode ?? 'exterior') === 'exterior' && nearArenaGate(player.pos, arenaHeraldAt()),
+    onSand: () => (arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null),
   });
   /** The exhibition standing here has had the word (the book on it is shut). */
   const arenaBoutBegun = () => { const b = arenaBouts.bout(); return arenaBouts.kind() === 'exhibition' && !!b && !['call', 'walk', 'count'].includes(b.phase); };
@@ -7882,23 +7886,27 @@ export async function bootWorld(canvas, renderer, params, status) {
     const ladder = arenaLadderRestore(playerEntity.arenaLadder);
     const sand = arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null;
     const ch = heraldChoice({ gameMinutes: worldMinutes(), cityBout: sand, ladder, healthShare: (playerEntity.health ?? 0) / Math.max(1, playerEntity.maxHealth ?? 1) });
-    const act = (a) => {
-      if (a === 'watch') {
-        const ex = exhibitionFor(worldMinutes());
-        if (!ex) return;
-        _arenaHourRun = ex.hour;
-        arenaBouts.dismiss();
-        arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
-        modes?.enterArenaFloor?.('watch');
-      } else if (a === 'fight') {
-        const next = nextLadderBout(ladder);
-        if (!next) return;
-        arenaBouts.ask({ where: 'floor', kind: 'ladder', next });
-        modes?.enterArenaFloor?.('ladder');
-      } else if (a === 'hall') modes?.enterArenaUndercroft?.();
-    };
-    townTalk.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => act(o.act) })) }));
+    townTalk.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => arenaHeraldAct(o.act) })) }));
     return true;
+  }
+  /** WHAT THE HERALD DOES on a choice - his own, and the Arena window's Watch and Fight (scenes/arenaGate.js): to the
+   *  floor's instance to watch the hour's exhibition or fight the ladder's next bout, down to the fighters' hall, or
+   *  (ARENA3) the Arena window. */
+  function arenaHeraldAct(a) {
+    if (a === 'watch') {
+      const ex = exhibitionFor(worldMinutes());
+      if (!ex) return;
+      _arenaHourRun = ex.hour;
+      arenaBouts.dismiss();
+      arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
+      modes?.enterArenaFloor?.('watch');
+    } else if (a === 'fight') {
+      const next = nextLadderBout(arenaLadderRestore(playerEntity.arenaLadder));
+      if (!next) return;
+      arenaBouts.ask({ where: 'floor', kind: 'ladder', next });
+      modes?.enterArenaFloor?.('ladder');
+    } else if (a === 'hall') modes?.enterArenaUndercroft?.();
+    else if (a === 'window') arenaGate.openWindow('bouts');   // ARENA3
   }
 
   // The classic catch-up loop (PlayerEntity.Update:486-492): per
@@ -11158,7 +11166,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7824), so exterior mode and a
+    // composer, dungeonContext.js:7827), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -12663,6 +12671,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); return !!w; },   // DISC10-E L3: a refused pack is null
     openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); return !!w; },
     openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); return !!w; },
+    openArena: () => arenaGate.openWindow('team'), arenaJoined: () => !!rollLeague(playerEntity.arenaLeague, worldMinutes()).team,   // ARENA3: the Arena window, once a banner is worn
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
@@ -14013,7 +14022,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10302-10366 -
+  // worldModes answers it in BOTH modes (worldModes.js:10304-10368 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20458,6 +20467,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaHerald: () => arenaHerald(),
     arenaRecruiter: (role) => arenaGate.recruiter(role),   // ARENA3: the Red and Blue Banners' recruiters
     arenaBookmaker: () => arenaGate.bookmaker(),   // ARENA3: the bookmaker's stall
+    makeArenaWindow: (page) => arenaGate.windowOverlay(page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's)
+    arenaJoined: () => !!rollLeague(playerEntity.arenaLeague, worldMinutes()).team,
     // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter
     // of my tier on the pit's stage; refused while a bout of mine stands
     arenaPractice: () => {
