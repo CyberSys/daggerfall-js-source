@@ -358,15 +358,16 @@ test('audit24 wave38: the encounter pool exports the seam, and the host asks BOT
   // the behaviour they were always about.
   const quick = [];
   let quickTakes = false;
+  // PICKUP-FEED: and a third - the take's `took`, the cards' door (ui/pickupFeed.js showPickups) - supplied the same way
   const arm = new Function('lootKey', '_lootPick', 'exteriorFoes', 'cityGuards', 'townTalk',
     'surfacePlayer', 'setMidScreenText', 'TOO_FAR_AWAY_TEXT', 'inventoryDoorReady', 'makeInventoryWindow',
-    'quickLootTake', 'playerEntity', 'lootPile', doorSrc + armSrc);
+    'quickLootTake', 'playerEntity', 'lootPile', 'showPickups', doorSrc + armSrc);
   const run = (k, pick) => arm(k, pick,
     { takeLoot: (key, say2, open) => { took.push(['encounter', key]); if (open) open({ items: () => [] }); } },
     { takeLoot: (key, say2, open) => { took.push(['watch', key]); if (open) open({ items: () => [] }); } },
     { say: () => {}, showOverlay: (w) => opened.push(w) }, () => {}, (t) => said.push(t), TOO_FAR_AWAY_TEXT,
     () => true, (o) => o,
-    (key, hooks) => { quick.push(key); return quickTakes ? {} : null; }, { items: [] }, () => null);
+    (key, hooks) => { quick.push(key); return quickTakes ? {} : null; }, { items: [] }, () => null, () => false);
   const near = { distance: 1, reach: CORPSE_ACTIVATION_DISTANCE };
   run('foeCorpse:3', near);
   run('guardCorpse:3', near);

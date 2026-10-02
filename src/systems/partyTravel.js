@@ -58,7 +58,9 @@ export function followerSeatOf(party, me) {
  *   feet()              where I stand, {x, z} in metres in a frame no origin shift moves;  radius  the gather radius
  *   placeName(to, fb)   a place's name for the lines
  *   prompt(rows, yes, no) -> handle   a Yes/No box shown;  closePrompt(handle)  taken down unanswered, no arm run
- *   say(text)           a line in the chat;  mid(text)  the HUD's centred label
+ *   say(text)           a line in the chat;  mid(text, seconds)  the HUD's centred label, for `seconds` (the host's
+ *                       own short default without)
+ *   tabOpen()           the Social panel stands open on its Party tab - the round's own Ready and Stay behind (PARTY-READY)
  *   travel(pick, opts, computed) -> Promise<boolean>   the map's fast travel (a pick may carry besideAt / besideText /
  *                       besideSeat)
  *   openMap()           the travel map, after a No at its own offer
@@ -94,6 +96,11 @@ export function createPartyTravel(host) {
     return party.members.find((m) => m.acct === party.leader) ?? null;
   };
   const roundOf = (lead) => (lead && memberPresent(lead) ? tripRoundOf(lead.p, social().now()) : null);
+  /** PARTY-READY (2026-10-01, Mac: "when party readying up, the ui element is hidden"): THE LEADER'S WAIT, ON THE HUD
+   *  FOR THE ROUND - it stood PARTY_REST_FAR_SECONDS (4) of a round that runs PARTY_READY_TIMEOUT_MS (60), and the
+   *  rest of the ready-up showed nothing there. Set again only as the count moves (every label is a notebook line), for
+   *  what is left of the round; the round's end says its own line over it. */
+  const waitLabel = (t, now) => host.mid(`Waiting for the party to ready up (${t.count}).`, Math.max(1, (PARTY_READY_TIMEOUT_MS - (now - t.at)) / 1000));
   const leaderTrip = () => leaderTripOf({ party: social()?.party ?? null, me: social()?.acct ?? null, leader: leaderRow(), outdoors: host.outdoors(), here: host.here() });
 
   /** The journey's box - `about` names what it asks, so a round that ends takes its own box and never another's. */
@@ -175,7 +182,7 @@ export function createPartyTravel(host) {
     const count = tripCountText(tripTally(gathered, trip.at));
     trip.count = count;   // PARTY-UI: the panel's reading, kept - it never asks who is gathered itself
     host.say(`You ask the party to travel to ${trip.name}. (${count})`);
-    host.mid(`Waiting for the party to ready up (${count}).`);
+    waitLabel(trip, s.now());   // PARTY-READY
     host.poseDirty();
     return true;
   }
@@ -183,8 +190,10 @@ export function createPartyTravel(host) {
   const offWith = (why) => (why === PARTY_TRAVEL_TEXT.off ? why : `${why} ${PARTY_TRAVEL_TEXT.off}`);
   function cancel(text) {
     if (!trip) return;
+    const open = trip.go == null;
     trip = null;
     if (text) host.say(text);
+    if (open && text) host.mid(text);   // PARTY-READY: over the wait, which would stand out the round's minute
   }
 
   /** THE LEADER'S SIDE: off when I go inside or fall, walk out of where I asked (PARTY-REST16's radius), or it lapses
@@ -205,7 +214,8 @@ export function createPartyTravel(host) {
       if (Math.hypot(f.x - t.origin.x, f.z - t.origin.z) > host.radius) { cancel(PARTY_TRAVEL_TEXT.moved); return; }
       if (now - t.at > PARTY_READY_TIMEOUT_MS) { cancel(PARTY_TRAVEL_TEXT.late); return; }
       const tally = tripTally(host.gathered(), t.at);
-      t.count = tripCountText(tally);   // PARTY-UI
+      const count = tripCountText(tally);
+      if (count !== t.count) { t.count = count; waitLabel(t, now); }   // PARTY-UI; PARTY-READY: the HUD's wait moves with it
       for (const n of tally.ready) if (!t.heard.has(`r:${n}`)) { t.heard.add(`r:${n}`); host.say(`${n} is ready to travel. (${tripCountText(tally)})`); }
       for (const n of tally.declined) if (!t.heard.has(`d:${n}`)) { t.heard.add(`d:${n}`); host.say(`${n} stays behind.`); }
       if (!tripSetsOut(tally) || host.busy()) return;   // a window of mine up: the party sets out when it closes
@@ -213,7 +223,9 @@ export function createPartyTravel(host) {
       if (refusal) { cancel(offWith(refusal)); return; }
       t.go = Math.max(t.at, Math.round(now));
       host.poseDirty();
-      host.say(tally.ready.length ? `The party sets out for ${t.name}.` : `Nobody else is coming - you set out for ${t.name} alone.`);
+      const line = tally.ready.length ? `The party sets out for ${t.name}.` : `Nobody else is coming - you set out for ${t.name} alone.`;
+      host.say(line);
+      host.mid(line);   // PARTY-READY: the wait ends on the HUD too
       return;
     }
     if (!t.started) {
@@ -290,6 +302,9 @@ export function createPartyTravel(host) {
       if (host.nearLeader(lead)) { near = round.at; nearFrom = f; }
       else if (near !== round.at || !nearFrom || Math.hypot(f.x - nearFrom.x, f.z - nearFrom.z) > host.radius) near = null;
       if (near === null || asked === round.at || vote === round.at || decline === round.at || !host.alive()) return;
+      // PARTY-READY: the Party tab open asks it already (Ready, Stay behind) - a box over it paused the game, and the
+      // pause took the tab and the party's HUD out of the page as the ready-up began. Unasked, so it asks once it closes.
+      if (host.tabOpen?.()) return;
       if (host.busy()) {
         // AUDIT PARTY-UI 8: PARTY-TRAVEL's own line, naming no tab - it is said only while a window holds the slot, the
         // Social panel does not open under one, and the box asks the moment it closes
@@ -417,7 +432,7 @@ export function createPartyTravel(host) {
       if (!s?.party) return PARTY_TRAVEL_TEXT.noParty;
       if (name === 'leader') { const r = offerLeader(); return r === true ? null : r; }
       if (s.leads()) {
-        if (trip && trip.go == null) { trip = null; host.poseDirty(); return 'You call off the journey.'; }
+        if (trip && trip.go == null) { trip = null; host.poseDirty(); host.mid('You call off the journey.'); return 'You call off the journey.'; }   // PARTY-READY: over the wait
         return 'Choose a destination on the travel map - the party gathered with you is asked to come along.';
       }
       const r = respondTo(null);

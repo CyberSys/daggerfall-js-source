@@ -355,6 +355,10 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
   let alive = true;
   let open = false;
   let tab = 'friends';
+  /** PARTY-READY (2026-10-01, Mac: "when party readying up, the ui element is hidden"): the Party tab a covering window
+   *  took down mid-journey - the travel map its own Travel map opened, or any window over an open round - put back when
+   *  the cover lifts. A cover still closes the panel (SOC3); the journey's controls no longer stay gone with it. */
+  let resumeParty = false;
   let confirm = null, confirmAt = -Infinity;   // the account whose Remove is armed, and when it was armed
   let noteMsg = '', noteAt = -Infinity;
   let ui = 0;                                  // the panel's OWN version - a tab, a confirm, an act just sent
@@ -565,7 +569,7 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
         const why = !st.outdoors ? 'Step outside' : !st.hub ? 'Needs the server\'s next update'
           : st.held ? 'The party is still on its way' : !st.gathered ? 'Gather the party first' : null;
         r = personRow({ name: 'Travel together', sub: 'Choose a destination on the travel map - the party gathered with you is asked to come along.' });
-        r.append(btn('Travel map', { enabled: !why, why, run: () => j.openMap?.() }));
+        r.append(btn('Travel map', { enabled: !why, why, run: () => { resumeParty = true; j.openMap?.(); } }));   // PARTY-READY: back to the round once the map closes
       }
     } else if (st.round) {
       const sub = st.round.ready ? 'You are ready.' : st.round.staying ? 'You stay behind.' : `${st.leader} asks the party to come along.`;
@@ -1278,13 +1282,18 @@ export function createSocialPanel({ social, send = null, mail = null, guild = nu
     render({ covered = false } = {}) {
       if (!alive) return;
       if (covered || overlay()) {
-        if (open) closePanel();
+        if (open) {
+          const round = tab === 'party' ? journey?.()?.status?.()?.round : null;
+          if (round && !round.set) resumeParty = true;   // PARTY-READY: an open round's controls come back with the panel
+          closePanel();
+        }
         if (root.style.display !== 'none') root.style.display = 'none';
         if (toast.style.display !== 'none') toast.style.display = 'none';
         return;
       }
       if (root.style.display !== '') root.style.display = '';
       if (toast.style.display !== '') toast.style.display = '';
+      if (resumeParty) { resumeParty = false; if (!open && social.party) { tab = 'party'; openPanel(); } }   // PARTY-READY
       if (open) {
         // MAIL1: the Letters tab is drawn from the BOX, not the social picture - and the form from neither, so a presence
         // frame or a poll landing while a player types rebuilds nothing under their caret

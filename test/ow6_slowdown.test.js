@@ -27,25 +27,25 @@ test('OW6 law: AN ENEMY\'S REACH ALONG THE WAY - dead ahead, the distance to its
 });
 
 test('OW6 law: THE CAP - the highest rate that leaves THREAT_WARN_S of real time to the nearest reach, stepped down the spinner\'s own ladder, never under walking pace; a chaser from any side at its own pace too; nothing near, no cap (mutants: the warning, the ladder, the chaser\'s pace dropped, the worst threat not the one kept)', () => {
-  assert.equal(THREAT_WARN_S, 1.2);   // OW6-LATE: was 5 - the player: it slowed "waaaay to early"; OW6-NEAR (29g): 2 -> 1.2, "reduce ... by like 40%"
+  assert.equal(THREAT_WARN_S, 0.6);   // OW6-LATE: was 5 - the player: it slowed "waaaay to early"; OW6-NEAR (29g): 2 -> 1.2, "reduce ... by like 40%"; OW6-HALF (2026-10-01): 1.2 -> 0.6
   assert.deepEqual([0.2, 1.7, 3.9, 4.99, 5, 9.9, 10, 47, 100].map(threatStep), [1, 1, 3, 4, 5, 5, 10, 45, 100]);
   assert.deepEqual(threatCap({ threats: [], heading: NORTH, speedMps: 16 }), { cap: Infinity, threat: null, metres: Infinity });
   const band = { dx: 0, dz: 2000, reach: 320 };
   assert.equal(threatCap({ threats: [band], heading: NORTH, speedMps: 0 }).cap, Infinity, 'standing: nothing to hold');
-  // a rider (16 m/s) 1680 m from a band's sight: 1680 / (1.2 x 16) = 87.5 -> x85
+  // a rider (16 m/s) 1680 m from a band's sight: 1680 / (0.6 x 16) = 175 -> x175
   const r = threatCap({ threats: [band], heading: NORTH, speedMps: 16 });
-  assert.deepEqual([r.cap, r.metres, r.threat], [85, 1680, band]);
-  assert.equal(threatCap({ threats: [band], heading: NORTH, speedMps: 4 }).cap, 350, 'on foot the same band asks for less');
+  assert.deepEqual([r.cap, r.metres, r.threat], [175, 1680, band]);
+  assert.equal(threatCap({ threats: [band], heading: NORTH, speedMps: 4 }).cap, 700, 'on foot the same band asks for less');
   assert.equal(threatCap({ threats: [{ dx: 900, dz: 2000, reach: 320 }], heading: NORTH, speedMps: 16 }).cap, Infinity, 'one the way passes by: no cap');
-  // a chaser 400 m BEHIND, closing at 5.2 m/s on a walker at 3: (400 - 30) / (1.2 x 8.2) = 37.6 -> x35
+  // a chaser 400 m BEHIND, closing at 5.2 m/s on a walker at 3: (400 - 30) / (0.6 x 8.2) = 75.2 -> x75
   const chaser = { dx: 0, dz: -400, reach: 30, chasing: true, mps: 5.2 };
-  assert.equal(threatCap({ threats: [chaser], heading: NORTH, speedMps: 3 }).cap, 35, 'a chaser from behind still holds');
-  assert.equal(threatCap({ threats: [{ ...chaser, mps: 0 }], heading: NORTH, speedMps: 3 }).cap, 100, 'its own pace counted (370 / 3.6 = 102.8)');
+  assert.equal(threatCap({ threats: [chaser], heading: NORTH, speedMps: 3 }).cap, 75, 'a chaser from behind still holds');
+  assert.equal(threatCap({ threats: [{ ...chaser, mps: 0 }], heading: NORTH, speedMps: 3 }).cap, 205, 'its own pace counted (370 / 1.8 = 205.6)');
   // the worst of several is the one kept
   const near = { dx: 50, dz: 150, reach: 60 };
   const both = threatCap({ threats: [band, near, { dx: 0, dz: -5000, reach: 320 }], heading: NORTH, speedMps: 16 });
   assert.equal(both.threat, near);
-  assert.equal(both.cap, 5, 'a camp\'s foe a hundred-odd metres ahead: 117 m to its sight / (1.2 x 16) = 6.1 -> x5');
+  assert.equal(both.cap, 10, 'a camp\'s foe a hundred-odd metres ahead: 117 m to its sight / (0.6 x 16) = 12.2 -> x10');
 });
 
 /** A journey flown frame by frame (30 fps) straight at a band `startM` ahead, at the spinner's `asked`: the real seconds
@@ -143,21 +143,21 @@ const governorHost = (over = {}) => {
   return { d, ...h };
 };
 
-test('OW6 host run: UNDER THE VIEW, AN ENEMY AHEAD HOLDS THE JOURNEY - a band a kilometre and more down the way holds the rider under the spinner, the panel told it is the enemies, the line said once; the ground\'s cap and the enemies\' the lower holds; a spent band, the camps off, the spawns held, or a band beside the way hold nothing (mutants: the enemies\' cap never met, the spent counted, the reason wrong)', () => {
-  const g = governorHost({ bands: [{ id: 'b1', at: { x: 0, z: 1000 } }] });
+test('OW6 host run: UNDER THE VIEW, AN ENEMY AHEAD HOLDS THE JOURNEY - a band down the way holds the rider under the spinner, the panel told it is the enemies, the line said once; the ground\'s cap and the enemies\' the lower holds; a spent band, the camps off, the spawns held, or a band beside the way hold nothing (mutants: the enemies\' cap never met, the spent counted, the reason wrong)', () => {
+  const g = governorHost({ bands: [{ id: 'b1', at: { x: 0, z: 670 } }] });
   g.govern(0.033);
-  assert.equal(g.d.scale, 35, 'held to x35 of x40 (680 m to its sight at 16 m/s: 680 / (1.2 x 16) = 35.4) - OW6-NEAR: 1.2 s of warning');
+  assert.equal(g.d.scale, 35, 'held to x35 of x40 (350 m to its sight at 16 m/s: 350 / (0.6 x 16) = 36.5) - OW6-HALF: 0.6 s of warning');
   assert.deepEqual(g.held(), [35, 'foes']);
   assert.deepEqual(g.d.said, [TRAVEL_VIEW_TEXT.enemiesSlow], 'said as it began');
   g.govern(0.033); g.govern(0.033);
   assert.equal(g.d.said.length, 1, 'once, not every frame');
   // the ground's cap, lower still, is the reason
-  const both = governorHost({ bands: [{ id: 'b1', at: { x: 0, z: 1000 } }], unbuilt: 3 });
+  const both = governorHost({ bands: [{ id: 'b1', at: { x: 0, z: 670 } }], unbuilt: 3 });
   for (let i = 0; i < 20; i++) both.govern(0.05);   // a second of holes halves the ground's ceiling below the enemies'
   assert.equal(both.held()[1], 'load');
   assert.ok(both.d.scale <= 35);
-  for (const quiet of [{ spent: new Set(['b1']) }, { camps: false }, { prevent: true }, { bands: [{ id: 'b1', at: { x: 900, z: 1000 } }] }]) {
-    const q = governorHost({ bands: [{ id: 'b1', at: { x: 0, z: 1000 } }], ...quiet });
+  for (const quiet of [{ spent: new Set(['b1']) }, { camps: false }, { prevent: true }, { bands: [{ id: 'b1', at: { x: 900, z: 670 } }] }]) {
+    const q = governorHost({ bands: [{ id: 'b1', at: { x: 0, z: 670 } }], ...quiet });
     q.govern(0.033);
     assert.deepEqual([q.d.scale, ...q.held()], [40, null, null], `nothing held: ${JSON.stringify(Object.keys(quiet))}`);
   }
@@ -166,13 +166,13 @@ test('OW6 host run: UNDER THE VIEW, AN ENEMY AHEAD HOLDS THE JOURNEY - a band a 
 test('OW6 host run: a CHASER holds from any side, at its own pace; at sea a raider\'s lookout and a raider\'s chase hold a crossing; on land no raider is asked of (mutants: the chase uncounted, the sea\'s arm unwired)', () => {
   const chase = governorHost({ chases: new Map([['b2', { pos: { x: 0, z: -300 } }]]) });
   chase.govern(0.033);
-  assert.deepEqual(chase.held(), [10, 'foes'], 'a band closing from behind: (300 - 30) / (1.2 x (16 + 5.2)) = 10.6 - x10');
-  // OW6-NEAR: 1.2 s - a raider 2000 m off holds nothing at x40 now ((2000 - 1000) / 19.2 = 52), so she stands nearer
-  const sea = governorHost({ sea: true, raiders: [{ id: 'r1', x: 0, z: 1500 }] });
+  assert.deepEqual(chase.held(), [20, 'foes'], 'a band closing from behind: (300 - 30) / (0.6 x (16 + 5.2)) = 21.2 - x20');
+  // OW6-HALF: 0.6 s - a raider 1500 m off holds nothing at x40 now ((1500 - 1000) / 9.6 = 52), so she stands nearer
+  const sea = governorHost({ sea: true, raiders: [{ id: 'r1', x: 0, z: 1250 }] });
   sea.govern(0.033);
-  assert.deepEqual(sea.held(), [25, 'foes'], 'a raider 1500 m ahead, its lookout 1000 m: (1500 - 1000) / (1.2 x 16) = 26.0 - x25 of x40');
-  // OW6: a raider a peer's chase holds is where they say it sails - here 300 m nearer: (1200 - 1000) / (1.2 x 16) = 10.4 - x10
-  const held = governorHost({ sea: true, raiders: [{ id: 'r1', x: 0, z: 1500 }], peerRaid: { r1: { x: 0, z: 1200 } } });
+  assert.deepEqual(sea.held(), [25, 'foes'], 'a raider 1250 m ahead, its lookout 1000 m: (1250 - 1000) / (0.6 x 16) = 26.0 - x25 of x40');
+  // OW6: a raider a peer's chase holds is where they say it sails - here 150 m nearer: (1100 - 1000) / (0.6 x 16) = 10.4 - x10
+  const held = governorHost({ sea: true, raiders: [{ id: 'r1', x: 0, z: 1250 }], peerRaid: { r1: { x: 0, z: 1100 } } });
   held.govern(0.033);
   assert.deepEqual(held.held(), [10, 'foes'], 'a peer\'s chase: where it runs, not where it would wander');
   const land = governorHost({ sea: false, raiders: [{ id: 'r1', x: 0, z: 2000 }] });
@@ -182,31 +182,31 @@ test('OW6 host run: a CHASER holds from any side, at its own pace; at sea a raid
 
 test('THE MERGE (NAV-H x OW6) host run: AT SEA A HOSTILE SHIP HOLDS THE CROSSING before her ring - where she is an enemy nearby and the journey stops (navalHost.js HOSTILE_NEAR_M), or her lookout past it - on either skin, and one coming for me from any side at her pace; a raider stood as a ship holds as the ship, never her seeded sail beside it; no hostile ship, nothing held (mutants: the sea unread by the journey, her closing unsaid, a raider ship counted twice)', () => {
   const sea = (threats, more = {}) => ({ threats: () => threats, raiderShipOf: () => null, ...more });
-  // OW6-NEAR (29g): THREAT_WARN_S 1.2 - each distance below re-derived at the 1.2 s warning
-  const ahead = [{ pos: [0, 0, 1300], reach: 750, chasing: false, mps: 6 }];
+  // OW6-HALF: THREAT_WARN_S 0.6 - each distance below re-derived at the 0.6 s warning
+  const ahead = [{ pos: [0, 0, 1025], reach: 750, chasing: false, mps: 6 }];
   const view = governorHost({ naval: sea(ahead) });
   view.govern(0.033);
-  assert.deepEqual(view.held(), [25, 'foes'], 'a ship 1300 m ahead, her lookout 750 m: (1300 - 750) / (1.2 x 16) = 28.6 - x25 of x40');
+  assert.deepEqual(view.held(), [25, 'foes'], 'a ship 1025 m ahead, her lookout 750 m: (1025 - 750) / (0.6 x 16) = 28.6 - x25 of x40');
   const classic = governorHost({ up: false, owns: false, naval: sea(ahead) });
   classic.govern(0.033);
   assert.deepEqual(classic.held(), [25, 'foes'], 'the classic skin the same');
-  const behind = governorHost({ naval: sea([{ pos: [0, 0, -1500], reach: 700, chasing: true, mps: 8 }]) });
+  const behind = governorHost({ naval: sea([{ pos: [0, 0, -1100], reach: 700, chasing: true, mps: 8 }]) });
   behind.govern(0.033);
-  assert.deepEqual(behind.held(), [25, 'foes'], 'coming for me from behind: (1500 - 700) / (1.2 x (16 + 8)) = 27.8 - x25');
+  assert.deepEqual(behind.held(), [25, 'foes'], 'coming for me from behind: (1100 - 700) / (0.6 x (16 + 8)) = 27.8 - x25');
   const raider = governorHost({ sea: true, navalRaiders: true, raiders: [{ id: 'r1', seed: 7, x: 0, z: 1000 }],
-    naval: sea([{ pos: [0, 0, 1500], reach: 1000, chasing: false, mps: 4.6 }], { raiderShipOf: (seed) => (seed === 7 ? { pos: [0, 0, 1500], chase: false } : null) }) });
+    naval: sea([{ pos: [0, 0, 1250], reach: 1000, chasing: false, mps: 4.6 }], { raiderShipOf: (seed) => (seed === 7 ? { pos: [0, 0, 1250], chase: false } : null) }) });
   raider.govern(0.033);
-  assert.deepEqual(raider.held(), [25, 'foes'], 'the ship where she sails, (1500 - 1000) / (1.2 x 16) = 26.0 - x25, never her seeded sail at the lookout\'s edge');
+  assert.deepEqual(raider.held(), [25, 'foes'], 'the ship where she sails, (1250 - 1000) / (0.6 x 16) = 26.0 - x25, never her seeded sail at the lookout\'s edge');
   const none = governorHost({ naval: sea([]) });
   none.govern(0.033);
   assert.deepEqual(none.held(), [null, null], 'no hostile ship: nothing held');
 });
 
 test('OW6 host run: ON THE CLASSIC SKIN (no view), A FOE STANDING AHEAD HOLDS THE JOURNEY and nothing near hands the mod\'s ask back whole; a friend, a pacified foe or the dead hold nothing; the Overworld\'s journey with its view down says so, not "the land loads"; no journey, nothing held (mutants: the classic skin ungoverned, the ask not handed back)', () => {
-  const foe = (o = {}) => ({ dead: false, ai: { isHostile: true, feet: [0, 0, 200], sightRadius: 60, ...o.ai }, entity: {}, ...o, ...(o.ai ? { ai: { isHostile: true, feet: [0, 0, 200], sightRadius: 60, ...o.ai } } : {}) });
+  const foe = (o = {}) => ({ dead: false, ai: { isHostile: true, feet: [0, 0, 125], sightRadius: 60, ...o.ai }, entity: {}, ...o, ...(o.ai ? { ai: { isHostile: true, feet: [0, 0, 125], sightRadius: 60, ...o.ai } } : {}) });
   const g = governorHost({ up: false, owns: false, speed: 4, foes: [foe()] });
   g.govern(0.033);
-  assert.deepEqual([g.d.scale, ...g.held()], [25, 25, 'foes'], 'a camp\'s foe 140 m from its sight at 4 m/s: 140 / (1.2 x 4) = 29.2 - x25 of x40');
+  assert.deepEqual([g.d.scale, ...g.held()], [25, 25, 'foes'], 'a camp\'s foe 65 m from its sight at 4 m/s: 65 / (0.6 x 4) = 27.1 - x25 of x40');
   assert.equal(g.d.said.length, 1);
   g.d.foes.length = 0;
   g.govern(0.033);
@@ -229,10 +229,10 @@ test('OW6 host run: ON THE CLASSIC SKIN (no view), A FOE STANDING AHEAD HOLDS TH
 
 test('OW6 x TV-WASD host run: THE KEYS\' TRAVEL SLOWS FOR ENEMIES TOO - held at the spinner\'s x40 under the view, a band ahead along the way the keys last moved holds it (the reason the enemies), one behind holds nothing, and the keys let go let the hold go (mutants: the keys uncapped, their way unread)', () => {
   const keys = () => new Set([TV_MOVE_ACTIONS[0]]);
-  const band = [{ id: 'b1', at: { x: 0, z: 1000 } }];
+  const band = [{ id: 'b1', at: { x: 0, z: 670 } }];
   const ahead = governorHost({ journey: false, keys: keys(), spinner: 40, driveYaw: null, walkYaw: 0, bands: band });
   ahead.govern(0.033);
-  assert.deepEqual([ahead.d.scale, ...ahead.held()], [35, 35, 'foes'], 'x35 of x40: (1000 - 320) / (1.2 x 16) = 35.4, down the ladder');
+  assert.deepEqual([ahead.d.scale, ...ahead.held()], [35, 35, 'foes'], 'x35 of x40: (670 - 320) / (0.6 x 16) = 36.5, down the ladder');
   assert.deepEqual(ahead.d.said, [TRAVEL_VIEW_TEXT.enemiesSlow], 'and said, as a journey\'s is');
   const behind = governorHost({ journey: false, keys: keys(), spinner: 40, driveYaw: null, walkYaw: Math.PI, bands: band });
   behind.govern(0.033);
@@ -244,7 +244,7 @@ test('OW6 x TV-WASD host run: THE KEYS\' TRAVEL SLOWS FOR ENEMIES TOO - held at 
 
 test('OW-ATTACK host run: THE ENEMY I GO TO FIGHT HOLDS NOTHING - an attacked band (and its chase) and every member of an attacked camp leave the clock alone; any other enemy still holds it', () => {
   // a band ahead holds the journey (x35 of x40, as above)...
-  const band = [{ id: 'b1', at: { x: 0, z: 1000 } }];
+  const band = [{ id: 'b1', at: { x: 0, z: 670 } }];
   const held = governorHost({ bands: band });
   held.govern(0.033);
   assert.deepEqual(held.held(), [35, 'foes']);
@@ -257,11 +257,11 @@ test('OW-ATTACK host run: THE ENEMY I GO TO FIGHT HOLDS NOTHING - an attacked ba
   chase.govern(0.033);
   assert.deepEqual(chase.held(), [null, null], 'nor its chase');
   // another band still holds
-  const other = governorHost({ bands: [...band, { id: 'b2', at: { x: 0, z: 1000 } }], attack: { kind: 'band', id: 'b1' } });
+  const other = governorHost({ bands: [...band, { id: 'b2', at: { x: 0, z: 670 } }], attack: { kind: 'band', id: 'b1' } });
   other.govern(0.033);
   assert.deepEqual(other.held(), [35, 'foes'], 'any other enemy still holds');
   // a camp: every member of the attacked one lets go, a foe of another still holds
-  const foe = (camp) => ({ dead: false, camp, ai: { isHostile: true, feet: [0, 0, 200], sightRadius: 60 }, entity: {} });
+  const foe = (camp) => ({ dead: false, camp, ai: { isHostile: true, feet: [0, 0, 125], sightRadius: 60 }, entity: {} });
   const campAt = governorHost({ up: false, owns: false, speed: 4, foes: [foe('me:7'), foe('me:7')], attack: { kind: 'camp', id: 'me:7' } });
   campAt.govern(0.033);
   assert.deepEqual(campAt.held(), [null, null], 'the attacked camp, every member');
