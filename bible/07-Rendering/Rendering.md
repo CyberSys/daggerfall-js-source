@@ -660,8 +660,10 @@ directory by `test/audit18_bible_docs.test.js`:
   out of EL_GLSL byte for byte) and each light's map where it has one
   (`shadowOfLight`, the flats' reader, at the sun's lift), in the
   provoking vertex alone, handed down `flat` as `vPoint`; the fragment
-  adds it beside R12 (the stage holds 210 uniform vectors at most,
-  counting every scalar whole, of the 256 WebGL2 promises - pinned). A
+  adds it beside R12 (the stage holds 212 uniform vectors at most,
+  counting every scalar whole and off the code, not its comments -
+  224 if a driver keeps the two const face tables as uniforms - of the
+  256 WebGL2 promises; pinned). A
   lantern at night: the blade beside it drew
   0.21-0.51x the lit ground and draws 1.16-1.21x (`tools/
   grassLightProbe.mjs`). (2) A BLADE IS LIT ABOUT THE GROUND'S NORMAL:
@@ -702,7 +704,8 @@ directory by `test/audit18_bible_docs.test.js`:
   `test/glsl.mjs` (the slope's decode and lambert, the lanterns against
   the terrain's two formulas, the shadow, the provoking vertex), the
   normal against the real mesh, the pack, the placer and the upload;
-  `tools/mutants/grasslit2.json` (25, all dead). (5) Seen on the real
+  `tools/mutants/grasslit2.json` (72 with AUDIT GRASS-LIT2's below; 71
+  dead, one recorded equivalent). (5) Seen on the real
   game data: a lantern on a field at 23:30 (before, the ground in its
   pool lit and the tufts standing dark in it; after, lit with it), the
   classic lane at noon beside the default lane, and a real wood round a
@@ -712,6 +715,32 @@ directory by `test/audit18_bible_docs.test.js`:
   which stay over the spawn corner - its proof is the compiled stage's
   and the probe's numbers. New shot hooks: `__forestSpot` (the deepest
   wood in the built pixels) and `__grassSpot`'s `steep`.
+  **AUDIT GRASS-LIT2 (2026-10-02, Mac: "Audit this"; three read-only
+  lenses - the shader, the host, the tests and docs - record in
+  `01-Overview/Audit-Forest1-Grass.md`).** A CELL WALKS ITS OWN
+  LANTERNS: the frame's list goes up whole once a draw, and before each
+  cell `_cellLights` picks the lights whose reach meets the cell's box
+  (the shader's own `d >= range` cut, at the box), nearest first, at
+  most `GRASS_CELL_LIGHTS` (8; a tie keeps the earlier light), and
+  uploads `uPointCount` / `uPointIdx[8]` only when the list changes - an
+  open field's cells are one upload, not one a cell. The stage walked
+  all 48 in every provoking vertex; it walks the cell's eight at most.
+  A DRAW WITHOUT SHADOWS HANDS EVERY LANTERN NO CASTER (`uCasterOf` all
+  -1, the point params zero): a program's uniforms outlive the frame
+  that set them, and a frame with shadows then one without read the
+  last frame's caster slots - a stale slot answering black put a
+  lantern out. A ZERO WORD IS LEVEL: the slope's two codes are stored
+  XOR 15, so a pad or a cleared slot (all zero) reads level, not the
+  steepest lean; a NaN or infinite normal packs level. The mean's step
+  is `ceil(n / GRASS_MEAN_SAMPLES) | 1`, so a tile never reads more than
+  the cap (a 256 x 384 tile read all 98,304). The host keeps a pixel's
+  normals only when the lab field is on, and takes a texture mod's
+  means off the layers it uploaded rather than asking the mod a second
+  time. The tests feed the stage its word as a float32 (half of all
+  u16s reach a GPU a hair under themselves, which a floor would read
+  one down), hold the JS twin against both stages end to end on a
+  hillside under the moon beside the lanterns, and read the ground's
+  lantern formulas off TERRAIN_FS's and EL_TERRAIN_FS's own text.
 - `grassPixelArt.js` - GRASS-PX THE TUFT SHEET: eight 8x16 tufts (GRASS-PX4; 16x32 until 2026-09-22, and the laws are written as fractions of the tuft so the old size still builds through `buildTuftSheet({ w, h })`) built at boot from a seed (one-texel stalks bending as height squared, four tones with one highlight texel, alpha 0 or 255), their coverage mip chain (max alpha per block, never an average, down to 1x1), the pixel style's numbers (8 Hz sway, 24 lean steps, 3x tuft width, 8-step ramp, 4 tint bands) and `pixelGrass()`, the row's word; the shader edits themselves are `GRASSPX_VS_EDITS` / `GRASSPX_FS_EDITS` in labGrass.js.
 - `spoilsGlow.js` - WB5: a fallen boss's spoils at rest, each in a BEAM of its tier's colour rising from a HALO on the floor (Loot Rarity's own colours - the first place a rarity is drawn in the world), a Legendary's and an Artifact's taller and pulsing. One foreign pass drawn beside the Burning Court's telegraph (the same seam), on the duel wall's law: fixed geometry placed by uniforms, added onto the frame, no depth written, fogged.
 - `deadlands.js` - WB6a: the Deadlands round the Burning Court - THE SKY, painted per pixel on one triangle at the far plane (a churning overcast lit from below; Oblivion's VORTEX over the great tower, turning whole and pouring inward; the BEAM up into its eye; black Daedric TOWERS with horns and a crown; three rings of JAGGED RIDGES hazier the further, with falls of fire; seeded LIGHTNING in the deck), and THE SEA, a disc of moving fire (crust plates on molten channels, glowing cracks, a slow pulse) whose rim becomes exactly the sky's horizon, so no edge is ever seen. One foreign pass in the dungeon arm after the court's solid geometry and before its flats (PERF2's law: the sea depth-tested, the sky tested at the far plane and never written); and the court's own light (`courtLighting` - a trilight red above and fire-orange below, the vortex's key light from behind the boss). WB6b: THE AIR'S LIFE (`drawLife`, after the telegraph in the court's pass - one vertex a mote: embers off the sea from past the court's edge and off its braziers, turning with the drift of the air, and ash falling through it; depth-tested and never written, the ash laid over premultiplied and the embers added; the world image's own height sizes the motes, RETRO1's `worldViewportPx` as the bolts read it); a strike LIGHTS THE COURT (`courtLighting(flash)`: the trilight's sky flares and the key swings toward it); `flashOfSlot`, the one answer the sky's flash and the thunder (scenes/deadlandsAir.js) read, on slots whole over the period; and the hosts hand the relay's clock (world.js `deadlandsSeconds`), so it is one moment on every screen. The land and the floor's shards round the court are court draws, not this pass (world/deadlandsLand.js, stood by worldModes' `standDeadlands`).

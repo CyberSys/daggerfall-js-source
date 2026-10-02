@@ -14,9 +14,10 @@ import {
   packHeightSlope, unpackHeightSlope, beginGrassCell, stepGrassCell, placeLabGrassCell, createGrassField, tileMeanColour,
   grassLit, LabGrassRenderer, heightFloor, heightSpan, GRASS_CELL_LIGHTS, grassMeanStep,
 } from '../src/render/labGrass.js';
-import { elDecode, elDecode3, elDecodeN, elEncode, elTonemapRGB, elAttenuation, EL_EXPOSURE, EL_GLSL, EL_ATTEN_GLSL, EL_MAX_LIGHTS } from '../src/render/enhancedLighting.js';
+import { elDecode, elDecode3, elDecodeN, elEncode, elTonemapRGB, elAttenuation, EL_EXPOSURE, EL_GLSL, EL_ATTEN_GLSL, EL_MAX_LIGHTS, EL_TERRAIN_FS } from '../src/render/enhancedLighting.js';
 import { buildTerrainGrid, buildTerrainIndices, surfaceNormalAt } from '../src/world/terrainSurface.js';
 import { HEIGHTMAP_DIMENSION, TERRAIN_SIZE } from '../src/world/terrainSampler.js';
+import { packAdapt, unpackAdapt } from '../src/render/airPass.js';
 import { glslFunctions } from './glsl.mjs';
 
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
@@ -30,10 +31,11 @@ const zeros3 = (n) => Array.from({ length: n }, () => [0, 0, 0]);
 /** The grass vertex stage, run on the compiled text: one blade at the cell's middle (15, rootY 0, 15) with no lean and
  *  no wind, its height lane `w`, the frame's `lights` ([{ at, range, color }], colours as the host uploads them),
  *  `casterOf` the lights' shadow slots (-1: none). Answers the stage's outputs. */
-function vertex({ w = packHeightSlope(0.5, 0, 0, 0), sunDir = [0, 1, 0], lane = 0, lights = [], vertexId = 2, casterOf = null, shadow = 1, cell = null }) {   // AUDIT A1: `cell` the cell's list (default: every light, in order)
+function vertex({ w = packHeightSlope(0.5, 0, 0, 0), sunDir = [0, 1, 0], moonDir = [0, 1, 0], lean = [0.5, 0.5], lane = 0, lights = [], vertexId = 2, casterOf = null, shadow = 1, cell = null, bind = {} }) {   // AUDIT A1: `cell` the cell's list (default: every light, in order); AUDIT C: `lean` aPB.xy, `bind` more globals
   const f = glslFunctions(LAB_GRASS_HEAD + GAME_GRASS_FIELD + GAME_GRASS_VS, {
-    aCorner: [0.5, 0.5], aPA: [0.5, 0.5, 0, w / 65535], aPB: [0.5, 0.5, 0.5, 0.5], aPC: [0.2, 0.3, 0.1, 0],
-    uVP: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], uTime: 0, uWind: 0, uRange: 300, uEye: [0, 1, 0], uSunDir: sunDir, uMoonDir: [0, 1, 0], uWindDir: [1, 0],
+    // AUDIT GRASS-LIT2 C1: a unorm16 reaches the stage as a FLOAT32 - w / 65535 in doubles is exact, and hid a floor
+    aCorner: [0.5, 0.5], aPA: [0.5, 0.5, 0, Math.fround(w / 65535)], aPB: [...lean, 0.5, 0.5], aPC: [0.2, 0.3, 0.1, 0],
+    uVP: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1], uTime: 0, uWind: 0, uRange: 300, uEye: [0, 1, 0], uSunDir: sunDir, uMoonDir: moonDir, uWindDir: [1, 0],
     uSnowFull: 1.1, uSlotN: 0, uCellFrame: [0, 0, 0, 1], uBladeScale: [heightFloor(), heightSpan(), 0.05, 0.05], uCellSize: 30, uPixel: 0, uPxVariants: 8,
     uGFieldOrigin: [0, 0], uGFieldM: 1, uSnowGlobal: 0, uWindV: [0, 0], uSunScale: 0.6, uCamPos: [0, 0, 0], uIndirect: [0, 0, 0, 0], uIndirectColor: [0, 0, 0],
     uCloudShadowRect: [0, 0, 0, 0], uSunVP: [Array(16).fill(0), Array(16).fill(0), Array(16).fill(0)], uSunOrigin: [0, 0, 0, 0], uSunShadowParams: [0, 0, 0, 0], uSunTexel: [0, 0, 0, 0],
@@ -45,6 +47,7 @@ function vertex({ w = packHeightSlope(0.5, 0, 0, 0), sunDir = [0, 1, 0], lane = 
     uPointColors: [...lights.map((l) => [...l.color]), ...zeros3(GRASS_MAX_LIGHTS - lights.length)],
     gl_VertexID: vertexId, gl_InstanceID: 0,
     texture: (name) => (name === 'uPointShadow' || name === 'uPointShadowLo' ? shadow : [0, 0, 0, 0]),
+    ...bind,
   });
   f.main();
   return f.globals;
@@ -431,6 +434,11 @@ test('AUDIT GRASS-LIT2 A1: a cell walks only the lanterns whose reach meets its 
   r._cellLights(box);
   assert.deepEqual(of('uPointCount').at(-1), [8]);
   assert.deepEqual([...of('uPointIdx').at(-1)[0]], [11, 10, 9, 8, 7, 6, 5, 4], 'the eight nearest, nearest first');
+  // AUDIT GRASS-LIT2 C: the ties the line above names - nine lights all 10 m off, either side of the cell
+  const ring9 = Array.from({ length: 9 }, (_, i) => [i % 2 ? 40 : -10, 11, 15, 30]);
+  r._pts = new Float32Array(ring9.flat()); r._pn = ring9.length; r._cellN = -1;
+  r._cellLights(box);
+  assert.deepEqual([...of('uPointIdx').at(-1)[0]], [0, 1, 2, 3, 4, 5, 6, 7], 'a tie keeps the earlier light first, and the ninth off');
   // the draw resets the cell list each frame and walks it per drawn cell
   const src = readFileSync(new URL('../src/render/labGrass.js', import.meta.url), 'utf8');
   assert.ok(src.includes('this._pts = pn > 0 ? pts : null; this._pn = pn; this._cellN = -1;') && src.includes('if (this._pn > 0) this._cellLights(box);   // AUDIT GRASS-LIT2 A1'));
@@ -456,4 +464,224 @@ test('AUDIT GRASS-LIT2 A2: a draw without shadows hands every lantern NO caster 
   const stale = Array(48).fill(-1); stale[0] = 0;
   assert.deepEqual(vertex({ lights, casterOf: stale, shadow: 0 }).vPoint, [0, 0, 0]);
   assert.ok(vertex({ lights, casterOf: Array(48).fill(-1), shadow: 0 }).vPoint[0] > 0);
+});
+
+// ─── AUDIT GRASS-LIT2 C: the tests' own holes - what a mutation of the new code walked past ─────────────────────────
+/** The grass fragment's colour on the compiled stage (GRASS-LIT's fragment(), with the vertex stage's lamberts and
+ *  lanterns handed in rather than assumed level): the smooth style at `t`, the patch tint at its mean, no snow, wet,
+ *  fog or rim. `lane` hands the light decoded as the host does. */
+function fragment({ ground = WOOD, t = 0.5, light = NOON, lane = false, vLam = 1, vMoonLam = 0, vPoint = [0, 0, 0], adapt = 1 }) {
+  const dec = (c) => (lane ? c.map(elDecode) : c);
+  const [hi, lo] = packAdapt(adapt);
+  const f = glslFunctions(LAB_GRASS_HEAD + GAME_GRASS_FS, {
+    vT: t, vTint: 0.5, vFade: 1, vLam, vSnow: 0, vWet: 0, vGround: [...ground], vMoonLam,
+    vUV: [0.5, 0.5], vVar: 0, vWorld: [0, 0, 10], vSun: 1, vFar: 0, vNear: [0, 0, 0], vPoint,
+    uAmb: dec(light.amb), uSunCol: dec(light.sunCol), uMoonCol: dec(light.moonCol ?? [0, 0, 0]), uDim: 1, uSunScale: light.sunScale, uMoonScale: light.moonScale ?? 0,
+    uPixel: 0, uPxSteps: 8, uPxVariants: 8, uPxTintBands: 4, uLane: lane ? 1 : 0, uELExposure: EL_EXPOSURE,
+    uGrassTone: (lane ? GRASS_TONES : GRASS_TONES_CLASSIC).map((k) => [...k]),
+    uFogColor: [0, 0, 0], uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uCamPos: [0, 0, 0], uFocus: [0, 0, 0, 0],
+    uDwFog: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],
+    gl_FragCoord: [3, 5, 0.5, 1], o: [0, 0, 0, 0],
+    texture: (name) => (name === 'uAdapt' ? [hi / 255, lo / 255, 0, 1] : [0.75, 0.9, 0.5, 1]),
+  });
+  f.main();
+  return f.globals.o.slice(0, 3);
+}
+
+test('AUDIT GRASS-LIT2 C1: the stage reads its word as the GPU hands it - a float32 unorm, half of whose words land a hair under themselves, so it rounds and never floors; the six bits\' top is the height law\'s top', () => {
+  let under = 0;
+  for (let k = 0; k < 65536; k++) if (Math.fround(k / 65535) * 65535 < k) under++;
+  assert.ok(under > 30000, `${under} of the 65,536 words reach the stage under themselves`);
+  const sun = [0.5, 0.7, -0.3], sl = Math.hypot(...sun);
+  let seen = 0;
+  for (const [hn, nx, nz] of [[1, 0.3, -0.2], [0, -0.45, 0.25], [0.37, 0.6, 0], [0.81, -0.2, -0.65]]) for (const i of [0, 1, 2, 5]) {
+    const w = packHeightSlope(hn, nx, nz, i), u = unpackHeightSlope(w);
+    if (Math.fround(w / 65535) * 65535 < w) seen++;
+    const g = vertex({ w, sunDir: sun });
+    const n = [u.nx, Math.sqrt(1 - u.nx * u.nx - u.nz * u.nz), u.nz];
+    assert.ok(Math.abs(g.vLam - Math.max(0, (n[0] * sun[0] + n[1] * sun[1] + n[2] * sun[2]) / sl)) < 1e-9, `word ${w}: its slope`);
+    assert.ok(Math.abs(g.gl_Position[1] - (heightFloor() + u.hn * heightSpan()) * 0.5) < 1e-12, `word ${w}: its height`);
+  }
+  assert.ok(seen >= 4, `${seen} of the words held here are ones a floor read one down`);
+  // the top code is the tallest blade the height law draws, the bottom its shortest - 63 steps between, not 62 or 64
+  assert.ok(Math.abs(vertex({ w: packHeightSlope(1, 0, 0, 0) }).gl_Position[1] - (heightFloor() + heightSpan()) * 0.5) < 1e-12);
+  assert.ok(Math.abs(vertex({ w: packHeightSlope(0, 0, 0, 0) }).gl_Position[1] - heightFloor() * 0.5) < 1e-12);
+});
+
+test('AUDIT GRASS-LIT2 C2: the slope\'s dither is R2 as its comment says - the plastic number\'s two powers, from the middle - so the two axes\' grain is independent, a patch takes the four steps round its slope in proportion, and a steep normal is held to the span itself', () => {
+  let g = 1.3;
+  for (let k = 0; k < 80; k++) g = Math.cbrt(1 + g);   // the plastic number: g^3 = g + 1
+  const a1 = 1 / g, a2 = 1 / (g * g);
+  const codes = (w) => [((w >> 5) & 31) ^ 15, (w & 31) ^ 15];
+  // a slope between steps: x at 21.6 of the 31, z at 10.8
+  const nx = 6.6 * GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS, nz = -4.2 * GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS;
+  const joint = new Map();
+  const N = 2000;
+  for (let i = 0; i < N; i++) {
+    const dx = ((0.5 + i * a1) % 1) - 0.5, dz = ((0.5 + i * a2) % 1) - 0.5;
+    const [cx, cz] = codes(packHeightSlope(0.5, nx, nz, i));
+    assert.deepEqual([cx, cz], [Math.round(21.6 + dx), Math.round(10.8 + dz)], `blade ${i}`);
+    joint.set(`${cx},${cz}`, (joint.get(`${cx},${cz}`) ?? 0) + 1);
+  }
+  // independent: each pair as often as its two axes' shares multiply (x up 60%, z up 80%)
+  for (const [k, p] of [['22,11', 0.48], ['22,10', 0.12], ['21,11', 0.32], ['21,10', 0.08]]) {
+    assert.ok(Math.abs((joint.get(k) ?? 0) / N - p) < 0.01, `steps ${k}: ${((joint.get(k) ?? 0) / N).toFixed(3)} of the patch, ${p} wanted`);
+  }
+  // past the span: the patch's mean IS the span, its heading kept
+  for (const [sx, sz] of [[0.9, 0.9], [-0.95, 0.1], [0.2, -0.85]]) {
+    let mx = 0, mz = 0;
+    for (let i = 0; i < 4000; i++) { const u = unpackHeightSlope(packHeightSlope(0.5, sx, sz, i)); mx += u.nx / 4000; mz += u.nz / 4000; }
+    const want = GRASS_SLOPE_SPAN / Math.hypot(sx, sz);
+    assert.ok(Math.abs(mx - sx * want) < 0.003 && Math.abs(mz - sz * want) < 0.003, `[${sx}, ${sz}]: the mean ${mx.toFixed(4)}, ${mz.toFixed(4)}`);
+  }
+});
+
+test('AUDIT GRASS-LIT2 C3: a lantern\'s lambert is the sun\'s - about the blade\'s own normal, its lean and the ground\'s - and a root no lantern reaches hands down nothing, whatever its out held', () => {
+  const at = [17, 1.2, 14], L = [at[0] - 15, at[1], at[2] - 15], d = Math.hypot(...L);
+  const lights = [{ at, range: 12, color: [1, 1, 1] }];
+  let leaned = null;
+  for (const lean of [[0.5, 0.5], [0.95, 0.2], [0.1, 0.75]]) for (const [nx, nz] of [[0, 0], [0.3, -0.2]]) {
+    const g = vertex({ w: packHeightSlope(0.5, nx, nz, 0), lean, lights, sunDir: L, lane: 1 });
+    assert.ok(g.vLam > 0.05, 'the lantern faces the blade');
+    assert.ok(Math.abs(g.vPoint[0] - elAttenuation(d, 12) * g.vLam) < 1e-9, `lean ${lean}, slope [${nx}, ${nz}]: ${g.vPoint[0]} against the sun's ${g.vLam}`);
+    if (lean[0] !== 0.5) leaned = g.vLam;
+  }
+  assert.ok(Math.abs(leaned - vertex({ w: packHeightSlope(0.5, 0.3, -0.2, 0), lights, sunDir: L }).vLam) > 0.02, 'and a lean moves it - the case is one the ground\'s normal alone would miss');
+  // an out the stage does not write is undefined on a GPU - it must write it: none in reach, none in the list, none at all
+  const garbage = { vPoint: [NaN, NaN, NaN] };
+  assert.deepEqual(vertex({ lights: [], bind: garbage }).vPoint, [0, 0, 0]);
+  assert.deepEqual(vertex({ lights: [{ at: [90, 1, 15], range: 12, color: [1, 1, 1] }], bind: garbage }).vPoint, [0, 0, 0]);
+  assert.deepEqual(vertex({ lights, cell: [], bind: garbage }).vPoint, [0, 0, 0]);
+});
+
+test('AUDIT GRASS-LIT2 C4: the JS twin is the two stages end to end - on a hillside, under the moon, beside the lanterns, on both lanes - what the probe prints is what the GPU draws', () => {
+  const lights = [{ at: [17, 1.2, 14], range: 12, color: [0.9, 0.7, 0.4] }, { at: [12, 2, 18], range: 9, color: [0.3, 0.3, 0.5] }];
+  const root = [15, 0, 15];
+  const NIGHT = { ...LOW, sunScale: 0.2, moonCol: [0.5, 0.55, 0.7], moonScale: 0.3, moonDir: [0.3, 0.8, -0.5] };
+  const eye = unpackAdapt(...packAdapt(1));
+  for (const [nx, nz] of [[0, 0], [0.3, -0.2], [-0.5, 0.35]]) {
+    const w = packHeightSlope(0.5, nx, nz, 0), u = unpackHeightSlope(w);
+    const normal = [u.nx, Math.sqrt(1 - u.nx * u.nx - u.nz * u.nz), u.nz];
+    for (const lane of [false, true]) {
+      const up = lights.map((l) => ({ ...l, color: lane ? l.color.map(elDecode) : l.color }));   // as the draw uploads them
+      const v = vertex({ w, sunDir: NIGHT.sunDir, moonDir: NIGHT.moonDir, lane: lane ? 1 : 0, lights: up });
+      assert.ok(v.vPoint.some((c) => c > 0) && v.vMoonLam > 0, 'the lanterns and the moon both reach the root');
+      for (const t of [0.3, 0.7]) {
+        const got = fragment({ t, light: NIGHT, lane, vLam: v.vLam, vMoonLam: v.vMoonLam, vPoint: v.vPoint });
+        const want = grassLit(WOOD, t, { ...NIGHT, normal, root, points: lights }, lane, eye);
+        assert.ok(close(got, want, 1e-6), `slope [${u.nx}, ${u.nz}], lane ${lane}, t ${t}: ${got} vs ${want}`);
+      }
+    }
+  }
+});
+
+test('AUDIT GRASS-LIT2 C5: the draw cuts the lanterns to the shorter of its two lists - a light with no colour is no light - and the classic lane\'s colours to the count', () => {
+  const run = (light, lane = null) => {
+    const { gl, of } = recGl();
+    const r = new LabGrassRenderer(gl);
+    r.count = 1; r.slotBox = [];
+    r.draw(new Float32Array(16), new Float32Array(16), new Float32Array(3), 0, { sunDir: [0, 1, 0], amb: [0.5, 0.5, 0.5], sunCol: [1, 1, 1], lane, ...light }, { dir: [1, 0], speed: 0, windV: [0, 0] });
+    return { of, r };
+  };
+  const points = new Float32Array(5 * 4).map((_, i) => i + 1), colors = new Float32Array(3 * 3).map((_, i) => (i + 1) / 10);
+  const short = run({ points, pointColors: colors });
+  assert.equal(short.r._pn, 3, 'five lights, three colours: three lanterns');
+  assert.equal(short.of('uPointLights')[0][0].length, 12);
+  const long = run({ points: points.subarray(0, 8), pointColors: new Float32Array(5 * 3).fill(0.5) });
+  assert.equal(long.r._pn, 2);
+  assert.equal(long.of('uPointColors')[0][0].length, 6, 'the classic lane uploads the count\'s colours, not the list\'s');
+});
+
+test('AUDIT GRASS-LIT2 C6: a rim cell placed a slice a frame asks the slope as a whole cell does - a walk\'s new cells stand on the hillside too', () => {
+  const keep = () => 0, slope = () => [0.3, 0.9, -0.2];
+  const placed = [];
+  const field = createGrassField({ allocSlots() {}, clearSlot() {}, shiftSlots() {}, writeSlot: (_s, c) => placed.push(c) }, { keep, slope, range: 120, span: 150 });
+  for (let f = 0; f < 3000 && field.update(0, 0) !== 0; f++);
+  placed.length = 0;
+  let ex = 0, sliced = 0;
+  for (let f = 0; f < 400; f++) { ex += 0.5; field.update(ex, 0); if (field.pending) sliced++; }
+  assert.ok(sliced > 10 && placed.length > 3, `the rim came in by slices (${sliced} frames, ${placed.length} cells)`);
+  for (const c of placed) {
+    assert.ok(c.count > 0);
+    for (let i = 0; i < c.count; i++) assert.ok(Math.abs(c.slope[i * 2] - 0.3) < 1e-6 && Math.abs(c.slope[i * 2 + 1] + 0.2) < 1e-6, 'every blade of it on the slope');
+  }
+});
+
+test('AUDIT GRASS-LIT2 C7: a root a hair off the pixel\'s low edge reads the edge\'s normal - never the row before the grid', () => {
+  const g = HEIGHTMAP_DIMENSION;
+  const data = new Float32Array(g * g);
+  for (let x = 0; x < g; x++) for (let z = 0; z < g; z++) data[x * g + z] = 0.5 + 0.03 * Math.sin(x * 0.2) * Math.cos(z * 0.15);
+  const { normals } = buildTerrainGrid(data, 1, (x, z) => 0.5 + 0.03 * Math.sin(x * 0.2) * Math.cos(z * 0.15));
+  for (const [lx, lz] of [[-0.01, 3], [3, -0.02], [-0.03, -0.01]]) {
+    const n = surfaceNormalAt(normals, lx, lz);
+    assert.ok(n.every(Number.isFinite) && close(n, surfaceNormalAt(normals, Math.max(lx, 0), Math.max(lz, 0)), 1e-3), `${lx}, ${lz}: ${n}`);
+  }
+});
+
+/** a world.js closure or hook lifted by its text and run over stand-ins for the scene's names */
+function lift(text, names, values) {
+  return new Function(...names, `const window = {};\n${text}\nreturn window;`)(...values);
+}
+const hookText = (w, start) => { const i = w.indexOf(start); assert.ok(i >= 0, start); return w.slice(i, w.indexOf('\n    };\n', i) + 7); };
+
+test('AUDIT GRASS-LIT2 C8: the host\'s slope asks the drawn surface only where the pixel keeps its normals - a far pixel, or the field off, is level, not a throw', () => {
+  const w = src('scenes/world.js');
+  const start = w.indexOf('const slope = (x, z) => {\n        const hit = pieceAt(x, z);');
+  const text = w.slice(start, w.indexOf('\n      };', start) + 9);
+  const scratch = [0, 0, 0];
+  const run = (hit) => new Function('pieceAt', 'surfaceNormalAt', 'grassNormalScratch', `${text}\nreturn slope;`)(() => hit, surfaceNormalAt, scratch)(10, 20);
+  assert.equal(run(null), null, 'off the built pixels');
+  assert.equal(run({ p: { groundNormals: null }, t: [0, 0, 0] }), null, 'a pixel drawn at a stride keeps no normals: level');
+  const flat = new Float32Array(HEIGHTMAP_DIMENSION * HEIGHTMAP_DIMENSION * 3).map((_, i) => (i % 3 === 1 ? 1 : 0));
+  assert.equal(run({ p: { groundNormals: flat }, t: [0, 0, 0] }), scratch, 'and one that keeps them is read into the one scratch');
+});
+
+test('AUDIT GRASS-LIT2 C9: the shot hooks run - the hillside hook keeps to a slope steep enough, the wood hook to the most forest on grass', () => {
+  const w = src('scenes/world.js');
+  const names = ['built', 'state', 'grassRecords', 'TERRAIN_TILE_DIM', 'surfaceNormalAt', 'heightAt', 'forestAt'];
+  const g = HEIGHTMAP_DIMENSION;
+  const normalsOf = (n) => new Float32Array(g * g * 3).map((_, i) => n[i % 3]);
+  const lean = [0.5, 0.8, 0.2].map((v, _i, a) => v / Math.hypot(...a));
+  const pixel = (px, py, normals, holes = []) => {
+    const tilemapBytes = new Uint8Array(128 * 128).fill(2 << 2);   // record 2: grass
+    for (const [tx, tz] of holes) tilemapBytes[tz * 128 + tx] = 5 << 2;
+    return { px, py, groundArchive: 302, tilemapBytes, groundNormals: normals };
+  };
+  const flatP = pixel(3, 2, normalsOf([0, 1, 0])), hillP = pixel(4, 2, normalsOf(lean));
+  const built = new Map([['3,2', flatP], ['4,2', hillP]]);
+  const state = { current: { x: 3, y: 2 }, pixelTranslation: (px, py) => [px * 1000, 0, -py * 1000] };
+  const peak = [40, 60];   // the wood's heart, on a tile that is not grass
+  const forestAt = (wx, wz) => Math.exp(-((wx - 3 * 128 - peak[0]) ** 2 + (wz + 2 * 128 - peak[1]) ** 2) / 200);
+  flatP.tilemapBytes[peak[1] * 128 + peak[0]] = 5 << 2;
+  const hooks = lift(hookText(w, 'window.__grassSpot = (r = 6, skip = 0, steep = 0) => {') + '\n' + hookText(w, 'window.__forestSpot = (r = 10, here = false) => {'),
+    names, [built, state, new Map([[302, new Set([2])]]), 128, surfaceNormalAt, () => 0, forestAt]);
+  // level ground, no steepness asked: the player's own pixel, its first square, looking along it
+  const any = hooks.__grassSpot(2);
+  assert.deepEqual([any.pixel, any.yaw, any.normal], [[3, 2], 0, null]);
+  // a hillside asked: the level pixel passes, the leaning one answers, its yaw down the slope
+  const hill = hooks.__grassSpot(2, 0, 0.3);
+  assert.deepEqual(hill.pixel, [4, 2]);
+  assert.ok(Math.abs(hill.yaw - Math.atan2(lean[0], lean[2])) < 1e-6 && Math.hypot(hill.normal[0], hill.normal[2]) >= 0.3);
+  assert.equal(hooks.__grassSpot(2, 0, 0.9), null, 'and none that steep, none');
+  // the wood: the most forest of the squares whose middle is grass - the heart itself is not, so its neighbour
+  const r = 2, wood = (tx, tz) => { let s = 0, k = 0; for (let dz = -r; dz <= r; dz += 2) for (let dx = -r; dx <= r; dx += 2) { s += forestAt(3 * 128 + tx + dx, -2 * 128 + tz + dz); k++; } return s / k; };
+  const spot = hooks.__forestSpot(r, true);
+  const tx = Math.round((spot.feet[0] - 3000) / 6.4 - 0.5), tz = Math.round((spot.feet[2] + 2000) / 6.4 - 0.5);
+  assert.ok(flatP.tilemapBytes[tz * 128 + tx] >> 2 === 2, `the tile it stands on (${tx}, ${tz}) is grass`);
+  assert.ok(Math.abs(spot.wood - wood(tx, tz)) < 1e-12 && spot.wood > 0.8, `its wood ${spot.wood}`);
+  for (let z = r; z < 128 - r; z += r) for (let x = r; x < 128 - r; x += r) {
+    if (flatP.tilemapBytes[z * 128 + x] >> 2 === 2) assert.ok(wood(x, z) <= spot.wood + 1e-12, `(${x}, ${z}) has no more`);
+  }
+  assert.ok(wood(...peak) > spot.wood, 'the heart itself has more, and is passed over');
+  assert.deepEqual(spot.origin, [3000, -2000]);
+});
+
+test('AUDIT GRASS-LIT2 C10: the ground the lanterns are held to IS the terrain programs\' text - groundLanterns models TERRAIN_FS\'s loop and the lane\'s elPointLit diffuse, so a change to either fails here, not just in the picture', () => {
+  const r = src('render/renderer.js');
+  const at = r.indexOf('const TERRAIN_FS = `');
+  const tfs = r.slice(at, r.indexOf('`;', at));
+  assert.ok(tfs.includes('    float att = clamp(1.0 - d / uPointLights[i].w, 0.0, 1.0);\n    pointAcc += att * att * max(dot(n, L / max(d, 1e-4)), 0.0) * uPointColors[i];\n'), 'the classic lane: (1 - d/r)^2 on n.L');
+  assert.ok(tfs.includes('lit += tex * pointAcc;'), 'on the albedo');
+  assert.ok(EL_TERRAIN_FS.includes('    if (d >= uPointLights[i].w) continue;') && EL_TERRAIN_FS.includes('    float att = sh * elAttenuation(d, uPointLights[i].w);\n    acc += att * (max(dot(n, Ln), 0.0) + spec) * uPointColors[i];\n'), 'the lane: elAttenuation on n.L (the spec set aside, as groundLanterns says)');
+  assert.ok(EL_TERRAIN_FS.includes('elPointLit(vWorldPos, n)'), 'and the lane\'s terrain reads it');
 });

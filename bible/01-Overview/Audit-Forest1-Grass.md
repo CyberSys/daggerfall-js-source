@@ -114,12 +114,36 @@ place, so the comparisons stand), not from the field `__grassSpot` named. Found 
 lit nothing - the eye was 48 m away. GRASS-LIT2's lantern was photographed from over the corner, looking at it; the
 probe's header says so. Why the pose cannot move the eye's x and z is not run down.
 
+## AUDIT GRASS-LIT2 (2026-10-02) - three lenses over the not-done list
+
+Mac: *"Audit this."* Three read-only reviewers over `550b23bc`, each its own lens: the shader (the vertex stage's
+new code, its uniforms and its cost), the host (world.js's normals, means and hooks, the draw's uploads), and the
+tests and docs (every new law mutated, every doc claim read against the code). Every finding was re-checked against
+the code before it was paid.
+
+| # | Found | Paid |
+|---|---|---|
+| A1 | **Every provoking vertex walked all 48 lanterns**, in range or not - a field drawn in a lit town paid the loop on every blade, and its cost had never been measured. | A cell walks its own: before each cell `_cellLights` picks the lights whose reach meets its box (the stage's own `d >= range` cut, at the box), nearest first, at most `GRASS_CELL_LIGHTS` (8, a tie to the earlier light), and uploads `uPointCount` / `uPointIdx` only when the list changes. The same picture: a lantern's pool on the real game measured 21.7 against 21.6 before. |
+| A2 | **A frame without shadows left the last frame's caster slots on the program** - latent: `uCasterOf` and the point params are uniforms, they outlive the frame that set them, and a stale slot whose map answers black puts a lantern out. | The no-shadow draw uploads every light as having no caster (all -1) and every slot off. Pinned on a recording GL, and on the stage: a stale slot zeroes the lantern, the reset lights it. |
+| A3 | **A zero word read as the steepest slope.** A pad, or a cleared slot, is all zero; codes 0 and 0 decoded to a lean of -0.75 on both axes. | The two slope codes are stored XOR 15: zero is level, in the pack and the stage. |
+| A4 | **A NaN normal packed as the steepest lean** (NaN shifts to code 0). | A normal that is not finite packs level. |
+| A5 | **The mean read more than its cap** (`floor(n / cap) | 1` read a 256 x 384 tile whole, 98,304 texels), and the uniform count the docs quoted (210) had counted six vectors out of a comment. | `ceil(n / cap) | 1`; the count is taken off the code: 212 with the cell list (224 if a driver keeps the two const face tables as uniforms), of 256. |
+| A6 | The lab's own stage still decodes the old height lane - the probe's lab page draws it, not the game. | Its docstring says so. |
+| B1 | **Every stride-1 pixel kept its grid's normals** (~200 KB each) with the lab field off. | Kept only when the field is on, at build and at a promotion. |
+| B2 | **A texture mod's tile set was asked for twice** - once for the upload, again for the means. | The means are taken off the layers the upload took (`groundDrawnMeans`). |
+| B5 | The shot hooks: a zero `r` never left either hook's loop; `__grassSpot`'s hillside looked along the slope, not down it, and read its normal at the near edge. | `r` at least 1; the yaw down the slope; the normal at the far half's middle. |
+| C | **The tests walked past 24 of the reviewer's 35 mutants** of GRASS-LIT2's code (two of the 24 on lines A1 and A5 have since rewritten; one is equivalent), and two more after (a mask widened into the height's bits, and TERRAIN_FS's falloff). The helper fed the stage its word as a double, so the `+ 0.5` that rounds a float32 unorm was never tested - half of all u16s reach a GPU a hair under themselves; the dither's constants, the hold to the span, the height's 63 steps, the out written before the loop, the lantern's lambert about the leaning blade, the draw's cut to the shorter list, the JS twin's normal, moon and lantern colours, a sliced rim cell's slope, the normal's low-edge clamp, the host's normals guard and the hooks' choices were all unpinned; and the ground's lantern formulas the grass is held to were the test's own copy, so a change to TERRAIN_FS's falloff left the grass suite green. | Ten tests (C1-C10 in `test/grasslit2.test.js`): the word as a float32, R2 by its derivation with the two axes independent, the twin against both stages end to end, a walk's sliced cells, the hooks and the slope closure lifted off world.js's text and run, and the ground's formulas read off the terrain programs' own text. |
+
+`tools/mutants/grasslit2.json` is 72 records: GRASS-LIT2's 25, the fixes' 21 (A1-B5), and the tests' own 26 (C) -
+71 dead and one recorded equivalent (`uLane` is uploaded as exactly 0 or 1, so `> 0.5` and `>= 0.5` are one
+branch). With `grasslit.json`'s 19, 90 of 91, the one the equivalent.
+
 ## Known and not paid
 
 - **The far rings draw every Tree.** Forests carry 2.4x DFU's Trees on average; the Features row is the dial.
 - **SwiftShader's milliseconds are not a player's.** The probe's frames prove the picture, not the frame rate. The
-  lanterns' loop runs only in the provoking vertex and only for a light in range; its cost on a real GPU is
-  unmeasured.
+  lanterns' loop runs only in the provoking vertex and over the cell's own lights, eight at most (AUDIT GRASS-LIT2
+  A1); its cost on a real GPU is unmeasured.
 - **The grass's lanterns have no contact shadows and no glint.** The terrain's lantern without a map takes a
   screen-space contact shadow (EL8) and a specular glint; the grass takes the diffuse and the map's shadow alone.
 - **A lantern is read at the root.** One value a blade, as the sun is; a torch held over a tall blade lights its tip
