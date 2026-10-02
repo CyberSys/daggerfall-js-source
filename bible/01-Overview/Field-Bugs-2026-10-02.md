@@ -454,7 +454,10 @@ the Professions key).
 turn the view, so it cannot bruise (the turn keys and the feet still do) - pre-existing, and keeping still is the
 act. Taking the look for a mine, a trace or a net is one-way: the player frees the mouse again if they want it.
 
-Pinned: `test/fb1002_herbcursor_audit.test.js` (10). `tools/mutants/fb1002_herbcursor_audit.json` (14), all dead.
+Pinned: `test/fb1002_herbcursor_audit.test.js` (10). `tools/mutants/fb1002_herbcursor_audit.json` (14), all dead. On
+the final code, the two lists with every record any other list aims at the files the audit changed (`pointerLock.js`,
+`gatherHost.js`, `herbHost.js`, `herbAct.js` and `profReticle.js` whole, world.js within 30 lines of its changes: 242):
+272 dead; VEIN-NEED-press-keeps-nothing survives, on the base too (below).
 PIN MOVED: `test/prof1_client.test.js` (the ladder's order: the act's click before the node's),
 `test/fb0930b_toolsaid.test.js` (the node's click refused on the act's; the Basket's words); STEADY-SAID-the-key-never-named
 (`fb1001_nodes.json`) re-aimed to the new words (its list, 9, all dead). The audit's cites re-resolved (`tools/citeShift.mjs`
