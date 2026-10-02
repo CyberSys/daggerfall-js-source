@@ -2,12 +2,12 @@
   {
     "name": "GALLEON-bake-fill-strays",
     "file": "tools/bakeGalleon.mjs",
-    "old": "      if (!fillInside(pts, tris)) { const f = slabFill(pts); tris = f.tris; extra = f.points.slice(pts.length); }\n",
-    "new": "",
+    "old": "  if (fault) throw new Error(`${object.name} polygon #${k} (${poly.length} corners): Blender's cut does not tile it",
+    "new": "  if (false) throw new Error(`${object.name} polygon #${k} (${poly.length} corners): Blender's cut does not tile it",
     "tests": [
-      "test/galleon_model.test.js"
+      "test/auditgalleon_bake.test.js"
     ],
-    "why": "the port side's 24-gon filled over two of her ports - the bake no longer the file committed"
+    "why": "AUDIT GN-B1 (re-aimed: slabFill, the fill this record once broke, is gone): a polygon Blender's cut does not tile baked as cut, never refused - a bow-tied quad through fillFace and through the whole bake"
   },
   {
     "name": "GALLEON-no-recoil",
