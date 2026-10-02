@@ -1,0 +1,72 @@
+[
+  {
+    "name": "TIMEFREE-the-reading-inverted",
+    "file": "src/systems/quest/clock.js",
+    "old": "  if (types.has('EndQuest') && !progresses) return true;   // its end loses the quest",
+    "new": "  if (types.has('EndQuest') && progresses) return true;   // its end loses the quest",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-a-standing-not-counted",
+    "file": "src/systems/quest/clock.js",
+    "old": "  if (lowers) return true;",
+    "new": "  if (lowers && false) return true;",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-not-reward-arm-dropped",
+    "file": "src/systems/quest/clock.js",
+    "old": "    if ([...PROGRESS].some((x) => pays.has(x)) && !progresses) return true;",
+    "new": "    if ([...PROGRESS].some((x) => pays.has(x)) && !progresses) return false;",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-table-emptied",
+    "file": "src/systems/quest/clock.js",
+    "old": "      this._deadline = (ONLINE_DEADLINES[q?.questName] ?? []).includes(this.symbol?.name) || clockIsDeadline(q, this);",
+    "new": "      this._deadline = clockIsDeadline(q, this);",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-online-charged",
+    "file": "src/systems/quest/clock.js",
+    "old": "    if (!questTimeFree(this.parentQuest)) this.remainingTimeInSeconds -= this.chargeSeconds(caller);",
+    "new": "    if (true) this.remainingTimeInSeconds -= this.chargeSeconds(caller);",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-wait-never-cut",
+    "file": "src/systems/quest/clock.js",
+    "old": "    else if (!this.isDeadline) this.remainingTimeInSeconds = Math.min(this.remainingTimeInSeconds, ONLINE_DELAY_SECONDS) - this.chargeSeconds(caller);",
+    "new": "    else if (!this.isDeadline) this.remainingTimeInSeconds = this.remainingTimeInSeconds - this.chargeSeconds(caller);",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-count-kept-online",
+    "file": "src/systems/quest/clock.js",
+    "old": "    if (questTimeFree(this.parentQuest)) return 'a few';",
+    "new": "    if (false) return 'a few';",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-walk-read-online",
+    "file": "src/scenes/questBridge.js",
+    "old": "        if (!questTimeFree(q)) for (const r of q.resources.values()) {",
+    "new": "        for (const r of q.resources.values()) {",
+    "tests": ["test/timefree.test.js", "test/questbridge.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-crime-letter-three-days-online",
+    "file": "src/systems/crimeGuilds.js",
+    "old": "  if (online) nowClassicMinutes += CRIME_GUILD_LETTER_DELAY_MINUTES - CRIME_GUILD_LETTER_ONLINE_MINUTES;",
+    "new": "  if (online) nowClassicMinutes += 0;",
+    "tests": ["test/timefree.test.js"]
+  },
+  {
+    "name": "TIMEFREE-the-idle-check-dropped",
+    "file": "src/systems/racialQuests.js",
+    "old": "  return !live.some((n) => (isCureQuest ? CURE_QUESTS.includes(n) : String(n).startsWith(VAMPIRE_QUEST_PREFIX)));",
+    "new": "  return true;",
+    "tests": ["test/timefree.test.js"]
+  }
+]

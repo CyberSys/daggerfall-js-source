@@ -495,7 +495,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
   // after `readiedSpell = sp`; `done()` raises CAST on every release
   // path, before the ready clears). machine.js:935/:941 fan them out,
   // and CastSpellDo / CastEffectDo latch on nothing else
-  // (actions.js:2737 - C# subscribes them in its constructor). This
+  // (actions.js:2739 - C# subscribes them in its constructor). This
   // host owns its own cast engine, and worldModes takes THIS instance
   // for the interior mode, so while the mount passed neither key every
   // `cast X spell do` / `cast X effect do` on this route - and in every
@@ -533,7 +533,7 @@ test('ROAD-G G2 review: the cast engine raises the two ready-spell doors into TH
 
 test('ROAD-G G2 review: questWorld answers CastSpellDo\'s two classic-spell reads', () => {
   // Without these the action self-completes at PARSE
-  // (actions.js:2791/:2798 - no effects, so C#'s template completes and
+  // (actions.js:2793/:2800 - no effects, so C#'s template completes and
   // the task can never fire), which would have left `cast X spell do`
   // dead on this route even with the doors above wired. world.js:14207's
   // pair, byte-folded on both sides exactly as MakeClassicKey folds.
@@ -576,7 +576,7 @@ test('ROAD-G G2 review: the encounter pool\'s frame seams - the tick, the draw, 
   assert.match(senses, /candidates: \(\) => exteriorFoePool\(\)\.filter\(\(f\) => !f\.dead\),/,
     'the senses walk the UNNARROWED street database, live records only');
 
-  // world.js:24852-24940's arrow shape: an enemy shaft hunts a WALKING
+  // world.js:24853-24941's arrow shape: an enemy shaft hunts a WALKING
   // player (the fly camera has no capsule), and both live pools are
   // impact candidates. `playerFeet: null` is every enemy arrow passing
   // through the player - the whole enemy arm the lane shipped.

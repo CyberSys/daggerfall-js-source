@@ -1444,7 +1444,9 @@ export class GivePc extends ActionTemplate {
     // The notify/silently forms wait for town, outdoors, and daytime
     if ((this.textId !== 0 || this.silently) && !this.offerImmediately) {
       const now = dateFromSeconds(skySecondsOf(this.parentQuest));   // TIME3: daytime is the sky's
-      if (!hooks?.isPlayerInTown?.() || now.hour < minHour || now.hour > maxHour) {
+      // TIMEFREE: online a letter waits for town alone - not for the sky's morning too
+      const night = !hooks?.sharedClock?.() && (now.hour < minHour || now.hour > maxHour);
+      if (!hooks?.isPlayerInTown?.() || night) {
         this.waitingForTown = true;
         this.ticksUntilFire = 0;
         return;

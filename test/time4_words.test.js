@@ -40,7 +40,7 @@ test('TIME4 the Online pane says the sky\'s day as it is when the pane opens: tw
   const menu = rd('src/ui/enhancedMenu.js');
   assert.match(menu, /can hurt you too\. ' \+ skyDayWords\(\) \+ ' The world\\u2019s clock and sky run on real time/, 'the paragraph opens its clock with the sentence');
   assert.match(menu, /a full moon holds a lycanthrope for its night alone\./, 'TIME2, said at the door');
-  assert.match(menu, /repairs and quest timers run on it, so a rest spends a quest\\u2019s days as it does in Daggerfall\./, 'TIME3, said at the door');
+  assert.match(menu, /loans and repairs run on it\. Quests online have no time limits: none fails because time ran out, a bounty never lapses, and a quest that would make you wait days \(a letter, a meeting\) moves on after a minute or two of play\./, 'TIMEFREE, said at the door (TIME3 said the quest timers ran on it)');
 });
 
 test('TIME4 the patch notes say the law\'s own figures: a day of 60 minutes, a full moon\'s night of 30, nightfall within 30, a three-day wait in about half a minute of rest, half an hour of game time at most for a tab away', () => {

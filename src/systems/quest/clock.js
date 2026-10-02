@@ -116,6 +116,84 @@ export function clockCounts(quest, clock) {
   return false;
 }
 
+/**
+ * TIMEFREE (2026-10-02, Mac: "we recently adjusted quest timing for online and im really getting tired of it ... Is
+ * there a way we can overhaul online quests to not use time and edit anything questwise to make since that depends on
+ * time?"; asked what a waiting step does online, "Short real wait"). ONLINE, A QUEST'S CLOCK IS NOT TIME.
+ *
+ * A Daggerfall clock is one of two things, and the script says which by what its end does:
+ *  - a DEADLINE - its end loses the quest ("you have 14 days": the task of its name ends the quest with no reward), or
+ *    shuts a reward that waits on it NOT having run out ("return before the time is up and be paid": a task reading
+ *    `not _clock_` pays). Online a deadline never runs out: the quest waits for the player.
+ *  - a DELAY - everything else: Brisienna's letter (7-14 days), the tutorial's pages, "come back in three days", a
+ *    reward that comes after a wait. Online a delay runs out after ONLINE_DELAY_SECONDS of the character's own clock
+ *    (about two real minutes of play) or its own remainder, whichever is sooner - the beat still lands, nobody waits days.
+ * WORLD5 stood every clock down and the main quest never began (a delay is half of them); this asks each clock which it
+ * is. The reading is the script's own tasks, static: what the clock's task does, what starts from it (`start task`,
+ * `setvar`), and what a `when` reads of it. Offline nothing here runs - DFU's clock, whole.
+ */
+export const ONLINE_DELAY_SECONDS = 24 * 60;
+/** The actions that mean the quest is going somewhere good - GivePc (`give pc nothing` too: it is the success), TrainPc
+ *  (it sets the success), StartQuest (the next part of a line). */
+const PROGRESS = new Set(['GivePc', 'TrainPc', 'StartQuest']);
+const NEGATED = new Set(['whenNot', 'andNot', 'orNot']);
+
+/** What firing the task `name` comes to: the action types reached - its own actions, the tasks it starts (`start
+ *  task`, `setvar`) and the tasks a positive `when`/`and`/`or` of anything reached sets off, transitively - and whether
+ *  any of them lowers a standing. A clock it starts is NOT followed: Brisienna's invitation (a delay) starts her
+ *  fortnight (a deadline), and each is asked on its own - followed, the invitation read as the deadline and never came. */
+function reached(quest, name) {
+  const seen = new Set([name]);
+  const queue = [name];
+  const types = new Set();
+  let lowers = false;
+  const visit = (next) => { if (next && !seen.has(next)) { seen.add(next); queue.push(next); } };
+  while (queue.length) {
+    const n = queue.shift();
+    for (const a of quest.tasks.get(n)?.actions ?? []) {
+      if (a.isTriggerCondition) continue;
+      const type = a.constructor?.typeName;
+      if (type) types.add(type);
+      if ((type === 'ChangeReputeWith' || type === 'LegalRepute') && Number(a.amount) < 0) lowers = true;
+      if (type === 'StartTask') visit(a.taskSymbol?.name);   // (a clock it starts is not followed: that clock is asked on its own)
+    }
+    for (const [tn, t] of quest.tasks) {
+      if (seen.has(tn)) continue;
+      if (t.actions.some((a) => a.isTriggerCondition && a.evaluations?.some((e) => !NEGATED.has(e.op) && new QuestSymbol(e.task).name === n))) visit(tn);
+    }
+  }
+  return { types, lowers };
+}
+
+/** TIMEFREE: whether `clock` is a deadline (see above). Answers false for a clock with no name or no quest. */
+export function clockIsDeadline(quest, clock) {
+  const name = clock?.symbol?.name;
+  if (!name || !quest?.tasks) return false;
+  const { types, lowers } = reached(quest, name);
+  const progresses = [...PROGRESS].some((t) => types.has(t));
+  if (lowers) return true;   // its end costs a standing - Brisienna's fortnight, a questor's patience
+  if (types.has('EndQuest') && !progresses) return true;   // its end loses the quest
+  for (const [tn, t] of quest.tasks) {   // ...or shuts a reward that waits on it not having run out
+    if (!t.actions.some((a) => a.isTriggerCondition && a.evaluations?.some((e) => NEGATED.has(e.op) && new QuestSymbol(e.task).name === name))) continue;
+    const pays = reached(quest, tn).types;
+    if ([...PROGRESS].some((x) => pays.has(x)) && !progresses) return true;
+  }
+  return false;
+}
+
+/** TIMEFREE: the four clocks whose end is a PENALTY the reading above cannot see - the end does not lose the quest
+ *  or cost a standing, it sends something after the player: the cure quests' hunters (`when _huntstart_ create foe`),
+ *  U0C00Y00's monster slipping away to its hideout, M0B11Y18's mark leaving the house. Deadlines, by hand. */
+export const ONLINE_DEADLINES = Object.freeze({
+  $CUREWER: Object.freeze(['huntstart']),
+  $CUREVAM: Object.freeze(['huntstart']),
+  U0C00Y00: Object.freeze(['escapetime']),
+  M0B11Y18: Object.freeze(['S.05']),
+});
+
+/** TIMEFREE: whether the quest's clocks run time-free - online (the shared clock standing), the quest's own word. */
+export const questTimeFree = (quest) => !!quest?.hooks?.sharedClock?.();
+
 export class Clock extends QuestResource {
   constructor(parentQuest, line = null) {
     super(parentQuest);
@@ -129,6 +207,7 @@ export class Clock extends QuestResource {
     this._lastWorldTimeSample = 0;
     this._lastRaisedSample = null;   // TIME3: the session's raised seconds at that sample - transient: a restore is a resume
     this.travelTimePending = false;   // Q1: the flag&16 / flag&1-hack arms pend Place resolution (Q3)
+    this._deadline = null;   // TIMEFREE: asked on first need (isDeadline)
     if (line !== null) this.setResource(line);
   }
 
@@ -180,6 +259,15 @@ export class Clock extends QuestResource {
 
   get isClock() { return true; }
 
+  /** TIMEFREE: this clock is a deadline (a script's reading, asked once - the tasks do not change after the parse). */
+  get isDeadline() {
+    if (this._deadline == null) {
+      const q = this.parentQuest;
+      this._deadline = (ONLINE_DEADLINES[q?.questName] ?? []).includes(this.symbol?.name) || clockIsDeadline(q, this);
+    }
+    return this._deadline;
+  }
+
   /** Q2 - Clock.cs Tick: whole world-seconds since the last sample
    *  come off the remainder; at zero the SAME-NAMED task starts and
    *  the clock finishes. The world clock is the quest's nowSeconds (TIME3: online the character's own)
@@ -190,6 +278,9 @@ export class Clock extends QuestResource {
    *  seconds/86400. */
   expandMacro(macroType) {
     if (macroType !== 5) return false;   // DetailsMacro
+    // TIMEFREE: online a clock is no count of days - "within =queston_ days", "I have =x_ days to get", "you only have
+    // =x_ days" read "within a few days", "I have a few days" - the scripts' day lines read whole with it
+    if (questTimeFree(this.parentQuest)) return 'a few';
     const secs = this.parentQuest?.hooks?.world?.showClocksAsCountdown?.()
       ? this.remainingTimeInSeconds : this.startingTimeInSeconds;
     return String(Math.ceil(secs / 86400));
@@ -219,6 +310,10 @@ export class Clock extends QuestResource {
    *  taking it: the field less the charge, floored at zero. A clock that is not running answers its field. */
   liveRemainingSeconds(caller) {
     if (!this.clockEnabled || this.clockFinished) return this.remainingTimeInSeconds;
+    if (questTimeFree(this.parentQuest)) {   // TIMEFREE: a deadline stands still; a delay is never more than the short wait
+      return this.isDeadline ? this.remainingTimeInSeconds
+        : Math.max(0, Math.min(this.remainingTimeInSeconds, ONLINE_DELAY_SECONDS) - this.chargeSeconds(caller));
+    }
     return Math.max(0, this.remainingTimeInSeconds - this.chargeSeconds(caller));
   }
 
@@ -236,7 +331,11 @@ export class Clock extends QuestResource {
     // to every running clock (Brisienna's fourteen days became forty-four played, for exactly the character Mac
     // brought over). Online a backward sample is a resume: nothing charged, the sample moved. Offline the raw gap
     // stands, DFU's own arithmetic (a backward jump there is a load, whose sample is the save's).
-    this.remainingTimeInSeconds -= this.chargeSeconds(caller);
+    // TIMEFREE: online a deadline is charged nothing and never runs out (the sample still moves - a clock taken
+    // offline resumes from where it stood, never charged the online span); a delay's remainder is cut to the short wait
+    // once, then charged as any clock - so a delay's beat lands within about two real minutes of play.
+    if (!questTimeFree(this.parentQuest)) this.remainingTimeInSeconds -= this.chargeSeconds(caller);
+    else if (!this.isDeadline) this.remainingTimeInSeconds = Math.min(this.remainingTimeInSeconds, ONLINE_DELAY_SECONDS) - this.chargeSeconds(caller);
     if (this.remainingTimeInSeconds <= 0) {
       this._triggerTask(caller);
       this.clockEnabled = false;
