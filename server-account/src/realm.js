@@ -583,10 +583,14 @@ export async function deleteRealm({ db, bucket, nowS = Math.floor(Date.now() / 1
   if (!row) return { error: 'no-realm-character' };
   if (row.origin_id && !(row.bytes > 0)) return undoCustoms({ db, bucket }, playerId, id, row.origin_id);
   const master = await db.prepare(`SELECT (SELECT COUNT(*) FROM guild_members o WHERE o.guild_id = m.guild_id) AS n,
-    (SELECT treasury FROM guilds g WHERE g.id = m.guild_id) AS treasury FROM guild_members m
+    (SELECT treasury FROM guilds g WHERE g.id = m.guild_id) AS treasury,
+    (SELECT 1 FROM homes h WHERE h.guild_id = m.guild_id) AS hall FROM guild_members m
     WHERE m.player = ? AND m.char_id = ? AND m.rank = ?`).bind(playerId, id, GUILD_RANK_MASTER).first();
   if ((master?.n ?? 0) > 1) return { error: 'guild-master-leaves' };
   if ((master?.treasury ?? 0) > 0) return { error: 'guild-treasury' };
+  // AUDIT GUILD1d S1: and a lone one sells its guild's hall first - deleted, the guild stood memberless with the hall,
+  // which kept it from ever being reclaimed (guildKeepsSql): the building, the name and the deed share gone for good
+  if (master?.hall) return { error: 'guild-hall' };
   if (Number((await db.prepare(REALM_MARKET_OPEN_SQL).bind(playerId, id).first())?.n ?? 0) > 0) return { error: 'realm-market-open' };
   // HOME-RENT: a room another player is renting in its home waits for its days to run out, and rent held for it waits to
   // be collected - the delete takes the home with it. AUDIT: then no room of it is offered any more, and both are asked

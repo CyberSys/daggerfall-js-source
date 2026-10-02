@@ -125,8 +125,8 @@ test('SLAM5: the batched get is bounded by the ROSTER, not by the room - so it c
   const src = readFileSync(new URL('../server/src/index.js', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
   // the selection happens BEFORE the read: `others` (every socket) must not be what is handed to storage
   assert.doesNotMatch(src, /storage\.get\(others\.map/, 'the room is never the batch');
-  assert.match(src, /const near = rosterFor\(others, m\.id, m\.pose\);/, 'the roster is chosen first');
-  const i = src.indexOf('const near = rosterFor(others');
+  assert.match(src, /const near = rosterFor\((?:battle \? others\.map\(\(b\) => this\._drawn\(b, a\.key\)\) : )?others, m\.id, m\.pose\);/, 'the roster is chosen first');   // PIN MOVED (AUDIT-SEATS): T2 - in a battle room the same sockets, a spectator's pose told as none
+  const i = src.indexOf('const near = rosterFor(');   // PIN MOVED (AUDIT-SEATS): T2, as above
   assert.match(src.slice(i, i + 400), /near\.filter\(\(b\) => !this\._looks\.has\(b\.id\)\)/, 'and only what is not already known is asked for');
 });
 

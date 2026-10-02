@@ -1952,7 +1952,7 @@ test('MAP2 resume: a pending destination asks once on the first tick - Yes resum
 test('MAP2: the additions are the classic window\'s own functions, and the probe reports them', () => {
   const src = read('src/ui/heldMap.js');
   assert.match(src, /import \{ teleportCost, teleportCostPrompt, portsFilterAllows, locationInfoRows, resumePrompt \} from '\.\/travelMapOptions\.js';/);
-  assert.match(src, /import \{ hasPort \} from '\.\.\/systems\/travelPorts\.js';/);
+  assert.match(src, /import \{ hasPortFor as hasPort \} from '\.\.\/systems\/travelPorts\.js';/);   // SEAT2b part two (PIN MOVED): HasPort, or a members' Harbour at a seat
   assert.match(src, /if \(!portsFilterAllows\(this\.portsFilter, summary\?\.mapID \?\? summary\?\.mapId\)\) return false;\s*\n\s*return checkLocationDiscovered\(summary\);/, 'the classic override, verbatim');
   assert.match(src, /get: \(\) => travelMapMarkedMapId\(\),\s*\n\s*set: \(v\) => setTravelMapMarkedMapId\(v\),/, 'the mark in the shared store');
   assert.match(src, /const info = locationInfoRows\(summary\?\.locationType,/);

@@ -26,7 +26,7 @@
 // offer it for sale: a price is never guessed.
 // ═══════════════════════════════════════════════════════════════════
 
-import { collectDecor, decorCatalogue } from './decorCatalogue.js';
+import { collectDecor, decorCatalogue, HALL_BOARD_ENTRY } from './decorCatalogue.js';
 
 /** How many town blocks one step reads. */
 export const DECOR_SCAN_BLOCKS_A_STEP = 8;
@@ -67,7 +67,8 @@ export function createDecorScan({ blocks, isTownBlock, modelRadius, flatRadius }
       } catch { /* a block the file cannot read is a block with nothing in it */ }
     }
     if (next >= total) {
-      entries = decorCatalogue(collected);
+      // GUILD1e: and the hall's board, which no room placed - measured and priced as every piece
+      entries = Object.freeze([...decorCatalogue(collected), HALL_BOARD_ENTRY]);
       models = entries.filter((e) => e.model != null);
       phase = 'models';
     }

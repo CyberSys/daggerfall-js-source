@@ -238,11 +238,12 @@
   {
     "name": "AUDIT-RENOWN1-tracker-early-after-a-refusal",
     "file": "src/net/renownTracker.js",
-    "old": "(!refused && held === null && pending >= RENOWN_XP_REPORT_MAX)",
-    "new": "(pending >= RENOWN_XP_REPORT_MAX)",
+    "old": "(!refused && held === null && pendingXp() >= RENOWN_XP_REPORT_MAX)",
+    "new": "(pendingXp() >= RENOWN_XP_REPORT_MAX)",
     "tests": [
       "test/auditrenown1.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "AUDIT-RENOWN1-tracker-backoff-ceiling",
@@ -256,20 +257,22 @@
   {
     "name": "AUDIT-RENOWN1-tracker-leave-clears",
     "file": "src/net/renownTracker.js",
-    "old": "      try { leave(h.character, h.xp, name?.() ?? null, h.rid); return true; } catch { return false; }",
-    "new": "      try { leave(h.character, h.xp, name?.() ?? null, h.rid); held = null; return true; } catch { return false; }",
+    "old": "      try { leave(h.character, h.xp, name?.() ?? null, h.rid, h.region); return true; } catch { return false; }",
+    "new": "      try { leave(h.character, h.xp, name?.() ?? null, h.rid, h.region); held = null; return true; } catch { return false; }",
     "tests": [
       "test/auditrenown1.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "AUDIT-RENOWN1-client-keepalive-dropped",
     "file": "src/net/accountClient.js",
-    "old": "    leave: (character, xp, name = null, rid = null) => report(character, xp, name, rid, true),",
-    "new": "    leave: (character, xp, name = null, rid = null) => report(character, xp, name, rid, false),",
+    "old": "    leave: (character, xp, name = null, rid = null, region = null) => report(character, xp, name, rid, true, region),",
+    "new": "    leave: (character, xp, name = null, rid = null, region = null) => report(character, xp, name, rid, false, region),",
     "tests": [
       "test/auditrenown1.test.js"
-    ]
+    ],
+    "note": "SEAT1b (PIN MOVED): re-aimed by content - the report names its region, the gate claim its region and character."
   },
   {
     "name": "AUDIT-RENOWN1-answer-order-gated-on-rise",

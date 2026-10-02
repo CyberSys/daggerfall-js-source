@@ -263,8 +263,8 @@
   {
     "name": "AUDIT-DECOR-SHELL-2-the-list-waited-for-forever",
     "file": "src/net/accountClient.js",
-    "old": "    list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),",
-    "new": "    list: (mapId, buildingKey) => post('/v1/homes/decor', { mapId, buildingKey }),",
+    "old": "    list: (mapId, buildingKey, seat = false) => waited('/v1/homes/decor', { mapId, buildingKey, ...(seat ? { seat: true } : {}) }),",
+    "new": "    list: (mapId, buildingKey, seat = false) => post('/v1/homes/decor', { mapId, buildingKey, ...(seat ? { seat: true } : {}) }),",
     "tests": [
       "test/decorshell.test.js"
     ]

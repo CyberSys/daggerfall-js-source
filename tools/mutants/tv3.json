@@ -452,8 +452,8 @@
   {
     "name": "OVERWORLD-NAMES-wire-drops-renown",
     "file": "src/net/wire.js",
-    "old": ", lv: readRenown(m), gt: readGuildTag(m) };",
-    "new": ", lv: null, gt: null };",
+    "old": ", lv: readRenown(m), gt: readGuildTag(m), rb: readRibbon(m) };",
+    "new": ", lv: null, gt: null, rb: readRibbon(m) };",
     "tests": [
       "test/tv3_travellers.test.js"
     ],

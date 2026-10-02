@@ -484,8 +484,8 @@
   {
     "name": "SIGIL1-kill-feeds-nothing",
     "file": "src/scenes/world.js",
-    "old": "renownTracker.earn(xp); sigilDrinks(xp); });",
-    "new": "renownTracker.earn(xp); });",
+    "old": "renownTracker.earn(xp); sigilDrinks(xp); seatEdicts.campCleared(foe?.site).catch(() => {}); });",
+    "new": "renownTracker.earn(xp); seatEdicts.campCleared(foe?.site).catch(() => {}); });",
     "tests": [
       "test/sigil1.test.js",
       "test/renown1.test.js",

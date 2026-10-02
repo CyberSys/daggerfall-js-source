@@ -10,7 +10,7 @@
   { "name": "STAFF1-hyphen-kept", "file": "src/net/staffCommands.js", "old": ".replace(/[\\s-]+/g, ' ')", "new": ".replace(/\\s+/g, ' ')", "tests": ["test/staff1.test.js"] },
   { "name": "STAFF1-god-not-withheld", "file": "src/characters/playerEntity.js", "old": "{ if (_staff.god) return true; try {", "new": "{ try {", "tests": ["test/staff1.test.js"] },
   { "name": "STAFF1-switch-truthy", "file": "src/characters/playerEntity.js", "old": "if (typeof god === 'boolean') _staff.god = god;", "new": "if (god !== undefined) _staff.god = !!god;", "tests": ["test/staff1.test.js"] },
-  { "name": "STAFF1-fly-unwired", "file": "src/scenes/shared.js", "old": "hasActiveEffect(entity, 'levitate') || staffFly();", "new": "hasActiveEffect(entity, 'levitate');", "tests": ["test/staff1.test.js"] },
+  { "name": "STAFF1-fly-unwired", "file": "src/scenes/shared.js", "old": "|| staffFly() || freeFlight();", "new": "|| freeFlight();", "tests": ["test/staff1.test.js"] },
   { "name": "STAFF1-dungeon-fly-unwired", "file": "src/scenes/dungeonContext.js", "old": "hasActiveEffect(playerEntity, 'levitate') || staffFly(),", "new": "hasActiveEffect(playerEntity, 'levitate'),", "tests": ["test/staff1.test.js"] },
   { "name": "STAFF1-ungated", "file": "src/scenes/world.js", "old": "const staffCmd = isStaff(staffGlyphs()) ? parseStaffCommand(text, staffPowers()) : null;", "new": "const staffCmd = parseStaffCommand(text, staffPowers());", "tests": ["test/staff1.test.js"] },
   { "name": "STAFF1-title-lost-keeps-god", "file": "src/scenes/world.js", "old": "    if (!isStaff(_staffGlyphs)) setStaffPowers({ god: false, fly: false });", "new": "", "tests": ["test/staff1.test.js"] },

@@ -99,7 +99,7 @@ export async function standService(extra = {}) {
     const R = await seatRealm(env, who.secret, who.handle, { name: who.handle, level: 9, goldPieces: 1_000_000, items: [] });
     return { ...(await call('/v1/homes/claim', { ...home, character: R.id, realm: R.at() }, who.secret)), character: R.id };
   };
-  return { env, call, guest, registered, claim, seedMarks, fetch, found, seatHome, identityPublic: kp.publicKey };   // PROF3: the identity key's public half, a product record's verifier
+  return { env, call, guest, registered, claim, seedMarks, fetch, found, seatHome, identityPublic: kp.publicKey, gateKey: gatePriv };   // PROF3: the identity key's public half, a product record's verifier; SEAT1b: the relay's private half, a watch receipt's signer
 }
 
 /** A device's storage holding `who`'s session (net/accountClient.js SESSION_KEY). */

@@ -49,6 +49,7 @@ import { titleBadge, glyphBadges, glyphSvgNode, cssRgba, titlePaint, TITLE_PAINT
 import { graphemesOf } from '../systems/graphemes.js';   // EMOTE1's characters, which JOURNAL1's notebook break reads too
 import { renownText } from '../net/renown.js';   // RENOWN1: Renown, left of the name
 import { guildTagText } from '../net/guildLaw.js';   // GUILD1c: the guild's tag, right of the name
+import { ribbonColours } from '../net/heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon, under the name
 
 export const NAME_STYLE_ID = 'dagger-names-style';
 
@@ -218,6 +219,12 @@ export const NAME_CSS = `${PIXELIFY_FIVE_FACE}
   border-right: 1px solid var(--iron, #2b323b); border-bottom: 1px solid var(--iron, #2b323b);
   transform: rotate(45deg); }
 .dfname-bubble.off { display: none; }
+/* SEASON1 part two (Seats-Arc 9.1) - A SEASON'S BANNER RIBBON, UNDER THE NAME: a thin band the label's own width in the
+   guild's field colour, edged beneath in its border colour (the colours written per peer, only when they change). A
+   peer wearing none has it off and takes no room: the label is the one it wore before. */
+.dfname-ribbon { align-self: stretch; height: .2em; margin-top: .14em; border-bottom: .1em solid transparent;
+  box-shadow: 0 1px 0 #000; }
+.dfname-ribbon.off { display: none; }
 `;
 
 /** The sheet, once (ui/partyPanel.js injectPartyStyle's own shape). */
@@ -284,9 +291,12 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
     const guild = doc.createElement('span');
     guild.className = 'dfname-guild';
     tag.append(lv, name, guild, glyphs);
-    node.append(bubble, title, tag);
+    // SEASON1 part two: a Season's banner ribbon, a sibling under the name row
+    const ribbon = doc.createElement('div');
+    ribbon.className = 'dfname-ribbon off';
+    node.append(bubble, title, tag, ribbon);
     root.append(node);
-    return { node, bubble, title, tag, lv, name, guild, glyphs, worn: null, titled: null, inked: undefined };   // SHADOW-FANG: `titled`, the title whose paint is on; AUDIT A10: `inked`, the name's colour as written
+    return { node, bubble, title, tag, lv, name, guild, glyphs, ribbon, worn: null, titled: null, inked: undefined, banded: '' };   // SEASON1 part two: `banded`, the ribbon as written   // SHADOW-FANG: `titled`, the title whose paint is on; AUDIT A10: `inked`, the name's colour as written
   };
 
   /** ACC3: the glyph run, REBUILT ONLY WHEN IT CHANGES. A glyph set is
@@ -358,7 +368,7 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
     /** AUDIT NAME1 F3: `viewport` is the world viewport's HEIGHT in CSS px and `hudScale` the player's own HUD
      *  scale (ui/enhancedHud.js enhancedHudScale). Both are taken by VALUE rather than through
      *  `scale(var(--hud-scale))`, because that variable is set on #enhanced-hud and this layer is a body sibling
-     *  of it - the damage numbers' own layer has the same problem and enhancedHud.js:892 solves it the same way,
+     *  of it - the damage numbers' own layer has the same problem and enhancedHud.js:894 solves it the same way,
      *  by writing the number where it is needed. Neither is passed on a probe host, and there the law is exactly
      *  the reference frame's: NAME_BASE_PX * the point's scale. */
     render({ points = [], log = null, covered = false, colorOf = null, viewport = null, hudScale = 1 } = {}) {
@@ -397,6 +407,16 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
         // so the diffing door rewrote a party mate's green every frame - written when it CHANGES, as the title is
         const ink = cssRgba(colorOf?.(p.id)) ?? '';
         if (tag.inked !== ink) { tag.inked = ink; tag.name.style.color = ink; }
+        // SEASON1 part two (Seats-Arc 9.1): a Season's banner ribbon under the name, in its guild's two colours - written
+        // when it CHANGES, as the name's ink is
+        const band = ribbonColours(p.rb);
+        const banded = band ? `${band.field}/${band.border}` : '';
+        if (tag.banded !== banded) {
+          tag.banded = banded;
+          setCls(tag.ribbon, band ? 'dfname-ribbon' : 'dfname-ribbon off');
+          tag.ribbon.style.background = band?.field ?? '';
+          tag.ribbon.style.borderBottomColor = band?.border ?? '';
+        }
         // ACC3: the title above, in ITS colour, and the glyphs beside.
         // `colorOf` is deliberately not asked for either: the party's
         // green says "this is my party" about a NAME, and gold says

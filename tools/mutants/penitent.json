@@ -137,12 +137,12 @@
   {
     "name": "PENITENT-lozenge-filled",
     "file": "src/ui/playerBadge.js",
-    "old": "shadowfang: false, penitent: true, herald: true });",
-    "new": "shadowfang: false, penitent: false, herald: true });",
+    "old": "shadowfang: false, penitent: true, herald: true, tower: false,",
+    "new": "shadowfang: false, penitent: false, herald: true, tower: false,",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "PENITENT-mark-another-glyphs",
@@ -193,22 +193,22 @@
   {
     "name": "PENITENT-title-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'shadowfang', 'penitent', 'gatebreaker', 'herald']);",
-    "new": "'shadowfang', 'gatebreaker', 'herald']);",
+    "old": "'shadowfang', 'penitent', 'gatebreaker', 'herald', 'warden',",
+    "new": "'shadowfang', 'gatebreaker', 'herald', 'warden',",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "PENITENT-glyph-not-in-the-vocabulary",
     "file": "src/net/identityToken.js",
-    "old": "'hierophant', 'shadowfang', 'penitent', 'herald']);",
-    "new": "'hierophant', 'shadowfang', 'herald']);",
+    "old": "'hierophant', 'shadowfang', 'penitent', 'herald', 'tower',",
+    "new": "'hierophant', 'shadowfang', 'herald', 'tower',",
     "tests": [
       "test/penitent.test.js"
     ],
-    "note": "HERALD (RE-AIMED by content: the lists end with herald now)."
+    "note": "SEAT1c (PIN MOVED) and HERALD (RE-AIMED), each by content; the merge of main re-aimed it over both - herald after the penitent, the seats' after herald."
   },
   {
     "name": "PENITENT-staff",

@@ -43,6 +43,9 @@ import {
 import { RENT_VERB, rentRowLabel, rentTenantLabel } from './homeRent.js';   // HOME-RENT: the door's rows for a room to rent
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';
 import { DEED_SELL_MULT, CROSSED_DEED_LINES } from './banking.js';
+import { guildTagText } from '../net/guildLaw.js';   // GUILD1d: a hall's tag, as a name wears it
+import { GUILD_HALL_ENTRIES, GUILD_HALL_ENTRY_WORDS, guildHallPrice } from '../net/hallLaw.js';   // GUILD1d: a guild's hall
+import { heraldryOf } from '../net/heraldryLaw.js';   // GUILD1d: a hall's heraldry, off the town's answer
 
 /** How long a town's answer is believed before a door asks again. */
 export const HOME_TOWN_TTL_MS = 60_000;
@@ -51,8 +54,9 @@ export const HOME_RETRY_MS = 10_000;
 /** How long a door waits for a town's first answer before it goes on under Daggerfall's own law. */
 export const HOME_ASK_WAIT_MS = 2_500;
 
-/** What each entry reads as, to the owner. */
-export const HOME_ENTRY_WORDS = Object.freeze({ private: 'Only me', party: 'My party', public: 'Anyone' });
+/** What each entry reads as, to the owner. GUILD1d: and their guild. */
+export const HOME_ENTRY_WORDS = Object.freeze({ private: 'Only me', party: 'My party', public: 'Anyone', guild: 'My guild' });
+
 
 /**
  * WHETHER A BUILDING CAN BE A HOME AT ALL: Daggerfall's own for-sale houses and every house type it has - House1-4
@@ -115,8 +119,10 @@ export function homeDoorPrompt({ door, mode, price = 0, declined = false, asked 
   return mode === 'steal' || declined ? null : 'offer';
 }
 
-/** The door's name for a home, over the building's own. */
-export const homeDoorTitle = (home) => (home.own ? 'Your home' : `${home.owner}'s home`);
+/** The door's name for a home, over the building's own. GUILD1d: a hall's is its guild's - "Your guild's hall" to its
+ *  members, "The Silver Hand's hall <SH>" to everyone else. */
+export const homeDoorTitle = (home) => (home.hall ? (home.member ? "Your guild's hall" : `${home.hall.name}'s hall${home.hall.tag ? ` ${guildTagText(home.hall.tag) ?? ''}` : ''}`.trim())
+  : home.own ? 'Your home' : `${home.owner}'s home`);
 /**
  * FIELD BUGS 2026-09-30b (HOME-PLAQUE): "every door looks like just a house I can buy". A private house has no name
  * (DFU's BuildingNames names none), and a nameless door drew no plaque - so HOME2's verbs, which ride the plaque, were
@@ -127,9 +133,9 @@ export const homeDoorTitle = (home) => (home.own ? 'Your home' : `${home.owner}'
  */
 export const homeDoorName = (name, hasVerbs) => name || (hasVerbs ? 'Residence' : '');
 /** What a player reads at a home's door they may not open. */
-export const homeLockedLine = (home) => `This is ${home.owner}'s home. The door is locked.`;
+export const homeLockedLine = (home) => (home.hall ? `This is the hall of ${home.hall.name}. Its doors open to its members.` : `This is ${home.owner}'s home. The door is locked.`);
 /** What a visitor reads at a home's cupboard. */
-export const homeBelongsLine = (home) => `This belongs to ${home.owner}.`;
+export const homeBelongsLine = (home) => `This belongs to ${home.hall ? home.hall.name : home.owner}.`;
 /** The hover's line under a house anyone may buy. */
 export const homeForSaleLine = (price) => `Can be your home: ${price} gold`;
 /** The offer at the door. */
@@ -150,6 +156,8 @@ export const homeShortLine = (price) => `You need ${price} gold, in your purse a
  */
 export const HOME_BUY_ARM_MS = 5_000;
 export const HOME_VERB = Object.freeze({ enter: 'home-enter', buy: 'home-buy', entry: 'home-entry', sell: 'home-sell', rent: RENT_VERB });   // HOME-RENT: a room rented at the door
+/** GUILD1d: a house bought as its guild's hall, and who may walk into a hall - the hall's own verbs beside a home's. */
+export const HALL_VERB = Object.freeze({ buy: 'home-hall', entry: 'home-hall-entry' });
 /** The rows over a house anyone may buy, at `price`; `armed` after its first press. */
 export const homeBuyRows = (price, armed = false) => [
   { id: HOME_VERB.enter, label: 'Go in' },
@@ -168,6 +176,7 @@ export const homeOwnerRows = (entry) => [
  * homeDoorAnswer's; `nowS` the clock the days left are counted by. Null where a plain door is all there is.
  */
 export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)) {
+  if (home?.hall) return homeHallRows(home, door);   // GUILD1d: a guild's hall - its members' rows, never a room to rent
   if (!home || home.own) return null;
   if (rentDaysLeft(home.tenant, nowS) > 0) return [{ id: HOME_VERB.enter, label: 'Go in' }, { id: HOME_VERB.rent, label: rentTenantLabel(rentDaysLeft(home.tenant, nowS)) }];
   // AUDIT: never from one's own account (the service refuses it `rent-own`) - another character of the owner's is shown
@@ -175,7 +184,45 @@ export function homeVisitorRows(home, door, nowS = Math.floor(Date.now() / 1000)
   if (!home.rent || home.mine) return null;
   return [...(door === 'enter' ? [{ id: HOME_VERB.enter, label: 'Go in' }] : []), { id: HOME_VERB.rent, label: rentRowLabel(home.rent.from) }];
 }
-/** Who may enter after `entry`, a press on the row: only me, my party, anyone, and round again. */
+/**
+ * GUILD1d (Seats-Arc 8.2): THE HALL'S ROWS. A guildmaster whose guild holds no hall reads, under a house anyone may buy,
+ * "Buy it for <guild>: N gold from the treasury" - the home's price and half again (hallLaw.js guildHallPrice), armed by
+ * its first press as a home's buy is. A hall's door lists "Go in" to its members, and to its keepers who may walk in.
+ * `guild` is the playing character's (net/guildBook.js's look): `{ name, rank, hall, treasury }`, or null.
+ */
+export function homeHallBuyRow(price, guild, armed = false) {
+  if (!guild || guild.rank !== 0 || guild.hall) return null;
+  const cost = guildHallPrice(price);
+  return { id: HALL_VERB.buy, label: armed ? `Click again to buy it for ${guild.name}: ${cost} gold` : `Buy it for ${guild.name}: ${cost} gold from the treasury` };
+}
+export function homeHallRows(home, door) {
+  if (!home?.hall || door !== 'enter') return null;
+  return [{ id: HOME_VERB.enter, label: 'Go in' }, ...(home.keeper ? [{ id: HALL_VERB.entry, label: `Who may enter: ${GUILD_HALL_ENTRY_WORDS[home.entry] ?? GUILD_HALL_ENTRY_WORDS.guild}` }] : [])];
+}
+/** AUDIT GUILD1d A3: the offer box's hall choice (the plaque-less click's), for a guildmaster whose guild holds no hall. */
+export const hallOfferLabel = (price, guild) => `G - buy it for ${guild?.name ?? 'your guild'}: ${guildHallPrice(price)} gold from the treasury`;
+/** GUILD1d: who may walk into a hall after `entry`, a press on the row: members, anyone, and round again. */
+export const hallNextEntry = (entry) => GUILD_HALL_ENTRIES[(Math.max(0, GUILD_HALL_ENTRIES.indexOf(entry)) + 1) % GUILD_HALL_ENTRIES.length];
+/** GUILD1d: the hall bought and refused at its door, in words. */
+export const hallBoughtLine = (name) => `This house is the hall of ${name} now. Its members may walk in; its Officers may furnish it.`;
+export const hallShortLine = (cost) => `The treasury needs ${cost} gold put in by realm characters to buy this hall.`;
+/** AUDIT GUILD1d A6/A7: a hall's cupboard to its members, and a hall's own words for a drop (anyone's) and a spell (a
+ *  visitor's - its members cast in it). */
+export const HALL_CHEST_TITLE = "The Guild's Chest";
+export const HALL_DROP_TEXT = "Nothing dropped in a guild's hall stays - put it in the guild's chest.";
+export const HALL_VISITOR_MAGIC_TEXT = "You cannot cast spells in another guild's hall.";
+/** GUILD1e: THE BOARD IN A HALL - its name to a member, what it says to anyone else, and where it cannot open. */
+export const HALL_BOARD_TITLE = "The Guild's Board";
+export const hallBoardShutLine = (name) => `This board is ${name ?? 'the guild'}'s. Its notes are for its members.`;
+export const HALL_BOARD_COLD = "The guild's board cannot be read now.";
+/** SEASON1 part three (Seats-Arc 9.2): a seat's palace shelves, over the cursor - and what they say where the Chronicle
+ *  cannot be read (offline, the seats shut). */
+export const HALL_OF_RECORDS_TEXT = 'Hall of Records';
+export const HALL_OF_RECORDS_SHUT = 'The Hall of Records cannot be read now.';
+/** GUILD1d: a hall's chest pressed where the Guild tab cannot open. */
+export const HALL_CHEST_SHUT = "The guild's chest holds the guild Stores - open the Guild tab of the Social panel to reach them.";
+
+/** Who may enter after `entry`, a press on the row: only me, my party, anyone, my guild, and round again. */
 export const homeNextEntry = (entry) => HOME_ENTRIES[(Math.max(0, HOME_ENTRIES.indexOf(entry)) + 1) % HOME_ENTRIES.length];
 /** Where the plaque draws no rows, the click's own offer: its two answers. */
 export const HOME_OFFER_BUY = 'Y - buy it';
@@ -255,6 +302,11 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
             rent: Number.isSafeInteger(h.rent?.vacant) && h.rent.vacant > 0 && rentPriceOk(h.rent.from) ? { vacant: h.rent.vacant, from: h.rent.from } : null,
             tenant: Number.isSafeInteger(h.tenant) && h.tenant > 0 ? h.tenant : null,
             look: homeLookOf(h.look ?? null),   // HOME-LOOK: how its owner painted it (null: the town's own)
+            guildmate: h.guildmate === true,   // GUILD1d: the playing character is in the owner's character's guild
+            // GUILD1d: A GUILD'S HALL - its guild's name, tag and heraldry, whether the playing character is a member and
+            // whether one of its keepers (who furnish it)
+            hall: h.hall && typeof h.hall.name === 'string' ? Object.freeze({ name: h.hall.name, tag: typeof h.hall.tag === 'string' ? h.hall.tag : '', heraldry: heraldryOf(h.hall.heraldry ?? null) }) : null,
+            member: h.member === true, keeper: h.keeper === true,
           });
         }
         towns.set(id, { at: now(), homes });
@@ -374,7 +426,10 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
     return t ? new Map([...t.homes].map(([k, row]) => [k, row])) : null;
   }
 
-  return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, version: () => version };
+  /** AUDIT GUILD1d A5: something a door shows moved outside the registry (the guild book's look - whether this character
+   *  may buy a hall): the doors are read again. */
+  const bump = () => { version++; };
+  return { ensure, waitFor, known, homeAt, claim, release, setEntry, setLook, homesIn, bump, version: () => version };
 }
 
 /**

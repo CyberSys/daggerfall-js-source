@@ -104,6 +104,7 @@ import { foeTarget, foeTargetRef, tickFoeTarget } from './hudFoeTarget.js';
 // styles show a corner word - imported rather than restated.
 import { crosshairEnabled, interactionIconStyle, iconReplacesCrosshair, modeIconEnabled, MODE_LABEL } from './hudCrosshair.js';
 import { getInteractionMode } from '../player/interactionMode.js';
+import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the movable pieces, the lock and the reset
 import { mountHotbarDock, drawEnhancedHotbar, detachHotbarDock, hotbarMode } from './enhancedHotbar.js';   // HB1: the hotbar, the diamond's alternative (one or the other)
 import { setEnhancedMidTextScale } from './enhancedHudText.js';   // AUDIT FONT F2: the mid-screen label is a layer beside this one, not inside it (the popup column it once scaled too is a toast in the notice stack since ENH-NOTICE3)
 import { QUEST_MARK_CSS } from './questMarks.js'; import { nodeMarkCss } from './nodeMarks.js';   // GUIDE5: the tracker's quest on the compass, in the marks' one gold; NODE-MARKS: a profession's nodes in its own colour
@@ -870,6 +871,7 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   const { hidden = false } = opts;
   if (typeof document === 'undefined') return;
   if (!host) { parts = build(document); host = parts.root; mountHotbarDock(parts.hotDock); }
+  tickHudLayout(document);   // HUD-MOVE: starts once, then a throttled sweep - the player's layout and the lock
   tickFoeTarget(dt);
   // HB1: the hotbar hears every frame, hidden or not - a hidden HUD is
   // exactly when it may still be up under the pack as a drop target.

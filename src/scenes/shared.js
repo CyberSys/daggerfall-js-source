@@ -62,7 +62,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../pla
 import { FOOTSTEP_VOLUME } from '../systems/footsteps.js';   // AUDIT 58: PlayerFootsteps.FootstepVolumeScale (:30), which its one-shots carry too
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { SOUND } from '../systems/soundClips.js';
-import { surfacePlayer, hurtPlayer, duelSpare, staffFly } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time
+import { surfacePlayer, hurtPlayer, duelSpare, staffFly, levitateWarded, freeFlight } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { readSpellsStd, spellsByIndexMap } from '../formats/spellsStd.js';   // G4: the two magic registries, one home
 import { readMagicDef } from '../formats/magicDef.js';
 import { setMagicItemTemplates, setSpellRecordsByIndex } from '../systems/loot.js';
@@ -777,6 +777,22 @@ export function parkourSwitchOn(search) {
   return (isOnlinePage(search) || isEnhanced(search)) && !!row;
 }
 
+/** FOREST1: THE REAL FORESTS' SWITCH - the Features row (`realForests`) on
+ *  the enhanced skin, and on for everyone online whatever their skin: the
+ *  woods are the ground Logging's trees stand on, and the room agrees on
+ *  its ground (parkourSwitchOn's shape). `?forests=off` the kill door, offline. The
+ *  world host reads it once, at its mount (a flip reaches the next world). */
+export function realForestsOn(search) {
+  // AUDIT FOREST1 F6: the kill door is offline's alone - online the woods are the room's ground, and a peer who shut
+  // them would stand Logging's trees where nobody else sees a tree
+  if (pageParam('forests', search) === 'off' && !isOnlinePage(search)) return false;
+  const row = onlineForcedPref('realForests', search) ?? getPref('realForests');
+  return !!row && (isOnlinePage(search) || isEnhanced(search));
+}
+/** FOREST1: the LocationTypes (DFRegion.cs:66-86) the woods close round - DungeonLabyrinth 4, DungeonKeep 7,
+ *  ReligionCult 9, DungeonRuin 10, Graveyard 12, Coven 13. Every other place stands in cleared fields. */
+export const FOREST_HIDDEN_LOCATION_TYPES = Object.freeze(new Set([4, 7, 9, 10, 12, 13]));
+
 /** CLIMB1: the enhanced climb's deps every host wires the same way - the
  *  switch, read live (the row takes effect at once), and the Climbing
  *  skill's reads, the same the classic climb's chance takes (climbingDeps:
@@ -1034,7 +1050,7 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // DW-D: Iliac Puddle No More's forge rides this ONE write - LevitateMotor.IsSwimming's setter arms CancelMovement
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
-  player.levitating = hasActiveEffect(entity, 'levitate') || staffFly();   // STAFF1: /fly
+  player.levitating = hasActiveEffect(entity, 'levitate') && !levitateWarded() || staffFly() || freeFlight();   // STAFF1: /fly   // AUDIT-SEATS G5: a siege's ward holds the effect (`&&` first: the staff's /fly is never warded)   // AUDIT-SEATS G4: a battle's spectator flies
   player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }

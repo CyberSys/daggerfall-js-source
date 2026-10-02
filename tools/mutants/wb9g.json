@@ -93,8 +93,8 @@
   {
     "name": "WB9g-the-relay-reads-no-aura",
     "file": "server/src/index.js",
-    "old": "glyphs: c.g, au: c.au, mu, lv: c.lv,",
-    "new": "glyphs: c.g, mu, lv: c.lv,",
+    "old": "glyphs: c.g, au: c.au, rb: c.rb, mu, lv: c.lv,",
+    "new": "glyphs: c.g, rb: c.rb, mu, lv: c.lv,",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -102,8 +102,8 @@
   {
     "name": "WB9g-the-socket-row-drops-it",
     "file": "server/src/index.js",
-    "old": "glyphs: who.glyphs, au: who.au, lv: who.lv,",
-    "new": "glyphs: who.glyphs, lv: who.lv,",
+    "old": "glyphs: who.glyphs, au: who.au, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
+    "new": "glyphs: who.glyphs, ...(who.rb ? { rb: who.rb } : {}), lv: who.lv,",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -201,17 +201,18 @@
   {
     "name": "WB9g-the-view-says-no-purse",
     "file": "server-account/src/index.js",
-    "old": "wardrobe: { ...accountWardrobe(who.player, env, nowS), purse: await insigniaPurse(ctx, who.player) },",
-    "new": "wardrobe: { ...accountWardrobe(who.player, env, nowS) },",
+    "old": "purse: await insigniaPurse(ctx, who.player) },   // SEAT1c: and a Charter's titles",
+    "new": "},   // SEAT1c: and a Charter's titles",
     "tests": [
       "test/wb9g_insignia.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "WB9g-an-unheld-aura-a-400",
     "file": "server-account/src/index.js",
-    "old": "        const r = await equipAura(ctx, who.player, env, body.aura ?? null);\n        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin)",
-    "new": "        const r = await equipAura(ctx, who.player, env, body.aura ?? null);\n        return r.error ? no(r.error, 400, origin)",
+    "old": "        const r = await equipAura(ctx, await withSeatTitles(ctx, who.player, env), env, body.aura ?? null);   // AUDIT SEATS-3 E2: the wardrobe it answers keeps a Charter's titles\n        return r.error ? no(r.error, r.error === 'not-held' ? 403 : 400, origin)",
+    "new": "        const r = await equipAura(ctx, await withSeatTitles(ctx, who.player, env), env, body.aura ?? null);   // AUDIT SEATS-3 E2: the wardrobe it answers keeps a Charter's titles\n        return r.error ? no(r.error, 400, origin)",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -264,11 +265,12 @@
   {
     "name": "WB9g-the-peers-aura-never-read",
     "file": "src/net/online.js",
-    "old": "title, glyphs, au: readAura(p), lv: readRenown(p),",
-    "new": "title, glyphs, lv: readRenown(p),",
+    "old": "title, ts, glyphs, au: readAura(p), rb: readRibbon(p), lv: readRenown(p),",
+    "new": "title, ts, glyphs, rb: readRibbon(p), lv: readRenown(p),",
     "tests": [
       "test/wb9g_insignia.test.js"
-    ]
+    ],
+    "note": "SEAT1c (PIN MOVED): re-aimed by content - a seat title's claim rides beside the title."
   },
   {
     "name": "WB9g-the-refresh-keeps-the-first",
@@ -282,8 +284,8 @@
   {
     "name": "WB9g-the-memory-loses-it",
     "file": "src/net/online.js",
-    "old": "gt: p.gt ?? null, au: p.au ?? null, sub: p.sub",
-    "new": "gt: p.gt ?? null, sub: p.sub",
+    "old": "gt: p.gt ?? null, au: p.au ?? null, rb: p.rb ?? null, sub: p.sub",
+    "new": "gt: p.gt ?? null, rb: p.rb ?? null, sub: p.sub",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
@@ -291,8 +293,8 @@
   {
     "name": "WB9g-the-re-stood-peer-bare",
     "file": "src/net/online.js",
-    "old": "gt: knew.gt, au: knew.au, sub: knew.sub",
-    "new": "gt: knew.gt, sub: knew.sub",
+    "old": "gt: knew.gt, au: knew.au, rb: knew.rb, sub: knew.sub",
+    "new": "gt: knew.gt, rb: knew.rb, sub: knew.sub",
     "tests": [
       "test/wb9g_insignia.test.js"
     ]
