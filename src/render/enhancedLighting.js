@@ -315,12 +315,9 @@ float elScatter(vec3 L, float range, vec3 dir, float dist) {
   return (atan((tb - t0) / h) - atan((ta - t0) / h)) / h;
 }
 `;
-export const EL_GLSL = `
-uniform float uELExposure;   // EL1: scene exposure before the tonemap
-uniform float uELScatter;    // EL1: in-scatter gain x the fog's density (0 = no fog, no glow; VOL1: 0 on a world frame the air pass glows for)
-${BAYER_GLSL}
-${AIR_ADAPT_GLSL}
-vec3 elDecode(vec3 c) {
+/** GRASS-LIT: the lane's sRGB codec alone (elDecode / elEncode above, term for term) - the grass's program takes it
+ *  without the rest of EL_GLSL, whose Bayer block it already carries under its own name. */
+export const EL_CODEC_GLSL = `vec3 elDecode(vec3 c) {
   vec3 lo = c / 12.92;
   vec3 hi = pow((c + 0.055) / 1.055, vec3(2.4));
   return mix(hi, lo, step(c, vec3(0.04045)));
@@ -330,14 +327,23 @@ vec3 elEncode(vec3 c) {
   vec3 lo = c * 12.92;
   vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
   return mix(hi, lo, step(c, vec3(0.0031308)));
-}
-float elAttenuation(float d, float range) {
+}`;
+/** GRASS-LIT2: the lane's lantern falloff alone (elAttenuation above, term for term) - the grass's vertex stage lights
+ *  its roots by it without the rest of EL_GLSL. */
+export const EL_ATTEN_GLSL = `float elAttenuation(float d, float range) {
   float x = d / max(range, 1e-4);
   float x2 = x * x;
   float win = clamp(1.0 - x2 * x2, 0.0, 1.0);
   win *= win;
   return ${EL_LIGHT_GAIN}.0 / (1.0 + ${EL_LIGHT_KNEE}.0 * x2) * win;
-}
+}`;
+export const EL_GLSL = `
+uniform float uELExposure;   // EL1: scene exposure before the tonemap
+uniform float uELScatter;    // EL1: in-scatter gain x the fog's density (0 = no fog, no glow; VOL1: 0 on a world frame the air pass glows for)
+${BAYER_GLSL}
+${AIR_ADAPT_GLSL}
+${EL_CODEC_GLSL}
+${EL_ATTEN_GLSL}
 ${EL_TONEMAP_GLSL}
 ${EL_SCATTER_GLSL}
 `;

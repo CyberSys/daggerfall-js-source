@@ -8,6 +8,39 @@
 
 Newest first.
 
+**2026-10-02 - AUDIT GRASS-LIT2.** Mac: *"Audit this."* Three read-only lenses over GRASS-LIT2
+(the shader, the host, the tests and docs). Paid: each grass cell walks only the lanterns that
+reach it, eight at most, where every blade walked all 48; a draw without shadows resets the
+lanterns' caster slots (a stale one put a lantern out); a zero or NaN slope word reads level, not
+the steepest lean; the mean never reads past its cap; the host keeps a pixel's normals only with
+the field on and asks a texture mod once; the shot hooks' zero step, yaw and sample point; the
+uniform count the docs quoted (210, six of them from a comment; 212 now). The tests had walked past
+24 of 35 mutants of the new code - the stage's word fed as a double hid the float32 rounding, the
+JS twin's hillside, moon and lanterns were unchecked, and the ground's lantern formulas were the
+test's own copy - and eleven tests pay them. The probe numbers the docs quoted were an intermediate
+build's (the probe's classic "before" painted in the new tones), and the photograph correction named
+a cause the code rules out; both mended. 76 mutants, 75 dead and one recorded equivalent. Record:
+`Audit-Forest1-Grass.md` (AUDIT GRASS-LIT2).
+
+**2026-10-02 - GRASS-LIT2: THE NOT-DONE LIST.** Mac: *"Tackle the not done."* The five things
+GRASS-LIT's report left unpaid: the lanterns now light the grass (the ground's own falloff and
+light list, the maps' shadows), a blade is lit about the ground's own normal (packed into the
+height lane's spare bits - no byte more a blade), the grass's colour comes off the tile set that is
+drawn (a texture mod's), the classic lane has its own tones, and a real wood is photographed from
+the air. The branch took main first, which fixed the nine failures it inherited. 25 new mutants,
+44 with GRASS-LIT's, all dead. Record: `Audit-Forest1-Grass.md` (GRASS-LIT2).
+
+**2026-10-01 - AUDIT FOREST1 + GRASS-LIT.** Mac: *"audit this and ensure it's as
+detailed as possible. In addition to this, I want to drastically improve the grass texture that
+isn't super dark and blends well into the terrain."* A read-only second lens over Real forests,
+eight findings (rock fields made hidden places, the cost understated, a false Logging claim,
+eight surviving mutants, the gate's clearing, peers' dice cascading, camps past their clearing,
+trees on tracks), all paid; then the grass's five causes of darkness measured on the real tiles
+and light and fixed - the ground's own palette, the ground's own light on both lanes, the deck,
+the sun map, one weather dim, and the AO read off the depth before the grass. Verified on the real
+game data in scratch (`tools/grassLookProbe.mjs`, `tools/grassLightProbe.mjs`). 46 mutants, all
+dead. Record: `Audit-Forest1-Grass.md`.
+
 **2026-09-24 - AUDIT 68: THE WHOLE-TREE SWEEP (PARTIAL).** Mac: *"a deep
 comprehensive audit across the entirety of the codebase, making bug
 fixes, refactoring where needed and overall doing some major
