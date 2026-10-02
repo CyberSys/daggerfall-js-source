@@ -22,8 +22,8 @@
 //     let go as the body crests; a lower brings them up over the edge; a corner carries them round with the wall; a wall
 //     run reaches high.
 //   - THE GRIP FAILING: the hands tremble, harder the lower the grip.
-//   - LOOKING AWAY: turned off the wall's face, both fists drop out of the view and the reaching arm alone comes up on the
-//     side looked toward, open toward the way the eye looks (Mac, 2026-10-02: "For look right/left dont use the hand
+//   - LOOKING AWAY: turned off the wall's face, both fists drop out of the view and the reaching arm alone comes up from
+//     the other side of the screen, open toward the way the eye looks (Mac, 2026-10-02: "For look right/left dont use the hand
 //     aiming straight up. Only use the angled arm").
 // Every sprite's arm runs off the bottom edge with BOTTOM_SLACK to spare, so no lift shows its cut sleeve.
 //
@@ -50,7 +50,7 @@ export const HANDS = Object.freeze({
   GRIP_APART: 52,          // each fist's centre from the screen's middle
   BOTTOM_SLACK: 34,        // the sleeve under the screen's bottom edge at rest: no lift may exceed it
   REACH_W: 150,            // the reaching arm's drawn width - inside its own half of the screen (Mac: "it needs to sit on the left/right side of the screen respectively")
-  REACH_X_IN: -4,          // how far past the side edge the reaching arm's box stands (- inside it: the open hand whole)
+  REACH_X_IN: 4,           // the reaching arm's box in from its edge
   REACH_SLACK: 16,         // the reaching arm's sleeve under the bottom edge
   // coming onto the wall and off it (the classic sprite's CLIMB_LOWER_TAU, the other way round)
   ON_TAU: 0.07,
@@ -195,8 +195,10 @@ export class ClimbHands {
       const rw = HANDS.REACH_W, rh = rw * REACH_ART.h / REACH_ART.w;
       const w = 2 * Math.PI * HANDS.SEARCH_HZ * this.t;
       const sx = HANDS.SEARCH_X * Math.sin(w), sy = HANDS.SEARCH_Y * Math.sin(w * 1.6 + 0.7);
-      const xr = NATIVE_W - rw + HANDS.REACH_X_IN + sx;
-      const x = side === 'R' ? xr : NATIVE_W - xr - rw;
+      // looked right, the arm sits in the LEFT half as painted, reaching across to the right; looked left, its mirror in
+      // the right half (Mac, 2026-10-02: "look left and right are on the wrong side of the screen")
+      const xl = HANDS.REACH_X_IN + sx;
+      const x = side === 'R' ? xl : NATIVE_W - xl - rw;
       const y = Math.max(NATIVE_H - rh, NATIVE_H - rh + HANDS.REACH_SLACK + sy + (1 - smooth(a)) * (rh + HANDS.REACH_SLACK) + enter + gone);
       if (y < NATIVE_H) out.reach = { side, x, y, w: rw, h: rh, flip: side === 'L' };
     }
