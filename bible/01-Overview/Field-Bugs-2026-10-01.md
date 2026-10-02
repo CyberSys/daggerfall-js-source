@@ -1064,7 +1064,7 @@ already fixed on main.
 | 1 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes | part four's #3, the same screenshot: fixed there (AREA-SELF, AREA-CASTER - PR #509, on main) | answered |
 | 2 | "'Cast when used' items don't work in dungeons" - "I enchanted a bracer to cast Ice Storm when used, it works fine in the overworld, but as soon as I enter a dungeon, the spell doesn't activate"; "only a fireball enchantment on the scarab"; "they work in other interiors like shops and guilds" | Skibbster; kurkku | the session's one enchant ctx readied an item's spell on the host's engine, which fires above ground and indoors only; underground the dungeon context builds and drives its own. The click swung the weapon, the item still wore, and the spell sat stranded until the first click back outside | fixed (CAST-USE) |
 | 3 | "My friend list is different between devices. On my laptop and desktop." | Shanewerewolf5 | the hub keyed every social record by the BROWSER PROFILE's id (`net/social.js` accountId, minted once per app storage), never the signed-in player: a laptop and a desktop were two hub accounts with two lists, and two players on one browser one account with one list - the merge ACC1b said belonged at the hub, recorded as not built | asked, built (FRIENDS-SYNC) |
-| 4 | "MASSIVE buggy mountain at 823, 399" | maya | see WOD-ROCK below | - |
+| 4 | "MASSIVE buggy mountain at 823, 399" | maya | no terrain fault (every height at and round the pixel bounded, 844-901): World of Daggerfall's `WOD_Mountain_01r1` at (824,399), a massif of ARCH3D pebbles scaled 400 to 5,800 times - a 1,434 m spire whose own UVs rode the scale, one 64x64 repeat over 600 m to 1 km of face; every one of the 2,488 WoD mountains the same (1.4 to 2.5 km), and DFU with the mod draws them so | asked, built (WOD-ROCK) |
 | 5 | "When the Slowfall effect is active, falls drift to the side and catch on the wall, getting the player stuck before they touch the ground"; "then your speed weirdly accumulates and you pummel to ground HARD" | DoubleDutchess; Skeptikali | three things around the spell never heard of it: the classic climb's slip integrated plain gravity and billed the whole slip; the classic airborne grasp fired all the way down a fall five times as long; the frozen liftoff momentum kept pressing into whatever face the glide reached, and past the slope limit the collider's push-out lifted the body more than the spell lowered it | fixed (SLOW-SLIP, SLOW-GRASP, SLOW-PRESS) |
 | 6 | "Holding the right-mouse button to rotate the 3D map only works on one axis (X or Y) at a time. The rotation should work for both vertical and horizontal simultaneously." | lumin | TURN-STEADY (Mac: "its a bit hard to control") let a drag's first 8 px pick turn-only, tilt-only or both for the WHOLE drag | asked, built (ORBIT-FREE) |
 | 7 | "I left the Oblivion Gate with 6% health and logging in chunks my heath back down to 6% from full"; "IIRC I saved right after leaving the oblivion gate w/ 6% health" | Leafen | did not reproduce: nothing the Gate keeps holds a vital, and no wire, ledger or effect writes the player's own health back; an exact old health returns only through the save a login loads - see GATE-HP below for what can leave a heal out of it, and the questions | asked (Leafen, through Mac) |
@@ -1180,6 +1180,28 @@ recorded. `test/fb1001_friendsync.test.js`.
 not parse (the bump's message carried an unescaped quote); 22 line cites into world.js, exterior.js, worldModes.js,
 dungeon.js and dungeonContext.js stood where #504's merge moved the code from - struck Ledger rows, the Settings
 spec's viewport row and chargenSession's overlayHover cite (citedrift CD4, CD8) - re-aimed by content.
+
+## WOD-ROCK: a stretched World of Daggerfall piece keeps its pebble's texel density (4; asked)
+
+**Measured first** (the real terrain pipeline and the real WoD loader over the game's own data): WOODS reads 55 at
+every pixel from 820 to 827 by 396 to 402 - a flat plateau in the Dragontail Mountains - and every streamed height in
+821-826 by 397-402 stands between 844 and 901, none non-finite. The spike is the mod's: `WOD_Mountain_01r1` at
+(824,399), its object 7 model 60716 (a 1.9 m pebble) at 398 x 1101 x 398 topping out 1,434 m over the site, object 3
+1,196 m. Its triangles' edges reach 820 m; the model's own UVs ride the scale, so one repeat of texture 141.2 covers 600
+m to 1 km. Not an outlier: all nine `WOD_Mountain_*` layouts stand a spire 1.4 to 2.5 km (2,488 sites; 2,391 keep it
+past the roads clearance), and some 6,500 `Rocks_Large_03` stand 424 m pinnacles alike. DFU with the mod draws them the
+same - `LocationHelper.cs:1176` makes the classic mesh and nothing touches its material or UVs - so this was the port
+drawing the mod faithfully.
+
+**Asked** - retexture, cap their height, remove them, or leave them. Mac: *"Retexture them to be as detailed as
+possible"*. **Built** (`world/wodRockUv.js` wodRockUvs; `scenes/world.js`, the WoD loop): a piece stretched 4x or more on
+any axis is drawn with new UVs, plane by plane - each plane of the model unfolded isometrically through its own
+unscaled UV map, so every face of the scaled piece carries the texture at its pebble's own texel density and
+orientation (the spire's face: 74 texels a metre, where it carried 0.07), tiled REPEAT, each plane shifted by whole
+repeats to start near zero, a vertex two planes share copied for the second. Positions, indices, the collider and the
+mining boxes are the model's own; a camp, a house or the shrine statue (2.65 at most) is the same object, batched byte
+for byte as before. A departure (Port-Ledger). `test/fb1001_wodrock.test.js`; `tools/mutants/fb1001_wodrock.json` (17,
+all dead).
 
 ## GATE-HP: the report did not reproduce (7)
 

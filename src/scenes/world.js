@@ -16,7 +16,7 @@ import { FlatAnimator, armFlatAnim } from '../render/flatAnimation.js';   // FA1
 import { WORLD_FRAME } from '../render/renderer.js';   // AUDIT-EL F5
 import { windmillsOn } from '../world/windmills.js';   // WM3: the Windmills pack's switch
 import { openWodWorld, wodOn, wodLightColors } from '../world/worldOfDaggerfall.js';   // WOD2: World of Daggerfall's loader, one per page
-import { wodLightPosition, wodLightProperties } from '../world/wodLocationObjects.js';   // WOD2: the mod's own AddLight
+import { wodLightPosition, wodLightProperties } from '../world/wodLocationObjects.js'; import { wodRockUvs } from '../world/wodRockUv.js';   // WOD2: the mod's own AddLight; FB1001-WODROCK: a stretched rock piece's faces at its pebble's texel density (on this line, so no cite below it moves)
 import { WodSpawner, WOD_LOOT_LOCATION_INDEX, WOD_LOOT_ALIGN } from '../world/wodSpawner.js';   // WOD3: LocationEnemySpawner
 import { wodSiteId, yieldsTo } from '../world/wodShared.js';   // WOD7: a camp's marker, shared online
 import { alignBillboardToGround, alignControllerToGround } from '../world/groundAlign.js';   // WOD3: SpawnLoot's drop; CSA-D: BoardBoat's AlignControllerToGround
@@ -3707,7 +3707,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       for (const m of place.models) {
         const gpu = await getGpuMesh(m.modelId);
         if (!gpu) continue;   // a model ARCH3D does not carry stands empty in DFU (no mesh, no collider)
-        const cpu = cpuModels.get(m.modelId);
+        const cpu = wodRockUvs(cpuModels.get(m.modelId), m.matrix);   // FB1001-WODROCK (Mac: "Retexture them to be as detailed as possible"): a piece stretched 4x or more draws its planes unfolded at its pebble's own texel density (world/wodRockUv.js) - new UVs only, its positions and indices the model's own arrays; a camp or a house is the same object
         const box = transformedAabb(archAabb(m.modelId, cpu.positions), m.matrix);
         // ROADS-CLEAR (2026-09-25, Mac: "Camps, mountains from WOD, shouldnt be placed on roads"): a piece whose own
         // mesh box reaches a road - here or in the pixel it spills into - is not stood: no mesh, no collider. The rock
