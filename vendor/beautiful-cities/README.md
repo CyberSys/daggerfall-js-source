@@ -64,6 +64,12 @@ Editor writes it:
     --title "Beautiful Cities of Daggerfall" --author carademono --version 0.5.0
   ```
 
+  Every classic block a reference reads is named beside its index
+  (`classicNames`, AUDIT WD3 P5) - a BLOCKS.BSA in another order refuses the
+  file rather than read another block's pieces. The builder writes them; the
+  pack built before it did had them laid in by
+  `node tools/worldDataPackNames.mjs <ARENA2> vendor/beautiful-cities/WorldDataPack/beautiful-cities.pack.json.gz`.
+
   The tool refuses to write a pack that does not rebuild every one of the
   author's files exactly, checked through the runtime's own reader, and the
   build is deterministic.

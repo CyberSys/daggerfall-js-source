@@ -122,6 +122,9 @@ export function runLength(a) {
 
 // ---- the reader -----------------------------------------------------------------------------------------------------
 
+/** AUDIT WD3 B4: how many decoded nodes a pack keeps - the most recently read; the rest are read again when asked. */
+export const DECODED_NODES_MAX = 1024;
+
 /** The `$` key of a reference object, or null. */
 function refKey(v) {
   if (!isObj(v)) return null;
@@ -147,6 +150,7 @@ export function openWorldDataPack(pack, env) {
   const nodes = pack.nodes ?? [];
   const decodedNodes = new Map();
   const classicJson = new Map();   // block index -> the block's DFU JSON, as the editor would write it
+  const classicNames = pack.classicNames ?? null;   // AUDIT WD3 P5: block index -> the name the pack was built against
   const keptFiles = new Map();     // a file another file is based on, rebuilt once
   const baseTargets = new Set(pack.bases ?? []);
   if (!pack.bases) for (const name of Object.keys(rawFiles)) { const base = fileEntry(name)?.[1]; if (base?.[0] === 'f') baseTargets.add(base[1]); }
@@ -196,7 +200,9 @@ export function openWorldDataPack(pack, env) {
     if (k === '$n') node = nodeAt(v.$n);
     else if (k === '$c') {
       const [index, path] = v.$c;
-      node = jsonAt(classicBlockJson(index), path);
+      // AUDIT WD3 P5: the classic block a reference names is checked BY NAME where the pack says it (classicNames) - a
+      // BLOCKS.BSA in another order refuses the file, and the classic stands, as a `b` base's does
+      node = jsonAt(classicBlockJson(index, classicNames?.[index] ?? null), path);
       if (node === undefined) throw new Error(`world-data pack: ${pack.vendor}: classic node ${JSON.stringify(v.$c)} not found`);
     } else if (k === '$r') {
       const runs = v.$r, out = [];
@@ -212,7 +218,11 @@ export function openWorldDataPack(pack, env) {
   function nodeAt(id) {
     if (!(id >= 0 && id < nodes.length)) throw new Error(`world-data pack: ${pack.vendor}: no node ${id}`);
     let d = decodedNodes.get(id);
-    if (d === undefined) { const n = nodes[id]; d = expand(typeof n === 'string' ? JSON.parse(n) : n); decodedNodes.set(id, d); }
+    if (d === undefined) {
+      const n = nodes[id]; d = expand(typeof n === 'string' ? JSON.parse(n) : n);
+      decodedNodes.set(id, d);
+      if (decodedNodes.size > DECODED_NODES_MAX) decodedNodes.delete(decodedNodes.keys().next().value);   // AUDIT WD3 B4: bounded - a node let go is read again
+    } else { decodedNodes.delete(id); decodedNodes.set(id, d); }
     return d;
   }
 
@@ -287,6 +297,21 @@ export async function readPackText(bytes) {
     return zlib.gunzipSync(bytes).toString('utf8');
   }
   return new TextDecoder().decode(bytes);
+}
+
+/** AUDIT WD3 P5: every classic block index a pack's `$c` references name - its files' entries and its nodes, read
+ *  through their JSON text - sorted. */
+export function classicIndicesOf(pack) {
+  const out = new Set();
+  const walk = (v) => {
+    if (Array.isArray(v)) { for (const x of v) if (x !== null && typeof x === 'object') walk(x); return; }
+    if (v === null || typeof v !== 'object') return;
+    if (Array.isArray(v.$c) && Number.isInteger(v.$c[0])) out.add(v.$c[0]);
+    for (const k of Object.keys(v)) { const x = v[k]; if (x !== null && typeof x === 'object') walk(x); }
+  };
+  for (const e of Object.values(pack.files ?? {})) walk(typeof e === 'string' ? JSON.parse(e) : e);
+  for (const n of pack.nodes ?? []) walk(typeof n === 'string' ? JSON.parse(n) : n);
+  return [...out].sort((a, b) => a - b);
 }
 
 /** sha256 of the canonical form, hex - WebCrypto in the browser, node's crypto under test. */

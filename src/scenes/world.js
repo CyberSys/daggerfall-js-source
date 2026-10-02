@@ -30,7 +30,7 @@ import { attachGamepad } from '../ui/gamepadInput.js';   // GP1: the pad speaks 
 import { BlocksFile } from '../formats/blocksFile.js';
 import { bindWorldDataBlocks } from '../formats/worldDataReplacement.js';   // RR3b
 import { loadModWorldData, ensureWorldDataPack, worldDataPacksMissing } from './modWorldData.js';   // RR3b; WD3: a pack a save's pins let in
-import { configureLayoutPins, layoutRecordsOf, pinsFrom, setLayoutPins, stampLayout, layoutStampOfPixel, HOME_LAYOUTS_WAIT_MS, HOME_LAYOUTS_RETRIES } from '../systems/layoutPins.js';   // WD3: a town keeps the layout a save's things were made in
+import { configureLayoutPins, layoutRecordsOf, pinsFrom, setLayoutPins, stampLayout, layoutStampOfPixel, HOME_LAYOUTS_WAIT_MS, HOME_LAYOUTS_RETRIES, PINS_DROPPED_LINE } from '../systems/layoutPins.js';   // WD3: a town keeps the layout a save's things were made in
 import { DFPalette } from '../formats/dfPalette.js';
 import { MapsFile, getWorldClimateSettings, longitudeLatitudeToMapPixel, getPixelFromPixelID, REGION_RACES, LOCATION_TYPES, CLIMATES, REGION_NAMES } from '../formats/mapsFile.js';   // SPAWNED-DUNGEONS1: the ocean gate and the synthesized location's region name
 import { questTracker } from '../ui/questTracker.js';   // GUIDE5: the quest the player follows - its places, marked
@@ -1091,6 +1091,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     locationKeyOfMapId: (mapId) => _layoutKeyOfMapId.get(Number(mapId) >>> 0) ?? null,
     locationKeyOfPixel: (x, y) => { const loc = locationIndex.get(`${x},${y}`); return loc && !loc.spawned ? makeLocationKey(loc.regionIndex, loc.locationIndex ?? 0) : null; },
     gridOf: (key) => locationIndex.get(_layoutKeyPixel.get(key))?.exterior?.exteriorData?.blockNames ?? null,
+    locationTypeOf: (key) => locationIndex.get(_layoutKeyPixel.get(key))?.mapTableData?.locationType ?? null,   // AUDIT WD3 G2: the port's curation
     locationKeyOfTown: (regionIndex, name) => { const l = maps.getRegion(regionIndex)?.mapNameLookup?.get(name); return l == null ? null : makeLocationKey(regionIndex, l); },
   });
   // AUDIT OW4 B2: the game's own places, as the maps have them - the land a band may NOT stand on (filled above). Never the
@@ -1117,7 +1118,8 @@ export async function bootWorld(canvas, renderer, params, status) {
   const homeLayoutsOnline = !!homesApi;
   let _serverLayoutRecords = null;   // [{ locationKey, stamp, kind }] once the service has answered
   let _homeLayoutsApplied = false;   // AUDIT WD3 R2: and once its pins stand (the packs they let in fetched, the towns rebuilt)
-  let _pinsGen = 0;   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
+  let _pinsGen = 0;
+  let _pinsDroppedSaid = false;   // AUDIT WD3 B6   // AUDIT WD3 R3: the latest applyLayoutPins - an older one overtaken sets nothing
   let _homeLayoutsAsk = homesApi ? homesApi.layouts().catch(() => null) : null;
   // HOME-LOOK (2026-09-30, asked: "The ability to choose the texture for the roof, walls, door, windows, etc"): A PLAYER'S
   // HOME IS DRAWN OUT OF ITS PIXEL'S MERGE, with its OWN texture table - the pixel's climate swaps and its owner's look
@@ -3275,6 +3277,12 @@ export async function bootWorld(canvas, renderer, params, status) {
     // shared remap seam takes that differs between the climate hosts
     // and the dungeon.
     const climateArchive = (archive, record) => applyClimate(archive, record, climateBase, season);
+    // WD3 (AUDIT WD3 G5): A TOWN'S BUILDINGS WEAR ITS LOCATION'S CLIMATE - DaggerfallLocation's ClimateUse.UseLocation
+    // (ApplyClimateSettings: Summary.Climate, from DFLocation.Climate), the terrain the pixel's. One and the same for
+    // every classic town (MAPS.BSA reads the location's climate off the pixel); a world-data file says its own (81 of
+    // Beautiful Villages' towns name a climate other than their pixel's), as DFU stands them.
+    const townClimateBase = dfLocation?.climate?.climateType ?? climateBase;
+    const townClimateArchive = townClimateBase === climateBase ? climateArchive : (archive, record) => applyClimate(archive, record, townClimateBase, season);
     const groundArchive = getTerrainGroundArchive(climate, season);   // the TERRAIN member, Desert winter-guarded (TerrainMaterialProvider.cs:126-133)
     const natureArchive = getNatureArchive(climate.natureArchive, season);
 
@@ -3437,7 +3445,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // player and a world-keyed phase would re-seed every mill in
         // sight on every shift.
         if (b.layout.windmills.length && isEnhanced()) {
-          const parts = await getWindmillMeshes(climateBase, season === SEASON.Winter);
+          const parts = await getWindmillMeshes(townClimateBase, season === SEASON.Winter);
           if (!millParts) {
             millParts = parts;
             console.log(`[windmills] first mill streamed in (${b.blockName})`);
@@ -3459,7 +3467,7 @@ export async function bootWorld(canvas, renderer, params, status) {
           if (placed.enhancedOnly && !isEnhanced()) continue;
           const gpu = await getGpuMesh(placed.modelIdNum);
           if (!gpu) continue;
-          await remapSubMeshes(gpu.subMeshes, texRemap, climateArchive, pipeline);
+          await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline);
           const local = multiply(originMatrix, placed.matrix);
           if (WATER_SOURCE_MODELS.includes(placed.modelIdNum)) pixelSprings.push({ pos: [local[12], local[13], local[14]], dry: false });   // SURV3: a trough is a water source
           const cpu = cpuModels.get(placed.modelIdNum);
@@ -3533,7 +3541,7 @@ export async function bootWorld(canvas, renderer, params, status) {
             const otherGpu = await getGpuMesh(otherId);
             const otherCpu = cpuModels.get(otherId);
             if (otherGpu && otherCpu) {
-              await remapSubMeshes(otherGpu.subMeshes, texRemap, climateArchive, pipeline);
+              await remapSubMeshes(otherGpu.subMeshes, texRemap, townClimateArchive, pipeline);
               unionBox(transformedAabb(archAabb(otherId, otherCpu.positions), local));
             }
             pixelGates.push({
@@ -3566,7 +3574,7 @@ export async function bootWorld(canvas, renderer, params, status) {
                 // reference interior is summer-skinned in the depths
                 // of Evening Star; the exterior season stopping at the
                 // threshold is the whole of that law.
-                recordIndex: placed.recordIndex, climateBase, season: INTERIOR_SEASON,
+                recordIndex: placed.recordIndex, climateBase: townClimateBase, season: INTERIOR_SEASON,
               });
             }
           }
@@ -3821,7 +3829,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         for (const hm of HOLD_MODELS) {
           const gpu = await getGpuMesh(hm.modelId);
           if (!gpu) continue;
-          await remapSubMeshes(gpu.subMeshes, texRemap, climateArchive, pipeline);
+          await remapSubMeshes(gpu.subMeshes, texRemap, townClimateArchive, pipeline);
           const local = multiply(origin, holdModelMatrix(hm));
           const cpu = cpuModels.get(hm.modelId);
           const box = transformedAabb(archAabb(hm.modelId, cpu.positions), local);
@@ -8421,7 +8429,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2762 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6664
+  // that context through modes.dungeonCtx - so worldModes.js:6667
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -10368,7 +10376,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         // reposition arm (:615-620) - say the line and keep the
         // teleport's landing, never the inside position on the
         // outside collider.
-        landed = !!(await modes?.restoreInterior?.(a.interior, anchorLanding(a)));
+        landed = !!(await modes?.restoreInterior?.(a.interior ? { ...a.interior, layout: a.layout } : a.interior, anchorLanding(a)));   // WD3 (AUDIT WD3 S5): with the layout the anchor was set in
         if (!landed) townTalk.say('Building has no exterior doors. Repositioning player.');
       }
       if (!landed) _wodInside = false;   // WOD6: it landed outside after all
@@ -11140,9 +11148,15 @@ export async function bootWorld(canvas, renderer, params, status) {
     }, HOME_LAYOUTS_WAIT_MS * Math.min(attempt, HOME_LAYOUTS_RETRIES));
   }
   /** AUDIT WD3 O1: the towns asked now (a claim the service refused for its town's layout), their pins answered. */
+  let _hearing = null, _heardAskedAt = -Infinity;
   function hearHomeLayouts() {
     if (!homesApi) return Promise.resolve(null);
-    return homesApi.layouts().catch(() => null).then((heard) => takeHomeLayouts(heard));
+    // AUDIT WD3 B7: one ask at a time, and not again within HOME_LAYOUTS_WAIT_MS - a door pressed again and again asks once
+    if (_hearing) return _hearing;
+    if (Date.now() - _heardAskedAt < HOME_LAYOUTS_WAIT_MS) return Promise.resolve(null);
+    _heardAskedAt = Date.now();
+    _hearing = homesApi.layouts().catch(() => null).then((heard) => takeHomeLayouts(heard)).finally(() => { _hearing = null; });
+    return _hearing;
   }
   /**
    * WD3: THE SAVE'S TOWNS, IN THE LAYOUTS ITS THINGS WERE MADE IN (systems/layoutPins.js). Called once a save's
@@ -11168,8 +11182,18 @@ export async function bootWorld(canvas, renderer, params, status) {
     const pins = pinsFrom(records);
     // the packs a pin lets in, on the door BEFORE the pins answer for them - a pin into a pack that will not load
     // is dropped, and its town stands as the mods loaded for the game serve it
+    let dropped = 0;
     for (const pin of pins.values()) {
-      for (const v of [...pin.in]) if (!(await ensureWorldDataPack(v))) pin.in.delete(v);
+      for (const v of [...pin.in]) if (!(await ensureWorldDataPack(v))) { pin.in.delete(v); dropped++; }
+    }
+    // AUDIT WD3 B6: said, once a game - a house, a room or a quest whose town could not be stood as it was left (its
+    // records sleep there: banking.js deedStands, systems/layoutPins.js recordStands)
+    if (dropped && !_pinsDroppedSaid) {
+      _pinsDroppedSaid = true;
+      // the boot's first pins land before the town's talk is made - said once it stands
+      const say = () => { try { townTalk.say(PINS_DROPPED_LINE); } catch { setTimeout(say, 500); } };
+      say();
+      console.warn(`[layout] ${dropped} town(s) could not be kept in a save's layout - their packs did not load`);
     }
     for (const [k, pin] of [...pins]) if (!pin.in.size && !pin.out.size) pins.delete(k);
     if (gen !== _pinsGen) return false;   // AUDIT WD3 R3: a later call (newer records) overtook this one while its packs loaded
@@ -11191,6 +11215,10 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     // AUDIT WD3 S4: online, a town's layout is not known until the service has said it - nothing is forgotten before
     const forgotten = homeLayoutsOnline && _serverLayoutRecords === null ? 0 : pruneDiscoveryLayouts();
+    // AUDIT WD3 S5: a quest's building site whose town stands in another layout than it was chosen in is chosen again in
+    // it (online, never before the service has said the towns' layouts)
+    const reseated = homeLayoutsOnline && _serverLayoutRecords === null ? 0 : (questBridge?.machine?.reseatMovedSites?.() ?? 0);
+    if (reseated) console.log(`[layout] ${reseated} quest site(s) chosen again where their town's layout moved`);
     if (pins.size || changed.size) console.log(`[layout] ${pins.size} town(s) kept in a save's layout (${[...pins.values()].map((p) => p.why).join(', ') || 'none'}); ${changed.size} read again, ${rebuilt} rebuilt${forgotten ? `; ${forgotten} discovered building(s) forgotten where a layout moved` : ''}`);
     else if (forgotten) console.log(`[layout] ${forgotten} discovered building(s) forgotten where a layout moved`);
     return true;
@@ -13752,7 +13780,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10172-10236 -
+  // worldModes answers it in BOTH modes (worldModes.js:10175-10239 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -19361,6 +19389,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         regionIndex: ident?.kind === 'dungeon' ? ident.regionIndex : (loc?.regionIndex ?? -1),
         locationName: ident?.kind === 'dungeon' ? ident.name : (loc?.name ?? ''),
         buildingKey: ident?.buildingKey ?? 0,
+        layout: ident?.layout ?? null,   // WD3 (AUDIT WD3 B3): an interior's room is its layout's
       });
     }
     // the pose: MapsFile's frame in the overworld (the floating origin's

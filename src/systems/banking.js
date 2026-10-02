@@ -40,7 +40,7 @@
 import { CRIMES } from './court.js';
 import { BUILDING_TYPES, isResidence } from '../world/buildingNames.js';   // H1: the houses-for-sale filter
 import { isOnlinePage } from './onlineLane.js';   // EMPIRE-BANK: online, the Empire lends a tenth
-import { stampLayout, layoutStampOfMapId, layoutLocationKeyOfMapId, layoutsMatch } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
+import { stampLayout, layoutStampOfMapId, recordStands } from './layoutPins.js';   // WD3: a deed keeps the layout its town was bought in
 import { GOLD_PIECE_WEIGHT_KG, letterOfCredit } from './inventory.js';
 import {
   DAYS_PER_YEAR, DAYS_PER_MONTH, MINUTES_PER_DAY,
@@ -186,10 +186,7 @@ export function isHouseOwned(houses, regionIndex, buildingKey) {
  * cupboards, its bed, its furniture, its sale - until its town stands in its layout again. A deed whose town the host
  * cannot place stands as Daggerfall always read it.
  */
-export function deedStands(slot) {
-  if (!slot?.mapId || layoutLocationKeyOfMapId(slot.mapId) == null) return true;
-  return layoutsMatch(slot.layout, layoutStampOfMapId(slot.mapId));
-}
+export const deedStands = (slot) => recordStands(slot);
 
 /**
  * AllocateHouseToPlayer (:429-448). Writing the slot is a quarter of

@@ -29,6 +29,18 @@ import { setLayoutPinOracle, worldDataVendorCarries, locationReplacementFilename
  *  dungeon or a ship's deck (Aquatic Sprites, Detailed Ships) moves no building a save keeps by key. */
 export const LAYOUT_MODS = Object.freeze(['beautiful-villages', 'beautiful-cities']);
 
+/**
+ * WD3 (AUDIT WD3 B5): THE VERSIONS EVERY STAMP WAS MADE AGAINST. Two stamps are one layout whatever versions they
+ * name (layoutsMatch) - true while each mod ships one version. A pack of another version may move buildings, and every
+ * stamped house, room, site and home would name another one with nothing to say so: updating a vendored pack is a
+ * layout migration (records stamped with the old version re-keyed, or their towns kept in the old pack), and
+ * test/wd3_layoutPins.test.js holds the vendored packs to these versions until one is written.
+ */
+export const LAYOUT_MOD_VERSIONS = Object.freeze({ 'beautiful-villages': '1.4.2', 'beautiful-cities': '0.5.0' });
+
+/** AUDIT WD3 B6: said when a town a save holds could not be stood in the layout it was left in. */
+export const PINS_DROPPED_LINE = 'Some of your places could not be shown as you left them. Switch on Replace Game Artwork, or check your connection, then reload.';
+
 /** The layout of a town no layout mod serves. */
 export const CLASSIC_LAYOUT = 'classic';
 
@@ -43,11 +55,13 @@ let _keyOfMapId = () => null;           // a town's map id -> its location key
 let _keyOfPixel = () => null;           // a map pixel -> the location key of the town on it
 let _gridOf = () => null;               // a location key -> the block names its town is laid out from now, or null
 let _keyOfTown = () => null;            // (regionIndex, town name) -> its location key (the discovery store's town id)
+let _typeOf = () => null;               // a location key -> its MapTable LocationType, or null
 let _pins = new Map();                  // locationKey -> { out:Set, in:Set, stamp, why }
 
 /** The hosts' half: which layout mods are loaded for the game (the latch) and their versions (the world-data loader,
  *  scenes/modWorldData.js), and where a town is (the world host, which holds the map). Each is kept until replaced. */
-export function configureLayoutPins({ vendorOn = null, vendorVersion = null, locationKeyOfMapId = null, locationKeyOfPixel = null, gridOf = null, locationKeyOfTown = null } = {}) {
+export function configureLayoutPins({ vendorOn = null, vendorVersion = null, locationKeyOfMapId = null, locationKeyOfPixel = null, gridOf = null, locationKeyOfTown = null, locationTypeOf = null } = {}) {
+  if (typeof locationTypeOf === 'function') _typeOf = locationTypeOf;
   if (typeof locationKeyOfTown === 'function') _keyOfTown = locationKeyOfTown;
   if (typeof vendorOn === 'function') _vendorOn = vendorOn;
   if (typeof vendorVersion === 'function') _vendorVersion = vendorVersion;
@@ -85,13 +99,49 @@ export function stampVendors(stamp) {
   return new Set(stamp.split('+').map((s) => s.split('@')[0]).filter((v) => LAYOUT_MODS.includes(v)));
 }
 
-/** The pin on a town, or null - the door's oracle. */
-export const pinAt = (locationKey) => _pins.get(locationKey) ?? null;
+/**
+ * WD3 (AUDIT WD3 G2, Mac: "Fix anything. This needs to be perfect"): THE PORT'S CURATION - a town a mod would leave
+ * without what it IS. Beautiful Villages rebuilds TVRNAS00 and TVRNAS06 as houses, no tavern among them (the classic
+ * blocks hold three each), and leaves the 274 roadside taverns standing on them (142 and 132, their location files not
+ * replaced) with no tavern: no room to rent, no innkeeper, no tavern quest. The mod is kept out of a TAVERN location
+ * whose grid names one of them - Daggerfall's own tavern stands, as a pin would stand it, and its records are stamped
+ * so; the villages that lay those blocks out among their own are the author's. A save's own pin on the town wins.
+ */
+export const CURATED_CLASSIC = Object.freeze([
+  Object.freeze({ vendor: 'beautiful-villages', locationType: 6, blocks: Object.freeze(['TVRNAS00.RMB', 'TVRNAS06.RMB']), why: 'a tavern with no tavern' }),
+]);
+/** The mods the curation keeps out of a town, or null. */
+let _curating = false;   // a resolver that reads the location through the door asks the door's oracle again: no answer inside
+export function curatedOut(locationKey) {
+  if (locationKey == null || locationKey < 0 || _curating) return null;
+  _curating = true;
+  try {
+    const type = _typeOf(locationKey);
+    if (type == null) return null;
+    let out = null;
+    for (const c of CURATED_CLASSIC) {
+      if (type !== c.locationType) continue;
+      const grid = _gridOf(locationKey);
+      if (Array.isArray(grid) && grid.some((n) => c.blocks.includes(n))) (out ??= new Set()).add(c.vendor);
+    }
+    return out;
+  } finally { _curating = false; }
+}
+/** A curated town's standing pin (no save holds it). */
+const curatedPin = (locationKey) => {
+  const out = curatedOut(locationKey);
+  return out ? { out, in: new Set(), stamp: CLASSIC_LAYOUT, why: 'curated' } : null;
+};
+/** Whether a mod serves a town, the curation aside of any save's pin - what a record is stamped against. */
+const servesUnpinned = (v, locationKey) => !!_vendorOn(v) && !(curatedOut(locationKey)?.has(v));
+
+/** The pin on a town, or null - the door's oracle: a save's, else the curation's. */
+export const pinAt = (locationKey) => _pins.get(locationKey) ?? curatedPin(locationKey);
 setLayoutPinOracle(pinAt);
 
 /** The layout a town is served in NOW - what a record made there now is stamped with. */
 export function layoutStampAt(locationKey) {
-  const p = locationKey == null ? null : _pins.get(locationKey);
+  const p = locationKey == null ? null : pinAt(locationKey);
   const live = LAYOUT_MODS.filter((v) => (p?.in.has(v)) || (_vendorOn(v) && !p?.out.has(v)));
   return layoutStampOf(live.filter((v) => layoutModTouches(v, locationKey)));
 }
@@ -105,6 +155,17 @@ export const layoutStampOfPixel = (x, y) => layoutStampAt(Number.isFinite(x) && 
 export function layoutsMatch(a, b) {
   const va = stampVendors(a), vb = stampVendors(b);
   return va.size === vb.size && [...va].every((v) => vb.has(v));
+}
+/**
+ * WD3 (AUDIT WD3 H1/S5): WHETHER A RECORD KEYED BY BUILDING NAMES ITS BUILDING HERE. A record stamped in one layout of
+ * its town names a building only in that layout; where its town stands in another all the same (offline, a pack that
+ * could not be loaded for it; online, a record of the player's own from before the mods, which no home of the
+ * service's pins) its key names another building, or none. A record naming no town, or one the host cannot place,
+ * stands as Daggerfall always read it.
+ */
+export function recordStands(rec) {
+  if (!rec?.mapId || layoutLocationKeyOfMapId(rec.mapId) == null) return true;
+  return layoutsMatch(rec.layout, layoutStampOfMapId(rec.mapId));
 }
 /** The layout of a town by the discovery store's id for it (`<regionIndex>:<name>`, systems/discovery.js), now - or
  *  null for a town the host cannot place, which the store neither stamps nor prunes. */
@@ -147,7 +208,7 @@ export function pinsFrom(records) {
     const want = stampVendors(r.stamp);
     const out = new Set(), inn = new Set();
     for (const v of LAYOUT_MODS) {
-      const on = !!_vendorOn(v);
+      const on = servesUnpinned(v, key);   // AUDIT WD3 G2: a curated town's baseline is Daggerfall's own
       if (on && !want.has(v) && layoutModTouches(v, key)) out.add(v);   // a mod that changes nothing here needs no pin
       if (!on && want.has(v)) inn.add(v);   // the stamp names it only where it changed the town
     }
@@ -207,6 +268,7 @@ export function layoutRecordsOf({ houses = [], rooms = [], sites = [], questors 
 /** Tests: back to no pins, no mods. */
 export function _resetLayoutPins() {
   _pins = new Map();
+  _typeOf = () => null;
   _vendorOn = () => false;
   _vendorVersion = () => '';
   _keyOfMapId = () => null;

@@ -1502,6 +1502,24 @@ export class QuestMachine {
     return sites;
   }
 
+  /** WD3 (AUDIT WD3 S5): every incomplete quest's building sites whose town stands in another layout now, chosen again
+   *  in it (Place.reseatMovedSite), their site links following. Answers how many moved. */
+  reseatMovedSites(world = this.deps.world ?? null) {
+    if (!world) return 0;
+    let moved = 0;
+    for (const quest of this.quests.values()) {
+      if (quest.questComplete) continue;
+      for (const resource of quest.resources.values()) {
+        if (!resource.isPlace || !resource.reseatMovedSite?.(world)) continue;
+        moved++;
+        for (const link of this.siteLinks) {
+          if (link.questUID === quest.uid && link.placeSymbol?.name === resource.symbol?.name) link.buildingKey = resource.siteDetails.buildingKey;
+        }
+      }
+    }
+    return moved;
+  }
+
   /** WD3 (AUDIT WD3 S3): every incomplete quest's questor met in a building - its town keeps the layout the questor
    *  was met in (systems/layoutPins.js layoutRecordsOf). */
   getAllActiveQuestors() {

@@ -281,8 +281,8 @@
   {
     "name": "HOME1-the-claims-character",
     "file": "src/systems/onlineHomes.js",
-    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) });",
-    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) });",
+    "old": "const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), layout: layout || null });",
+    "new": "const r = await api.claim({ mapId: id, buildingKey, region, character: null, price, ...(realm ? { realm } : {}), layout: layout || null });",
     "tests": [
       "test/home1.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "HOME1-a-refusal-paid-for",
     "file": "src/systems/onlineHomes.js",
-    "old": "    const r = await homes.claim({ mapId, buildingKey, region, price, ...(layout ? { layout } : {}) });\n    if (!r.ok) return r;\n",
-    "new": "    const r = await homes.claim({ mapId, buildingKey, region, price, ...(layout ? { layout } : {}) });\n",
+    "old": "    const r = await homes.claim({ mapId, buildingKey, region, price, layout });\n    if (!r.ok) return r;\n",
+    "new": "    const r = await homes.claim({ mapId, buildingKey, region, price, layout });\n",
     "tests": [
       "test/home1.test.js"
     ]

@@ -569,3 +569,81 @@ test('WD3 the towns\' scenery is never a person (AUDIT WD3 G1) - a street flat c
   for (const a of [334, 346, 357, 175, 184]) assert.equal(isNpcFlat(a), true, String(a));
   for (const a of [210, 10021, 10024, 10010, 201, 1200]) assert.equal(isNpcFlat(a), false, String(a));
 });
+
+test('WD3 with ARENA2: the port\'s curation (AUDIT WD3 G2) - every one of the 274 roadside taverns laid out on Beautiful Villages\' TVRNAS00/06 stands Daggerfall\'s own block, a tavern in it; the 301 village cells laying them out stand the author\'s', { skip: HAVE_ARENA2 ? false : 'ARENA2_PATH not set' }, async () => {
+  const W = await import('../src/formats/worldDataReplacement.js');
+  const LP = await import('../src/systems/layoutPins.js');
+  const { setValue } = await import('../src/systems/settings.js');
+  const { blocks, maps: _m } = loadArena2();
+  W._resetWorldDataReplacement(); LP._resetLayoutPins();
+  setValue('Enhancements', 'AssetInjection', 'True');
+  W.installWorldDataReplacement(); W.bindWorldDataBlocks(blocks);
+  for (const [v, pr] of [['beautiful-villages', 10], ['beautiful-cities', 20]]) {
+    W.registerWorldDataPack(openWorldDataPack(JSON.parse(zlib.gunzipSync(readFileSync(join(ROOT, `vendor/${v}/WorldDataPack/${v}.pack.json.gz`))).toString()), { blocks }), () => true, { priority: pr });
+  }
+  W.quietLocationOverrides(true);
+  const maps = new MapsFile(); maps.load(new Uint8Array(readFileSync(join(ARENA2, 'MAPS.BSA'))), new Uint8Array(readFileSync(join(ARENA2, 'CLIMATE.PAK'))), new Uint8Array(readFileSync(join(ARENA2, 'POLITIC.PAK'))));
+  const locOf = (k) => maps.getLocation(k % 100, Math.floor(k / 100));
+  LP.configureLayoutPins({ vendorOn: () => true, gridOf: (k) => locOf(k)?.exterior?.exteriorData?.blockNames ?? null, locationTypeOf: (k) => locOf(k)?.mapTableData?.locationType ?? null });
+  const log = console.log; console.log = () => {};
+  let taverns = 0, withTavern = 0, villages = 0, authors = 0;
+  try {
+    for (let r = 0; r < maps.regionCount; r++) {
+      const reg = maps.getRegion(r); if (!reg) continue;
+      for (let l = 0; l < reg.locationCount; l++) {
+        const loc = maps.getLocation(r, l);
+        const names = loc.exterior?.exteriorData?.blockNames ?? [];
+        const w = loc.exterior?.exteriorData?.width ?? 1;
+        names.forEach((n, i) => {
+          if (!/^TVRNAS0[06]\.RMB$/.test(n)) return;
+          const name = maps.getRmbBlockName(loc, i % w, Math.floor(i / w));
+          const served = W.getDFBlockReplacementData(blocks.getBlockIndex(name), name);
+          const types = (served ?? blocks.getBlock(blocks.getBlockIndex(name))).rmbBlock.fldHeader.buildingDataList.map((b) => b.buildingType);
+          if (loc.mapTableData.locationType === 6) { taverns++; if (!served && types.includes(15)) withTavern++; } else { villages++; if (served) authors++; }
+        });
+      }
+    }
+  } finally { console.log = log; }
+  assert.deepEqual([taverns, withTavern, villages, authors], [274, 274, 301, 301]);
+  W._resetWorldDataReplacement(); LP._resetLayoutPins();
+});
+
+test('WD3 a stand-in\'s clear placeholder is never its key\'s for good (AUDIT WD3 T3) - a picture asked under the key later (a fetch that failed, then landed) takes its place; a real picture is kept as ever, and a placeholder never displaces one', async () => {
+  const { Renderer } = await import('../src/render/renderer.js');
+  let made = 0, deleted = 0;
+  const gl = new Proxy({}, { get: (_, k) => (k === 'createTexture' ? () => ({ id: ++made }) : k === 'deleteTexture' ? () => { deleted++; } : typeof k === 'string' && /^[A-Z_0-9]+$/.test(k) ? 1 : () => {}) });
+  const r = Object.create(Renderer.prototype);
+  Object.assign(r, { gl, textures: new Map(), _texKeysByBase: new Map(), _replacements: new Set(), _placeholders: new Set(), _texGen: 0, _retroMips: false });
+  const clear = { width: 1, height: 1, colors: new Uint8ClampedArray(4) };
+  const real = { width: 2, height: 2, colors: new Uint8ClampedArray(16) };
+  const a = r.uploadTexture(1210, 13, clear, { opaque: true, replacement: true, placeholder: true });
+  assert.equal(r.uploadTexture(1210, 13, clear, { opaque: true, replacement: true, placeholder: true }), a, 'a placeholder asked again is the same');
+  const b = r.uploadTexture(1210, 13, real, { opaque: true, replacement: true });
+  assert.notEqual(b, a, 'the picture takes its place');
+  assert.equal(deleted, 1, 'the placeholder freed');
+  assert.equal(r.uploadTexture(1210, 13, clear, { opaque: true, replacement: true, placeholder: true }), b, 'never displaced again');
+  assert.equal(r.uploadTexture(1210, 13, real, { opaque: true, replacement: true }), b, 'a real picture kept as ever');
+});
+
+test('WD3 the town stand-ins YIELD to the player\'s own picture of the record (AUDIT WD3 T2) - a loose file or an attached mod (the real DET or RMB Resource Pack the stand-in only stands in for) answers first, with Replace Game Artwork on; without one, or with it off, the stand-in answers as before; a stand-in that does not yield (another mod\'s own art) keeps its place', async () => {
+  const TR = await import('../src/systems/textureReplacement.js');
+  const { setValue } = await import('../src/systems/settings.js');
+  clearVendorTextures(); TR.setTextureReplacements([], null); TR.setBundleTextures([]);
+  setValue('Enhancements', 'AssetInjection', 'True');
+  setTextureDeriveContext({ classicRgba: async () => null, classicScale: async () => ({ width: 0, height: 0 }) });
+  const pic = (w) => ({ width: w, height: 1, data: new Uint8ClampedArray(w * 4) });
+  addVendorTextures([
+    { archive: 10021, record: 3, fileName: 'stand-in', standIn: true, yields: true, build: async () => pic(2) },
+    { archive: 1210, record: 10, fileName: 'ds-own', standIn: true, build: async () => pic(3) },
+  ]);
+  assert.equal((await TR.preloadTextureRecord(10021, 3))?.width, 2, 'the stand-in, with no pick of the player\'s');
+  TR.setBundleTextures([{ archive: 10021, record: 3, fileName: 'det.dfmod:10021_3-0', image: async () => pic(5) }, { archive: 1210, record: 10, fileName: 'x.dfmod:1210_10-0', image: async () => pic(7) }]);
+  assert.equal((await TR.preloadTextureRecord(10021, 3))?.width, 5, 'the attached mod\'s own picture answers first');
+  assert.equal((await TR.preloadTextureRecord(1210, 10))?.width, 3, 'a stand-in that does not yield keeps its place');
+  setValue('Enhancements', 'AssetInjection', 'False');
+  assert.equal(TR.hasTextureReplacement(10021, 3), true, 'with Replace Game Artwork off the stand-in answers again');
+  setValue('Enhancements', 'AssetInjection', 'True');
+  TR.setBundleTextures([]); clearVendorTextures();
+  assert.match(readFileSync(join(ROOT, 'src/world/detStandIns.js'), 'utf8'), /return addVendorTextures\(entries\.map\(\(e\) => \(\{ \.\.\.e, yields: true \}\)\)\);/);
+  assert.match(readFileSync(join(ROOT, 'src/world/townStandIns.js'), 'utf8'), /n \+= addVendorTextures\(cloths\.map\(\(e\) => \(\{ \.\.\.e, yields: true \}\)\)\);/);
+});

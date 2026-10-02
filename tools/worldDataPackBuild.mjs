@@ -25,7 +25,7 @@ import { readUnityFs, readSerializedFile, CLASS_ID } from '../src/formats/unityB
 import { BlocksFile } from '../src/formats/blocksFile.js';
 import { MapsFile } from '../src/formats/mapsFile.js';
 import { blockToDfuJson, locationToDfuJson, diffJson, canonicalJson } from '../src/formats/worldDataJson.js';
-import { PACK_FORMAT, ROW_ENCODERS, runLength, openWorldDataPack } from '../src/formats/worldDataPack.js';
+import { PACK_FORMAT, ROW_ENCODERS, runLength, openWorldDataPack, classicIndicesOf } from '../src/formats/worldDataPack.js';
 
 /** FullSerializer's string escapes that JSON lacks (fsJsonParser.UnescapeChar: `\0`, `\a`), rewritten, then parsed. */
 export function parseFullSerializerJson(text) {
@@ -403,6 +403,8 @@ export function buildPack({ arena2, bundleBytes, vendor, mod = {}, log = () => {
 
   // Every file rebuilt through the runtime's own reader, from the pack as it will be SHIPPED (serialised and read back),
   // the author's sha256 for sha256.
+  // AUDIT WD3 P5: the name of every classic block a `$c` reference reads, as the BLOCKS.BSA it was built against has it
+  out.classicNames = Object.fromEntries(classicIndicesOf(out).map((i) => [i, blocks.getBlockName(i)]));
   const shipped = serialisePack(out);
   const pack = openWorldDataPack(JSON.parse(shipped), { blocks });
   for (const name of order) {
@@ -419,7 +421,7 @@ export function serialisePack(pack) {
   const bases = [...new Set(Object.values(pack.files).filter(([, b]) => b?.[0] === 'f').map(([, b]) => b[1]))].sort();
   const files = {};
   for (const name of Object.keys(pack.files).sort()) files[name] = JSON.stringify(pack.files[name]);
-  return JSON.stringify({ format: pack.format, vendor: pack.vendor, mod: pack.mod, bases, files, nodes: pack.nodes.map((n) => JSON.stringify(n)) });
+  return JSON.stringify({ format: pack.format, vendor: pack.vendor, mod: pack.mod, bases, ...(pack.classicNames ? { classicNames: pack.classicNames } : {}), files, nodes: pack.nodes.map((n) => JSON.stringify(n)) });
 }
 
 if (isMain(import.meta.url)) {

@@ -136,9 +136,16 @@ export function blockBuildingCount(dfBlock) {
  *  @param exteriorBuildings dfLocation.exterior.buildings
  *  @param blocks layoutLocation().blocks (y->x order preserved)
  *  @returns per-block arrays of merged buildingDataList copies */
+/** WD3 (AUDIT WD3 G4): guild factions a mod's location files name that this game carries no guild for - 1000 is the
+ *  Archaeologists Guild's (its own mod's faction), which Beautiful Villages writes on a guild hall entry of four
+ *  villages. DFU, without that mod, hands the entry to the first guild hall of the grid: Bubandanis' Mages Guild and
+ *  Tulaedax's Fighters Guild answered "You get no response", and Tulaedax's Mages hall took the Fighters' faction.
+ *  An entry naming no guild of this game draws for no hall - each hall takes its own guild's entry. */
+export const UNCARRIED_GUILD_FACTIONS = Object.freeze(new Set([1000]));
 export function mergeNamedBuildings(exteriorBuildings, blocks, { locationIndex = 0 } = {}) {
   const pool = exteriorBuildings
     .filter((b) => isNamedBuildingType(b.buildingType))
+    .filter((b) => !(b.buildingType === BUILDING_TYPES.GuildHall && UNCARRIED_GUILD_FACTIONS.has(b.factionId)))
     .map((b) => ({ data: b, used: false }));
   const next = (type) => {
     for (const it of pool) {

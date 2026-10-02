@@ -2485,7 +2485,7 @@ export function createWorldModes(host) {
       // remoteItems in REPAIR mode (:392) and the filtered view over it
       // (:705-724), which is repairService's own repairJobsAt.
       otherItems: () => (playerEntity.otherItems ??= []),
-      repairItems: () => repairJobsAt(playerEntity, b.buildingKey ?? 0, Math.floor(ownMinutes())),
+      repairItems: () => repairJobsAt(playerEntity, b.buildingKey ?? 0, Math.floor(ownMinutes()), homeTownOf(b)),
       nowMinutes: () => Math.floor(ownMinutes()),
       accepts: (it) => shopBuysItem(b.buildingType, it),
       enchanted: (it) => isEnchanted(it),
@@ -2604,7 +2604,7 @@ export function createWorldModes(host) {
       // The proceeds were weighed before they were paid: a purse that
       // would push the player past MaxEncumbrance becomes a letter of
       // credit instead. B2 gave it its destination - DepositAll_LOC
-      // (banking.js:744, DaggerfallBankingWindow :377-389) takes EVERY
+      // (banking.js:741, DaggerfallBankingWindow :377-389) takes EVERY
       // letter in the pack at face value - so the note that once stood
       // here saying there was nowhere to cash one is retired.
       if (proceeds?.kind === 'letterOfCredit') {
@@ -3442,7 +3442,7 @@ export function createWorldModes(host) {
     _keptHidden = [];   // BASE-HIDE: this visit's
     _sceneHeldForLayout = null;
     const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
-    _visitLayout = townKey != null ? layoutStampAt(townKey) : null;   // AUDIT WD3 R4: the layout this visit stands in
+    _visitLayout = visitLayoutNow();   // AUDIT WD3 R4: the layout this visit stands in
     const name = currentInteriorScene();
     if (!name || !interiorCtx) return;
     let data = restoreCachedScene(sceneCache(), name);
@@ -3513,6 +3513,9 @@ export function createWorldModes(host) {
   let _keptHidden = [];
   /** WD3: the permanent scene this visit holds back unrestored (another layout's) - and so never caches over. */
   let _sceneHeldForLayout = null;
+  /** WD3: the layout of the town the player is in, now - null where the host cannot place the town (its scene is
+   *  stamped with none, and its room is keyed as Daggerfall's). One answer for the scene, the room and its memory. */
+  const visitLayoutNow = () => { const k = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0); return k != null ? layoutStampAt(k) : null; };
   let _visitLayout = null;   // WD3 (AUDIT WD3 R4): the town's layout when this visit began - its scene is stamped with it
 
   /** DECOR1c: WHO OWNS THE ROOM'S PLACED PIECES - the character whose online home it is; else (offline, or a building
@@ -5053,7 +5056,7 @@ export function createWorldModes(host) {
   }
   function showRepairList(page, ctx) {
     const now = Math.floor(ownMinutes());
-    const jobs = repairJobsAt(playerEntity, interiorBuilding?.buildingKey ?? 0, now);
+    const jobs = repairJobsAt(playerEntity, interiorBuilding?.buildingKey ?? 0, now, homeTownOf(interiorBuilding));
     // FilterLocalItems' one repair gate is !IsEquipped (:672-703);
     // the condition/enchant/not-repairable refusals land at CLICK
     const locals = (playerEntity.items ?? []).filter((it) => !isEquipped(it));
@@ -5109,7 +5112,7 @@ export function createWorldModes(host) {
       // queue stretch and the never-decrease clamp real laws rather
       // than dead arms of a one-item list (:1069 -> :514-568).
       const bk = interiorBuilding?.buildingKey ?? 0;
-      updateRepairTimes([...repairJobsAt(playerEntity, bk, now), it], { commit: true, nowMinutes: now, buildingKey: bk, mapId: homeTownOf(interiorBuilding) });   // WD3: the ticket names the smith's town
+      updateRepairTimes([...repairJobsAt(playerEntity, bk, now, homeTownOf(interiorBuilding)), it], { commit: true, nowMinutes: now, buildingKey: bk, mapId: homeTownOf(interiorBuilding) });   // WD3: the ticket names the smith's town
       const i = playerEntity.items.indexOf(it);
       if (i >= 0) playerEntity.items.splice(i, 1);
       (playerEntity.otherItems ??= []).push(it);
@@ -5124,7 +5127,7 @@ export function createWorldModes(host) {
   }
   function showRepairJobs(ctx, page = 0) {
     const now = Math.floor(ownMinutes());
-    const jobs = repairJobsAt(playerEntity, interiorBuilding?.buildingKey ?? 0, now);
+    const jobs = repairJobsAt(playerEntity, interiorBuilding?.buildingKey ?? 0, now, homeTownOf(interiorBuilding));
     if (!jobs.length) { showRepairList(0, ctx); return; }
     const per = 8;
     const slice = jobs.slice(page * per, (page + 1) * per);
@@ -6566,7 +6569,7 @@ export function createWorldModes(host) {
         // HOME1: an ONLINE home keeps its room - its owner and whoever they let in stand in it together, and its
         // cupboards are never the room's (the owner's are their storage, a visitor's are shut - the container arm).
         const owned = b?.buildingType === BUILDING_TYPES.Ship || (!interiorHome && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey));
-        _intShared = mintInteriorShared(interiorLocationKey(questSceneCtx?.()?.mapId ?? 0, b?.buildingKey ?? 0), { owned, home: !!interiorHome });   // AUDIT WORLD6a A1: the bag from the one mint, its key spelled as the pure half reads it
+        _intShared = mintInteriorShared(interiorLocationKey(questSceneCtx?.()?.mapId ?? 0, b?.buildingKey ?? 0, visitLayoutNow()), { owned, home: !!interiorHome });   // WD3 (AUDIT WD3 B3): the room of the building in its layout   // AUDIT WORLD6a A1: the bag from the one mint, its key spelled as the pure half reads it
         const key = _intShared.locationKey;
         if (key) ctx.actions.onChanged = (recs) => host.onActions?.({ k: key, a: recs });
       }
@@ -8584,7 +8587,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14671's own wave-46 note); the interior
+          // a blow (world.js:14699's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9620,7 +9623,7 @@ export function createWorldModes(host) {
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
-      room: findRentedRoom(playerEntity.rentedRooms ?? [], mapId, buildingKey),
+      room: findRentedRoom(playerEntity.rentedRooms ?? [], mapId, buildingKey, b?.buildingType === BUILDING_TYPES.Tavern),
       // GuildManager.GetGuild(factionID).CanRest() - THIS building's
       // faction, not the player's chosen guild. canRest() applies the
       // tavern exclusion itself.
@@ -10434,7 +10437,7 @@ export function createWorldModes(host) {
     // ONLINE1: what the host needs to name the room - the mounted dungeon's
     // location, the interior's building; null in the exterior
     roomIdentity: () => (mode === 'dungeon' ? (isGateArena(dungeonLoc) ? { kind: 'gate', day: dungeonLoc.gate } : { kind: 'dungeon', mapId: dungeonLoc?.mapTableData?.mapId ?? null, regionIndex: dungeonLoc?.regionIndex ?? -1, name: dungeonLoc?.name ?? '' })   // WB3b: the court's room is its gate's own
-      : mode === 'interior' ? { kind: 'interior', buildingKey: _intShared?.owned ? 0 : (interiorBuilding?.buildingKey ?? 0) } : null),   // AUDIT WORLD6a A6/B6: an owned house or a ship keeps NO room - not a room nobody feeds (the owner joined it, could hold the seat, and published nothing)
+      : mode === 'interior' ? { kind: 'interior', buildingKey: _intShared?.owned ? 0 : (interiorBuilding?.buildingKey ?? 0), layout: _visitLayout } : null),   // WD3 (AUDIT WD3 B3): and its layout   // AUDIT WORLD6a A6/B6: an owned house or a ship keeps NO room - not a room nobody feeds (the owner joined it, could hold the seat, and published nothing)
     get dungeonLocation() { return dungeonLoc; },   // B2: playerInside's dungeon arm
     /** X7: the Identify SPELL's window (Identify.cs:71-76 pushes the
      *  trade window itself). The spell can be cast anywhere, but the
@@ -11228,7 +11231,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3477-3499), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11012). So an F9 pressed in a shop
+     *  unconditionally (world.js:11020). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11267,7 +11270,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11227)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11255)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11277,7 +11280,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10002`
+     *  HARD2c: this used to spell them out, and named `world.js:10010`
      *  and `dungeonContext.js:7808` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
@@ -11354,6 +11357,13 @@ export function createWorldModes(host) {
     async restoreInterior(saved, pos = null, { fromNative = null, yOffset = 0 } = {}) {
       const d = saved?.door;
       if (!d || mode !== 'exterior') return false;
+      // WD3 (AUDIT WD3 S5): a save (or an anchor) made inside a building of one layout of its town, where the town stands
+      // in another all the same - its key names another building, or none: no door is walked through, and the caller's
+      // no-door arm stands the player outside, as DFU does for a building it cannot find
+      if (layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0) != null && !layoutsMatch(saved.layout, visitLayoutNow())) {
+        console.warn('[layout] the building was left in another layout of this town - standing outside');
+        return false;
+      }
       const entries = doorTargets();
       const sameDoor = (e) => e.door.recordIndex === d.recordIndex && e.door.doorIndex === d.doorIndex;
       let matches = entries.filter((e) => e.door.blockIndex === d.blockIndex && sameDoor(e));

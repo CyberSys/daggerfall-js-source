@@ -69,6 +69,7 @@
 // the rest). WORLD_PUBLISH_MS is how often.
 //
 // Not a DFU member: Daggerfall Unity has no multiplayer. Ledger A row.
+import { layoutRoomKey } from '../world/interiorShared.js';   // WD3 (AUDIT WD3 B3): an interior's room is its layout's
 import { tabStorage } from '../systems/appStorage.js';   // the tab's own storage - the seam, never the browser's own (a PIN)
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 
@@ -177,8 +178,9 @@ export const slug = (s) => String(s ?? '').replace(/[^A-Za-z0-9_.-]+/g, '_').sli
  * @param {string} [p.locationName]
  * @param {number} [p.buildingKey] the interior's building
  * @param {{x:number,y:number}} [p.mapPixel] the player's map pixel (the streaming world's overworld)
+ * @param {string|null} [p.layout] the interior's town's layout stamp (WD3 - its room is its layout's)
  */
-export function roomKeyFor({ host, mode, mapId = null, regionIndex = -1, locationName = '', buildingKey = 0, mapPixel = null }) {
+export function roomKeyFor({ host, mode, mapId = null, regionIndex = -1, locationName = '', buildingKey = 0, mapPixel = null, layout = null }) {
   // AUDIT WORLD34 A1: the map id is MAPS.BSA's 32-bit integer read SIGNED (formats/mapsFile.js getInt32), so one with
   // bit 31 set read negative here and fell to the name slug - a room the wire keeps no world for. The UNSIGNED value
   // is the id, the same on every client; 0 alone is "no map row" (the probe's fixture)
@@ -186,7 +188,7 @@ export function roomKeyFor({ host, mode, mapId = null, regionIndex = -1, locatio
   const loc = id > 0 ? `m${id}` : (locationName && regionIndex >= 0 ? `${regionIndex}.${slug(locationName)}` : null);
   if (mode === 'dungeon') return loc ? `dungeon:${loc}` : null;
   const bk = Number.isFinite(buildingKey) ? buildingKey >>> 0 : 0;   // AUDIT WORLD6a B5: unsigned, as the id is - the memory's key (interiorLocationKey) spells it so, and the two must agree by construction
-  if (mode === 'interior') return loc && bk ? `interior:${loc}.${bk}` : null;   // a door the directory cannot key (0) is no room, not a pool of them
+  if (mode === 'interior') return loc && bk ? `interior:${loc}.${layoutRoomKey(bk, layout)}` : null;   // WD3 (AUDIT WD3 B3): the building's room in its town's layout (world/interiorShared.js)   // a door the directory cannot key (0) is no room, not a pool of them
   if (host === 'exterior') return loc ? `town:${loc}` : null;
   if (!mapPixel) return null;
   return worldRoom(mapPixel.x, mapPixel.y);

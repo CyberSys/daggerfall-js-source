@@ -152,6 +152,14 @@ const pinHere = () => _pinAt(pinLocationKey());
 let regions = new Map();          // regionIndex -> dfRegion | NO_REPLACEMENT
 let locations = new Map();        // `${locationKey}${variant}` -> dfLocation | NO_REPLACEMENT
 let blocks = new Map();           // `${blockName}${variant}` -> dfBlock | NO_REPLACEMENT
+/** WD3 (AUDIT WD3 B4): the blocks served, the most recently asked kept - DFU keeps every one for the session, and a
+ *  walk across the Bay with the town packs on built some 260 MB of them; a block let go is rebuilt when next asked
+ *  (the same JSON, the same block). A town of 8 x 8 blocks and its neighbours stand well inside it. */
+export const BLOCK_CACHE_MAX = 192;
+function cacheBlock(key, value) {
+  blocks.set(key, value);
+  if (blocks.size > BLOCK_CACHE_MAX) blocks.delete(blocks.keys().next().value);
+}
 let buildings = new Map();        // `${blockIndex}|${recordIndex}|${variant}` -> data | NO_REPLACEMENT
 let nextBlockIndex = 0;
 let newBlockNames = new Map();    // block index -> name
@@ -370,17 +378,17 @@ export function getDFBlockReplacementData(block, blockName) {
     return dfBlock;
   }
   const cached = blocks.get(blockKey);
-  if (cached !== undefined) return cached === NO_REPLACEMENT ? null : cached;
+  if (cached !== undefined) { blocks.delete(blockKey); blocks.set(blockKey, cached); return cached === NO_REPLACEMENT ? null : cached; }   // AUDIT WD3 B4: the most recent last
   const json = tryGetAsset(blockReplacementFilename(blockName, variant));
   if (!json) {
-    if (variant === NO_VARIANT) blocks.set(blockName, NO_REPLACEMENT);
+    if (variant === NO_VARIANT) cacheBlock(blockName, NO_REPLACEMENT);
     return null;
   }
   // WD1 (Aquatic Sprites' three wet blocks): the whole DFBlock, RdbBlock and RdiBlock included (:363-369) - the
   // AUDIT-RR2 G14 refusal of RDB/RDI files is lifted now that the converters below read both halves
   const dfBlock = blockFromJson(json, block);
   if (blockName.endsWith('.RMB')) replaceRmbBlockBuildingData(blockName, block, dfBlock);   // :382-384 - RMB blocks only
-  blocks.set(blockKey, dfBlock);
+  cacheBlock(blockKey, dfBlock);
   console.log(`[worlddata] Found DFBlock override: ${blockName} (index: ${block})`);
   return dfBlock;
 }

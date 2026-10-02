@@ -180,7 +180,7 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     // - its batch draws nothing - and the miss is said once, by name.
     if (!swap && t.vendor) {
       if (!_standInMisses.has(`${archive}_${record}`)) { _standInMisses.add(`${archive}_${record}`); console.warn(`[texture] ${archive}_${record}: no mod picture and no stand-in - nothing drawn, as in DFU`); }
-      renderer.uploadTexture(archive, record, { width: 1, height: 1, colors: new Uint8ClampedArray(4) }, variant !== undefined ? { opaque, mips, variant, replacement: true } : { opaque, mips, replacement: true });
+      renderer.uploadTexture(archive, record, { width: 1, height: 1, colors: new Uint8ClampedArray(4) }, variant !== undefined ? { opaque, mips, variant, replacement: true, placeholder: true } : { opaque, mips, replacement: true, placeholder: true });   // AUDIT WD3 T3: a picture that lands later takes its place
       return variant;
     }
     const masked = swap ? null : removeMask ? changeMask(bitmap) : bitmap;   // HM1: a clone - the cached record keeps its mask for the doll

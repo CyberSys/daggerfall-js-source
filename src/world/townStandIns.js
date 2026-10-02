@@ -372,13 +372,13 @@ export function installTownStandIns(isOn = () => true) {
       });
     }
   }
-  n += addVendorTextures(cloths);
+  n += addVendorTextures(cloths.map((e) => ({ ...e, yields: true })));   // AUDIT WD3 T2: a player's own peer picture answers first
   const classicPicture = (archive, name) => ([record, from]) => ({
     archive, record: Number(record), fileName: `town-${name}-${archive}_${record}`, standIn: true, gate: isOn,
     build: async (ctx) => ({ ...(await buildDerivedPicture({ from }, ctx.classicRgba)), scale: (await ctx.classicScale?.(from[0], from[1])) ?? null }),
   });
-  n += addVendorTextures(Object.entries(TOWN_CLUTTER).map(classicPicture(TOWN_CLUTTER_ARCHIVE, 'clutter')));
-  n += addVendorTextures(Object.entries(TOWN_GARDEN).map(classicPicture(TOWN_GARDEN_ARCHIVE, 'garden')));
+  n += addVendorTextures(Object.entries(TOWN_CLUTTER).map(classicPicture(TOWN_CLUTTER_ARCHIVE, 'clutter')).map((e) => ({ ...e, yields: true })));
+  n += addVendorTextures(Object.entries(TOWN_GARDEN).map(classicPicture(TOWN_GARDEN_ARCHIVE, 'garden')).map((e) => ({ ...e, yields: true })));
   return n;
 }
 /** Test seam. */

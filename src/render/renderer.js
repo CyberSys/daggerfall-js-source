@@ -1287,6 +1287,8 @@ export class Renderer {
     // minted under one "archive_record", so release frees what was made
     // instead of guessing suffixes ('#smooth#travelto' was never tried).
     this._texKeysByBase = new Map();   // "archive_record" -> Set<cache key>
+    /** @type {Set<string> | undefined} */
+    this._placeholders = new Set();   // WD3 (AUDIT WD3 T3): keys holding a stand-in's clear placeholder - a real picture replaces one
     this.emissionTextures = new Map(); // "archive_record" -> window mask
     // AUDIT 39 F49: keys whose emission map is the AUTO-EMISSIVE albedo
     // (MaterialReader.cs:448-453 - EmissionColor = Color.white), not a
@@ -3941,7 +3943,15 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     // today and its key is unique, so nothing was broken - but a cache
     // that quietly ignores an argument is a trap, not a cache.
     const key = `${archive}_${record}${opts.smooth ? '#smooth' : ''}${opts.opaque ? '#opaque' : ''}${opts.mips === false ? (opts.variant ?? '#ui') : ''}${opts.alpha ? '#alpha' : ''}`;   // INCIDENT 2026-09-04: DFU caches materials per alphaIndex; REVIEW 2026-09-05: the un-mipped UI variant of a world archive (item icons) keys apart too; AUDIT 61: `variant: ''` keeps the plain batch key for world art uploaded without a chain (a mod atlas built mipChain:false - SIB1)
-    if (this.textures.has(key)) return this.textures.get(key);
+    if (this.textures.has(key)) {
+      // WD3 (AUDIT WD3 T3): a stand-in's clear placeholder (no picture at the time - a fetch that failed, a gate shut) is
+      // never the key's for good: a real picture asked under it later takes its place
+      if (!this._placeholders?.has(key) || opts.placeholder) return this.textures.get(key);
+      this._placeholders.delete(key);
+      const old = this.textures.get(key);
+      this.textures.delete(key);
+      if (old) this.gl.deleteTexture(old);
+    }
     const gl = this.gl;
     const tex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -3979,6 +3989,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     if (opts.replacement) { if (tex) this._replacements.add(tex); }   // AUDIT RETRO1 A4: TryImportTexture's - DFU's retro arm never reaches it (J7: a lost context's null is no key)
     else if (mips && !this._retroMips) gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 0);   // RETRO1: loaded under retro mode without mip maps (_applyRetroMips)
     this.textures.set(key, tex);
+    if (opts.placeholder) (this._placeholders ??= new Set()).add(key);
     if (opts.alpha && tex) (this._alphaArt ??= new WeakSet()).add(tex);   // OVH2: the texture's own treatment, read at every screen draw of it (AUDIT RETRO1 J7: a lost context's null is no key)
     const base = `${archive}_${record}`;
     let keys = this._texKeysByBase.get(base);

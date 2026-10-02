@@ -523,6 +523,6 @@ export function installDetStandIns(isOn) {
     entries.push({ archive: 10009, record, fileName: `det-stand-in-10009_${record}`, standIn: true, gate, build: async () => ({ ...drawDolphin(k), scale: DOLPHIN_SCALE }) });
   }
   entries.push(...townPictureEntries(gate));   // WD3: the cloth the tapestries and banners wear, the rugs, the leaves
-  return addVendorTextures(entries);
+  return addVendorTextures(entries.map((e) => ({ ...e, yields: true })));   // AUDIT WD3 T2: a player's own DET (or other peer's) picture answers first
 }
 export function _resetDetStandIns() { _installed = false; _gates.clear(); }

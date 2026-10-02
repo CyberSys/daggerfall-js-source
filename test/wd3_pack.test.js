@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import zlib from 'node:zlib';
 
-import { PACK_FORMAT, ROW_CODECS, ROW_ENCODERS, runLength, openWorldDataPack, readPackText, packFileSha256 } from '../src/formats/worldDataPack.js';
+import { PACK_FORMAT, ROW_CODECS, ROW_ENCODERS, runLength, openWorldDataPack, readPackText, packFileSha256, classicIndicesOf } from '../src/formats/worldDataPack.js';
 import { blockToDfuJson, patchJson, canonicalJson } from '../src/formats/worldDataJson.js';
 import { canonicalSha256 } from '../src/formats/worldDataPatch.js';
 import { BlocksFile } from '../src/formats/blocksFile.js';
@@ -284,4 +284,26 @@ test('WD3 with ARENA2: EVERY file of both packs rebuilds the author\'s file out 
   }
   assert.deepEqual(counts, { 'beautiful-villages': 7526, 'beautiful-cities': 1021 });
   assert.deepEqual(ownNames, { 'beautiful-villages': 156, 'beautiful-cities': 178 }, 'the READMEs\' counts of Daggerfall\'s own blocks rebuilt');
+});
+
+test('WD3 a pack\'s classic references are checked BY NAME (AUDIT WD3 P5) - `classicNames` names the block each `$c` reads, as a `b` base names its own: a BLOCKS.BSA in another order refuses the file (the classic stands) where it read another block\'s pieces; every `$c` of both vendored packs is named; with ARENA2, by the names the player\'s BLOCKS.BSA gives', () => {
+  const ref = { $c: [7, ['RmbBlock', 'FldHeader', 'BuildingDataList', 0]] };
+  const make = (classicNames) => ({ format: PACK_FORMAT, vendor: 't', ...(classicNames ? { classicNames } : {}), files: { 'A.json': ['x', ['b', 'TINYAA00.RMB', 7], [['s', ['RmbBlock', 'FldHeader', 'BuildingDataList', 1], ref]]] }, nodes: [] });
+  assert.deepEqual(classicIndicesOf(make(null)), [7]);
+  const read = (names) => openWorldDataPack(make(names), { blocks: fakeBlocks(tinyRmb()) }).rebuild('A.json').RmbBlock.FldHeader.BuildingDataList[1].NameSeed;
+  assert.equal(read({ 7: 'TINYAA00.RMB' }), 101, 'the named block read');
+  assert.equal(read(null), 101, 'a pack from before the names reads as it did');
+  assert.throws(() => read({ 7: 'OTHRAA00.RMB' }), /wants OTHRAA00\.RMB at block 7, BLOCKS\.BSA has TINYAA00\.RMB/, 'another block at the index: refused');
+  for (const v of ['beautiful-villages', 'beautiful-cities']) {
+    const pack = JSON.parse(zlib.gunzipSync(readFileSync(join(ROOT, `vendor/${v}/WorldDataPack/${v}.pack.json.gz`))).toString('utf8'));
+    const used = classicIndicesOf(pack);
+    assert.ok(used.length > 50, `${v}: ${used.length}`);
+    assert.deepEqual(Object.keys(pack.classicNames).map(Number).sort((a, b) => a - b), used, `${v}: every reference named, no other`);
+    assert.ok(Object.values(pack.classicNames).every((n) => /^[A-Z0-9]{3,8}\.RMB$/.test(n)), v);   // Daggerfall's own names, TEST.RMB and WAY3.RMB among them
+    if (HAVE_ARENA2) {
+      const blocks = new BlocksFile(); blocks.load(new Uint8Array(readFileSync(join(ARENA2, 'BLOCKS.BSA'))));
+      for (const [i, n] of Object.entries(pack.classicNames)) assert.equal(blocks.getBlockName(Number(i)), n, `${v}: block ${i}`);
+    }
+  }
+  assert.match(readFileSync(join(ROOT, 'tools/worldDataPackBuild.mjs'), 'utf8'), /out\.classicNames = Object\.fromEntries\(classicIndicesOf\(out\)\.map\(\(i\) => \[i, blocks\.getBlockName\(i\)\]\)\);/, 'the builder names them');
 });

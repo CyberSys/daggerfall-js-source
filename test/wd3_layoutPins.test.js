@@ -167,7 +167,7 @@ test('WD3 the pins installed: the towns whose answer changed - pinned, released,
   assert.deepEqual([...changed].sort(), [VILLAGE, CITY, TAVERN].sort(), 'released');
   assert.equal(layoutPins().size, 0);
   assert.equal(setLayoutPins(null).size, 0);
-  assert.match(src('src/systems/layoutPins.js'), /export const pinAt = \(locationKey\) => _pins\.get\(locationKey\) \?\? null;\nsetLayoutPinOracle\(pinAt\);/, 'the door asks this module');
+  assert.match(src('src/systems/layoutPins.js'), /export const pinAt = \(locationKey\) => _pins\.get\(locationKey\) \?\? curatedPin\(locationKey\);\nsetLayoutPinOracle\(pinAt\);/, 'the door asks this module');
   assert.equal(HOME_LAYOUTS_WAIT_MS, 6000); assert.equal(HOME_LAYOUTS_RETRIES, 4);
 });
 
@@ -247,7 +247,8 @@ test('WD3 an interior\'s cached scene carries its town\'s layout through the sav
   // nor furnished there: the deed sleeps where its town stands in another layout (banking.js deedStands, AUDIT WD3 H1)
   assert.match(src('src/systems/banking.js'), /return ownedHouseKey\(houses, regionIndex\) === buildingKey && deedStands\(houses\?\.\[regionIndex\]\);/);
   // AUDIT WD3 R4: stamped with the layout the visit began in
-  assert.match(W, /_visitLayout = townKey != null \? layoutStampAt\(townKey\) : null;/);
+  assert.match(W, /_visitLayout = visitLayoutNow\(\);/);
+  assert.match(W, /const visitLayoutNow = \(\) => \{ const k = layoutLocationKeyOfMapId\(questSceneCtx\?\.\(\)\?\.mapId \?\? 0\); return k != null \? layoutStampAt\(k\) : null; \};/);
 });
 
 test('WD3 the discoveries: a town\'s found buildings carry the layout they were found in, through the save; a load where the layout moved forgets them (the town itself stays found), a town in its layout or one the host cannot place keeps them', () => {
@@ -335,4 +336,98 @@ test('WD3 a deed SLEEPS where its town stands in another layout (AUDIT WD3 H1) -
   assert.ok(housesForSale(list, { mapId: 9, month: 3 }).some((x) => x.buildingKey === 4), 'which the market without the law would sell');
   assert.deepEqual(housesForSale(list.map((x) => (x.buildingKey === 3 || x.buildingKey === 4 ? { ...x, buildingType: BUILDING_TYPES.Tavern } : x)), { mapId: 9, month: 3 }).map((x) => x.buildingKey), sold.map((x) => x.buildingKey), 'the roll is the one a town where they were no house rolls');
   assert.match(src2, /stands: \(bs\) => houseMeshRadius\(bs\) > 0,/);
+});
+
+test('WD3 the port\'s curation (AUDIT WD3 G2): a TAVERN location laid out on Beautiful Villages\' TVRNAS00 or TVRNAS06 (houses, no tavern) is kept Daggerfall\'s own - its pin standing though no save holds it, its records stamped classic, a record stamped in the mod pinning it in; a village laying those blocks out, and every other tavern, as the mod has it', async () => {
+  const { curatedOut, CURATED_CLASSIC } = await import('../src/systems/layoutPins.js');
+  const TAV = 4417, VIL = 4517, ROAD = 4617;
+  world();
+  registerWorldDataAsset('TVRNAS00.RMB.json', {}, null, { priority: 10, vendor: BV });
+  registerWorldDataAsset('TVRNAS06.RMB.json', {}, null, { priority: 10, vendor: BV });
+  const grids = new Map([[TAV, ['TVRNAS00.RMB']], [VIL, ['TVRNAS06.RMB', 'TVRNAL01.RMB']], [ROAD, ['TVRNAL01.RMB']]]);
+  const types = new Map([[TAV, 6], [VIL, 2], [ROAD, 6]]);
+  configureLayoutPins({ gridOf: (k) => grids.get(k) ?? null, locationTypeOf: (k) => types.get(k) ?? null });
+  assert.deepEqual(CURATED_CLASSIC.map((c) => [c.vendor, c.locationType, [...c.blocks]]), [[BV, 6, ['TVRNAS00.RMB', 'TVRNAS06.RMB']]]);
+  assert.deepEqual([...(curatedOut(TAV) ?? [])], [BV]);
+  assert.equal(curatedOut(VIL), null, 'a village is the author\'s');
+  assert.equal(curatedOut(ROAD), null, 'a tavern on another block keeps its rebuilt tavern');
+  assert.deepEqual([...pinAt(TAV).out], [BV], 'the door serves the classic tavern');
+  assert.equal(layoutStampAt(TAV), CLASSIC_LAYOUT, 'a record made there is stamped as it stands');
+  assert.equal(layoutStampAt(ROAD), 'beautiful-villages@1.4.2');
+  assert.equal(pinsFrom([{ locationKey: TAV, stamp: CLASSIC_LAYOUT, kind: 'house' }]).size, 0, 'a classic record needs no save pin there');
+  const kept = pinsFrom([{ locationKey: TAV, stamp: 'beautiful-villages@1.4.2', kind: 'house' }]).get(TAV);
+  assert.deepEqual([[...kept.out], [...kept.in]], [[], [BV]], 'a house bought there in the mod keeps its town (the save\'s pin wins)');
+  setLayoutPins(new Map([[TAV, kept]]));
+  assert.equal(layoutStampAt(TAV), 'beautiful-villages@1.4.2');
+  setLayoutPins(new Map());
+});
+
+test('WD3 a record whose town stands in another layout is honoured, never misread (AUDIT WD3 S5) - a smith\'s ticket is handed over at any smith of its town (never at a stranger\'s counter by the key alone), a rented room at any inn of its town, and a save or anchor made inside stands the player outside rather than through a stranger\'s door', async () => {
+  const { recordStands } = await import('../src/systems/layoutPins.js');
+  const { isBeingRepairedAt, repairJobsAt } = await import('../src/systems/repairService.js');
+  const { findRentedRoom } = await import('../src/systems/tavern.js');
+  world();
+  const sword = {}; leaveForRepair(sword, 0x10203, 1440, 0, 1001);
+  assert.equal(sword.repairData.layout, 'beautiful-villages@1.4.2');
+  assert.equal(recordStands(sword.repairData), true);
+  assert.equal(isBeingRepairedAt(sword, 0x10203, 1001), true, 'at its smith');
+  assert.equal(isBeingRepairedAt(sword, 0x999, 1001), false, 'and nowhere else while its town stands');
+  const room = { mapId: 1001, buildingKey: 0x305, expiryMinutes: 99999, layout: 'beautiful-villages@1.4.2' };
+  assert.equal(findRentedRoom([room], 1001, 0x305), room);
+  assert.equal(findRentedRoom([room], 1001, 0x777), null);
+  world({ on: [] });   // the village Daggerfall's own all the same (its pack not loaded; online, a record from before)
+  assert.equal(recordStands(sword.repairData), false);
+  assert.equal(isBeingRepairedAt(sword, 0x10203, 1002), false, 'never at another town\'s counter');
+  assert.equal(isBeingRepairedAt(sword, 0x999, 1001), true, 'any smith of its town hands it over');
+  assert.deepEqual(repairJobsAt({ otherItems: [sword] }, 0x999, 0, 1001), [sword]);
+  assert.equal(findRentedRoom([room], 1001, 0x777), room, 'its room at an inn of its town');
+  assert.equal(findRentedRoom([room], 1001, 0x777, false), null, 'never a bed in a building that is no inn');
+  assert.equal(recordStands({ buildingKey: 5 }), true, 'a record naming no town stands as Daggerfall read it');
+  const M = src('src/scenes/worldModes.js');
+  assert.match(M, /if \(layoutLocationKeyOfMapId\(questSceneCtx\?\.\(\)\?\.mapId \?\? 0\) != null && !layoutsMatch\(saved\.layout, visitLayoutNow\(\)\)\) \{\n {8}console\.warn\('\[layout\] the building was left in another layout of this town - standing outside'\);\n {8}return false;/);
+  assert.match(M, /room: findRentedRoom\(playerEntity\.rentedRooms \?\? \[\], mapId, buildingKey, b\?\.buildingType === BUILDING_TYPES\.Tavern\),/);
+  assert.match(src('src/scenes/world.js'), /restoreInterior\?\.\(a\.interior \? \{ \.\.\.a\.interior, layout: a\.layout \} : a\.interior, anchorLanding\(a\)\)/, 'an anchor carries the layout it was set in');
+});
+
+test('WD3 a quest\'s building site whose town stands in another layout is chosen AGAIN in it (AUDIT WD3 S5) - by the place\'s own law (its P2/P3), keeping what was assigned to it, stamped anew, its site link following; a site standing in its layout, a town site and one with no building of its kind are left as they are', async () => {
+  const { QuestMachine } = await import('../src/systems/quest/machine.js');
+  const { Place } = await import('../src/systems/quest/place.js');
+  const { SITE_TYPES } = await import('../src/systems/quest/place.js');
+  const { loadQuestTables } = await import('../src/systems/quest/tables.js');
+  const { readdirSync } = await import('node:fs');
+  const T = new URL('../vendor/dfu-quests/Tables/', import.meta.url);
+  { const s = {}; for (const f of readdirSync(T)) if (f.endsWith('.txt')) s[f.replace('.txt', '')] = readFileSync(new URL(f, T), 'utf8').replace(/^﻿/, ''); loadQuestTables(s); }
+  world();
+  const m = new QuestMachine();
+  const quest = m.parseQuestForLists(['Quest: __QRS', 'QRC:', 'Message:  1011', ' x', '', 'QBN:', 'variable _done_'], 0, { rolls: () => 0 });
+  m.startQuestImmediate(quest);
+  const sym = (name) => ({ name, original: `_${name}_`, clone() { return sym(name); } });
+  const place = new Place(quest); place.symbol = sym('house'); place.p1 = 0; place.p2 = 17; place.p3 = 0;
+  const assigned = { targetResources: [{ original: '_victim_', name: 'victim' }] };
+  place.siteDetails = { siteType: SITE_TYPES.Building, mapId: 1001, regionIndex: 17, locationName: 'Aldleigh', buildingKey: 0x10203, magicNumberIndex: 0, selectedMarker: assigned, layout: 'beautiful-villages@1.4.2' };
+  quest.resources.set('house', place);
+  m.createSiteLink(quest, place.symbol);
+  const asked = [];
+  place._collectQuestSitesOfBuildingType = (w, loc, type, p3) => { asked.push([loc.name, type, p3]); return [{ siteType: SITE_TYPES.Building, mapId: 1001, regionIndex: 17, locationName: 'Aldleigh', buildingKey: 0x20101, buildingName: 'The Penrose Residence', magicNumberIndex: 0, selectedMarker: { targetResources: null }, questSpawnMarkers: [{}], questItemMarkers: [] }]; };
+  const w = { maps: { getRegion: () => ({ mapNameLookup: new Map([['Aldleigh', 3]]) }), getLocation: () => ({ name: 'Aldleigh', exterior: { exteriorData: {} } }) } };
+  assert.equal(m.reseatMovedSites(w), 0, 'its town stands in its layout: left as it is');
+  world({ on: [] });   // the village Daggerfall's own all the same
+  assert.equal(m.reseatMovedSites(w), 1);
+  assert.deepEqual(asked, [['Aldleigh', 17, 0]], 'chosen by its own P2/P3');
+  assert.equal(place.siteDetails.buildingKey, 0x20101);
+  assert.equal(place.siteDetails.selectedMarker, assigned, 'what was assigned to it rides along');
+  assert.equal('layout' in place.siteDetails, false, 'stamped in the layout it stands in now (Daggerfall\'s own)');
+  assert.equal(m.siteLinks.find((l) => l.questUID === quest.uid).buildingKey, 0x20101, 'its site link follows');
+  assert.equal(m.reseatMovedSites(w), 0, 'and stands');
+  assert.match(src('src/scenes/world.js'), /const reseated = homeLayoutsOnline && _serverLayoutRecords === null \? 0 : \(questBridge\?\.machine\?\.reseatMovedSites\?\.\(\) \?\? 0\);/);
+});
+
+test('WD3 the versions every stamp was made against (AUDIT WD3 B5) - two stamps are one layout whatever versions they name while each mod ships one; a vendored pack of another version may move buildings under every stamped record, so it is held to LAYOUT_MOD_VERSIONS until a layout migration is written', async () => {
+  const { LAYOUT_MOD_VERSIONS } = await import('../src/systems/layoutPins.js');
+  const zlib = await import('node:zlib');
+  assert.deepEqual(Object.keys(LAYOUT_MOD_VERSIONS), LAYOUT_MODS);
+  for (const v of LAYOUT_MODS) {
+    const pack = JSON.parse(zlib.gunzipSync(readFileSync(new URL(`../vendor/${v}/WorldDataPack/${v}.pack.json.gz`, import.meta.url))).toString('utf8'));
+    assert.equal(pack.mod?.version, LAYOUT_MOD_VERSIONS[v], `${v}: a new version is a layout migration, not a file swap`);
+  }
 });

@@ -252,10 +252,10 @@ export function restoreSceneCache(cache, snap) {
 // EVERY CALLER OF THIS CACHE IS WIRED. The last one to land was the
 // HOUSE deed's AddPermanentScene, which needed the building directory
 // to know which building was bought: H1/H2 shipped both halves -
-// banking.js:217 calls the hook inside allocateHouseToPlayer with the
+// banking.js:214 calls the hook inside allocateHouseToPlayer with the
 // bought building's own mapId and key, and worldModes.js:2956 supplies
 // it as addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
 // reached from the bank's buy arm (:2144-2148), the knightly gift
 // (:2752) and :4933, with sellHouse dropping the scene again (:2184). The
-// tavern's rented room (tavern.js:151) and the ship's two scenes
-// (banking.js:328-330) name themselves and were wired before it.
+// tavern's rented room (tavern.js:155) and the ship's two scenes
+// (banking.js:325-327) name themselves and were wired before it.

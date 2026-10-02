@@ -106,17 +106,28 @@ async function realmClaim(ctx, player, at, claim) {
  * @param {any} player  the session's player row
  * @param {{mapId?: unknown, buildingKey?: unknown, region?: unknown, character?: unknown, price?: unknown, realm?: unknown}} claim
  */
-export async function claimHome(ctx, player, { mapId, buildingKey, region, character, price, realm = null, layout = null } = {}) {
+export async function claimHome(ctx, player, body = {}) {
+  const { mapId, buildingKey, region, character, price, realm = null, layout = null } = body ?? {};
   const { db, nowS } = ctx;
   if (accountKind(player) !== 'linked') return { error: 'homes-need-account' };
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey) || !homeRegionOk(region) || !homePriceOk(price)) return { error: 'bad-home' };
   if (!homeLayoutOk(layout)) return { error: 'bad-home' };   // WD3: the layout the claimant's town stands in (null: Daggerfall's)
+  // WD3 (AUDIT WD3 B2): every build since the town mods SAYS its town's layout, Daggerfall's own as null - a claim that
+  // names none is a build from before them, whose town may be another layout than the room's: its key would name a
+  // stranger's building. It is asked to update, never seated.
+  if (!Object.hasOwn(body ?? {}, 'layout')) return { error: 'home-update' };
   if (typeof character !== 'string' || !CHAR_ID_RE.test(character)) return { error: 'home-character' };
   // AUDIT REALM2 S2: A HOUSE IS A REALM CHARACTER'S, BOUGHT ON ITS RECORD. Any other id still claimed on its client's word
   // - a made-up one at a price of 1, sixty buildings an hour taken from the world - and customs carried the house in.
   if (!REALM_ID_RE.test(character)) return { error: 'realm-only' };
   const side = await realmActFirst(db, player.id, character, realm);   // AUDIT REALM L1-F2: where the record stands, before the hour's claims
   if (side.error) return side;
+  // AUDIT WD3 B8: a claim in another layout of its town is refused before it counts against the hour's claims - the
+  // client hears the town again and claims once more, which a refusal counted would leave it rate-limited for
+  if (!(await db.prepare('SELECT 1 AS one FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first())) {
+    const town = await db.prepare('SELECT layout FROM homes WHERE map_id = ? ORDER BY bought_at, building_key LIMIT 1').bind(mapId).first();
+    if (town && !homeLayoutsMatch(town.layout, layout)) return { error: 'home-layout', layout: homeLayoutOk(town.layout) ? town.layout ?? null : null };
+  }
   if (await overRate({ db, nowS }, `home:${player.id}`, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S)) return { error: 'home-rate' };
   return realmClaim(ctx, player, side.at, { mapId, buildingKey, region, character, price, layout: layout ?? null });   // a realm character's side is always its record
 }

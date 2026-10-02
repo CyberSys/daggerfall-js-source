@@ -318,7 +318,7 @@ export function createOnlineHomes({ api, character = () => null, now = () => Dat
   async function claim({ mapId, buildingKey, region, price, realm = null, layout = null }) {
     const id = idOf(mapId);
     const me = character();
-    const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) });
+    const r = await api.claim({ mapId: id, buildingKey, region, character: me, price, ...(realm ? { realm } : {}), layout: layout || null });   // WD3 (AUDIT WD3 B2): always said - null is Daggerfall's own
     if (r?.ok) {
       const had = towns.get(id)?.homes.get(buildingKey);
       wrote(id, buildingKey, { buildingKey, owner: had?.owner ?? '', entry: r.data?.home?.entry ?? HOME_ENTRY_DEFAULT, mine: true, character: me });
@@ -410,11 +410,11 @@ export async function buyOnlineHome(homes, { mapId, buildingKey, region, price, 
         // AUDIT REALM: a claim answered as the house already this character's (`repeat`) moved no gold on the record - the
         // purse's reserve comes back, or the next checkpoint would write the price paid twice
         apply: (/** @type {any} */ res) => { if (res?.repeat) refund?.(price); },
-        call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at, ...(layout ? { layout } : {}) }),
+        call: (/** @type {any} */ at) => homes.claim({ mapId, buildingKey, region, price, realm: at, layout }),
       });
       return r?.ok ? { ok: true } : { ok: false, error: r?.error ?? 'server' };
     }
-    const r = await homes.claim({ mapId, buildingKey, region, price, ...(layout ? { layout } : {}) });
+    const r = await homes.claim({ mapId, buildingKey, region, price, layout });
     if (!r.ok) return r;
     if (!afford(price)) {
       await homes.release(mapId, buildingKey);

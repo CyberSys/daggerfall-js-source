@@ -793,7 +793,7 @@ const service = {
           const said = realmNo(r);
           if (said) return said;
           if (r.error === 'home-layout') return json({ error: 'home-layout', layout: r.layout ?? null }, 409, origin);   // WD3 (AUDIT WD3 O1): the layout the town keeps, for the client to hear
-          const status = r.error === 'home-taken' || r.error === 'home-cap' ? 409 : r.error === 'home-rate' ? 429 : 400;   // WD3: a town kept in another layout
+          const status = r.error === 'home-taken' || r.error === 'home-cap' ? 409 : r.error === 'home-rate' ? 429 : r.error === 'home-update' ? 426 : 400;   // AUDIT WD3 B2: a build from before the town mods   // WD3: a town kept in another layout
           return no(r.error, status, origin);
         }
         const r = path === '/v1/homes/release' ? await releaseHome(hctx, who.player, body) : await setHomeEntry(hctx, who.player, body);

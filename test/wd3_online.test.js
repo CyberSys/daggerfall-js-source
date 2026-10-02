@@ -15,9 +15,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { standService, d1, T0 } from './accountDb.mjs';
-import { realmJoinAt } from './realmSeat.mjs';
+import { realmJoinAt, seatRealm } from './realmSeat.mjs';
 import { ROUTES, OPEN_ROUTES } from '../server-account/src/service.js';
-import { HOME_LAYOUT_MAX, HOME_LAYOUTS_MAX, HOME_LAYOUT_MODS } from '../src/net/homeLaw.js';
+import { HOME_LAYOUT_MAX, HOME_LAYOUTS_MAX, HOME_LAYOUT_MODS, HOME_CLAIMS_MAX } from '../src/net/homeLaw.js';
 import { ONLINE_ROOM_MOD_KEYS } from '../src/systems/onlineLane.js';
 import { MOD_SETTINGS } from '../src/systems/modSettings.js';
 import { LAYOUT_MODS } from '../src/systems/layoutPins.js';
@@ -47,6 +47,10 @@ test('WD3 online, the service: a claim keeps the layout its client\'s town stand
   const bad = await seatHome(aldric, home({ layout: 'classic' }));
   assert.deepEqual([bad.status, bad.body?.error], [400, 'bad-home'], 'classic is no field, never a stamp');
   assert.deepEqual((await seatHome(aldric, home({ layout: 'detailed-ships@1.0.0' }))).body?.error, 'bad-home', 'a mod that moves no building');
+  // AUDIT WD3 B2: a claim that names no layout at all is a build from before the town mods - asked to update, never seated
+  const R0 = await seatRealm(env, aldric.secret, aldric.handle, { name: aldric.handle, level: 9, goldPieces: 1_000_000, items: [] });
+  const old = await call('/v1/homes/claim', { ...home(), character: R0.id, realm: R0.at() }, aldric.secret);
+  assert.deepEqual([old.status, old.body?.error], [426, 'home-update']);
   const a = await seatHome(aldric, home({ layout: BV }));
   assert.equal(a.status, 200, JSON.stringify(a.body));
   now += 60;
@@ -55,8 +59,11 @@ test('WD3 online, the service: a claim keeps the layout its client\'s town stand
   const crossed = await seatHome(mara, home({ buildingKey: 0x10305, layout: BOTH }));
   assert.deepEqual([crossed.status, crossed.body?.error, crossed.body?.layout], [409, 'home-layout', BV]);
   assert.equal((await seatHome(mara, home({ buildingKey: 0x10305 }))).body?.error, 'home-layout', 'Daggerfall\'s own town is another layout too');
-  const b = await seatHome(mara, home({ buildingKey: 0x10305, layout: BV }));
-  assert.equal(b.status, 200);
+  // AUDIT WD3 B8: refusals for the town's layout count against no hour - a client that heard the town again buys
+  const RM = await seatRealm(env, mara.secret, mara.handle, { name: mara.handle, level: 9, goldPieces: 1_000_000, items: [] });
+  for (let i = 0; i < HOME_CLAIMS_MAX + 2; i++) assert.equal((await call('/v1/homes/claim', { ...home({ buildingKey: 0x10305, layout: BOTH }), character: RM.id, realm: RM.at() }, mara.secret)).body?.error, 'home-layout');
+  const b = { ...(await call('/v1/homes/claim', { ...home({ buildingKey: 0x10305, layout: BV }), character: RM.id, realm: RM.at() }, mara.secret)), character: RM.id };
+  assert.equal(b.status, 200, `never home-rate after the refusals: ${JSON.stringify(b.body)}`);
   const row = (key) => env.DB._raw.prepare('SELECT layout FROM homes WHERE map_id = ? AND building_key = ?').get(TOWN, key)?.layout;
   assert.equal(row(0x10203), BV);
   assert.equal(row(0x10305), BV, 'the town keeps the layout its first home was bought in - one town for the room');
@@ -65,8 +72,8 @@ test('WD3 online, the service: a claim keeps the layout its client\'s town stand
   env.DB._raw.prepare(`INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid)
     VALUES (?, ?, ?, ?, 'Old', 17, 'private', 1000, ?, 0)`).run(CLASSIC_TOWN, 0x101, corin.id, 'char-old', T0 - 86400);
   now += 60;
-  const old = await seatHome(corin, home({ mapId: CLASSIC_TOWN, buildingKey: 0x202, layout: BV }));
-  assert.deepEqual([old.status, old.body?.error, old.body?.layout], [409, 'home-layout', null]);
+  const oldTown = await seatHome(corin, home({ mapId: CLASSIC_TOWN, buildingKey: 0x202, layout: BV }));
+  assert.deepEqual([oldTown.status, oldTown.body?.error, oldTown.body?.layout], [409, 'home-layout', null]);
   assert.equal((await seatHome(corin, home({ mapId: CLASSIC_TOWN, buildingKey: 0x202 }))).status, 200);
   assert.equal(env.DB._raw.prepare('SELECT layout FROM homes WHERE map_id = ? AND building_key = ?').get(CLASSIC_TOWN, 0x202).layout, null, 'a town bought in before the mods stays Daggerfall\'s own');
   // an owner's own homes say the layout each town keeps; none where it is Daggerfall's
@@ -144,7 +151,8 @@ test('WD3 online, the client: the homes\' towns asked at the boot, before the fi
   assert.match(src('server-account/src/index.js'), /if \(r\.error === 'home-layout'\) return json\(\{ error: 'home-layout', layout: r\.layout \?\? null \}, 409, origin\);/);
   assert.match(W, /_serverLayoutRecords = towns\.filter\(\(t\) => Array\.isArray\(t\)\)\.map\(\(\[mapId, layout\]\) => \(\{\n {6}locationKey: _layoutKeyOfMapId\.get\(Number\(mapId\) >>> 0\) \?\? null, stamp: typeof layout === 'string' \? layout : undefined, kind: 'house',/);
   assert.match(W, /const records = homeLayoutsOnline \? \(_serverLayoutRecords \?\? \[\]\) : layoutRecordsOf\(/);
-  assert.match(src('src/systems/onlineHomes.js'), /call: \(\/\*\* @type \{any\} \*\/ at\) => homes\.claim\(\{ mapId, buildingKey, region, price, realm: at, \.\.\.\(layout \? \{ layout \} : \{\}\) \}\),/);
+  assert.match(src('src/systems/onlineHomes.js'), /call: \(\/\*\* @type \{any\} \*\/ at\) => homes\.claim\(\{ mapId, buildingKey, region, price, realm: at, layout \}\),/);
+  assert.match(src('src/systems/onlineHomes.js'), /layout: layout \|\| null \}\);   \/\/ WD3 \(AUDIT WD3 B2\)/, 'always said, null for Daggerfall\'s own');
 });
 
 test('WD3 online, the room: both switches are the room\'s (forced on - two players who disagreed would walk two towns, one through the other\'s houses), each a mod\'s one Enabled, on by default', () => {
@@ -156,4 +164,26 @@ test('WD3 online, the room: both switches are the room\'s (forced on - two playe
   }
   assert.equal(MOD_SETTINGS['beautiful-villages'].title, 'Beautiful Villages of Daggerfall');
   assert.equal(MOD_SETTINGS['beautiful-cities'].title, 'Beautiful Cities of Daggerfall');
+});
+
+test('WD3 online, a building\'s room is its layout\'s (AUDIT WD3 B3) - the layout mods serving its town ride in the room key\'s high bits, so two players whose town stands in two layouts never share a room (its doors, chests and memory), a memory kept from before the mods lands on no other building, and Daggerfall\'s own town keeps the rooms it always had; the room, its memory and the scene agree', async () => {
+  const { roomKeyFor } = await import('../src/net/online.js');
+  const { interiorLocationKey, layoutRoomKey } = await import('../src/world/interiorShared.js');
+  const { isWorldRoom } = await import('../src/net/wire.js');
+  const bk = 0x70711;   // the largest key a town of 8 x 8 blocks of 32 records makes is under 2^19
+  assert.equal(layoutRoomKey(bk, null), bk);
+  assert.equal(layoutRoomKey(bk, 'classic'), bk);
+  assert.equal(layoutRoomKey(bk, BV), bk + 0x1000000);
+  assert.equal(layoutRoomKey(bk, 'beautiful-cities@0.5.0'), bk + 0x2000000);
+  assert.equal(layoutRoomKey(bk, BOTH), bk + 0x3000000);
+  for (const layout of [null, BV, BOTH]) {
+    const room = roomKeyFor({ host: 'world', mode: 'interior', mapId: TOWN, buildingKey: bk, layout });
+    assert.equal(room, interiorLocationKey(TOWN, bk, layout), 'the room and its memory, one spelling');
+    assert.ok(isWorldRoom(room), `${room}: a room the relay keeps a world for`);
+  }
+  assert.equal(roomKeyFor({ host: 'world', mode: 'interior', mapId: TOWN, buildingKey: bk }), `interior:m${TOWN}.${bk}`, 'Daggerfall\'s own, as before');
+  const M = src('src/scenes/worldModes.js');
+  assert.match(M, /layout: _visitLayout \} : null\),/, 'the room identity carries the visit\'s layout');
+  assert.match(M, /_visitLayout = visitLayoutNow\(\);/);
+  assert.match(src('src/scenes/world.js'), /layout: ident\?\.layout \?\? null,/);
 });

@@ -199,5 +199,131 @@
     "tests": [
       "test/audit68_worldmodes.test.js"
     ]
+  },
+  {
+    "name": "AWD3-TAVERN-UNCURATED",
+    "file": "src/systems/layoutPins.js",
+    "old": "export const pinAt = (locationKey) => _pins.get(locationKey) ?? curatedPin(locationKey);",
+    "new": "export const pinAt = (locationKey) => _pins.get(locationKey) ?? null;",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-CURATED-BASELINE-IGNORED",
+    "file": "src/systems/layoutPins.js",
+    "old": "      const on = servesUnpinned(v, key);",
+    "new": "      const on = !!_vendorOn(v);",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-ARCHAEOLOGISTS-DRAW",
+    "file": "src/systems/talkTopics.js",
+    "old": "    .filter((b) => !(b.buildingType === BUILDING_TYPES.GuildHall && UNCARRIED_GUILD_FACTIONS.has(b.factionId)))",
+    "new": "",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-OLD-CLIENT-SEATED",
+    "file": "server-account/src/homes.js",
+    "old": "  if (!Object.hasOwn(body ?? {}, 'layout')) return { error: 'home-update' };",
+    "new": "",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-REFUSALS-RATE-LIMITED",
+    "file": "server-account/src/homes.js",
+    "old": "    if (town && !homeLayoutsMatch(town.layout, layout)) return { error: 'home-layout', layout: homeLayoutOk(town.layout) ? town.layout ?? null : null };\n  }",
+    "new": "  }",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-ROOM-UNLAYERED",
+    "file": "src/world/interiorShared.js",
+    "old": "  return buildingKey + tag * 0x1000000;",
+    "new": "  return buildingKey;",
+    "tests": [
+      "test/wd3_online.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-TICKET-BY-KEY-ONLY",
+    "file": "src/systems/repairService.js",
+    "old": "  && (recordStands(item.repairData) ? item.repairData.buildingKey === buildingKey : mapId != null && item.repairData.mapId === mapId);",
+    "new": "  && item.repairData.buildingKey === buildingKey;",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-ROOM-LOST",
+    "file": "src/systems/tavern.js",
+    "old": "  ?? (inn ? rooms.find((r) => r.mapId === mapId && !recordStands(r)) : null) ?? null;",
+    "new": "  ?? null;",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-SITE-NOT-RESEATED",
+    "file": "src/systems/quest/place.js",
+    "old": "    if (sd?.siteType !== SITE_TYPES.Building || !(sd.buildingKey > 0) || recordStands(sd)) return false;",
+    "new": "    return false;",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-PACK-NAMES-UNREAD",
+    "file": "src/formats/worldDataPack.js",
+    "old": "      node = jsonAt(classicBlockJson(index, classicNames?.[index] ?? null), path);",
+    "new": "      node = jsonAt(classicBlockJson(index), path);",
+    "tests": [
+      "test/wd3_pack.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-PLACEHOLDER-FOREVER",
+    "file": "src/render/renderer.js",
+    "old": "      if (!this._placeholders?.has(key) || opts.placeholder) return this.textures.get(key);",
+    "new": "      return this.textures.get(key);",
+    "tests": [
+      "test/wd3_standins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-STANDIN-NEVER-YIELDS",
+    "file": "src/systems/textureReplacement.js",
+    "old": "const vendorOf = (key) => { const v = _vendor.get(key); return v && !(v.yields && ownPick(key)) ? v : null; };",
+    "new": "const vendorOf = (key) => _vendor.get(key) ?? null;",
+    "tests": [
+      "test/wd3_standins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-TOWN-PIXEL-CLIMATE",
+    "file": "src/scenes/world.js",
+    "old": "    const townClimateBase = dfLocation?.climate?.climateType ?? climateBase;",
+    "new": "    const townClimateBase = climateBase;",
+    "tests": [
+      "test/wd3_door.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-VERSION-UNGUARDED",
+    "file": "src/systems/layoutPins.js",
+    "old": "export const LAYOUT_MOD_VERSIONS = Object.freeze({ 'beautiful-villages': '1.4.2', 'beautiful-cities': '0.5.0' });",
+    "new": "export const LAYOUT_MOD_VERSIONS = Object.freeze({ 'beautiful-villages': '1.4.3', 'beautiful-cities': '0.5.0' });",
+    "tests": [
+      "test/wd3_layoutPins.test.js"
+    ]
   }
 ]

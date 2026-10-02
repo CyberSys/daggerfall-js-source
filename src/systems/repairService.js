@@ -34,7 +34,7 @@ import { isEnchantedItem } from './enchantments.js';
 import { MINUTES_PER_DAY, MINUTES_PER_HOUR } from './gameDate.js';
 import { getBool } from './settings.js';   // RRI2: InstantRepairs picks the mod's repair factor
 import { conditionBasedPricesOn, conditionRepairCostBase } from './rriRealism.js';   // RRI2: the CalculateItemRepairCost override
-import { stampLayout, layoutStampOfMapId } from './layoutPins.js';   // WD3: a ticket names the smith's town and its layout
+import { stampLayout, layoutStampOfMapId, recordStands } from './layoutPins.js';   // WD3: a ticket names the smith's town and its layout
 
 /** CalculateItemRepairCost (:1901-1922): free at full condition; ten
  *  percent of the item's base value floored at 1, through the shop's
@@ -77,7 +77,11 @@ export function calculateItemRepairTime(condition, max) {
 // ---- ItemRepairData's state machine over the plain record ----------
 
 export const isBeingRepaired = (item) => item?.repairData != null;
-export const isBeingRepairedAt = (item, buildingKey) => isBeingRepaired(item) && item.repairData.buildingKey === buildingKey;
+/** WD3 (AUDIT WD3 S5): a ticket whose town now stands in another layout than it was left in names another building by
+ *  its key - the job is handed over at ANY smith of its town (`mapId`, the shop asking), never lost, and never at a
+ *  stranger's counter that only shares the key. */
+export const isBeingRepairedAt = (item, buildingKey, mapId = null) => isBeingRepaired(item)
+  && (recordStands(item.repairData) ? item.repairData.buildingKey === buildingKey : mapId != null && item.repairData.mapId === mapId);
 export const repairTimeDone = (item) => (item.repairData?.timeStarted ?? 0) + (item.repairData?.repairTime ?? 0);
 export const isRepairFinished = (item, nowMinutes) => isBeingRepaired(item) && repairTimeDone(item) <= nowMinutes;
 
@@ -169,10 +173,10 @@ export function updateRepairTimes(items, { commit = false, nowMinutes = 0, build
  *  the shop lists only jobs it holds ITSELF, and a FINISHED job's
  *  condition restores to max right in the filter pass, DFU's own
  *  side effect. */
-export function repairJobsAt(entity, buildingKey, nowMinutes) {
+export function repairJobsAt(entity, buildingKey, nowMinutes, mapId = null) {
   const out = [];
   for (const item of entity.otherItems ?? []) {
-    if (!isBeingRepaired(item) || isBeingRepairedAt(item, buildingKey)) out.push(item);
+    if (!isBeingRepaired(item) || isBeingRepairedAt(item, buildingKey, mapId)) out.push(item);
     if (isRepairFinished(item, nowMinutes)) item.currentCondition = item.maxCondition;
   }
   return out;

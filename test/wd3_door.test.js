@@ -301,3 +301,25 @@ test('WD3 the loader: each pack a URL the build emits (never a chunk), fetched o
   assert.match(M, /if \(name\.startsWith\('location-'\) && \(locations\+\+ % 64\) !== 0\) return;/, 'every block and one location in 64');
   assert.match(M, /console\.error\(`\[worlddata\] \$\{vendor\}: the pack did not load \(\$\{e\?\.message \?\? e\}\) - its towns stand classic`\);/);
 });
+
+test('WD3 a guild hall entry naming a guild this game carries none of (AUDIT WD3 G4) - faction 1000, the Archaeologists Guild\'s, on four of Beautiful Villages\' villages - draws for no hall: each hall takes its own guild\'s entry (Tulaedax: the Fighters\' hall 41, the Mages\' 40, where DFU without that mod handed the Fighters\' hall 1000 and the Mages\' 41)', async () => {
+  const { mergeNamedBuildings, UNCARRIED_GUILD_FACTIONS } = await import('../src/systems/talkTopics.js');
+  const { BUILDING_TYPES } = await import('../src/world/buildingNames.js');
+  assert.deepEqual([...UNCARRIED_GUILD_FACTIONS], [1000]);
+  const G = BUILDING_TYPES.GuildHall;
+  const entry = (factionId, nameSeed) => ({ buildingType: G, factionId, nameSeed, sector: 0, locationId: 0, quality: 10 });
+  const hall = () => ({ buildingType: G, factionId: 0, nameSeed: 0, sector: 0, locationId: 0, quality: 0 });
+  const block = (name) => ({ name, dfBlock: { rmbBlock: { fldHeader: { numBlockDataRecords: 1, buildingDataList: [hall()] }, subRecords: [{}] } } });
+  const fighters = block('FIGHBM00.RMB'), mages = block('MAGEBA03.RMB');
+  const merged = mergeNamedBuildings([entry(1000, 29280), entry(41, 2214), entry(40, 32270)], [fighters, mages]);
+  assert.deepEqual([merged.get(fighters)[0].factionId, merged.get(mages)[0].factionId], [41, 40]);
+});
+
+test('WD3 a town\'s buildings wear its LOCATION\'s climate, the terrain its pixel\'s (AUDIT WD3 G5) - DaggerfallLocation\'s ClimateUse.UseLocation; one and the same for every classic town, a world-data file\'s own for the towns it names another for', () => {
+  const W = src('src/scenes/world.js');
+  assert.match(W, /const townClimateBase = dfLocation\?\.climate\?\.climateType \?\? climateBase;/);
+  assert.equal((W.match(/remapSubMeshes\([a-zA-Z]+\.subMeshes, texRemap, townClimateArchive, pipeline\)/g) ?? []).length, 3, 'every town mesh');
+  assert.match(W, /getWindmillMeshes\(townClimateBase,/);
+  assert.match(W, /recordIndex: placed\.recordIndex, climateBase: townClimateBase, season: INTERIOR_SEASON,/, 'and the interiors entered from them');
+  assert.doesNotMatch(W, /texRemap, climateArchive, pipeline/);
+});

@@ -83,8 +83,8 @@
   {
     "name": "RR3b-10-a-variant-block-with-no-file-is-cached-as-none",
     "file": "src/formats/worldDataReplacement.js",
-    "old": "    if (variant === NO_VARIANT) blocks.set(blockName, NO_REPLACEMENT);\n    return null;",
-    "new": "    blocks.set(blockKey, NO_REPLACEMENT);\n    return null;",
+    "old": "    if (variant === NO_VARIANT) cacheBlock(blockName, NO_REPLACEMENT);\n    return null;",
+    "new": "    cacheBlock(blockKey, NO_REPLACEMENT);\n    return null;",
     "tests": [
       "test/rr3b_worlddata.test.js"
     ]

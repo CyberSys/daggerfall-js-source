@@ -181,6 +181,7 @@ export const REFUSALS = Object.freeze({
   // HOME1, the online homes (server-account/src/homes.js). A player meets these at a front door, beside the price.
   'homes-need-account': 'Owning a home needs a username and a password. Give this account one and you can buy one.',
   'home-taken': 'Somebody else owns this home now.',
+  'home-update': 'This game is out of date. Reload it to buy a home.',   // WD3 (AUDIT WD3 B2): a build from before the town mods
   'home-towns': 'The towns could not be loaded as the other players here see them. Reload the game to buy a home.',   // WD3 (AUDIT WD3 B1): a town mod's pack did not load
   'home-layout': 'The town records here are still being read. Try again in a moment.',   // WD3: the town is built again as the room's (scenes/world.js hearHomeLayouts)
   'home-cap': `A character can own at most ${HOME_CAP} homes. Sell one to buy another.`,
@@ -931,7 +932,7 @@ export function accountHomes({ fetch, storage }) {
   return {
     town: (mapId, character = null) => post('/v1/homes/town', { mapId, ...(character ? { character } : {}) }),   // HOME-RENT: the playing character's own tenancies
     mine: () => post('/v1/homes/mine', {}),
-    claim: ({ mapId, buildingKey, region, character, price, realm = null, layout = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}), ...(layout ? { layout } : {}) }),   // REALM P2.2b: a realm character's record pays; WD3: the layout the town stands in (none: Daggerfall's)
+    claim: ({ mapId, buildingKey, region, character, price, realm = null, layout = null }) => post('/v1/homes/claim', { mapId, buildingKey, region, character, price, ...(realm ? { realm } : {}), layout: layout || null }),   // REALM P2.2b: a realm character's record pays; WD3: the layout the town stands in, always said (null: Daggerfall's - AUDIT WD3 B2)
     layouts: () => post('/v1/homes/layouts', {}),   // WD3: every town holding a home, and the layout it keeps
     release: (mapId, buildingKey, realm = null) => post('/v1/homes/release', { mapId, buildingKey, ...(realm ? { realm } : {}) }),
     entry: (mapId, buildingKey, entry) => post('/v1/homes/entry', { mapId, buildingKey, entry }),

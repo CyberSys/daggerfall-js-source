@@ -147,14 +147,29 @@ Deploy the account service (migration `0046`) before the client: an older
 service drops the claim's layout and answers no `/v1/homes/layouts`, and the
 client would ask on until it does.
 
-Known limits online, recorded: a realm character's OWN building-keyed records
-made before WD3 (a quest site, a questor met indoors, a rented room, an item at
-a smith, an anchor set indoors) pin nothing online - only homes do - so in a
-town the mods changed they may name another building; a tab or desktop build
-from before WD3 still claims homes with no layout, which the service cannot tell
-from a classic claim (a relay version gate is the fix); the relay's interior
-memories (doors, containers) from before the deploy are keyed by building and
-may land on another building of the same key until they expire.
+A record whose town stands in another layout all the same (online, a realm
+character's own record from before WD3 - only homes pin online; offline, a town
+whose pack could not be loaded for its pin, which is said once: "Some of your
+places could not be shown as you left them") is honoured, never misread
+(`layoutPins.js` `recordStands`): a deed sleeps (above); an item at a smith is
+handed over at any smith of its town; a rented room is honoured at any inn of
+its town; a save or a Recall anchor made inside stands the player outside
+rather than through a stranger's door; a quest's building site is chosen again
+in the town as it stands, by the place's own P2/P3, keeping what was assigned to
+it (`Place.reseatMovedSite`, `QuestMachine.reseatMovedSites`). The one record
+not mended: a questor met indoors before the mods, online - the return to them
+asks an NPC that no longer stands in that layout.
+
+Every claim SAYS its town's layout, Daggerfall's own as `null`; a claim that
+names none is a build from before the town mods, and is refused (426
+`home-update`, "This game is out of date. Reload it to buy a home."). A refusal
+for the town's layout counts against no hour's claims, and the client asks the
+layouts again at most once in `HOME_LAYOUTS_WAIT_MS`. A building's online ROOM
+is its layout's: the layout mods serving its town ride in the room key's high
+bits (`world/interiorShared.js` `layoutRoomKey` - Daggerfall's own town keeps
+the rooms it always had), so two players whose towns stand in two layouts never
+share a room, and a relay memory from before the mods lands on no other
+building.
 
 Online the world-data door is open whatever Replace Game Artwork says
 (`worldDataDoorOpen`): the ground is the room's, and a player with the switch off
@@ -163,6 +178,28 @@ fort had the same hole). The switch keeps the textures and the music it gates
 elsewhere.
 
 ## Daggerfall's own laws the mods meet
+
+- **The port's curation: a tavern with no tavern.** Beautiful Villages rebuilds
+  `TVRNAS00` and `TVRNAS06` as houses (the classic blocks hold three taverns
+  each) and leaves the 274 roadside taverns standing on them (their location
+  files not replaced) with no tavern - no room, no innkeeper, no tavern quest.
+  The mod is kept out of a Tavern location whose grid names one of them
+  (`layoutPins.js` `CURATED_CLASSIC`, a standing pin no save holds - its records
+  stamped classic, a save's own pin winning); the 301 village cells laying
+  those blocks out among their own are the author's.
+- **A guild hall entry naming a guild this game does not carry.** Four of
+  Beautiful Villages' villages write faction 1000 (the Archaeologists Guild's,
+  its own mod's) on a guild hall entry; DFU without that mod hands it to the
+  grid's first hall - Bubandanis' Mages Guild and Tulaedax's Fighters Guild
+  answer "You get no response", Tulaedax's Mages hall takes the Fighters'
+  faction. Such an entry draws for no hall (`talkTopics.js`
+  `UNCARRIED_GUILD_FACTIONS`); each hall takes its own guild's.
+- **A town's buildings wear its location's climate,** its terrain the pixel's
+  (DFU's `ClimateUse.UseLocation`): the same for every classic town, the file's
+  own for the 81 of Beautiful Villages' towns that name another.
+- **The versions every stamp was made against** (`LAYOUT_MOD_VERSIONS`): a
+  vendored pack of another version may move buildings under every stamped
+  record, so updating one is a layout migration, held by test.
 
 - **A street's people.** Only a flat in a person archive (334, 346, 357,
   175-184) is a person the activation ray can meet - DFU's `FlatTypes.NPC`,
@@ -272,6 +309,18 @@ packs):
 A record of a stand-in archive that has no picture (the eight statues, the
 three items) draws one clear pixel and is said once by name
 (`scenes/dataPipeline.js`) - it used to throw the whole interior.
+
+A stand-in YIELDS to the player's own picture of its record - a loose file or
+an attached `.dfmod` (the real DET or RMB Resource Pack it only stands in for)
+answers first, with Replace Game Artwork on. A stand-in's clear placeholder (no
+picture at the time) is never its key's for good: a picture that lands later
+takes its place.
+
+The packs' memory is bounded: the door keeps the 192 blocks most recently served
+and a pack the 1,024 nodes most recently read (a block let go is rebuilt when
+next asked) - a walk over every block of both packs grew the heap by 259 MB
+before, 84 MB now. Every classic block a pack's `$c` reads is named beside its
+index (`classicNames`), refused by name on a BLOCKS.BSA in another order.
 
 ## Housing customisation with the mods
 
