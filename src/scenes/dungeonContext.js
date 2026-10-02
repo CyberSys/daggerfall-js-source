@@ -230,7 +230,7 @@ import { raceWinner } from '../player/activationRace.js';   // WORLD-HOVER H2: t
 import { composeActivationTargets, composeNamer } from '../systems/worldHover.js';
 import { worldTooltipsOn, hideInteractTooltip, corpseName, mobileEntityName, liveEntityName, lootPileName, actionName, actionDoorName } from '../systems/worldTooltips.js';   // WORLD-HOVER: the mod's ladder, arm by arm   // WORLD-HOVER: the composition law is pure, so it lives with the model and can be DRIVEN   // WORLD-HOVER: the ONE construction seam composes the action objects' targets here; AUDIT 65 MC-2: the ray's reach, and each family's own
 import { worldHoverFrame, destroyWorldPlaque } from '../ui/worldPlaque.js';   // PX21c, WORLD-HOVER: one seam, one plaque
-import { quickLootTake } from '../systems/quickLoot.js';   // QUICK-LOOT B4: the take, through the window's own door
+import { quickLootTake } from '../systems/quickLoot.js'; import { showPickups } from '../ui/pickupFeed.js';   // QUICK-LOOT B4: the take, through the window's own door; PICKUP-FEED: what a take moved, as cards (the take's `took`)
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { UnderwaterFog } from '../render/underwaterFog.js';   // ROAD-B (b3): UnderwaterFog.cs, called from PlayerEnterExit.Update's dungeon guard
 import { NavClient } from '../ai/navClient.js';   // ENHANCED AI 3b
@@ -8792,7 +8792,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // between them), and an emptied pile's flat is settled as the
       // window's onEmptied would settle it. C6's order below stands:
       // the window's claim follows its mount.
-      if (!pileKeys && quickLootTake(key, { items: () => source }, playerEntity, setMidScreenText, { getQuest: (uid) => opts.questBridge?.machine?.getQuest?.(uid) ?? null })) {   // AUDIT QL-WEIGHT1: the window's own resolver (openInventory's, :1512)
+      if (!pileKeys && quickLootTake(key, { items: () => source }, playerEntity, setMidScreenText, { getQuest: (uid) => opts.questBridge?.machine?.getQuest?.(uid) ?? null, took: showPickups })) {   // AUDIT QL-WEIGHT1: the window's own resolver (openInventory's, :1512); PICKUP-FEED: the cards
         const _q = roomLootKey(key);   // REST-SYNC: the room's name for it
         if (_q) publishLoot(_q);
         if (!source.length) onEmptied?.();

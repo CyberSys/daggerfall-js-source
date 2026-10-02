@@ -50,7 +50,7 @@ import { resolveHover, frameSignature } from '../systems/worldHover.js';
 import { foldQuickLoot, quickLootRow, quickLootStats, resetQuickLoot, quickLootOn } from '../systems/quickLoot.js';
 import { setClassicLootFrame } from '../systems/classicLootFrame.js';   // DISC22-C: the classic panel's frame, a leaf hud.js can read   // QUICK-LOOT B3: the highlight is the FEATURE's - this draws it and frees it, it does not own it; QUICK-LOOT-STATS: and the lit row's own numbers
 import { bodyStackMark, resetBodyStack } from '../player/lootStack.js';   // LOOT-STACK: the plaque counts the pile the pick noted
-import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js';   // DISC29-D: the watchdog counts frames, not milliseconds
+import { armDrawWatchdog, disarmDraw } from './drawWatchdog.js'; import { destroyPickupFeed, clearPickupFeed } from './pickupFeed.js';   // DISC29-D: the watchdog counts frames, not milliseconds; PICKUP-FEED: the take's cards, freed with this teardown
 
 /** The gap in CSS pixels between the cross's lower arm tip and the
  *  plaque's top edge. Large enough that the two never read as one
@@ -345,6 +345,7 @@ export function hideWorldPlaque() {
   // this is a no-op on that path.
   disarmDraw(_watchdog);
   _watchdog = null;
+  clearPickupFeed();   // PICKUP-FEED: the take's cards come down by every door the plaque does - an overlay over the world, a held frame (AUDIT 64 F37: a DOM face stays painted unless told)
   foldQuickLoot(null);   // AUDIT DISC7 A8: a plaque taken down by any door takes its highlight with it
   setClassicLootFrame(null);   // DISC22-C: and the classic panel's frame with it
   if (!node) return;
@@ -567,6 +568,10 @@ export function destroyWorldPlaque() {
   // LOOT-STACK: and the pile's note with it, for the same reason - it
   // names bodies in the world this teardown is unmaking.
   resetBodyStack();
+  // PICKUP-FEED: and the take's cards (ui/pickupFeed.js) - a DOM face
+  // with a clock of its own, fed by the take this plaque lights, and
+  // the hosts' one teardown for quick loot is this function.
+  destroyPickupFeed();
 }
 
 /** For tests. */
