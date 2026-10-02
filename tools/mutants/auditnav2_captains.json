@@ -32,7 +32,8 @@
     "old": "    return d > range ? Math.max(b, closeIn) : b;",
     "new": "    return b;",
     "tests": [
-      "test/auditnav2_captains.test.js"
+      "test/auditnav2_captains.test.js",
+      "test/auditgalleon_sea.test.js"
     ]
   },
   {

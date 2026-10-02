@@ -1382,6 +1382,8 @@ function boardCourse(ship, enemy, wind, isWater) {
   const aim = [berth[0] - f[0] * lead + v[0] * ahead, 0, berth[2] - f[2] * lead + v[2] * ahead];
   return { want: headingTo(ship.pos, aim), goal: aim, sails, sweeps, sailable: sweeps > 0, berthing };
 }
+/** Test seam: boardCourse itself, for the pins of each of the last leg's guards (AUDIT GN-T4). */
+export const __boardCourse = boardCourse;
 
 /** AUDIT NAV2 F22: whether she can lie at a berth - her stem, middle and stern there, on her keel line and her outer
  *  side (the hull she berths by along `f`, her side of it `side` along `r`), all on water. GALLEON (2026-10-01): her

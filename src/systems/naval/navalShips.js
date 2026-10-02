@@ -131,7 +131,23 @@ export const HULL_BUILDS = Object.freeze([
 ]);
 
 /** A hull's build, or the rowboat's for anything unknown. */
-export const hullBuild = (hull) => HULL_BUILDS[hull] ?? HULL_BUILDS[0];
+/** AUDIT GN-G4: the mod's own Small Ship's build - the galleon Come Sail Away shipped, six long guns a side at her own
+ *  ports - which hull 2 is again when the new galleon's model will not load or build (systems/comeSailAwayModels.js
+ *  falls back to the mod's own prefab, never no ship): her guns, box, deck and rig must be that ship's, or she fires
+ *  from 0.24-1.29 m inside her own planking and her berths and fires stand 2 m off. */
+export const MOD_SMALL_SHIP_BUILD = Object.freeze({
+  hull: 2, gun: 'long',
+  broadside: Object.freeze([[7.2, 4.5, -12], [7.8, 4.5, -8], [8.1, 4.5, -4.5], [7.8, 4.5, -1], [7.4, 4.5, 2.5], [7.0, 4.5, 6]].map(Object.freeze)),
+  bow: Object.freeze({ gun: 'chain', muzzles: Object.freeze([Object.freeze([-1.4, 7.6, 16.0]), Object.freeze([1.4, 7.6, 16.0])]) }),
+  stern: Object.freeze({ gun: 'barrel', muzzles: Object.freeze([Object.freeze([0, 7.6, -23.0])]) }),
+  hullHp: 420, sailHp: 160, crew: 24, deck: 3.64, beam: 7.4, ram: false, bowZ: 19.88, aftZ: -24.25, halfWidth: 8.43, keel: -3.35, top: 10.92, sailWay: 1,
+  rig: rigOf([[-3.5, 10.92, -20.1], [3.5, 34, 26]]),
+});
+/** Whether hull 2 stands as the new galleon (true until the models say otherwise - the pool sets it as they load). */
+let galleonStanding = true;
+/** AUDIT GN-G4: the models' answer - the new galleon over hull 2 (true) or the mod's own galleon (false). */
+export function setGalleonStanding(on) { galleonStanding = !!on; }
+export const hullBuild = (hull) => (hull === 2 && !galleonStanding ? MOD_SMALL_SHIP_BUILD : HULL_BUILDS[hull] ?? HULL_BUILDS[0]);
 
 /** A battery's muzzles in the root's frame, and its gun kind; null when the hull has none on that side. */
 export function batteryOf(hull, side) {

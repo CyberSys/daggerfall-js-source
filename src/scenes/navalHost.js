@@ -361,6 +361,9 @@ export const AIM_CAM_AFT = 3;
 export const AIM_CAM_TAU = 0.22;
 /** ...and stops this far (m) short of another ship's side on its way out from the ports. */
 export const AIM_CAM_CLEAR = 1.2;
+/** AUDIT GN-G3: how long (s) another player's word keeps her broadside laid on my screen - longer than the full frame
+ *  her word is said again by (net/online.js FOES_FULL_MS, 2 s), so a lay held still is never dropped between words. */
+export const PEER_LAY_S = 3;
 
 /** A boat's hull as an oriented box in the world: its MeshCollider's own bounds through its MeshObject (null before
  *  its mesh is known) - the shots' target, the ram's, the target card's, and the host's deck rays'. */
@@ -586,6 +589,30 @@ export function createNavalHost(deps) {
     return sea.get(id)?.boat ?? null;
   }
 
+  /**
+   * AUDIT GN-G5: a battery's muzzles through her hull as she lies - heeled and listed with her MeshObject, as her ports
+   * are drawn - so each ball leaves its own port; the root's upright frame stood a ball 0.89 m off the port at 8 deg of
+   * roll, under its sill on the high side. The lay (elevation, direction) is the root's, as aimed; a shooter with no
+   * hull drawn here keeps the root's muzzles. Her heel is taken in the root's own frame and stood on `pose` - the root
+   * as she fires: a sea ship's hull is posed after her captain's step, a frame behind her (her drawn world matrix put
+   * a captain's ball a frame's way aft of her port, 3 m at Come Sail Away's half-second frame) - and through whatever
+   * stands between her root and her MeshObject (the galleon's DaggerfallMesh node).
+   */
+  function heeled(solution, pose, boat) {
+    const mo = boat?.MeshObject, root = boat?.GameObject, up = mo?.parent;
+    if (!mo || !root || !up || !solution?.muzzles?.length) return solution;
+    const q = mo.localRotation, lp = mo.localPosition;
+    const inv = [-pose.rotation[0], -pose.rotation[1], -pose.rotation[2], pose.rotation[3]];
+    const muzzles = solution.muzzles.map((w) => {
+      const r = quatRotate(inv, [w[0] - pose.position[0], w[1] - pose.position[1], w[2] - pose.position[2]]);   // the root's frame
+      const p = up.inverseTransformPoint(root.transformPoint(r));   // her MeshObject's parent's (the root's own place cancels)
+      const h = quatRotate(q, [p[0] - lp[0], p[1] - lp[1], p[2] - lp[2]]);
+      const o = quatRotate(pose.rotation, root.inverseTransformPoint(up.transformPoint([h[0] + lp[0], h[1] + lp[1], h[2] + lp[2]])));
+      return [pose.position[0] + o[0], pose.position[1] + o[1], pose.position[2] + o[2]];
+    });
+    return { ...solution, muzzles };
+  }
+
   // ── firing ───────────────────────────────────────────────────────────────────────────────────────────────────────
   /**
    * A volley from a ship: its balls flown (resolved here when `resolve`), its word kept for the others.
@@ -603,7 +630,7 @@ export function createNavalHost(deps) {
       return solution.landings.length;
     }
     const seed = u32();
-    const launches = volleyLaunches(solution, seed, { skill, carry: pose.velocity });
+    const launches = volleyLaunches(heeled(solution, pose, boatOfShooter(shooter)), seed, { skill, carry: pose.velocity });
     const id = u32();
     shots.fireVolley({ id: String(id), shooter, launches, resolve, side: solution.side });
     if (isMine(shooter)) tallies.set(String(id), { balls: launches.length, ended: 0, hits: 0, holed: 0, rig: 0 });
@@ -621,8 +648,8 @@ export function createNavalHost(deps) {
     // the lay the shooter used, not a range this client would pick
     const g = GUNS[solution.gun];
     solution.elevation = clamp(v.elevation, g.minEl * NAVAL_DEG, g.maxEl * NAVAL_DEG);
-    const launches = volleyLaunches(solution, v.seed, { skill: v.skill, carry: v.vel });
     const shooter = v.shooter >= 0 ? `${owner}:${v.shooter}` : `peer:${owner}`;
+    const launches = volleyLaunches(heeled(solution, pose, boatOfShooter(shooter)), v.seed, { skill: v.skill, carry: v.vel });
     shots.fireVolley({ id: `${owner}:${v.id}`, shooter, launches, resolve: false, side: v.side, owner, since: (v.age ?? 0) / 1000 });   // AUDIT NAV1 (online #15): as far along as she is
   }
 
@@ -2734,7 +2761,9 @@ export function createNavalHost(deps) {
     if (aiming && boat) {
       const side = lookSide(boat);
       if (side) { aim = lookAim(boat, side); aimHit = aimStrikes(aim); }
-      if (side === 'starboard' || side === 'port') galleonGuns.lay(boat, side, clock);   // GALLEON: laid - her shutters up, her guns out
+      // GALLEON: laid - her shutters up, her guns out. AUDIT GN-G8: a battery reloading is not laid - its guns stay in to
+      // load (they stood run out through a 9 s reload)
+      if ((side === 'starboard' || side === 'port') && myBoatState(boat).guns.ready(side)) galleonGuns.lay(boat, side, clock);
     } else if (!boat) aiming = false;
     // GALLEON: a captain's run-out opens her shutters as it runs her guns out (the tell, navalAI.js) - and every
     // galleon in play stands her gun deck as this frame has it
@@ -2744,7 +2773,14 @@ export function createNavalHost(deps) {
       decks.push(e.boat);
       for (const side of e.ship.runOut?.keys?.() ?? []) if (side === 'starboard' || side === 'port') galleonGuns.lay(e.boat, side, clock);
     }
-    for (const p of deps.peerBoats?.() ?? []) if (p.boat) decks.push(p.boat);
+    for (const p of deps.peerBoats?.() ?? []) {
+      if (!p.boat) continue;
+      decks.push(p.boat);
+      // AUDIT GN-G3: another player's lay, from her word - while her word is fresh (it is said again at least every
+      // full frame, net/online.js FOES_FULL_MS 2 s)
+      const self = peerSelf.get(p.id);
+      if (self?.laid?.length && clock - self.at <= PEER_LAY_S) for (const side of self.laid) if (side === 'starboard' || side === 'port') galleonGuns.lay(p.boat, side, clock);
+    }
     galleonGuns.step(decks, clock);
     // the word's memory of the last moments
     wireVolleys = wireVolleys.filter((v) => clock - v.at <= NAVAL_VOLLEY_KEEP_MS / 1000);
@@ -3124,7 +3160,9 @@ export function createNavalHost(deps) {
     const volleys = wireVolleys.map((v) => ({ ...v, age: (clock - v.at) * 1000 }));
     // AUDIT NAV1 (online #15): my casks afloat - every player sees them, and any player's boat may haul one in
     const casks = shots.floaters().filter((f) => f.kind === 'flotsam' && !f.owner).map((f) => ({ id: Number(f.id), pos: f.pos, from: f.from, lot: f.lot }));
-    return navalWireRecord({ ships, volleys, barrels: wireBarrels, me, law: notoriety.snapshot(), traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks }, toWire);
+    // AUDIT GN-G3: my boat's laid broadsides - another screen lays her as mine does (her shutters up, her guns out)
+    const laid = b ? Object.entries(galleonGuns.read(b, clock) ?? {}).filter(([, side]) => side.laid).map(([side]) => side) : [];
+    return navalWireRecord({ ships, volleys, barrels: wireBarrels, me, law: notoriety.snapshot(), traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks, laid }, toWire);
   }
   /** A peer's word: their ships stood as puppets, their volleys flown and drawn, their barrels afloat. */
   function applyWord(owner, raw, toScene = (p) => p) {
@@ -3204,7 +3242,7 @@ export function createNavalHost(deps) {
       // own is a player's, never mine to take (no fight between players at sea)
       shots.dropBarrel({ id: `${owner}:${b.id}`, shooter: b.shooter >= 0 ? `${owner}:${b.shooter}` : `peer:${owner}`, pos: toScene(b.pos), resolve: false, owner });
     }
-    peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat });
+    peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat, laid: rec.laid });   // AUDIT GN-G3: her lay
     applyCasks(owner, rec.casks, toScene);
     if (seen.size > 512) { const keepIds = [...seen].slice(-256); seen.clear(); for (const k of keepIds) seen.add(k); }
     return true;

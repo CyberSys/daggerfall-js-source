@@ -324,6 +324,15 @@ export function createAnimator(node, component, animation) {
       if (!s) return;
       a.pending = { state: s, duration: normalizedTransitionDuration };
     },
+    /** Animator.Play(stateName, layer 0, normalizedTime) - straight into a state at `normalizedTime`, no blend: what is
+     *  playing and any transition under way are dropped at the next frame (a CrossFade to the state a transition already
+     *  heads for is no change, as in Unity - so a slow transition can only be cut short this way). AUDIT GN-G2: a gun's
+     *  shutter snapped open as its ball leaves (systems/naval/galleonGunDeck.js). */
+    Play(stateName, normalizedTime = 0) {
+      const s = stateByName.get(stateName) ?? stateByName.get(`${layer0?.name}.${stateName}`) ?? null;
+      if (!s) return;
+      a.pending = { state: s, duration: 0, play: true, time: normalizedTime };
+    },
     /** The state playing, or fading in (Animator.GetCurrentAnimatorStateInfo / GetNextAnimatorStateInfo). */
     get stateName() { return a.current?.state.name ?? layer0?.defaultState ?? null; },
     get nextStateName() { return a.next?.state.name ?? null; },
@@ -448,10 +457,11 @@ function animatorUpdate(a, dt) {
 
   // a CrossFade asked since the last frame
   if (a.pending) {
-    const { state, duration } = a.pending;
+    const { state, duration, play, time } = a.pending;
     a.pending = null;
     const playing = a.transition ? a.next.state : a.current.state;
-    if (state !== playing) {
+    if (play) { a.current = { state, time: time ?? 0, fresh: true }; a.next = null; a.transition = null; }   // Play: no blend
+    else if (state !== playing) {
       const srcLen = I.motionLength(a.current.state);
       const snapshot = a.transition ? (a.lastPose ?? I.statePose(a.current)) : null;
       a.next = { state, time: 0, fresh: true };

@@ -50,7 +50,7 @@ import { cullDisabled } from '../render/frustum.js';
 import { mat4FromQuatPosScale } from '../world/quat.js';
 import { colliderPoses, boxColliderTriangles, invertAffine, BUILTIN_COLLIDER_MESHES } from '../world/prefabColliders.js';   // DECK-WALK: a hull's colliders at rest
 import { buildDeck } from '../systems/naval/navalDeck.js';   // DECK-WALK: her walkable deck
-import { hullBuild } from '../systems/naval/navalShips.js';
+import { hullBuild, setGalleonStanding } from '../systems/naval/navalShips.js';   // AUDIT GN-G4: and hull 2's build follows the hull that stands
 import { registerGalleonArt, GALLEON_ARCHIVE, galleonGlow } from '../world/galleonArt.js';   // GALLEON: the new galleon's own pictures, on the texture door before her meshes ask
 import { toColor32 } from '../formats/color32Order.js';
 import { addVendorTextures } from '../systems/textureReplacement.js';
@@ -181,6 +181,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
       // GALLEON: her pictures are the port's own, made at boot - registered as GALLEON_ARCHIVE's stand-ins before any
       // of her meshes asks the pipeline for that archive (meshFor's getTexture), so they upload as every hull's do
       if (m?.galleon) registerGalleonArt(addVendorTextures);
+      if (m) setGalleonStanding(m.galleon);   // AUDIT GN-G4: hull 2's numbers are the hull that stands
       models = m; modelsFailed = !m; return m;
     });
     return modelsLoading;

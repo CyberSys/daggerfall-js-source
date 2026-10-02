@@ -214,18 +214,19 @@ export function doorLeafGeometry(w, h, t = 0.08) {
   return bench.finish();
 }
 
-/** A gunport shutter in its hinge's frame (the starboard side's: the port side's node is the same turned about y):
- *  Mac's shutter - 0.87 along her, 1.55 down from its hinge, 0.1 thick - hanging closed down her side, its strake-red
- *  face out. */
-export function lidGeometry() {
+/** A gunport shutter in its hinge's frame, on side `s` (1 starboard, -1 port): Mac's shutter - 0.87 along her, 1.55
+ *  down from its hinge, 0.1 thick - hanging closed down her side, its strake-red face out. AUDIT GN-G1: each side its
+ *  own mesh, the port side's the starboard's mirrored, so neither node needs a turn its clip would write over (the
+ *  shutter clip sets the node's whole turn: the port side's yaw of 180 went, and five boards swung into her gun deck). */
+export function lidGeometry(s = 1) {
   const bench = new MeshBench();
   const hw = 0.434, L = 1.554, t = 0.098;
-  box(bench, TEX.lid, [t / 2, -L / 2, 0], [t / 2, L / 2, hw], { uvFace: (fi, k) => {
+  box(bench, TEX.lid, [s * t / 2, -L / 2, 0], [t / 2, L / 2, hw], { uvFace: (fi, k) => {
     const q = [[0, 0], [0, 1], [1, 1], [1, 0]][k];
     return fi === 0 || fi === 1 ? q : [q[0] * 0.1, q[1] * 0.1];
   } });
   // the hinge's two iron eyes on the hull side of it
-  for (const z of [-0.26, 0.26]) prism(bench, TEX.iron, [-0.02, 0.02, z - 0.07], [-0.02, 0.02, z + 0.07], 0.05, 0.05, 6);
+  for (const z of [-0.26, 0.26]) prism(bench, TEX.iron, [-s * 0.02, 0.02, z - 0.07], [-s * 0.02, 0.02, z + 0.07], 0.05, 0.05, 6);
   return bench.finish();
 }
 
@@ -361,6 +362,8 @@ export function galleonClips() {
   };
   pair('galleon2/Hatch', [0, 0, 0], [0, 0, HATCH_OPEN_DEG]);
   pair('galleon2/Gunport', [0, 0, 0], [0, 0, LID_OPEN_DEG]);
+  // AUDIT GN-G1: the port side's shutters swing the other way about her length - up and out to port
+  pair('galleon2/GunportPort', [0, 0, 0], [0, 0, -LID_OPEN_DEG]);
   // the helm: the Rudder Wheel Controller's ten Sailing clips (TurnAngle -1 .. 1, the 0.2 steps the mod's own galleon
   // used), the wheel turned about its axle and the rudder about its post
   const swaps = [];
@@ -483,12 +486,13 @@ export function galleonPrefab(bake, csa) {
   kids.push(door('BulkheadDoor', M.bulkheadDoor));
 
   // the shutters and the guns behind them: five ports a side, the port side's nodes the starboard's turned about y
-  mesh('galleon:gunportLid', lidGeometry());
+  mesh('galleon:gunportLid', lidGeometry(1));
+  mesh('galleon:gunportLidPort', lidGeometry(-1));
   mesh('galleon:gun', gunGeometry());
-  const lidComps = () => [comp({ type: 'MeshFilter', m_Mesh: { mesh: 'galleon:gunportLid' } }), renderer(meshes['galleon:gunportLid'])];
+  const lidComps = (key) => [comp({ type: 'MeshFilter', m_Mesh: { mesh: key } }), renderer(meshes[key])];
   for (const [sideName, s] of /** @type {const} */ ([['Starboard', 1], ['Port', -1]])) {
     M.portZ.forEach((z, i) => {
-      kids.push(nodeOf(`Gunport${sideName}${i}`, { p: [s * (M.hullOuterX + 0.02), M.portTopY + 0.07, z], r: yaw(s > 0 ? 0 : 180), c: [...lidComps(), animator('galleon2/Gunport')] }));
+      kids.push(nodeOf(`Gunport${sideName}${i}`, { p: [s * (M.hullOuterX + 0.02), M.portTopY + 0.07, z], c: [...lidComps(s > 0 ? 'galleon:gunportLid' : 'galleon:gunportLidPort'), animator(s > 0 ? 'galleon2/Gunport' : 'galleon2/GunportPort')] }));
       kids.push(nodeOf(`Gun${sideName}${i}`, { p: [s * GUN.runInX, M.gunDeckY, z], r: yaw(s > 0 ? 0 : 180), c: [comp({ type: 'MeshFilter', m_Mesh: { mesh: 'galleon:gun' } }), renderer(meshes['galleon:gun']), boxCollider([-0.05, 0.55, 0], [1.25, 1.1, 0.8])] }));
     });
   }

@@ -4,13 +4,17 @@
 //
 // The new galleon (world/galleonModel.js) carries a gun behind each of her ten ports (`Gun<Side><i>`, its frame's +x
 // outboard) and a shutter over each (`Gunport<Side><i>`, an Animator on the mod's Door Controller - Opened swings it up
-// on its hinge). This is what moves them, for every ship of hers in play - mine, the sea's, another player's:
+// on its hinge). This is what moves them, for every ship of hers in play - mine, the sea's, another player's (her lay on
+// her word's `g`, navalWire.js - AUDIT GN-G3):
 //
 //   LAID: a battery laid (my look at the guns, a captain's run-out - navalAI.js, the tell the helm sees) opens that
 //     side's shutters and runs its guns out, their muzzles through the ports; and it stays laid HOLD_S after the last
 //     word of it, so a ripple's last gun is not run in under the smoke.
 //   FIRED: each gun as its ball leaves (navalShots.js's 'muzzle', its index in the battery - HULL_BUILDS' order, the
-//     ports' own) kicks back RECOIL m and is hauled out again over HAUL_S - and a side fired is a side laid.
+//     ports' own) kicks back RECOIL m and is hauled out again over HAUL_S - and a side fired is a side laid. AUDIT
+//     GN-G2/G3: A BALL LEAVES ONLY THROUGH AN OPEN PORT: a gun fired before it is out (a quick click with no lay before
+//     the release, another player's volley read before her lay, a long frame of a fast sea) stands out at its shot and
+//     its shutter snaps open - it kicked back from where it stood in, its ball bursting out of a shut port.
 //   AT REST: the guns run in to load and the shutters close.
 //
 // It reads nothing but node names and moves nothing but those nodes (the gun's local position along its own +x; the
@@ -32,6 +36,8 @@ export const RUN_SPEED = 0.95;
 export const RECOIL = 0.95;
 export const KICK_S = 0.12;
 export const HAUL_S = 2.2;
+/** The Door Controller's open state, which a gun's shutter snaps to as its ball leaves (AUDIT GN-G2). */
+const OPENED_STATE = 'Opened';
 
 /** A gun's offset inboard of where it stands, `t` s after it fired: the kick back, then hauled out. */
 export function recoilAt(t) {
@@ -77,11 +83,18 @@ export function createGalleonGunDeck() {
       const s = rigOf(boat)?.sides?.[side];
       if (!s) return;
       s.laidUntil = Math.max(s.laidUntil, now + HOLD_S);
-      if (index >= 0 && index < s.firedAt.length) s.firedAt[index] = now;
+      if (!(index >= 0 && index < s.firedAt.length)) return;
+      s.firedAt[index] = now;
+      // AUDIT GN-G2/G3: out and open as it fires - the kick starts from the port
+      if (s.x[index] < RUN_OUT_X) s.x[index] = RUN_OUT_X;
+      const a = s.lids[index]?.getComponent?.('Animator')?.animator;
+      if (a) { a.SetBool('Opened', true); a.Play(OPENED_STATE); }
     },
     /** Every boat's shutters and guns as `now` stands them. */
     step(boats, now) {
-      const dt = Math.max(0, Math.min(0.25, now - lastNow));
+      // AUDIT GN-G7: the step is the clock's own - a fast sea's long frame (Come Sail Away's time scale, 0.5 s) runs the
+      // guns as far as its time does (clamped to 0.25 s, a captain's volley came with them 0.35 m short of the port)
+      const dt = Math.max(0, now - lastNow);
       lastNow = now;
       for (const boat of boats) {
         const r = rigOf(boat);
