@@ -20,8 +20,8 @@
   {
     "name": "AUDIT0928-R1-shadow-pass-blind-to-it",
     "file": "src/render/shadowPass.js",
-    "old": "    r.dynamic = moved || reshaped;   // SC1",
-    "new": "    r.dynamic = moved;   // SC1",
+    "old": "    r.dynamic = moved || reshaped || r.cut > 0;   // SC1",
+    "new": "    r.dynamic = moved || r.cut > 0;   // SC1",
     "tests": [
       "test/audit0928_render.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "AUDIT0928-R2-boats-the-players-extras-again",
     "file": "src/scenes/world.js",
-    "old": "thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle;",
-    "new": "thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...csaLit, ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle;",
+    "old": "thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle;",
+    "new": "thunderlockMuzzleLight(playerEntity, player.feetAt(), cam.yaw), ...csaLit, ...(naval?.enabled ? naval.lights() : []), ...peerTorchLights(), ...(gatePool?.lights() ?? []), ...(riteHost?.lights() ?? []), ...camps.lights(), ...droppedTorches.lights());   // PEERLIGHT1: the others' torches, right after my own hand lights   // X11 candle;",
     "tests": [
       "test/audit0928_render.test.js"
     ]
@@ -93,8 +93,8 @@
   {
     "name": "AUDIT0928-N7-classic-flats-lose-the-flash-term",
     "file": "src/render/renderer.js",
-    "old": "${COLUMN_GLSL}\n${HIT_FLASH_GLSL}\n${ELITE_GLOW_GLSL}\nvoid main() {\n  // ECV1",
-    "new": "${COLUMN_GLSL}\n${ELITE_GLOW_GLSL}\nvoid main() {\n  // ECV1",
+    "old": "${COLUMN_GLSL}\n${HIT_FLASH_GLSL}\n${ELITE_GLOW_GLSL}\n${FLAT_DISSOLVE_GLSL}\nvoid main() {\n  // ECV1",
+    "new": "${COLUMN_GLSL}\n${ELITE_GLOW_GLSL}\n${FLAT_DISSOLVE_GLSL}\nvoid main() {\n  // ECV1",
     "tests": [
       "test/dwf_audit.test.js"
     ]

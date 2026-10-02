@@ -101,7 +101,7 @@ test('PARTY8-B: the health digits are DRAWN only under half - written for every 
   assert.equal(bran.where.className, 'dfparty-where', 'and the place line carries when they were last seen');
   assert.equal(bran.where.textContent, 'Last online 1 min ago');
   // the sheet: the digits sit at the head's right edge in the health's own red, and `off` is display: none
-  assert.match(PARTY_CSS, /\.dfparty-hp \{ margin-left: auto; flex: none; font-size: 10px; line-height: 1\.2; color: #e2554c;/);
+  assert.match(PARTY_CSS, /\.dfparty-hp \{ margin-left: auto; flex: none; font-size: 11px; line-height: 1\.2; color: #e2554c;/);
   assert.match(PARTY_CSS, /\.dfparty-hp\.off \{ display: none; \}/);
   assert.match(PARTY_CSS, /\.dfparty-num \{ display: none; \}/, 'the bars\' own digits stay undrawn (PARTY8)');
 });

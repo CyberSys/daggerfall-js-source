@@ -134,7 +134,7 @@ test('SET7 her box, her plaque, her press: a box about her feet to her crown at 
   assert.deepEqual(t.aabb.max, [at.feet[0] + BROKER_HALF_W, at.feet[1] + BROKER_H, at.feet[2] + BROKER_HALF_W]);
   assert.equal(b.targets(), b.targets(), 'made once where she stands');
   const namer = composeNamer([(k) => b.hoverName(k)]);
-  assert.deepEqual(namer('broker:812'), { title: 'Sigil Broker', subs: ['Trades in Sigil Stones'] }, 'the ladder takes her record');
+  assert.deepEqual(namer('broker:812'), { title: 'Sigil Broker', subs: ['Trades in Deadlands Embers'] }, 'the ladder takes her record');
   assert.equal(b.hoverName('broker:811'), null, 'yesterday\'s key');
   assert.equal(b.hoverName(7), null, 'a door\'s bare number (AUDIT-WH C1)');
   assert.equal(b.activate('broker:812', 'info'), true);
@@ -249,7 +249,7 @@ test('SET7 the gate falls under her open window: the host shuts it and she says 
   b.frame(0);
   assert.equal(shuts, 1);
   assert.deepEqual(said, [BROKER_TEXT.gone]);
-  assert.equal(BROKER_TEXT.gone, 'The Sigil Broker is gone with the gate.');
+  assert.equal(BROKER_TEXT.gone, 'The Sigil Broker leaves with the breach.');
   b.frame(0);
   assert.equal(shuts, 1, 'once');
   place = placeOf();

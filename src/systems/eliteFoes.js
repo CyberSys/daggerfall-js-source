@@ -12,7 +12,7 @@
 // SHARED ONLINE WITH NOTHING NEW TO AGREE ON:
 //   - in a dungeon every client builds the same foe list (the foe frame's index law), so the champions are a pure pick
 //     over that list, seeded by the dungeon's own location id - every client marks the same records;
-//   - outdoors the foe's owner rolls the 5% and the foe record carries it (`z`, net/wire.js), so a puppet stands as the
+//   - outdoors the foe's owner rolls the 2% (ELITE-RARITY, past its gate) and the foe record carries it (`z`, net/wire.js), so a puppet stands as the
 //     same elite: the size, the glow and the blows it lands at me (its owner's maximum health rides `k` already).
 //
 // PURE but for the item minters - the hosts call in.
@@ -21,6 +21,8 @@ import { mintCondition, setItemFields } from './itemTemplates.js';
 import { applyRarity, rarityEligible } from './lootRarity.js';
 import { goldStack } from './inventory.js';
 import { isAmmunition } from './itemTemplates.js';
+import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';   // ELITE-FLOOR: the watch is never an elite
+import { ENEMY_BASICS } from '../characters/enemyBasics.js';   // ELITE-FLOOR: a kind's own level, the same on every client
 
 /** Health and damage, times the foe's own (rolled, before any Elite Dungeon doubling - an elite is 5x, not 10x). */
 export const ELITE_FOE_HEALTH_MULT = 5;
@@ -30,17 +32,31 @@ export const ELITE_FOE_ELITE_DUNGEON_HEALTH_MULT = 7;
 export const ELITE_FOE_ELITE_DUNGEON_DAMAGE_MULT = 4;
 /** How much larger the sprite is drawn. */
 export const ELITE_FOE_SIZE = 1.25;
-/** The chance a foe in the open world stands as an elite. */
-export const ELITE_FOE_OVERWORLD_CHANCE = 0.05;
+/** The chance a foe in the open world stands as an elite. ELITE-RARITY (2026-10-02, Mac: "ensure elite spawns arent
+ *  over abundant. I think theyre common right now"): one in fifty, was one in twenty - and only past the gate below. */
+export const ELITE_FOE_OVERWORLD_CHANCE = 0.02;
+/** ELITE-RARITY: after an elite of mine stands in the open world, no fresh one for this long on the character's own
+ *  clock (180 minutes: a quarter hour of play at the classic 12x, or one rest). */
+export const ELITE_FOE_OVERWORLD_GAP_MINUTES = 180;
 /** How many elites an Elite Dungeon holds: 3 or 4 (fewer only if it has fewer foes). */
 export const ELITE_FOE_DUNGEON_MIN = 3;
 export const ELITE_FOE_DUNGEON_MAX = 4;
-/** A normal (not Elite) dungeon holds at most one elite, and only this often. */
-export const ELITE_FOE_NORMAL_DUNGEON_CHANCE = 0.2;
+/** A normal (not Elite) dungeon holds at most one elite, and only this often (ELITE-RARITY: one in ten, was one in five). */
+export const ELITE_FOE_NORMAL_DUNGEON_CHANCE = 0.1;
 /** The elite's extra drop - better loot than its kind carries. */
 export const ELITE_FOE_LOOT = Object.freeze({ magic: 2, common: 1, rareChance: 0.25, legendaryChance: 0.06, goldPerLevel: [20, 60] });
-/** The name the HUD's target bar gives one. */
+/** The name the HUD's target bar gives one (and, FOE-TITLE, every other surface - systems/foeTitle.js). */
 export const ELITE_FOE_PREFIX = 'Elite ';
+/** ELITE-FLOOR (2026-10-02): an elite is a foe of this level or more - LOOT7's champion floor (systems/champions.js
+ *  CHAMPION_MIN_LEVEL), so a new character's first road is never a five-times foe that hits three times as hard. */
+export const ELITE_FOE_MIN_LEVEL = 3;
+
+/** ELITE-FLOOR: may this freshly built foe stand as an elite? Never under ELITE_FOE_MIN_LEVEL, never the city watch,
+ *  never an ally - LOOT7's own exclusions (systems/champions.js applyChampion). */
+export const eliteEligible = (entity, { checkLevel = true } = {}) => !!entity
+  && (!checkLevel || (entity.level | 0) >= ELITE_FOE_MIN_LEVEL)
+  && entity.mobileType !== KNIGHT_CITY_WATCH
+  && entity.team !== 'PlayerAlly' && entity.mobileTeam !== 'PlayerAlly';
 
 /** ONLINE ONLY (Mac: "elite enemies are online mode only"): elites stand in online play alone - an online page, or a
  *  host in a room. Offline and single-player, no foe is ever an elite. */
@@ -50,9 +66,13 @@ export const elitesAllowed = ({ onlinePage = false, inRoom = false } = {}) => !!
 export const isEliteFoe = (entity) => !!entity?.eliteFoe;
 
 /** Make a freshly built foe an elite: health, damage, the flag. `own` false for a puppet - its maximum is its owner's
- *  word (the record's `k`), so only the blows, the size and the glow are stood here. Idempotent. */
-export function promoteEliteFoe(entity, { own = true, eliteDungeon = false } = {}) {
-  if (!entity || entity.eliteFoe) return entity;
+ *  word (the record's `k`), so only the blows, the size and the glow are stood here (and its owner already asked
+ *  eliteEligible). Idempotent. ELITE-FLOOR: answers whether it stands as an elite - false for a foe eliteEligible
+ *  refuses, which is then built as it would have been. */
+export function promoteEliteFoe(entity, { own = true, eliteDungeon = false, checkLevel = true } = {}) {
+  if (!entity) return false;
+  if (entity.eliteFoe) return true;
+  if (own && !eliteEligible(entity, { checkLevel })) return false;
   entity.eliteFoe = true;
   // the hosts promote BEFORE any other scaling (and in place of the Elite Dungeon's doubling), so this is the foe's own
   // roll: an elite is 5x, not 10x
@@ -63,7 +83,7 @@ export function promoteEliteFoe(entity, { own = true, eliteDungeon = false } = {
   }
   const prior = Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1;
   entity.damageScale = prior * (eliteDungeon ? ELITE_FOE_ELITE_DUNGEON_DAMAGE_MULT : ELITE_FOE_DAMAGE_MULT);
-  return entity;
+  return true;
 }
 
 /** A small, stable 32-bit hash (FNV-1a) - the dungeon's pick and the roll's seed. */
@@ -96,12 +116,15 @@ export function eliteRng(seed) {
 export function pickDungeonElites(enemies, key, { elite = true } = {}) {
   if (!Array.isArray(enemies) || !enemies.length) return 0;
   const rng = eliteRng(eliteHash(elite ? 'elite-dungeon' : 'normal-dungeon', key));
-  // an Elite Dungeon: 3 or 4; a normal one: at most 1, one time in five
+  // an Elite Dungeon: 3 or 4; a normal one: at most 1, one time in ten
   const want = elite
     ? ELITE_FOE_DUNGEON_MIN + Math.floor(rng() * (ELITE_FOE_DUNGEON_MAX - ELITE_FOE_DUNGEON_MIN + 1))
     : (rng() < ELITE_FOE_NORMAL_DUNGEON_CHANCE ? 1 : 0);
   const pool = [];
-  enemies.forEach((e, i) => { if (e && !e.allied && e.reaction !== 'passive' && e.champion == null) pool.push(i); });   // never a LOOT7 champion (systems/champions.js; its trait index, 0 a trait too) - one or the other
+  // ELITE-FLOOR, the same on every client: a kind under the floor by its OWN level never stands as one (a class foe's
+  // level is the party's, built per client, so the floor is the pick's here and promoteEliteFoe is told not to re-ask)
+  const kindLevel = (t) => (t >= 128 ? Infinity : (ENEMY_BASICS[t]?.level ?? 0));
+  enemies.forEach((e, i) => { if (e && !e.allied && e.reaction !== 'passive' && e.champion == null && kindLevel(e.mobileType) >= ELITE_FOE_MIN_LEVEL) pool.push(i); });   // never a LOOT7 champion (systems/champions.js; its trait index, 0 a trait too) - one or the other
   let n = 0;
   while (n < want && pool.length) {
     const at = Math.floor(rng() * pool.length);
@@ -114,6 +137,13 @@ export function pickDungeonElites(enemies, key, { elite = true } = {}) {
 
 /** THE OPEN WORLD'S ROLL: is this new foe an elite? */
 export const rollOverworldElite = (rolls = Math.random) => rolls() < ELITE_FOE_OVERWORLD_CHANCE;
+
+/** ELITE-RARITY: may the open world roll an elite at all right now? Not while one stands near (mine or a peer's - a
+ *  camp, a band or a busy street holds one at most), and not within ELITE_FOE_OVERWORLD_GAP_MINUTES of the last of
+ *  mine. A clock gone backwards (an older save loaded) frees the gap. Asked before the roll, so a gated foe draws
+ *  nothing. */
+export const overworldEliteAllowed = ({ now = 0, lastAt = null, liveElites = 0 } = {}) => !(liveElites > 0)
+  && (lastAt == null || now < lastAt || now - lastAt >= ELITE_FOE_OVERWORLD_GAP_MINUTES);
 
 function gearPiece(level, rolls) {
   for (let tries = 0; tries < 6; tries++) {
@@ -135,6 +165,8 @@ function tiered(level, tier, rolls) {
   }
   return null;
 }
+/** REVENANT: a gear piece (a weapon or armour, never ammunition) at a tier - the elite's own minting, shared. */
+export const tieredGear = (level, tier, rolls = Math.random) => tiered(Math.max(1, level | 0), tier, rolls);
 
 /** THE ELITE'S DROP, added to the body's loot: better loot than its kind carries (the table above). */
 export function eliteLoot(level = 1, rolls = Math.random) {

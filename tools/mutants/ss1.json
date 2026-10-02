@@ -156,7 +156,7 @@
   {
     "name": "SS2-the-price-column-sized-by-its-text",
     "file": "src/ui/enhancedPlusStyle.js",
-    "old": ".broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 112px 148px;",
+    "old": ".broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 124px 148px;",
     "new": ".broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 148px;",
     "tests": [
       "test/ss1_stones.test.js"

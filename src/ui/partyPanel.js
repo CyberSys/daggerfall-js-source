@@ -128,8 +128,8 @@ ${PIXELIFY_FIVE_FACE}
 @media (max-height: 560px) and (min-width: 561px) {
   .dfparty.touch { max-height: calc(100dvh - 152px - var(--dfquest-h, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow: hidden; }
 }
-.dfparty-title { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; text-align: right;
-  color: var(--dim, #8b8578); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
+.dfparty-title { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; text-align: right;
+  color: var(--dim, #9a9486); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .dfparty-count { margin-left: 6px; letter-spacing: 0; color: var(--bone, #e9e4d9); font-variant-numeric: tabular-nums; }
 /* AUDIT WK-U6: MY COMPANIONS ARE NEVER THE FIRST CUT. Under the height cap (a phone held sideways, a short window under
    the quest card) the panel cuts at its foot what does not fit, and my companions' cards stood last - a full party cut
@@ -152,7 +152,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfparty-facepix { display: none; max-width: 100%; max-height: 100%; image-rendering: pixelated; }
 .dfparty-face.has .dfparty-facepix { display: block; }
 .dfparty-face.has .dfparty-facemark { display: none; }
-.dfparty-facemark { font-size: 13px; font-weight: 600; color: var(--dim, #8b8578); opacity: .45; }
+.dfparty-facemark { font-size: 13px; font-weight: 600; color: var(--dim, #9a9486); opacity: .45; }
 /* AUDIT WK-U4: A COMPANION'S LETTER IS HIS ROLE, WRITTEN - not the hole a face is still on its way to, which the dim
    mark at .45 is (1.9:1 on the plate). In the name's own bone, whole (11.7:1 on the plate's lighter stop); his role
    line under the bar is a member's place line, at its weight (it was dimmed again, 2.5:1 over snow). The mark is the
@@ -161,14 +161,14 @@ ${PIXELIFY_FIVE_FACE}
 .dfparty-body { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
 .dfparty-head { display: flex; align-items: baseline; gap: 4px; min-width: 0; text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }
 .dfparty-name { min-width: 0; flex: 0 1 auto; font-weight: 600; font-size: 12px; line-height: 1.2;
-  color: ${PARTY_GREEN_CSS}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dfparty-lead { flex: none; font-size: 10px; line-height: 1; color: var(--brass, #c08a3e); }
+  color: ${PARTY_GREEN_CSS}; letter-spacing: 0;   /* AUDIT FONT3 L7: a long name loses no more of itself to the tracking */ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dfparty-lead { flex: none; font-size: 11px; line-height: 1; color: var(--brass, #c08a3e); }
 .dfparty-lead.off { display: none; }
 /* the health digits, at the row's right edge: drawn ONLY while the seat is under half health (.low), in the
    health's own red - a healthy party is names and bars and nothing else. The node is written for every pose. */
-.dfparty-hp { margin-left: auto; flex: none; font-size: 10px; line-height: 1.2; color: #e2554c; font-variant-numeric: tabular-nums; }
+.dfparty-hp { margin-left: auto; flex: none; font-size: 11px; line-height: 1.2; color: #e2554c; font-variant-numeric: tabular-nums; }
 .dfparty-hp.off { display: none; }
-.dfparty-hp.blank { color: var(--dim, #8b8578); }   /* AUDIT PARTY8: a seat with no pose yet - dashes, dim */
+.dfparty-hp.blank { color: var(--dim, #9a9486); }   /* AUDIT PARTY8: a seat with no pose yet - dashes, dim */
 /* the health is the one real bar; stamina and magicka are two hairlines under it, side by side - their shape, not
    their weight. The tracks are square-cornered and black, the enhanced HUD's own. */
 .dfparty-bars { display: flex; flex-direction: column; gap: 3px; }
@@ -193,7 +193,7 @@ ${PIXELIFY_FIVE_FACE}
 .dfparty-num { display: none; }
 /* the place line: drawn only for a seat that is NOT where I am (.off otherwise) - a party walking together says
    nothing under the bars; the one who wandered into a dungeon says where. An away seat says when it was last seen. */
-.dfparty-where { font-size: 9px; line-height: 1.2; color: var(--dim, #8b8578); text-shadow: 2px 2px 0 rgba(0,0,0,0.85);
+.dfparty-where { font-size: 11px; line-height: 1; letter-spacing: 0;   /* AUDIT FONT3 L2: the floor's 11px on a 1.2 line took a row past PARTY8's 48px budget */ color: var(--dim, #9a9486); text-shadow: 2px 2px 0 rgba(0,0,0,0.85);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dfparty-where.off { display: none; }
 /* PARTY-BUFFS (2026-09-27, Tabitha: "buff timers or SOME sort of indicator that we have placed a buff on a party teammate

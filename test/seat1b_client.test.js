@@ -336,7 +336,7 @@ test('SEAT1b THE HOSTS BY SOURCE: the relay ticks in its pose arm and nowhere el
   assert.match(nw, /const seatHost = guildOnly \? null : \(deps\.seat \?\? null\);/);
   assert.match(nw, /else if \(tab === 'seat' && seatTab && seatShown\(\)\) win\.append\(seatTab\.body\(\)\);/);
   const idx = rd('server-account/src/index.js');
-  assert.match(idx, /if \(r\.recorded && body\.region != null\) answer\.seat = await creditGate\(ctx, who\.player, env, \{ character: body\.character \?\? null, day: r\.day, region: body\.region \}\);/);
+  assert.match(idx, /if \(r\.recorded && !r\.rite && body\.region != null\) answer\.seat = await creditGate\(ctx, who\.player, env, \{ character: body\.character \?\? null, day: r\.day, region: body\.region \}\);/);
   assert.match(idx, /if \(body\.region != null && r\.credited > 0 && !r\.repeat\) await creditRenown\(/);
   for (const r of ['pledge', 'standings', 'watch', 'tribute']) assert.ok(rd('server-account/src/service.js').includes(`'/v1/seats/${r}'`), `${r} routed`);
   assert.match(rd('.github/workflows/account-deploy.yml'), /- "src\/net\/watchReceipt\.js"/);

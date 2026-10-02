@@ -26,7 +26,7 @@ import { BODY_PARTS } from '../src/systems/armorMaterials.js';
 
 const WEAR_KEYS = [['pcaao', 'equipmentDamageEnhanced'], ['pcaao', 'fadingEnchantedItems'], ['roleplay-realism', 'equipDamage']];
 const dfuWear = (damage) => Math.trunc((10 * damage + 50) / 100);   // FormulaHelper.ApplyConditionDamageThroughPhysicalHit
-const portWear = (damage) => DFU_WEAR_MULTIPLE * dfuWear(damage);   // WEAR-TWICE: the port wears twice it
+const portWear = (damage) => DFU_WEAR_MULTIPLE * dfuWear(damage);   // WEAR-TWICE, then WEAR-ONE: the port's multiple of it (1 - DFU's own)
 const foe = () => ({ isPlayer: false, isClass: true, items: [], activeEffects: [], stats: { strength: 50 } });
 const armed = (item, slot, who = foe()) => { mintCondition(item); who.items.push(item); equipTableOf(who)[slot] = item; return who; };
 const longsword = () => mintCondition({ group: 'Weapons', templateIndex: 120, material: 1, name: 'Longsword' });
@@ -35,7 +35,7 @@ const cuirass = () => ({ group: 'Armor', templateIndex: 102, material: 0x0201, n
 installPcaao();
 installRoleplayRealism();
 
-test('WEAR-VANILLA: the three wear switches ship off and read off, the rest of both mods stays on, and a blow\'s scale is DFU\'s - WEAR-TWICE: DFU\'s amount twice (mutants: the multiple at 1)', () => {
+test('WEAR-VANILLA: the three wear switches ship off and read off, the rest of both mods stays on, and a blow\'s scale is DFU\'s - WEAR-ONE: DFU\'s amount again, not twice (mutants: the multiple back at 2)', () => {
   _resetModSettings();
   for (const [vendor, key] of WEAR_KEYS) {
     assert.equal(MOD_SETTINGS[vendor].keys[key].default, false, `${vendor}/${key} ships off`);
@@ -46,17 +46,17 @@ test('WEAR-VANILLA: the three wear switches ship off and read off, the rest of b
   assert.deepEqual([m.armorHitFormulaRedone, m.fixedStrengthDamageModifier, m.criticalStrikesIncreaseDamage], [true, true, true], 'the rest of the overhaul is untouched');
   assert.equal(modSetting('roleplay-realism', 'Enabled'), true);
   assert.equal(CONDITION_WEAR_SCALE, 1);
-  assert.equal(DFU_WEAR_MULTIPLE, 2, 'WEAR-TWICE (2026-10-02, "I still want there to be some challenge"): DFU\'s amount, twice');
+  assert.equal(DFU_WEAR_MULTIPLE, 1, 'WEAR-ONE (2026-10-02, "we need to buff gear durability because its really bad"): DFU\'s amount, not WEAR-TWICE\'s twice');
 });
 
-test('WEAR-VANILLA: with every mod on as shipped, a landed blow wears what DFU says, twice (WEAR-TWICE) - 2 x (10 x damage + 50) / 100 on the blade and on the struck piece - and a claw wears nothing; either mod\'s module back on wears more (mutants: a switch shipped on)', () => {
+test('WEAR-VANILLA: with every mod on as shipped, a landed blow wears what DFU says (WEAR-ONE; WEAR-TWICE had it twice) - (10 x damage + 50) / 100 on the blade and on the struck piece - and a claw wears nothing; either mod\'s module back on wears more (mutants: a switch shipped on)', () => {
   _resetModSettings();
   const blade = longsword();
   const target = armed(cuirass(), EQUIP_SLOTS.ChestArmor);
   const piece = equipTableOf(target)[EQUIP_SLOTS.ChestArmor];
   damageEquipment(foe(), target, 30, blade, BODY_PARTS.Chest, { rolls: () => 0.99 });
-  assert.equal(blade.maxCondition - blade.currentCondition, portWear(30), 'the blade: DFU\'s 3, twice');
-  assert.equal(piece.maxCondition - piece.currentCondition, portWear(30), 'the cuirass: DFU\'s 3, twice');
+  assert.equal(blade.maxCondition - blade.currentCondition, portWear(30), 'the blade: DFU\'s 3');
+  assert.equal(piece.maxCondition - piece.currentCondition, portWear(30), 'the cuirass: DFU\'s 3');
   const clawed = piece.currentCondition;
   damageEquipment(foe(), target, 30, null, BODY_PARTS.Chest, { rolls: () => 0.99 });
   assert.equal(piece.currentCondition, clawed, 'a natural attack wears no armour, as in DFU');
@@ -212,7 +212,7 @@ test('WEAR-VANILLA: through the core, an armed Knight\'s blow on an iron-clad pl
       assert.deepEqual(seen.map((x) => x.damage), [d, d], `the member was handed the ${d} the blow dealt - his weapon's, then the piece's`);
       assert.equal(seen[0].item, flail);
       assert.ok(pieces.includes(seen[1].item), 'the struck piece is mine');
-      if (dfuWear(d) > 0) { assert.deepEqual([armour, weapon], [portWear(d), portWear(d)], `${d} damage: DFU's ${dfuWear(d)}, twice`); exact++; } else { assert.ok([0, DFU_WEAR_MULTIPLE].includes(armour) && [0, DFU_WEAR_MULTIPLE].includes(weapon), 'under 5: the 20% floor roll\'s 1, twice, or nothing'); floor++; }
+      if (dfuWear(d) > 0) { assert.deepEqual([armour, weapon], [portWear(d), portWear(d)], `${d} damage: DFU's ${dfuWear(d)}`); exact++; } else { assert.ok([0, DFU_WEAR_MULTIPLE].includes(armour) && [0, DFU_WEAR_MULTIPLE].includes(weapon), 'under 5: the 20% floor roll\'s 1, or nothing'); floor++; }
     }
     assert.ok(exact >= 100 && floor >= 30, `both kinds of blow land (${exact} worn by the amount, ${floor} by the floor roll)`);
     // a piece the blow breaks says so

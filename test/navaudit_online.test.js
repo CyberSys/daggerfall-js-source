@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { room } from './navalRoom.mjs';
 import { sea, freshPool } from './navalSea.mjs';
-import { OWNER_SWEEP_S, OWNER_STALE_S, ORPHAN_S, PREDICT_MAX_S, PUPPET_SNAP_M, GRAPPLE_CLAIM_S, PEER_VOLLEYS_MAX, CLAIM_AGAIN_S, CLAIM_WAIT_S, GRANT_KEEP_S, claimBeats, idSalt, hullBoxOf, rigBoxesOf } from '../src/scenes/navalHost.js';
+import { SHIP_FADE_S, OWNER_SWEEP_S, OWNER_STALE_S, ORPHAN_S, PREDICT_MAX_S, PUPPET_SNAP_M, GRAPPLE_CLAIM_S, PEER_VOLLEYS_MAX, CLAIM_AGAIN_S, CLAIM_WAIT_S, GRANT_KEEP_S, claimBeats, idSalt, hullBoxOf, rigBoxesOf } from '../src/scenes/navalHost.js';
 import { seedBaseOf, SEED_SALT, createNavalDirector, DENSITY } from '../src/systems/naval/navalDirector.js';
 import { NAVAL_GEN_MAX, NAVAL_SHARE_RADIUS, NAVAL_WIRE_VOLLEYS, NAVAL_VOLLEY_KEEP_MS, navalWireRecord, validNavalRecord, navalHitData } from '../src/systems/naval/navalWire.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
@@ -78,8 +78,8 @@ test('AUDIT NAV1 (online #2) THE SEA HANDED ON: a stander gone from the cell too
   qa.present = false;
   q.run(OWNER_SWEEP_S + 0.6);
   assert.ok(loneC.orphan != null && loneC.owner === 'a', 'c holds her for the heir');
-  q.run(ORPHAN_S);
-  assert.equal(bySeed(qc, lone.ship.seed), null, 'no word claimed her: let go');
+  q.run(ORPHAN_S + SHIP_FADE_S + 0.5);   // SHIP-FADE (2026-10-02) PIN MOVED: let go, she fades
+  assert.ok(bySeed(qc, lone.ship.seed) === null, 'no word claimed her: let go');
   assert.ok(bySeed(qb, lone.ship.seed)?.owner === null, 'the heir has her, all the same');
 });
 

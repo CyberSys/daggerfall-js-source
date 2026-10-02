@@ -167,7 +167,7 @@ async function seasonsBundle() {
 // bottom-up like every Texture2D the classic reader builds, so its
 // flats and the classic ones agree; here the seasonal record entered
 // through a PNG-order door and every seasonal tree, rock and plant
-// drew vertically mirrored under BB_VS (renderer.js:392-423, v=0 =
+// drew vertically mirrored under BB_VS (renderer.js:395-426, v=0 =
 // image bottom). The flip belongs at THIS door: `decodeTexture2D` and
 // `decodePng` keep the PNG raster order each states as its contract,
 // and the port's upload order is reached here, once, per texture.

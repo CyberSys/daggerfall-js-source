@@ -87,6 +87,18 @@ export function parseSeatCommand(text) {
   if (String(op ?? '').toLowerCase() !== 'strike' || !/^\d+$/.test(key ?? '') || !seatKeyOk(k) || more.length) return { error: SEAT_USAGE };
   return { op: 'strike', key: k };
 }
+/** VOID (Seats-Arc 18: "Moderators (MOD1) may **void a siege** (`/siege void`)"): a moderator's chat word -
+ *  `{ op: 'void', key }`, `{ error }` in words, or null when the line is not /siege. NEVER GUARDED HERE (RED1's law): whether
+ *  this player may is the service's question (server-account/src/seatSiege.js voidSiege). */
+export const SIEGE_USAGE = 'Usage: /siege void <seat key> - the map id of the seat whose battle this week was won by an exploit.';
+export function parseSiegeCommand(text) {
+  const m = /^\/siege(?:\s+([\s\S]*))?$/i.exec(String(text ?? '').trim());
+  if (!m) return null;
+  const [op, key, ...more] = (m[1] ?? '').trim().split(/\s+/).filter(Boolean);
+  const k = Number(key);
+  if (String(op ?? '').toLowerCase() !== 'void' || !/^\d+$/.test(key ?? '') || !seatKeyOk(k) || more.length) return { error: SIEGE_USAGE };
+  return { op: 'void', key: k };
+}
 
 /**
  * @param {{
@@ -197,9 +209,10 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     try { storage?.setItem?.(SEAT_WATCH_KEY, JSON.stringify(list)); } catch { /* this page keeps them */ }
   };
 
-  /** The confirmed seats: the last answer inside SEAT_LIST_CACHE_MS (a refusal too), else the service's. */
+  /** The confirmed seats: the last answer inside SEAT_LIST_CACHE_MS (a refusal too) and this seat week, else the service's. */
   function read({ force = false } = {}) {
-    if (!force && nowMs() - at < SEAT_LIST_CACHE_MS) return Promise.resolve({ data, error: open === false ? 'seats-closed' : null });
+    // AUDIT FESTIVAL S1: a list read before the Turning is last week's - its holders' edicts (a Festival, a Curfew) gone
+    if (!force && nowMs() - at < SEAT_LIST_CACHE_MS && seatWeekOf(at) === seatWeekOf(nowMs())) return Promise.resolve({ data, error: open === false ? 'seats-closed' : null });
     if (pending) return pending;
     pending = (async () => {
       let r;
@@ -377,11 +390,15 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
     breakPact(tag) {
       return this.politicsAct(() => door.pactBreak(character(), tag), (d) => (d.announced ? `Your guild has broken its Pact with <${tag}>. Everyone has been told.` : `The offer of a Pact with <${tag}> is withdrawn.`));
     },
-    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS. */
+    /** CROWN2: the seats' list read again for the server's red lines, while the seats are open, every SEAT_RED_READ_MS -
+     *  AUDIT FESTIVAL S1: and once at the Turning. */
     redTick() {
       // AUDIT SEATS-3 C5: and a read that failed (the first at the session's start above all - the seats left shut, never
       // asked again by the frame) asked again every SEAT_LIST_RETRY_MS until one answers
       if (!pending && (open === true || failed) && nowMs() - at >= (failed ? SEAT_LIST_RETRY_MS : SEAT_RED_READ_MS)) read({ force: true });
+      // AUDIT FESTIVAL S1: and once when the seat week turns - a player who stays in a town sees the Festival (or Curfew)
+      // that ended at the Turning end, and the one that became law begin (the read is this week's: asked once)
+      else if (!pending && open === true && seatWeekOf(at) !== seatWeekOf(nowMs())) read({ force: true });
     },
     // ─── SEASON1 part two: THE TIDES AS THIS CLIENT READS THEM ───────
     /** The week Season 0 began, as the seats' list last said - or null (no Season counted: every land is Calm). */
@@ -585,6 +602,18 @@ export function createTownSeatBook({ door, storage = null, nowMs = () => Date.no
       try { r = await door.strike(key); } catch { r = { ok: false, error: 'offline' }; }
       if (r?.ok) { at = -Infinity; return { ok: true, text: `Seat ${key} is struck from the registry (${r.data?.reports ?? 0} reports).` }; }
       return { ok: false, text: accountRefusalText(r?.error) };
+    },
+    /** VOID: the chat's `/siege void <key>` - a moderator's void of the seat's battle this week; the list and the standings
+     *  read afresh after (a Charter may have gone back). */
+    async voidSiege(key) {
+      let r;
+      try { r = await door.voidSiege(key); } catch { r = { ok: false, error: 'offline' }; }
+      if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };
+      at = -Infinity;
+      standingsAt.clear();
+      const what = r.data?.battle === 'tourney' ? 'Tourney' : r.data?.battle === 'revolt' ? 'revolt' : 'siege';
+      if (r.data?.repeat) return { ok: true, text: `The ${what} at seat ${key} is void already.` };
+      return { ok: true, text: `The ${what} at seat ${key} is voided${r.data?.restored ? ' - its Charter went back to the guild that held it' : ''}.` };
     },
   };
 }

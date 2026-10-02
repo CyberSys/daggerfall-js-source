@@ -50,6 +50,7 @@ import { PICKPOCKET_DISTANCE, TREASURE_ACTIVATION_DISTANCE, TOO_FAR_AWAY_TEXT, p
 import { setMidScreenText } from '../ui/midScreenText.js';   // AUDIT 64 F34: :834 is the HUD's centred label, not the popup queue
 import { PLAYER_TARGET, resetAllyTeamOnPlayerAttack } from '../characters/enemyTargets.js';   // AUDIT NAV2 F54: MakeEnemyHostileToAttacker's entity-side half
 import { enemyDisplayName } from '../characters/enemyBasics.js';
+import { properName } from '../systems/champions.js';   // AUDIT WB12d (D2): a foe with a name of its own
 import { pickpocket } from '../systems/talk.js';
 import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT NAV2 F54: the player's own hands - and a town's defenders - are no mark
 
@@ -57,6 +58,8 @@ import { sparedByPlayer } from '../combat/friendlyFire.js';   // AUDIT NAV2 F54:
  *  `youSeeA,You see a %s.`, picked by the vowel test at :817 over the
  *  FIRST letter of the localized enemy name. */
 export const YOU_SEE_A_TEXT = 'You see a %s.';
+/** AUDIT WB12d (D2): a foe with a name of its own, seen by it (no article). */
+export const YOU_SEE_PROPER_TEXT = 'You see %s.';
 export const YOU_SEE_AN_TEXT = 'You see an %s.';
 export function youSeeEnemyText(name) {
   const n = name ?? '';
@@ -95,8 +98,17 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   // static funnel DaggerfallUI.cs:783-789 gives every caller.
   midScreen = setMidScreenText,
   openCompanion = null,
+  openFate = null,   // REVENANT-FATE: (foe) => the yielded revenant's choice (the host's loot-menu door)
 } = {}) {
   if (!foe || foe.dead) return false;
+  // REVENANT-FATE (2026-10-02, Mac: "Players should have the option to kill or spare"; "the choice popup should reuse
+  // the loot menu"): a beaten revenant on its knees is reached as a body is - at the treasure's reach, the HUD's one
+  // refusal past it - and opens its fate's window; a peer's (a puppet's) is its owner's choice
+  if (foe.yielded && !foe.puppet && openFate) {
+    if (!(distance <= TREASURE_ACTIVATION_DISTANCE)) { midScreen?.(TOO_FAR_AWAY_TEXT); return true; }   // the treasure's reach, as his pack's (WK-P6)
+    openFate(foe);
+    return true;
+  }
   const entity = foe.entity ?? null;
   // COMPANION-KIT (2026-10-01, Mac: companions "act as storage"): my companion activated opens his pack - Steal from him
   // is the shipmate's silent break below
@@ -110,8 +122,9 @@ export function activateMobileEnemy(foe, distance, mode, player, {
   if (mode !== 'steal') {
     // :814-826 - Info, Grab and Talk all pop the one line, with no
     // distance gate of any kind.
-    const name = enemyDisplayName(foe.mobileType ?? entity?.mobileType ?? -1);
-    if (name) hud?.(youSeeEnemyText(name));
+    const own = properName(entity);   // AUDIT WB12d (D2): a foe with a name of its own is seen by it - "You see the Summoner."
+    const name = own ?? enemyDisplayName(foe.mobileType ?? entity?.mobileType ?? -1);
+    if (name) hud?.(own ? YOU_SEE_PROPER_TEXT.replace('%s', own.replace(/^The /, 'the ')) : youSeeEnemyText(name));
     return true;
   }
   // :827-828 - a monster breaks out, silently, and the activation is

@@ -144,3 +144,72 @@ export function drawBanner(ctx, heraldry, w) {
 
 /** Every device has its art (a pin holds it). */
 export const DEVICES_DRAWN = HERALDRY_DEVICES.every((d) => Array.isArray(DEVICE_ART[d]) && DEVICE_ART[d].length > 0);
+
+// ─── HERALDRY-SHOWN (2026-10-02, Mac: "lets finish the build work"): THE SWATCH ──────────────────────────────────────
+// Seats-Arc 8.1's small faces - the guild tag's frame, the siege HUD, the Chronicle - draw the heraldry as a SHIELD, not a
+// three-tall banner: the same field, border and device (deviceSvg, the banner's own parts) on a heater shield in a 100 x
+// 104 box, so a row of text keeps its height. ui/heraldrySwatch.js is its one DOM door.
+
+/** The shield in a 100 x 104 box. */
+export const SHIELD_CLOTH = 'M8 4 H92 V46 C92 74 74 92 50 102 C26 92 8 74 8 46 Z';
+/** The shield's border, drawn inside its edge as the banner's is. */
+export const SHIELD_BORDER_W = 10;
+/** Where the device stands on the shield. */
+export const SHIELD_DEVICE = Object.freeze({ x: 22, y: 16, scale: 0.56 });
+
+/** A GUILD'S HERALDRY AS A SHIELD, an SVG string at `size` pixels wide - or '' for none (a swatch is a guild's: a seat's
+ *  plain cloth has no device to bear). */
+export function shieldSvg(heraldry, { size = 16 } = {}) {
+  const h = heraldryOf(heraldry);
+  if (!h) return '';
+  const field = heraldryColourOf(h.field)?.hex, border = heraldryColourOf(h.border)?.hex;
+  const d = SHIELD_DEVICE;
+  const clip = `hs${h.field}${h.border}${h.device}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 104" width="${size}" height="${Math.round(size * 1.04)}" role="img" aria-label="heraldry">`
+    + `<defs><clipPath id="${clip}"><path d="${SHIELD_CLOTH}"/></clipPath></defs>`
+    + `<path d="${SHIELD_CLOTH}" fill="${field}"/>`
+    + `<path d="${SHIELD_CLOTH}" fill="none" stroke="${border}" stroke-width="${SHIELD_BORDER_W * 2}" clip-path="url(#${clip})"/>`
+    + `<g transform="translate(${d.x} ${d.y}) scale(${d.scale})">${deviceSvg(h.device, border, field)}</g>`
+    + `<path d="${SHIELD_CLOTH}" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="3"/>`
+    + '</svg>';
+}
+
+/**
+ * AUDIT HERALDRY H4: THE SHIELD ON A CANVAS - the Overworld's name face (ui/travelViewHud.js badgeSprite) draws on a
+ * canvas, not the DOM: shieldSvg's drawing into `ctx` at (`x`, `y`), `size` pixels wide - the field, the border inside the
+ * edge, the device in the border colour on the field, the dark edge. Drawn once into a kept sprite, never a frame.
+ * Whether it drew one (none for no heraldry, or no Path2D).
+ * @param {CanvasRenderingContext2D} ctx @param {any} heraldry @param {number} x @param {number} y @param {number} size
+ */
+export function drawShield(ctx, heraldry, x, y, size) {
+  const h = heraldryOf(heraldry);
+  const P = globalThis.Path2D;
+  if (!h || typeof P !== 'function') return false;
+  const field = heraldryColourOf(h.field)?.hex ?? '', border = heraldryColourOf(h.border)?.hex ?? '';
+  const shield = new P(SHIELD_CLOTH);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 100, size / 100);
+  ctx.fillStyle = field;
+  ctx.fill(shield);
+  ctx.save();
+  ctx.clip(shield);
+  ctx.strokeStyle = border;
+  ctx.lineWidth = SHIELD_BORDER_W * 2;
+  ctx.stroke(shield);
+  ctx.restore();
+  ctx.save();
+  const d = SHIELD_DEVICE;
+  ctx.translate(d.x, d.y);
+  ctx.scale(d.scale, d.scale);
+  for (const p of DEVICE_ART[h.device] ?? []) {
+    const path = new P(p.d), ink = p.bg ? field : border;   // a hole in the field's colour, the device in the border's
+    if (p.w) { ctx.strokeStyle = ink; ctx.lineWidth = p.w; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(path); } else { ctx.fillStyle = ink; ctx.fill(path); }
+  }
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 3;
+  ctx.stroke(shield);
+  ctx.restore();
+  return true;
+}

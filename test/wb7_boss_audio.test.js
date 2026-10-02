@@ -18,7 +18,7 @@ import { eventsInWindow } from '../src/systems/songPlayer.js';
 import { MusicService } from '../src/systems/music.js';
 import { ATTACKS } from '../src/net/gateBrain.js';
 import { BOSS_CUES, BOSS_STRIDE_M, GROWL_EVERY_MS, HURT_GAP_MS, HURT_SHARE, QUAKE_ON, THUD_AT_MS, FALL_MS } from '../src/world/gateBoss.js';
-import { createGateCourt } from '../src/scenes/gateCourt.js';
+import { createGateCourt, ROAR_AFTER_MS } from '../src/scenes/gateCourt.js';
 import { destroyGateBossBar } from '../src/ui/gateBossBar.js';
 import { GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
@@ -186,6 +186,8 @@ test('WB7 his weight and his end: the ground\'s shock under a slam, a charge, a 
   tick(p, 1000, state({ phase: 2 }));
   assert.deepEqual(clips(p), [], 'no thunder for the phase first heard');
   tick(p, 2000, state({ phase: 3 }));
+  assert.deepEqual(clips(p), [BOSS_CUES.thunder.clip], 'WB13e: the thunder with the turn; his roar a moment after the bound\'s bark');
+  tick(p, 2000 + ROAR_AFTER_MS);
   assert.deepEqual(p.sounds.map((s) => [s[0], s[3].pitch]), [[BOSS_CUES.thunder.clip, BOSS_CUES.thunder.pitch], [BOSS_CUES.roar.clip, BOSS_CUES.roar.pitch]], 'thunder, then his roar');
   const f = court();
   tick(f, 5000, state({ fell: { at: 5000, top: [], n: 1 } }));

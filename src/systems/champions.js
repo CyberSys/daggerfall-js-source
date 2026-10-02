@@ -24,6 +24,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { lootRarityOn } from './lootRarity.js';
+import { foeTitle } from './foeTitle.js';   // FOE-TITLE: the names' one home
 import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';
 import { hurtPlayer } from '../characters/playerEntity.js';
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
@@ -50,10 +51,18 @@ export const championTrait = (id) => CHAMPION_TRAITS.find((t) => t.id === id) ??
 export const championIndex = (id) => CHAMPION_TRAITS.findIndex((t) => t.id === id);
 /** A foe's trait, when it stands as a champion, else null. */
 export const championOf = (entity) => (entity?.champion ? championTrait(entity.champion) : null);
-/** What a champion is called - its trait before its own name ("Mighty Orc Warlord"); anyone else's name as it was. */
+/** What a champion is called - its trait before its own name ("Mighty Orc Warlord"); FOE-TITLE: an elite's "Elite Orc
+ *  Warlord" and a revenant's own name too (systems/foeTitle.js, the one home); anyone else's name as it was. */
 export function championName(entity, base) {
-  const t = championOf(entity);
-  return t && base ? `${t.name} ${base}` : base;
+  return foeTitle(entity, base);
+}
+
+/** AUDIT WB12d (D2): A FOE WITH A NAME OF ITS OWN - a feature's one foe that every line calls by it (WB12d's "the
+ *  Summoner", scenes/riteHost.js) - its words as a line begins them, or null. Said with no article: "You see the
+ *  Summoner.", "The Summoner just died.", "The Summoner (dead)". */
+export function properName(entity) {
+  const n = typeof entity?.properName === 'string' ? entity.properName : '';
+  return n ? n[0].toUpperCase() + n.slice(1) : null;
 }
 
 /** FNV-1a over a few integers - a mixer of the dungeon's own (the same answer on every client, every load). */

@@ -39,7 +39,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import {
-  openGuest, register, login, recover, readAccount, changePassword, logout, equipTitle, equipAura, adoptIdentity, unlinkPatreon,
+  openGuest, register, login, recover, readAccount, changePassword, logout, equipTitle, equipAura, equipGlyph, adoptIdentity, unlinkPatreon,
   storedSession, keepSession, forgetSession, accountRefusalText, handleShapeOk,
   PASSWORD_MIN_LEN,
 } from '../net/accountClient.js';
@@ -257,7 +257,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     // top-right button reads the stored session. This is the next answer
     // that states the name after a registration (acknowledging the code
     // lands here), and it is the service's own word, so it is adopted.
-    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, aura: auraStated(r.data.wardrobe), secret: asked });   // SHADOW-FANG: and what is true of the account; AUDIT B4: into the session that asked; WB9g: and the aura worn
+    adoptIdentity(storage, { name: r.data.account?.name, kind: r.data.account?.kind, glyphs: r.data.wardrobe?.glyphs, glyphsOff: r.data.wardrobe?.glyphsOff, aura: auraStated(r.data.wardrobe), secret: asked });   // SHADOW-FANG: and what is true of the account; AUDIT B4: into the session that asked; WB9g: and the aura worn
     // ACC3c: THE WARDROBE IS ITS OWN FIELD, exactly as the service
     // answers it - what this account HOLDS, what it WEARS, and what is
     // true of it. Held beside `account` rather than folded into it,
@@ -297,7 +297,7 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     const was = self.patreon;
     const d = r.data;
     self.account = d.account;
-    adoptIdentity(storage, { name: d.account?.name, kind: d.account?.kind, glyphs: d.wardrobe?.glyphs, aura: auraStated(d.wardrobe), secret: asked });   // `start`'s word, adopted as it adopts it
+    adoptIdentity(storage, { name: d.account?.name, kind: d.account?.kind, glyphs: d.wardrobe?.glyphs, glyphsOff: d.wardrobe?.glyphsOff, aura: auraStated(d.wardrobe), secret: asked });   // `start`'s word, adopted as it adopts it
     self.wardrobe = d.wardrobe ?? null;
     self.patreon = d.patreon ?? null;
     if (self.patreonWaiting && self.patreon?.linked && (!was?.linked || String(was.titles) !== String(self.patreon.titles))) {
@@ -318,12 +318,12 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       const r = await ask(() => unlinkPatreon(door()));
       if (!r) return false;
       if (!r.ok) return refuse(accountRefusalText(r.error));
-      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };   // the service's word whole: a tier's title gone with the link
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };   // the service's word whole: a tier's title gone with the link
       self.patreon = r.data.patreon ?? null;
       self.patreonWaiting = false;
       self.busy = false;
       self.note = 'Patreon unlinked.';
-      adoptIdentity(storage, { glyphs: r.data.glyphs, aura: auraStated(r.data), secret: asked });   // a lapsed tier's glyph off my own screen at once
+      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // a lapsed tier's glyph off my own screen at once
       changed();
       return true;
     } catch {
@@ -361,10 +361,10 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       // the write, so nothing here has to guess what took and what did
       // not - and a title that lapsed comes back missing from `titles`
       // in the same breath as the refusal would have.
-      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };   // WB9g: the auras ride the same answer
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };   // WB9g: the auras ride the same answer
       self.busy = false;
       self.note = want ? `Wearing ${want}.` : 'Title removed.';
-      adoptIdentity(storage, { glyphs: r.data.glyphs, aura: auraStated(r.data), secret: asked });   // WB9g: my own screen's word, from the answer (AUDIT B4: into the session that asked)
+      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // WB9g: my own screen's word, from the answer (AUDIT B4: into the session that asked)
       changed();
       return true;
     } catch {
@@ -372,6 +372,34 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
     }
   };
 
+  /**
+   * GLYPH-WEAR (2026-10-02, Mac: "can we make it where players can also equip/unequip their glyphs") - PRESS A GLYPH
+   * TO TAKE IT OFF, PRESS IT AGAIN TO PUT IT BACK. Paint alone: the service still signs every glyph that is true, so
+   * what a glyph grants (/red, /dm, /mute, the staff commands) stays. It asks, as the title does; the answer replaces
+   * the wardrobe. Others see it from the next hello, as a title.
+   */
+  self.toggleGlyph = async (glyph) => {
+    if (self.busy || self.stage !== 'in') return false;
+    const on = (self.wardrobe?.glyphsOff ?? []).includes(glyph);   // hidden now, so this press shows it
+    const asked = secret();
+    self.busy = true; self.error = ''; self.note = ''; changed();
+    try {
+      const r = await ask(() => equipGlyph(door(), glyph, on));
+      if (!r) return false;
+      if (!r.ok) return refuse(accountRefusalText(r.error));
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff ?? [], ...auraHalf(r.data) };   // absent is none
+      self.busy = false;
+      self.note = on ? 'Glyph shown.' : 'Glyph hidden.';
+      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });   // my own screen's word: the shown glyphs dress my werewolf
+      changed();
+      return true;
+    } catch {
+      return refuse(accountRefusalText('offline'));
+    }
+  };
+
+  /** GLYPH-WEAR: the glyphs a wardrobe answer says are taken off - none from a service before acct50. */
+  const glyphHalf = (d) => (Array.isArray(d?.glyphsOff) ? { glyphsOff: d.glyphsOff } : {});
   /** WB9g: the aura half of a wardrobe answer - what a service since acct38 says (its auras held, the one worn, the
    *  Broker's insignia owned), or nothing from one before it. */
   const auraHalf = (d) => (Array.isArray(d?.auras) ? { auras: d.auras, aura: d.aura ?? null, insignia: Array.isArray(d.insignia) ? d.insignia : [] } : {});
@@ -392,10 +420,10 @@ export function AccountFlow({ io, storage, onChange = () => {} }) {
       const r = await ask(() => equipAura(door(), want));
       if (!r) return false;
       if (!r.ok) return refuse(accountRefusalText(r.error));
-      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...auraHalf(r.data) };
+      self.wardrobe = { ...(self.wardrobe ?? {}), titles: r.data.titles, title: r.data.title, glyphs: r.data.glyphs, ...glyphHalf(r.data), ...auraHalf(r.data) };
       self.busy = false;
       self.note = want ? `Wearing ${want}.` : 'Aura removed.';
-      adoptIdentity(storage, { glyphs: r.data.glyphs, aura: auraStated(r.data), secret: asked });
+      adoptIdentity(storage, { glyphs: r.data.glyphs, glyphsOff: r.data.glyphsOff, aura: auraStated(r.data), secret: asked });
       changed();
       return true;
     } catch {

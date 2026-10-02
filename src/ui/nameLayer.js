@@ -49,7 +49,8 @@ import { titleBadge, glyphBadges, glyphSvgNode, cssRgba, titlePaint, TITLE_PAINT
 import { graphemesOf } from '../systems/graphemes.js';   // EMOTE1's characters, which JOURNAL1's notebook break reads too
 import { renownText } from '../net/renown.js';   // RENOWN1: Renown, left of the name
 import { guildTagText } from '../net/guildLaw.js';   // GUILD1c: the guild's tag, right of the name
-import { ribbonColours } from '../net/heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon, under the name
+import { ribbonColours, heraldryOf, heraldryColourOf } from '../net/heraldryLaw.js';   // SEASON1 part two: a Season's banner ribbon, under the name; HERALDRY-SHOWN: the tag's frame
+import { heraldrySwatchSrc } from './heraldrySwatch.js';   // HERALDRY-SHOWN (Seats-Arc 8.1): the guild's shield, in its tag's frame
 
 export const NAME_STYLE_ID = 'dagger-names-style';
 
@@ -188,6 +189,10 @@ export const NAME_CSS = `${PIXELIFY_FIVE_FACE}
    exactly the label it wore before. */
 .dfname-guild { font-size: .82em; letter-spacing: .04em; color: #a9c4dd; }
 .dfname-guild:empty { display: none; }
+/* HERALDRY-SHOWN (Seats-Arc 8.1: "the frame of the guild tag") - A TAG WHOSE GUILD'S HERALDRY THE CLIENT KNOWS, FRAMED: a
+   dark plate edged in the guild's border colour (written per peer), its shield (ui/heraldrySwatch.js) at the plate's left. */
+.dfname-guild.armed { padding: .06em .3em .04em 1.25em; border: 1px solid; border-radius: .12em;
+  background: rgba(14, 16, 19, .78) no-repeat .22em 50% / .82em auto; }
 /* NOTICE1: a Notice Board's count - brass on a dark tab, never mistaken for a person's name */
 .dfname-board .dfname-tag { padding: 1px 6px; background: rgba(14,12,11,0.78); border: 1px solid #c08a3e; }
 .dfname-board .dfname-who { color: #f3cf86; letter-spacing: .06em; }
@@ -244,7 +249,7 @@ export function injectNameStyle(doc = document) {
  *   - `covered` is the host's word for a window over the HUD;
  *   - `colorOf(id)` is net/social.js colorOf - an RGBA array for my party, null for everyone else.
  */
-export function createNameLayer({ doc = document, now = () => Date.now() } = {}) {
+export function createNameLayer({ doc = document, now = () => Date.now(), armsOf = null } = {}) {   // HERALDRY-SHOWN: `armsOf(tag)`, a guild's heraldry by its tag
   injectNameStyle(doc);
   const root = doc.createElement('div');
   root.className = 'dfnames';
@@ -296,7 +301,7 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
     ribbon.className = 'dfname-ribbon off';
     node.append(bubble, title, tag, ribbon);
     root.append(node);
-    return { node, bubble, title, tag, lv, name, guild, glyphs, ribbon, worn: null, titled: null, inked: undefined, banded: '' };   // SEASON1 part two: `banded`, the ribbon as written   // SHADOW-FANG: `titled`, the title whose paint is on; AUDIT A10: `inked`, the name's colour as written
+    return { node, bubble, title, tag, lv, name, guild, glyphs, ribbon, worn: null, titled: null, inked: undefined, banded: '', armed: '' };   // HERALDRY-SHOWN: `armed`, the frame as written   // SEASON1 part two: `banded`, the ribbon as written   // SHADOW-FANG: `titled`, the title whose paint is on; AUDIT A10: `inked`, the name's colour as written
   };
 
   /** ACC3: the glyph run, REBUILT ONLY WHEN IT CHANGES. A glyph set is
@@ -360,6 +365,8 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
     tagCount: () => tags.size,
     tagFor: (id) => tags.get(id) ?? null,
     bubbleCount: () => visible,
+    /** HERALDRY-SHOWN: where a guild's heraldry is found by its tag (the host's seats' list and own guild), or null. */
+    setArmsOf: (fn) => { armsOf = typeof fn === 'function' ? fn : null; },
     /** How many lines the STORE holds - the bound itself (BUBBLE_MAX), which `bubbleCount` cannot show because it
      *  counts what a frame DREW. A line past its window is dropped from here as well as from the screen. */
     storedCount: () => bubbles.size,
@@ -403,6 +410,16 @@ export function createNameLayer({ doc = document, now = () => Date.now() } = {})
         setText(tag.lv, renownText(p.lv) ?? '');   // RENOWN1: "12" in its box, or nothing
         setText(tag.name, p.name ?? '');
         setText(tag.guild, guildTagText(p.gt) ?? '');   // GUILD1c: "<HND>", or nothing
+        // HERALDRY-SHOWN (Seats-Arc 8.1): the tag framed in its guild's heraldry where the client knows it - written when
+        // it CHANGES, as the ribbon is
+        const arms = guildTagText(p.gt) && armsOf ? heraldryOf(armsOf(p.gt)) : null;
+        const armed = arms ? `${arms.field}/${arms.border}/${arms.device}` : '';
+        if (tag.armed !== armed) {
+          tag.armed = armed;
+          setCls(tag.guild, arms ? 'dfname-guild armed' : 'dfname-guild');
+          tag.guild.style.borderColor = arms ? heraldryColourOf(arms.border)?.hex ?? '' : '';
+          tag.guild.style.backgroundImage = arms ? `url("${heraldrySwatchSrc(arms)}")` : '';
+        }
         // AUDIT A10 (SHADOW-FANG's audit, the title's own bug on the name): a browser reads a hex colour back as rgb(),
         // so the diffing door rewrote a party mate's green every frame - written when it CHANGES, as the title is
         const ink = cssRgba(colorOf?.(p.id)) ?? '';

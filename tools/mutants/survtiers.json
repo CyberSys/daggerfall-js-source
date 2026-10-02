@@ -943,8 +943,8 @@
   {
     "name": "SURVTIERS-the-note-grows-a-third-sentence",
     "file": "src/systems/features.js",
-    "old": "comes back once you\u2019ve seen to them; on Hard",
-    "new": "comes back once you\u2019ve seen to them. On Hard",
+    "old": "comes back once you’ve seen to them; on Hard",
+    "new": "comes back once you’ve seen to them. On Hard",
     "tests": [
       "test/survtiers.test.js"
     ]
@@ -961,12 +961,12 @@
   {
     "name": "SURVTIERS-the-potion-cite-falls-short",
     "file": "src/systems/potions.js",
-    "old": "exterior.js:2544) and useItem.js:379",
-    "new": "exterior.js:2544) and useItem.js:351",
+    "old": "exterior.js:2553) and useItem.js:379",
+    "new": "exterior.js:2553) and useItem.js:351",
     "tests": [
       "test/citedrift.test.js"
     ],
-    "note": "HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): toggleHood and its import moved useItem.js's drink line from 316 to 347; the cite and its short mutant move with it. FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved. MEND-AIM (PIN MOVED): the use door's aim options moved the drink line to 351. THE SEATS ARC'S MERGE of main's #502-#509 and #504 (PIN MOVED): re-aimed by content to the cite citeMerge moved. FIELD BUGS 2026-10-01 part five (re-aimed by content): the merge of #504 moved the cites it names."
+    "note": "HOOD-SAID (FIELD BUGS 2026-09-30, PIN MOVED): toggleHood and its import moved useItem.js's drink line from 316 to 347; the cite and its short mutant move with it. FIELD BUGS 2026-09-30 (PIN MOVED): re-aimed by content to the cite the batch's cite shift moved. MEND-AIM (PIN MOVED): the use door's aim options moved the drink line to 351. THE SEATS ARC'S MERGE of main's #502-#509 and #504 (PIN MOVED): re-aimed by content to the cite citeMerge moved. FIELD BUGS 2026-10-01 part five (re-aimed by content): the merge of #504 moved the cites it names. MERGE OF MAIN (#538) INTO THE TACTICS ARC (PIN MOVED): re-aimed by content to the cite citeMerge moved."
   },
   {
     "name": "SURVOFFSIGHT-off-sees-no-camp",

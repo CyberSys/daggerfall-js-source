@@ -192,11 +192,13 @@ test('ACC1b: the migration is the real schema, and applying it twice changes not
   // PATREON-LINK added FOUR - the Patreon account this one linked and what Patreon last said of its membership (0045):
   // `patreon_user` (UNIQUE: one pledge dresses one account), `patreon_tiers`, `patreon_status` and `patreon_at`. Patreon's
   // word, stored as WB9g's sale is because nothing here can derive it; the title is still read off it at every ask.
-  assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
+  // GLYPH-WEAR added ONE (0068): `glyphs_off`, the glyphs a player took off - the one choice about a glyph, as `title` is.
+  assert.deepEqual(cols.sort(), ['aura', 'created_at', 'email', 'glyphs_off', 'guest_name', 'handle', 'handle_lc', 'id', 'insignia', 'insignia_spent',
     'last_seen', 'legal_accepted_at', 'muted_by', 'muted_until', 'password', 'patreon_at', 'patreon_status', 'patreon_tiers', 'patreon_user',
     'played_at', 'played_s', 'privacy_version', 'recovery_hash',
     'registered_at', 'renown_hour', 'renown_hour_xp', 'renown_last_credit', 'terms_version', 'title']);
-  assert.ok(!cols.some((c) => /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
+  // GLYPH-WEAR: `glyphs_off` is the one glyph column, and it grants nothing - it is the choice of which true glyphs to hide
+  assert.ok(!cols.some((c) => c !== 'glyphs_off' && /founder|developer|sprout|glyph|grant/i.test(c)), `a grant became a column: ${cols}`);
   // SAVES AND PROVIDER LINKS ARE STILL NOT HERE. They arrive as their
   // own migrations rather than as columns somebody added to this one.
   assert.ok(!cols.some((c) => /save|slot|provider|blob|r2/i.test(c)), `ACC2's columns arrived early: ${cols}`);

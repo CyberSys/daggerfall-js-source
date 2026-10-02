@@ -235,8 +235,8 @@ try {
     console.log(`${v.name}: window ${s.win.w.toFixed(0)}x${s.win.h.toFixed(0)} purse "${s.purse}" - ${s.rows.map((r) => `${r.slot}:${r.name} (${r.set}) ${r.price} [${r.buyText}]${r.img ? '' : ' NO PICTURE'}`).join(' | ')}`);
     check(s.win.x >= -0.5 && s.win.r <= v.viewport.width + 0.5 && s.win.y >= -0.5 && s.win.b <= v.viewport.height + 0.5, `${v.name}: the window runs off the screen ${JSON.stringify(s.win)}`);
     check(s.rows.length === 6, `${v.name}: ${s.rows.length} rows`);
-    check(s.purse === '7 Sigil Stones · 1 locked', `${v.name}: the purse reads "${s.purse}"`);
-    check(/^Sigil Stones buy the day's stock · it turns in \d+(h \d\dm|m)$/.test(s.sub), `${v.name}: the sub line reads "${s.sub}"`);
+    check(s.purse === '7 Deadlands Embers · 1 locked', `${v.name}: the purse reads "${s.purse}"`);
+    check(/^Deadlands Embers buy the day's stock · it turns in \d+(h \d\dm|m)$/.test(s.sub), `${v.name}: the sub line reads "${s.sub}"`);
     check(/Pixel|monospace|VT323|Press/i.test(s.font) || s.font.length > 0, `${v.name}: the window has no font (${s.font})`);
     check(s.border !== 'none', `${v.name}: the kit did not dress the window (border ${s.border})`);
     // the header: the title, the line under it, the purse and Close each clear of the others, all inside the window
@@ -259,7 +259,7 @@ try {
     check(Math.max(...priceXs) - Math.min(...priceXs) < 2, `${v.name}: the prices do not stand in a line: ${priceXs.map((x) => x.toFixed(0)).join(', ')}`);
     const buyWs = s.rows.map((r) => r.buy?.w ?? NaN);
     check(Math.max(...buyWs) - Math.min(...buyWs) < 1, `${v.name}: the Buys are not one width: ${buyWs.map((x) => x.toFixed(0)).join(', ')}`);
-    check(s.rows[5].buyText === 'Need 5 more' && s.rows[5].buyTitle === 'Not enough Sigil Stones' && s.rows[5].disabled, `${v.name}: the Regalia at twelve, a purse of seven: "${s.rows[5].buyText}" (${s.rows[5].buyTitle})`);
+    check(s.rows[5].buyText === 'Need 5 more' && s.rows[5].buyTitle === 'Not enough Deadlands Embers' && s.rows[5].disabled, `${v.name}: the Regalia at twelve, a purse of seven: "${s.rows[5].buyText}" (${s.rows[5].buyTitle})`);
     check(s.card && s.setbox && s.sigilbox, `${v.name}: the card has ${s.setbox ? '' : 'no set block '}${s.sigilbox ? '' : 'no sigil block'}`);
     check(s.card && s.card.x >= -0.5 && s.card.r <= v.viewport.width + 0.5, `${v.name}: the card runs off the screen sideways`);
     check(!/null|undefined|NaN/.test(s.cardText), `${v.name}: the card says null/undefined: ${s.cardText.slice(0, 200)}`);
@@ -280,7 +280,7 @@ try {
     const after = await page.evaluate(() => globalThis.__stones());
     const sold = s.rows.find((r) => r.slot === slot);
     console.log(`${v.name}: bought slot ${slot} - "${s.note}" stones ${before.spendable}->${after.spendable} (locked ${after.locked}) purse "${s.purse}"`);
-    check(slot != null && /^Bought: .+, for \d+ Sigil Stones?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
+    check(slot != null && /^Bought: .+, for \d+ Deadlands Embers?\.$/.test(s.note ?? ''), `${v.name}: the sale says "${s.note}"`);
     const paid = Number(/for (\d+) Sigil/.exec(s.note ?? '')?.[1]);
     // SS1: the price out of the one stack, which keeps the rest - a record more in the pack (the piece), none fewer
     check(after.locked === 1 && before.spendable - after.spendable === paid && after.items === before.items + 1, `${v.name}: the stones ${JSON.stringify({ before, after, paid })}`);

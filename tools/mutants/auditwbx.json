@@ -141,8 +141,8 @@
   {
     "name": "AUDWBX-S2-the-level-unsigned",
     "file": "src/net/gateReceipt.js",
-    "old": "const claimsOf = ({ d, b, s, c, x, l }, nowS) => ({ d, b, s, c, x, ...(l !== undefined ? { l } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });",
-    "new": "const claimsOf = ({ d, b, s, c, x }, nowS) => ({ d, b, s, c, x, i: nowS, e: nowS + RECEIPT_TTL_S });",
+    "old": "const claimsOf = ({ d, b, s, c, x, l, r }, nowS) => ({ d, b, s, c, x, ...(l !== undefined ? { l } : {}), ...(r === 1 ? { r } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });",
+    "new": "const claimsOf = ({ d, b, s, c, x, l, r }, nowS) => ({ d, b, s, c, x, ...(r === 1 ? { r } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });",
     "tests": [
       "test/auditwbx.test.js"
     ]

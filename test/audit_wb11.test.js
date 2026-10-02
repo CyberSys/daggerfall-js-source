@@ -22,6 +22,7 @@ import { stateAnims, HURT_ANIMS, MOVE_ANIMS, mobileOrientation, FLY_ANIM_SPEED }
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { DAMAGE_CHART_CSS } from '../src/ui/gateDamageChart.js';
 import { MARK_TIPS } from '../src/ui/gateMarksView.js';
+import { GATE_TRIALS } from '../src/net/gateMods.js';   // WB13b
 import { bossBarModel, destroyGateBossBar } from '../src/ui/gateBossBar.js';
 import { destroyGateMarksCard } from '../src/ui/gateMarksView.js';
 import { destroyGateGround } from '../src/ui/gateGroundView.js';
@@ -339,7 +340,7 @@ test('AUDIT WB11 C2 one of his host falls as it last faced - it turned to +z for
 });
 
 test('AUDIT WB11 C3 two Ward-Bearers cut down between two of my frames are said with the count each left - "2 stand", "1 stands" - never the count after both twice, nor "the last" twice (mutant: the count taken once a frame)', () => {
-  for (const [n, want] of [[3, ['Ann cuts down a Ward-Bearer - 2 stand.', 'Bo cuts down a Ward-Bearer - 1 stands.']], [2, ['Ann cuts down a Ward-Bearer - 1 stands.', GH.COURT_HOST_TEXT.felled('Bo', 0)]]]) {
+  for (const [n, want] of [[3, ['Ann cuts down a Ward-Bearer. 2 stand.', 'Bo cuts down a Ward-Bearer. 1 stands.']], [2, ['Ann cuts down a Ward-Bearer. 1 stands.', GH.COURT_HOST_TEXT.felled('Bo', 0)]]]) {
     clean();
     const h = rig();
     const bearers = Array.from({ length: n }, (_, k) => ad({ i: k + 1, k: HOST.bearer, x: 9 * Math.sin(k * 2), z: 9 * Math.cos(k * 2) }));
@@ -389,7 +390,7 @@ test('AUDIT WB11 C8 his host\'s shapes are refilled into their slots, never made
 // ═══ U: THE BROWSER'S ══════════════════════════════════════════════════════════════════════════════════════════════
 
 test('AUDIT WB11 C9/U5 a Legion-Lord night\'s chart keeps its Host column on a narrow screen, in the place of the falls (it folded away whole; the patch said a Host column on those nights) (mutant: the column folded)', () => {
-  const narrow = /@media \(max-width: 640px\) \{([\s\S]*?)\n\}/.exec(DAMAGE_CHART_CSS)?.[1] ?? '';
+  const narrow = /@media \(max-width: 640px\), \(max-height: 480px\) \{([\s\S]*?)\n\}/.exec(DAMAGE_CHART_CSS)?.[1] ?? '';   // WB13c: a phone held sideways is narrow too
   assert.match(narrow, /\.wb-dmg-hosted \.wb-dmg-row > \.wb-dmg-host \{ display: block; \}/, 'the Host column shown');
   assert.match(narrow, /\.wb-dmg-hosted \.wb-dmg-row > \.wb-dmg-falls \{ display: none; \}/, 'in the falls\' place');
   assert.match(narrow, /\.wb-dmg-hosted \.wb-dmg-row \{ grid-template-columns: 18px minmax\(0, 1fr\) 58px 44px 50px; \}/, 'the narrow grid\'s five columns, the last wide enough for a host\'s five figures');
@@ -398,8 +399,9 @@ test('AUDIT WB11 C9/U5 a Legion-Lord night\'s chart keeps its Host column on a n
 test('AUDIT WB11 U1/M1/D6 the Legion-Lord\'s tip is as short as the others\' (138 characters made the tallest marks card, off a landscape phone\'s foot), and its line keeps its creatures capitalised wherever it is said - the chat lowers a line\'s first letter, and "imps harry ... Atronachs" read wrong (mutants: the long tip; the line on "Imps")', () => {
   const others = Object.entries(MARK_TIPS).filter(([k]) => k !== 'legion').map(([, v]) => v.length);
   assert.ok(MARK_TIPS.legion.length <= Math.max(...others), `${MARK_TIPS.legion.length} characters against ${Math.max(...others)}`);
-  const line = marksLine({ boss: 'Valkynaz Ruhn', md: ['burning', 'echoing', 'legion'] });
-  assert.match(line, /Legion-Lord: his Imps harry whoever stands far off, his Atronachs march to heal him, his Ward-Bearers hold his ward\./);
+  // WB13b: the chat names the marks (the card says what each does) - the trial's line keeps its creatures capitalised
+  assert.equal(marksLine({ boss: 'Valkynaz Ruhn', md: ['burning', 'echoing', 'legion'] }), 'Valkynaz Ruhn comes the Burning tonight, Echoing and Legion-Lord.');
+  assert.match(GATE_TRIALS.find((t) => t.id === 'legion').text, /Imps, Atronachs and Ward-Bearers/);
 });
 
 test('AUDIT WB11 U2 under the Burning a Ward-Bearer\'s Pulse - the disc that hurts - is the fire\'s orange, apart from the ward\'s gold its tether wears (both were hue 43) (mutant: the Nova\'s gold)', () => {
@@ -413,7 +415,7 @@ test('AUDIT WB11 U2 under the Burning a Ward-Bearer\'s Pulse - the disc that hur
 
 test('AUDIT WB11 D1 when the last Ward-Bearer falls his OWN ward follows for its breath (SHIELD_MS, Unyielding\'s 6 s - the signature cast under it): the court\'s words say it fails, never that it breaks - every blow in that breath still turned (mutants: "breaks" said; the breath dropped)', () => {
   assert.ok(!/breaks/.test(GH.COURT_HOST_TEXT.felled('Ann', 0)) && !/breaks/.test(GH.COURT_HOST_TEXT.crumbled));
-  assert.match(GH.COURT_HOST_TEXT.felled('Ann', 0), /his ward is failing!$/);
+  assert.match(GH.COURT_HOST_TEXT.felled('Ann', 0), /his ward is failing!$/i);
   // the patch notes say the same - on the pull request since REL6 (#503), no longer a file in the tree
   // the brain: the bearers' wait over, his own ward for SHIELD_MS
   const f = fightOf(4, 30);

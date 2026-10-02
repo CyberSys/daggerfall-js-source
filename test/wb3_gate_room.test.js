@@ -324,7 +324,8 @@ test('WB3 brain: the checkpoint - the fight is plain numbers and strings, so the
   assert.deepEqual(copy, f);
   for (let t = T0 + 20000; t < T0 + 40000; t += 250) assert.deepEqual(stepBrain(copy, t, bodies, seeded(t)), stepBrain(f, t, bodies, seeded(t)));
   const st = stateOf(f);
-  assert.deepEqual(Object.keys(st).sort(), ['atk', 'b', 'ct', 'cx', 'd', 'fell', 'h', 'k', 'm', 'md', 'mv', 'n', 'ph', 'rk', 'sh', 'su', 'wr', 'wrath', 'x', 'xa', 'yw', 'z']);   // WB8b: his marks; WB9b/c: his court, the walkways laid, the crystals, the stun, the next Reckoning
+  assert.deepEqual(Object.keys(st).sort(), ['atk', 'b', 'ct', 'cx', 'd', 'fell', 'h', 'k', 'm', 'md', 'mv', 'n', 'op', 'ph', 'rk', 'sh', 'su', 'wr', 'wrath', 'x', 'xa', 'yw', 'z']);   // WB8b: his marks; WB9b/c: his court, the walkways laid, the crystals, the stun, the next Reckoning; WB13e: the opening's end
+  assert.equal(st.op, f.startedAt + OPENING_MS, 'WB13e: his wake, on every screen');
   assert.deepEqual(validGateOut(st), { ...st }, 'and the wire takes it whole');
   assert.ok(keepInCourt(100, 0)[0] === BOSS_REACH_R);
   assert.equal(HP_SEND_MS, BRAIN_TICK_MS, 'the health at most once a beat');

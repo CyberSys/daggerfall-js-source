@@ -179,7 +179,7 @@ test('HERALD grant: a Herald pledge holds the title and its glyph by PATREON_TIE
 });
 
 test('HERALD token and relay: a token may carry the title and the glyph and verifies, every glyph at once still fits, and the relay - world138, the one that knows the word - reads both out of the signature onto the peer\'s row (mutants: the vocabulary without it, so the relay refuses the token)', async () => {
-  assert.equal(RELAY_VERSION, 'world150', 'HERALD moved it on (world138; LOOT7 after it, world139; WB11 and GATE-HEAL after that, world140; CLIMB5 and CLIMB6, world141 - missed here at that bump; FRIENDS-SYNC, world142; ELITE FOES, world143; the Seats arc\'s seven after it, world144-world150): an older relay refuses a token carrying the word');
+  assert.equal(RELAY_VERSION, 'world153', 'HERALD moved it on (world138; LOOT7 after it, world139; WB11 and GATE-HEAL after that, world140; CLIMB5 and CLIMB6, world141 - missed here at that bump; FRIENDS-SYNC, world142; ELITE FOES, world143; the Seats arc\'s seven after it, world144-world150; WB12 after them, world151; GLYPH-WEAR, world152): an older relay refuses a token carrying the word');
   const kp = await subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
   const pub = await importPublicKeyB64(Buffer.from(new Uint8Array(await subtle.exportKey('raw', kp.publicKey))).toString('base64url'), { subtle });
   const nowS = 1_760_000_000;

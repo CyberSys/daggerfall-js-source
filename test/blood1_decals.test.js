@@ -857,7 +857,9 @@ test('BLOOD1b: EVERY splash site hands its blow over, so the rate ladder actuall
   // PEERFX1/PEERFX2: the sixteenth and seventeenth - another player's blow seen landing and another player struck
   // (world.js peerFxPlayer's `blow` and `hurt` arms), each at the share of health the pose carries over a whole of 1.
   // WB11c: the eighteenth - a swing of mine that met one of the Legion-Lord's host (dungeonContext.js swingOnHost), its own blood.
-  assert.equal(sites.length, 18, `eighteen splash sites across six files - PEERFX1/PEERFX2's two are the sixteenth and seventeenth, WB11c's swing on his host the eighteenth (found ${sites.length})`);
+  // REVENANT-FATE: the nineteenth and twentieth - an execution's burst (exteriorFoes.js executionBurst, dungeonContext.js
+  // dungeonFateFrame), a blow of mine and the heaviest there is.
+  assert.equal(sites.length, 20, `twenty splash sites across six files - PEERFX1/PEERFX2's two are the sixteenth and seventeenth, WB11c's swing on his host the eighteenth, REVENANT-FATE's two executions the last (found ${sites.length})`);
   for (const [f, args] of sites) {
     assert.ok(/bloodHit\(|LETHAL_HIT/.test(args),
       `${f}: a splash site that hands over no blow - the ladder would read it as a graze`);
@@ -1142,7 +1144,8 @@ test('BLOOD1b: a site that knows nothing about the swing says so, and gets the o
   // the player's four: a melee swing in each of the three foe pools,
   // and the shaft that all three share - and WB4b's fifth, the swing on
   // the Burning Court's boss (his shaft is the shared shaft's) - and WB11c's sixth, the swing on one of his host
-  assert.equal(claimed, 6, 'exactly the six sites that ARE the player’s own blow');
+  // REVENANT-FATE: and the two executions - the player's blow on a beaten revenant, in the open world and underground
+  assert.equal(claimed, 8, 'exactly the eight sites that ARE the player’s own blow');
 });
 
 test('BLOOD1b: the gib law - ten chunks thrown UP, falling at three times gravity, landing for good', () => {
@@ -3047,7 +3050,7 @@ import { Collider } from '../src/player/collider.js';
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 test('MAC-BUG W5: the ground outside is heightAt, and surfaceHit is the ray that knows it', () => {
-  // exterior.js:593 - `new Collider(() => GROUND_OFFSET * 0.025)`,
+  // exterior.js:594 - `new Collider(() => GROUND_OFFSET * 0.025)`,
   // and not one triangle under the player's feet.
   const outside = new Collider(() => 0);
   assert.equal(outside.raycastHit([0, 2, 0], [0, -1, 0], 8).dist, Infinity,
@@ -3071,7 +3074,7 @@ test('MAC-BUG W5: the ground outside is heightAt, and surfaceHit is the ray that
     'no surface overhead when the "surface" is the ground you are under');
   assert.equal(outside.surfaceHit([0, -3, 0], [0, 1, 0], 8).normal, null);
 
-  // A DUNGEON IS UNCHANGED. dungeonContext.js:380 hands `-Infinity`,
+  // A DUNGEON IS UNCHANGED. dungeonContext.js:386 hands `-Infinity`,
   // so there is no floor to find and the answer is the bucket ray's,
   // byte for byte - which is what keeps this a second door rather
   // than a change to the first.

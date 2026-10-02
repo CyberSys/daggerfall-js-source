@@ -128,7 +128,7 @@ body:has(.hud-foe.on) .helmpanel { --hp-top: calc(18px + 28px * var(--hud-scale,
 .helmpanel-btn.held { color: rgb(243,239,44); text-shadow: 1px 1px 0 rgb(93,77,12); }
 .helmpanel-accel { min-width: 52px; justify-content: center; font-variant-numeric: tabular-nums; color: rgb(243,239,44);
   text-shadow: 1px 1px 0 rgb(93,77,12); }
-.helmpanel-key { font-size: 10px; letter-spacing: 0.04em; color: #a89f88; }
+.helmpanel-key { font-size: 11px; letter-spacing: 0.04em; color: #a89f88; }
 .helmpanel-key:empty { display: none; }
 /* AUDIT NAV1 (the presentation): a finger's bar stands centred in the room right of the corner's two presses - the
    dial's and the menu's, 48 px from 16 and 72 (ui/touch.js), 120 px in past the safe area, and 8 of air - to 16 px

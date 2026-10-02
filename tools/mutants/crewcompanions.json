@@ -164,7 +164,7 @@
   {
     "name": "CA-knock-leaves-body",
     "file": "src/scenes/crewAshore.js",
-    "old": "        stood.delete(k); lift(s);\n        if (party.knock",
+    "old": "        stood.delete(k); leave(s);   // COMPANION-PORTAL: carried off through a portal\n        if (party.knock",
     "new": "        stood.delete(k);\n        if (party.knock",
     "tests": [
       "test/crewcompanions.test.js"
@@ -182,7 +182,7 @@
   {
     "name": "CA-sent-back-stays",
     "file": "src/scenes/crewAshore.js",
-    "old": "      if (i < 0) { stood.delete(k); lift(s); continue; }",
+    "old": "      if (i < 0) { stood.delete(k); leave(s); continue; }",
     "new": "      if (i < 0) continue;",
     "tests": [
       "test/crewcompanions.test.js"
@@ -416,8 +416,8 @@
   {
     "name": "PD-my-swing-lands",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const live = foes.filter((f) => !f.dead && f.companion == null);",
-    "new": "    const live = foes.filter((f) => !f.dead);",
+    "old": "    const live = dropFateHeld(foes.filter((f) => !f.dead && f.companion == null));",
+    "new": "    const live = dropFateHeld(foes.filter((f) => !f.dead));",
     "tests": [
       "test/crewcompanions.test.js"
     ]

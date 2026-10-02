@@ -21,7 +21,7 @@
 //   allowed reader gets the title picker, and a pick opens the book
 //   reader on that id.
 
-import { getRandomBookID, bookTitle } from './books.js';
+import { getShelfBookID, bookTitle } from './books.js';   // WB12c: the shelf's draw - the port's own books among the classic ones
 import { canAccessLibrary } from './guildServices.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
 
@@ -31,7 +31,7 @@ export const BOOKSHELF_CAPACITY = 10;
 export function populateBookshelf(rolls = Math.random) {
   const books = [];
   for (let i = 0; i < BOOKSHELF_CAPACITY; i++) {
-    const id = getRandomBookID(rolls);
+    const id = getShelfBookID(rolls);
     if ((bookTitle(id) ?? '') !== '') books.push(id);
   }
   return books;

@@ -114,7 +114,7 @@ test('LOOT7-CHECK CHAMP-HOVER: a champion is named on the plaque while hostile -
   assert.equal(name({ entity: orc(0), mobileType: 7, ai: { isHostile: true } }), null, 'off: no champion stands, the mod\'s silence is whole');
   // the four live arms, each telling the door whether it is a champion
   for (const [f, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/worldModes.js', 'f'], ['src/scenes/dungeonContext.js', 'f'], ['src/scenes/cityGuards.js', 'g']]) {
-    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile, champion: !!${v}\.entity\?\.champion \}\)`), f);
+    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile, champion: foeTitled\(${v}\.entity\) \}\)`), f);
   }
   // WHY THE LINE BELOW EXISTS TOO: the plaque is the enhanced skin's - on the classic skin it never draws a name
   assert.match(strip(read('src/ui/worldPlaque.js')), /_gateOn = isEnhanced\(\) && !isTouchDevice\(\);/, 'the plaque: the enhanced skin\'s');

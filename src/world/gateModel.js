@@ -19,6 +19,9 @@
 export const GATE_ARCHIVE = 38101;
 export const GATE_STONE_RECORD = 0;
 export const GATE_PLINTH_RECORD = 1;
+/** WB12d: the faithful's sigil, burned into the earth (world/gateArt.js riteSigilArt) - AUDIT WB12d (G11): its own, where
+ *  it wore the plinth's flags across thirteen metres. */
+export const RITE_SIGIL_RECORD = 2;
 
 /** The horns' spine, in the x/y plane of the left horn (the right is its mirror): a cubic from its root on the plinth
  *  out, up, and in over the threshold. Metres. */

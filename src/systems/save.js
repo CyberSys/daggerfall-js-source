@@ -28,7 +28,7 @@ import { seedCustomSpellIndex } from './spellMaker.js';   // S1: made spells car
 import { seedBundleSeq, effectKindLoaded } from './effects.js';   // X10: the live-bundle counter's restore half; AUDIT PRE-MERGE 0928 S3: a mod's effect restores only while its mod is loaded
 import { repairLostCurses } from './curseRepair.js';   // CURSE-REPAIR1: a curse the round clock pruned, given back
 import { repairUnmintedConditions } from './conditionRepair.js';   // DISC21-A: a wearable minted with no condition, minted
-import { restackStones } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack
+import { restackStones, nameEmbers } from './gateSpoils.js';   // SS1: Sigil Stones saved before they stacked, folded into one stack; WB12a: and named Deadlands Embers
 import './profTemplates.js';   // PROF2: the ores, ingots and stone a pack may hold, known to every scene a save loads in
 import { repairRarityNames, repairRarityBases } from './lootRarity.js';   // DISC29-B: a Magic or Rare Roleplay & Realism: Items piece given back its make's word; RARITY-WEAR: a rolled wand worn as an Amulet
 import { SOCIAL_GROUPS } from '../formats/factionFile.js';   // AUDIT 24
@@ -670,6 +670,11 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
     const n = repairRarityNames(list);
     if (n) console.info(`[save] DISC29-B: ${n} item name(s) given back the word their make wrote`);
   }
+  // WB12a: the Sigil Stones a save kept under their old name are Deadlands Embers - every list, as the names above
+  for (const list of repairLists) {
+    const n = nameEmbers(list);
+    if (n) console.info(`[save] WB12a: ${n} stone record(s) named Deadlands Embers`);
+  }
   // RARITY-WEAR (FIELD BUGS 2026-10-01): a Magic, Rare or Legendary piece the spoils minted on a Wand - no slot takes it,
   // so its tier was read by nothing - moved to its wearable home (lootRarity.js repairRarityBases: the Amulet)
   for (const list of repairLists) {
@@ -752,7 +757,7 @@ export function restorePlayer(entity, snap, spellsByIndex = null) {
   // the gold migration's own reason: a record removed before `lightSourceIndex` is read slides every later item one place.
   for (const list of [entity.items, entity.wagonItems]) {
     const n = restackStones(list);
-    if (n) console.info(`[save] SS1: ${n} Sigil Stone record(s) folded into their stacks`);
+    if (n) console.info(`[save] SS1: ${n} Deadlands Ember record(s) folded into their stacks`);
   }
   entity.activeEffects = (snap.activeEffects ?? []).filter((a) => !a.heldItem && !a.bundleDuel).filter((a) => effectKindLoaded(a.kind)).map(copyEffectEntry);   // E2: a stale pin in an old snapshot cannot re-link - drop it (DFU :2312); AUDIT DUEL1 B4: nor a duel's spell a save from before the filter kept; AUDIT PRE-MERGE 0928 S3: nor an effect of a mod not loaded (Come Sail Away's water walk)
   // DISC10-D/E V11: THE DREAM'S PUSH IS NOT SAVED. CustomSaveData_v1 keeps

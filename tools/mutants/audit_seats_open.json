@@ -122,8 +122,8 @@
  {
   "name": "ASO-tv-badge-rb",
   "file": "src/ui/travelViewHud.js",
-  "old": "glyphs: glyphBadges(b), rb: ribbonColours(b?.rb) };",
-  "new": "glyphs: glyphBadges(b), rb: null };",
+  "old": "glyphs: glyphBadges(b), rb: ribbonColours(b?.rb), arms: badgeArms(b) };",
+  "new": "glyphs: glyphBadges(b), rb: null, arms: badgeArms(b) };",
   "tests": [
    "test/seats_finish.test.js"
   ]
@@ -131,8 +131,8 @@
  {
   "name": "ASO-tv-badgekey",
   "file": "src/ui/travelViewHud.js",
-  "old": "|${(Array.isArray(b.rb) ? b.rb : []).join('/')}` : '');",
-  "new": "` : '');",
+  "old": "|${(Array.isArray(b.rb) ? b.rb : []).join('/')}|${h ?",
+  "new": "|${h ?",
   "tests": [
    "test/seats_finish.test.js"
   ]

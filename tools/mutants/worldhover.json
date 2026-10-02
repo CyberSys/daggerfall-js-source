@@ -1101,8 +1101,8 @@
   {
     "name": "AUDIT-WH2-the-live-entity-takes-the-corpses-member",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion });",
-    "new": "    const t = mobileEntityName(enemyDisplayName(f.mobileType), { hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion });",
+    "old": "    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });",
+    "new": "    const t = mobileEntityName(enemyDisplayName(f.mobileType), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });",
     "tests": [
       "test/worldhover.test.js",
       "test/citedrift.test.js"

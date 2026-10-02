@@ -20,7 +20,7 @@ export const FLAME_SCALE = 1.8;
  * @param {{ renderer: any, getTexture?: ((archive: number) => any) | null, uploadRecordFrame?: ((archive: number, record: number, frame: number) => void) | null }} deps
  */
 export function createNavalFlames({ renderer, getTexture = null, uploadRecordFrame = null }) {
-  /** @type {Set<{ pos: number[], batch: any, anim: any, dead: boolean }>} */
+  /** @type {Set<{ pos: number[], batch: any, anim: any, dead: boolean, hidden?: boolean }>} */
   const live = new Set();
   /** @type {{ count: number, size: { w: number, h: number } } | null} */
   let art = null;
@@ -51,21 +51,23 @@ export function createNavalFlames({ renderer, getTexture = null, uploadRecordFra
   }
 
   return {
-    /** A flame at a place: `{ move(pos), retire() }`. */
+    /** A flame at a place: `{ move(pos), show(on), retire() }` - AUDIT BAY A14: `show(false)` stands it down
+     *  (her ship half faded out of the world: a flat, it goes with her flats), `show(true)` up again. */
     flame(pos) {
-      const f = { pos: [pos[0], pos[1], pos[2]], batch: null, anim: null, dead: false };
+      const f = { pos: [pos[0], pos[1], pos[2]], batch: null, anim: null, dead: false, hidden: false };
       live.add(f);
       ensureArt();
       mount(f);
       return {
         move(p) { f.pos[0] = p[0]; f.pos[1] = p[1]; f.pos[2] = p[2]; },
+        show(on) { f.hidden = !on; },
         retire() { f.dead = true; unmount(f); live.delete(f); },
       };
     },
     /** The frames, on the frame's clock. */
     tick(dt) { for (const f of live) if (f.batch && f.anim) f.batch.frame = f.anim.tick(dt); },
-    /** The batches, for the flats' axis. */
-    batches() { const out = []; for (const f of live) if (f.batch) out.push(f.batch); return out; },
+    /** The batches, for the flats' axis - a flame stood down none. */
+    batches() { const out = []; for (const f of live) if (f.batch && !f.hidden) out.push(f.batch); return out; },
     /** The floating origin moved: every flame with it (the host re-places them next frame anyway). */
     offsetAll(o) { for (const f of live) { f.pos[0] += o[0]; f.pos[1] += o[1]; f.pos[2] += o[2]; } },
     /** Every flame out (the sea emptied). */

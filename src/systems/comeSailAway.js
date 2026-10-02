@@ -284,6 +284,8 @@ export const BOAT_ACTIONS = Object.freeze({
   // HELM-KEYS (the port's, DECLARED): the arrows' more and less sail (MoreSail, LessSail)
   sailUp: 'BoatSailUp', sailDown: 'BoatSailDown',
 });
+/** FIELD BUGS 2026-10-02b PLACE-AFLOAT: the placing's word for a water tile that stands over the sea's line. */
+export const PLACE_RAISED_TEXT = 'This water stands above the sea - place her on the open water.';
 /** HELM-KEYS (the port's, DECLARED): a helm IN IRONS - her sails up, her bow within IRONS_TELL_DEG of the wind's eye and
  *  her way under IRONS_TELL_WAY m/s for IRONS_TELL_S running: the sails cannot draw and the mod's rudder cannot turn a
  *  hull that makes no way, so the helm is told once how she comes out (IRONS_TEXT) - and the panel says it while it lasts
@@ -739,12 +741,28 @@ export function createComeSailAwayRuntime(deps) {
     const val = vScale(quatRotate(boat.MeshObject.rotation, [0, 0, 1]), f(f(local.extent[2]) - x));
     const val2 = vAdd(center, val), val3 = vSub(center, val);
     const val4 = vSub(val2, val3);
+    // FIELD BUGS 2026-10-02b ROCK-REACH (a departure): each sweep reaches her own end - its sphere's centre from hers to
+    // her end's, `val` - where the C#'s reached val4, the whole length again past it: a rock half a hull clear of her
+    // bow or her stern pushed her and refused her helm, and the push answers the SUM of all she met - two clear astern
+    // and one clear ahead summed astern-to-fore, she kept her way, and sailed onto the one ahead and on through it.
+    const reach = vMagnitude(val);
+    // FIELD BUGS 2026-10-02b ROCK-FREE's audit (departures): the host is handed her keel line - her collider's box's
+    // foot under its centre, as she floats however the swell pitches her (a shelf under it is no rock) - and herself
+    // (her own colliders are not asked). A start overlap - the host answers it where it touches, `start`, where Unity
+    // answers the zero point - is the second sweep's refusal as the zero point is (a rock overlapping her side counted
+    // twice outweighed the rock ahead, and she slid 15.9 m into it), and it pushes her off it from her sweep's centre,
+    // where it overlaps her: one straight under that centre has no side to push her from, and is none.
+    const m = boat.MeshObject.worldMatrix();
+    const footY = f(local.center[1] - local.extent[1]);
+    const opts = { keelY: f(f(f(f(m[1] * local.center[0]) + f(m[5] * footY)) + f(m[9] * local.center[2])) + m[13]), boat };
     const sweep = (dir, zeroPointOk) => {
-      for (const hit of deps.sphereCastAll?.(center, x, vNormalized(dir), vMagnitude(val4)) ?? []) {
+      for (const hit of deps.sphereCastAll?.(center, x, vNormalized(dir), reach, opts) ?? []) {
         if (hit.root === boat.GameObject || hit.terrain || hit.entity) continue;
-        if (!zeroPointOk && vEquals(hit.point, [0, 0, 0])) continue;
+        if (!zeroPointOk && (hit.start || vEquals(hit.point, [0, 0, 0]))) continue;
+        const off = vNormalized(vProjectOnPlane(vSub(hit.start ? center : boat.GameObject.position, hit.point), V_UP));
+        if (hit.start && vEquals(off, [0, 0, 0])) continue;
         log(`COME SAIL AWAY - BOAT COLLIDED WITH ${hit.name}`);
-        state.collisionDirections.push(vNormalized(vProjectOnPlane(vSub(boat.GameObject.position, hit.point), V_UP)));
+        state.collisionDirections.push(off);
       }
     };
     sweep(vSub(val2, val3), true);
@@ -1314,9 +1332,11 @@ export function createComeSailAwayRuntime(deps) {
         } else state.oarModeTimer = f(state.oarModeTimer + dt());
       }
       let num3 = 0, num4 = 0, num5 = 0;
-      // the nodes the C# asks: forward the CENTRE's, back the bow's, right the stern's, left the starboard's (kept)
+      // the nodes the C# asks: forward the CENTRE's, back the bow's, right the stern's, left the starboard's (kept, but
+      // for one). FIELD BUGS 2026-10-02 ASTERN (a departure): back asks the STERN's, the water she backs into - asking the
+      // bow's, a bow run onto a shoal or a rock's foot refused the one way off it, and the centre's water let her row on in
       if ((has('MoveForwards') || deps.input?.toggleAutorun) && IsNodeOnWater(boat, 0)) num3 = 1;
-      else if (has('MoveBackwards') && IsNodeOnWater(boat, 1)) num3 = -1;
+      else if (has('MoveBackwards') && IsNodeOnWater(boat, 2)) num3 = -1;
       if (has('Run')) {
         if (has('MoveRight') && IsNodeOnWater(boat, 2)) num4 = 0.5;
         else if (has('MoveLeft') && IsNodeOnWater(boat, 3)) num4 = -0.5;
@@ -1366,7 +1386,10 @@ export function createComeSailAwayRuntime(deps) {
     if (deps.input.started(BOAT_ACTIONS.timeScaleReset)) ResetTimeScale();
   }
 
-  /** LateUpdate's sailing arm (4936-4956): the nodes and the collision when the boat moved, then the move. */
+  /** LateUpdate's sailing arm (4936-4956): the nodes and the collision when the boat moved, then the move.
+   *  FIELD BUGS 2026-10-02 BEACH-READ (a departure): a beached boat's nodes are read again every frame she lies still, and
+   *  the collision with them once she comes off. The C# reads them only when she moved, and a beached boat never moves -
+   *  so a reading the ground has since put right (a pixel's carve come after it, a terrain built again) held her for good. */
   function lateUpdateSailing() {
     const boat = state.CurrentBoat;
     const t = boat.GameObject;
@@ -1375,12 +1398,19 @@ export function createComeSailAwayRuntime(deps) {
       state.lastBoatPosition = t.position.map(f);
       state.lastBoatDirection = fwd.map(f);
       UpdateCurrentBoatNodes();
+    } else if (IsBeached(boat) && deps.playerTerrain() != null) {   // never the C#'s throw on a terrain not built, each frame
+      UpdateBoatNodes(boat);
+      if (!IsBeached(boat)) CheckCollision(boat);
     }
     if (!IsBeached(boat)) {
       let val = inverseTransformDirection(t, state.currentVector);
       if (!vEquals(state.CollisionVector, [0, 0, 0])) {
-        state.MoveVectorCurrent = vAdd(vProjectOnPlane(state.MoveVectorCurrent, state.CollisionVector), state.CollisionVector);
-        val = vProjectOnPlane(val, state.CollisionVector);
+        // FIELD BUGS 2026-10-02 ROCK-AWAY (a departure): the response takes the way INTO what she met, as the C# does
+        // - and her way off it, and the current's, the C# took too: a rock astern of a ship sailing away (or ahead of
+        // one backing off) held her to the push's one metre a second for as long as it lay in her sweep's reach, a
+        // hull's length and more. Under way away from it, she keeps her way; at rest, or into it, the C#'s push.
+        if (vDot(state.MoveVectorCurrent, state.CollisionVector) <= 0) state.MoveVectorCurrent = vAdd(vProjectOnPlane(state.MoveVectorCurrent, state.CollisionVector), state.CollisionVector);
+        if (vDot(val, state.CollisionVector) < 0) val = vProjectOnPlane(val, state.CollisionVector);
       }
       state.velocityCurrent = vAdd(state.MoveVectorCurrent, val);
       const before = t.worldMatrix();
@@ -2208,6 +2238,14 @@ export function createComeSailAwayRuntime(deps) {
         }
       }
       if (val2.terrain != null && tileMapIndexAtPosition(val2.point, val2.terrain) === 0) {
+        // FIELD BUGS 2026-10-02b PLACE-AFLOAT (a departure): with Iliac Puddle No More on, a water tile that stands over
+        // the sea's line - a town's harbour basin at its ground's height - is no water her nodes can read: placed there
+        // she lay beached, her sails refused ("Boat is obstructed"), from the first frame. Refused with a word instead.
+        if (ipnm && nodeReadingAt(val2.point, val2.terrain) !== 0) {
+          deps.midScreenText(PLACE_RAISED_TEXT, 3);
+          StopPlacing();
+          return;
+        }
         deps.hudText('Boat placed!');
         let boat3 = null;
         if (state.placeItem != null && state.placeItem.templateIndex === BOAT_DEED_TEMPLATE) boat3 = GetPlacedBoatWithUID(state.placeItem.UID);

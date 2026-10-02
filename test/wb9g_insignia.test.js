@@ -1,6 +1,6 @@
 // WB9g (2026-09-30, Mac: "Add a brand new title to the broker and a new addition (the aura), an animated burning ground
 // aura that circles the ground where your character stands. These items should be expensive and sought after"): THE
-// BROKER'S INSIGNIA - the Gatebreaker title and Dagon's Fire, bought with Sigil Stones and kept by the ACCOUNT (the
+// BROKER'S INSIGNIA - the Gatebreaker title and Dagon's Fire, bought with Deadlands Embers and kept by the ACCOUNT (the
 // sale recorded on the row, the account's closed gates paying), signed into the token and read off it by the relay;
 // the fire drawn at the feet of whoever wears it (render/auraRing.js), its shader RUN here rather than its text pinned.
 // Design: bible/11-Multiplayer/World-Bosses.md section 14 (WB9g).
@@ -38,14 +38,14 @@ import { buyInsignia as serviceBuyInsignia } from '../server-account/src/account
 const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
 const quiet = (fn) => { const info = console.info, warn = console.warn; console.info = () => {}; console.warn = () => {}; try { return fn(); } finally { console.info = info; console.warn = warn; } };
-/** A pack's stack of `n` Sigil Stones - one record, as addItem makes it. */
+/** A pack's stack of `n` Deadlands Embers - one record, as addItem makes it. */
 const stack = (n) => Object.assign(sigilStone(), { stackCount: n });
 /** A storage over a Map - the device's own, as the page's localStorage is. */
 const memStorage = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k), _m: m }; };
 
 // ── THE LAW (net/insignia.js) ───────────────────────────────────────
 
-test('WB9g the insignia\'s law: two pieces, the Gatebreaker title at 30 Sigil Stones and Dagon\'s Fire at 50 - dearer than anything the day\'s stock sells (the Regalia is 12) - each key in the token\'s vocabulary; the column read as the ids it holds, once each, in their order (a stranger\'s word, a repeat and an over-long column hold nothing); a sale appends; the keys of a kind; the side\'s own refusals (mutants: a price cut; a repeat held twice; the column unbounded; an owned piece sold again; an offline sale; a short purse served)', () => {
+test('WB9g the insignia\'s law: two pieces, the Gatebreaker title at 30 Deadlands Embers and Dagon\'s Fire at 50 - dearer than anything the day\'s stock sells (the Regalia is 12) - each key in the token\'s vocabulary; the column read as the ids it holds, once each, in their order (a stranger\'s word, a repeat and an over-long column hold nothing); a sale appends; the keys of a kind; the side\'s own refusals (mutants: a price cut; a repeat held twice; the column unbounded; an owned piece sold again; an offline sale; a short purse served)', () => {
   assert.deepEqual(INSIGNIA.map((r) => [r.id, r.kind, r.key, r.price]), [['title:gatebreaker', 'title', 'gatebreaker', 30], ['aura:dagonfire', 'aura', 'dagonfire', 50]]);
   assert.ok(Object.isFrozen(INSIGNIA) && INSIGNIA.every(Object.isFrozen), 'the law is not a table a caller can edit');
   const dearest = Math.max(...Object.values(BROKER_PRICES));
@@ -107,8 +107,8 @@ test('WB9g the token and the wire: a token may carry the aura worn (`au`), absen
   assert.equal(readAura(null), null);
   // the relay: the hello's verified identity carries it, and the attached row it is stamped from carries it on
   const relay = rd('server/src/index.js');
-  assert.match(relay, /return \{ name: c\.n, kind: c\.k, subject: c\.s, title: c\.t, ts: c\.ts, glyphs: c\.g, au: c\.au, rb: c\.rb, mu, lv: c\.lv, \.\.\.guild, gio: c\.i \};/, 'off the signature (SEASON1 part two, PIN MOVED: a Season\'s banner ribbon beside it)');
-  assert.match(relay, /this\._setAttach\(ws, \{ \.\.\.a, id: m\.id, name: who\.name, title: who\.title, \.\.\.\(who\.ts \? \{ ts: who\.ts \} : \{\}\), glyphs: who\.glyphs, au: who\.au, \.\.\.\(who\.rb \? \{ rb: who\.rb \} : \{\}\), lv: who\.lv,/, 'onto the socket\'s row (SEAT1c: a seat title\'s claim beside the title)');
+  assert.match(relay, /return \{ name: c\.n, kind: c\.k, subject: c\.s, title: c\.t, ts: c\.ts, glyphs: c\.g, gx: c\.gx, au: c\.au, rb: c\.rb, mu, lv: c\.lv, \.\.\.guild, gio: c\.i \};/, 'off the signature (SEASON1 part two, PIN MOVED: a Season\'s banner ribbon beside it)');
+  assert.match(relay, /this\._setAttach\(ws, \{ \.\.\.a, id: m\.id, name: who\.name, title: who\.title, \.\.\.\(who\.ts \? \{ ts: who\.ts \} : \{\}\), glyphs: who\.glyphs, gx: who\.gx, au: who\.au, \.\.\.\(who\.rb \? \{ rb: who\.rb \} : \{\}\), lv: who\.lv,/, 'onto the socket\'s row (SEAT1c: a seat title\'s claim beside the title)');
 });
 
 // ── THE SERVICE ─────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ const getAccount = async (fetch, who) => {
   return { status: res.status, body: await res.json() };
 };
 
-test('WB9g the service\'s sale: a piece is bought ONCE for an ACCOUNT, paid for by the gates it closed (one Sigil Stone a gate) less what its insignia already cost - short refused with what the gates can still pay; the title held from the sale on, as a founder\'s is, and wearable; the aura held and not worn until pressed; owned refused; a guest and an unknown piece refused; the account view says the purse (mutants: the gates never counted; the spend never added; a piece sold twice; the title not held; a guest served)', async () => {
+test('WB9g the service\'s sale: a piece is bought ONCE for an ACCOUNT, paid for by the gates it closed (one Deadlands Ember a gate) less what its insignia already cost - short refused with what the gates can still pay; the title held from the sale on, as a founder\'s is, and wearable; the aura held and not worn until pressed; owned refused; a guest and an unknown piece refused; the account view says the purse (mutants: the gates never counted; the spend never added; a piece sold twice; the title not held; a guest served)', async () => {
   // the service's laws on the row, derived at every ask
   const bought = { handle: 'B', created_at: 1_900_000_000, registered_at: 1_900_000_000, insignia: 'aura:dagonfire title:gatebreaker', aura: 'dagonfire' };
   assert.deepEqual(aurasHeld(bought), ['dagonfire']);
@@ -254,7 +254,7 @@ test('WB9g the client\'s doors: the aura and the sale through the one call door,
     const s = accountRefusalText(w);
     assert.ok(typeof s === 'string' && s.length > 20 && !s.includes(w), `${w}: a sentence, never the machine word`);
   }
-  assert.match(accountRefusalText('short'), /Each gate closed pays one Sigil Stone\./);
+  assert.equal(accountRefusalText('short'), 'Your account has too few embers for that.');   // WB13b: the card says the rule; AUDIT WB12d (A4): the purse is embers
   // the stored session
   const st = memStorage();
   keepSession(st, { id: me.id, name: 'Doors', kind: 'linked', sessionId: 's1', secret: me.secret, glyphs: [] });
@@ -506,8 +506,8 @@ test('WB9g the Broker\'s window: under the day\'s stock, the Insignia - its head
       const btn = (r) => one(r, 'broker-buy');
       assert.equal(btn(ins[0]).textContent, 'Buy', 'thirty-eight stones buy the title');
       assert.equal(btn(ins[1]).textContent, 'Wear');
-      assert.match(ins[0].attrs['aria-label'], /^Gatebreaker, a title, 30 Sigil Stones$/);
-      assert.match(ins[1].attrs['aria-label'], /^Dagon's Fire, an aura, 50 Sigil Stones, owned$/);
+      assert.match(ins[0].attrs['aria-label'], /^Gatebreaker, a title, 30 Deadlands Embers$/);
+      assert.match(ins[1].attrs['aria-label'], /^Dagon's Fire, an aura, 50 Deadlands Embers, owned$/);
       // the card
       ins[1].onkeydown({ key: 'Enter', target: ins[1], preventDefault() {} });
       let card = one(shell, 'broker-insignia-card');
@@ -529,9 +529,9 @@ test('WB9g the Broker\'s window: under the day\'s stock, the Insignia - its head
       await settle();
       assert.equal(asked.length, 1, 'a second press waits on the first');
       rows[0].owned = true;
-      answer({ ok: true, text: 'Bought: Gatebreaker, for 30 Sigil Stones.' });
+      answer({ ok: true, text: 'Bought: Gatebreaker, for 30 Deadlands Embers.' });
       await settle(); await settle();
-      assert.equal(one(shell, 'broker-note').textContent, 'Bought: Gatebreaker, for 30 Sigil Stones.');
+      assert.equal(one(shell, 'broker-note').textContent, 'Bought: Gatebreaker, for 30 Deadlands Embers.');
       assert.ok(one(shell, 'broker-note').classList.contains('ok'));
       ins = kids(shell, 'broker-insig');
       assert.equal(btn(ins[0]).textContent, 'Wear', 'owned now');
@@ -669,7 +669,7 @@ test('WB9g the world host, by source: the auras gathered with the peers each fra
   assert.match(wear, /offer\.kind === 'title' \? await equipTitle\(io, want\) : await equipAura\(io, want\)/);
   assert.match(wear, /insigniaSelf\(r\.data, io\.secret\);/);
   assert.match(w, /online\?\.adoptIdentity\?\.\(\{ title: _insignia\.title, glyphs: online\.glyphs, level: online\.lv, aura: _insignia\.aura \}\);/);
-  assert.match(w, /adoptSessionIdentity\(appStorage\(\), \{ glyphs: answer\?\.glyphs, aura: _insignia\.aura, secret \}\);/);
+  assert.match(w, /adoptSessionIdentity\(appStorage\(\), \{ glyphs: answer\?\.glyphs, glyphsOff: answer\?\.glyphsOff, aura: _insignia\.aura, secret \}\);/);
   assert.match(w, /insignia: insigniaRows, insigniaLoad, buyInsignia: insigniaBuy, wearInsignia: insigniaWear, insigniaBusy: \(\) => _insignia\.busy,/);
   // the service's side: the routes behind the door, the version moved, the deploy watching the law
   const svc = rd('server-account/src/service.js');

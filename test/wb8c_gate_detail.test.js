@@ -20,7 +20,8 @@ import {
 } from '../src/world/gateBoss.js';
 import { telegraphShape, markShape, BOSS_MARK_R } from '../src/render/gateTelegraph.js';
 import { bossBarModel, drawGateBossBar, destroyGateBossBar } from '../src/ui/gateBossBar.js';
-import { createGateCourt, COURT_STRIKE_TEXT, COURT_PHASE_TEXT, COURT_MARKS_TEXT, courtPhaseText, MARK_COLOR, FED_LATE_MS } from '../src/scenes/gateCourt.js';
+import { aspectCss } from '../src/ui/gateMarksView.js';   // WB13c: his epithet's colour on the bar
+import { createGateCourt, COURT_STRIKE_TEXT, COURT_MARKS_TEXT, courtPhaseCard, MARK_COLOR, FED_LATE_MS } from '../src/scenes/gateCourt.js';
 import { courtToDungeon } from '../src/world/gateArena.js';
 import { gateTip } from '../src/systems/gateOmen.js';
 import { omenPost } from '../src/net/gateHerald.js';
@@ -99,11 +100,11 @@ test('WB8c the court\'s strikes: his frost through MY frost throw - the host ask
   await tick(r, 13000, state({ md: ['storm'], atk: W('hellfire', { i: 7, at: 13001, tg: [[1, 1]] }), phase: 2 }));
   await tick(r, 13001);
   assert.deepEqual(r.struck, []);
-  assert.ok(r.said.includes(COURT_STRIKE_TEXT.resisted('Stormfall', 'shock')));
-  assert.equal(COURT_STRIKE_TEXT.resisted('Stormfall', 'shock'), 'You resist the lightning of the Stormfall.');
-  assert.equal(COURT_STRIKE_TEXT.resisted('Hellfire'), 'You resist the flames of the Hellfire.', 'fire\'s words as they were');
-  assert.equal(COURT_STRIKE_TEXT.resisted('Venom Nova', 'poison'), 'You resist the venom of the Venom Nova.');
-  assert.equal(COURT_STRIKE_TEXT.resisted('Frost Nova', 'frost'), 'You resist the frost of the Frost Nova.');
+  assert.ok(r.said.includes(COURT_STRIKE_TEXT.resisted('Stormfall')));
+  assert.equal(COURT_STRIKE_TEXT.resisted('Stormfall'), 'Stormfall resisted.', 'WB13b: the blow by its name under his aspect, and stop');
+  assert.equal(COURT_STRIKE_TEXT.resisted('Hellfire'), 'Hellfire resisted.');
+  assert.equal(COURT_STRIKE_TEXT.resisted('Venom Nova'), 'Venom Nova resisted.');
+  assert.equal(COURT_STRIKE_TEXT.resisted('Frost Nova'), 'Frost Nova resisted.');
   // Colossal: his slam reaches me 8 m off
   const c = court({ feet: [0, 0, 8], maxHealth: 100 });
   await tick(c, 9000, state({ md: ['burning', 'colossal'], atk: W('slam', { i: 9 }) }));
@@ -126,14 +127,12 @@ test('WB8c the court\'s words: his marks said as I step through (his aspect\'s o
   const h = court();
   await tick(h, 1000, state({ md }));
   await tick(h, 1100, state({ md }));
-  assert.deepEqual(h.said, [COURT_MARKS_TEXT.arrive(fightProfile(md))]);
-  assert.equal(COURT_MARKS_TEXT.arrive(fightProfile(md)), 'The air rimes as you step through: the Warden\'s fire burns cold tonight. His marks tonight: Colossal, Echoing.');
+  assert.deepEqual(h.said, [], 'WB13b: nothing said on stepping in - the marks\' card stands at that moment');
+  assert.equal(h.c.state().marksAt, 1000, 'the card stands from the step - its moment held, never moved by the next frame (it would never go)');
+  assert.ok(!('arrive' in COURT_MARKS_TEXT));
   const plain = court();
   await tick(plain, 1000, state({}));
   assert.deepEqual(plain.said, [], 'an unmarked Warden (an older relay\'s) says nothing new');
-  const late = court();
-  await tick(late, 1000, state({ md, fell: { at: 500, top: [], n: 1 } }));
-  assert.ok(!late.said.includes(COURT_MARKS_TEXT.arrive(fightProfile(md))), 'he has already gone');
   // feeding
   await tick(h, 2000, state({ md, fed: { ns: ['Ann'], at: 1999 } }));
   await tick(h, 2100, state({ md, fed: { ns: ['Ann'], at: 1999 } }));
@@ -156,14 +155,12 @@ test('WB8c the court\'s words: his marks said as I step through (his aspect\'s o
   await tick(hidden, 62000, state({ md, fed: { ns: ['Bob'], at: 12000 } }));
   assert.ok(!hidden.said.some((s) => s.includes('Bob')), 'a feeding 50 s old said as news');
   assert.ok(FED_LATE_MS >= 1000 && FED_LATE_MS <= 5000);
-  // the turns
-  assert.equal(courtPhaseText(2, gateAspectOf('burning')), COURT_PHASE_TEXT[2]);
-  assert.equal(courtPhaseText(3, gateAspectOf('burning')), COURT_PHASE_TEXT[3]);
-  // WB9b/c: each turn crosses to the next court, and the last brings the Reckoning
-  assert.equal(courtPhaseText(2, gateAspectOf('rime')), 'The Burning Court: he bounds across the fire - follow him over the walkway. There the floor will freeze - keep out of the rime.');
-  assert.equal(courtPhaseText(3, gateAspectOf('storm')), 'Dagon\'s Champion: he bounds to the last court and calls on Dagon - stand between the spokes of lightning, and shatter the crystals when he calls his Reckoning.');
+  // the turns - WB13e: a card, its one order the same under every aspect (WB9b/c: each turn crosses to the next court)
+  assert.deepEqual(courtPhaseCard(2), { kicker: 'II', main: 'The Burning Court', sub: 'Follow him over the walkway.' });
+  assert.deepEqual(courtPhaseCard(3), { kicker: 'III', main: 'Dagon\'s Champion', sub: 'Follow him to the last court.' });
   await tick(h, 3000, state({ md, phase: 2 }));
-  assert.ok(h.said.includes(courtPhaseText(2, gateAspectOf('rime'))));
+  assert.equal(h.c.state().beat.main, 'The Burning Court', 'shown as it comes');
+  assert.ok(!h.said.some((s) => s.includes('Burning Court')), 'nothing said beside it');
   destroyGateBossBar();
 });
 
@@ -206,7 +203,7 @@ test('WB8c the look and the voice: his elemental blows, his ground and his ember
   assert.deepEqual(w.color, ASPECT_COLORS.rime.nova.map((c) => c * 2.4), 'a landing flares in his aspect\'s colour');
 });
 
-test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at its reach and his body, in his aspect\'s colour; his mark about his own body; the bar says his epithet after his name, his trials under it, and each attack by his aspect\'s name in its colour (mutants: the old reach drawn; the Burning name under the storm)', () => {
+test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at its reach and his body, in his aspect\'s colour; his mark about his own body; the bar says his epithet under his name (WB13c), his trials under it, and each attack by his aspect\'s name in its colour (mutants: the old reach drawn; the Burning name under the storm)', () => {
   const C = fightProfile(['storm', 'colossal', 'grudge']);
   const sh = telegraphShape(W('slam', { at: 11000 }), 1, 10000, C);
   assert.equal(sh.r, 8.5); assert.equal(sh.body, BOSS_R * 1.25);
@@ -217,7 +214,7 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
   const boss = { name: 'Valkynaz Ruhn', title: 'Warden of the Burning Gate' };
   const m = bossBarModel(state({ md: ['storm', 'colossal', 'grudge'], atk: W('meteor', { at: 12000 }), phase: 2 }), 10000, boss);
   assert.equal(m.epithet, 'the Storm-Crowned'); assert.equal(m.trials, 'Colossal - Grudge-Bearer');
-  assert.deepEqual(m.callout, { text: 'Thunderbolt of Oblivion', color: `rgb(${ASPECT_COLORS.storm.meteor.map((c) => Math.round(c * 255)).join(', ')})` });
+  assert.deepEqual({ text: m.callout.text, color: m.callout.color }, { text: 'Thunderbolt of Oblivion', color: `rgb(${ASPECT_COLORS.storm.meteor.map((c) => Math.round(c * 255)).join(', ')})` });
   const u = bossBarModel(state({ atk: W('meteor', { at: 12000 }), phase: 2 }), 10000, boss);
   assert.equal(u.epithet, ''); assert.equal(u.trials, ''); assert.equal(u.callout.text, 'Meteor of Oblivion');
   // the node: his name with his epithet; WB9a: his marks under his health, a chip each (the row hidden when he bears none)
@@ -227,12 +224,14 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
   destroyGateBossBar();
   drawGateBossBar(m, { doc });
   const root = doc.body.children[0];
-  assert.equal(root.children[0].textContent, 'Valkynaz Ruhn the Storm-Crowned - Warden of the Burning Gate');
-  const row = root.children[2];
+  assert.equal(root.children[0].textContent, 'Valkynaz Ruhn', 'WB13c: his name on its own line');
+  const sub = root.children[1];
+  assert.deepEqual([sub.textContent, sub.style.color], ['The Storm-Crowned', aspectCss('storm')], 'WB13c: his epithet beneath it, in his aspect\'s colour');
+  const row = root.children[3];
   assert.equal(row.className, 'wb-boss-marks');
   assert.deepEqual(row.children.map((c) => c.children[0].children[1].textContent), ['Storm-Crowned', 'Colossal', 'Grudge-Bearer']);
   drawGateBossBar(u, { doc });
-  assert.equal(root.children[0].textContent, 'Valkynaz Ruhn - Warden of the Burning Gate');
+  assert.deepEqual([root.children[0].textContent, sub.textContent, sub.style.color], ['Valkynaz Ruhn', 'Warden of the Burning Gate', ''], 'unmarked, his title there');
   assert.equal(row.style.display, 'none');
   destroyGateBossBar();
 });
@@ -242,13 +241,14 @@ test('WB8c the ground drawn and the bar: the telegraph shows Colossal\'s slam at
 test('WB8c tonight\'s marks before the gate opens: the chat\'s line (his aspect\'s omen, each trial by name and in words), the map\'s card while he stands (his epithet and his trials), the Discord omen in the tables\' words alone (mutants: the card without them; a trial unsaid)', () => {
   const day = 112;   // WB11a: the nine-trial rotation moved the Rime-Wrought, Colossal and Unyielding from day 3 to day 112
   assert.deepEqual(gateModsOf(day), ['rime', 'colossal', 'unyielding']);
-  assert.equal(marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(day) }),
-    'Valkynaz Ruhn comes the Rime-Wrought tonight. His fire burns cold - frost, not flame. Colossal: larger and harder to fell; his Ground Slam reaches further. Unyielding: his ward holds twice as long, and every blow on him lands 15% lighter.');
+  assert.equal(marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(day) }), 'Valkynaz Ruhn comes the Rime-Wrought tonight, Colossal and Unyielding.', 'WB13b: by name - the card says what each does');
+  assert.equal(marksLine({ boss: 'Valkynaz Ruhn', md: ['storm'] }), 'Valkynaz Ruhn comes the Storm-Crowned tonight.');
+  assert.equal(marksLine({ boss: 'Valkynaz Ruhn', md: ['venom', 'grudge', 'echoing', 'legion'] }), 'Valkynaz Ruhn comes the Venom-Blooded tonight, Grudge-Bearer, Echoing and Legion-Lord.');
   const c = { site: { place: 'Copperham, Wrothgarian Mountains' }, phase: 'open', t: { day } };
-  assert.deepEqual(gateTip(c, { to: 'seal', ms: 60_000 }), { title: 'Oblivion Gate', lines: ['Near Copperham, Wrothgarian Mountains', 'Open - seals in 1:00', 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Rime-Wrought - Colossal, Unyielding'] });
+  assert.deepEqual(gateTip(c, { to: 'seal', ms: 60_000 }), { title: 'Dagon\'s Breach', lines: ['Near Copperham, Wrothgarian Mountains', 'Open - seals in 1:00', 'Valkynaz Ruhn, Warden of the Burning Gate', 'The Rime-Wrought - Colossal, Unyielding'] });
   assert.deepEqual(gateTip(c, null, 123).lines.at(-1), 'Valkynaz Ruhn has fallen', 'no marks once he has fallen');
   const post = omenPost({ day }).content;
-  assert.ok(post.endsWith(' holds it. Tonight he comes **the Rime-Wrought**, Colossal and Unyielding.'), post);
+  assert.ok(post.endsWith('. The faithful work their rite nearby. Kill their Summoner before the breach opens. Valkynaz Ruhn comes **the Rime-Wrought** tonight, Colossal and Unyielding.'), post);   // WB12d: the rite, a line
   assert.ok(post.length < 2000);
   assert.ok(gateTimes(day).omenAt < gateTimes(day).openAt);
 });

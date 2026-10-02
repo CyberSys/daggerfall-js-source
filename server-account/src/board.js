@@ -40,7 +40,7 @@
 // EVERY CLOCK IS AN ARGUMENT, as in accounts.js.
 // ═════════════════════════════════════════════════════════════════════
 import { mintId, accountKind, displayName, isMuted, overRate } from './accounts.js';
-import { isDeveloper, canModerate, titleWorn, glyphsOf, SPROUT_S } from './titles.js';
+import { isDeveloper, canModerate, titleWorn, glyphsShown, SPROUT_S } from './titles.js';
 import { guildActorOf } from './guilds.js';
 import { heraldryOfRow } from './halls.js';   // GUILD1e: a recruitment note's guild's banner
 import { guildMay } from '../../src/net/guildLaw.js';
@@ -56,7 +56,7 @@ export function boardOpenFor(player, env) {
 }
 
 /** The author's badge as the service would sign it NOW (letters.js's rule): a title worn only while held. */
-const badgeOf = (row, env, nowS) => (row ? { title: titleWorn(row, env) ?? null, glyphs: glyphsOf(row, env, nowS) } : { title: null, glyphs: [] });
+const badgeOf = (row, env, nowS) => (row ? { title: titleWorn(row, env) ?? null, glyphs: glyphsShown(row, env, nowS) } : { title: null, glyphs: [] });
 
 /** The expired rows, gone - on the board's own reads, a bounded sweep (PROF0 20: "notes deleted on expiry"). */
 async function sweep(db, nowS) {

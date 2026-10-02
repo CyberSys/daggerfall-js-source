@@ -88,6 +88,7 @@ import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this ch
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
 import { getBool, getInt } from '../systems/settings.js';   // M-FM: Audio/AlternateMusic, read once for all three hosts; MAC-O4: Controls/WeaponSwingMode, the drag route's own missing term
 import { SongManager, musicEnvironment, holdEnvironment } from '../systems/songManager.js';
+import { festivalEnvironment } from './seatFestival.js';   // FESTIVAL-STAGE: a Festival town's streets hear the tavern
 import { audio } from '../systems/audio.js';
 import { messageBox } from '../systems/notify.js';   // ENH-NOTICE3: the one door every DaggerfallUI.MessageBox goes through - the infection's popup names the KIND, never the host's window
 
@@ -2143,8 +2144,11 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
       // unresolvable temple from a city street and the city track keeps
       // playing. musicEnvironment answers null for that case; the hold is
       // here, because a pure function cannot leave a field alone.
-      const environment = holdEnvironment(musicEnvironment(merged), _lastEnvironment);
-      _lastEnvironment = environment;
+      const held = holdEnvironment(musicEnvironment(merged), _lastEnvironment);
+      _lastEnvironment = held;
+      // FESTIVAL-STAGE (Seats-Arc 7.6): the base's `festival` - a Festival rules at the town - turns its streets' City
+      // music into the Tavern's (scenes/seatFestival.js festivalEnvironment); the hold keeps what DFU resolved
+      const environment = festivalEnvironment(held, merged.festival === true);
       // Probe hook: the four scene hosts have no execution coverage in
       // node, and AUDIT 21 F1 found this director being fed exclusively on
       // frames where the overlay was guaranteed null - the whole interior
