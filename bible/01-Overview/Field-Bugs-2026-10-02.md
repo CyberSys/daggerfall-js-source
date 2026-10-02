@@ -398,3 +398,11 @@ glint itself.
 - `tools/mutants/fb1002_herbcursor.json` (16), all dead.
 - PIN MOVED: `test/chat1.test.js`'s source pin on world.js's `pointerLock.js` import (holdCursor joined it). The cites
   the change moved were re-resolved (`tools/citeShift.mjs`, 4: `player/pointerLock.js:89-303` -> `89-325`).
+- Every other list aimed at `scenes/gatherHost.js` or `player/pointerLock.js` (21) run on the final code: 778 dead,
+  7 equivalent as recorded, none stale; four survivors that survive on the base too (below).
+
+## Found on the way, not changed (part three)
+
+- Four records survive on the base as here, none in this change's code: VEIN-NEED-press-keeps-nothing
+  (`fb0929h_veinneed.json`), TOOL-SAID-the-basket-names-no-choice-key (`fb0930b_toolsaid.json`), PROF4-ram-kit-made
+  and PROF4-ram-kit-asked (`prof4.json`). Not this batch's.
