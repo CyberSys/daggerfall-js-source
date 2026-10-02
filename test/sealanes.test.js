@@ -11,12 +11,12 @@
 //                 water, and the ship watched out of one port is the one that berths at the next; one a LANE_HEADWAY_S
 //                 each way, a merchantman or on LANE_NAVY of them a crown's ship, never a galley; her voyage her cycle
 //   the host    - stands a packet under way within LINER_STAND_M (LINERS_MAX by the Ships at sea), one lying in a
-//                 harbour it knows at a free berth of it, steers each by her lane - out of her berth through the mouth
-//                 first, on for her place LANE_LEAD_S ahead (on past it where she outsails it), into a berth at her port
-//                 or lying off it - lets her go past LINER_DROP_M or out of the list (she fades, SHIP-FADE) unless she
-//                 fights, and spends one sunk or taken for her voyage
-//   the world   - hands the host the packets within LANE_LIST_M of the player each LANE_LIST_MS, by the map's own ports,
-//                 water and climate, at the shared clock
+//                 harbour it knows at its last open berth, steers each by her lane - out of her berth through the mouth
+//                 first, on along her leg from where she is (AUDIT BAY A6), into a berth at her port or lying off it -
+//                 lets her go past LINER_DROP_M (she fades, SHIP-FADE) unless she fights, and spends one sunk or taken
+//                 for her voyage
+//   the world   - hands the host every packet of the lanes about the player each LANE_LIST_MS (AUDIT BAY A19), by the
+//                 map's own ports, water and climate, at the shared clock
 // The pure law (systems/naval/seaLanes.js) over a coast of its own; the real host (scenes/navalHost.js liners) through
 // real frames over Come Sail Away's pool (test/navalSea.mjs); world.js's feed lifted from its source and run. Each is
 // red on the record's code (168bf2587). `03-World/Naval-Combat.md` (SEA-LANES).
@@ -26,11 +26,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   roadsteadOf, laneNetwork, lanePixels, straighten, laneWay, laneSeed, packetOf, packetsAt, packetAt,
-  ROADSTEAD_PX, LANE_NEIGHBOURS, LANE_MAX_PX, LANE_PATH_PX, LANE_SEARCH, LANE_STRAIGHT_STEPS, LANE_CRUISE, LANE_DWELL_S, LANE_HEADWAY_S, LANE_NAVY, LANE_LEVEL, LANE_LEAD_S,
+  ROADSTEAD_PX, LANE_NEIGHBOURS, LANE_MAX_PX, LANE_PATH_PX, LANE_SEARCH, LANE_STRAIGHT_STEPS, LANE_CRUISE, LANE_DWELL_S, LANE_HEADWAY_S, LANE_NAVY, LANE_LEVEL,
 } from '../src/systems/naval/seaLanes.js';
 import { HULL, classById, classFor } from '../src/systems/naval/navalShips.js';
 import { NATIVE_PIXEL, nativeOfPixel, pixelOfNative } from '../src/systems/seaRaiders.js';
-import { LINER_STAND_M, LINER_DROP_M, LINERS_MAX, LINER_AHEAD_M, SHIP_FADE_S } from '../src/scenes/navalHost.js';
+import { LINER_STAND_M, LINER_DROP_M, LINERS_MAX, LINER_LOOKAHEAD_M, LINER_PORT_M, SHIP_FADE_S } from '../src/scenes/navalHost.js';
 import { DENSITY } from '../src/systems/naval/navalDirector.js';
 import { SHIP_STATES } from '../src/systems/naval/navalDamage.js';
 import { findHarbour } from '../src/systems/naval/shipLife.js';
@@ -218,15 +218,18 @@ test('SEA-LANES ON THE SHARED CLOCK: a packet sails her lane out at her cruise, 
   const out = at(1);
   assert.deepEqual([out.phase, out.from.id, out.to.id, out.port, out.voyage], ['sail', lane.a.id, lane.b.id, null, v], 'out from her home port');
   assert.ok(flat(out.at, way.pts[0]) < cruise * 1.01 + 1, 'from its roadstead');
-  assert.ok(Math.abs(flat(out.ahead, out.at) - cruise * LANE_LEAD_S) < 1, 'her place LANE_LEAD_S on');
+  assert.ok(out.leg === way.pts, 'her leg her way out (AUDIT BAY A6 PIN MOVED: the leg she is steered along, for her place ahead)');
   assert.equal(at(leg + LANE_DWELL_S - 1).phase, 'dwell', 'the whole of her dwell');
   assert.equal(at(2 * leg + 2 * LANE_DWELL_S - 1).phase, 'dwell');
   const there = at(leg + 1);
   assert.deepEqual([there.phase, there.port.id, there.to.id, there.at, there.until], ['dwell', lane.b.id, lane.a.id, way.pts.at(-1), start(v) / 1000 + leg + LANE_DWELL_S], 'lying at the far port till her dwell ends');
+  assert.ok(there.leg === way.pts, 'the leg that brought her');
   const back = at(leg + LANE_DWELL_S + 1);
   assert.deepEqual([back.phase, back.from.id, back.to.id], ['sail', lane.b.id, lane.a.id], 'home');
+  assert.deepEqual(back.leg, [...way.pts].reverse(), 'her way home');
   const home = at(2 * leg + LANE_DWELL_S + 1);
   assert.deepEqual([home.phase, home.port.id, home.until], ['dwell', lane.a.id, start(v) / 1000 + period]);
+  assert.deepEqual(home.leg, back.leg);
   assert.equal(at(period + 1).voyage, v + 1, 'and out again: her next voyage');
   assert.notEqual(at(period + 1).seed, at(1).seed, 'another ship');
   assert.equal(at(1).id, `L${lane.key}.${k}.${v}`);
@@ -248,11 +251,13 @@ test('SEA-LANES ON THE SHARED CLOCK: a packet sails her lane out at her cruise, 
 
 // ── the host ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
-/** A packet under way in the scene. */
-const under = (id, seed, x, z, o = {}) => ({ id, seed, classId: 'merchantGalleon', phase: 'sail', pos: [x, 0, z], ahead: [x, 0, z + 200], yaw: 0, port: null, to: 'Wayrest', from: 'Glenpoint', until: null, ...o });
+const GLEN = { key: 'port:1', name: 'Glenpoint' }, WAYR = { key: 'port:2', name: 'Wayrest' };
+/** A packet under way in the scene, her leg running north through her place (AUDIT BAY A6/A9/A17 PIN MOVED: her leg,
+ *  her seeds and her ports by key - her place ahead and her ports' names were the list's). */
+const under = (id, seed, x, z, o = {}) => ({ id, seed, seeds: [seed], classId: 'merchantGalleon', region: -1, phase: 'sail', pos: [x, 0, z], yaw: 0, leg: [[x, z - 3000], [x, z + 3000]], port: null, to: WAYR, from: GLEN, ...o });
 const liners = (h) => [...h.host._sea.values()].filter((e) => e.liner);
 
-test('SEA-LANES THE HOST STANDS THEM: a packet under way within LINER_STAND_M stands - the nearest first, LINERS_MAX of them by the Ships at sea (none with it off) - fading in, steering for her place ahead; never twice, never one whose copy (her seed) is in my sea, nor one off the water or too far', async () => {
+test('SEA-LANES THE HOST STANDS THEM: a packet under way within LINER_STAND_M stands - the nearest first, LINERS_MAX of them by the Ships at sea (none with it off) - fading in, steered along her leg; never twice, never one whose copy (her seed) is in my sea, nor one off the water or too far', async () => {
   const list = [under('L1-2.0.5', 11, 300, 0), under('L1-2.1.5', 22, 0, 500), under('L3-4.0.9', 33, -700, 0), under('L5-6.0.1', 44, 0, -900), under('L7-8.0.2', 55, 1100, 100)];
   for (const [key, want] of [['off', 0], ['few', 1], ['some', 2], ['many', 3]]) {
     const h = await sea({ hull: 2, settings: { ShipsAtSea: key } });
@@ -263,35 +268,37 @@ test('SEA-LANES THE HOST STANDS THEM: a packet under way within LINER_STAND_M st
     for (const e of liners(h)) {
       const l = list.find((x) => x.id === e.liner.id);
       assert.deepEqual([e.ship.seed, e.ship.cls.id, e.ship.pos[0], e.ship.pos[2], e.fade], [l.seed, l.classId, l.pos[0], l.pos[2], 0], 'where her lane puts her, coming into the world');
-      assert.deepEqual([e.ship.errand, e.ship.course], [null, [l.ahead[0], l.ahead[2]]], 'for her place ahead');
+      assert.deepEqual([e.ship.errand, e.ship.course?.map((q) => +q.toFixed(6))], [null, [l.pos[0], l.pos[2] + LINER_LOOKAHEAD_M]], 'along her leg, LINER_LOOKAHEAD_M on (AUDIT BAY A6 PIN MOVED: for her place ahead)');
     }
   }
   const h = await sea({ hull: 2, settings: { ShipsAtSea: 'many' }, water: (x) => x < 1000 });
   const twin = h.host._sea.get(h.host.spawnShip('merchantCoaster', { range: 600 }));
   twin.ship.seed = 22;   // a peer's copy of the second, taken over
   h.host.liners([under('far', 1, 0, LINER_STAND_M + 1), under('land', 2, 1050, 0), ...list.slice(0, 2)], { now: 0 });
-  assert.deepEqual(liners(h).map((e) => e.liner.id), ['L1-2.0.5'], 'too far, on land, a copy in my sea: none');
+  assert.deepEqual(liners(h).filter((e) => e !== twin).map((e) => e.liner.id), ['L1-2.0.5'], 'too far, on land, a copy in my sea: none');
+  assert.equal(twin.liner?.id, 'L1-2.1.5', 'the copy known by her seed (AUDIT BAY A3 PIN MOVED: she was nobody\'s packet)');
 });
 
-test('SEA-LANES STEERED BY HER LANE: under way, out of her berth through the harbour\'s mouth first, then for her place ahead - on past it along her lane where she outsails it, never back for it; at her port, into a free berth of a harbour I know, moored till her dwell ends on the shared clock - else lying off it', async () => {
+test('SEA-LANES STEERED BY HER LANE: under way, out of her berth through the harbour\'s mouth first, then along her leg from where she is (AUDIT BAY A6 PIN MOVED: for her place ahead, on past it where she outsailed it); at her port, into the last open berth of a harbour I know (AUDIT BAY A7), moored till her clock sails her on - else lying off her leg\'s end', async () => {
   const coast = (x, z) => !(z > 200 || (x > 300 && x < 400 && z > -300));
-  const PORT = { key: 'port:1', name: 'Wayrest', rect: { minX: -100, maxX: 100, minZ: 220, maxZ: 420 } };
-  const h = await sea({ hull: null, water: coast, settings: { ShipsAtSea: 'few' } });
+  const PORT = { key: WAYR.key, name: 'Wayrest', rect: { minX: -100, maxX: 100, minZ: 220, maxZ: 420 } };
+  const HERE = WAYR;
+  const h = await sea({ hull: null, water: coast, settings: { ShipsAtSea: 'many' } });   // three under way: the carrack lying off her far port, the one berthing at home, and the galley
   h.view.feet = [0, 0, 300];
   h.deps.harbourNear = () => PORT;
   h.run(1);
   const harbour = findHarbour({ rect: PORT.rect, isWater: coast });
-  // lying at her port: at a free berth of it, sails stowed
-  h.host.liners([under('L1-2.0.3', 77, 0, 100, { classId: 'merchantCarrack', phase: 'dwell', port: { key: PORT.key, name: 'Wayrest' }, to: 'Glenpoint', until: 500 })], { now: 400 });
+  // lying at her port: at its last open berth, sails stowed
+  h.host.liners([under('L1-2.0.3', 77, 0, 100, { classId: 'merchantCarrack', phase: 'dwell', port: HERE, to: GLEN, from: GLEN, leg: [[0, -3000], [0, 100]] })], { now: 400 });
   const [e] = liners(h);
   assert.ok(e, 'stood at her berth');
   const r = e.ship.errand;
-  assert.deepEqual([r.kind, r.harbour], ['moored', PORT.key]);
+  assert.deepEqual([r.kind, r.harbour, r.berth], ['moored', PORT.key, harbour.berths.length - 1]);
   const b = harbour.berths[r.berth];
   assert.ok(Math.hypot(e.ship.pos[0] - b.pos[0], e.ship.pos[2] - b.pos[1]) < 0.5 && e.ship.sails === 0, 'at the berth, sails stowed');
-  assert.ok(Math.abs(r.until - (e.ship.clock + 100)) < 1e-9, 'moored till her dwell ends: 100 s on the shared clock');
+  assert.equal(r.until, Infinity, 'moored till her clock sails her on (AUDIT BAY A6 PIN MOVED: her dwell\'s end, on the shared clock, as her own)');
   // under way: through the mouth first
-  const sail = under('L1-2.0.3', 77, 0, 100, { classId: 'merchantCarrack', ahead: [0, 0, -400], yaw: Math.PI });
+  const sail = under('L1-2.0.3', 77, 0, 100, { classId: 'merchantCarrack', from: HERE, to: GLEN, leg: [[0, 100], [0, -3000]], yaw: Math.PI });
   h.host.liners([sail], { now: 501 });
   assert.equal(e.ship.errand.kind, 'depart', 'out through the harbour\'s mouth');
   assert.equal(e.ship.course, null);
@@ -300,58 +307,64 @@ test('SEA-LANES STEERED BY HER LANE: under way, out of her berth through the har
   e.ship.errand = null;
   e.ship.pos = [0, 0, -100];
   h.host.liners([sail], { now: 505 });
-  assert.deepEqual(e.ship.course, [0, -400], 'for her place ahead');
-  // outsailed: past her place along her lane - on along it, never back
-  h.host.liners([{ ...sail, ahead: [0, 0, -150], yaw: Math.PI }], { now: 507 });
-  assert.deepEqual(e.ship.course.map((v) => +v.toFixed(6)), [0, -150 - 2 * LINER_AHEAD_M].map((v) => +v.toFixed(6)), 'within LINER_AHEAD_M of it: on along her lane');
-  e.ship.pos = [0, 0, -250];
-  h.host.liners([{ ...sail, ahead: [0, 0, -150], yaw: Math.PI }], { now: 509 });
-  assert.deepEqual(e.ship.course.map((v) => +v.toFixed(6)), [0, -250 - 2 * LINER_AHEAD_M].map((v) => +v.toFixed(6)), 'past it: on from where she is');
-  h.host.liners([{ ...sail, ahead: [0, 0, -250 - LINER_AHEAD_M - 1], yaw: Math.PI }], { now: 511 });
-  assert.deepEqual(e.ship.course, [0, -250 - LINER_AHEAD_M - 1], 'clear ahead: for it');
-  // at her port again: into a free berth
-  h.host.liners([under('L1-2.0.3', 77, 0, -100, { classId: 'merchantCarrack', phase: 'dwell', port: { key: PORT.key, name: 'Wayrest' }, until: 2000 })], { now: 1500 });
-  assert.deepEqual([e.ship.errand.kind, e.ship.errand.harbour, e.ship.course], ['arrive', PORT.key, null], 'into a berth');
-  // a port whose harbour I know not: lying off it
-  const lying = under('L1-2.0.3', 77, 0, -100, { classId: 'merchantCarrack', phase: 'dwell', port: { key: 'port:9', name: 'Sentinel' }, until: 2000 });
-  h.host.liners([lying], { now: 1502 });
+  assert.deepEqual(e.ship.course.map((q) => +q.toFixed(6)), [0, -100 - LINER_LOOKAHEAD_M], 'along her leg');
+  // her place on the clock wherever it is: never steered for, never back for it
+  h.host.liners([{ ...sail, pos: [0, 0, -2000] }], { now: 507 });
+  assert.deepEqual(e.ship.course.map((q) => +q.toFixed(6)), [0, -100 - LINER_LOOKAHEAD_M], 'her place far ahead: on along her leg');
+  h.host.liners([{ ...sail, pos: [0, 0, 50] }], { now: 509 });
+  assert.deepEqual(e.ship.course.map((q) => +q.toFixed(6)), [0, -100 - LINER_LOOKAHEAD_M], 'her place behind her: never back for it');
+  // at her far port, whose harbour I know not: lying off her leg's end (AUDIT BAY A22: her own leg's - the clock's turns
+  // under a packet behind it)
+  e.ship.pos = [0, 0, -3000 + LINER_PORT_M - 10];
+  h.host.liners([sail], { now: 1500 });
   assert.equal(e.ship.errand.kind, 'lurk');
-  assert.deepEqual(e.ship.errand.at, [0, -100], 'off the port, on her ring');
+  assert.deepEqual(e.ship.errand.at, [0, -3000], 'off the port, on her ring');
   const ring = e.ship.errand;
-  h.host.liners([lying], { now: 1504 });
+  h.host.liners([sail], { now: 1502 });
   assert.ok(e.ship.errand === ring, 'kept, her way about it with it');
+  assert.deepEqual([e.liner.phase, e.liner.dest.name], ['sail', 'Glenpoint'], 'what her tag reads');
+  // at a port whose harbour I know: into its last open berth
+  const home = under('L1-2.0.4', 78, 0, -100, { classId: 'merchantCarrack', to: HERE, from: GLEN, leg: [[0, -3000], [0, 100]] });
+  h.host.liners([sail, home], { now: 1504 });
+  const f = liners(h).find((x) => x.liner.id === home.id);
+  assert.deepEqual([f?.ship.errand?.kind, f?.ship.errand?.harbour, f?.ship.course], ['arrive', PORT.key, null], 'into a berth');
   // a galley never moors: one lying at her port stands off it, never at a berth
-  const galleyAt = (phase) => under('L5-6.0.1', 91, 60, 0, { classId: 'navyGalley', phase, port: phase === 'dwell' ? { key: PORT.key, name: 'Wayrest' } : null, until: 2000 });
-  h.host.liners([galleyAt('dwell')], { now: 1506 });   // the carrack out of the list: she sails on, fading
+  const galleyAt = (phase) => under('L5-6.0.1', 91, 60, 0, { classId: 'navyGalley', phase, port: phase === 'dwell' ? HERE : null, leg: [[60, -3000], [60, 0]] });
+  h.host.liners([galleyAt('dwell'), sail, home], { now: 1506 });
   assert.ok(!liners(h).some((x) => x.liner.id === 'L5-6.0.1'), 'a galley lying at a port: not stood at a berth');
-  h.host.liners([galleyAt('sail')], { now: 1508 });
+  h.host.liners([galleyAt('sail'), sail, home], { now: 1508 });
   const galley = liners(h).find((x) => x.liner.id === 'L5-6.0.1');
   assert.ok(galley, 'under way: stood');
-  h.host.liners([galleyAt('dwell')], { now: 1510 });
+  h.host.liners([galleyAt('dwell'), sail, home], { now: 1510 });
   assert.equal(galley.ship.errand.kind, 'lurk', 'at her port: lying off it');
-  assert.deepEqual([e.liner.phase, e.liner.port.name], ['dwell', 'Sentinel'], 'what her tag reads');
-  // the Ships at sea off (or another player launching the sea's traffic): none, not even at a berth
+  // the Ships at sea off: none, not even at a berth (AUDIT BAY A5: another player launching the sea's traffic stands none of mine)
   const off = await sea({ hull: null, water: coast, settings: { ShipsAtSea: 'off' } });
   off.view.feet = [0, 0, 300];
   off.deps.harbourNear = () => PORT;
   off.run(1);
-  off.host.liners([under('L1-2.0.3', 77, 0, 100, { classId: 'merchantCarrack', phase: 'dwell', port: { key: PORT.key, name: 'Wayrest' }, until: 500 })], { now: 400 });
+  off.host.liners([under('L1-2.0.3', 77, 0, 100, { classId: 'merchantCarrack', phase: 'dwell', port: HERE, leg: [[0, -3000], [0, 100]] })], { now: 400 });
   assert.equal(liners(off).length, 0);
 });
 
-test('SEA-LANES LET GO AND SPENT: one out of the list or past LINER_DROP_M sails on and fades (SHIP-FADE) - unless she fights; back as she fades, she stays; one sunk or taken is spent for her voyage - never stood again, and the next voyage is another ship', async () => {
+test('SEA-LANES LET GO AND SPENT: one past LINER_DROP_M sails on and fades (SHIP-FADE) - unless she fights; back as she fades, she stays; out of the list she is her lane\'s no more but sails on, the sea\'s (AUDIT BAY A19 PIN MOVED: she faded out beside the player), her lane\'s again by her seed; one sunk or taken is spent for her voyage - never stood again, and the next voyage is another ship', async () => {
   const h = await sea({ hull: 2, settings: { ShipsAtSea: 'some' } });
   const a = under('L1-2.0.5', 11, 300, 0), b = under('L1-2.1.5', 22, 0, 500);
   h.host.liners([a, b], { now: 0 });
   h.run(SHIP_FADE_S + 0.5);
   const [ea, eb] = liners(h);
   h.host.liners([a], { now: 5 });
-  assert.deepEqual([ea.retiring, eb.retiring], [false, true], 'out of the list: she fades');
+  assert.deepEqual([ea.retiring, eb.retiring, eb.liner, eb.ship.course], [false, false, null, null], 'out of the list: the sea\'s, never faded');
+  assert.ok(h.host._sea.has(eb.id));
   h.host.liners([a, b], { now: 6 });
-  assert.equal(eb.retiring, false, 'back in it: she stays');
+  assert.equal(eb.liner?.id, b.id, 'back in it: her lane\'s again, by her seed');
   eb.ship.pos = [0, 0, LINER_DROP_M + 50];
   h.host.liners([a, b], { now: 7 });
   assert.equal(eb.retiring, true, 'past LINER_DROP_M');
+  eb.ship.pos = [0, 0, LINER_DROP_M - 50];
+  h.host.liners([a, b], { now: 8 });
+  assert.equal(eb.retiring, false, 'back as she fades: she stays');
+  eb.ship.pos = [0, 0, LINER_DROP_M + 50];
+  h.host.liners([a, b], { now: 9 });
   h.run(SHIP_FADE_S + 0.5);
   assert.equal(h.host._sea.has(eb.id), false, 'gone');
   // fighting: never let go, nor steered
@@ -359,18 +372,19 @@ test('SEA-LANES LET GO AND SPENT: one out of the list or past LINER_DROP_M sails
   h.run(1);
   assert.equal(ea.ship.mode === 'flee' || ea.ship.mode === 'engage', true, `she answers a blow (${ea.ship.mode})`);
   ea.ship.course = null;
-  h.host.liners([a], { now: 8 });
+  h.host.liners([a], { now: 10 });
   assert.equal(ea.ship.course, null, 'her fight hers: no lane steers her');
-  h.host.liners([], { now: 9 });
+  ea.ship.pos = [0, 0, LINER_DROP_M + 50];
+  h.host.liners([a], { now: 11 });
   assert.equal(ea.retiring, false, 'fighting: kept');
   // spent
   ea.ship.damage.apply({ hull: 1e6, sail: 0, crew: 0 }, 0);
   h.run(0.2);
   assert.equal(ea.ship.damage.state, SHIP_STATES.sinking);
   h.host._sea.delete(ea.id);   // she has gone down
-  h.host.liners([a], { now: 10 });
+  h.host.liners([a], { now: 12 });
   assert.equal(liners(h).length, 0, 'spent for her voyage: never stood again');
-  h.host.liners([under('L1-2.0.6', 12, 300, 0)], { now: 11 });
+  h.host.liners([under('L1-2.0.6', 12, 300, 0)], { now: 13 });
   assert.deepEqual(liners(h).map((e) => e.liner.id), ['L1-2.0.6'], 'her lane\'s next voyage: another ship');
 });
 /** A blow of mine on a ship (navalAI.js provoke, the host's own clock long run). */
@@ -379,10 +393,10 @@ function provokeMe(e) { e.ship.provoked.set('local', 1e9); }
 // ── the world's feed, lifted from world.js and run ──────────────────────────────────────────────────────────────────
 
 function liftFeed() {
-  const i = WORLD.indexOf('  const LANE_LIST_MS = 2000, LANE_LIST_M = 1600;');
-  const j = WORLD.indexOf('    naval.liners(list, { now: ms / 1000 });\n  }\n', i);
+  const i = WORLD.indexOf('  const LANE_LIST_MS = 2000, LANE_NEAR_PX = 4;');
+  const j = WORLD.indexOf('    naval.liners(list);\n  }\n', i);
   assert.ok(i > 0 && j > i, 'the feed lifted');
-  return WORLD.slice(i, j + '    naval.liners(list, { now: ms / 1000 });\n  }\n'.length);
+  return WORLD.slice(i, j + '    naval.liners(list);\n  }\n'.length);
 }
 const FEED_PORTS = [{ id: 199200, x: 200, y: 199, name: 'Glenpoint' }, { id: 199225, x: 225, y: 199, name: 'Wayrest' }, { id: 199900, x: 900, y: 199, name: 'Far Harbour' },
   { id: 99601, x: 601, y: 99, name: 'Lakeside' }, { id: 99608, x: 608, y: 99, name: 'Mere' }];   // two towns on the lake: water, but no sea's
@@ -401,7 +415,7 @@ function feedOn({ at = { x: 200, y: 200 }, clock = 1.7e12 } = {}) {
     getPixelFromPixelID: (id) => ({ x: id % 1000, y: Math.floor(id / 1000) }),
     laneNetwork, laneWay: (...a) => { calls.ways++; return laneWay(...a); }, packetsAt, LANE_PATH_PX, LANE_MAX_PX,
     performance: { now: () => env.t }, t: 10000,
-    naval: { enabled: true, liners: (list, o) => calls.liners.push({ list, now: o.now }) },
+    naval: { enabled: true, liners: (list) => calls.liners.push({ list }) },
     playerTravelPixel: () => ({ ...at }), player: { feetAt: () => [NATIVE_PIXEL / 2 / S, 0, NATIVE_PIXEL / 2 / S] }, raidNowMs: () => clock,
     state: { localFromWorld: (x, z) => [(x - origin.x) / S, (z - origin.z) / S] },
   };
@@ -411,40 +425,41 @@ function feedOn({ at = { x: 200, y: 200 }, clock = 1.7e12 } = {}) {
   return { ...run, calls, env, PORTS, S, origin };
 }
 
-test('SEA-LANES THE WORLD\'S FEED: before the frame poses the sea\'s ships, every LANE_LIST_MS the world hands the host the packets within LANE_LIST_M of the player at the shared clock - the lanes of the map\'s own ports (Travel Options\' list, by its water and the ocean\'s climate), a lane\'s way sounded once and only near the player, each packet in the scene with her harbour\'s key and her ports\' names', () => {
+test('SEA-LANES THE WORLD\'S FEED: before the frame poses the sea\'s ships, every LANE_LIST_MS the world hands the host every packet of the lanes about the player at the shared clock (AUDIT BAY A19 PIN MOVED: those within LANE_LIST_M of the player) - the lanes of the map\'s own ports (Travel Options\' list, by its water and the ocean\'s climate), a lane\'s way sounded once and only near the player, each packet in the scene with her seeds, her leg, her ports by key and name and her home port\'s region', () => {
   assert.match(WORLD, /if \(_mode\(\) === 'exterior' && !gamePaused\(\) && !_loading\) laneShips\(\);[^\n]*\n\s*naval\.frame\(dt \* worldTimeScale\(\)/, 'stood and steered before the frame poses them, outdoors and running');
   assert.match(WORLD, /return \{ key: `port:\$\{t\.id\}`, name: t\.name, rect:/, 'the harbour named, its key a lane port\'s');
   // the clock where the lane's first packet lies at her home port, by the player
-  const [lane] = laneNetwork(FEED_PORTS.map((p) => ({ id: p.y * 1000 + p.x, name: p.name, px: p.x, py: p.y })), open);
+  const [lane] = laneNetwork(FEED_PORTS.map((p) => ({ id: p.y * 1000 + p.x, name: p.name, px: p.x, py: p.y, region: 1 })), open);
   const way = laneWay(lane, water, waterNative);
   const count = packetsAt(lane, way, 0).length, p0 = packetOf(lane, 0, count);
   const leg = way.len / p0.speed, period = 2 * (leg + LANE_DWELL_S), v = Math.floor(1.7e9 / period);
   const clock = ((v - p0.phase) * period + 2 * leg + LANE_DWELL_S + 10) * 1000;
   const f = feedOn({ clock });
-  assert.deepEqual(f.laneNet().map((l) => [l.key, l.a.name, l.b.name]), [['199200-199225', 'Glenpoint', 'Wayrest']], 'the map\'s ports: the far harbour too far for a lane, the lake\'s towns none (its water no ocean\'s)');
+  assert.deepEqual(f.laneNet().map((l) => [l.key, l.a.name, l.b.name, l.a.region]), [['199200-199225', 'Glenpoint', 'Wayrest', 1]], 'the map\'s ports: the far harbour too far for a lane, the lake\'s towns none (its water no ocean\'s)');
   assert.match(WORLD, /town = \{ id: summary\.id, loc, x: p\.x \+ dx, y: p\.y \+ dy, name: maps\.getRegion\(summary\.regionIndex\)\?\.mapNames\?\.\[summary\.mapIndex\] \?\? null \};/, 'the harbour\'s town by its name');
   f.laneShips();
   assert.equal(f.calls.liners.length, 1);
-  const { list, now } = f.calls.liners[0];
-  assert.equal(now, clock / 1000, 'the shared clock\'s second');
-  const feet = [NATIVE_PIXEL / 2 / f.S, 0, NATIVE_PIXEL / 2 / f.S];
-  const want = packetsAt(lane, way, clock).filter((p) => { const [x, z] = f.env.state.localFromWorld(p.at.x, p.at.z); return Math.hypot(x - feet[0], z - feet[2]) <= 1600; });
-  assert.ok(want.length >= 1 && want[0].phase === 'dwell' && want[0].port.id === lane.a.id, 'her first packet at home');
-  assert.deepEqual(list.map((l) => l.id), want.map((p) => p.id), 'within LANE_LIST_M');
-  assert.ok(packetsAt(lane, way, clock).length > want.length, 'and none beyond it');
+  const { list } = f.calls.liners[0];   // AUDIT BAY A6 PIN MOVED: her phase on the clock sails her - the clock's second was the host's to time a dwell by
+  const want = packetsAt(lane, way, clock);
+  assert.ok(want[0].phase === 'dwell' && want[0].port.id === lane.a.id, 'her first packet at home');
+  assert.deepEqual(list.map((l) => l.id), want.map((p) => p.id), 'every packet of the lane');
+  const scene = (q) => f.env.state.localFromWorld(q.x, q.z);
+  const key = (q) => (q ? { key: `port:${q.id}`, name: q.name } : null);
   for (const l of list) {
     const p = want.find((q) => q.id === l.id);
-    const [x, z] = f.env.state.localFromWorld(p.at.x, p.at.z), [ax, az] = f.env.state.localFromWorld(p.ahead.x, p.ahead.z);
-    assert.deepEqual([l.pos, l.ahead], [[x, 0, z], [ax, 0, az]], 'in the scene');
-    assert.deepEqual([l.seed, l.classId, l.phase, l.to, l.from, l.until], [p.seed, p.cls.id, p.phase, p.to.name, p.from.name, p.until]);
-    assert.deepEqual(l.port, p.port ? { key: `port:${p.port.id}`, name: p.port.name } : null);
+    const [x, z] = scene(p.at);
+    assert.deepEqual(l.pos, [x, 0, z], 'in the scene');
+    assert.deepEqual([l.seed, l.seeds, l.classId, l.phase, l.region], [p.seed, p.seeds, p.cls.id, p.phase, 1]);
+    assert.deepEqual([l.to, l.from, l.port], [key(p.to), key(p.from), key(p.port)]);
+    assert.deepEqual(l.leg, p.leg.map(scene));
   }
   // under way: her heading the lane's, in the scene
   const sailing = feedOn({ clock: clock + (LANE_DWELL_S + 60) * 1000 });
   sailing.laneShips();
   const out = sailing.calls.liners[0].list.find((l) => l.id.startsWith(`L${lane.key}.0.`));
   assert.ok(out && out.phase === 'sail', 'out of her home port');
-  assert.ok(Math.abs(out.yaw - Math.atan2(out.ahead[0] - out.pos[0], out.ahead[2] - out.pos[2])) < 1e-9, `her heading for her place ahead (${out.yaw})`);
+  const [ax, az] = out.leg[1];
+  assert.ok(Math.abs(out.yaw - Math.atan2(ax - out.pos[0], az - out.pos[2])) < 1e-9, `her heading her leg's (${out.yaw})`);
   f.env.t += 1999;
   f.laneShips();
   assert.equal(f.calls.liners.length, 1, 'not again within LANE_LIST_MS');

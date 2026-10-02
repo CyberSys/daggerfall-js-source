@@ -558,6 +558,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
   function lights(eye = null) {
     const out = [];
     for (const boat of drawn()) {
+      if ((boat.fade ?? 1) < FADE_FLATS) continue;   // AUDIT BAY A13: her lanterns' light goes with her lantern flats (syncFlats)
       for (const l of boat.Lights) {
         if (!l.enabled || !l.node.activeInHierarchy) continue;
         const p = l.node.position;

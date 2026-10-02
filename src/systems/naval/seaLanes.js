@@ -49,10 +49,13 @@ export const LANE_HEADWAY_S = 1800;
 export const LANE_NAVY = 0.25;
 /** The level a packet's class is drawn at (navalShips.js classFor): the same for every player. */
 export const LANE_LEVEL = 10;
-/** Where she steers: her place this many seconds on along her lane. */
-export const LANE_LEAD_S = 40;
 /** The lane's own salt on its seed. */
 export const LANE_SALT = 0x1a4e5;
+/** AUDIT BAY A17: the voyages a packet is known by - her own and the LANE_LINEAGE - 1 before it. A ship on the
+ *  water at her voyage's end sails the next as herself (the swap at the turn put a ship out of the world at her berth,
+ *  in the port's sight, and another into it at the roadstead), so a slot's packet is any ship of these seeds afloat;
+ *  past them she is let go of her lane (a day and more of the shortest lane's voyages, under one player's eye). */
+export const LANE_LINEAGE = 24;
 /** Metres a native unit. */
 const M_PER_NATIVE = 819.2 / NATIVE_PIXEL;
 
@@ -158,9 +161,9 @@ export function roadsteadOf(port, open) {
 }
 
 /**
- * THE LANES between `ports` (`[{ id, name, px, py }]`, every port of the map): each port with a roadstead to its
- * LANE_NEIGHBOURS nearest within LANE_MAX_PX, each pair once (the lower id first). Answers `[{ key, a, b }]`, `a` and
- * `b` `{ id, name, px, py, road }` - the same list on every client, whatever port it stands by.
+ * THE LANES between `ports` (`[{ id, name, px, py, region }]`, every port of the map): each port with a roadstead to
+ * its LANE_NEIGHBOURS nearest within LANE_MAX_PX, each pair once (the lower id first). Answers `[{ key, a, b }]`, `a`
+ * and `b` `{ id, name, px, py, region, road }` - the same list on every client, whatever port it stands by.
  */
 export function laneNetwork(ports, open) {
   const sea = [...ports].sort((p, q) => p.id - q.id).map((p) => ({ ...p, road: roadsteadOf(p, open) })).filter((p) => p.road);
@@ -218,12 +221,17 @@ function along(pts, s) {
 }
 
 /**
- * THE PACKETS OF A LANE at shared time `ms`, each `{ id, lane, k, voyage, seed, cls, phase: 'sail' | 'dwell', from, to,
- * port, at: { x, z }, ahead: { x, z }, dir: { x, z }, until }` - native points; `dir` her way on the map (native),
- * `ahead` her place LANE_LEAD_S on; `port` the port she lies at while she dwells (`to` the one she sails for next),
- * `until` the shared second her dwell ends. A lane sails one every LANE_HEADWAY_S each way (its round trip over it, one
- * at the least), each on her own share of the cycle; a packet's `id` names her lane, her place and her voyage (a cycle
- * of the clock: one sunk or taken is spent for it, and the next is another ship, her `seed` another). Stateless.
+ * THE PACKETS OF A LANE at shared time `ms`, each `{ id, lane, k, voyage, seed, seeds, cls, region, phase: 'sail' |
+ * 'dwell', from, to, port, at: { x, z }, dir: { x, z }, leg, until }` - native points; `dir` her way on the map (native),
+ * `leg` the water she sails (AUDIT BAY A6: the leg under her - or, lying at a port, the one that brought her there -
+ * her way's points from the port she left to the one she makes for: the host steers her along it from wherever she
+ * is, never for her place on the clock); `port` the port she lies at while she dwells (`to` the one she sails for
+ * next), `until` the shared second her dwell ends; `region` her home port's (AUDIT BAY A8: her names the lane's,
+ * wherever she is met). A lane sails one every LANE_HEADWAY_S each way (its round trip over it, one at the least), each
+ * on her own share of the cycle; a packet's `id` names her lane, her place and her voyage (a cycle of the clock: one
+ * sunk or taken is spent for it, and the next is another ship, her `seed` another) - and `seeds` the seeds of her
+ * place's last LANE_LINEAGE voyages, hers first (AUDIT BAY A17: a ship still on the water sails on as the packet of the
+ * next). Stateless.
  */
 export function packetsAt(lane, way, ms) {
   const first = packetOf(lane);
@@ -241,20 +249,55 @@ export function packetAt(lane, way, ms, k = 0, count = 1) {
   const t = ms / 1000 + p.phase * period;
   const voyage = Math.floor(t / period);
   const tau = t - voyage * period;
-  const base = { id: `L${lane.key}.${k}.${voyage}`, lane: lane.key, k, voyage, seed: hash32(p.seed, voyage >>> 0, LANE_SALT), cls: p.cls };
+  const seeds = [];
+  for (let j = 0; j < LANE_LINEAGE; j++) seeds.push(hash32(p.seed, (voyage - j) >>> 0, LANE_SALT));
+  const base = { id: `L${lane.key}.${k}.${voyage}`, lane: lane.key, k, voyage, seed: seeds[0], seeds, cls: p.cls, region: lane.a.region ?? -1 };
   const rev = [...way.pts].reverse();
   const sailing = (pts, s, from, to) => {
-    const here = along(pts, s), next = along(pts, s + p.speed * LANE_LEAD_S);
-    return { ...base, phase: 'sail', from, to, port: null, at: { x: here.x, z: here.z }, ahead: { x: next.x, z: next.z }, dir: { x: here.dx, z: here.dz }, until: null };
+    const here = along(pts, s);
+    return { ...base, phase: 'sail', from, to, port: null, at: { x: here.x, z: here.z }, dir: { x: here.dx, z: here.dz }, leg: pts, until: null };
   };
   const end = (pts) => pts[pts.length - 1];
   const start = voyage * period - p.phase * period;   // her voyage's first second on the shared clock
   if (tau < leg) return sailing(way.pts, tau * p.speed, lane.a, lane.b);
   if (tau < leg + LANE_DWELL_S) {
     const e = end(way.pts);
-    return { ...base, phase: 'dwell', from: lane.a, to: lane.a, port: lane.b, at: { x: e.x, z: e.z }, ahead: { x: e.x, z: e.z }, dir: { x: 0, z: 0 }, until: start + leg + LANE_DWELL_S };
+    return { ...base, phase: 'dwell', from: lane.a, to: lane.a, port: lane.b, at: { x: e.x, z: e.z }, dir: { x: 0, z: 0 }, leg: way.pts, until: start + leg + LANE_DWELL_S };
   }
   if (tau < 2 * leg + LANE_DWELL_S) return sailing(rev, (tau - leg - LANE_DWELL_S) * p.speed, lane.b, lane.a);
   const e = end(rev);
-  return { ...base, phase: 'dwell', from: lane.b, to: lane.b, port: lane.a, at: { x: e.x, z: e.z }, ahead: { x: e.x, z: e.z }, dir: { x: 0, z: 0 }, until: start + period };
+  return { ...base, phase: 'dwell', from: lane.b, to: lane.b, port: lane.a, at: { x: e.x, z: e.z }, dir: { x: 0, z: 0 }, leg: rev, until: start + period };
+}
+
+/**
+ * AUDIT BAY A6: PURSUIT - the point `ahead` on along `leg` (`[[x, z], ...]`, any units) from the point of it
+ * nearest (x, z), and how far that nearest point lies from the leg's end along it (`left`), or null for no leg. A packet
+ * steered for her place on the clock made straight for it wherever she was - lagging a bend behind it, across the land
+ * the lane goes round - and came back for it when she outsailed it; steered along her leg from where she is, she keeps
+ * to its water and only ever goes on.
+ */
+export function pursue(leg, x, z, ahead) {
+  if (!leg?.length) return null;
+  if (leg.length === 1) return { x: leg[0][0], z: leg[0][1], left: 0 };
+  const len = (i) => Math.hypot(leg[i][0] - leg[i - 1][0], leg[i][1] - leg[i - 1][1]);
+  let best = Infinity, seg = 1, t = 0;
+  for (let i = 1; i < leg.length; i++) {
+    const ax = leg[i - 1][0], az = leg[i - 1][1], dx = leg[i][0] - ax, dz = leg[i][1] - az, l2 = dx * dx + dz * dz;
+    const k = l2 > 0 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+    const d = (x - (ax + dx * k)) ** 2 + (z - (az + dz * k)) ** 2;
+    if (d < best) { best = d; seg = i; t = k; }
+  }
+  let left = len(seg) * (1 - t);
+  for (let i = seg + 1; i < leg.length; i++) left += len(i);
+  let need = Math.max(0, ahead);
+  for (let i = seg, k = t; i < leg.length; i++, k = 0) {
+    const L = len(i), rest = L * (1 - k);
+    if (L > 0 && need <= rest) {
+      const kk = k + need / L;
+      return { x: leg[i - 1][0] + (leg[i][0] - leg[i - 1][0]) * kk, z: leg[i - 1][1] + (leg[i][1] - leg[i - 1][1]) * kk, left };
+    }
+    need -= rest;
+  }
+  const e = leg[leg.length - 1];
+  return { x: e[0], z: e[1], left };
 }

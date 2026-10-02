@@ -73,7 +73,7 @@ import { createCompanions, companionRows } from '../systems/naval/crewCompanions
 import { createShipCrew, reloadScaleOf, mendScaleOf, handsBonusOf, crewCard, CREW_ORDERS, ORDER_TEXT, spiritsOf, LOOKOUT_ROLE } from '../systems/naval/shipCrew.js';   // SHIP-CREW
 import { crewRoster, playerCrewCount } from '../systems/naval/crewLife.js';   // AUDIT NAV1: the shipwright, the mending at sea
 import { createBoarding, berthPose, musterOf, crewTeamOf, handsOf, repelPartyOf, raidQuestOf, raidQuestWon, raidQuestRetreated, boardingWon, BOARD_RANGE, BOARD_SPEED, ABANDON_RANGE, HAND, SURRENDER_SHARE, CREW_PER_HAND } from '../systems/naval/navalBoarding.js';
-import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX, NAVAL_WIRE_VOLLEYS, TRAFFIC_DEFAULT } from '../systems/naval/navalWire.js';
+import { navalWireRecord, validNavalRecord, navalHitData, validNavalHit, NAVAL_SHARE_RADIUS, NAVAL_VOLLEY_KEEP_MS, NAVAL_GEN_MAX, NAVAL_WIRE_VOLLEYS, NAVAL_WIRE_SPENT, TRAFFIC_DEFAULT } from '../systems/naval/navalWire.js';
 import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLocalBounds, HULL_NAMES } from '../systems/comeSailAwayBoat.js';
 import { runsDark, nightSight, lampSize, lampAlpha, lampPoints, LAMP_NEAR_M, LAMP_COLOR } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the sea by night, and my lookout
 import { stowSail } from '../systems/comeSailAway.js';
@@ -82,7 +82,9 @@ import { quatRotate, quatLookRotation } from '../world/quat.js';
 import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
-import { raiderPlan, raiderClassOf } from '../systems/naval/navalRaiders.js';
+import { raiderPlan, raiderClassOf, RAIDER_DROP_M } from '../systems/naval/navalRaiders.js';
+import { pursue } from '../systems/naval/seaLanes.js';   // AUDIT BAY A6: a packet steered along her leg
+import { FADE_FLATS } from './comeSailAwayPool.js';   // AUDIT BAY A13/A14: what of a fading ship goes at half
 import { intoDeck } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip)
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
@@ -111,9 +113,11 @@ export const SHIP_FADE_S = 4;
 export const LINER_STAND_M = 1200;
 export const LINER_DROP_M = 1700;
 export const LINERS_MAX = Object.freeze({ 0: 0, 1: 1, 2: 2, 4: 3 });
-/** SEA-LANES: a packet come within this of her lane's place ahead, or past it, along her lane (she outsails her
- *  schedule) steers on along her lane, twice this beyond herself - never back for it. */
-export const LINER_AHEAD_M = 150;
+/** AUDIT BAY A6: a packet under way steers for the point LINER_LOOKAHEAD_M on along her leg from where she is
+ *  (seaLanes.js pursue) - never for her place on the clock, which took her straight across the land a lane goes round,
+ *  and back for it when she outsailed it; within LINER_PORT_M of her leg's end she is at her port. */
+export const LINER_LOOKAHEAD_M = 300;
+export const LINER_PORT_M = 500;
 /** AUDIT SHIP-LIFE B3: the level a harbour's ships are drawn at - the port's, never a player's (two players' levels
  *  drew two fleets into one port's berths). */
 export const HARBOUR_LEVEL = 10;
@@ -1150,8 +1154,9 @@ export function createNavalHost(deps) {
     // AUDIT NAV2 F7: her boarder's word said `boarded` - taken over, that boarding is over (its boarder gone, or me at
     // my own grapple), and she is anyone's to board again
     e.ship.boarded = false;
-    // SHIP-LIFE: her errand never rode the word - drawn again where she is, as her stander drew it
-    e.ship.errand = errandHere(e.ship);
+    // SHIP-LIFE: her errand never rode the word - drawn again where she is, as her stander drew it (AUDIT BAY A4: a
+    // packet's her lane's)
+    e.ship.errand = e.liner ? laneErrand(errandHere(e.ship)) : errandHere(e.ship);
     if (e.ship.errand?.kind === 'moored') e.fromHarbour = e.ship.errand.harbour;   // AUDIT SHIP-LIFE B5: the harbour's still - dropped past HARBOUR_LEAVE, her sailing noted
     return e;
   }
@@ -1263,6 +1268,7 @@ export function createNavalHost(deps) {
     const depth = sinkK > 0 ? sinkDepth(sinkUnder(e), sinkK) : 0;
     const pos = s.pos;
     const yaw = s.yaw;
+    const seen = (e.fade ?? 1) >= FADE_FLATS;   // AUDIT BAY A14: half faded out of the world, her fire, smoke and founder go with her flats
     b.GameObject.position = [pos[0], seaY - depth, pos[2]];
     b.GameObject.rotation = quatOfYaw(yaw);
     const t = clock + e.phase;
@@ -1340,7 +1346,8 @@ export function createNavalHost(deps) {
         const p = mo.transformPoint([-lp[0], build.deck + 1 - lp[1], fire.at * len - lp[2]]);
         if (p[1] < seaY + FLAME_AWASH) { fire.handle?.retire?.(); fire.handle = null; fire.out = true; continue; }
         fire.handle?.move?.(p);
-        effects.burn(p, dt);
+        fire.handle?.show?.(seen);   // AUDIT BAY A14: a flat - gone with her flats as she fades, up again as she comes back
+        if (seen) effects.burn(p, dt);
         burning++;
       }
       if (burning) {
@@ -1349,14 +1356,14 @@ export function createNavalHost(deps) {
       } else if (e.fireLoop) { e.fireLoop.stop?.(); e.fireLoop = null; }
       if (s.damage.fire <= 0 || state === SHIP_STATES.sunk) douse(e);
     }
-    if (state === SHIP_STATES.sinking) effects.founder([pos[0], seaY, pos[2]], dt, hullBuild(s.hull).beam);
+    if (state === SHIP_STATES.sinking && seen) effects.founder([pos[0], seaY, pos[2]], dt, hullBuild(s.hull).beam);
     // AUDIT NAV1 (#15): she groans as she goes down - the loop from her founder until she is gone (a gurgle at the start
     // was all, then silence for the rest of her going); a peer's too, on the same pose
     if (state === SHIP_STATES.sinking) { e.sinkLoop ??= deps.audio?.loop3d?.(NAVAL_SFX.sinking, pos, 0.85, NAVAL_SINK_LOOP) ?? null; e.sinkLoop?.move?.(pos); }
     else if (e.sinkLoop) { e.sinkLoop.stop?.(); e.sinkLoop = null; }
     // AUDIT NAV1 (#15): a battered hull smokes along her deck as she lies, from the part the sea has not reached
     const smokeK = clamp((SMOKE_FROM - hull) / SMOKE_FROM, 0, 1);
-    if (smokeK > 0) {
+    if (smokeK > 0 && seen) {
       const build = hullBuild(s.hull), mo = b.MeshObject, lp = mo.localPosition, y = build.deck + 0.5 - lp[1];
       const deck = lineOver(mo.transformPoint([-lp[0], y, build.aftZ * SMOKE_SPAN - lp[2]]), mo.transformPoint([-lp[0], y, build.bowZ * SMOKE_SPAN - lp[2]]), seaY + FLAME_AWASH);
       if (deck) effects.smolder(deck[0], deck[1], dt, smokeK);
@@ -1401,86 +1408,186 @@ export function createNavalHost(deps) {
   }
 
   // ── SEA-LANES: the Bay's packets, stood as ships (systems/naval/seaLanes.js) ──────────────────────────────────────
-  /** A packet of mine busy at sea - fighting, running, boarded or going down: never let go of while she is. */
-  const linerBusy = (e) => e.ship.mode === 'engage' || e.ship.mode === 'board' || e.ship.mode === 'flee' || e.ship.boarded || boarding?.shipId === e.id
-    || e.ship.damage.state !== SHIP_STATES.afloat;
-  /** The packets spent this voyage (sunk, taken, boarded): never stood again till their next. */
+  /** A packet of mine busy at sea - fighting, running, or alongside a prize (her captain's 'board' while lashed): never
+   *  let go of while she is. AUDIT BAY A2: one no longer afloat - struck (boarded, taken), going down - is her lane's
+   *  no more (spendLiner): the sea's own law lets her hulk go out of sight, as any ship's (the lane kept a struck one,
+   *  and the director counted her its, for good). */
+  const linerKept = (e) => e.ship.mode === 'engage' || e.ship.mode === 'board' || e.ship.mode === 'flee';
+  /** A packet her lane steers: afloat and about no fight - a crown's answering the guns sails for them. */
+  const linerFree = (e) => e.ship.damage.state === SHIP_STATES.afloat && e.ship.mode === 'cruise';
+  /** AUDIT BAY A18: the voyages spent - a packet no longer afloat (sunk, struck, boarded, taken), by her voyage's
+   *  seed - none stood again till her lane's next; every player's who sees her go (mine or another's), and said in each
+   *  word, the last NAVAL_WIRE_SPENT of them (a player who never saw her go stood her afresh where she went down). */
   const spentLiners = new Set();
+  let spentSaid = [];
+  const noteSpent = (sd) => { if (!spentLiners.has(sd)) { spentLiners.add(sd); spentSaid = [...spentSaid, sd].slice(-NAVAL_WIRE_SPENT); } };
+  function spendLiner(e) {
+    noteSpent(e.liner.seed >>> 0);
+    e.liner = null;   // her lane's no more: never afloat again, she is no voyage's packet (liners)
+  }
+  /** A packet let go of her lane (her lineage past, her voyage spent by another's word): mine keeps the sea as any ship
+   *  does (SHIP-LIFE's errand where she is - moored, she lies her own dwell out), a peer's is read as theirs. */
+  function releaseLiner(e) {
+    e.liner = null;
+    if (e.owner || !linerFree(e)) return;
+    const s = e.ship;
+    s.course = null;
+    if (s.errand?.kind === 'moored') s.errand.until = s.clock + dwellOf(errandRng(s.seed));
+    else if (!s.errand || s.errand.kind === 'lurk') s.errand = errandHere(s);
+  }
+  /** AUDIT BAY A4: a peer within `range` of a ship - one who stands her in my place. */
+  const peerNear = (pos, range) => (deps.online?.peers?.() ?? []).some((p) => Array.isArray(p.feet) && dist2d(p.feet, pos) <= range);
+  /** A peer's feet, where their word puts them, or null. */
+  const peerFeet = (id) => { const p = (deps.online?.peers?.() ?? []).find((q) => q.id === id); return Array.isArray(p?.feet) ? p.feet : null; };
+  /** Where her clock has her bound, or lying: the port her clock's leg ends at. */
+  const clockDest = (l) => (l.phase === 'dwell' ? l.port : l.to) ?? null;
+  /** A packet's tag: who she is on her lane (her voyage's id and seed) and where her clock has her - her phase, her
+   *  ports, her leg as the list said it - and, kept from tag to tag, her OWN leg (`way`) and the port it ends at
+   *  (`dest`): AUDIT BAY A22, the leg she sails is hers till she has sailed it. */
+  const linerTag = (l, was = null) => ({ id: l.id, seed: l.seed >>> 0, phase: l.phase, to: l.to ?? null, from: l.from ?? null, port: l.port ?? null,
+    leg: l.leg ?? null, way: was?.way ?? l.leg ?? null, dest: was?.dest ?? clockDest(l) });
+  /** AUDIT BAY A4/A22: the leg a packet I did not stand is first known on - her clock's; or, met under way heading back
+   *  along it, the leg before it (her clock's reversed, for the port it left): behind her clock by a leg, she sails that
+   *  one yet (taken over, she came about for her clock's port short of her own). Fighting, lying at a berth, or off her
+   *  clock's port, where she heads says nothing: her clock's. (Off the port it left, heading for it, she has made it,
+   *  and her clock sails her on at once: moveOn.) */
+  function firstWay(l, s) {
+    const leg = l.leg, clock = { way: leg ?? null, dest: clockDest(l) };
+    if (!leg?.length || s.mode !== 'cruise' || berthOf(s)) return clock;
+    const p = pursue(leg, s.pos[0], s.pos[2], 0), q = pursue(leg, s.pos[0], s.pos[2], LINER_LOOKAHEAD_M);
+    if (p.left <= LINER_PORT_M || (q.x - p.x) * Math.sin(s.yaw) + (q.z - p.z) * Math.cos(s.yaw) >= 0) return clock;
+    return { way: [...leg].reverse(), dest: l.from ?? null };
+  }
+  /** AUDIT BAY A4/A22: whether a packet has made her own leg's port - mine by her errand there (into a berth of it,
+   *  moored at it, lying off it), another's by where she lies (at a berth of it: her errand never rides the word), any
+   *  by her leg sailed to within LINER_PORT_M of its end along it (a leg come back by its end across a headland is no
+   *  arrival). */
+  function madePort(e) {
+    const s = e.ship, l = e.liner, k = l.dest?.key, r = e.owner ? null : s.errand;
+    if (k && (e.owner ? berthOf(s)?.key === k : (r?.kind === 'arrive' || r?.kind === 'moored') && r.harbour === k)) return true;
+    return r?.kind === 'lurk' || (pursue(l.way, s.pos[0], s.pos[2], 0)?.left ?? 0) <= LINER_PORT_M;
+  }
+  /** AUDIT BAY A22: a packet at her own leg's port where her clock has her bound elsewhere takes up her clock's leg -
+   *  mine and another's alike (a peer's copy kept the leg she was first known on for good: taken over, she sailed it
+   *  again from wherever she was). */
+  function moveOn(e) {
+    const l = e.liner, target = clockDest(l);
+    if (linerFree(e) && l.leg?.length && target && target.key !== l.dest?.key && madePort(e)) { l.way = l.leg; l.dest = target; }
+  }
+  /** AUDIT BAY A4: a ship of mine her lane takes up (taken over, or met in it again) - her errand her lane's from here
+   *  (steerLiner): lying at a berth or on her way out of a harbour she keeps to it, else none (SHIP-LIFE's own, drawn
+   *  where she lay, sent a packet mid-lane for the nearest harbour's berth - the port behind her, by a way of its own). */
+  const laneErrand = (r) => (r?.kind === 'moored' || r?.kind === 'depart' ? r : null);
+  /** AUDIT BAY A7: the berth a packet takes - a harbour's LAST free one (the harbour's own ships are stood at its
+   *  first: a packet at the first was a berth of the day's own ship, never stood). */
+  function openBerth(h) {
+    for (let i = h.harbour.berths.length - 1; i >= 0; i--) if (berthFree(h.key, i)) return i;
+    return -1;
+  }
   /**
-   * SEA-LANES: the packets about the player, where the shared clock puts them (the world host's feed): `list`
-   * `[{ id, seed, classId, phase, pos, ahead, yaw, port: { key, name } | null, to, from, until }]` in the scene, `now` the
-   * shared clock's second. Mine stand and go - a packet under way within LINER_STAND_M (LINERS_MAX of them by the Ships
-   * at sea), one lying in a harbour I know at a free berth of it; past LINER_DROP_M, or out of the list, she sails on and
-   * fades (SHIP-FADE) unless she fights - and each steers her lane: under way for her place LANE_LEAD_S on (on past it
-   * along her lane where she has outsailed it, LINER_AHEAD_M), out of her berth through the harbour's mouth first; at
-   * her port, into a berth of it (SHIP-LIFE's arrive and moored) where I know it, else lying off it on her ring.
+   * SEA-LANES: the packets of the lanes about the player, where the shared clock puts them (the world host's feed):
+   * `list` `[{ id, seed, seeds, classId, region, phase, pos, yaw, leg, port, to, from }]` in the scene - `leg` her leg's
+   * points `[[x, z], ...]`, `port`, `to` and `from` `{ key, name }`; her phase on the clock is what sails her (AUDIT
+   * BAY A6). AUDIT BAY A3/A9/A17: each ship in my sea is known by her seeds - one taken over, a peer's copy, one
+   * sailing on into her next voyage - mine steered by her lane, a peer's read on her tag; each followed along her own
+   * leg (A22: firstWay, moveOn), and one of mine her lane takes up keeps her lane's errand (A4). Mine stand and go - a
+   * packet under way within LINER_STAND_M (LINERS_MAX of them by the Ships at sea), one lying in a harbour I know at
+   * its last open berth; past LINER_DROP_M she sails on and fades (SHIP-FADE) unless she fights - held ORPHAN_S for a
+   * player within LINER_DROP_M of her, who takes her over where she lies (AUDIT BAY A4: she faded out of their sea and
+   * was stood in it again) - and each steers her lane (steerLiner).
    */
-  function liners(list, { now = null } = {}) {
+  function liners(list) {
     if (!enabled) return;
     const me = deps.feet();
-    const byId = new Map(list.map((l) => [l.id, l]));
+    const density = trafficDensity(me);   // AUDIT BAY A5: every player stands their own (the launcher's alone left a packet by another unstood)
+    const bySeed = new Map();
+    for (const l of list) for (const sd of l.seeds ?? [l.seed]) bySeed.set(sd >>> 0, l);
+    // who each ship in my sea is
     for (const e of [...sea.values()]) {
-      if (e.owner || !e.liner) continue;
-      const l = byId.get(e.liner.id);
-      if ((!l || dist2d(e.ship.pos, me) > LINER_DROP_M) && !linerBusy(e)) retire(e);   // SHIP-FADE: she sails on out of sight
-      else if (e.retiring && l && dist2d(e.ship.pos, me) <= LINER_DROP_M) e.retiring = false;
+      const s = e.ship;
+      if (e.liner && s.damage.state !== SHIP_STATES.afloat) { spendLiner(e); continue; }
+      const l = bySeed.get(s.seed >>> 0) ?? null;
+      if (l && !spentLiners.has(l.seed >>> 0) && s.damage.state === SHIP_STATES.afloat) {
+        if (!e.liner && !e.owner) s.errand = laneErrand(s.errand);
+        e.liner = linerTag(l, e.liner ?? firstWay(l, s));
+        moveOn(e);
+      } else if (e.liner) releaseLiner(e);
     }
-    const density = launchesTraffic() ? trafficDensity(me) : 0;
+    // AUDIT BAY A4: a peer's packet they let go of (sailed off past their LINER_DROP_M of her, or out of their word)
+    // within mine - taken over where she lies
+    if (density > 0) for (const e of [...sea.values()]) {
+      if (!e.owner || !e.liner || !linerFree(e) || dist2d(e.ship.pos, me) > LINER_DROP_M) continue;
+      const feet = peerFeet(e.owner);
+      if (!e.retiring && !(feet && dist2d(feet, e.ship.pos) > LINER_DROP_M)) continue;
+      adopt(e);   // her tag hers still: her lane steers her (steerLiner) as mine from here
+      e.retiring = false;
+    }
+    // mine let go past LINER_DROP_M - she sails on and fades (SHIP-FADE) - unless she fights, or a player near her takes her
+    for (const e of sea.values()) {
+      if (e.owner || !e.liner) continue;
+      if (dist2d(e.ship.pos, me) <= LINER_DROP_M) { e.handOn = null; e.retiring = false; continue; }   // back as she faded: she stays
+      if (linerKept(e) || e.retiring) continue;
+      if (peerNear(e.ship.pos, LINER_DROP_M) && clock - (e.handOn ??= clock) < ORPHAN_S) continue;   // AUDIT BAY A4: held for their claim
+      retire(e);
+    }
     const max = LINERS_MAX[density] ?? Math.min(3, density);
     let under = [...sea.values()].filter((e) => !e.owner && e.liner && !e.retiring && e.ship.errand?.kind !== 'moored').length;
     for (const l of [...list].sort((a, b) => dist2d(a.pos, me) - dist2d(b.pos, me))) {
-      if (!(density > 0) || dist2d(l.pos, me) > LINER_STAND_M || spentLiners.has(l.id)) continue;
-      if ([...sea.values()].some((x) => x.liner?.id === l.id || x.ship.seed === l.seed)) continue;   // stood, or her copy in my sea (a peer's)
+      const seed = l.seed >>> 0;
+      if (!(density > 0) || dist2d(l.pos, me) > LINER_STAND_M || spentLiners.has(seed)) continue;
+      // her voyage's ship anywhere in my sea (mine or a peer's copy, whatever her state), or her place's of an earlier
+      // voyage afloat and sailing on as hers (AUDIT BAY A17)
+      const seeds = new Set((l.seeds ?? [l.seed]).map((x) => x >>> 0));
+      if ([...sea.values()].some((x) => x.ship.damage.state !== SHIP_STATES.sunk && (x.ship.seed === seed || (seeds.has(x.ship.seed) && x.ship.damage.state === SHIP_STATES.afloat)))) continue;
       const cls = classById(l.classId);
       if (!cls) continue;
-      // lying at a port whose harbour I know: at a free berth of it, as the harbour's own ships are stood
+      // lying at a port whose harbour I know: at its last open berth, as the harbour's own ships are stood at its first
       const h = l.phase === 'dwell' && l.port ? harbours.get(l.port.key) : null;
-      const berth = h?.harbour && cls.hull !== HULL.LargeGalley ? h.harbour.berths.findIndex((_, i) => berthFree(h.key, i)) : -1;
+      const berth = h?.harbour && cls.hull !== HULL.LargeGalley ? openBerth(h) : -1;
       let e = null;
       if (berth >= 0) {
         const b = h.harbour.berths[berth];
-        e = launch({ seed: l.seed, classId: cls.id, pos: [b.pos[0], deps.seaY(), b.pos[1]], yaw: b.yaw, errand: { kind: 'moored', harbour: h.key, berth, until: Infinity, path: null, i: 0 } });
+        e = launch({ seed, classId: cls.id, region: l.region, pos: [b.pos[0], deps.seaY(), b.pos[1]], yaw: b.yaw, errand: { kind: 'moored', harbour: h.key, berth, until: Infinity, path: null, i: 0 } });
         if (e) { e.ship.sails = 0; e.ship.sailsWant = 0; }
       } else {
         if (l.phase !== 'sail' || under >= max) continue;
         if (!deps.isWater(l.pos[0], l.pos[2], cls.hull)) continue;   // her place not yet water deep enough for her hull here
-        e = launch({ seed: l.seed, classId: cls.id, pos: [l.pos[0], deps.seaY(), l.pos[2]], yaw: l.yaw });
+        e = launch({ seed, classId: cls.id, region: l.region, pos: [l.pos[0], deps.seaY(), l.pos[2]], yaw: l.yaw });   // AUDIT BAY A8: named by her lane's port, wherever she is met
         if (e) under++;
       }
-      if (e) e.liner = { id: l.id };
+      if (e) e.liner = linerTag(l);
     }
-    for (const e of sea.values()) {
-      if (e.owner || !e.liner) continue;
-      const l = byId.get(e.liner.id);
-      if (l) steerLiner(e, l, now);
-    }
+    for (const e of sea.values()) if (!e.owner && e.liner) steerLiner(e);
   }
-  /** SEA-LANES: a packet of mine steered by her lane (liners) - no fight of hers being fought. */
-  function steerLiner(e, l, now) {
-    const s = e.ship;
-    Object.assign(e.liner, { phase: l.phase, to: l.to, from: l.from, port: l.port });
-    if (linerBusy(e)) return;
+  /**
+   * SEA-LANES: a packet of mine steered by her lane (liners) - none while she fights. AUDIT BAY A6: under way, along
+   * her leg from where she is (seaLanes.js pursue, LINER_LOOKAHEAD_M on) - out of any berth through its harbour's mouth
+   * first; within LINER_PORT_M of her leg's end she is at her port - into its last open berth where I know the harbour,
+   * moored till the clock sails her on (come early, she waits for it), else lying off it. AUDIT BAY A22: the leg she
+   * sails is her own (`way`, to `dest`) till she has sailed it - the clock's turned under a packet behind it, and she
+   * came about for home short of her port; at her port, where her clock has her bound elsewhere she sails at once
+   * (moveOn: her dwell cut short by her lateness), where it has her there she waits for it.
+   */
+  function steerLiner(e) {
+    const s = e.ship, l = e.liner;
+    if (!linerFree(e) || !l.leg?.length) return;
     const r = s.errand;
-    if (l.phase === 'sail') {
-      // under way: out of her berth through the harbour's mouth first (SHIP-LIFE's depart), then her lane
-      if (r?.kind === 'moored') { s.errand = { kind: 'depart', harbour: r.harbour, berth: r.berth, path: null, i: 0 }; s.course = null; return; }
-      if (r?.kind === 'depart') { s.course = null; return; }
-      s.errand = null;
-      const [ax, az] = [l.ahead[0], l.ahead[2]], ux = Math.sin(l.yaw), uz = Math.cos(l.yaw);
-      const past = (s.pos[0] - ax) * ux + (s.pos[2] - az) * uz;   // how far along her lane she stands past it
-      s.course = past > -LINER_AHEAD_M ? [ax + ux * (Math.max(0, past) + 2 * LINER_AHEAD_M), az + uz * (Math.max(0, past) + 2 * LINER_AHEAD_M)] : [ax, az];
+    const h = l.dest ? harbours.get(l.dest.key) ?? null : null;   // the harbour of the port she makes for, or lies at
+    if (r && (r.kind === 'arrive' || r.kind === 'moored')) {
+      s.course = null;
+      if (h && r.harbour === h.key) { if (r.kind === 'moored') r.until = Infinity; return; }   // in her port: the clock sails her
+      s.errand = { kind: 'depart', harbour: r.harbour, berth: r.kind === 'moored' ? r.berth : -1, path: null, i: 0 };   // under way: out through its mouth first
       return;
     }
-    // at her port: into a berth of it where I know it (until her dwell ends on the shared clock), else lying off it
+    if (r?.kind === 'depart') { s.course = null; return; }
+    const p = pursue(l.way, s.pos[0], s.pos[2], LINER_LOOKAHEAD_M);
+    const end = l.way[l.way.length - 1];
+    if (p.left > LINER_PORT_M) { s.errand = null; s.course = [p.x, p.z]; return; }   // her way's own remainder: a leg come back by its end across a headland is no arrival
+    // at her port: into a berth of it, else lying off it on her ring
     s.course = null;
-    const h = l.port ? harbours.get(l.port.key) : null;
-    if (r && (r.kind === 'arrive' || r.kind === 'moored') && r.harbour === h?.key) {
-      if (r.kind === 'moored' && Number.isFinite(l.until) && now != null) r.until = s.clock + Math.max(0, l.until - now);
-      return;
-    }
-    const berth = h?.harbour && s.hull !== HULL.LargeGalley ? h.harbour.berths.findIndex((_, i) => berthFree(h.key, i)) : -1;
+    const berth = h?.harbour && s.hull !== HULL.LargeGalley ? openBerth(h) : -1;
     if (berth >= 0) { s.errand = { kind: 'arrive', harbour: h.key, berth, path: null, i: 0 }; return; }
-    if (r?.kind !== 'lurk') s.errand = { kind: 'lurk', harbour: null, at: [l.pos[0], l.pos[2]], path: null, i: 0, spin: (s.seed % 1000) / 1000 };
+    if (r?.kind !== 'lurk') s.errand = { kind: 'lurk', harbour: null, at: [end[0], end[1]], path: null, i: 0, spin: (s.seed % 1000) / 1000 };
   }
 
   // ── NAV-R: Warm Ashes' raiders, stood as ships (systems/naval/navalRaiders.js) ─────────────────────────────────────
@@ -1496,6 +1603,18 @@ export function createNavalHost(deps) {
    */
   function raiders(list, { sight = null, spent = new Set(), held = new Map() } = {}) {
     if (!enabled) return;
+    const me = deps.feet();
+    // AUDIT BAY A4: a raider a peer lets go of (sailed off past their RAIDER_DROP_M of her, or out of their word)
+    // within mine - taken over where she lies (she faded out of my sea, and the plan stood her in it again)
+    for (const e of [...sea.values()]) {
+      if (!e.owner || e.ship.cls.faction !== 'pirate' || e.ship.damage.state !== SHIP_STATES.afloat || raiderBusy(e) || dist2d(e.ship.pos, me) > RAIDER_DROP_M) continue;
+      const r = list.find((x) => (x.seed >>> 0) === e.ship.seed);
+      if (!r || spent.has(r.id) || held.has(r.id)) continue;
+      const feet = peerFeet(e.owner);
+      if (!e.retiring && !(feet && dist2d(feet, e.ship.pos) > RAIDER_DROP_M)) continue;
+      adopt(e);
+      e.retiring = false;
+    }
     const stood = new Map(), peers = new Map();
     for (const e of sea.values()) {
       // AUDIT NAV1 (online): a raider taken over from another (her stander gone, or grappled by me) is known by her seed
@@ -1503,9 +1622,15 @@ export function createNavalHost(deps) {
       if (!e.owner && e.raider) stood.set(e.raider.id, { pos: e.ship.pos, engaged: raiderBusy(e), boarding: boarding?.shipId === e.id });
       else if (e.owner && e.ship.cls.faction === 'pirate') peers.set(e.ship.seed, e.owner);
     }
-    const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent, held });
-    for (const id of plan.drop) { const e = raiderEntry(id); if (e) { if (held.has(id)) drop(e); else retire(e); } }   // SHIP-FADE: one sailing on fades; one yielded into a peer's copy of her goes at once (that copy stands where she does)
-    for (const e of sea.values()) if (!e.owner && e.raider && e.retiring && !plan.drop.includes(e.raider.id)) e.retiring = false;   // SHIP-FADE: back in range as she faded - she stays
+    const plan = raiderPlan({ raiders: list, me, myId: myId(), stood, peers, spent, held });
+    for (const id of plan.drop) {
+      const e = raiderEntry(id);
+      if (!e) continue;
+      if (held.has(id)) { drop(e); continue; }   // yielded into a peer's copy of her - that copy stands where she does
+      if (!e.retiring && peerNear(e.ship.pos, RAIDER_DROP_M) && clock - (e.handOn ??= clock) < ORPHAN_S) continue;   // AUDIT BAY A4: held for the claim of a player near her
+      retire(e);   // SHIP-FADE: she sails on out of sight
+    }
+    for (const e of sea.values()) if (!e.owner && e.raider && !plan.drop.includes(e.raider.id)) { e.handOn = null; e.retiring = false; }   // SHIP-FADE: back in range as she faded - she stays
     const level = deps.level?.() ?? 1;
     for (const id of plan.stand) {
       const r = list.find((x) => x.id === id);
@@ -2878,18 +3003,23 @@ export function createNavalHost(deps) {
     for (const h of harbours.values()) if (h.harbour) out.push({ key: h.key, harbour: h.harbour, free: (i) => berthFree(h.key, i) });
     return out;
   }
-  /** Whether berth `i` of harbour `key` is free - no ship of my sea moored at it or coming in to it. */
+  /** Whether berth `i` of harbour `key` is free - no ship of my sea moored at it or coming in to it, and (AUDIT BAY A7)
+   *  none lying still at it: another player's moored ship, whose errand never rides the word (a packet was berthed
+   *  on one). */
   function berthFree(key, i) {
     for (const e of sea.values()) { const r = e.ship.errand; if (r && r.harbour === key && r.berth === i && (r.kind === 'moored' || r.kind === 'arrive')) return false; }
+    const b = harbours.get(key)?.harbour?.berths[i];
+    if (b) for (const e of sea.values()) if (e.ship.damage.state !== SHIP_STATES.sunk && (e.ship.speed ?? 0) < BERTH_WAY && Math.hypot(b.pos[0] - e.ship.pos[0], b.pos[1] - e.ship.pos[2]) <= BERTH_SNAP_M) return false;
     return true;
   }
-  /** AUDIT SHIP-LIFE B1: a ship lying still at a berth of a harbour I know - another player's moored ship (her errand
-   *  never rides the word), read off where she lies. */
-  function atBerth(ship) {
-    if ((ship.speed ?? 0) >= BERTH_WAY) return false;
-    for (const h of harbours.values()) if (h.harbour?.berths.some((b) => Math.hypot(b.pos[0] - ship.pos[0], b.pos[1] - ship.pos[2]) <= BERTH_SNAP_M)) return true;
-    return false;
+  /** AUDIT SHIP-LIFE B1: the harbour I know a ship lies still at a berth of - another player's moored ship (her errand
+   *  never rides the word), read off where she lies - or null. */
+  function berthOf(ship) {
+    if ((ship.speed ?? 0) >= BERTH_WAY) return null;
+    for (const h of harbours.values()) if (h.harbour?.berths.some((b) => Math.hypot(b.pos[0] - ship.pos[0], b.pos[1] - ship.pos[2]) <= BERTH_SNAP_M)) return h;
+    return null;
   }
+  const atBerth = (ship) => !!berthOf(ship);
   /** A hull's water grid, made once for the scene as it stands. */
   function gridOf(hull) {
     let g = grids.get(hull);
@@ -2923,12 +3053,20 @@ export function createNavalHost(deps) {
         h.rolled = false;
         continue;
       }
-      if (h.rolled || d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;
-      h.rolled = true;
+      if (d > HARBOUR_STAND || !rollsHarbour(h.harbour.mouth)) continue;
       const r = mulberry32(hash32(keyHash(h.key), day >>> 0, HARBOUR_SALT));
       const n = Math.min(h.harbour.berths.length, HARBOUR_ROLL[0] + Math.floor(r() * (HARBOUR_ROLL[1] - HARBOUR_ROLL[0] + 1)));
+      const seedOf = (i) => hash32(keyHash(h.key), day >>> 0, i, HARBOUR_SALT);
+      if (h.rolled) {
+        // AUDIT BAY A20: the port's own a player sailing off lets go of (out of their word) - taken over where they
+        // lie by the one who rolls the port now (they faded out of their berths under my eyes, the roll long done)
+        const own = new Set(Array.from({ length: n }, (_, i) => seedOf(i)));
+        for (const e of [...sea.values()]) if (e.owner && e.retiring && own.has(e.ship.seed) && e.ship.damage.state === SHIP_STATES.afloat) { adopt(e); e.retiring = false; }
+        continue;
+      }
+      h.rolled = true;
       for (let i = 0; i < n; i++) {
-        const seed = hash32(keyHash(h.key), day >>> 0, i, HARBOUR_SALT);
+        const seed = seedOf(i);
         const faction = r() < HARBOUR_NAVY ? 'navy' : 'merchant';
         let cls = classFor(faction, HARBOUR_LEVEL, r());   // AUDIT SHIP-LIFE B3: the port's level, never a player's
         if (cls?.hull === HULL.LargeGalley) cls = classFor(faction, 1, r());   // a galley rows in and out, never moors
@@ -3061,8 +3199,9 @@ export function createNavalHost(deps) {
       const slipped = e.raider.chased && e.ship.mode === 'cruise';
       if (slipped || e.ship.boarded || boarding?.shipId === e.id || e.ship.damage.state !== SHIP_STATES.afloat) spendRaider(e, slipped);
     }
-    // SEA-LANES: a packet of mine sunk, struck, taken or boarded is spent for her voyage
-    for (const e of sea.values()) if (!e.owner && e.liner && (e.ship.boarded || boarding?.shipId === e.id || e.ship.damage.state !== SHIP_STATES.afloat)) spentLiners.add(e.liner.id);
+    // SEA-LANES: a packet sunk, struck, taken or boarded - no longer afloat - is spent for her voyage; AUDIT BAY A18:
+    // another's too
+    for (const e of sea.values()) if (e.liner && e.ship.damage.state !== SHIP_STATES.afloat) spendLiner(e);
     // AUDIT NAV1 (the presentation): a ship another player stands goes down on my clock as well as theirs - her sinking
     // run on between their words; one their word has let go of (`lost`, letGo) finishes going down, then is gone
     for (const e of [...sea.values()]) {
@@ -3218,7 +3357,7 @@ export function createNavalHost(deps) {
     const volleys = wireVolleys.map((v) => ({ ...v, age: (clock - v.at) * 1000 }));
     // AUDIT NAV1 (online #15): my casks afloat - every player sees them, and any player's boat may haul one in
     const casks = shots.floaters().filter((f) => f.kind === 'flotsam' && !f.owner).map((f) => ({ id: Number(f.id), pos: f.pos, from: f.from, lot: f.lot }));
-    return navalWireRecord({ ships, volleys, barrels: wireBarrels, me, law: notoriety.snapshot(), traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks }, toWire);
+    return navalWireRecord({ ships, volleys, barrels: wireBarrels, me, law: notoriety.snapshot(), traffic: setting('ShipsAtSea', TRAFFIC_DEFAULT), casks, spent: spentSaid }, toWire);   // AUDIT BAY A18: the packets I have seen spent
   }
   /** A peer's word: their ships stood as puppets, their volleys flown and drawn, their barrels afloat. */
   function applyWord(owner, raw, toScene = (p) => p) {
@@ -3301,6 +3440,8 @@ export function createNavalHost(deps) {
     }
     peerSelf.set(owner, { law: rec.law, me: rec.me, traffic: rec.traffic, at: clock, boat: rec.boat });
     applyCasks(owner, rec.casks, toScene);
+    // AUDIT BAY A18: the packets they have seen spent - none stood again here, and said on in my word
+    for (const sd of rec.spent ?? []) noteSpent(sd);
     if (seen.size > 512) { const keepIds = [...seen].slice(-256); seen.clear(); for (const k of keepIds) seen.add(k); }
     return true;
   }
@@ -3389,15 +3530,26 @@ export function createNavalHost(deps) {
    *  patrol - or '' while she fights, runs, lurks, or keeps a cruise of her own. */
   function boundOf(e) {
     const s = e.ship;
-    if (s.damage.state !== SHIP_STATES.afloat || (s.mode !== 'cruise' && s.mode !== 'answer')) return '';
+    if (s.damage.state !== SHIP_STATES.afloat) return '';
+    if (s.mode === 'answer') return e.relief ? 'coming to your aid' : '';   // AUDIT BAY A11: sailing for the guns, wherever she was bound
+    if (s.mode !== 'cruise') return '';
     const r = s.errand;
     const port = (k) => (k != null ? harbours.get(k)?.name ?? null : null);
+    const lying = e.owner ? berthOf(s) : null;   // AUDIT BAY A9: another's lying still at a berth - her errand never rides the word
+    if (lying) return lying.name ? `moored at ${lying.name}` : 'moored';
     if (r?.kind === 'moored') return port(r.harbour) ? `moored at ${port(r.harbour)}` : 'moored';
-    if (r?.kind === 'depart') return port(r.harbour) ? `leaving ${port(r.harbour)}` : '';
+    if (r?.kind === 'depart' && port(r.harbour)) return `leaving ${port(r.harbour)}`;   // AUDIT BAY A16: out of an unnamed one, her lane's words
     if (r?.kind === 'patrol') return port(r.harbour) ? `patrolling off ${port(r.harbour)}` : 'on patrol';
     if (r && (r.kind === 'arrive' || r.kind === 'voyage') && port(r.harbour)) return `bound for ${port(r.harbour)}`;
-    if (e.liner?.phase === 'dwell') return e.liner.port?.name ? `lying off ${e.liner.port.name}` : '';
-    if (e.liner?.to) return `bound for ${e.liner.to}`;
+    if (e.liner) {
+      // SEA-LANES: lying off her port, or bound for it - by her own leg (AUDIT BAY A22), a peer's packet's too (AUDIT
+      // BAY A9: known by her seed, her leg tracked by where she lies)
+      const at = e.liner.dest;
+      if (!at?.name) return '';
+      const leg = e.liner.way;
+      const end = leg?.[leg.length - 1];
+      return r?.kind === 'lurk' || (end && Math.hypot(s.pos[0] - end[0], s.pos[2] - end[1]) <= LINER_PORT_M) ? `lying off ${at.name}` : `bound for ${at.name}`;
+    }
     if (e.relief) return 'coming to your aid';
     if (r?.kind === 'voyage') return 'bound out to sea';
     return '';
@@ -3595,7 +3747,7 @@ export function createNavalHost(deps) {
     if (!where().cityLights) return;
     const eye = deps.look?.()?.origin ?? deps.feet();
     const boats = [];
-    for (const e of sea.values()) if (e.boat?.LightOn) boats.push(e.boat);
+    for (const e of sea.values()) if (e.boat?.LightOn && (e.fade ?? 1) >= FADE_FLATS) boats.push(e.boat);   // AUDIT BAY A13: gone with her lantern flats as she fades
     for (const b of myBoats()) if (b.LightOn) boats.push(b);
     for (const p of deps.peerBoats?.() ?? []) if (p.boat?.LightOn) boats.push(p.boat);   // AUDIT WK-N7: another player's lit boat, as my captains see her
     for (const b of boats) {
@@ -3618,7 +3770,7 @@ export function createNavalHost(deps) {
       if (out.length - flashes.length >= BURN_LIGHTS) break;
       out.push({ x: p[0], y: p[1] + hullBuild(b.hull).deck + 2, z: p[2], range: BURN_RANGE * (0.85 + 0.15 * Math.sin(clock * 9)), color: BURN_COLOR, carried: true });
     }
-    const burning = [...sea.values()].filter((e) => e.fires?.length && e.boat).sort((a, b) => dist2d(a.ship.pos, feet) - dist2d(b.ship.pos, feet)).slice(0, Math.max(0, BURN_LIGHTS - myFires.size));
+    const burning = [...sea.values()].filter((e) => e.fires?.length && e.boat && (e.fade ?? 1) >= FADE_FLATS).sort((a, b) => dist2d(a.ship.pos, feet) - dist2d(b.ship.pos, feet)).slice(0, Math.max(0, BURN_LIGHTS - myFires.size));
     for (const e of burning) {
       const p = e.ship.pos;
       out.push({ x: p[0], y: deps.seaY() + hullBuild(e.ship.hull).deck + 2, z: p[2], range: BURN_RANGE * (0.85 + 0.15 * Math.sin(clock * 9 + e.phase)), color: BURN_COLOR, carried: true });
@@ -3633,6 +3785,9 @@ export function createNavalHost(deps) {
       e.ship.pos[0] += o[0]; e.ship.pos[1] += o[1]; e.ship.pos[2] += o[2];
       if (e.target) { e.target.pos[0] += o[0]; e.target.pos[2] += o[2]; }
       if (e.ship.waypoint) { e.ship.waypoint[0] += o[0]; e.ship.waypoint[1] += o[2]; }
+      if (e.ship.course) e.ship.course = [e.ship.course[0] + o[0], e.ship.course[1] + o[2]];   // AUDIT BAY A1: a packet's, a raider's, a relief's - steered an origin's move off
+      if (e.liner?.leg) e.liner.leg = e.liner.leg.map((q) => [q[0] + o[0], q[1] + o[2]]);   // her leg, as her tag reads it (each its own: the list's are shared)
+      if (e.liner?.way) e.liner.way = e.liner.way.map((q) => [q[0] + o[0], q[1] + o[2]]);   // AUDIT BAY A22: and her own
       offsetErrand(e.ship.errand, o);   // SHIP-LIFE: her way and where it leads
       // her hull where the shift put the world, and her wake's living foam with it (OnPositionUpdateBoat's own)
       const b = e.boat;

@@ -209,8 +209,8 @@
   {
     "name": "MERGE-OW6-the-hold-unpassed-to-the-plan",
     "file": "src/scenes/navalHost.js",
-    "old": "const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent, held });",
-    "new": "const plan = raiderPlan({ raiders: list, me: deps.feet(), myId: myId(), stood, peers, spent });",
+    "old": "const plan = raiderPlan({ raiders: list, me, myId: myId(), stood, peers, spent, held });",
+    "new": "const plan = raiderPlan({ raiders: list, me, myId: myId(), stood, peers, spent });",
     "tests": [
       "test/nav_r_raiders.test.js"
     ]

@@ -146,10 +146,16 @@ test('SHIP-TAGS THE WORDS, by the real host: her class line (a crown\'s by her c
   n.relief = true;
   assert.equal(bound(null), 'coming to your aid');
   n.relief = false;
-  n.liner = { id: 'L1-2.0.1', phase: 'sail', to: 'Sentinel', from: 'Wayrest', port: null };
+  // AUDIT BAY A9 PIN MOVED: a packet's ports by key and name, and lying off her port by her leg's end (LINER_PORT_M)
+  const SENT = { key: 'port:7', name: 'Sentinel' }, WAYR = { key: PORT.key, name: 'Wayrest' };
+  const leg = [[n.ship.pos[0], n.ship.pos[2] - 3000], [n.ship.pos[0], n.ship.pos[2] + 2000]];
+  n.liner = { id: 'L1-2.0.1', seed: 1, phase: 'sail', to: SENT, from: WAYR, port: null, leg, way: leg, dest: SENT };
   assert.equal(bound(null), 'bound for Sentinel', 'a lane\'s packet');
-  n.liner = { id: 'L1-2.0.1', phase: 'dwell', to: 'Wayrest', from: 'Wayrest', port: { key: 'port:7', name: 'Sentinel' } };
-  assert.equal(bound(null), 'lying off Sentinel');
+  n.liner = { id: 'L1-2.0.1', seed: 1, phase: 'dwell', to: WAYR, from: WAYR, port: SENT, leg, way: leg, dest: SENT };
+  assert.equal(bound(null), 'bound for Sentinel', 'her dwell begun, she not yet there');
+  const short = [leg[0], [n.ship.pos[0], n.ship.pos[2] + 100]];
+  n.liner = { ...n.liner, leg: short, way: short };
+  assert.equal(bound(null), 'lying off Sentinel', 'by her leg\'s end');
   n.liner = null;
   n.ship.errand = on('patrol');
   assert.equal(t().friendly, true);

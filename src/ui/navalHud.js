@@ -380,7 +380,10 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 @keyframes dfnaval-hit-a { 0% { border-color: #fff6e4; box-shadow: 0 0 10px rgba(255,138,118,0.85); } 100% { border-color: ${T.stoneLit}; box-shadow: none; } }
 @keyframes dfnaval-hit-b { 0% { border-color: #fff6e4; box-shadow: 0 0 10px rgba(255,138,118,0.85); } 100% { border-color: ${T.stoneLit}; box-shadow: none; } }
 @media (prefers-reduced-motion: reduce) { .dfnaval-chunk { display: none !important; } .dfnaval-card.hit-a, .dfnaval-card.hit-b, .dfnaval-gun.fresh { animation: none; } }
-.dfnaval-card-state { min-height: 14px; margin-top: 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED}; }
+.dfnaval-card-state { min-height: 14px; margin-top: 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: ${T.brassHi}; text-shadow: ${OUTLINED};
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* AUDIT BAY A10: one line, cut at the card's edge - the aside card's state ("friendly - patrolling off Copperhold
+   Orchard") wrapped to a second and the card stood taller under the player's plate */
 .dfnaval-card-state.board { color: ${T.gold}; }
 .dfnaval-card-state.sinking { color: #ff8a76; }
 .dfnaval-card-state.friendly { color: #9fe0a8; }

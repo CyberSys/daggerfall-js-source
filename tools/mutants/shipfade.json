@@ -85,8 +85,8 @@
   {
     "name": "FADE-raider-yielded-fades",
     "file": "src/scenes/navalHost.js",
-    "old": "if (e) { if (held.has(id)) drop(e); else retire(e); } }",
-    "new": "if (e) { retire(e); } }",
+    "old": "      if (held.has(id)) { drop(e); continue; }   // yielded into a peer's copy of her",
+    "new": "      if (held.has(id)) { retire(e); continue; }   // yielded into a peer's copy of her",
     "tests": [
       "test/shipfade.test.js"
     ]
@@ -94,8 +94,8 @@
   {
     "name": "FADE-raider-drops-at-once",
     "file": "src/scenes/navalHost.js",
-    "old": "if (e) { if (held.has(id)) drop(e); else retire(e); } }",
-    "new": "if (e) { drop(e); } }",
+    "old": "      retire(e);   // SHIP-FADE: she sails on out of sight\n    }\n    for (const e of sea.values()) if (!e.owner && e.raider && !plan.drop.includes",
+    "new": "      drop(e);   // SHIP-FADE: she sails on out of sight\n    }\n    for (const e of sea.values()) if (!e.owner && e.raider && !plan.drop.includes",
     "tests": [
       "test/shipfade.test.js",
       "test/nav_r_raiders.test.js"
@@ -104,8 +104,8 @@
   {
     "name": "FADE-raider-back-unread",
     "file": "src/scenes/navalHost.js",
-    "old": "    for (const e of sea.values()) if (!e.owner && e.raider && e.retiring && !plan.drop.includes(e.raider.id)) e.retiring = false;",
-    "new": "    for (const e of sea.values()) if (false) e.retiring = false;",
+    "old": "if (!e.owner && e.raider && !plan.drop.includes(e.raider.id)) { e.handOn = null; e.retiring = false; }",
+    "new": "if (!e.owner && e.raider && !plan.drop.includes(e.raider.id)) { e.handOn = null; }",
     "tests": [
       "test/shipfade.test.js"
     ]
@@ -167,8 +167,8 @@
   {
     "name": "POOL-flats-kept",
     "file": "src/scenes/comeSailAwayPool.js",
-    "old": "      if ((boat.fade ?? 1) < FADE_FLATS) continue;",
-    "new": "      if (false) continue;",
+    "old": "      if ((boat.fade ?? 1) < FADE_FLATS) continue;   // SHIP-FADE: a ship half faded stands no flat",
+    "new": "      if (false) continue;   // SHIP-FADE: a ship half faded stands no flat",
     "tests": [
       "test/shipfade.test.js"
     ]

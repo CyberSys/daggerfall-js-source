@@ -203,7 +203,7 @@ test('SHIP-CLAIM offered only for a prize I stand, where Come Sail Away can plac
   const nothing = (why) => {
     assert.deepEqual(h.pack, [], `${why}: nothing packed`);
     assert.ok(h.rt.state.AllBoats.length === 1 && h.rt.state.AllBoats[0] === h.boat, `${why}: nothing placed`);
-    assert.ok(h.host._sea.has(e.id) && e.prize.fate === null, `${why}: she lies a prize`);
+    assert.ok(h.host._sea.has(e.id) && !e.retiring && e.prize.fate === null, `${why}: she lies a prize`);   // AUDIT BAY A15: never fading
   };
   assert.ok(m.claimOffer(), 'mine, the mod here');
   e.owner = 'zed';

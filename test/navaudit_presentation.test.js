@@ -1060,6 +1060,7 @@ test('AUDIT NAV1 (the presentation) HER HURTS SEEN, her smoke and her planks (#1
   fx.smolder = (a, b, dt, k) => { calls.get(tag)?.push({ a, b, k }); smolder(a, b, dt, k); };
   const whole = place(h, 'merchantGalleon', [0, 0, 300]);
   const hurt = place(h, 'merchantGalleon', [300, 0, 0], { seed: 0 });   // by the head
+  whole.fade = 1; hurt.fade = 1;   // AUDIT BAY A14 PIN MOVED: in the world whole - one coming into it raises no smoke under FADE_FLATS
   hurt.ship.damage.apply({ hull: hurt.ship.damage.maxHull * 0.7, sail: 0, crew: 0 }, 0);
   const seen = [];
   fx.smolder = (a, b, dt, k) => { seen.push({ a, b, k }); smolder(a, b, dt, k); };

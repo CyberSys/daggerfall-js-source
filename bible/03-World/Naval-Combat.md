@@ -383,8 +383,11 @@ them, and no captain takes them for a contact.
   above; F3: her mode, so her crew is at battle on every screen; F5: her victor, kept through a handover, where the navy
   had sailed off and her prize lay struck for good) - and `m`, the owner's boat - her crew, her battle and her hull (F2:
   the stander sized a peer's boat at a full crew and the peer herself single-handed, 3,300 against 2,357, so a wary
-  pirate took on one screen what she left on the other; the living crew counts her men off it, F9). `validNavalRecord`
-  takes it whole or not at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO RELAY CHANGE: the relay passes the foes
+  pirate took on one screen what she left on the other; the living crew counts her men off it, F9). AUDIT BAY A18: and
+  `l`, a key of its own the same way - the lanes' packets the owner has seen spent, each her voyage's seed, the last
+  NAVAL_WIRE_SPENT (8), said on by every reader (a player who never saw her go stood her afresh where she went down).
+  `validNavalRecord` takes it whole or not at all, every number bounded (the pose bounds are `net/wire.js`'s own). NO
+  RELAY CHANGE: the relay passes the foes
   frame through and routes a cell's hit by its `to`.
 - **The victim resolves**: a ball that strikes MY boat is mine to take, from any ship's volley flown here; a blow on a
   ship another player stands goes to them as a hit frame (`navalHitData`: `to`, the ship's number, the damage,
@@ -1608,7 +1611,11 @@ tags and card, SHIP-LIFE's harbours and NAV-R's shared clock.
   port's footprint, `navalHarbourNear`), a lane's packet bound for her next port or lying off it, a relief coming to
   your aid, a voyage out of the harbours bound out to sea; nothing while she fights or runs, nor struck. Past
   TAG_DETAIL_M none (the line hidden by its `:empty` rule). The card's state line says the same after her stance
-  ("Friendly - bound for Sentinel").
+  ("Friendly - bound for Sentinel"), on one line cut at the card's edge (AUDIT BAY A10: the aside card's ran to a
+  second). AUDIT BAY: a crown's ship answering the guns says nothing of where she was bound - a relief still comes to
+  your aid (A11: she read "bound out to sea"); a packet leaving a harbour with no name reads her lane's next port
+  (A16); another player's packet, known by her seed, reads her lane along her own leg (A22, below), and another's ship
+  lying still at a berth of a harbour I know reads moored at it (A9: both read nothing).
 - **SHIP-FADE** (`navalHost.js retire`, `fadeStep`; `scenes/comeSailAwayPool.js`; `render/orderedDither.js
   DISSOLVE_GLSL`, `render/renderer.js setDissolve`, `render/enhancedLighting.js EL_MESH_FS`). A
   ship let go by her range was dropped where she sailed - the director's past DESPAWN_BEYOND, a raider past
@@ -1626,7 +1633,12 @@ tags and card, SHIP-LIFE's harbours and NAV-R's shared clock.
   is the share CUT, so nought - every uniform's own start - is whole: no program needs a word to draw everything. Under
   FADE_FLATS (a half) her flats (her crew, her lanterns) stand down; one faded away draws nothing; her tag's opacity is
   its distance's times her share. Compiled in Chromium's WebGL2 (all three mesh shaders), and the cut measured there:
-  a sixteenth, a quarter, a half and three quarters of an 8x8 target kept, to the pixel.
+  a sixteenth, a quarter, a half and three quarters of an 8x8 target kept, to the pixel. AUDIT BAY: everything of her
+  goes with her - her SHADOW by the same cut in the depth maps (A12: `render/shadowPass.js DEPTH_CUT_FS`, the lit
+  pass's own `dissolveCut` over the map's texels; a record carries the renderer's `cut`, is never a cache's, and is
+  drawn with the cutting program, its cut uploaded once a record a replay - a whole one's the plain program, nothing
+  uploaded); and under FADE_FLATS her lanterns' light and far lamps (A13), her deck fires (a flame is a flat:
+  `scenes/navalFlames.js show`), embers, smoke, founder and burning glow, and her wake, splashes and colours (A14).
 - **SEA-LANES** (`systems/naval/seaLanes.js`, pure; `navalHost.js liners`, `steerLiner`; `world.js laneShips`).
   THE LANES: every port town of Travel Options' list with the ocean's water (never a lake's) within ROADSTEAD_PX (3)
   of it - its ROADSTEAD, the nearest such pixel, ring by ring - runs lanes to its LANE_NEIGHBOURS (2) nearest such
@@ -1639,29 +1651,56 @@ tags and card, SHIP-LIFE's harbours and NAV-R's shared clock.
   out, lies LANE_DWELL_S (10 min) at the far port, sails home and lies LANE_DWELL_S at hers, for ever, on the SHARED
   CLOCK (`raidNowMs`, NAV-R's) - so where she is is the clock's alone: every player meets her in the same water, a port
   left and come back to finds her further on, and the ship watched out of one port is the one that berths at the next.
-  Her VOYAGE is her cycle: her id names her lane, her place and her voyage, and the next voyage is another ship.
+  Her VOYAGE is her cycle: her id names her lane, her place and her voyage, and the next voyage is another ship -
+  AUDIT BAY A17: unless she is on the water as it turns: her `seeds` are her place's last LANE_LINEAGE (24) voyages',
+  hers first, and any of them afloat is her place's packet - she sails the next voyage as herself (she faded out at her
+  berth in the port's sight, and another was stood at the roadstead). Her `region` her home port's (A8).
   THE HOST: a packet under way within LINER_STAND_M (1,200 m) stands where her lane puts her, fading in - LINERS_MAX of
-  them by the Ships at sea (one, two, three; none with it off, or where another player launches the sea's traffic), the
-  nearest first, never twice, never one whose copy (her seed) is in my sea, never off the water; one lying at a port
-  whose harbour I know stands moored at a free berth of it (no galley moors). Each is steered by her lane: under way,
-  out of her berth through the harbour's mouth first (SHIP-LIFE's depart), then for her place LANE_LEAD_S (40 s) ahead
-  - where she outsails her schedule (within LINER_AHEAD_M of that place, or past it, along her lane) on along her lane
-  twice LINER_AHEAD_M beyond herself, never back for it; at her port into a free berth (SHIP-LIFE's arrive), moored
-  till her dwell ends on the shared clock, else lying off it on her ring. Past LINER_DROP_M (1,700 m) or out of the
-  list she sails on and fades unless she fights (no lane steers a fight); back as she fades, she stays. One sunk,
-  struck, taken or boarded is spent for her voyage. A packet counts in the sea's density and is never the director's
-  to let go. THE WORLD: every LANE_LIST_MS (2 s), outdoors and running, before the frame poses the sea's ships, the
-  world hands the host the packets within LANE_LIST_M (1,600 m) of the player - the lanes made once from the map's
-  own ports, water and climate, a lane's way sounded once and only near the player (within half LANE_PATH_PX of an
-  end, or LANE_MAX_PX of its middle) - each in the scene with her harbour's key and her ports' names. Measured over
-  a lane of a probe's own: in most winds a packet sails behind her schedule (a carrack beating 1.8 km behind in 15
-  minutes) and none doubles back; one that outsails it runs on along her lane.
+  them by the Ships at sea (one, two, three; none with it off), the shared sea's traffic, every player their own (AUDIT
+  BAY A5: only the elected launcher stood any - a packet by another player was stood by nobody; two standers' twins
+  are the claim rule's), the nearest first, never twice, never one whose voyage's ship or place's packet is in my sea,
+  never off the water; one lying at a port whose harbour I know stands moored at its LAST open berth (A7: the
+  harbour's own are stood at its first; a berth another's ship lies at is none) - no galley moors - named by her home
+  port's region wherever she is met (A8). Each ship in my sea is known by her seeds (A3/A9/A17): mine, taken over or
+  sailing on into her next voyage, steered by her lane; another's read on her tag - followed along her own leg by where
+  she lies (A22: a peer's copy kept the leg she was first known on for good, and taken over sailed it again): first
+  known under way heading back along her clock's leg, on the leg before it (behind her clock by a leg, for the port it
+  left - fighting, lying at a berth or off her clock's port, her clock's); at her port (a berth of it, or her leg's
+  end) as her clock sails her on, on its next. A ship of mine her lane takes up - taken over, or met in it again -
+  keeps her lane's errand alone: lying at a berth or on her way out of a harbour she keeps to it, SHIP-LIFE's own
+  never (it sent one taken over mid-lane for the nearest harbour's berth, the port behind her). STEERED (A6, A22):
+  under way along
+  her OWN leg from where she is (`seaLanes.js pursue`, LINER_LOOKAHEAD_M (300 m) on - never for her place on the
+  clock, which took her across the land a lane goes round), out of any berth through its harbour's mouth first; within
+  LINER_PORT_M (500 m) of her leg's end (by its own remainder) she is at her port - into its last open berth, moored
+  till her clock sails her on (come early, she waits for it), else lying off her leg's end; her clock gone on (she
+  behind it) she sails at once for where it has her bound: the leg she sails is hers till she has sailed it (her clock
+  turned under one behind it, and she came about for home short of her port). At her port is by her errand there too
+  (into a berth of it, moored at one however far it lies from her leg's end, lying off it though a fight carried her
+  from it); fighting, her leg is hers till her fight is done. Past LINER_DROP_M (1,700 m) she sails on
+  and fades unless she fights (no lane steers a fight); back as she fades, she stays; held ORPHAN_S for a player
+  within LINER_DROP_M of her, who takes her over where she lies (A4: she faded out of their sea and was stood in it
+  anew - a raider likewise, and a harbour's own for the one who rolls the port, A20). Out of the list (her lineage
+  past) she is the sea's as any ship - moored, her own dwell; lying off a port, an errand of her own (A19). One no
+  longer afloat - sunk, struck, taken, boarded - is spent for her voyage by every player who sees her go, said in the
+  word (`l`, A18), and is her lane's no more: the sea's own law lets her hulk go out of sight (A2: the lane kept a
+  struck one for good). A packet counts in the sea's density and is never the director's to let go. THE WORLD: every
+  LANE_LIST_MS (2 s), outdoors and running, before the frame poses the sea's ships, the world hands the host EVERY
+  packet of every lane with a port within LANE_PATH_PX / 2 + LANE_NEAR_PX (34 pixels) of the player - a ship on a way
+  within reach has one there (A19: only those whose place on the clock lay within 1,600 m, and one fallen that far
+  behind was let go beside the player) - the lanes made once from the map's own ports, water and climate, a lane's way
+  sounded once and only near the player - each in the scene with her seeds, her leg, her ports by key and name and her
+  home port's region. Measured (AUDIT BAY): a packet makes 31-66% of her best way by her heading in a wind of 1 (the
+  game's runs 1 to 2, a tenth of it in fog), her schedule LANE_CRUISE (70%): she falls behind it - 1 km in 20 minutes -
+  and sails her own leg out; one that outsails it waits at her port.
 
 Said: the lanes are made from the real map's ports and water, which no test here reads (the game's data is not in the
 tree): a port with no ocean pixel within three of it has no lane, and a lane longer than sixty pixels of water none.
-Online: a packet stands only on the player who launches the sea's traffic and rides the sea's word as any ship of
-theirs; her place being the clock's, a new stander stands the same ship where she sails. Nothing under `server/src` or
-`src/net`. THE FOUR HOSTS RULE: the feed is world.js's alone (`navalFrame`); the other hosts stand no sea (NAV-H).
+Online: every player stands the packets near them and each rides its stander's word as any ship of theirs, twins
+settled by the claim rule; a packet another lets go of by their range within mine is taken over where she lies; a
+spent packet's voyage rides the word (`l`, a key of its own: an older build's door passes it and reads none); her
+place being the clock's, a new stander stands the same ship where she sails. Nothing under `server/src` or `src/net`.
+THE FOUR HOSTS RULE: the feed is world.js's alone (`navalFrame`); the other hosts stand no sea (NAV-H).
 Not seen in a browser.
 
 Pins, each red on 168bf2587: `test/shipnames.test.js` (5), `test/shipstance.test.js` (4), `test/shipfade.test.js` (8),
@@ -1679,7 +1718,10 @@ NAVP-tags-hostile-unread, `shiplife.json` SHIPLIFE-HOST-moored-kept-far; `survti
 records on navalHost.js, navalHud.js, navalShips.js and comeSailAwayPool.js, and the moved pins' lists - 1,014): the
 first 491 as this commit lands - 483 dead, two equivalent as recorded, and six that survive on 168bf2587 alike, none
 of this change's (A0928-R5-flat-scale-walks-again, NAV-B-her-colours-struck, NAV-C-the-tactic-ignored,
-NAV1-the-tacks-carry-dropped, NAV1-no-pay-off, NAV1-never-warped); the rest are judged after it.
+NAV1-the-tacks-carry-dropped, NAV1-no-pay-off, NAV1-never-warped); the rest are judged after it. AUDIT BAY judged the
+rest (`01-Overview/Audit-Ships-of-the-Bay.md`): of all 1,014, 1,004 dead, the two equivalent and the six, and two the
+change's own - SEAPEACE-the-prize-let-go-before-the-grapple surviving (pins the fade weakened, A15) and
+SHIPLIFE-AI-no-hold hanging its suite for good (A21) - each dead now.
 
 ## The tests
 
@@ -1761,7 +1803,9 @@ AUDIT NAV2's own suites - `test/auditnav2_online.test.js`, `auditnav2_boarding`,
 `auditnav2_helm`, `auditnav2_combat`, `auditnav2_deck` and `auditnav2_crew` - and their mutant lists
 (`tools/mutants/auditnav2_*.json`) are the audit's record's (`01-Overview/Audit-NAV2.md`).
 SHIPS OF THE BAY's (2026-10-02) - `test/shipnames.test.js`, `shipstance`, `shipfade`, `sealanes` - and their lists
-(`tools/mutants/shipnames.json`, `shipstance.json`, `shipfade.json`, `sealanes.json`) are recorded in its section above.
+(`tools/mutants/shipnames.json`, `shipstance.json`, `shipfade.json`, `sealanes.json`) are recorded in its section above;
+AUDIT BAY's - `test/auditbay_lanes.test.js`, `auditbay_render` and `tools/mutants/auditbay.json` - are the audit's
+record's (`01-Overview/Audit-Ships-of-the-Bay.md`).
 
 ## THE MERGE with main (2026-09-28)
 

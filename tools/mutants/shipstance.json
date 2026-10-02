@@ -92,8 +92,8 @@
   {
     "name": "TAGS-bound-while-fighting",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (s.damage.state !== SHIP_STATES.afloat || (s.mode !== 'cruise' && s.mode !== 'answer')) return '';",
-    "new": "    if (s.damage.state !== SHIP_STATES.afloat) return '';",
+    "old": "    if (s.mode !== 'cruise') return '';\n    const r = s.errand;\n    const port = (k) =>",
+    "new": "    const r = s.errand;\n    const port = (k) =>",
     "tests": [
       "test/shipstance.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "TAGS-bound-though-struck",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (s.damage.state !== SHIP_STATES.afloat || (s.mode !== 'cruise' && s.mode !== 'answer')) return '';",
-    "new": "    if (s.mode !== 'cruise' && s.mode !== 'answer') return '';",
+    "old": "    if (s.damage.state !== SHIP_STATES.afloat) return '';\n    if (s.mode === 'answer')",
+    "new": "    if (s.mode === 'answer')",
     "tests": [
       "test/shipstance.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "TAGS-leaving-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (r?.kind === 'depart') return port(r.harbour) ? `leaving ${port(r.harbour)}` : '';",
-    "new": "    if (r?.kind === 'depart') return '';",
+    "old": "    if (r?.kind === 'depart' && port(r.harbour)) return `leaving ${port(r.harbour)}`;",
+    "new": "    if (r?.kind === 'depart' && port(r.harbour)) return '';",
     "tests": [
       "test/shipstance.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "TAGS-dwell-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (e.liner?.phase === 'dwell') return e.liner.port?.name ? `lying off ${e.liner.port.name}` : '';",
-    "new": "    if (e.liner?.phase === 'dwell') return '';",
+    "old": "<= LINER_PORT_M) ? `lying off ${at.name}` : `bound for ${at.name}`;",
+    "new": "<= LINER_PORT_M) ? '' : `bound for ${at.name}`;",
     "tests": [
       "test/shipstance.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "TAGS-liner-unsaid",
     "file": "src/scenes/navalHost.js",
-    "old": "    if (e.liner?.to) return `bound for ${e.liner.to}`;",
-    "new": "    if (e.liner?.to) return '';",
+    "old": "<= LINER_PORT_M) ? `lying off ${at.name}` : `bound for ${at.name}`;",
+    "new": "<= LINER_PORT_M) ? `lying off ${at.name}` : '';",
     "tests": [
       "test/shipstance.test.js"
     ]

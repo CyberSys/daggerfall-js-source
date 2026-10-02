@@ -20,8 +20,8 @@
   {
     "name": "AUDIT0928-R1-shadow-pass-blind-to-it",
     "file": "src/render/shadowPass.js",
-    "old": "    r.dynamic = moved || reshaped;   // SC1",
-    "new": "    r.dynamic = moved;   // SC1",
+    "old": "    r.dynamic = moved || reshaped || r.cut > 0;   // SC1",
+    "new": "    r.dynamic = moved || r.cut > 0;   // SC1",
     "tests": [
       "test/audit0928_render.test.js"
     ]
