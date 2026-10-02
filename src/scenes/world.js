@@ -1622,6 +1622,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const grassRecords = new Map();   // archive -> Set of grass records
   const groundPuddles = new Map();   // WATER-PUDDLE: archive -> its layers, each puddle record's water in its alpha (the pass's own mask)
   const groundMeanColour = new Map();   // GR4: archive -> [record] -> mean rgb 0..1
+  const groundDrawnMeans = new Map();   // AUDIT GRASS-LIT2 B2: archive -> the uploaded mod tile set's record means (null: the classic file's)
   // PERF1: the density pref is a fraction of the lab's field; 0 is the
   // same as ?grass=off - no renderer, no field, nothing drawn.
   const grassDensity = Math.max(0, Math.min(1, Number(getPref('grassDensity')) || 0)) * LAB_GRASS.density;
@@ -3278,6 +3279,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // GROUND1-W: a mod's tile set takes its puddles' shapes from the classic records (carryPuddleMask)
       const layers = modLayers ? carryPuddleMask(modLayers, markPuddleWater(classic)) : classic;
       renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));   // WATER-PUDDLE: a puddle record's water in its layer's alpha
+      // AUDIT GRASS-LIT2 B2: the grass's colours off THESE layers - the ones drawn - and not a second ask of the mod
+      // door, whose cache a mod indexed mid-session empties (another decode, maybe another mod's tiles than these)
+      if (labGrass) groundDrawnMeans.set(groundArchive, modLayers ? modLayers.map(tileMeanColour) : null);
     }
     renderer.applyGroundSharpness();   // GRAIN AUDIT 1: the ground-sharpness tier lands on THIS load, on every cached archive - the cache outlives the scene
     // GR1: which of this archive's records are GRASS, from its own texels -
@@ -3289,7 +3293,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     // GRASS-LIT2: the tile set that is DRAWN - an attached texture mod's (GROUND1, the cached promise the upload above
     // asked) - is what the grass's colour is taken off; asked BEFORE the three below are learned, so all three land in
     // one step and no pixel places a field against records whose colours are still on their way
-    const drawnLayers = grassRecords.has(groundArchive) ? null : await dfmodGroundLayers(groundArchive, groundTex.recordCount);
+    // AUDIT GRASS-LIT2 B2: the means taken at the upload above when it ran in this scene; asked of the door only for a
+    // tile array an earlier scene uploaded (the renderer's cache outlives the scene)
+    const drawnMeans = grassRecords.has(groundArchive) ? null
+      : groundDrawnMeans.has(groundArchive) ? groundDrawnMeans.get(groundArchive)
+      : (await dfmodGroundLayers(groundArchive, groundTex.recordCount))?.map(tileMeanColour) ?? null;
     if (!grassRecords.has(groundArchive)) {
       const layers = [];
       for (let r = 0; r < groundTex.recordCount; r++) layers.push(groundTex.getColor32(groundTex.getDFBitmap(r, 0), 0));
@@ -3303,7 +3311,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // ground a blade stands in is the one drawn. Which records are grass
       // stays the classic file's question: a record means the same tile
       // under any picture of it.
-      groundMeanColour.set(groundArchive, (drawnLayers ?? layers).map(tileMeanColour));
+      groundMeanColour.set(groundArchive, drawnMeans ?? layers.map(tileMeanColour));
     }
     const terrain = renderer.createTerrainSurface(positions, normals,
       stride === 1 ? TERRAIN_INDICES : TERRAIN_INDICES_LOD);
@@ -3979,7 +3987,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       withRoads,   // ROADS 25: painted with the network present, or before it arrived (see below)
       _box: bounds,   // EV3: pixel-local presentation bounds (terrain + models + flats)
       _stride: stride,   // EV4: the terrain surface's current ring class
-      groundNormals: stride === 1 ? normals : null,   // GRASS-LIT2: the near grid's vertex normals - the grass reads its slope off them
+      groundNormals: labGrass && stride === 1 ? normals : null,   // GRASS-LIT2: the near grid's vertex normals - the grass reads its slope off them; AUDIT B1: only where there is grass (200 KB a pixel)
       population, locOrigin, personBatches,   // T2 towns
       npcs: pixelNpcs,   // AUDIT 26 (F019): RMBLayout's street StaticNPCs, pixel-local
       npcBatches: [], npcQuestPass: false,   // E3: their billboards (a subset of `batches`) and the one-shot SetupIndividualStaticNPC latch
@@ -4271,7 +4279,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const waterIndices = waterOn ? buildWaterIndices(p._dwBytes ?? p.tilemapBytes, stride) : null;   // DW-F: the cap's TileMap, where it patched one
     p.water = waterIndices ? renderer.createWaterSurface(p.terrain, waterIndices) : null;
     p._stride = stride;
-    p.groundNormals = stride === 1 ? grid.normals : null;   // GRASS-LIT2: the grass's slope, at the ring class it stands on
+    p.groundNormals = labGrass && stride === 1 ? grid.normals : null;   // GRASS-LIT2: the grass's slope, at the ring class it stands on; AUDIT B1: only with grass
     if (p._dwBytes) dwClipTerrain(p);   // DW-C: the clip, at the new ring class
     // PERF-EXT21: a promotion is the other way a pixel joins the grass
     // (its near pieces are the stride-1 ones), and the crossing no longer
@@ -13243,6 +13251,7 @@ export async function bootWorld(canvas, renderer, params, status) {
      *  `steep` asks for a hillside - the square's far half leaning at least that much (the ground normal's xz, off the
      *  near grid's normals), and the yaw that looks up or down it. */
     window.__grassSpot = (r = 6, skip = 0, steep = 0) => {
+      r = Math.max(1, r | 0);   // AUDIT GRASS-LIT2 B5: a zero step never left the loop
       const cur = built.get(`${state.current.x},${state.current.y}`);
       for (const p of [cur, ...built.values()]) {
         const grass = p?.tilemapBytes ? grassRecords.get(p.groundArchive) : null;
@@ -13253,10 +13262,10 @@ export async function bootWorld(canvas, renderer, params, status) {
           for (let dz = -r; dz <= r * 3 && all; dz++) for (let dx = -r; dx <= r && all; dx++) all = grass.has(p.tilemapBytes[(tz + dz) * TERRAIN_TILE_DIM + tx + dx] >> 2);
           if (!all) continue;
           const x = t[0] + (tx + 0.5) * 6.4, z = t[2] + (tz + 0.5) * 6.4;
-          const n = steep > 0 && p.groundNormals ? surfaceNormalAt(p.groundNormals, (tx + 0.5) * 6.4, (tz + r * 1.5) * 6.4, [0, 1, 0]) : null;
+          const n = steep > 0 && p.groundNormals ? surfaceNormalAt(p.groundNormals, (tx + 0.5) * 6.4, (tz + r * 2 + 0.5) * 6.4, [0, 1, 0]) : null;   // AUDIT B5: the far half's middle
           if (steep > 0 && !(n && Math.hypot(n[0], n[2]) >= steep)) continue;
           if (skip-- > 0) continue;
-          return { feet: [x, heightAt(x, z), z], yaw: 0, pixel: [p.px, p.py], archive: p.groundArchive, normal: n };
+          return { feet: [x, heightAt(x, z), z], yaw: n ? Math.atan2(n[0], n[2]) : 0, pixel: [p.px, p.py], archive: p.groundArchive, normal: n };   // AUDIT B5: a hillside's yaw looks down it
         }
       }
       return null;
@@ -13269,6 +13278,7 @@ export async function bootWorld(canvas, renderer, params, status) {
      *  grass on, its feet and its pixel, the square's mean forest, and the pixel's origin. Where to look down on a wood
      *  from. `here` keeps to the player's own pixel, so a camera posed off it does not cross into the next. */
     window.__forestSpot = (r = 10, here = false) => {
+      r = Math.max(1, r | 0);   // AUDIT GRASS-LIT2 B5
       let best = null;
       const cur = built.get(`${state.current.x},${state.current.y}`);
       for (const p of here ? [cur] : built.values()) {

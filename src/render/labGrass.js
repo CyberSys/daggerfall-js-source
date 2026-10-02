@@ -31,7 +31,7 @@ import { buildTuftMips, buildTuftSheet, pixelGrass, PX_RAMP_STEPS, PX_TINT_BANDS
 import { buildProgram } from './glProgram.js';   // AUDIT 68 S17-gl-program-dup: the one compile and link
 import { FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: fogFactorAt's one home - the terrain's own text, not a tenth copy
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // GRASS-LIT: the deck's shadow, the reader the terrain takes
-import { SHADOW_GLSL, SHADOW_SUN_UNIT, SHADOW_POINT_UNIT, SHADOW_LO_UNIT } from './shadowPass.js';   // GRASS-LIT: the sun map, the receiver the terrain takes
+import { SHADOW_GLSL, SHADOW_SUN_UNIT, SHADOW_POINT_UNIT, SHADOW_LO_UNIT, SHADOW_POINT_CASTERS, SHADOW_CASTER_TABLE } from './shadowPass.js';   // GRASS-LIT: the sun map, the receiver the terrain takes
 import { AIR_ADAPT_GLSL } from './airPass.js';   // GRASS-LIT: the eye's adaptation, as every lane program exposes by it
 import { EL_CODEC_GLSL, EL_TONEMAP_GLSL, EL_ATTEN_GLSL, EL_MAX_LIGHTS, elDecode, elEncode, elTonemapRGB, elAttenuation, EL_EXPOSURE } from './enhancedLighting.js';   // GRASS-LIT: the lane's codec and curve, and their JS twins for grassLit; GRASS-LIT2: and its lantern falloff
 
@@ -254,6 +254,8 @@ const WHITE = new Float32Array([1, 1, 1]);
 const NO_FOG_RANGE = new Float32Array([0, 1]);   // DISC20-A: a range for the unfogged draw (mode 0 never reads it)
 const NO_WATER_FOG = new Float32Array(20);   // DW-C: uDwFog off ([0].x 0)
 const NO_DECK = new Float32Array(4);   // GRASS-LIT: a vec4 of zeros - no deck, no sun map, no player's light
+const NO_CASTERS = new Int32Array(SHADOW_CASTER_TABLE).fill(-1);   // AUDIT GRASS-LIT2 A2: every light without a map
+const NO_CASTER_PARAMS = new Float32Array(SHADOW_POINT_CASTERS * 4);   // AUDIT GRASS-LIT2 A2: and every slot off (far 0)
 const ZERO3 = new Float32Array(3);
 /** GRASS-LIT: the eye's adaptation rides the far ring's unit (render/farRing.js), the deck the renderer's reserved one
  *  (renderer.js CLOUD_SHADOW_UNIT - the same map it binds there) */
@@ -589,8 +591,12 @@ export const GRASS_SLOPE_STEPS = 15;
 /** GRASS-LIT2: the height's share of its lane - the high six bits (7 mm steps over the 0.47 m span, which GRASS5 held
  *  needed eight) */
 export const GRASS_HEIGHT_BITS = 6;
-/** GRASS-LIT2: the lanterns the vertex stage walks - the lane's own cap, so every light the ground takes the grass takes */
+/** GRASS-LIT2: the lanterns the vertex stage can be handed - the lane's own cap, so every light the ground takes the grass takes */
 export const GRASS_MAX_LIGHTS = EL_MAX_LIGHTS;
+/** AUDIT GRASS-LIT2 A1: the lanterns ONE CELL walks - the lights whose reach meets the cell's box, nearest first. The
+ *  stage walked all 48 for every triangle of every blade (a third of each warp pays a branch's loop); a 30 m cell under
+ *  a lantern's 18 m reach meets one or two, and an open field none */
+export const GRASS_CELL_LIGHTS = 8;
 
 export const GRASSLIT_VS_EDITS = Object.freeze([
   Object.freeze({
@@ -606,11 +612,17 @@ export const GRASSLIT_VS_EDITS = Object.freeze([
       + 'out vec3 vNear;                         // GRASS-LIT: the player\'s light at the root\n'
       + 'out float vFar;                         // GRASS-LIT: how far into the range - the colour gives way to the ground\'s\n'
       + 'uniform float uLane;               // GRASS-LIT2: the fragment\'s own, here too - the lane\'s lantern falloff or the classic one\n'
-      + 'uniform int uPointCount;           // GRASS-LIT2: the frame\'s lanterns, torches and candles - the list the ground takes\n'
+      + 'uniform int uPointCount;           // GRASS-LIT2: the frame\'s lanterns, torches and candles - the list the ground takes - AUDIT A1: as many of them as meet THIS cell\n'
+      + `uniform int uPointIdx[${GRASS_CELL_LIGHTS}];        // AUDIT GRASS-LIT2 A1: which - indices into the frame\'s list (uCasterOf reads the same index)\n`
       + `uniform vec4 uPointLights[${GRASS_MAX_LIGHTS}];     // GRASS-LIT2: xyz the light, w its range\n`
       + `uniform vec3 uPointColors[${GRASS_MAX_LIGHTS}];     // GRASS-LIT2: colour x intensity - linear under the lane, as the ground's\n`
       + EL_ATTEN_GLSL + '\n'
       + 'flat out vec3 vPoint;                   // GRASS-LIT2: the lanterns at the root - one value a triangle, as the sun\n',
+  }),
+  Object.freeze({
+    why: 'AUDIT GRASS-LIT2 A6: the lane\'s own word says what it carries now',
+    from: '// GRASS5: u16 x, z, rootY, height - all cell-local, all normalized\n',
+    to: '// GRASS5: u16 x, z, rootY, height - all cell-local, all normalized; GRASS-LIT2: the height\'s word is its six bits and the slope\'s ten\n',
   }),
   Object.freeze({
     why: 'GRASS-LIT2: the height lane carries the ground\'s slope - the height in its high six bits, the normal\'s x and z in five each (writeSlot) - so a blade is lit by the hillside it stands on',
@@ -621,9 +633,10 @@ export const GRASSLIT_VS_EDITS = Object.freeze([
     why: 'GRASS-LIT2: the lane unpacked ahead of the blade it builds, and the ground\'s normal rebuilt from its x and z',
     from: '  vec4 aInst = vec4(uCellFrame.xy + aPA.xy * uCellSize,\n',
     to: '  // GRASS-LIT2: THE HEIGHT LANE\'S SIXTEEN BITS - the height\'s high six, then the ground normal\'s x and z, five each\n'
-      + '  // (codes 0..30, 15 the level; writeSlot): the terrain\'s own normal under the root (world/terrainSurface.js surfaceNormalAt)\n'
+      + '  // (codes 0..30, 15 the level, stored XOR 15 so a zero word - a pad, a cleared slot - is level; writeSlot): the terrain\'s\n'
+      + '  // own normal under the root (world/terrainSurface.js surfaceNormalAt)\n'
       + '  uint hw = uint(aPA.w * 65535.0 + 0.5);\n'
-      + `  vec2 slope = (vec2(float((hw >> 5u) & 31u), float(hw & 31u)) - ${GRASS_SLOPE_STEPS.toFixed(1)}) * ${GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS};\n`
+      + `  vec2 slope = (vec2(float(((hw >> 5u) & 31u) ^ ${GRASS_SLOPE_STEPS}u), float((hw & 31u) ^ ${GRASS_SLOPE_STEPS}u)) - ${GRASS_SLOPE_STEPS.toFixed(1)}) * ${GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS};   // AUDIT A3: stored ^ 15, so a zero word is level\n`
       + '  vec3 gN = vec3(slope.x, sqrt(max(1.0 - dot(slope, slope), 0.0)), slope.y);\n'
       + '  vec4 aInst = vec4(uCellFrame.xy + aPA.xy * uCellSize,\n',
   }),
@@ -651,8 +664,9 @@ export const GRASSLIT_VS_EDITS = Object.freeze([
       + '  // elAttenuation), each light\'s map where it has one (shadowOfLight, the flats\' reader), lifted off the ground as the\n'
       + '  // sun\'s is; read in the provoking vertex alone, as the sun\n'
       + '  vPoint = vec3(0.0);\n'
-      + `  if (gl_VertexID % 3 == 2) for (int i = 0; i < ${GRASS_MAX_LIGHTS}; i++) {\n`
-      + '    if (i >= uPointCount) break;\n'
+      + `  if (gl_VertexID % 3 == 2) for (int j = 0; j < ${GRASS_CELL_LIGHTS}; j++) {   // AUDIT A1: the cell's lights, not the frame's\n`
+      + '    if (j >= uPointCount) break;\n'
+      + '    int i = uPointIdx[j];\n'
       + '    vec3 pL = uPointLights[i].xyz - rootW; float pd = length(pL);\n'
       + '    if (pd >= uPointLights[i].w) continue;\n'
       + '    float pc = clamp(1.0 - pd / uPointLights[i].w, 0.0, 1.0);\n'
@@ -1011,7 +1025,8 @@ export const GRASS_PACK_BYTES = 16;
  * GRASS-LIT2 (2026-10-02): THE HEIGHT LANE, SHARED WITH THE GROUND'S SLOPE. GRASS5 gave the height a u16 and wrote that
  * it needed eight bits; it takes the high GRASS_HEIGHT_BITS now (7 mm over its 0.47 m span), and the ground normal's x
  * and z under the root take five each - codes 0..30 over +/-GRASS_SLOPE_SPAN, 15 the level, so level ground packs
- * exactly level. The quantising is DITHERED by the blade's index (the R2 sequence's two axes): the placer emits a
+ * exactly level; each code is stored XOR 15 (AUDIT A3), so a ZERO word - a pad blade, a cleared slot - decodes to the
+ * height floor on level ground, where it decoded to the steepest lean. The quantising is DITHERED by the blade's index (the R2 sequence's two axes): the placer emits a
  * cell's blades in random order, so the step a hillside's normal is rounded to lands as grain across the field and
  * never as a contour line; the mean of a patch is the slope's own. No byte more a blade.
  * @param {number} hn the height over its span, 0..1
@@ -1023,15 +1038,16 @@ export const GRASS_PACK_BYTES = 16;
 export function packHeightSlope(hn, nx, nz, i) {
   const top = 2 ** GRASS_HEIGHT_BITS - 1;
   const h = Math.max(0, Math.min(top, Math.round(hn * top)));
+  if (!Number.isFinite(nx) || !Number.isFinite(nz)) nx = nz = 0;   // AUDIT GRASS-LIT2 A4: a normal that is not one is level - NaN shifted to code 0, the steepest lean
   const l = Math.hypot(nx, nz), k = l > GRASS_SLOPE_SPAN ? GRASS_SLOPE_SPAN / l : 1;   // a normal past the span is held to it, its heading kept
   const q = (v, r) => Math.max(0, Math.min(2 * GRASS_SLOPE_STEPS, Math.round(GRASS_SLOPE_STEPS + v * k * GRASS_SLOPE_STEPS / GRASS_SLOPE_SPAN + r)));
   const dx = ((0.5 + i * 0.7548776662466927) % 1) - 0.5, dz = ((0.5 + i * 0.5698402909980532) % 1) - 0.5;   // R2, centred: -0.5..0.5
-  return (h << 10) | (q(nx, dx) << 5) | q(nz, dz);
+  return (h << 10) | ((q(nx, dx) ^ GRASS_SLOPE_STEPS) << 5) | (q(nz, dz) ^ GRASS_SLOPE_STEPS);   // AUDIT A3: stored XOR 15 - a zero word is level
 }
 /** GRASS-LIT2: the lane back - the vertex stage's arithmetic, for the pins and the probe: { hn, nx, nz } */
 export function unpackHeightSlope(w) {
   const top = 2 ** GRASS_HEIGHT_BITS - 1, step = GRASS_SLOPE_SPAN / GRASS_SLOPE_STEPS;
-  return { hn: (w >> 10) / top, nx: (((w >> 5) & 31) - GRASS_SLOPE_STEPS) * step, nz: ((w & 31) - GRASS_SLOPE_STEPS) * step };
+  return { hn: (w >> 10) / top, nx: ((((w >> 5) & 31) ^ GRASS_SLOPE_STEPS) - GRASS_SLOPE_STEPS) * step, nz: (((w & 31) ^ GRASS_SLOPE_STEPS) - GRASS_SLOPE_STEPS) * step };
 }
 
 /** The lean's half-range: the placer draws (rnd - 0.5) * 0.5. */
@@ -1542,10 +1558,13 @@ export const GRASS_FAR_AT = 0.5;
  *  past this a mean reads every k-th texel, k ODD, so no power-of-two period (a texel grid, an ordered dither, the
  *  row's own width) lines up with the step and is read on one phase only. A classic tile (64 x 64) is read whole. */
 export const GRASS_MEAN_SAMPLES = 65536;
+/** the step a mean of `n` texels reads at: 1 up to the cap, past it the least ODD step that keeps the reads under it
+ *  (AUDIT GRASS-LIT2 A5: ceil - floor read every texel of a tile up to twice the cap) */
+export const grassMeanStep = (n) => Math.max(1, Math.ceil(n / GRASS_MEAN_SAMPLES)) | 1;
 function meanRgb(l) {
   let r = 0, g = 0, b = 0, m = 0;
   const n = l.width * l.height;
-  const step = Math.max(1, Math.floor(n / GRASS_MEAN_SAMPLES)) | 1;
+  const step = grassMeanStep(n);
   for (let k = 0; k < n; k += step) { r += l.colors[k * 4]; g += l.colors[k * 4 + 1]; b += l.colors[k * 4 + 2]; m++; }
   return [r / m, g / m, b / m];
 }
@@ -1602,7 +1621,11 @@ export class LabGrassRenderer {
    *  game's by default. The probe hands the LAB's pair to draw the same
    *  field through the lab's own text and hold the smooth style
    *  byte-identical to it - the executed form of "with the switch at
-   *  zero the arithmetic is the lab's". */
+   *  zero the arithmetic is the lab's". AUDIT GRASS-LIT2 A6: that held
+   *  until GRASS-LIT painted the game's field in the ground's colours;
+   *  and the lab's text reads the height lane as GRASS5 packed it (a
+   *  u16 height), so since GRASS-LIT2 its blades stand up to 7 mm off
+   *  the game's - the lab's pair draws the lab's look, not the game's. */
   constructor(gl, { stages = { vs: GAME_GRASS_VS, fs: GAME_GRASS_FS }, tuft = null } = {}) {   // GRASS-PX4: `tuft` ({ w, h }) lays the sheet at another size - the probe photographs the old 16x32 beside the shipped 8x16 through it
     this.gl = gl;
     const prog = buildProgram(gl, LAB_GRASS_HEAD + GAME_GRASS_FIELD + stages.vs, LAB_GRASS_HEAD + stages.fs);   // GRASS-PX: the lab's text under the declared edits
@@ -1612,7 +1635,7 @@ export class LabGrassRenderer {
       'uPixel', 'uPxVariants', 'uPxSteps', 'uPxTintBands', 'uPxSheet',   // GRASS-PX: the pixel style's five (GRASS-PX3 took the sway's two)
       'uFogColor', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uDwFog',   // DISC20-A: the terrain's fog; DW-C: and the sea's
       'uLane', 'uELExposure', 'uAdapt', 'uIndirect', 'uIndirectColor', 'uCloudShadowMap', 'uCloudShadowRect', 'uGrassTone',   // GRASS-LIT: the lane, the eye, the player's light, the deck
-      'uPointCount', 'uPointLights', 'uPointColors']) this.u[n] = gl.getUniformLocation(prog, n);   // GRASS-LIT2: the lanterns
+      'uPointCount', 'uPointLights', 'uPointColors', 'uPointIdx']) this.u[n] = gl.getUniformLocation(prog, n);   // GRASS-LIT2: the lanterns; AUDIT A1: a cell's
     // GRASS-LIT: the sun map's block, by the names ShadowPass.upload binds (the receiver the terrain takes)
     const ul = (n) => gl.getUniformLocation(prog, n);
     this.shadowLoc = {
@@ -1624,6 +1647,9 @@ export class LabGrassRenderer {
     this.tones = new Float32Array(GRASS_TONES.flat());
     /** GRASS-LIT2: and on the classic lane (GRASS_TONES_CLASSIC) */
     this.tonesClassic = new Float32Array(GRASS_TONES_CLASSIC.flat());
+    // AUDIT GRASS-LIT2 A1: a cell's lantern list, its distances, and the list last uploaded
+    this._cellIdx = new Int32Array(GRASS_CELL_LIGHTS); this._cellDist = new Float64Array(GRASS_CELL_LIGHTS);
+    this._cellLast = new Int32Array(GRASS_CELL_LIGHTS); this._cellN = -1; this._pn = 0; this._pts = null;
     // the blade, and three instance streams the lab's layout plus the game's root height
     // GRASS2: the instance buffers are made ONCE and shared by both
     // levels of detail - only the corner buffer differs between them, so
@@ -1818,6 +1844,7 @@ export class LabGrassRenderer {
     // GRASS5: zeroing A zeroes the packed HEIGHT, and a blade of the
     // cell's height FLOOR still draws - so a cleared slot is also
     // dropped by slotCount, which is what really keeps it off the GPU.
+    // AUDIT GRASS-LIT2 A3: and the zero word's slope is level (stored XOR 15).
     if (!this._zeros || this._zeros.length !== p * 4) this._zeros = new Uint16Array(p * 4);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufs[0]);
     gl.bufferSubData(gl.ARRAY_BUFFER, slot * p * 8, this._zeros);
@@ -1912,6 +1939,10 @@ export class LabGrassRenderer {
       gl.uniform1i(L.sunShadow, SHADOW_SUN_UNIT); gl.uniform1i(L.pointShadow, SHADOW_POINT_UNIT);
       if (L.pointShadowLo) gl.uniform1i(L.pointShadowLo, SHADOW_LO_UNIT);
       gl.uniform4fv(L.sunParams, NO_DECK);
+      // AUDIT GRASS-LIT2 A2: and NO CASTER - the lanterns read uCasterOf now, and a program's uniforms outlive the frame
+      // that set them: a frame with shadows and then one without read the last frame's caster slots off its maps
+      gl.uniform1iv(L.casterOf, NO_CASTERS);
+      gl.uniform4fv(L.pointParams, NO_CASTER_PARAMS);
     }
     // GRASS-LIT: the player's light (R12), as the ground takes it; none handed is out of range everywhere
     gl.uniform4fv(u.uIndirect, light.indirect ?? NO_DECK);
@@ -1920,7 +1951,10 @@ export class LabGrassRenderer {
     // display colours, linear under the lane as the ground's; cut to the program's slots, and none handed is none
     const pts = light.points ?? null, pcs = light.pointColors ?? null;
     const pn = pts && pcs ? Math.min(pts.length >> 2, Math.floor(pcs.length / 3), GRASS_MAX_LIGHTS) : 0;
-    gl.uniform1i(u.uPointCount, pn);
+    // AUDIT GRASS-LIT2 A1: the frame's list goes up whole, once; each cell is handed which of them meet it
+    // (_cellLights, in _drawVisibleSlots) - the count is the cell's, uploaded when it changes
+    this._pts = pn > 0 ? pts : null; this._pn = pn; this._cellN = -1;
+    gl.uniform1i(u.uPointCount, 0);
     if (pn > 0) {
       gl.uniform4fv(u.uPointLights, pts.subarray ? pts.subarray(0, pn * 4) : pts.slice(0, pn * 4));
       gl.uniform3fv(u.uPointColors, lane ? lane.decodeN(pcs, this._dec.points, pn) : (pcs.subarray ? pcs.subarray(0, pn * 3) : pcs.slice(0, pn * 3)));
@@ -2037,6 +2071,7 @@ export class LabGrassRenderer {
       const far = this._oneQuad || dn > range * GRASS_FAR_AT;   // GRASS-PX2: the pixel style is one quad everywhere
       if (far !== wasFar) { gl.bindVertexArray(far ? this.vaoFar : this.vao); wasFar = far; }
       const verts = far ? this.vertsFar : this.verts;
+      if (this._pn > 0) this._cellLights(box);   // AUDIT GRASS-LIT2 A1
       this._point(slot);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, verts, budget);
       slots++; blades += budget; kept += n; verts_ += verts * budget; if (far) farSlots++;
@@ -2044,6 +2079,30 @@ export class LabGrassRenderer {
     this.drawn.slots = slots; this.drawn.blades = blades; this.drawn.kept = kept;
     this.drawn.slotCapacity = slots * p;   // GRASS2: what the same frame cost before the pad came off
     this.drawn.verts = verts_; this.drawn.farSlots = farSlots;   // GRASS2: the vertex work, counted rather than inferred from one blade shape
+  }
+
+  /** AUDIT GRASS-LIT2 A1: THE CELL'S LANTERNS. The frame's lights whose reach meets the cell's box (its roots' lowest to
+   *  its tallest tip), nearest first, at most GRASS_CELL_LIGHTS; uploaded only when they differ from the last cell's - an
+   *  open field's cells are all the same empty list, one upload a frame. */
+  _cellLights(box) {
+    const P = this._pts, idx = this._cellIdx, dist = this._cellDist, cap = GRASS_CELL_LIGHTS;
+    let n = 0;
+    for (let i = 0; i < this._pn; i++) {
+      const x = P[i * 4], y = P[i * 4 + 1], z = P[i * 4 + 2], r = P[i * 4 + 3];
+      const dx = Math.max(box[0] - x, 0, x - box[3]), dy = Math.max(box[1] - y, 0, y - box[4]), dz = Math.max(box[2] - z, 0, z - box[5]);
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (!(d2 < r * r)) continue;   // its reach misses the cell (the shader's own `pd >= w` cut, at the box)
+      if (n === cap && d2 >= dist[cap - 1]) continue;   // full, and no nearer than any kept: it falls off
+      let k = n < cap ? n++ : cap - 1;   // the slot it takes - the farthest's, when full
+      while (k > 0 && dist[k - 1] > d2) { dist[k] = dist[k - 1]; idx[k] = idx[k - 1]; k--; }   // nearest first; a tie keeps the earlier light
+      dist[k] = d2; idx[k] = i;
+    }
+    let same = n === this._cellN;
+    for (let k = 0; same && k < n; k++) same = idx[k] === this._cellLast[k];
+    if (same) return;
+    this.gl.uniform1i(this.u.uPointCount, n);
+    if (n > 0) this.gl.uniform1iv(this.u.uPointIdx, idx);
+    this._cellN = n; this._cellLast.set(idx);
   }
 
   /** GRASS-LIT: a 1x1 adaptation image holding the multiplier 1 (the log encoding's midpoint) - the far ring's own,

@@ -212,7 +212,7 @@ test('GR4: the game feeds each tile\'s MEAN colour, averaged once where the texe
   // SCENE's map lacks the archive, not on the renderer's cache miss.
   const learn = world.slice(world.indexOf('if (!grassRecords.has(groundArchive)) {'), world.indexOf('const terrain = renderer.createTerrainSurface('));
   // GRASS-LIT2: off the tile set that is DRAWN - a texture mod's, where one dresses the archive (test/grasslit2.test.js)
-  assert.match(learn, /groundMeanColour\.set\(groundArchive, \(drawnLayers \?\? layers\)\.map\(tileMeanColour\)\);/);
+  assert.match(learn, /groundMeanColour\.set\(groundArchive, drawnMeans \?\? layers\.map\(tileMeanColour\)\);/);   // AUDIT GRASS-LIT2 B2: the uploaded layers' means
   // ground(x, z) is keep's OWN lookup - same pieces, same tile maths -
   // answering with the colour instead of the height, so the root under
   // a blade takes the colour of the very tile keep let it stand on.

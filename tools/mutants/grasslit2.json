@@ -42,8 +42,8 @@
   {
     "name": "GRASSLIT2-slope-axes-swapped",
     "file": "src/render/labGrass.js",
-    "old": "vec2(float((hw >> 5u) & 31u), float(hw & 31u))",
-    "new": "vec2(float(hw & 31u), float((hw >> 5u) & 31u))",
+    "old": "float(((hw >> 5u) & 31u) ^ ${GRASS_SLOPE_STEPS}u), float((hw & 31u) ^ ${GRASS_SLOPE_STEPS}u)",
+    "new": "float((hw & 31u) ^ ${GRASS_SLOPE_STEPS}u), float(((hw >> 5u) & 31u) ^ ${GRASS_SLOPE_STEPS}u)",
     "tests": [
       "test/grasslit2.test.js",
       "test/grasslit.test.js"
@@ -82,8 +82,8 @@
   {
     "name": "GRASSLIT2-points-every-vertex",
     "file": "src/render/labGrass.js",
-    "old": "if (gl_VertexID % 3 == 2) for (int i = 0;",
-    "new": "if (gl_VertexID % 3 >= 0) for (int i = 0;",
+    "old": "if (gl_VertexID % 3 == 2) for (int j = 0;",
+    "new": "if (gl_VertexID % 3 >= 0) for (int j = 0;",
     "tests": [
       "test/grasslit2.test.js",
       "test/grasslit.test.js"
@@ -182,8 +182,8 @@
   {
     "name": "GRASSLIT2-mean-even-step",
     "file": "src/render/labGrass.js",
-    "old": "Math.floor(n / GRASS_MEAN_SAMPLES)) | 1;",
-    "new": "Math.floor(n / GRASS_MEAN_SAMPLES));",
+    "old": "Math.ceil(n / GRASS_MEAN_SAMPLES)) | 1;",
+    "new": "Math.ceil(n / GRASS_MEAN_SAMPLES));",
     "tests": [
       "test/grasslit2.test.js",
       "test/grasslit.test.js"
@@ -232,7 +232,7 @@
   {
     "name": "GRASSLIT2-host-mean-classic",
     "file": "src/scenes/world.js",
-    "old": "(drawnLayers ?? layers).map(tileMeanColour)",
+    "old": "drawnMeans ?? layers.map(tileMeanColour)",
     "new": "layers.map(tileMeanColour)",
     "tests": [
       "test/grasslit2.test.js",
@@ -242,7 +242,7 @@
   {
     "name": "GRASSLIT2-host-normals-dropped",
     "file": "src/scenes/world.js",
-    "old": "groundNormals: stride === 1 ? normals : null,",
+    "old": "groundNormals: labGrass && stride === 1 ? normals : null,",
     "new": "groundNormals: null,",
     "tests": [
       "test/grasslit2.test.js",
