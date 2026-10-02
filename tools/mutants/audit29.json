@@ -122,8 +122,8 @@
   {
     "name": "AUDIT29-A14-the-smelt-xp-offered",
     "file": "server-account/src/professions.js",
-    "old": "        MAX(0, MIN(?8, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = '${r.xp ?? 'smithing'}'), 0))), ?9, ?10",
-    "new": "        ?8, ?9, ?10",
+    "old": "        MAX(0, MIN(?8 + f * ?11, ${Number(cap)} - COALESCE((SELECT xp FROM prof_tracks WHERE player = ?1 AND char_id = ?2 AND profession = '${r.xp ?? 'smithing'}'), 0))), ?9, ?10, f, ?12",
+    "new": "        ?8 + f * ?11, ?9, ?10, f, ?12",
     "tests": [
       "test/audit29_service.test.js"
     ]
@@ -313,8 +313,8 @@
   {
     "name": "AUDIT29-C1-through-the-wall",
     "file": "src/scenes/gatherHost.js",
-    "old": "    if (best && deps.clear && !deps.clear(pos, best.world, best.dungeon)) return null;\n",
-    "new": "",
+    "old": "    for (const c of seen) if (!deps.clear || deps.clear(pos, c.at, c.best.dungeon)) return c.best;",
+    "new": "    for (const c of seen) return c.best;",
     "tests": [
       "test/audit29_host.test.js"
     ]
@@ -331,8 +331,8 @@
   {
     "name": "AUDIT29-C1-a-cold-node-takes-e",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
-    "new": "      if (!plan) return false;\n      if (!plan.ready) { passedOn = needLine(plan, rank); return true; }",
+    "old": "    if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
+    "new": "    if (!plan) return false;\n    if (!plan.ready) { passedOn = needLine(plan, rank); return true; }",
     "tests": [
       "test/audit29_host.test.js"
     ]
@@ -340,8 +340,8 @@
   {
     "name": "AUDIT29-D3-a-press-through-the-act",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (act) return true;   // AUDIT 29 D3",
-    "new": "      if (act) return false;   // AUDIT 29 D3",
+    "old": "if (act) return !click;   // AUDIT 29 D3",
+    "new": "if (act) return false;   // AUDIT 29 D3",
     "tests": [
       "test/audit29_host.test.js"
     ]
@@ -403,10 +403,11 @@
   {
     "name": "AUDIT29-C11-a-foot-inside-a-neighbour",
     "file": "src/scenes/mineHost.js",
-    "old": "        if (!insideRocks(rocks ?? [], fx, fz)) local = [fx, groundAt(samples, fx, fz), fz];",
-    "new": "        local = [fx, groundAt(samples, fx, fz), fz];",
+    "old": "        if (!onPixel(foot[0], foot[1]) || insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN\n",
+    "new": "        if (!onPixel(foot[0], foot[1])) continue;   // FOOT-IN\n",
     "tests": [
-      "test/audit29_host.test.js"
+      "test/audit29_host.test.js",
+      "test/fb1001_rockfoot.test.js"
     ]
   },
   {
@@ -430,8 +431,8 @@
   {
     "name": "AUDIT29-D2-the-rig-swings-behind-the-tool",
     "file": "src/combat/weaponRig.js",
-    "old": "&& !fpsSpellCasting.isPlayingAnim && !actTool();",
-    "new": "&& !fpsSpellCasting.isPlayingAnim;",
+    "old": "&& !fpsSpellCasting.isPlayingAnim && !climbing && !actTool();",
+    "new": "&& !fpsSpellCasting.isPlayingAnim && !climbing;",
     "tests": [
       "test/audit29_host.test.js"
     ]

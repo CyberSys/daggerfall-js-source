@@ -95,7 +95,7 @@ test('PROF2 service: a vein mined - the law\'s ore into the Stores, own; Mining 
   assert.ok(st.taken.includes(`${v.key}|ore`));
 });
 
-test('PROF2 service: the Pick-Axe\'s report, bounded - clean only with every strike on the glint (+50% XP); a strike count past the finish\'s is cut; a tier past the rank refused; the night refuses a surface vein', async () => {
+test('PROF2 service: the Pick-Axe\'s report, bounded - clean only with every strike on the glint (+50% XP); a strike count past the finish\'s is cut; a tier past the rank refused; a surface vein is mined by night (ANY-HOUR)', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.setXp(mac, xpForRank(10));
@@ -109,9 +109,13 @@ test('PROF2 service: the Pick-Axe\'s report, bounded - clean only with every str
   assert.equal(plain.body.xp, harvestXp(1, 10, false), 'one glint of the two: no clean finish, whatever it says');
   const fresh = await s.registered('Ann');
   assert.deepEqual((await s.call('/v1/prof/harvest', ore(fresh, v), fresh.secret)).body, { error: 'prof-rank' }, 'tier 2 wants Mining 10');
+  // PIN MOVED (ANY-HOUR, 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"):
+  // 02:00 refused a surface vein (`prof-night`); now it is mined as at noon
   clock(secondAt(today() * DAY + 60, 2));
   const [night] = veinsAt(WOODS, GLENUMBRA, [(x) => x.tier === 1]);
-  assert.deepEqual((await s.call('/v1/prof/harvest', ore(fresh, night, { at: _now - 2 }), fresh.secret)).body, { error: 'prof-night' });
+  const dark = await s.call('/v1/prof/harvest', ore(fresh, night, { at: _now - 2 }), fresh.secret);
+  assert.equal(dark.status, 200, JSON.stringify(dark.body));
+  assert.equal(dark.body.material, night.material, 'its ore, by night');
   clock(NOON);
 });
 
@@ -134,7 +138,10 @@ test('PROF2 service: a boulder quarried - Rough Stone 3-5; a clean finish, or a 
   s.setXp(sb, xpForRank(100), 'mining', { spec100: 'stonebreaker' });
   const d = await s.call('/v1/prof/harvest', stone(sb, 400, 2, { glints: 0 }), sb.secret);
   assert.equal(d.body.material, 'stone:cut', 'a Stonebreaker cuts it always');
-  assert.equal(b.length, 3);
+  // PIN MOVED (BOULDERS, acct47): the Mountain's five boulders a day - the fifth quarried, a sixth no node
+  assert.equal(b.length, 5);
+  assert.equal((await s.call('/v1/prof/harvest', stone(mac, 400, 4, { glints: 0 }), mac.secret)).status, 200, 'the fifth slot');
+  assert.deepEqual((await s.call('/v1/prof/harvest', stone(mac, 400, 5, { glints: 0 }), mac.secret)).body, { error: 'bad-node' }, 'past the day\'s count');
   assert.deepEqual((await s.call('/v1/prof/harvest', { ...stone(mac, 400, 0, {}), node: key(400, 0), climate: SWAMP }, mac.secret)).body, { error: 'prof-pixel' }, 'a Swamp holds no boulders');
 });
 

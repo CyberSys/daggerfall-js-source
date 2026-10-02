@@ -17,10 +17,23 @@
 // silent rather than naming nowhere.
 //
 // Not a DFU member. Ledger A (WB).
-import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, gateModsOf, omenLine, riseLine, openLine, sealLine, wrathLine, marksLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
+import { gateAt, gatePhase, gateCountdown, countdownText, countdownWords, gateMarked, gateStands, gateBossOf, gateModsOf, riseLine, wrathLine, marksLine, GATE_OPEN_MINUTE, GATE_SEAL_MINUTE, GATE_WRATH_MINUTE, GATE_DAY_MINUTES, GATE_COLLAPSE_MS, PIXEL_M } from '../net/gateLaw.js';
 import { gateModsWords } from '../net/gateMods.js';   // WB8c: tonight's marks on the card
 import { GATE_TOWN_MAX_PX } from './gateSite.js';
 import { RITE_OMEN_LINE } from '../net/gateRite.js';
+
+// TIME1 (bible/06-Systems/Online-Time-Arc.md section 7): THE GATE SAYS REAL TIMES ALONE. Its schedule is the EVENT
+// clock's (net/gateLaw.js, unchanged: a gate every two real hours, its phases the same real minutes), and the sky the
+// player sees turns at its own rate, so the event clock's game time ("opens there at 20:00") would contradict the
+// clock in front of them. The three lines that named a time say this machine's local time alone, in WB12's words
+// (WB13b). gateLaw.js's own three, in the relay's bundle, retired with WB12's relay deploy (world151), the one that
+// happened anyway; the rise, the wrath and the marks name no time and are still its.
+/** The omen: where, and when it opens - local time. */
+export const omenTimeLine = ({ place, at }) => `The sky burns near ${place}. Dagon's faithful open a breach at ${at} your time.`;
+/** The opening: when the Covenant seals it - local time. */
+export const openTimeLine = ({ near, at }) => `Dagon's Breach near ${near} is open. The Covenant seals it at ${at} your time.`;
+/** The seal: when it collapses - local time (GATE-COLLAPSE). */
+export const sealTimeLine = ({ near, at }) => `The Covenant has sealed Dagon's Breach near ${near}. It collapses at ${at} your time.`;
 
 /** Is map pixel (px, py) within the omen's ring, give or take `slack` pixels? The compass carries the gate only here:
  *  inside the area the map drew, where the player has come looking. */
@@ -173,16 +186,16 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
       if (line && (t.day !== saidDay || rank > saidRank) && !(line === 'wrath' && Number.isFinite(fell))) {
         saidDay = t.day; saidRank = rank;
         const words = { place: s.place, near: s.near, boss: gateBossOf(t.day).name };
-        if (line === 'omen') say(omenLine({ ...words, at: at(t.day, GATE_OPEN_MINUTE) }));
+        if (line === 'omen') say(omenTimeLine({ ...words, at: at(t.day, GATE_OPEN_MINUTE) }));   // TIME1: local time alone
         else if (line === 'rise') say(riseLine({ ...words, left: countdownText(t.openAt - now()) }));
-        else if (line === 'open') say(openLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));
+        else if (line === 'open') say(openTimeLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));
         // WB12d: the faithful's rite, while it holds - right after the omen's or the rise's line (AUDIT WB12d D3: its
         // "nearby" is the breach just named), once a day; AUDIT WB12d (C8, L5): never once the hub says it broken, nor
         // where the relay cannot keep it
         if ((line === 'omen' || line === 'rise') && riteDay !== t.day) { riteDay = t.day; if (riteReady() && !riteBroken(t.day, s)) say(riteOmenLine()); }
         // WB8c: tonight's marks, beside the first line of a gate still to be fought (never after it has sealed)
         if ((line === 'omen' || line === 'rise' || line === 'open') && marksDay !== t.day) { marksDay = t.day; say(marksLine({ boss: words.boss, md: gateModsOf(t.day) })); }
-        else if (line === 'seal') say(sealLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));   // GATE-COLLAPSE: and when it goes
+        else if (line === 'seal') say(sealTimeLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));   // GATE-COLLAPSE: and when it goes
         else if (line === 'wrath') say(wrathLine(words));
       }
       return current;

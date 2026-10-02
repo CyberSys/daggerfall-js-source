@@ -79,9 +79,10 @@ test('AUDIT DW-F E5-1/E5-4: the view the loot and the guards test is the one the
   const w = rd('src/scenes/world.js');
   const view = w.slice(w.indexOf('  function dwSpawnView() {'), w.indexOf('  /** The frame\'s CharacterController.velocity'));
   assert.match(view, /const V = lookAt\(eye, \[eye\[0\] \+ forward\[0\], eye\[1\] \+ forward\[1\], eye\[2\] \+ forward\[2\]\], UP_Y\);/, 'this frame\'s camera');
-  assert.match(view, /const worldAspect = largeHudWorldAspect\(canvas\.clientWidth, canvas\.clientHeight\);[^\n]*\n\s+const P = mirrorProjectionX\(perspective\(fieldOfView\(\), worldAspect, 0\.2, 6000\)\);/, '...through the frame\'s own lens');
+  // CLIMB4: the frame's lens carries the climb's kick (a leap's), and so does this one - the same lens, kicked or not
+  assert.match(view, /const worldAspect = largeHudWorldAspect\(canvas\.clientWidth, canvas\.clientHeight\);[^\n]*\n\s+const P = mirrorProjectionX\(perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\), worldAspect, 0\.2, 6000\)\);/, '...through the frame\'s own lens');
   assert.doesNotMatch(view, /renderer\._view|renderer\._proj/, 'not the last pass\'s matrices');
-  assert.match(w, /const proj = mirrorProjectionX\(perspective\(fieldOfView\(\), worldAspect, 0\.2, 6000\)\);/, 'the frame draws through the same lens');
+  assert.match(w, /const proj = mirrorProjectionX\(perspective\(fieldOfView\(\) \+ climbFeel\.fovRad\(\), worldAspect, 0\.2, 6000\)\);/, 'the frame draws through the same lens');
   assert.match(w, /for \(let i = 0; i < 3; i\+\+\) _dwEyeOffset\[i\] = mwv\.eye\[i\] - cam\.pos\[i\];/, 'the camera machine\'s eye, relative (a crossing moves cam.pos, not the offset)');
   assert.match(w, /if \(_dwLootVel\.last\) for \(let i = 0; i < 3; i\+\+\) _dwLootVel\.last\[i\] \+= r\.offset\[i\];/, 'FloatingOrigin moves the player by transform: no velocity');
   assert.match(w, /dwLoot\?\.pump\(f\);[^\n]*\n\s+dwLootLetGoVelocity\(\);/, 'indoors: the way out is a reposition');
@@ -220,7 +221,7 @@ test('AUDIT DW-F E-1: a foe under the carved sea takes the water column\'s share
   // one column law, three programs: the floor, the decorations, and both lanes' flats
   const renderSrc = rd('src/render/renderer.js');
   const bb = renderSrc.slice(renderSrc.indexOf('const BB_FS = `'), renderSrc.indexOf('// Dungeon water: one horizontal quad'));
-  assert.match(bb, /\$\{FOG_GLSL\}\n\$\{COLUMN_GLSL\}\n\$\{HIT_FLASH_GLSL\}\nvoid main\(\)/, 'the classic flats declare it after the fog block, and HITFLASH1\'s term after it');   // AUDIT PRE-MERGE 0928 N7: no longer optional - BB_FS calls hitFlashLit, so without the term the classic flats' program does not compile
+  assert.match(bb, /\$\{FOG_GLSL\}\n\$\{COLUMN_GLSL\}\n\$\{HIT_FLASH_GLSL\}\n\$\{ELITE_GLOW_GLSL\}\nvoid main\(\)/, 'the classic flats declare it after the fog block, and HITFLASH1\'s term after it (ELITE FOES\' glow last)');   // AUDIT PRE-MERGE 0928 N7: no longer optional - BB_FS calls hitFlashLit, so without the term the classic flats' program does not compile
   assert.match(bb, /outColor = vec4\(dwWaterFog\(dwColumn\(mix\(uFogColor, lit, fogFactorAt\(vBBWorld\)\), vBBWorld\), vBBWorld\), alpha\);/, 'the world fog, the share, the sea\'s fog - the floor\'s own order');
   assert.ok(EL_BB_FS.includes(COLUMN_GLSL), 'the lane\'s flats too');
   assert.match(EL_BB_FS, /outColor = vec4\(dwColumn\(elFinish\(lit, vBBWorld\), vBBWorld\), alpha\);/, 'on the finished display colour (the sea\'s fog is off whenever the share is on)');

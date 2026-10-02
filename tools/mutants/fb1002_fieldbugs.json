@@ -1,0 +1,110 @@
+[
+  {
+    "name": "HUNT-FOES-the-foe-never-asked",
+    "file": "src/scenes/hunting.js",
+    "old": "      interruptWhen: enemiesNear ? () => !!enemiesNear() : null,",
+    "new": "      interruptWhen: null,",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HUNT-FOES-the-ask-not-interrupted",
+    "file": "src/ui/huntWindow.js",
+    "old": "    if (this.done || this.phase === HUNT_PHASE.Result) return;",
+    "new": "    if (this.done || this.phase !== HUNT_PHASE.Busy) return;",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HUNT-FOES-the-result-interrupted",
+    "file": "src/ui/huntWindow.js",
+    "old": "    if (this.done || this.phase === HUNT_PHASE.Result) return;",
+    "new": "    if (this.done) return;",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HUNT-FOES-the-minutes-under-the-box-again",
+    "file": "src/scenes/hunting.js",
+    "old": "        for (const id of outcome.skills ?? []) tally?.(id);\n        return rows;",
+    "new": "        for (const id of outcome.skills ?? []) tally?.(id);\n        advanceMinutes?.(minutes);\n        return rows;",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HUNT-FOES-the-minutes-lost-with-the-slot",
+    "file": "src/scenes/hunting.js",
+    "old": "if (outcome) advanceMinutes?.(minutes, { quiet: !searched });",
+    "new": "if (searched && outcome) advanceMinutes?.(minutes, { quiet: !searched });",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HUNT-FOES-the-loading-foe-unseen",
+    "file": "src/scenes/world.js",
+    "old": "    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);",
+    "new": "    return false;",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HELM-NET-busy-never-asked",
+    "file": "src/scenes/fishHost.js",
+    "old": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "new": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HELM-NET-busy-read-backwards",
+    "file": "src/scenes/fishHost.js",
+    "old": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "new": "      if (dungeon || !host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HELM-NET-the-guns-forgotten",
+    "file": "src/scenes/world.js",
+    "old": "            busy: () => !!csaRuntime?.isSailing?.() || !!naval?.aiming || !!naval?.boarding,",
+    "new": "            busy: () => !!csaRuntime?.isSailing?.(),",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HELM-HUSH-every-play-counted-again",
+    "file": "src/systems/comeSailAway.js",
+    "old": "  const audioPlay = (src) => { if (!src.isPlaying) src.plays = (src.plays ?? 0) + 1; src.isPlaying = true; deps.audio?.play?.(src); };",
+    "new": "  const audioPlay = (src) => { src.plays = (src.plays ?? 0) + 1; src.isPlaying = true; deps.audio?.play?.(src); };",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HELM-HUSH-the-stopped-fade-left-where-it-stood",
+    "file": "src/systems/comeSailAway.js",
+    "old": "    if (fading != null) { fading.stopped = true; fading.settle?.(); }   // StopCoroutine(fading)",
+    "new": "    if (fading != null) { fading.stopped = true; }   // StopCoroutine(fading)",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  },
+  {
+    "name": "HUNT-FOES-a-far-loading-foe-counted",
+    "file": "src/scenes/world.js",
+    "old": "    return exteriorFoes.pendingFeet().some((p) => Math.hypot(p[0] - f[0], p[2] - f[2]) <= HUNT_PENDING_NEAR_M);",
+    "new": "    return exteriorFoes.pendingFeet().length > 0;",
+    "tests": [
+      "test/fb1002_fieldbugs.test.js"
+    ]
+  }
+]

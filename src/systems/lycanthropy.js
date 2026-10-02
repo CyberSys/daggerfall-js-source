@@ -51,7 +51,7 @@ import {
   LYCANTHROPY_TYPES, INFECTION,
 } from './infection.js';
 import {
-  MINUTES_PER_DAY, DAYS_PER_MONTH, isFullMoonFromMinutes,
+  MINUTES_PER_DAY, DAYS_PER_MONTH, isFullMoonFromMinutes, isFullMoonNightFromMinutes,
 } from './gameDate.js';
 import { EQUIP_SLOTS, equipTableOf, unequipSlot } from './equip.js';
 import { spellRecordOfIndex } from './loot.js';
@@ -67,7 +67,9 @@ export const MOVE_SOUND_MAX_SECONDS = 20;
 const initMoveSoundTimer = (rolls) =>
   MOVE_SOUND_MIN_SECONDS + rolls() * (MOVE_SOUND_MAX_SECONDS - MOVE_SOUND_MIN_SECONDS);
 import { ENCHANTMENT_TYPES } from './enchantments.js';
-import { cureAllDiseases } from './effects.js';
+import { cureAllDiseases, cureAllPoisons } from './effects.js';
+import { cureAllAttributes } from './guildServiceFlow.js';   // CURE-ALL: CureAllAttributes' one home (the guild's stat reset)
+import { fillVitalSigns } from './statMods.js';   // CURE-ALL: FillVitalSigns' one home
 import { SOUND } from './soundClips.js';   // V4: the transformed attack voices
 import { renownHpOf } from './renownLayer.js';   // AUDIT RENOWN1 GAME-4: the online layer rides above the limiter
 import { endLycanthropyQuests } from './racialQuests.js';   // V2d: the cure's $CUREWER tombstone sweep
@@ -110,16 +112,31 @@ export const YOU_NEED_TO_HUNT = 'You need to hunt the innocent.';
 export const ONCE_PER_DAY = 'You may only cast this spell once per day.';
 
 /** PlayerEffectManager.CureAll at a racial override's Start (:120 /
- *  VampirismEffect.cs:81): every effect of the old life ends - the
- *  diseases through their own end law, the rest generically (the
- *  infection that brought us here is already ended by
- *  deployInfection). ONE home for both curses. */
+ *  VampirismEffect.cs:81, "cure everything on player"), whole
+ *  (EntityEffectManager.cs:1598-1608): the three pools full
+ *  (FillVitalSigns), every poison and every disease ended by their own
+ *  laws (the infection that brought us here among them), every drained
+ *  attribute healed (CureAllAttributes; no effect of the port holds a
+ *  skill down, so CureAllSkills has nothing to cure). ONE home for
+ *  both curses.
+ *  CURE-ALL (FIELD BUGS 2026-10-01, Skaadi: "Regen spell stopped
+ *  providing healing after vampire transformation"): THE BUFFS RUNNING
+ *  NOW ARE THIS LIFE'S. This ended every other live entry - a
+ *  Regenerate, a Fortify, a Shield - and a timed entry ticks on with
+ *  `ended` set: gone from the HUD, the party cards and the dispel list
+ *  (mysticism.js liveBundles), and every recast of the same spell
+ *  merged into the hidden entry (effects.js findInc), so the buff was
+ *  never seen again while it was kept up. CureAll leaves them; it
+ *  never cured the poisons it said it did, nor filled a pool.
+ *  CURE-FILL (AUDIT 2026-10-01 part four): THE POOLS ARE FILLED LAST,
+ *  to the maximums the cures give back - DFU fills them first, so a
+ *  turn with Endurance, Strength or Intelligence drained or diseased
+ *  left fatigue and magicka short of the full the turn promises. */
 export function endOldLifeEffects(entity) {
+  cureAllPoisons(entity);
   cureAllDiseases(entity);
-  for (const a of entity.activeEffects ?? []) {
-    if (a.kind === 'disease' || a.kind === 'poison') continue;   // ended above by their own law
-    a.ended = true;
-  }
+  cureAllAttributes(entity);
+  fillVitalSigns(entity);
 }
 
 /** The live curse entry, or null. DISC10-E V9: a hole in the list is
@@ -227,7 +244,7 @@ export function consumeRacialOverridePending(entity, { now = 0 } = {}) {
  * the HUD line seam; `refreshHead` the portrait's (both optional -
  * the headless charter).
  */
-export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, skyMinutes = clockMinutes, say = null, refreshHead = null } = {}) {
+export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = nowMinutes, skyMinutes = clockMinutes, moonNight = false, say = null, refreshHead = null } = {}) {
   const entry = liveLycanthropy(entity);
   if (!entry) return;
   // DISC10-E V1: `clockMinutes` is WorldTime.Now, the clock every catch-up
@@ -251,7 +268,13 @@ export function lycanthropyMagicRound(entity, { nowMinutes = 0, clockMinutes = n
   // a forced change already reads the beast; the port's fold is
   // per-round, so the order inside the round is what keeps silver
   // from lagging the change by a round.
-  if (!entry.wearingHircineRing && isFullMoonFromMinutes(skyMinutes) && !entry.isTransformed) {
+  // TIME2 (Mac, 2026-10-01: "werewolf forms last insanely long"; bible/06-Systems/Online-Time-Arc.md 6.1): ONLINE THE
+  // FULL MOON IS A NIGHT. The change is forced while the full moon is UP - from the dusk of a full-moon date to the next
+  // dawn, on the sky (`moonNight`, which the round runner raises when a host hands the sky: the online lane) - thirty
+  // real minutes at the sky's TimeScale 24, not a whole day no rest can shorten. At dawn the lock ends; changing back
+  // is the power, ungated, as DFU has it. Offline DFU's rule stands: the whole calendar day of either moon's full phase.
+  const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(skyMinutes);
+  if (!entry.wearingHircineRing && moonForces && !entry.isTransformed) {
     say?.(YOU_DREAM_OF_THE_MOON);
     morphSelf(entity, { force: true, nowMinutes: clockMinutes, refreshHead });
   }

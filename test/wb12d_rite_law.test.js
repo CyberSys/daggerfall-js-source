@@ -1,6 +1,6 @@
 // WB12d (2026-10-01, Mac: "faithful and a Summoner"; then "Btw I want to do all 4. We're going balls deep with this"):
 // THE FAITHFUL'S RITE - its law (net/gateRite.js: where the circle stands, who stands at it, when it holds), the wire's
-// word (net/wire.js), the receipt's rite (net/gateReceipt.js) and the account service's ember (migration 0046) -
+// word (net/wire.js), the receipt's rite (net/gateReceipt.js) and the account service's ember (migration 0066) -
 // bible/11-Multiplayer/World-Bosses.md section 19 D.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -104,7 +104,7 @@ test('WB12d the receipt: a third way earned - the rite alone - and a fighter\'s 
   assert.equal(readReceipt(await mintReceipt({ d: 700, b: 'ruhn', s: 'acct-2', c: 9, x: 'rite' }, null, { subtle, nowS })).x, 'rite');
 });
 
-test('WB12d the wire: a rite word is {d, px, py, s, f} and nothing more, parsed only after a hello; the hub\'s broken word bounds its names; a word is said only to a relay that keeps the rite (world141) - an older one closes the socket on it (mutants: a bad flag passed; the names unbounded; the version law)', () => {
+test('WB12d the wire: a rite word is {d, px, py, s, f} and nothing more, parsed only after a hello; the hub\'s broken word bounds its names; a word is said only to a relay that keeps the rite (world151; world141 on its branch) - an older one closes the socket on it (mutants: a bad flag passed; the names unbounded; the version law)', () => {
   assert.deepEqual(validRiteIn({ d: 700, px: 10, py: 20, s: 1, f: 0, x: 'junk' }), { d: 700, px: 10, py: 20, s: 1, f: 0 });
   for (const bad of [{ d: -1 }, { px: 1000 }, { py: 500 }, { s: 2 }, { f: true }, { d: 1.5 }]) assert.equal(validRiteIn({ d: 700, px: 10, py: 20, s: 0, f: 0, ...bad }), null, JSON.stringify(bad));
   const frame = JSON.stringify({ t: 'rite', d: 700, px: 10, py: 20, s: 1, f: 1 });
@@ -116,8 +116,8 @@ test('WB12d the wire: a rite word is {d, px, py, s, f} and nothing more, parsed 
   // AUDIT WB12d (L8): junk ahead of the names hides none of them
   assert.deepEqual(validRiteOut({ k: 'br', d: 700, px: 1, py: 2, at: 5, by: ['', 3, null, {}, ...names] }).by, names.slice(0, RITE_BY_MAX));
   assert.equal(validRiteOut({ k: 'xx', d: 700, px: 1, py: 2, at: 5 }), null);
-  assert.equal(RITE_RELAY_MIN, 141);
-  assert.deepEqual(['world140', 'world141', 'world142', 'acct46', null].map(relaySupportsRite), [false, true, true, false, false]);
+  assert.equal(RITE_RELAY_MIN, 151);   // world141 on its branch: main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150 first
+  assert.deepEqual(['world150', 'world151', 'world152', 'acct62', null].map(relaySupportsRite), [false, true, true, false, false]);
 });
 
 // ═══ THE ACCOUNT SERVICE: THE RITE'S EMBER ═══════════════════════════════════════════════════════
@@ -158,7 +158,7 @@ async function gatePair() {
   return { priv: await importReceiptKey(pkcs8, { subtle }), pubKey: await importPublicKeyB64(pub, { subtle }) };
 }
 
-test('WB12d the account service: a fighter who broke the rite takes two embers, one who broke it alone takes one - struck no Drakes and closed no breach; the purse sums the rows\' embers, every row before 0046 paying one (mutants: the rite\'s ember unpaid; the rite counted a breach closed; the rite struck; the purse counting rows)', async () => {
+test('WB12d the account service: a fighter who broke the rite takes two embers, one who broke it alone takes one - struck no Drakes and closed no breach; the purse sums the rows\' embers, every row before 0066 paying one; SEAT1b at the merge: a kill\'s row keeps the region its claim names, the rite\'s own row none (mutants: the rite\'s row given the region; the rite\'s ember unpaid; the rite counted a breach closed; the rite struck; the purse counting rows)', async () => {
   const db = d1();
   const A = await member(db), B = await member(db);
   const { priv, pubKey } = await gatePair();
@@ -166,25 +166,27 @@ test('WB12d the account service: a fighter who broke the rite takes two embers, 
   const mint = (o) => mintReceipt({ b: 'ruhn', c: 4242, ...o }, priv, { subtle, nowS: T0 });
   const struck = [];
   const strike = (day) => { struck.push(day); return null; };
-  assert.deepEqual(await claimGate(ctx, A, await mint({ d: 700, s: A.id, x: 'dealt', r: 1 }), pubKey, { strike }), { recorded: true, day: 700, stones: 2, closed: 1 });
+  assert.deepEqual(await claimGate(ctx, A, await mint({ d: 700, s: A.id, x: 'dealt', r: 1 }), pubKey, { strike, region: 21 }), { recorded: true, day: 700, stones: 2, closed: 1 });
   assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 0 }), 2, 'the gate\'s ember and the rite\'s');
-  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'rite' }), pubKey, { strike }), { recorded: true, day: 700, stones: 1, rite: true, closed: 0 }, 'the rite alone: no breach closed');
+  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'rite' }), pubKey, { strike, region: 21 }), { recorded: true, day: 700, stones: 1, rite: true, closed: 0 }, 'the rite alone: no breach closed');
+  const regionOf = (who) => db._raw.prepare('SELECT region FROM gate_kills WHERE day = 700 AND account = ?').get(who.id).region;
+  assert.deepEqual([regionOf(A), regionOf(B)], [21, null], 'SEAT1b: the kill\'s row keeps its region; the rite\'s own none, no vote on the day\'s region');
   assert.deepEqual(struck, [700], 'and no Drakes struck for it');
   assert.equal(await insigniaPurse({ db }, { id: B.id, insignia_spent: 0 }), 1);
   assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'dealt' }), pubKey), { recorded: false, why: 'claimed', stones: 1, closed: 0 }, 'one receipt a day and account, as ever');
   assert.deepEqual(await claimGate(ctx, A, await mint({ d: 712, s: A.id, x: 'stood' }), pubKey), { recorded: true, day: 712, stones: 1, closed: 2 });
   assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 1 }), 2, 'three embers, one spent');
   assert.deepEqual(await gateRecordOf({ db }, A.id), { closed: 2 });
-  assert.match(src('server-account/migrations/0046_rite_ember.sql'), /^ALTER TABLE gate_kills ADD COLUMN stones INTEGER NOT NULL DEFAULT 1;$/m);
+  assert.match(src('server-account/migrations/0066_rite_ember.sql'), /^ALTER TABLE gate_kills ADD COLUMN stones INTEGER NOT NULL DEFAULT 1;$/m);
 });
 
-test('AUDIT WB12d (A1) the account service: A FIGHTER\'S `r` COUNTED AT ONE EMBER (a service from before acct46 kept its row as a plain receipt\'s) is made good when it is claimed again - and only that: a rite\'s own row, or a row already two, is never raised; every answer says the row\'s embers (mutants: never made good; a rite row raised; the embers unsaid)', async () => {
+test('AUDIT WB12d (A1) the account service: A FIGHTER\'S `r` COUNTED AT ONE EMBER (a service from before acct62 kept its row as a plain receipt\'s) is made good when it is claimed again - and only that: a rite\'s own row, or a row already two, is never raised; every answer says the row\'s embers (mutants: never made good; a rite row raised; the embers unsaid)', async () => {
   const db = d1();
   const A = await member(db), B = await member(db);
   const { priv, pubKey } = await gatePair();
   const ctx = { db, nowS: T0 + 60, subtle };
   const mint = (o) => mintReceipt({ b: 'ruhn', c: 4242, ...o }, priv, { subtle, nowS: T0 });
-  db._raw.prepare("INSERT INTO gate_kills (day, account, boss, earned, at) VALUES (700, ?, 'ruhn', 'dealt', 1)").run(A.id);   // acct45's row: no stones said
+  db._raw.prepare("INSERT INTO gate_kills (day, account, boss, earned, at) VALUES (700, ?, 'ruhn', 'dealt', 1)").run(A.id);   // acct61's row: no stones said
   assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 0 }), 1, 'the rite\'s ember lost');
   const again = await mint({ d: 700, s: A.id, x: 'dealt', r: 1 });
   assert.deepEqual(await claimGate(ctx, A, again, pubKey), { recorded: false, why: 'claimed', stones: 2, closed: 1 }, 'claimed again: made good');

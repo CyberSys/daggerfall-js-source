@@ -65,15 +65,15 @@
   {
     "name": "TOOL-USE-the-way-unsaid-on-the-hud",
     "file": "src/systems/foragingInstall.js",
-    "old": "    hudText(how);\n    return { kind: 'foraging', refused: true, text: how };",
-    "new": "    return { kind: 'foraging', refused: true, text: how };",
+    "old": "    hudText(how);\n    return { kind: 'foraging', refused: true, text: how, said: true };",
+    "new": "    return { kind: 'foraging', refused: true, text: how, said: true };",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
     "name": "TOOL-USE-the-way-strikes-gold",
     "file": "src/systems/foragingInstall.js",
-    "old": "    return { kind: 'foraging', refused: true, text: how };",
-    "new": "    return { kind: 'foraging', text: how };",
+    "old": "    return { kind: 'foraging', refused: true, text: how, said: true };",
+    "new": "    return { kind: 'foraging', text: how, said: true };",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
@@ -163,15 +163,15 @@
   {
     "name": "TOOL-USE-the-use-plans-as-e",
     "file": "src/scenes/gatherHost.js",
-    "old": "  const planFor = (t, tool = null) => kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;",
-    "new": "  const planFor = (t, tool = null) => kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null;",
+    "old": "    return learned(t, kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null);",
+    "new": "    return learned(t, kindOf(t.node)?.plan(t.node, ctxFor(t)) ?? null);",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
     "name": "TOOL-USE-the-start-forgets-the-use",
     "file": "src/scenes/gatherHost.js",
-    "old": "    const a = k?.start(t.node, plan, ctxFor(t, tool));",
-    "new": "    const a = k?.start(t.node, plan, ctxFor(t));",
+    "old": "    const a = k?.start(t.node, plan, ctxFor(t, tool, byPress));",
+    "new": "    const a = k?.start(t.node, plan, ctxFor(t, null, byPress));",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
@@ -226,15 +226,15 @@
   {
     "name": "TOOL-USE-the-choice-decides",
     "file": "src/scenes/herbHost.js",
-    "old": "basket: only ? only === 'food' : basketChoice, only: !!only,",
-    "new": "basket: basketChoice, only: !!only,",
+    "old": "return planOf(p, { entity, info, rank }, only ? only === 'food' : false, !!only);",
+    "new": "return planOf(p, { entity, info, rank }, false, !!only);",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
     "name": "TOOL-USE-the-other-harvest-taken-over",
     "file": "src/scenes/herbHost.js",
-    "old": "basket: only ? only === 'food' : basketChoice, only: !!only,",
-    "new": "basket: only ? only === 'food' : basketChoice, only: false,",
+    "old": "return planOf(p, { entity, info, rank }, only ? only === 'food' : false, !!only);",
+    "new": "return planOf(p, { entity, info, rank }, only ? only === 'food' : false, false);",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
@@ -282,7 +282,7 @@
   {
     "name": "TOOL-SAID-the-world-never-says-the-professions-are-open",
     "file": "src/scenes/world.js",
-    "old": "    professionsOpen: () => profBook?.state.open === true,\n    keyLabel: (a) => { const c = getBinding(bindings(), a); return c ? tagText(c) : null; },",
+    "old": "    professionsOpen: () => profBook?.state.open === true,\n    keyLabel: (a) => actKeyWord(a),   // TOUCH-HOLD: a pad in hand, its button",
     "new": "",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },

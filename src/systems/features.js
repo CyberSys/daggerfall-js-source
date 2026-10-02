@@ -584,15 +584,16 @@ export const FEATURES = Object.freeze([
   // ES1 (2026-09-16, Mac: "lump this in as a new enhanced toggle. Enhanced
   // Sounds, add the wind noise to it"): WIND3's `wind-sound` row IS this
   // row now - one switch over the port's own sounds (systems/
-  // enhancedSounds.js): the wind loop, and the enhanced inventory's
-  // transfer cues (MAC-O6). The kill door `?windaudio=off` still silences
-  // the wind alone.
+  // enhancedSounds.js): the wind loop, the enhanced inventory's
+  // transfer cues (MAC-O6), and (CLIMB4) the climb's hands and boots. The
+  // kill door `?windaudio=off` still silences the wind alone.
   Object.freeze({
     id: 'enhanced-sounds',
     group: 'sound',   // FT18: was world
     title: 'Enhanced sounds',
     note: 'New sounds on the enhanced UI: a steady wind outdoors that rises and falls with its strength and '
-      + 'goes quiet indoors, and a coin clink when you take or store items in the enhanced inventory.',
+      + 'goes quiet indoors, a coin clink when you take or store items in the enhanced inventory, and your hands '
+      + 'and boots on stone when you climb.',
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'soundEnhancements', initial: true, online: 'player' }),   // ES1: systems/enhancedSounds.js enhancedSoundsOn; windAudio.js windSoundOn rides it
@@ -663,6 +664,23 @@ export const FEATURES = Object.freeze([
     effect: 'Takes effect at once.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'weatherEvents', initial: true, online: true }),   // WEATHER2b: weatherSim.js weatherFieldOn; forced on online - one sky
+  }),
+  // FOREST1 (2026-10-01, the Discord's "Real Forests" thread): REAL
+  // FORESTS - the wilderness's trees gathered into woods with open land
+  // between them, in place of DFU's even scatter (world/terrainNature.js
+  // layoutForests). FORCED ON ONLINE: the woods are where Logging's trees
+  // stand (scenes/treeHost.js standTrees), so a room has one forest.
+  // `?forests=off` the kill door; scenes/shared.js realForestsOn composes it.
+  Object.freeze({
+    id: 'real-forests',
+    group: 'world',
+    title: 'Real forests',
+    note: 'Trees grow together in forests, with open grassland between them. Dungeons, ruins, shrines and camps '
+      + 'are often hidden in the woods, and towns and farms stand in cleared fields. Deserts are unchanged. '
+      + 'Off spreads the trees evenly, as Daggerfall does.',
+    effect: 'Takes effect when the world next loads.',
+    kinds: Object.freeze(['enhanced']),
+    control: Object.freeze({ store: 'prefs', key: 'realForests', initial: true, online: true }),
   }),
   // FT9 (2026-09-14): THE PACKS WITH A SWITCH (Dynamic Skies' is the
   // outdoors row's, FT4). The order is the old Mods pane's.

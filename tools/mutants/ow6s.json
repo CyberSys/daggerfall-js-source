@@ -2,12 +2,12 @@
   {
     "name": "OW6-S-warn-short",
     "file": "src/systems/travelThreat.js",
-    "old": "export const THREAT_WARN_S = 1.2;",
-    "new": "export const THREAT_WARN_S = 2;",
+    "old": "export const THREAT_WARN_S = 0.6;",
+    "new": "export const THREAT_WARN_S = 1.2;",
     "tests": [
       "test/ow6_slowdown.test.js"
     ],
-    "note": "OW6-NEAR (29g): the warning back at 2 s - the hold begins 40% further out than the player asked."
+    "note": "OW6-HALF (2026-10-01): the warning back at 1.2 s - the hold begins twice as far out as the player asked."
   },
   {
     "name": "OW6-S-inside-always-held",

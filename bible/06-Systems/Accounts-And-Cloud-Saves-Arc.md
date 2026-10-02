@@ -308,7 +308,9 @@ AND the old `(id, secret)` the hub itself minted is a socket the hub can
 see is the same person, so the hub moves the friend list across. The
 account service never needs to know SOC1 existed.
 
-That is a later slice and it is not built. ACC1b mints its own ids and
+That slice is built: FRIENDS-SYNC (2026-10-01, `01-Overview/Field-Bugs-2026-10-01.md` part five - "My friend list is
+different between devices"; Mac: "Build it") keys the hub's account by the token's subject and merges a profile's
+list into it once, on that profile's secret (relay world142). ACC1b mints its own ids and
 knows nothing about the social arc. What survives from ACC0 is the
 smaller and still-true half: the ids are the **same shape** at both
 ends, which is what makes that merge possible at all, and a pin reads

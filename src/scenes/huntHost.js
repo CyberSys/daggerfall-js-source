@@ -25,12 +25,14 @@
 //   night); the machine is systems/traceAct.js - E held, the crosshair
 //   drawn along the line (attack is the weapon's, and DFU's swing modes
 //   hold the look still under it); the hand draws DFU's Dagger (FORAGE0
-//   14.2).
+//   14.2). TOUCH-HOLD: the Skinning Knife's Use from the hotbar or a
+//   quick slot is E at the body, and holds the knife itself - the line
+//   drawn with no key held (a phone's swipe, a pad's right stick).
 // ═══════════════════════════════════════════════════════════════════
 import { bodyKey, utcDayOfMs } from '../net/nodeLaw.js';
 import {
   hideOfFoe, tierOpen, TIER_RANKS, knifeBand, SKINNING_KNIFE, KNIFE_CHECKS, KNIFE_REFUSALS, HIDES_PER_DAY, HIGH_HIDES_PER_DAY,
-  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT,
+  HIGH_HIDE_TIER, TRACKER_M, KNIFE_WHERE, KNIFE_WHERE_WORDS, TRACE_ACT, storesFullIn,
 } from '../net/professionLaw.js';
 import { enemyDisplayName } from '../characters/enemyBasics.js';
 import { createTraceAct } from '../systems/traceAct.js';
@@ -159,7 +161,6 @@ export function huntPlan({ body, taken, counting, rank, storesFull, hides, high,
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function huntKind({ book, bodies, openLoot = null }) {
-  let lootChoice = false;   // the choice key's pick at the targeted body
   /** Whether a body may be searched: its loot's key, where the world opens loot by key (an emptied body none). */
   const searchable = (b) => !openLoot || !!b?.lootKey?.();
   return {
@@ -172,24 +173,33 @@ export function huntKind({ book, bodies, openLoot = null }) {
     gone: (b) => book.taken(b.key, 'hide'),
     mark: (b) => (book.taken(b.key, 'hide') ? null : BODY_MARK),   // NODE-MARKS: a body the knife may still skin
     marksLoose: true,
-    choose(b) { if (lootChoice || searchable(b)) lootChoice = !lootChoice; },   // AUDIT 32 H8: never a search of nothing
-    retarget() { lootChoice = false; },
-    plan(b, { rank, keyLabel, pitch = null }) {
-      if (lootChoice && !searchable(b)) lootChoice = false;   // emptied under the search: the knife's again
+    /** TOUCH-HOLD (2026-10-01 part four - Mac: "Interact button + knife Use"): the Skinning Knife's Use at a body is E
+     *  there (TOOL-USE) - a phone and a pad had no E to start Hunting with, nor to hold while the line was drawn. */
+    tools: Object.freeze([SKINNING_KNIFE.templateIndex]),
+    /** PROF-MENU: the menu's title - the foe the body is. */
+    nodeName: (b) => foeName(b.foe),
+    plan(b, { rank, pitch = null }) {
       const hunt = book.state.hunt ?? { hides: 0, high: 0 };
       const plan = huntPlan({
         body: b, taken: book.taken(b.key, 'hide'), counting: book.counting(b.key, 'hide'), rank: rank('hunting'),
-        storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000), hides: hunt.hides ?? 0, high: hunt.high ?? 0, loot: lootChoice,
+        storesFull: (key) => storesFullIn(book, key), hides: hunt.hides ?? 0, high: hunt.high ?? 0,   // STORES-ROOM: every origin, as the service counts
         where: actChecksRefusal(KNIFE_WHERE, KNIFE_WHERE_WORDS),   // AUDIT 32 H4: a settlement or the sea - E the loot's
         steep: Number.isFinite(pitch) && pitch < BODY_STEEPEST_DEG,   // AUDIT 32 H7: stood over, its line out of the look's reach
       });
-      const key = openLoot && lootChoice ? b.lootKey() : null;
-      return {
-        ...plan, profession: 'hunting', alt: searchable(b) ? `[${keyLabel('ActChoice')}] ${lootChoice ? 'skin it' : 'search the body'}` : '',
-        ...(key ? { open: () => openLoot?.(key) } : {}),   // AUDIT 32 H8: the search opens the body's own loot by its key
-      };
+      return { ...plan, profession: 'hunting' };
     },
-    start(b, plan, { entity, rank, keyLabel }) {
+    /** PROF-MENU (2026-10-01, Mac: "use the same menu the loot menu uses"): THE BODY'S TWO ACTS AS THE MENU'S ROWS - the
+     *  knife and the search (the act choice key's toggle, retired). The search opens the body's own loot by its key (AUDIT
+     *  32 H8), or - with no door by key - hands the press on to the ray's corpse (AUDIT 29 C1); an emptied body has none. */
+    rows(b, ctx) {
+      const skin = { ...this.plan(b, ctx), id: 'hide' };
+      if (!searchable(b)) return [skin];
+      const key = openLoot ? b.lootKey() : null;
+      const search = huntPlan({ body: b, taken: false, counting: false, rank: 0, storesFull: () => false, hides: 0, high: 0, loot: true });
+      return [skin, { ...search, profession: 'hunting', id: 'search', ...(key ? { open: () => openLoot?.(key) } : {}) }];
+    },
+    start(b, plan, { entity, rank, keyLabel, tool = null, byPress = false }) {
+      const used = tool ?? (byPress || null);   // PROF-MENU: a click's or a list's press holds the knife as its Use does
       const refusal = actChecksRefusal(KNIFE_CHECKS, KNIFE_REFUSALS);
       if (refusal) return { refused: refusal };
       return {
@@ -198,7 +208,10 @@ export function huntKind({ book, bodies, openLoot = null }) {
           band: knifeBand({ intelligence: liveStat(entity, 'intelligence'), agility: liveStat(entity, 'agility') }),
           gentle: getPref('gentleActs') === true,
         }),
-        harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: keyLabel('Interact'),   // the key the meter says to hold
+        // the key the meter says to hold - TOUCH-HOLD: none when the knife's Use holds it, as the Sickle's holds the steady
+        // hand (the crosshair drawn by the mouse, the right stick or a finger's swipe, no key held)
+        harvest: plan.harvest, tool: foragingToolIn(entity, SKINNING_KNIFE.templateIndex), profession: 'hunting', label: used ? '' : keyLabel('Interact'),
+        heldByUse: !!used,
         ask: { foe: b.foe },   // the harvest names the foe the body is (PROF0 6: the tier is the client's claim)
         hand: (a) => (a.tool ? KNIFE_HAND : null),
       };

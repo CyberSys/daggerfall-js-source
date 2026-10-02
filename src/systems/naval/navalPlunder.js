@@ -13,13 +13,15 @@
 //   Repair   - her timber and cordage to your own ship: REPAIR_SHARE of your hull and sails made good
 //   Powder   - her powder and fire barrels: your barrels filled (navalShips.js BARREL.stock) and every battery loaded
 //   Press    - her crew pressed to your guns: PRESS_SHARE of your crew's losses made good
-// - and then her fate: SCUTTLE her (she sinks) or SET HER ADRIFT (she drifts, taken - no one takes her twice).
+// - and then her fate: SCUTTLE her (she sinks) or SET HER ADRIFT (she drifts, taken - no one takes her twice), or -
+// SHIP-CLAIM - CLAIM her (she is the captor's own boat, on a deed worth PRIZE_DEED_SHARE of her hull's price).
 //
 // FLOTSAM. A ship sunk rather than taken gives up FLOTSAM_OF her lots as casks afloat (navalShots.js dropFlotsam),
 // each a lot of her hold; a boat that sails through one hauls it into its own cargo.
 
 import { mulberry32 } from '../../combat/bloodArt.js';
 import { NOTORIETY } from './navalLaw.js';
+import { HULL_PRICES } from '../comeSailAwayBoat.js';   // SHIP-CLAIM: a claimed prize's deed, at a share of her hull's price
 
 export const HOLD_KEYS = Object.freeze({
   pirate: Object.freeze(['S', 'E', 'Q']),
@@ -42,6 +44,15 @@ export const REPAIR_SHARE = 0.4;
 export const PRESS_SHARE = 0.6;
 /** The share of a sunk ship's lots that float free (at least one). */
 export const FLOTSAM_OF = 0.5;
+/**
+ * SHIP-CLAIM (2026-10-01, Mac: "Claim captured prizes - Keep a ship you take by boarding as your own boat") - HER
+ * PAPERS: a prize claimed is the captor's own boat on a Come Sail Away deed (scenes/navalHost.js claimPrize), and the
+ * deed is worth PRIZE_DEED_SHARE of what her hull's deed costs on the shelf (comeSailAwayBoat.js HULL_PRICES) - a taken
+ * ship is no bought one, and a full-price deed would make every pirate a fortune to sell.
+ */
+export const PRIZE_DEED_SHARE = 0.25;
+/** A claimed prize's deed's value: PRIZE_DEED_SHARE of her hull's price, in whole gold. */
+export const prizeDeedValue = (hull) => Math.round(HULL_PRICES[hull] * PRIZE_DEED_SHARE);
 /**
  * The rarity tier a lot is rolled at (systems/lootRarity.js pileSource - the dungeon tiers' own scale, 3 a cemetery to
  * 18 a dragon's den): a merchantman's cargo a mine's (5), a pirate's plunder a human stronghold's (6), a navy's armoury

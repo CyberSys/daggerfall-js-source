@@ -947,17 +947,17 @@ still push CLASSIC canvas windows as children under the DOM, and so
 does the pack's USE arm.
 
     THE SPELLBOOK       FIVE construction sites across FOUR hosts:
-                        worldModes.js:2470 (the factory) and :1904 (a
+                        worldModes.js:2512 (the factory) and :1904 (a
                         HAND-ROLLED second one, 342 lines below it in
                         the same file),
-                        dungeonContext.js:1254, world.js:4599,
-                        exterior.js:2624. It is the only window TWO
+                        dungeonContext.js:1268, world.js:4815,
+                        exterior.js:2628. It is the only window TWO
                         enhanced screens already push - the sheet's
                         button and the pack's USE hand-off, whose
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12246, dungeonContext.js:8341. A seam
+    / NOTEBOOK          world.js:12581, dungeonContext.js:8375. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -992,7 +992,7 @@ None of these blocks anything; all are real.
                         makes it worth fixing: the overworld is the
                         first map a thumb could actually drive.
 
-    THE SPLIT POPUP     systems/itemTransfer.js:252. TransferItem
+    THE SPLIT POPUP     systems/itemTransfer.js:283. TransferItem
                         opens a numeric field DEFAULTED to maxAmount
                         when a stack will not fit whole (:1515);
                         BOTH skins take exactly what fits and never
@@ -4866,7 +4866,7 @@ literal with no duplicates; all 71 display labels match DFU's recovered
 FALL.EXE text exactly; every secondary list matches its DFU array in
 order; the builder is reconstructed on re-entry on both sides, so the
 pick lists reset; a career's flags survive the save round trip (the
-career is spread as plain CFG data, save.js:317,529 - worth checking
+career is spread as plain CFG data, save.js:318,529 - worth checking
 because AUDIT 17h caught exactly this shape dropping player
 reputation); and parseCareerData leaves every numeric field finite and
 unsigned under the maximal fourteen-pick set.
@@ -7640,7 +7640,7 @@ PX5 (same day, Mac): TIMERS, THE CLOCK, AND MAIN/SIDE. Three asks,
 each grounded in something the port already carries. (1) QUEST
 TIMERS: the world's questLog walk now reports the TIGHTEST RUNNING
 clock per quest - Clock resources carry remainingTimeInSeconds with
-clockEnabled/clockFinished (quest/clock.js:118,164) - and the journal
+clockEnabled/clockFinished (quest/clock.js:125,164) - and the journal
 draws it under the quest name as 'Time remains: N days N hours'
 (hours+min under a day, min alone under an hour), URGENT GOLD below
 one game day, with a gold gem pushed right on the rail row of any
@@ -8636,7 +8636,7 @@ hours, hours with minutes under a day, minutes alone under an hour,
 and never "0 min", because a live clock always has a minute left. The
 threshold is one GAME DAY in seconds, not a guess. The clock is the
 machine's - the TIGHTEST running Clock resource on the quest
-(clockEnabled && !clockFinished, quest/clock.js:118,164) - and all
+(clockEnabled && !clockFinished, quest/clock.js:125,164) - and all
 three log builders walk it identically, world.js twice on purpose (its
 own questLog and the pauseQuestLog worldModes borrows, so the modal
 host's journal shows the same timers the world's does). 1 pin, 5
@@ -8711,7 +8711,7 @@ same answer: `ui/spellbookDoor.js`, with each host handing it only
 what that host knows.
 
 THE "HAND-ROLLED DUPLICATE" WAS NOT ONE. The board recorded
-worldModes.js:3312 as a second book built by hand 342 lines below the
+worldModes.js:3388 as a second book built by hand 342 lines below the
 factory. Read closely it is the SPELL MERCHANT'S SHOP - buyMode, with
 `offered`, the building's quality, the shop name, the haggling skills
 and the classic clock. A different question with different deps, and
@@ -8794,7 +8794,7 @@ mutations, 4 dead.
 
 PX24 (Mac: "with the logbook and history, I want them as one detailed
 UI"): THE CHRONICLE. Two classic windows built at four sites -
-questJournal.js from charSheetNav:53, world.js:5054 and
+questJournal.js from charSheetNav:53, world.js:5273 and
 dungeonContext.js, playerHistory.js from charSheetNav:61 - become ONE
 seam (ui/chronicleDoor.js, the U52/U53/PX23 shape a sixth time) and,
 on the enhanced skin, ONE WINDOW.
@@ -9421,7 +9421,7 @@ and firing THAT twice is a second PopToHUD.
 
 ### Why only two of the four hosts crashed
 
-`worldModes.js:7901` and `dungeonContext.js:1872` answer the same
+`worldModes.js:8194` and `dungeonContext.js:1887` answer the same
 `onClose` by nulling their slot and never disposing - nothing to
 re-enter. Only the two hosts that come through `townTalk.closeOverlay`
 dispose. **The four-hosts rule caught this one by accident**: the two
@@ -9481,7 +9481,7 @@ cited and ported somewhere in `src/`. FOUR were not:
 |---|---|---|
 | DaggerfallUseMagicItemWindow | 139 | **CLOSED, UI1** - see below |
 | DaggerfallMerchantServicePopupWindow | 175 | **CLOSED, UI2** - see below |
-| DaggerfallTransportWindow | 264 | OPEN, and it is a SYSTEM gap wearing a UI hat: `motor.js:813` reads `riding: false` with "the transport arc pends". The window is the last tenth of that arc, not a slice on its own |
+| DaggerfallTransportWindow | 264 | OPEN, and it is a SYSTEM gap wearing a UI hat: `motor.js:859` reads `riding: false` with "the transport arc pends". The window is the last tenth of that arc, not a slice on its own |
 | DaggerfallUnityMouseControlsWindow | - | NOT A GAP: DFU's own mouse-settings screen, and the port's settings surface (U29) carries those keys already |
 
 ### UI1 CLOSED: the use-magic-item window
@@ -9525,7 +9525,7 @@ the art-less fallback.
 ### What is left
 
 `DaggerfallTransportWindow` alone, and it wants its own arc: the window
-is trivial, `TransportManager` is not - `motor.js:813` reads
+is trivial, `TransportManager` is not - `motor.js:859` reads
 `riding: false` with "the transport arc pends". With UI1 and UI2
 closed, **58 of DFU's 60 real windows are ported**, and the 59th is a
 system's last tenth.
@@ -10129,7 +10129,7 @@ than because the screen agrees with a narrower port.
 stays unbuilt - an owner call, unchanged: the port has no gamepad layer
 at all, the serialized joystick blocks are simply absent from
 `KeyBindData_v1`, and the flag that says so is
-`src/systems/inputActions.js:1485`. The JOYSTICK tab still answers with
+`src/systems/inputActions.js:1493`. The JOYSTICK tab still answers with
 its note, and Ledger `:593`'s live clause now names that window alone.
 `weaponSensitivitySlider` is commented out in DFU itself (:42, :355) -
 nine controls are built, the tenth is a stub - and
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:12666`,
+the other half went stale unnoticed. (The rest cite named `world.js:13001`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:12672` now.)
+deleted the second and the cite is `world.js:13007` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -10850,7 +10850,7 @@ if (alt.ContainsKey(code)) alt.Remove(code);        // InputManager.cs:729-734
 - and for a SECONDARY write the "other" dict IS the primary, so a
 secondary Jump written onto `ShiftLeft` deletes Run's primary row, and
 the reverse order deletes Jump's secondary row by the same line. The
-port carries it at `inputActions.js:937-938`. Either order collapses the
+port carries it at `inputActions.js:945-946`. Either order collapses the
 pair.
 
 The route that DOES produce it is the LOAD path. `LoadActionKeybinds`
@@ -10861,7 +10861,7 @@ if (!dict.ContainsKey(key) && actionVal != Actions.Unknown)
     dict.Add(key, actionVal);                       // InputManager.cs:1950-1969
 ```
 
-- ported at `inputActions.js:1173-1183`, whose own comment already said
+- ported at `inputActions.js:1181-1191`, whose own comment already said
 "Raw map-set, NOT setBinding". So a hand-edited `KeyBindings.txt` that
 puts Jump on the run key as a SECONDARY, with the primary `Space` spent
 on something else, loads exactly as written; and it SURVIVES the
@@ -14340,7 +14340,7 @@ items off your character."*
 
 It did not, and the whole of the reason is one line. INV1 hung the
 gesture on the pack's rows - `itemRow`'s `if (from === 'local')
-dragFrom(row, item)` (`ui/enhancedInventory.js:2349`) - and made the
+dragFrom(row, item)` (`ui/enhancedInventory.js:2365`) - and made the
 body a drop TARGET, with `equippedList` saying so in its own comment:
 *"the body is the equip target - `dragFrom`'s pointerup finds it by hit
 test, so the map needs no handler of its own"*. True for the direction
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10220` named a line that is 8950, `:1624` one that is
+read: `world.js:10550` named a line that is 8950, `:1763` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:9954-9986` and `dungeonContext.js:1676` were
+that is 8907. `world.js:10284-10316` and `dungeonContext.js:1691` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -15878,7 +15878,7 @@ that through `InputManager` (:1084-1108, one poll a frame in
 `GetKeyDown` at all, so every consumer wrote its own out of the only
 read there was.
 
-`motor.js:1363` had already named this bug's twin from the other side:
+`motor.js:1418` had already named this bug's twin from the other side:
 "a render frame that accumulates less than one physics step swallowed
 the press" - the fix there moved `_heightAction` out of the fixed-step
 loop. The half that remained was the host's.
@@ -16912,7 +16912,7 @@ there; all-max gets the sentence that is true of it.
 
 **F3 - two of the eight descriptions named numbers that do nothing.**
 The window's own promise is that each attribute line is true of code
-that runs. Willpower cited `questMacros.js:630`, which only PRINTS
+that runs. Willpower cited `questMacros.js:633`, which only PRINTS
 MagicResist for the `%mr` macro - the consumer is `spellcast.js:158`'s
 saving throw. Agility cited `toHitModifier` (formulas.js:120), which is
 the CHARACTER SHEET's display modifier and is read by chargen's derived
@@ -17148,7 +17148,7 @@ says in its own header that a second `--apply` against the same base
 moves every cite AGAIN. Recovering this slice's line shifts by
 reverting the tree except the files it had edited re-created exactly
 that: the kept files still carried the first pass's moves, and the
-second pass moved them a second time - `dungeonContext.js:2761` became
+second pass moved them a second time - `dungeonContext.js:2776` became
 2221 where the line had gone to 2215. The repair is a pairing walk:
 read HEAD's number at the same position in the same file, resolve it
 BY CONTENT in the working tree, and write that. Forty-seven cites came
@@ -17234,7 +17234,7 @@ three of the block's four rows empty and the box it measured was 30px
 tall where an ordinary fight makes it 111.
 
 The fix is not a better number, it is the tree's own rule read the
-right way round. QS3 (`ui/enhancedHud.js:642-645`) already says it, for
+right way round. QS3 (`ui/enhancedHud.js:643-646`) already says it, for
 the quickslot diamond, in the opposite direction: the diamond lives on
 the HUD root rather than in `.hud-bottom` **because** it is a CORNER,
 "and a corner block inside a centred flex column moves whenever a bar
@@ -17721,6 +17721,14 @@ mod's rather than folded into the port's pinned `activateBuilding`: its
 closed-message gate is `<= Palace` where DFU's is `< Temple`, so it
 tells you a temple is shut and DFU does not; and a palace substitutes
 its own word for "Store".
+
+**And one the Loot arc made (LOOT7-CHECK CHAMP-HOVER, 2026-10-01, Mac: "fix the smaller things").** The mod
+names a living entity only when its motor is not hostile (.cs:304-312), so a CHAMPION (`06-Systems/Loot-Arc.md`
+section 9) - whose name IS its trait, `Mighty Orc` - was never on the plaque while it fought you, against Mac's
+"single named foes with visible traits". `worldTooltips.js` `mobileEntityName` takes `champion` beside `hostile`, and
+every live arm (the street's, a building's, the dungeon's, the watch's) tells it; any other hostile foe still says
+nothing, and with the loot-rarity row off no champion stands, so the mod's silence is whole. The classic skin, which
+has no plaque, hears a champion on its line instead (`Loot-Arc.md` section 17, CHAMP-SAID).
 
 The classic skin has none of it, byte for byte.
 

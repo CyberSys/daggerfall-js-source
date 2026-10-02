@@ -26,7 +26,7 @@ import { TrainPc } from '../src/systems/quest/actions.js';
 import { Clock } from '../src/systems/quest/clock.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { snapshotPlayer, restorePlayer, clampMarkersAheadOf } from '../src/systems/save.js';
-import { offlineCopyOf, onlineCopyOf, QUEST_WORLD_SECOND_KEYS } from '../src/systems/offlineCopy.js';
+import { offlineCopyOf, onlineCopyOf, QUEST_WORLD_SECOND_KEYS, QUEST_OWN_SECOND_KEYS } from '../src/systems/offlineCopy.js';
 import { startDisease, DISEASES } from '../src/systems/diseases.js';
 import { NORMALIZE_INTERVAL_MINUTES } from '../src/systems/court.js';
 import { bankingStatusRows } from '../src/systems/banking.js';
@@ -117,7 +117,9 @@ test('AUDIT LIVED1 T5 + A (K2/S1/R3): the moon and the sun a round reads are the
   let ownFull = null, worldNot = null, worldFull = null, ownNot = null;
   for (let d = 400; d < 800 && ownFull == null; d++) if (isFullMoonFromMinutes(d * D + 2 * H)) ownFull = d * D + H;
   for (let d = 900; d < 1300 && worldNot == null; d++) if (!isFullMoonFromMinutes(d * D + 12 * H) && !isFullMoonFromMinutes(d * D + 20 * H)) worldNot = d * D + 12 * H;
-  for (let d = 900; d < 1300 && worldFull == null; d++) if (isFullMoonFromMinutes(d * D + 2 * H)) worldFull = d * D + H;
+  // TIME2: online the full moon forces its NIGHT - from the dusk of a full-moon date - so the world's full moon is read
+  // at 20:00 of that date (its 01:00 belongs to the night before it, which is no full moon)
+  for (let d = 900; d < 1300 && worldFull == null; d++) if (isFullMoonFromMinutes(d * D + 2 * H)) worldFull = d * D + 20 * H;
   for (let d = 400; d < 800 && ownNot == null; d++) if (!isFullMoonFromMinutes(d * D + H) && !isFullMoonFromMinutes(d * D + 2 * H)) ownNot = d * D + H;
   const wolf = (own, world) => {
     const o = online({ own, world, entity: player({ factionRep: null }) });
@@ -128,7 +130,7 @@ test('AUDIT LIVED1 T5 + A (K2/S1/R3): the moon and the sun a round reads are the
   };
   const tickPath = (own, world) => { const o = wolf(own, world); o.t.clock += 10; o.ticker.tick(1 / 60); return !!liveLycanthropy(o.e)?.isTransformed; };
   assert.equal(tickPath(ownFull, worldNot), false, 'the character\'s own full moon forces no change under the world\'s sky');
-  assert.equal(tickPath(ownNot, worldFull), true, 'the world\'s full moon does');
+  assert.equal(tickPath(ownNot, worldFull), true, 'the world\'s full moon does (TIME2: up, in its night)');
   // the dungeon's rest arm runs its rounds itself (dungeonContext.js _restAdvance): the same law through its call
   const dungeonArm = (own, world) => {
     const o = wolf(own, world);
@@ -139,7 +141,7 @@ test('AUDIT LIVED1 T5 + A (K2/S1/R3): the moon and the sun a round reads are the
     return !!liveLycanthropy(o.e)?.isTransformed;
   };
   assert.equal(dungeonArm(ownFull, worldNot), false, 'the dungeon rest arm, handed the world\'s sky');
-  assert.match(rd('src/scenes/dungeonContext.js'), /runMagicRoundsFor\(playerEntity, _w\.from, _w\.to, \{ sinks: playerSinks, say: \(msg\) => hudText\.add\(msg\), skyMinutes: sharedClockOn\(\) \? Math\.floor\(worldMinutes\(\)\) : null \}\);/, 'and the arm hands it');
+  assert.match(rd('src/scenes/dungeonContext.js'), /runMagicRoundsFor\(playerEntity, _w\.from, _w\.to, \{ sinks: playerSinks, say: \(msg\) => hudText\.add\(msg\), skyMinutes: sharedClockOn\(\) \? Math\.floor\(skyMinutes\(\)\) : null \}\);/, 'and the arm (TIME1: the sky\'s own clock) hands it');
   // the sun-damaged career's light
   const burn = (own, world) => {
     const o = online({ own, world, entity: player({ factionRep: null, career: { abilityFlagsAndSpellPointsBitfield: SPECIAL_ABILITY_BITS.sunDamage } }) });
@@ -168,7 +170,7 @@ test('AUDIT LIVED1 B (P1/S2/R1) + D (R2/P5): a quest\'s disease and a quest\'s t
 test('AUDIT LIVED1 C (R4/P4): the temple\'s free and half-price cure days are the WORLD\'s calendar; training\'s cooldown stays the character\'s', () => {
   const m = rd('src/scenes/worldModes.js');
   const cure = m.slice(m.indexOf('flow = buildCureDiseaseFlow('), m.indexOf('flow = buildCureDiseaseFlow(') + 700);
-  assert.match(cure, /rows, now: \(\) => interiorTicker\.classicMinutes, onClose/, 'the cure flow reads the world\'s holiday');
+  assert.match(cure, /rows, now: \(\) => skyMinutes\(\), onClose/, 'the cure flow reads the world\'s holiday');   // TIME1: the sky's calendar
   assert.match(m, /const now = \(\) => interiorTicker\.ownMinutes;   \/\/ already CLASSIC minutes/, 'the service flows\' own clock (training) stays the character\'s');
 });
 
@@ -193,7 +195,8 @@ test('AUDIT LIVED1 E (S3/R5, S5/U4) + G (R6): the doors between the lanes rebase
   assert.deepEqual(off.spawns, [['k', own - 100, own - 50], ['j', own - 10]]);
   assert.deepEqual([off.world.camps[0].litUntil, off.world.camps[0].placedAt], [own + 480, own - 5]);
   assert.equal(snap.worldMinutes, world, 'the realm\'s save itself is untouched');
-  assert.ok(QUEST_WORLD_SECOND_KEYS.includes('guardAnchor'));
+  // TIME3: a guard's arrival is a countdown's stamp - the character's clock since TIME3, the world's in an envelope from before it
+  assert.ok(QUEST_OWN_SECOND_KEYS.includes('guardAnchor') && !QUEST_WORLD_SECOND_KEYS.includes('guardAnchor'));
   // end to end: the quest's three days stay three days on the offline clock
   const offClock = new Clock({ nowSeconds: () => own * 60 });
   offClock.restoreSaveData(off.quest.quests[0].resources[0].clock);
@@ -335,12 +338,12 @@ test('AUDIT LIVED1 T3/T4/T6/T7/T8 + V: by source, every host read LIVED1 re-poin
   ];
   for (const [src, re, what] of personal) assert.match(src, re, `${what} reads the character's clock`);
   // T7: the sky's and the calendar's feeds
-  assert.match(w, /skyMinutes: sharedClockOn\(\) \? Math\.floor\(worldMinutes\(\)\) : null/, 'the encounter roll\'s table reads the world\'s hour');
+  assert.match(w, /skyMinutes: sharedClockOn\(\) \? Math\.floor\(skyMinutes\(\)\) : null/, 'the encounter roll\'s table reads the world\'s hour');   // TIME1: the sky's own clock
   assert.match(rd('src/ui/enhancedTavern.js'), /date: \{ dayOfYear: dayOfYearFromMinutes\(deps\.worldNow\?\.\(\) \?\? now\) \}/, 'the enhanced tavern\'s Heart\'s Day');
   const tw = rd('src/ui/tavernWindow.js');
   assert.match(tw, /hour: Math\.trunc\(\(\(\(h\.worldNow\?\.\(\) \?\? now\) % 1440\) \+ 1440\) % 1440 \/ 60\)/, 'the kitchen\'s hours');
   assert.match(tw, /gameMinutes: h\.worldNow\?\.\(\) \?\? now \}\);/, 'the meal\'s holiday');
-  assert.match(dc, /const wm = worldMinutes\(\)/, 'the dungeon\'s air');
+  assert.match(dc, /const wm = skyMinutes\(\)/, 'the dungeon\'s air');   // TIME1: the sky's
   // V (P6): a foe's poison off the wire resumes at this host's now
   assert.match(dc, /\.\.\.\(wire && Number\.isFinite\(a\.lastMinute\) \? \{ lastMinute: Math\.floor\(ownMinutes\(\)\) \} : \{\}\)/);
 });

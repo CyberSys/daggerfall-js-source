@@ -63,7 +63,7 @@ import { magicPowersLines } from '../systems/itemPowers.js';   // PLUS10: %mpw
 import { CHAT_MAX } from '../net/wire.js';   // CHAT-POST: a posted item is one chat line
 import { itemIsIdentified } from '../systems/tradeModes.js';   // PLUS10: MagicPowers' identified arm
 import { PACK_PAGES, PAGE_IDS, pageOf, filterByPage } from './packPages.js';   // PX31: the pack's nine pages (the classic keeps DFU's four)
-import { useItem, isLightSource, usableItem, isPotionRecipe, toggleHood, HOOD_TEXT } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm   // HOOD-SAID: the hood's button and its lines
+import { useItem, isLightSource, usableItem, isPotionRecipe, toggleHood, HOOD_TEXT, nextDrape, drapeCount, DRAPE_TEXT } from '../systems/useItem.js';   // PLUS10: isPotionRecipe, a recipe's second Info box   // HT2: the light source's own act; Mac: Use only where the law has an arm   // HOOD-SAID: the hood's button and its lines   // CLOAK-DRAPE: the drape's
 // QS2: the quickslot model (systems/quickslots.js). This screen is the ONE
 // place a slot is filled - Mac's own words, "in the enhanced menu through the
 // tooltip to slot 1/2" - and it fills one by naming the item's KIND, which is
@@ -94,6 +94,7 @@ import {
   isForbiddenEquip, isBrokenItem, getEquipSlot, bodyPartForSlot,   // getEquipSlot - Mac (2026-09-18): Wear only where a slot would take it; bodyPartForSlot - AC-COMPARE: GetBodyPartForEquipSlot, the part a worn panel stands for
 } from '../systems/equip.js';
 import { armourBadge, armourPlaque, compareBlock } from './armourCard.js';   // AC-COMPARE: the doll's numbers on the map, the overall figure, the card's comparison
+import { statFlip } from './statsCard.js';   // STATS-CARD: the paperdoll's flip side, its Stats button
 import {
   itemWeight, isEnchanted, totalWeight, addItem, goldStack,
   goldPiecesOf, GOLD_PIECE_WEIGHT_KG,   // E4: the counter and its per-coin weight
@@ -111,6 +112,7 @@ import { howManyField } from './howManyField.js';   // DISC25-F: the card's fiel
 import {
   openState, remoteTarget, planWagonToggle, hasCart, hasHorse, transportItem,
   groundRefusalOf,   // HOUSE-DROP: the host's word against the ground
+  storeCapacityOf,   // COMPANION-WEIGHT: a storage's own weight limit
 } from '../systems/inventorySession.js';
 import { entityMaxEncumbrance } from '../combat/formulas.js';   // AUDIT 26: PlayerEntity.MaxEncumbrance, enchantment allowance and all
 import { liveStat } from '../systems/statMods.js';
@@ -328,9 +330,10 @@ export function remoteModel(deps = {}, state = {}) {
     items,
     count: items.length,
     weight: totalWeight(items),
-    // ItemHelper.WagonKgLimit is the ONLY capacity a remote list has -
-    // the ground and a corpse hold anything.
-    capacity: kind === 'wagon' ? WAGON_KG_LIMIT : null,
+    // ItemHelper.WagonKgLimit is DFU's only capacity a remote list has -
+    // the ground and a corpse hold anything; COMPANION-WEIGHT: a
+    // companion's pack carries what a person of his strength can.
+    capacity: kind === 'wagon' ? WAGON_KG_LIMIT : (storeCapacityOf(deps, state)?.kg ?? null),
     // LOOT-STACK: the bodies piled with this one, as tabs
     // (player/lootStack.js lootPile) - on the body's own frame only, never
     // over the wagon or a reward tray the same session can show.
@@ -833,6 +836,7 @@ function stowIntent(item) {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,   // as canStow's own note says: the quest rung WRITES, and a label must not
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
+    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT
   });
   // A refusal that speaks is still worth releasing on - the player gets
   // the sentence. One that cannot speak is shown as refused and does
@@ -1375,6 +1379,15 @@ function hood(item) {
   refreshFigure();
   render();
 }
+/** CLOAK-DRAPE: the cloak's next drape (useItem.js nextDrape - the hood as it was), said and drawn as the hood is, the
+ *  card kept up. */
+function drape(item) {
+  if (!nextDrape(item)) return;
+  notice = DRAPE_TEXT;
+  refresh();
+  refreshFigure();
+  render();
+}
 
 /** A refusal, rendered. The LADDER decides whether a transfer happens
  *  and whether the player is told; a refusal with no text - DFU's
@@ -1402,6 +1415,7 @@ function canStow(item) {
     remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     dryRun: true,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
+    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT
   });
   return plan.ok || !!plan.refusal.text;
 }
@@ -1410,7 +1424,7 @@ function canStow(item) {
  *  reason: the quest rung writes) - or 0 where it would move nothing, or is a map's interception rather than a move. */
 function splitMax(item, dir) {
   const plan = dir === 'store'
-    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session) })
+    ? planStore(item, { remote: remote.items, usingWagon: session.usingWagon, chooseOne: session.chooseOne, dryRun: true, groundRefusal: groundRefusalOf(deps, session), capacity: storeCapacityOf(deps, session) })
     : planTake(item, {
       bag: deps.items?.() ?? [], entity: deps.entity, mode: 'remove',
       chooseOne: session.chooseOne, usingWagon: session.usingWagon, dryRun: true,
@@ -1458,13 +1472,14 @@ function stow(item) {
     remote: to, usingWagon: session.usingWagon, chooseOne: session.chooseOne,
     getQuest: deps.getQuest ?? null,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP: a floor that refuses a drop
+    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT: a companion's pack takes what fits
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: THE MAP IS AN INTERCEPTION, not a transfer. AUDIT
   // 26 F156: planStore answers `{ ok: true, map: true }` for a
   // MiscItems.Map - the reveal runs, the paper is consumed, nothing
   // lands in the destination. The classic window routes it
-  // (nativeInventory.js:939) and this one did not, so dragging a
+  // (nativeInventory.js:945) and this one did not, so dragging a
   // treasure map out of the pack dropped the paper on the floor and
   // revealed nothing.
   if (plan.map) { use(item, deps.items?.() ?? []); return; }
@@ -1474,7 +1489,7 @@ function stow(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6: the same cue this window's `take()` gained - storing (selling,
   // banking, dropping into a wagon or a pile) is a transfer too, and
-  // planStore already hands back the sound (itemTransfer.js:225), unread
+  // planStore already hands back the sound (itemTransfer.js:256), unread
   // until now.
   audio.playOneShot(plan.sound === 'gold' ? SOUND.GoldPieces : SOUND.ButtonClick, 1);   // SND1: a take always sounds - the click, or the gold
   // PX24 (Mac: an action taken closes the tooltip): the transfer
@@ -1483,7 +1498,7 @@ function stow(item) {
   // again on the other side, and a tip that stays open after every
   // press is the quirk being fixed.
   // AUDIT INV2 B-F1: THE ENTITY AND THE PROVENANCE RIDE, as they do at
-  // the classic window's own call (nativeInventory.js:945). Without them
+  // the classic window's own call (nativeInventory.js:951). Without them
   // `clearLightSourceOnLeave` - AUDIT 26 F157's first statement inside
   // applyTransfer - is a no-op, so a LIT TORCH dropped on the ground
   // went on lighting the player from where it lay. INV2 made that a
@@ -1512,7 +1527,7 @@ function take(item) {
   });
   if (!plan.ok) return refuse(plan.refusal);
   // AUDIT INV2 B-F2: the map is an interception in EITHER direction
-  // (itemTransfer.js:247, "F156: either direction") - taking one off a
+  // (itemTransfer.js:278, "F156: either direction") - taking one off a
   // pile reveals and consumes it, exactly as stowing one does. The
   // classic window routes both; this one routed neither.
   if (plan.map) { use(item, remoteTarget(deps, sessionState())); return; }
@@ -1520,7 +1535,7 @@ function take(item) {
   if (amount == null) { notice = HOW_MANY_ITEMS(plan.amount); render(); return; }
   // MAC-O6 (report: "looting gold/items makes no sound"): DoTransferItem's
   // own cue (:1569 gold's clink, :1583 everything else), which the classic
-  // window plays (nativeInventory.js:965) and this one never did - the ONLY
+  // window plays (nativeInventory.js:971) and this one never did - the ONLY
   // difference between the two windows' calls to planTake/applyTransfer was
   // that this one dropped `plan.sound` on the floor. Played here, ahead of
   // the gold interception below, exactly as DFU's own PlayOneShot sits
@@ -1583,6 +1598,7 @@ function dropGold(text) {
   const plan = planDropGold(text, {
     carried: goldAmount(player), usingWagon: session.usingWagon, remote: to,
     groundRefusal: groundRefusalOf(deps, session),   // HOUSE-DROP
+    capacity: storeCapacityOf(deps, session),   // COMPANION-WEIGHT
   });
   if (plan.notice) notice = plan.notice;
   else if (!plan.ok && plan.refusal?.reason === 'ground') notice = plan.refusal.text;   // HOUSE-DROP: the floor's refusal is said
@@ -1870,7 +1886,7 @@ function equippedList() {
   const plaque = armourPlaque(deps.entity);
   plaque.style.gridArea = '1 / 2';
   map.append(plaque);
-  wrap.append(map);
+  wrap.append(statFlip(map, deps.entity));   // STATS-CARD: the worn map is the card's front; a Stats button turns it over
   const byLabel = new Map();
   for (const row of worn.rows) {
     if (!byLabel.has(row.label)) byLabel.set(row.label, []);
@@ -2815,6 +2831,15 @@ function itemActs(picked, side, { qty = true } = {}) {
     const h = el('button', 'act', hoodUp(picked) ? 'Lower hood' : 'Raise hood');
     h.onclick = () => hood(picked);
     acts.append(h);
+  }
+  // CLOAK-DRAPE (FIELD BUGS 2026-10-01, SlipperyPeasant: "it removed the 'Use' button for cloaks and replaced it with
+  // 'Raise Hood' and I can no longer change how the cloak is worn"): the hood keeps its drape, so a worn casual cloak's
+  // other two drapes were out of reach - Change drape steps them, the hood as it was (useItem.js nextDrape). A garment
+  // of one drape (a formal cloak, plain robes) has none to change.
+  if (hooded && drapeCount(picked) > 1) {
+    const d = el('button', 'act', 'Change drape');
+    d.onclick = () => drape(picked);
+    acts.append(d);
   }
   const u = el('button', 'act', 'Use');
   // THE COLLECTION IS THE LIVE LIST, not the model's. `useItem`

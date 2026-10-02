@@ -2690,7 +2690,7 @@ ${badgeCss()}
 .tview-fdot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.65); opacity: 0.3; transition: opacity 120ms ease; }
 .tview-filter.on .tview-fdot { opacity: 1; }
 .tview-fdot-towns { background: #e9e4d9; } .tview-fdot-distant { background: #c08a3e; } .tview-fdot-dungeons { background: #b0443a; }
-.tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; }
+.tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; } .tview-fdot-gathering { background: linear-gradient(135deg, #e586ec, #d9894a 50%, #d4e157); }
 .tview-fnum { min-width: 2ch; text-align: right; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .tview-filter:not(.on) .tview-fnum { opacity: 0.6; }
 /* OW-CONFIRM: the view's own question - over the map's upper middle, in the block's stone; its presses the Path switch's */
@@ -3528,12 +3528,18 @@ ${badgeCss()}
       pair plus a brass outline under :focus-visible, so a tab is as
       visible as a hover.
    8. NOTHING EASES. The last row transition dies. */
-.shell ::-webkit-scrollbar, .px-win ::-webkit-scrollbar { width: 10px; height: 10px; }
-.shell ::-webkit-scrollbar-track, .px-win ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
-.shell ::-webkit-scrollbar-thumb, .px-win ::-webkit-scrollbar-thumb {
+/* CURSOR-EDGE: EVERY SCROLLBAR ON THE PAGE IS A CUSTOM ONE. A native scrollbar shows the OS arrow whatever cursor its
+   element wears (the gauntlet included); a ::-webkit-scrollbar one takes its scroller's. Chromium (121+) draws the
+   native one wherever scrollbar-color or scrollbar-width applies - and scrollbar-color inherits, so the standard pair
+   stands only where ::-webkit-scrollbar does not (Firefox). Unscoped, so a scroller outside .shell and .px-win is held. */
+@media (any-pointer: fine) {   /* AUDIT part five UI2: a touch screen keeps its overlay scrollbar - no cursor to keep */
+::-webkit-scrollbar { width: 10px; height: 10px; } }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+::-webkit-scrollbar-thumb {
   background: rgba(125,116,96,0.5); border: 2px solid rgba(0,0,0,0.3); border-radius: 0; }
-.shell ::-webkit-scrollbar-thumb:hover, .px-win ::-webkit-scrollbar-thumb:hover { background: var(--brass); }
-.shell, .px-win { scrollbar-width: thin; scrollbar-color: rgba(125,116,96,0.6) rgba(0,0,0,0.3); }
+::-webkit-scrollbar-thumb:hover { background: var(--brass); }
+@supports not selector(::-webkit-scrollbar) {
+  .shell, .px-win { scrollbar-width: thin; scrollbar-color: rgba(125,116,96,0.6) rgba(0,0,0,0.3); } }
 
 .shell .railbtn.on .rk::before, .shell .railbtn:focus-visible .rk::before {
   content: '\\25c6  '; color: rgb(243,239,44); font-size: 12px;
@@ -4220,8 +4226,13 @@ ${badgeCss()}
    past that the BODY scrolls - the buttons stay where they are. A set piece's card stood 1,000 px tall in a 660 px
    window; tools/cardFitProbe.mjs presses every button of the heaviest cards at six screens. */
 .pack-shell .packtip.packdetail .card { display: flex; flex-direction: column; overflow: hidden; }
-.pack-shell .packtip.packdetail .card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  scrollbar-width: thin; scrollbar-color: rgba(125,116,96,0.7) transparent; }
+.pack-shell .packtip.packdetail .card-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+/* CURSOR-EDGE: the thin bar as a ::-webkit-scrollbar (.pack-shell's own rule hides its scrollbars; this one is shown) */
+.pack-shell .packtip.packdetail .card-body::-webkit-scrollbar { display: block; width: 6px; }
+.pack-shell .packtip.packdetail .card-body::-webkit-scrollbar-track { background: transparent; }
+.pack-shell .packtip.packdetail .card-body::-webkit-scrollbar-thumb { background: rgba(125,116,96,0.7); border: 0; }
+@supports not selector(::-webkit-scrollbar) {
+  .pack-shell .packtip.packdetail .card-body { scrollbar-width: thin; scrollbar-color: rgba(125,116,96,0.7) transparent; } }
 .pack-shell .packtip.packdetail .card > .acts { flex: 0 0 auto; margin-top: 8px; padding-top: 10px;
   border-top: 2px solid rgba(125,116,96,0.35); }
 .pack-shell .packtip.packdetail .card .bigicon { padding: 2px 0 8px; min-height: 0; }

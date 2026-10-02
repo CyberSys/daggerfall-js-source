@@ -35,6 +35,17 @@ export const PREF_DEFAULTS = Object.freeze({
   // to scale - so it belongs in the port's own prefs, beside the other
   // things only this port has.
   hudScale: 1,
+  // HUD-MOVE (2026-10-01, Mac: "make chat, hp mana stamina bar segment and all the element moveable and add a reset UI
+  // and lock UI in the settings (lock should be on by default)"): the Enhanced Plus HUD's own layout. `hudLocked` is the
+  // lock (on: nothing moves, the HUD is pointer-transparent as ever); `hudLayout` is { id: { x, y } }, each piece's
+  // nudge in screen pixels from where the sheet stands it (ui/hudLayout.js). null is every piece where the sheet puts it.
+  hudLocked: true,
+  hudLayout: null,
+  // HUD-MOVE (Mac: "an option to move the magicka, health and fatigue bar separately"): off, the three bars move as
+  // one piece; on, each moves on its own.
+  hudBarsSplit: false,
+  // HUD-SNAP: while moving a piece, its edges and centre catch on the other pieces' and the screen's
+  hudSnap: true,
   // FOEBAR1 (2026-09-17, Mac, from a friend's pictures): the target bar's
   // face - 'bar' is the plain track under the compass, 'blade' the
   // twin-bladed picture whose fill recedes toward its hub. The port's own,
@@ -90,10 +101,11 @@ export const PREF_DEFAULTS = Object.freeze({
   touchGyroSensitivity: 1,   // 1 = a degree of phone is a degree of camera
   touchHaptics: true,        // a short vibration on a button, an armed swipe and a lock
   touchFullscreen: true,     // the first touch asks for fullscreen and a landscape lock where the browser allows it
-  // TOUCH-BUTTONS (2026-09-27): the corner's three slots, from the corner in (ui/touchButtons.js) - TI1's two, and none
+  // TOUCH-BUTTONS (2026-09-27): the corner's three slots, from the corner in (ui/touchButtons.js) - TI1's two, and
+  // TOUCH-HOLD's Interact (2026-10-01 part four: the professions' E, which a phone never had)
   touchButton1: 'Jump',
   touchButton2: 'ReadyWeapon',
-  touchButton3: 'none',
+  touchButton3: 'Interact',
   // SPELL-GIFT (2026-09-27): whether a player OUTSIDE my party may cast the stranger's list of spells on me (Heal,
   // Regenerate, Cure, Fortify, Shield, resistances, Jumping, Water Breathing - systems/allyCast.js). On: Tabitha's ask.
   acceptStrangerSpells: true,

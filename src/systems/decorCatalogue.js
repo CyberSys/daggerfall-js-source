@@ -41,6 +41,7 @@ import { isShopShelfModel } from './shopStock.js';
 import { HOUSE_CONTAINER_NAMES } from './worldTooltips.js';
 import { interiorLightProperties } from '../world/interiorLights.js';
 import { decorPrice } from '../net/decorLaw.js';
+import { BULLETIN_BOARD_MODEL_ID } from '../world/rmbLayout.js';   // GUILD1e: the hall's board is Daggerfall's own
 
 /** A piece's KIND - the panel's filter - and what it reads as. */
 export const DECOR_KINDS = Object.freeze({
@@ -167,6 +168,21 @@ export function decorCatalogue(collected) {
     count: e.count, storage: e.storage, light: e.light ? Object.freeze({ ...e.light, color: Object.freeze([...e.light.color]) }) : null,
   }));
 }
+
+/**
+ * GUILD1e (2026-09-30, Mac: "Finish the seats"; Seats-Arc 8.2: "the hall carries ... a private guild board"): THE HALL'S
+ * BOARD - Daggerfall's own board (rmbLayout.js BULLETIN_BOARD_MODEL_ID, a town's), offered in a guild's hall alone
+ * (`hall`), never in a home or a yard: a town's board stands outdoors, and nothing of Daggerfall's rooms carries one, so
+ * it is the one piece the catalogue holds that no room placed. Pressed in the hall, it opens the guild's own notes
+ * (scenes/worldModes.js activateDecor). Priced by its size, as every piece.
+ */
+export const HALL_BOARD_ENTRY = Object.freeze({
+  key: `m${BULLETIN_BOARD_MODEL_ID}`, model: BULLETIN_BOARD_MODEL_ID, flat: null, kind: 'furniture', name: 'Notice Board',
+  count: 0, storage: false, light: null, hall: true,
+});
+/** The catalogue a room offers: a hall's board in a hall's room alone; HOME-YARD: no door in a yard. */
+export const decorRoomEntries = (entries, room) => entries?.filter((e) => (!e.hall || (!!room?.hall && !room?.yard))
+  && !(room?.yard && e.kind === 'door')) ?? null;
 
 /** A piece's SIZE band, by its radius in metres - the panel's size filter. */
 export const DECOR_SIZES = Object.freeze({ small: 'Small', medium: 'Medium', large: 'Large' });

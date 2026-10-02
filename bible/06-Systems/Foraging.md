@@ -687,14 +687,15 @@ encumbered!". PROF7 BUILT them in that order - settlement, sea, enemies, load - 
 |---|---|
 | Not inside | every act **except a dungeon vein** - the Pick-Axe's one place indoors (PROF0 6) - **and Hunting**, whose body lies where it fell (PROF0 17.1); the inventory's "You cannot mine in here!" is unchanged (FIELD BUGS 2026-09-29h: a player read it beside a dungeon vein as the vein's refusal - the Pick-Axe used at a node is its For Mac 1) |
 | Not in a settlement | every act (no node stands in a rect, PROF0 6) |
-| **Daylight, 07:00-17:59** | Logging, Herbalism, the Basket, surface Mining and Quarrying, Fishing. **Not** a dungeon vein, a Motherlode or a gate-touched vein (the contested ones keep no hours, PROF0 6); not Hunting (the knife is not Foraging's, and foes die at night). **The service checks it too**, on the shared clock, from the act's end time (PROF0 6) - a modified client cannot gather by night |
+| ~~**Daylight, 07:00-17:59**~~ | RETIRED (ANY-HOUR, 2026-10-01, Mac: *"Remove the time limit for professions. Should be available at any time"*): no profession's act asks it, and the service refuses no hour (`systems/foragingInstall.js` foragingActRefusal; `01-Overview/Field-Bugs-2026-10-01.md` part four). It stood for Logging, Herbalism, the Basket, surface Mining and Quarrying and Fishing, the service checking it from the act's end. Foraging's own Use (offline, a guest's lane) keeps it, the mod's 1:1 |
 | Not at sea | every act but Fishing |
 | No enemies near | every act |
 | Not fully encumbered | every act |
 
-**What the daylight rule makes of a day**: a game day is 2 real hours online, so the wilderness gives about **55 real
+~~**What the daylight rule makes of a day**: a game day is 2 real hours online, so the wilderness gives about **55 real
 minutes** of daylight gathering in every 2 hours. Night is for the dungeon veins, Hunting and the stations - a
-rhythm the record wants: gather by day, delve and craft by night.
+rhythm the record wants: gather by day, delve and craft by night.~~ RETIRED with the rule (ANY-HOUR): the wilderness
+gathers round the clock.
 
 PROF0's "fish bite at dawn and dusk" becomes Foraging's day: **the first and last daylight hours (07:00-07:59,
 17:00-17:59) halve the wait**.
@@ -1021,8 +1022,9 @@ The three loot hooks, 1:1 off IL_0520-IL_0b8f, and the two DFU events they hang 
 
 Online Foraging - the wait (13.1), and with it Foraging whole in both lanes:
 
-- **The page**, `src/ui/huntWindow.js`: C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options the hunt
-  leaves at their defaults (`ask`, `escape`, `interruptWhen`, `result`), and `remaining` / `extend(seconds)` for the
+- **The page**, `src/ui/huntWindow.js`: C&C's hunt page, THE ONE CONSTRUCTION SEAM - four constructor options (`ask`,
+  `escape`, `interruptWhen`, `result`; the hunt leaves three at their defaults and, since HUNT-FOES, FIELD BUGS
+  2026-10-02, gives `interruptWhen` a foe near, asked on its ask page too), and `remaining` / `extend(seconds)` for the
   wait's queue. The busy page's caption says "Escape to walk away" only where Escape does.
 - **The wait**, `src/scenes/foragingWait.js` (`createForagingWait`): a quest's game seconds become real ones at
   `huntRealSeconds` (8 s a game hour, imported); the record `{ seconds, label, held }` lives on the player

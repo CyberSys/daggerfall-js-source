@@ -5,7 +5,7 @@
 // completed, expire tombstones after one in-game week (604800 classic
 // seconds). DFU ticks at 10Hz of REAL time while clocks ride WORLD
 // time - the host calls tick() on its own cadence (TICKS_PER_SECOND
-// is the law to pace by) and injects the world clock as nowSeconds.
+// is the law to pace by) and injects the world clock as nowSeconds (TIME3: online the character's, beside the sky).
 //
 // deps (all injectable, every one a routed system):
 //   nowSeconds()               - world time in EPOCH-RELATIVE seconds:
@@ -23,6 +23,23 @@
 //                                only TrainPc's timeOfLastSkillTraining
 //                                wants the counter raw - and that one
 //                                now reads ownMinutes (below).
+//                                TIME3 (Online-Time-Arc.md 6.3): online
+//                                it is the CHARACTER's clock (LIVED1's
+//                                own) - every countdown, interval and
+//                                tombstone runs on it, and a rest
+//                                spends it; offline DFU's one clock.
+//   skySeconds()               - TIME3: the SKY, same base - an hour, a
+//                                date, a season (DailyFrom, a notice's
+//                                daytime, the season trigger, the
+//                                date macros). nowSeconds when absent.
+//   worldSeconds()             - TIME3: the EVENT clock, same base - the
+//                                journal's dates are stamped on it
+//                                (%qdt reads them on the sky's
+//                                calendar). nowSeconds when absent.
+//   raisedSeconds()            - TIME3: the session's raised time
+//                                (worldTick raisedMinutes x 60) - a
+//                                countdown charges it whole; null when
+//                                absent (every gap a lived one).
 //   ownMinutes()               - AUDIT LIVED1 D: the CHARACTER's clock
 //                                in classic minutes (worldTick.js
 //                                ownMinutes; the world's offline), for
@@ -279,6 +296,7 @@ import { Place } from './place.js';
 import { Item } from './item.js';
 import { Foe } from './foe.js';
 import { Clock } from './clock.js';
+import { questDataOnThisClock } from './questStamps.js';   // TIME3: a party member's copy, on this character's clock
 import { BUILDING_TYPES } from '../../world/buildingNames.js';   // DISC28-I: IsActiveQuestBuilding's House1-House6
 
 const HOUSE1 = BUILDING_TYPES.House1, HOUSE6 = BUILDING_TYPES.House6;
@@ -407,6 +425,20 @@ export class QuestMachine {
     return { nowSeconds: () => this.deps.nowSeconds?.() ?? 0, hooks: this._buildHooks() };
   }
 
+  /** TIME3: the clocks a quest reads, one set for every door a live quest is born through - the character's (nowSeconds:
+   *  the countdowns, intervals and tombstones), the sky (skySeconds: an hour, a date, a season), the event clock
+   *  (worldSeconds: the journal's dates) and the session's raises (raisedSeconds: charged whole). A host that names
+   *  none of the last three is offline or headless: the one clock, and every gap a lived one. */
+  _questClocks() {
+    const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
+    return {
+      nowSeconds,
+      skySeconds: () => this.deps.skySeconds?.() ?? nowSeconds(),
+      worldSeconds: () => this.deps.worldSeconds?.() ?? nowSeconds(),
+      raisedSeconds: () => this.deps.raisedSeconds?.() ?? null,
+    };
+  }
+
   /** The per-quest hook surface over the machine deps. Built BEFORE
    *  the parse since Q2b-ii: the Item mint reads player/guild/region
    *  facts at create time, exactly as DFU parses with the live
@@ -510,8 +542,11 @@ export class QuestMachine {
       // date/time block reads.
       playerEntity: () => this.deps.playerEntity ?? null,
       nowSeconds: () => this.deps.nowSeconds?.() ?? null,
+      // TIME3: the sky the date/time block, the season trigger and QAE's "until" read - the quest's clock where no host
+      // gives one (offline, headless: the one clock)
+      skySeconds: () => this.deps.skySeconds?.() ?? this.deps.nowSeconds?.() ?? null,
       // AUDIT LIVED1 D: the CHARACTER's clock in classic minutes, for a quest act that stamps a marker of theirs
-      // (TrainPc's training time) - online nowSeconds is the world's, days from theirs; null where no host says
+      // (TrainPc's training time) - TIME3: nowSeconds is theirs too now, in seconds; null where no host says
       ownMinutes: () => this.deps.ownMinutes?.() ?? null,
       // Q5: the fourteen un-pended actions' doors
       setPlayerCrime: (crime) => this.deps.setPlayerCrime?.(crime),
@@ -553,9 +588,9 @@ export class QuestMachine {
    *  nowSeconds and hooks ride the PARSE opts - PlaySound's create
    *  stamps the live clock, the Item mint reads the live world. */
   scheduleQuest(sourceLines, factionId = 0, { rolls } = {}) {
-    const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
+    const { nowSeconds, skySeconds, worldSeconds, raisedSeconds } = this._questClocks();   // TIME3
     const quest = this.parser.parse(sourceLines, factionId,
-      { rolls, actionFactory: this._actionFactory, nowSeconds, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
+      { rolls, actionFactory: this._actionFactory, nowSeconds, skySeconds, worldSeconds, raisedSeconds, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
     this.questsToInvoke.push(quest);
     return quest;
   }
@@ -639,7 +674,7 @@ export class QuestMachine {
    *  partialParse) - so a host wires
    *  `(l, f, p) => machine.parseQuestForLists(l, f, { partialParse: p })`. */
   parseQuestForLists(lines, factionId = 0, { rolls, partialParse = false, headless = false } = {}) {
-    const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
+    const { nowSeconds, skySeconds, worldSeconds, raisedSeconds } = this._questClocks();   // TIME3
     // SHARE-COPY: `headless` parses with NO world - the Person, Place and Foe set-ups skip, the headless charter
     // their own constructors already keep - so the quest is its SCRIPT's shape alone (parseQuestShape, below).
     const hooks = headless ? { ...this._buildHooks(), world: null } : this._buildHooks();
@@ -653,7 +688,7 @@ export class QuestMachine {
     // it where DFU drops that row and offers the rest.
     try {
       return this.parser.parse(lines, factionId,
-        { partialParse, rolls, actionFactory: this._actionFactory, nowSeconds, hooks, questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
+        { partialParse, rolls, actionFactory: this._actionFactory, nowSeconds, skySeconds, worldSeconds, raisedSeconds, hooks, questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7
     } catch (ex) {
       console.warn(`[quest] Parsing quest FAILED!\r\n${ex?.message ?? ex}`);
       return null;
@@ -1003,10 +1038,10 @@ export class QuestMachine {
     // the all-false start, which is the additive-field shape DFU's own
     // serializer gives a missing member.
     if (data.globalVars) this.globalVars = new Map(data.globalVars);
-    const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
+    const clocks = this._questClocks();   // TIME3
     for (const questData of data.quests ?? []) {
       try {
-        const quest = new Quest({ nowSeconds, actionFactory: this._actionFactory, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7: the clocks charge played time online
+        const quest = new Quest({ ...clocks, actionFactory: this._actionFactory, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // WORLD7: the clocks charge played time online
         quest.restoreSaveData(questData, this._saveResolvers());
         if (this.quests.has(quest.uid)) throw new Error('An item with the same key has already been added.');
         this.quests.set(quest.uid, quest);
@@ -1132,6 +1167,7 @@ export class QuestMachine {
    *  this quest has its final local UID, reaches the exact link a
    *  fresh accept would have made. */
   receiveSharedQuest(questData) {
+    questData = this._onThisClock(questData);   // TIME3: the sender's countdowns, on this character's clock
     const quest = this._newQuest();
     const uid = nextUid();
     // AUDIT DROPS A3: an envelope the restore chokes on is REFUSED (null), never half a quest on the live table
@@ -1261,6 +1297,7 @@ export class QuestMachine {
     // every reward still unpaid (a complete quest never updates).
     const finishing = questData.questComplete === true;
     if (finishing) questData = { ...questData, questComplete: false, questTombstoned: false };
+    questData = this._onThisClock(questData);   // TIME3: the sender's countdowns, on this character's clock
     const scratch = this._newQuest();
     const uid = quest.uid;
     try { scratch.restoreSaveData({ ...questData, uid }, this._saveResolvers()); } catch (e) { console.warn(`[quest] shared quest resync refused: ${e?.message ?? e}`); return null; }
@@ -1281,7 +1318,36 @@ export class QuestMachine {
     // AUDIT DISC7 C2: the behaviours standing on this quest - relinked below, at once, not on their next update
     // (a person's or an item's never ticks, and a Place mount may come first)
     const standing = this._liveBehaviours(uid);
+    // TIME3 (Online-Time-Arc.md 6.3): EACH COPY'S CLOCKS ARE ITS HOLDER'S. A Clock running in both copies keeps this
+    // copy's remainder and samples - the days this character spent on it, not the partner's: a member's rest spends
+    // their own copy's days. A clock the partner's copy started, stopped or ran out takes the envelope's state, and the
+    // task it fired rides the resync like any other - a clock that runs out on one copy has run out for the party.
+    // AUDIT TIME: and a clock THIS copy has run out stays run out, its task as it fired - a partner behind on it (their
+    // copy still counting) brought it back running and un-fired the task, a finish that is monotonic like an action's.
+    // A wave's interval is the holder's too (CreateFoe's timing, by task and action), or every resync restarted it.
+    const clocksBefore = new Map(), finishedBefore = new Map(), wavesBefore = new Map();
+    for (const r of quest.resources.values()) {
+      if (r.isClock && r.clockEnabled && !r.clockFinished) clocksBefore.set(r.symbol?.name, { remaining: r.remainingTimeInSeconds, sample: r._lastWorldTimeSample, raised: r._lastRaisedSample });
+      if (r.isClock && r.clockFinished) { const tk = quest.getTask?.(r.symbol); finishedBefore.set(r.symbol?.name, tk ? { triggered: tk.triggered, prev: tk.prevTriggered } : null); }
+    }
+    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { if (action.typeName === 'CreateFoe') wavesBefore.set(`${t}:${a}`, { last: action.lastSpawnTime, tick: action._lastTick, raised: action._lastRaised, count: action.spawnCounter }); a++; } t++; } }
     quest.restoreSaveData({ ...questData, uid }, this._saveResolvers());
+    for (const r of quest.resources.values()) {
+      if (r.isClock && !r.clockFinished && finishedBefore.has(r.symbol?.name)) {
+        r.clockEnabled = false; r.clockFinished = true; r.remainingTimeInSeconds = 0;
+        const task = quest.getTask?.(r.symbol), was = finishedBefore.get(r.symbol?.name);
+        // AUDIT TIME (second round): the task's EDGE as well - prevTriggered from the envelope (false) made the next tick
+        // a fresh trigger, which re-initialised its actions (a wave's count and timing back to nought)
+        if (task && was?.triggered) { task.triggered = true; task.prevTriggered = was.prev; }
+        continue;
+      }
+      const was = r.isClock && r.clockEnabled && !r.clockFinished ? clocksBefore.get(r.symbol?.name) : null;
+      if (!was) continue;
+      r.remainingTimeInSeconds = was.remaining;
+      r._lastWorldTimeSample = was.sample;
+      r._lastRaisedSample = was.raised;
+    }
+    { let t = 0; for (const task of quest.tasks.values()) { let a = 0; for (const action of task.actions) { const w = action.typeName === 'CreateFoe' ? wavesBefore.get(`${t}:${a}`) : null; if (w && w.last) { action.lastSpawnTime = w.last; action._lastTick = w.tick; action._lastRaised = w.raised; action.spawnCounter = w.count | 0; } a++; } t++; } }   // the count is the holder's too: the waves spawn in this world, N of them here
     for (const r of quest.resources.values()) if (r.isItem && itemsBefore.has(r.symbol?.name)) r.daggerfallUnityItem = itemsBefore.get(r.symbol?.name);
     this._relinkQuestItems(quest);
     for (const r of quest.resources.values()) {
@@ -1317,11 +1383,17 @@ export class QuestMachine {
     return quest;
   }
 
+  /** TIME3: a party member's envelope on THIS machine's clocks - its countdowns moved from the sender's own clock to
+   *  this character's (quest/questStamps.js questDataOnThisClock); the journal's dates are the event clock's, shared. */
+  _onThisClock(questData) {
+    const { nowSeconds, worldSeconds } = this._questClocks();
+    return questDataOnThisClock(questData, nowSeconds(), worldSeconds());
+  }
+
   /** QUEST1: a Quest with THIS machine's registry, clock, hooks and played step - the one door a shared quest is born
    *  through (receiveSharedQuest) and the scratch a resync is dry-run on (updateSharedQuest, AUDIT DROPS A3). */
   _newQuest() {
-    const nowSeconds = () => this.deps.nowSeconds?.() ?? 0;
-    return new Quest({ nowSeconds, actionFactory: this._actionFactory, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });
+    return new Quest({ ...this._questClocks(), actionFactory: this._actionFactory, hooks: this._buildHooks(), questClockStepMax: () => this.deps.questClockStepMax?.() ?? Infinity });   // TIME3: the four clocks
   }
 
   /** AUDIT DROPS A1: the receiver's OWN parse of a quest by name - the reference an incoming envelope's shape is
@@ -1539,7 +1611,7 @@ export class QuestMachine {
    *  faction ("This effectively shuts down several named NPCs during
    *  main quest") - and TalkManager.cs does not contain the word
    *  Listener at all. The port already ships that reader, at
-   *  src/scenes/worldModes.js:2994. A pending marker over shipped work
+   *  src/scenes/worldModes.js:3074. A pending marker over shipped work
    *  is worse than no marker: it sends the next reader looking for
    *  work that is done, in a file that never had it. */
   addFactionListener(factionID, owner) {

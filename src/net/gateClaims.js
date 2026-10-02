@@ -49,7 +49,7 @@ export const GATE_CLAIM_MENDABLE = Object.freeze(['signature', 'verify-threw', '
 /** What the account service's answer does to a kept receipt: 'done' (let it go) or 'keep'. WB12d: a receipt of the
  *  rite alone refused its claims is a service from before it (acct45) - kept for its week, never let go. AUDIT WB12d
  *  (A1): and a fighter's `r` counted by a service that does not answer its embers (acct45 took it as one) - kept until
- *  one that counts two has (acct46 makes the row good on the claim again). */
+ *  one that counts two has (acct62 makes the row good on the claim again). */
 export function gateClaimVerdict(answer, claims = null) {
   if (answer?.ok) {
     if (answer.data?.why === 'guest') return 'keep';

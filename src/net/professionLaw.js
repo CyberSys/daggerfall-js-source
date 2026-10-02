@@ -91,6 +91,11 @@ export function harvestXp(tier, rank, clean) {
   if (tier < topTierOf(rank) - 2) xp = Math.floor(xp / 4);
   return xp;
 }
+/** HERB-XP (2026-10-01 part four - Mac: "XP follows your rank"): a herb is picked at the highest tier the rank opens, as
+ *  a haul is worked (haulTier). Herbs stop at tier 3, and harvestXp quarters a tier more than two below the rank's, so
+ *  past rank 70 every herb was worth a quarter (3, 11 and 16 XP) and 70 to 100 took 107 full days. The herb's own tier
+ *  still opens it (tierOpen) and is the harvest's; the Basket's food keeps its tier. */
+export const herbXpTier = (rank) => topTierOf(rank);
 /** A writ's XP: twice its Mark value - its pay (PROF0 3.2), to the profession its material is gathered by. */
 export const writXp = (pay) => 2 * pay;
 /** The crafter's limit (PROF0 3.2): two crafts above Journeyman. The crafts come with PROF3; the tab says it now. */
@@ -154,10 +159,13 @@ export const SPECIALISATIONS = Object.freeze({
   carpentry: Object.freeze({
     50: pair(spec('bowyer', 'Bowyer', 'Bows +1 quality step (arrows take none).'),
       spec('joiner', 'Joiner', 'Furniture at half the planks.')),
-    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.', 'SEAT2'),   // PROF4: the sieges are SEAT2's
+    100: pair(spec('siegewright', 'Siegewright', 'Rams +50% vitality; siege works a day sooner.'),   // PROF4: the sieges are SEAT2's - SEAT2b part two: chosen since (fortLaw.js SIEGEWRIGHT_DAYS, ramVitality)
       spec('master-joiner', 'Master Joiner', "Furniture carries the maker's mark.")),
   }),
   masonry: Object.freeze({
+    // PROF11: the Quarryman's cut and the Sculptor's decor are the bench's (MASON_RECIPES, recipeLaw MASONRY_RECIPES); the
+    // Builder's and the Fortifier's act on the fortifications SEAT2b builds (server-account/src/seatForts.js) - chosen
+    // since SEAT2b, their law and helpers standing below (fortificationStone, wallsOnCapture)
     50: pair(spec('quarryman', 'Quarryman', 'Rough Stone cuts 1:1, not 2:1.'),
       spec('builder', 'Builder', 'Fortification projects need 10% less stone.')),
     100: pair(spec('fortifier', 'Fortifier', "Once a Season a seat's Walls skip their drop on capture."),
@@ -218,6 +226,18 @@ export const HARVESTS_PER_ACCOUNT_DAY = 2 * HARVESTS_PER_DAY;
 export const DEEP_UNCONFIRMED_PER_DAY = 4;
 /** The Stores hold at most this many of any one material, own and bought together. */
 export const STORES_MAX = 5000;
+/** REFUSALS-LEARNED (AUDIT 2026-10-01 part four): the profession each node kind is worked under - the service's own
+ *  (server-account/src/professions.js NODE_HARVESTS), so a refusal heard for a node names its profession. */
+export const NODE_PROFESSIONS = Object.freeze({ herb: 'herbalism', vein: 'mining', boulder: 'mining', dvein: 'mining', tree: 'logging', body: 'hunting', haul: 'fishing' });
+/** STORES-ROOM (AUDIT 2026-10-01 part four): WHETHER A MATERIAL'S STORES ARE FULL AS THE SERVICE COUNTS THEM - every
+ *  origin, own, bought and gold-bought alike (professions.js cuts a yield to the room over all three). The gathering
+ *  kinds read `held` - what a station may spend, never gold's (GOLD-MARKET's wall) - so with 4,000 own and 1,000 bought
+ *  with gold the prompt said ready, the act played, the tool wore, and the service said `stores-full`. `book` the
+ *  client's (its `store`, its caps; a book that keeps no origins answers by `held`). */
+export function storesFullIn(book, material) {
+  const s = book.store?.(material) ?? { own: book.held(material) };
+  return (s.own | 0) + (s.bought | 0) + (s.gold | 0) >= (book.state?.caps?.stores ?? STORES_MAX);
+}
 /** One withdrawal to the pack, at most. */
 export const WITHDRAW_MAX = 200;
 /** Professions writes an account may make an hour (a harvest, a withdrawal, a delivery, a choice each count). */
@@ -253,6 +273,7 @@ export const MATERIAL_FAMILIES = Object.freeze([
   Object.freeze(['metals', 'Ores and Metals']), Object.freeze(['wood', 'Wood']), Object.freeze(['herbs', 'Herbs']),
   Object.freeze(['hides', 'Hides and Cloth']), Object.freeze(['food', 'Food']), Object.freeze(['stone', 'Stone']),
   Object.freeze(['gems', 'Gems']), Object.freeze(['essences', 'Essences']), Object.freeze(['spoils', 'Spoils of War']),
+  Object.freeze(['siege', 'Siege Works']),   // SEAT2b part two: the Ram Kit, made at the workbench (PROF0 4.8's 690)
 ]);
 /** DFU's two plant groups (itemTemplatesData.js GROUP_TEMPLATE_INDICES), as the material keys write them. */
 export const PLANT_GROUPS = Object.freeze({ p1: 'PlantIngredients1', p2: 'PlantIngredients2' });
@@ -287,7 +308,7 @@ export const HERB_VALUES = Object.freeze([1, 2, 5]);
 
 /**
  * @typedef {{ key: string, family: string, tier: number, templateIndex: number, group?: string, name?: string,
- *   icon?: readonly number[]|null, dye?: string|null }} MinedRow a mined (or smelted) material's row - or a stock's (PROF3)
+ *   icon?: readonly number[]|null, dye?: string|null, value?: number }} MinedRow a mined (or smelted) material's row - or a stock's (PROF3)
  */
 /** A DFU item's material row: its key, family, tier, DFU group and template. @returns {MinedRow} */
 const dfu = (key, family, tier, group, templateIndex) => Object.freeze({ key, family, tier, group, templateIndex });
@@ -339,6 +360,16 @@ export const STONES = Object.freeze([
   made('stone:rough', 'stone', 1, 673, 'Rough Stone', ICON_LODESTONE, null),
   made('stone:cut', 'stone', 2, 674, 'Cut Stone', ICON_LODESTONE, null),
 ]);
+/** PROF11 (PROF0 4.5, 4.8: 675): MORTAR - made ten at a time at the mason's bench from 1 Sulphur, 1 Lead and 5 Rough
+ *  Stone; tier 2, worth 2 Marks (4.8's tier value). 4.8's "DFU Lodestone, greyed" as Rough and Cut Stone are drawn: the
+ *  grey lump as it is, undyed (DFU's Grey is a clothing dye - dyes.js CLOTHING_STARTS - and no metal's swatch is a
+ *  stone's). Registered beside them (systems/profTemplates.js MASONRY_TEMPLATE_ROWS), never gathered: the bench's alone. */
+export const MORTAR = made('stone:mortar', 'stone', 2, 675, 'Mortar', ICON_LODESTONE, null);
+/** PROF11: the stone the mason works - Rough Stone (the quarry's) and Cut Stone (the cut's). */
+export const ROUGH_STONE = STONES[0];
+export const CUT_STONE = STONES[1];
+/** Every new template PROF11 registers, by template (the Sculptor's four stone pieces are recipeLaw's STONE_DECOR). */
+export const MASONRY_TEMPLATES = Object.freeze([MORTAR]);
 /** A gem's tier by its DFU price's band (PROF0 23): to 10 gold 2, to 50 3, to 100 4, to 250 5, past it 6. */
 export const gemTierOfPrice = (price) => (price <= 10 ? 2 : price <= 50 ? 3 : price <= 100 ? 4 : price <= 250 ? 5 : 6);
 /** DFU's eight gems (Gems, itemTemplatesData.js), each at its price's tier (Ruby 250, Emerald 425, Sapphire 375,
@@ -349,6 +380,13 @@ export const GEMS = Object.freeze([
   dfu('gem:jade', 'gems', gemTierOfPrice(10), 'Gems', 4), dfu('gem:turquoise', 'gems', gemTierOfPrice(50), 'Gems', 5),
   dfu('gem:malachite', 'gems', gemTierOfPrice(25), 'Gems', 6), dfu('gem:amber', 'gems', gemTierOfPrice(100), 'Gems', 7),
 ]);
+/** DFU's Diamond's picture (TEXTURE.254 record 3), the one the Siege-cracked Gem borrows. */
+export const ICON_DIAMOND = Object.freeze([254, 3]);
+/** THE SIEGE-CRACKED GEM (4.7, 4.8: 678): a Siege Honour's Spoils, a gem only war yields - the Diamond's tier, on the
+ *  Diamond's own picture. DECIDED (AUDIT-SEATS): undyed and without 4.8's "cracked overlay" - the icon's one door is a
+ *  dye (systems/itemTemplates.js inventoryItemImage), no overlay crosses the renderers; the name says what it is.
+ *  Mining never strikes one: GEMS is the glint's table, and this row is not in it. */
+export const SIEGE_GEM = made('gem:siege', 'gems', gemTierOfPrice(500), 678, 'Siege-cracked Gem', ICON_DIAMOND, null);
 /** Every new template PROF2 registers, by template. */
 export const MINING_TEMPLATES = Object.freeze([...ORES, ...INGOTS, ...STONES]);
 
@@ -382,6 +420,16 @@ export const RESIN = made('wood:resin', 'wood', 1, 653, 'Resin', ICON_ALOE, null
 export const HEARTWOOD = made('wood:heartwood', 'wood', 4, 654, 'Heartwood', ICON_TWIGS, null);
 /** Every new template PROF4 registers, by template. */
 export const WOOD_TEMPLATES = Object.freeze([...LOGS, ...PLANKS, CHARCOAL, RESIN, HEARTWOOD]);
+/**
+ * SEAT2b part two (PROF0 4.8: "690 | Ram Kit | Stores (a siege work)"; Seats-Arc 4.2, 6.2): THE RAM KIT AS THE STORES HOLD
+ * IT - made at the workbench (recipeLaw.js `ramkit:oak`, Carpentry 60), delivered by a seat writ to a pledged challenger's
+ * Siege Camp, sent at the Turning to the siege the camp won where a Gatehouse stands (fortLaw.js campSpent). A siege work
+ * never leaves the Stores (NO_PACK_FORM): its whole road is the writ's. DECIDED: its tier the recipe's (5) and its worth
+ * the inputs' at their tiers' values (40 Oak Planks 80, 20 Iron Ingots 20, 4 Bear Hides 8 - 108), so a writ's pay and the
+ * influence a delivery raises (4.2: "own units at their value") keep the materials' - a tier's 9 would make a kit worth
+ * less than its hides.
+ */
+export const RAM_KIT = Object.freeze({ ...made('work:ram', 'siege', 5, 690, 'Ram Kit', ICON_IRON, null), value: 108 });
 // ─── THE HIDES PROF7 STORES (PROF0 4.4, 4.5, 4.8, 29) ────────────────
 
 /** DFU's pictures the hides and the cloth borrow (law 6). FOUND (PROF0 29): 4.8's "DFU Small Skins" and "Large Skins"
@@ -442,7 +490,7 @@ export const CURED_LEATHER = made('leather:cured', 'hides', 2, 665, 'Cured Leath
 export const HARDENED_LEATHER = made('leather:hardened', 'hides', 5, 666, 'Hardened Leather', ICON_GARMENT, null);
 /** The cloth (4.5, 668-671), each its step (9.3: Linen 1, Wool 2, Silk 4, Standard-bearer's Silk 5). Linen and Wool are
  *  never gathered - the Weavers' counter sells them; a Silk Bolt is woven from Spider Silk; Standard-bearer's Silk is a
- *  Siege Honour's Spoils (4.7), which nothing yields before the sieges. */
+ *  Siege Honour's Spoils (4.7). */
 export const LINEN = made('cloth:linen', 'hides', 1, 668, 'Linen Bolt', ICON_GARMENT, null);
 export const WOOL = made('cloth:wool', 'hides', 2, 669, 'Wool Bolt', ICON_GARMENT, null);
 export const SILK = made('cloth:silk', 'hides', 4, 670, 'Silk Bolt', ICON_GARMENT, null);
@@ -483,6 +531,12 @@ export const KNIFE_REFUSALS = Object.freeze({
  *  words the prompt says them in. The foe and the load stay the act's own checks. */
 export const KNIFE_WHERE = Object.freeze(['town', 'sea']);
 export const KNIFE_WHERE_WORDS = Object.freeze({ town: 'not in a settlement', sea: 'not out here' });
+/** SETTLE-SAID (FIELD BUGS 2026-10-01, "it gives a notification but you cant mine"): the same for a node of the ground -
+ *  a vein, a boulder, a patch, a tree: the settlement's check (a town, a farm, a temple, a tavern - its footprint and a
+ *  block round it) is the act's (FORAGE0 14.3), and the plan said such a node was ready - E, or the tool's Use, then
+ *  played no act and said "You cannot mine in a settlement!". The plan asks it, and the prompt says it. */
+export const GROUND_WHERE = Object.freeze(['town']);
+export const GROUND_WHERE_WORDS = Object.freeze({ town: 'not in a settlement' });
 
 // ─── PROF8: FISHING WITH THE NET (PROF0 5.2, 6; Appendix B) ─────────
 //
@@ -564,12 +618,13 @@ export const STOCKS = Object.freeze([...SMITH_STOCK, ...FURNISHER_STOCK, ...WEAV
 export const stockOf = (key) => STOCKS.find((s) => s.key === key) ?? null;
 /** Units a purchase, at most. */
 export const STOCK_MAX = 100;
-/** The materials with no pack form yet - none since PROF7, which registered the hides', the leathers' and the cloth's
- *  templates (PROF4 the planks' and Charcoal's before it): every material the Stores hold withdraws. */
-export const NO_PACK_FORM = Object.freeze([]);
+/** The materials with no pack form - none since PROF7, which registered the hides', the leathers' and the cloth's
+ *  templates (PROF4 the planks' and Charcoal's before it), until SEAT2b part two made the Ram Kit: a siege work never
+ *  leaves the Stores but by a Siege Camp's writ. */
+export const NO_PACK_FORM = Object.freeze(['work:ram']);   // SEAT2b part two: a siege work's road is the writ's (RAM_KIT)
 /** Whether the Stores may give a material to the pack. */
 export const withdrawable = (key) => !NO_PACK_FORM.includes(key);
-const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl
+const MINED = new Map([...METALS, ...ORES, ...INGOTS, ...STONES, ...GEMS, SIEGE_GEM, PEARL, ...WOOD_TEMPLATES, ...HIDE_TEMPLATES, ...PARTS, ...MASONRY_TEMPLATES, RAM_KIT].map((m) => [m.key, m]));   // PROF7: the hides, leathers, cloth and a body's DFU parts; PROF8: the sea's Pearl; AUDIT-SEATS: the Siege-cracked Gem; PROF11: the bench's Mortar; SEAT2b part two: the Ram Kit
 /** A mined (or smelted) material's row, or null. */
 export const minedMaterial = (key) => MINED.get(key) ?? null;
 /** PROF5: every registered material's key, in the registry's order - the market's catalogue beside the herbs and foods. */
@@ -595,7 +650,7 @@ export function materialOf(key, herbTier) {
   }
   if (FOOD_KEYS.includes(key)) return { key, family: 'food', tier: 1, value: TIER_VALUES[0] };
   const r = MINED.get(key);
-  if (r) return { key, family: r.family, tier: r.tier, value: TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };
+  if (r) return { key, family: r.family, tier: r.tier, value: r.value ?? TIER_VALUES[r.tier - 1], ...(r.group ? { group: r.group } : {}), templateIndex: r.templateIndex };   // SEAT2b part two: a row's own worth (the Ram Kit's)
   return null;
 }
 /** Which profession gathers a material - a writ's XP goes to it. PROF4: wood is Logging's (a writ asks only logs). */
@@ -676,6 +731,17 @@ export const WORKBENCH_FEE = 50;
 /** PROF7 (PROF0 9.3): a Clothing Store's loom and tanning rack asks the same, a craft, a cure or a weave. */
 export const LOOM_FEE = 50;
 /**
+ * PROF11 (PROF0 9.3: "Masonry (a mason's bench)"): WHERE THE BENCH STANDS. DECIDED: 9.3 names no shop for it (the forge
+ * a Weaponsmith's or an Armorer's, the loom a Clothing Store's; PROF4 gave the workbench to the Furniture Store), and
+ * Daggerfall has no stonemason's - so a GENERAL STORE's mason's bench, open for trade (its insideOpenShop latch, AUDIT 29
+ * D4), at the others' use fee - 50 gold a cut, a mix or a carving, the purse's - or a home's `mason` station (HOME-
+ * STATIONS' seventh, its licence the workbench's 50,000 - net/decorLaw.js), as the workbench and the loom stand. The
+ * General Store because it is the one shop every town of a size keeps and the trades' own: its shelves already sell the
+ * Pick-Axe that quarries the stone (FORAGE0 14.2's online shelves). The service cannot see the bench (as it cannot see
+ * the forge, PROF0 23): the inputs are the Stores' and their units the bound; the client asks only where it stands.
+ */
+export const MASON_FEE = 50;
+/**
  * A forge's or a workbench's work, no act (PROF0 4.1, 4.2, 25): `out` made from `inputs`, `per` a unit - or `more.per`
  * for a character standing under `more.spec`, their `more.profession`'s choice at `more.rank` (100 unless it says: a
  * Quartermaster's ingots, a Charcoal Burner's charcoal, a Timberwright's planks; PROF7 a Tanner's leather, a choice at
@@ -712,9 +778,33 @@ export const SAW_RECIPES = Object.freeze(LOGS.map((l) => recipe(`saw:${woodOf(l.
 export const CURE_RECIPES = Object.freeze(HIDES.filter((h) => h.cures).map((h) => recipe(`cure:${h.key.slice('hide:'.length)}`, /** @type {string} */ (h.cures), [[h.key, 2]],
   { station: 'loom', more: Object.freeze({ profession: 'hunting', spec: 'tanner', per: 2, rank: 50 }), xp: null })));
 export const WEAVE_RECIPES = Object.freeze([recipe('weave:silk', SILK.key, [['hide:spider', 3]], { station: 'loom', xp: null })]);
-/** Every work of the forge, the workbench and the loom, by its id. */
-export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES, ...CURE_RECIPES, ...WEAVE_RECIPES]);
+/** PROF11 (PROF0 4.5): Mortar a mix makes - "ten at a time". */
+export const MORTAR_BATCH = 10;
+/** PROF11 (3.3): the Quarryman's cut - "Rough Stone cuts 1:1, not 2:1" - a choice at 50: a unit of the cut is two Rough
+ *  Stone, and a Quarryman's makes two Cut Stone of them (the Tanner's shape, PROF7). The bench's alone - the cut at the
+ *  rock stays CUT_RATIO's 2 : 1 (PROF0 23). */
+const QUARRYMAN = Object.freeze({ profession: 'masonry', spec: 'quarryman', per: 2, rank: 50 });
+/**
+ * A MASON'S WORK (PROF11): the forge's work's shape at the mason's bench (`station: 'mason'`), raising Masonry - and
+ * unlike every other work, a CRAFT's law: `tier` the rank it asks (TIER_RANKS - `rank`, read by workOpen), its XP the
+ * craft's (recipeLaw masonXp: 20 a tier a unit, +500 the first, 3.2) and its act the chisel (`act`, 9.4). DECIDED: the
+ * cut's tier is its stone's - Rough Stone's 1, as a smith's recipe is its ingot's and a carpenter's its wood's (PROF3,
+ * PROF4), so a Novice mason has work at rank 0 as every other craft does; Mortar's its own 2 (4.5), at rank 10.
+ */
+const masonWork = (id, out, inputs, tier, opts = {}) => Object.freeze({
+  ...recipe(id, out, inputs, { station: 'mason', xp: 'masonry', ...opts }), tier, rank: TIER_RANKS[tier - 1], act: 'chisel',
+});
+/** PROF11 (PROF0 4.5, 9.3): THE MASON'S BENCH's works - Cut Stone from Rough Stone 2 : 1 (a Quarryman's 1 : 1), and
+ *  Mortar ten at a time from 1 Sulphur, 1 Lead and 5 Rough Stone - in its window's order. */
+export const MASON_RECIPES = Object.freeze([
+  masonWork('cut:stone', CUT_STONE.key, [[ROUGH_STONE.key, CUT_RATIO]], ROUGH_STONE.tier, { more: QUARRYMAN }),
+  masonWork('mix:mortar', MORTAR.key, [['metal:sulphur', 1], ['metal:lead', 1], [ROUGH_STONE.key, 5]], MORTAR.tier, { per: MORTAR_BATCH }),
+]);
+/** Every work of the forge, the workbench and the loom - PROF11: and the mason's bench - by its id. */
+export const WORK_RECIPES = Object.freeze([...SMELT_RECIPES, ...BURN_RECIPES, ...SAW_RECIPES, ...CURE_RECIPES, ...WEAVE_RECIPES, ...MASON_RECIPES]);
 export const smeltRecipe = (id) => WORK_RECIPES.find((r) => r.id === id) ?? null;
+/** PROF11: whether a rank may do a work - a mason's asks its tier's rank (masonWork); every other work asks none. */
+export const workOpen = (r, rank) => !!r && rank >= (r.rank ?? 0);
 /** The rank a work's raising choice is made at: its own (a Tanner's 50), else 100. */
 export const workSpecRank = (r) => r.more?.rank ?? 100;
 /** The products a unit of work makes, for a character whose choices at the work's rank are `specsAt` ({ profession: spec }
@@ -743,6 +833,61 @@ export function smeltOrigin(r, count, bought) {
 export function craftXpCap(profession, ranks) {
   const past = Object.entries(ranks ?? {}).filter(([p, r]) => p !== profession && BY_ID.get(p)?.kind === 'crafting' && r > JOURNEYMAN_RANK).length;
   return past >= CRAFTS_ABOVE_JOURNEYMAN ? xpForRank(JOURNEYMAN_RANK + 1) - 1 : PROF_XP_MAX;
+}
+
+// ─── PROF11: THE BUILDER AND THE FORTIFIER - SEAT2b'S TO CALL (PROF0 3.3; SEAT0 7.5) ───
+//
+// Masonry's two seat choices act on what SEAT2b builds - the fortification projects (SEAT0 7.5: each tier's materials
+// delivered to the seat's stockpile by writs) and a capture's tier down ("When the seat changes hands each drops one
+// tier") - and no fortification stands yet. So the law and its helpers stand here, pure and pinned
+// (test/prof11_law.test.js), for SEAT2b to call; which member's choice stands for a seat (a project's Builder, a
+// capture's Fortifier) is SEAT2b's to say. Both are chosen now - they cost nothing until a seat reads them.
+
+/** The Builder (3.3: "fortification projects need 10% less stone"): the share of a project's stone taken off, percent. */
+export const BUILDER_STONE_OFF_PCT = 10;
+/** Whether a track stands as a Builder - its choice at 50 (specsAt's shape, `{ 50, 100 }`). */
+export const isBuilder = (specs) => specs?.[50] === 'builder';
+/**
+ * The stone a fortification project needs: `need` units, a Builder's a tenth fewer - rounded UP (DECIDED: a need of
+ * whole units is never cut by more than 3.3's tenth; every SEAT0 7.5 count is a multiple of ten, so its 400 is 360 and
+ * its 1,600 1,440 exactly). A need that is no whole count is none.
+ */
+export function fortificationStone(need, builder = false) {
+  if (!Number.isSafeInteger(need) || need <= 0) return 0;
+  return builder ? Math.ceil((need * (100 - BUILDER_STONE_OFF_PCT)) / 100) : need;
+}
+/**
+ * A project's needs (`{ [material]: units }` - SEAT0 7.5's "400 Cut Stone, 100 Oak Planks"), a Builder's stone cut
+ * (fortificationStone) - the stone the Stores' 'stone' family holds (Cut Stone, the 7.5 table's; Rough Stone and Mortar
+ * where a project asks them); every other material, and the Marks (no material), as asked. A fresh object.
+ */
+export function fortificationNeeds(needs, builder = false) {
+  const out = {};
+  for (const [key, n] of Object.entries(needs ?? {})) out[key] = minedMaterial(key)?.family === 'stone' ? fortificationStone(n, builder) : n;
+  return out;
+}
+/** The Fortifier (3.3: "once a Season a seat's Walls skip their drop on capture"): the saves a Fortifier has a Season. */
+export const FORTIFIER_SAVES_A_SEASON = 1;
+/** The one work a Fortifier keeps from its drop: the Walls (SEAT0 7.5's first row) - every other drops its tier. */
+export const FORTIFIER_WORK = 'walls';
+/** Whether a track stands as a Fortifier - its choice at 100. */
+export const isFortifier = (specs) => specs?.[100] === 'fortifier';
+/** SEAT2b part two (3.3: "Siegewright - Rams +50% vitality; siege works a day sooner"): a character standing as a
+ *  Siegewright - Carpentry's choice at 100 (`specs` its Carpentry track's, specsAt). */
+export const isSiegewright = (specs) => specs?.[100] === 'siegewright';
+/** Whether a Fortifier who has saved Walls `saves` times this Season (SEAT2b keeps the count, a Season's) may save more. */
+export const fortifierReady = (saves = 0) => (Number.isSafeInteger(saves) ? saves : FORTIFIER_SAVES_A_SEASON) < FORTIFIER_SAVES_A_SEASON;
+/**
+ * A seat's WALLS AT A CAPTURE (SEAT0 7.5: one tier down): `{ tier, saved }` - kept at their tier, and the save `saved`
+ * (SEAT2b counts it to the Fortifier's Season), where a Fortifier stands for them whose Season's save is unspent; else
+ * one tier down. Walls at tier 0 have no drop to skip and spend no save. `fortifier` - whether a Fortifier stands for
+ * the seat's Walls; `saves` - the saves that Fortifier has spent this Season.
+ */
+export function wallsOnCapture(tier, { fortifier = false, saves = 0 } = {}) {
+  const t = Number.isSafeInteger(tier) && tier > 0 ? tier : 0;
+  if (t === 0) return { tier: 0, saved: false };
+  if (fortifier === true && fortifierReady(saves)) return { tier: t, saved: true };
+  return { tier: t - 1, saved: false };
 }
 
 // ─── COURT WRITS (PROF0 11) ──────────────────────────────────────────

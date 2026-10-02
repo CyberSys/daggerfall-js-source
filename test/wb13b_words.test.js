@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { omenLine, riseLine, openLine, sealLine, wrathLine, marksLine } from '../src/net/gateLaw.js';
+import { riseLine, wrathLine, marksLine } from '../src/net/gateLaw.js';
 import { GATE_ASPECTS, GATE_TRIALS } from '../src/net/gateMods.js';
 import { MARK_TIPS, MARKS_CARD_TEXT, marksCardModel } from '../src/ui/gateMarksView.js';
 import { COURT_STRIKE_TEXT, COURT_RECKON_TEXT, COURT_MARKS_TEXT, courtPhaseOrder, courtPhaseCard, COURT_WRATH_TEXT } from '../src/scenes/gateCourt.js';
@@ -15,7 +15,7 @@ import { GATE_NO_TEXT } from '../src/net/gateLink.js';
 import { GATE_CLAIM_TEXT } from '../src/net/gateClaims.js';
 import { MARKS_TEXT } from '../src/net/marksBook.js';
 import { omenPost, fellPost, ritePost } from '../src/net/gateHerald.js';
-import { fellLine, riteOmenLine } from '../src/systems/gateOmen.js';
+import { fellLine, riteOmenLine, omenTimeLine, openTimeLine, sealTimeLine } from '../src/systems/gateOmen.js';   // TIME1, at the merge: the three that name a time
 import { RITE_TEXT } from '../src/scenes/riteHost.js';
 import { SPOILS_TEXT } from '../src/scenes/spoilsPool.js';
 import { INSIGNIA_SUB, INSIGNIA_LINE, INSIGNIA_CARD } from '../src/ui/brokerWindow.js';
@@ -29,10 +29,10 @@ const P = { boss: 'Valkynaz Ruhn' };
 function lines() {
   const out = [];
   const add = (where, v) => { if (typeof v === 'string') out.push([where, v]); };
-  add('omen', omenLine({ place: 'Copperham, Wrothgarian Mountains', at: '14:32' }));
+  add('omen', omenTimeLine({ place: 'Copperham, Wrothgarian Mountains', at: '14:32' }));
   add('rise', riseLine({ near: 'Copperham', left: '4:07' }));
-  add('open', openLine({ near: 'Copperham', at: '16:32' }));
-  add('seal', sealLine({ near: 'Copperham', at: '16:52' }));
+  add('open', openTimeLine({ near: 'Copperham', at: '16:32' }));
+  add('seal', sealTimeLine({ near: 'Copperham', at: '16:52' }));
   add('wrath', wrathLine({ near: 'Copperham', boss: P.boss }));
   add('marks', marksLine({ boss: P.boss, md: ['rime', 'colossal', 'unyielding'] }));
   add('fell', fellLine({ near: 'Copperham', boss: P.boss, top: ['Ann', 'Bran'] }));

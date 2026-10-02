@@ -99,7 +99,8 @@ service bundles: see The deploy.
 
 Kept as the PR has them - design questions rather than defects:
 
-- **His pack**: no weight cap (he follows underground - a bigger wagon than DFU's); Info and Talk both open it; a
+- **His pack** (ANSWERED 2026-10-01, COMPANION-WEIGHT, `03-World/Naval-Combat.md`): he carries what a person of
+  his strength can - DFU's MaxEncumbrance of his live body, 67-97 kg by class - where the PR left it uncapped; Info and Talk both open it; a
   droppable quest item handed to him counts as dropped, as in a chest (the wagon is exempt); another player's
   companion answers DFU's "You see..." and trades nothing.
 - **The night's HUD** (N8): the tags and the compass still name a dark pirate out to 700/900 m while her lanterns,

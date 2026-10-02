@@ -150,7 +150,10 @@ test('PROF8 plan and words: cast the net, or what it needs - the ground\'s refus
   const base = { taken: false, counting: false, hauls: 3, rank: 12, storesFull: false };
   assert.deepEqual(fishPlan(base), { harvest: 'fish', verb: 'Cast the net', rest: 'Fishing 12', ready: true });
   assert.equal(fishPlan({ ...base, school: 'a school rises 14 m north' }).rest, 'Fishing 12 - a school rises 14 m north');
-  assert.deepEqual(fishPlan({ ...base, where: NET_WHERE_WORDS.daylight }), { harvest: 'fish', verb: 'Cast the net', rest: 'the fish bite by daylight (07:00-17:59)', ready: false });
+  // PIN MOVED (ANY-HOUR, 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"): the
+  // ground's words were the daylight's too ("the fish bite by daylight (07:00-17:59)"); now a settlement's
+  assert.deepEqual(fishPlan({ ...base, where: NET_WHERE_WORDS.town }), { harvest: 'fish', verb: 'Cast the net', rest: 'not in a settlement', ready: false });
+  assert.equal(NET_WHERE_WORDS.daylight, undefined, 'no hour has words');
   assert.deepEqual(fishPlan({ ...base, hauls: HAULS_PER_DAY }), { harvest: 'fish', verb: 'Cast the net', rest: 'Fishing 12 - 40 of 40 hauls today', ready: false, full: true });
   assert.equal(fishPlan({ ...base, storesFull: true }).ready, false);
   assert.equal(fishPlan({ ...base, counting: true }).rest, 'being counted');
@@ -206,7 +209,7 @@ test('PROF8 kind: the cast stands ahead of the look only with a Fishing-Net in t
     const [cast] = k.looseNodesOf({ entity, dungeon: false });
     assert.ok(cast, 'a net, in water: a cast');
     assert.deepEqual(parseNodeKey(cast.key), { kind: 'haul', x: 300, y: 200, day: 20724, id: '0123456789ab' });
-    assert.deepEqual(cast.at(), [0, 1.0, CAST_AHEAD_M], 'just ahead of the look, below the eye');
+    assert.deepEqual(cast.at(), [0, 1.6, CAST_AHEAD_M], 'just ahead of the look, where it crosses there (PIN MOVED, CAST-LOOK: it stood 0.6 m under the eye whatever the look)');
     assert.equal(k.looseNodesOf({ entity, dungeon: false })[0].key, cast.key, 'the same cast until its haul');
     book._take(cast.key);
     assert.notEqual(k.looseNodesOf({ entity, dungeon: false })[0].key, cast.key, 'asked: a new one');
@@ -234,8 +237,10 @@ test('PROF8 kind: the plan (the page\'s rank, the ground\'s words, the account\'
     const specs = () => ({ 50: 'angler', 100: null });
     const plan = k.plan(cast, { rank, keyLabel: () => 'E' });
     assert.deepEqual([plan.verb, plan.rest, plan.ready, plan.profession], ['Cast the net', 'Fishing 7', true, 'fishing']);
+    // PIN MOVED (ANY-HOUR): 21:00 put the daylight's words on the prompt; now the net is cast by night
     w = world({ hour: 21 });
-    assert.equal(k.plan(cast, { rank, keyLabel: () => 'E' }).rest, NET_WHERE_WORDS.daylight);
+    assert.deepEqual([k.plan(cast, { rank, keyLabel: () => 'E' }).rest, k.plan(cast, { rank, keyLabel: () => 'E' }).ready], ['Fishing 7', true], 'by night as by day');
+    assert.equal(k.start(cast, plan, { entity, rank, specs, keyLabel: () => 'E' }).act?.state.kind, 'fish', 'and started');
     w = world({ enemiesNear: true });
     assert.deepEqual(k.start(cast, plan, { entity, rank, specs, keyLabel: () => 'E' }), { refused: 'You cannot fish with enemies nearby!' }, 'Foraging\'s own line');
     w = world();
@@ -327,7 +332,7 @@ test('PROF8 meter: each phase its words - wind (the throw it makes), the wait (o
   waitOut(a);
   hud.setMeter(a, 'E');
   assert.match(meter().textContent, /a tug! press E now/);
-  assert.match(src('src/ui/profHud.js'), /meter\.classList\.toggle\('fish-tug', st\.phase === 'tug'\);/, 'the tug flashed');
+  assert.ok(meter().className.split(' ').includes('fish-tug'), 'the tug flashed (PROF-SCENES: on the panel, whole)');
   a.tick(0.05, { attack: true });
   hud.setMeter(a, 'E');
   assert.match(meter().textContent, /hold E to raise the band, let go to lower it - keep the weight inside/);

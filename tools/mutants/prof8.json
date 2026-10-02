@@ -11,8 +11,8 @@
   {
     "name": "PROF8-full-net-unstepped",
     "file": "src/net/nodeLaw.js",
-    "old": "  let y = roll * (clean ? ACT_YIELD_MAX : 1);\n  if (march) y *= MARCH_MULT;\n  if (school)",
-    "new": "  let y = roll;\n  if (march) y *= MARCH_MULT;\n  if (school)",
+    "old": "  let y = roll * (clean ? ACT_YIELD_MAX : 1);\n  if (march) y *= MARCH_MULT;\n  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)\n  if (school)",
+    "new": "  let y = roll;\n  if (march) y *= MARCH_MULT;\n  y *= tideMult;   // SEASON1 part two: the land's Tide on confirmed ground (tideLaw.js tideYield)\n  if (school)",
     "tests": [
       "test/prof8_law.test.js",
       "test/prof8_service.test.js"
@@ -160,15 +160,6 @@
     ]
   },
   {
-    "name": "PROF8-svc-night-fishing",
-    "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "new": "  if (!deep && !isBody && !isHaul && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "tests": [
-      "test/prof8_service.test.js"
-    ]
-  },
-  {
     "name": "PROF8-svc-haul-unwitnessed",
     "file": "server-account/src/professions.js",
     "old": "    ...(isBody ? [] : [db.prepare(`INSERT OR IGNORE INTO world_witness",
@@ -225,8 +216,8 @@
   {
     "name": "PROF8-kind-dry-land",
     "file": "src/scenes/fishHost.js",
-    "old": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
-    "new": "      if (dungeon || !foragingToolIn(entity, FT.FishingNet)) return [];",
+    "old": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];",
+    "new": "      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet)) return [];",
     "tests": [
       "test/prof8_client.test.js"
     ]

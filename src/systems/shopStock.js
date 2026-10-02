@@ -142,6 +142,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
 import { provisionsStock } from './survival/items.js';   // SURV2: the general store's provisions shelf
+import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
 import { conditionBasedPricesOn, conditionCostBase } from './rriRealism.js';   // RRI2: the CalculateCost override's condition arm
 
@@ -215,7 +216,7 @@ export const stockSearched = (container, today) => Number.isFinite(container?.op
  *  the DEFAULT is a point-of-use store read - a parameter with a
  *  `false` default would have been a switch every caller can forget -
  *  and an explicit argument still overrides it (the tests do). */
-export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { rolls = Math.random, torchesFromItems = getBool('Enhancements', 'PlayerTorchFromItems') } = {}) {
+export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { rolls = Math.random, torchesFromItems = getBool('Enhancements', 'PlayerTorchFromItems'), shelfIndex = 0 } = {}) {
   const items = [];
   // DaggerfallUnityItem.ItemName is the TEMPLATE's name for every
   // plain item; AUDIT 18: the shelf minted rows with none, so the
@@ -380,6 +381,11 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
       }
     }
   }
+  // POTION-COMMON (2026-10-01, the field: "make health potions more common"): an alchemist's and a general store's day of
+  // Potions of Healing (healingSupply.js) - at the shelf's end and from no roll, so DFU's own draws above are the same.
+  // AUDIT ECON P1: on the shop's FIRST shelf alone, the one its counter sells from (worldModes.js openMerchantSell) -
+  // every shelf model is its own container, stocked whole, so a shop of five shelves stocked five days' worth
+  if (shelfIndex === 0) for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());
   return items;
 }
 

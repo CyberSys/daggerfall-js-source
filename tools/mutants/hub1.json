@@ -149,8 +149,8 @@
   {
     "name": "HUB1-circle-over-the-glyph",
     "file": "src/ui/inkMap.js",
-    "old": "  for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m), !!m.hub.capital);\n  for (const [m, x, y] of inked) paintGlyph(ctx, m.kind, x, y, true);",
-    "new": "  for (const [m, x, y] of inked) paintGlyph(ctx, m.kind, x, y, true);\n  for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m), !!m.hub.capital);",
+    "old": "  for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);\n  // SEAT1a (Seats-Arc 3.3): a seat's ring, in HUB1's order - under the glyph, round any hub's circle\n  for (const [m, x, y] of inked) if (m.seatMark) paintSeatRing(ctx, x, y, markReach(m), m.seatMark);\n  for (const [m, x, y] of inked) paintGlyph(ctx, m.kind, x, y, true);",
+    "new": "  // SEAT1a (Seats-Arc 3.3): a seat's ring, in HUB1's order - under the glyph, round any hub's circle\n  for (const [m, x, y] of inked) if (m.seatMark) paintSeatRing(ctx, x, y, markReach(m), m.seatMark);\n  for (const [m, x, y] of inked) paintGlyph(ctx, m.kind, x, y, true);\n  for (const [m, x, y] of inked) if (m.hub) paintHubCircle(ctx, x, y, markReach(m) - (m.seat ? SEAT_RING_PAD : 0), !!m.hub.capital);",
     "tests": [
       "test/hub1.test.js"
     ]
@@ -221,8 +221,8 @@
   {
     "name": "HUB1-arrival-offline",
     "file": "src/scenes/world.js",
-    "old": "if (onlineOn) { const hub = hubAtMapId(regionHubs, _musicLoc?.mapTableData?.mapId); if (hub) townTalk.say(hubArrivalLine(hub), 5); }",
-    "new": "{ const hub = hubAtMapId(regionHubs, _musicLoc?.mapTableData?.mapId); if (hub) townTalk.say(hubArrivalLine(hub), 5); }",
+    "old": "        if (onlineOn) {\n          const mapId = _musicLoc?.mapTableData?.mapId;",
+    "new": "        if (true) {\n          const mapId = _musicLoc?.mapTableData?.mapId;",
     "tests": [
       "test/hub1.test.js"
     ]
@@ -230,8 +230,8 @@
   {
     "name": "HUB1-arrival-unsaid",
     "file": "src/scenes/world.js",
-    "old": "if (hub) townTalk.say(hubArrivalLine(hub), 5); }",
-    "new": "void hubArrivalLine; }",
+    "old": "          else if (hub) townTalk.say(hubArrivalLine(hub), 5);",
+    "new": "          else if (hub) void hubArrivalLine;",
     "tests": [
       "test/hub1.test.js"
     ]
@@ -248,8 +248,8 @@
   {
     "name": "HUB1-box-title-dropped",
     "file": "src/ui/heldMap.js",
-    "old": "const hubRows = hub ? [hubTitle(hub)] : [];",
-    "new": "const hubRows = [];",
+    "old": "const hubRows = [...(hub ? [hubTitle(hub)] : []), ...(seat ? [seatInfoLine(seat)] : [])];",
+    "new": "const hubRows = [...(seat ? [seatInfoLine(seat)] : [])];",
     "tests": [
       "test/heldmap.test.js"
     ]

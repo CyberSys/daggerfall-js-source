@@ -267,7 +267,7 @@ test('LIVED1: the tavern\'s calendar is the WORLD\'s - a Heart\'s Day room is fr
   assert.deepEqual(offer(() => worldEve), [ROOM_FREE_HEARTS_DAY], 'the world\'s Heart\'s Day');
   assert.notDeepEqual(offer(null), [ROOM_FREE_HEARTS_DAY], 'the character\'s own day 201 is no holiday - with no world clock handed, the one clock decides');
   const modes = rd('src/scenes/worldModes.js');
-  assert.match(modes, /worldNow: \(\) => Math\.floor\(worldMinutes\(\)\),/, 'the host hands the world\'s clock for the calendar');
+  assert.match(modes, /worldNow: \(\) => Math\.floor\(skyMinutes\(\)\),/, 'the host hands the world\'s clock for the calendar');   // TIME1: the world's calendar is the SKY's
   assert.match(modes, /ownTimeOf: \(m\) => ownTimeLeftText\(m\),/, 'and the character\'s for the room\'s time');
 });
 
@@ -284,7 +284,7 @@ test('LIVED1 by source: every RaiseTime online is the character\'s - the ticker\
   // the tick's two windows: the broker, the loop and the needs on the character's; the sky on the world's
   assert.match(tick, /_ownMinutes = classicMinutes \+ \(worldTo - worldFrom\) \+ \(raiseMinutes > 0 \? raiseMinutes : 0\);/);
   assert.match(tick, /const magicRoundWindow = claimMagicRounds\(classicMinutes, next\);/);
-  assert.match(tick, /skyMinutes: _sharedClock \? worldTo : null/, 'the rounds\' sky is the world\'s reading');
+  assert.match(tick, /skyMinutes: _sharedClock \? skyMinutes\(\) : null/, 'the rounds\' sky is the world\'s reading');   // TIME1: the sky's own clock, not the event window's end
   assert.match(tick, /evolveClimateWeathers\(_sharedClock \? Math\.floor\(worldTo\) : nowMinutes\);/, 'the sky\'s hours are the world\'s');
   for (const host of ['src/systems/encounters.js', 'src/systems/campEncounters.js']) {
     assert.match(rd(host), /Number\.isFinite\(ctx\.skyMinutes\) \? ctx\.skyMinutes : ctx\.gameMinutes/, `${host}: the spawn table's night or day is the sky's`);

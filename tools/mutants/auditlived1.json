@@ -2,7 +2,7 @@
   {
     "name": "AUDITLIVED1-A-the-dungeon-rest-arm-reads-the-characters-sky",
     "file": "src/scenes/dungeonContext.js",
-    "old": "say: (msg) => hudText.add(msg), skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null });",
+    "old": "say: (msg) => hudText.add(msg), skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null });",
     "new": "say: (msg) => hudText.add(msg) });",
     "tests": [
       "test/auditlived1.test.js"
@@ -21,7 +21,7 @@
   {
     "name": "AUDITLIVED1-C-the-cure-holiday-on-the-characters-calendar",
     "file": "src/scenes/worldModes.js",
-    "old": "rows, now: () => interiorTicker.classicMinutes, onClose: () => closeSelf(), godName,",
+    "old": "rows, now: () => skyMinutes(), onClose: () => closeSelf(), godName,",
     "new": "rows, now, onClose: () => closeSelf(), godName,",
     "tests": [
       "test/auditlived1.test.js"
@@ -66,20 +66,22 @@
   {
     "name": "AUDITLIVED1-E-the-quest-stamps-stay-on-the-world",
     "file": "src/systems/offlineCopy.js",
-    "old": "  if (copy.quest) shiftQuestSeconds(copy.quest, delta * 60);",
+    "old": "  if (copy.quest) shiftQuestStamps(copy.quest, delta * 60, { own: questOwn, world: true });",
     "new": "",
     "tests": [
       "test/auditlived1.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1-E-a-zero-never-becomes-a-date",
-    "file": "src/systems/offlineCopy.js",
-    "old": "    if (QUEST_WORLD_SECOND_KEYS.includes(k)) { if (Number.isFinite(v) && v !== 0) node[k] = v + deltaSeconds; }",
-    "new": "    if (QUEST_WORLD_SECOND_KEYS.includes(k)) { if (Number.isFinite(v)) node[k] = v + deltaSeconds; }",
+    "file": "src/systems/quest/questStamps.js",
+    "old": "if (QUEST_OWN_SECOND_KEYS.includes(k)) { if (ownBelow && Number.isFinite(v) && v !== 0) n[k] = v + deltaSeconds; }",
+    "new": "if (QUEST_OWN_SECOND_KEYS.includes(k)) { if (ownBelow && Number.isFinite(v)) n[k] = v + deltaSeconds; }",
     "tests": [
       "test/auditlived1.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1-E-the-rumours-keep-the-worlds-limits",
@@ -111,11 +113,12 @@
   {
     "name": "AUDITLIVED1-E-the-distance-the-wrong-way",
     "file": "src/systems/offlineCopy.js",
-    "old": "return rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world));",
-    "new": "return rebaseWorldStamps(copy, Math.floor(world) - Math.floor(own), daysBetween(own, world));",
+    "old": "rebaseWorldStamps(copy, Math.floor(own) - Math.floor(world), daysBetween(own, world), { questOwn: 'legacy' });",
+    "new": "rebaseWorldStamps(copy, Math.floor(world) - Math.floor(own), daysBetween(own, world), { questOwn: 'legacy' });",
     "tests": [
       "test/auditlived1.test.js"
-    ]
+    ],
+    "note": "TIME3 (PIN MOVED): the quest stamps' walk moved to src/systems/quest/questStamps.js with the countdowns' own keys; re-aimed by content."
   },
   {
     "name": "AUDITLIVED1-E-copy-to-offline-skips-the-door",
@@ -370,8 +373,8 @@
   {
     "name": "AUDITLIVED1-T5-the-moon-reads-the-characters-clock",
     "file": "src/systems/worldTick.js",
-    "old": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, say });",
-    "new": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, say });",
+    "old": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, moonNight: Number.isFinite(skyMinutes), say });",
+    "new": "lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, moonNight: Number.isFinite(skyMinutes), say });",
     "tests": [
       "test/auditlived1.test.js"
     ]
@@ -532,7 +535,7 @@
   {
     "name": "AUDITLIVED1-T7-the-spawn-tables-hour",
     "file": "src/scenes/world.js",
-    "old": "skyMinutes: sharedClockOn() ? Math.floor(worldMinutes()) : null",
+    "old": "skyMinutes: sharedClockOn() ? Math.floor(skyMinutes()) : null",
     "new": "skyMinutes: null",
     "tests": [
       "test/auditlived1.test.js"
@@ -568,7 +571,7 @@
   {
     "name": "AUDITLIVED1-T7-dungeon-air",
     "file": "src/scenes/dungeonContext.js",
-    "old": "const wm = worldMinutes()",
+    "old": "const wm = skyMinutes()",
     "new": "const wm = ownMinutes()",
     "tests": [
       "test/auditlived1.test.js"

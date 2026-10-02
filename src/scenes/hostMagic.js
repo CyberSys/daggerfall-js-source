@@ -136,7 +136,8 @@ export function createPlayerMagic({
   // otherwise - and `castAtDuel(id, spell)` is the door the blow leaves through (the duel's `spell` frame), answering
   // whether it went. A touch, a missile, a blast or an area that meets the opponent's body sends the spell's HARMFUL
   // families to them (combat/duelCombat.js duelSpellOf); their client applies it. Nobody else is ever a mark: a
-  // Fireball still passes through every other player.
+  // Fireball still passes through every other player. AUDIT-SEATS G5: `duelMark()` may answer an ARRAY of such bodies -
+  // a siege's foes, outside a duel (the host's door sends each to the battle's referee).
   duelMark = null,
   castAtDuel = null,
   // WB4b (2026-09-25, Mac: "a large boss arena with an oversized enemy"): THE BURNING COURT'S BOSS AS A BODY. `bossMark()`
@@ -163,6 +164,10 @@ export function createPlayerMagic({
   // in a blast, struck by a missile - but lands HERE (they are mine to simulate), as a gift: ALLY-CAST's receiver's own
   // record (a self-cast, no save) tagged as an ally's bundle, through the foe's own sinks and never as my blow.
   companionBodies = null,
+  // AUDIT-SEATS G5 (Seats-Arc 6.1: "Teleport, Recall and Levitate do nothing in a siege room"): THE HOST'S WORD ON THIS
+  // SPELL HERE - a sentence refusing it where the player stands (a battle's wards: scenes/world.js), or null. Asked where
+  // castRefusal is, with the spell, after it; a host that hands none refuses no spell for what it is.
+  spellRefusal = null,
 }) {
   const playerCaster = () => ({ entity: playerEntity, sinks: playerSinks });
   /** HOME-MAGIC: the place's refusal SAID, and the ready dropped with it (the silence gate's own shape) - true when a
@@ -170,6 +175,16 @@ export function createPlayerMagic({
   function barredHere() {
     let why = null;
     try { why = castRefusal?.() ?? null; } catch { why = null; }
+    if (!why) return false;
+    readiedSpell = null; readiedFree = false; readiedCost = 0;
+    say(why);
+    return true;
+  }
+  /** AUDIT-SEATS G5: this SPELL refused where the player stands (spellRefusal), said, and the ready dropped with it -
+   *  true when it is. A host's seam that throws refuses nothing. */
+  function wardedHere(sp) {
+    let why = null;
+    try { why = spellRefusal?.(sp) ?? null; } catch { why = null; }
     if (!why) return false;
     readiedSpell = null; readiedFree = false; readiedCost = 0;
     say(why);
@@ -288,8 +303,13 @@ export function createPlayerMagic({
     if (!duelMark || !castAtDuel || !sp || !duelSpellOf(sp)) return [];
     let q = null;
     try { q = duelMark() ?? null; } catch { return []; }
-    if (!q || typeof q.id !== 'string' || !Array.isArray(q.feet) || q.feet.length !== 3 || !q.feet.every(Number.isFinite)) return [];
-    return [{ duel: true, id: q.id, name: q.name ?? 'your opponent', dead: false, ai: { feet: q.feet, height: Number.isFinite(q.height) && q.height > 0 ? q.height : CAPSULE_HEIGHT } }];
+    // AUDIT-SEATS G5: or several - a battle's foes (scenes/world.js), each through the same door
+    const out = [];
+    for (const m of Array.isArray(q) ? q : [q]) {
+      if (!m || typeof m.id !== 'string' || !Array.isArray(m.feet) || m.feet.length !== 3 || !m.feet.every(Number.isFinite)) continue;
+      out.push({ duel: true, id: m.id, name: m.name ?? 'your opponent', dead: false, ai: { feet: m.feet, height: Number.isFinite(m.height) && m.height > 0 ? m.height : CAPSULE_HEIGHT } });
+    }
+    return out;
   }
   /** WB4b: the court's boss as a foe-shaped mark ({boss, ai:{feet, height, radius}}) for a spell with a harmful family in
    *  it - WBX7: or a Soul Trap (Swololo on Discord: "soul trap didnt seem to work" - it passed straight through him); []
@@ -579,6 +599,16 @@ export function createPlayerMagic({
    *  one law with the shaft's and the swing's (combat/friendlyFire.js). */
   const sparedFromPlayer = (t) => sparedByPlayer(t);
   const playerTargets = () => foes().filter((t) => !sparedFromPlayer(t));
+  /** AREA-CASTER (FIELD BUGS 2026-10-01; asked, Mac: "Include the caster"): AN AREA SPELL MADE ONLY OF GIFTS LANDS ON ITS
+   *  CASTER TOO - an Area Around Caster's (DFU's ignoreCaster passed them by) and an Area at Range's wherever its missile
+   *  bursts, or if it bursts nowhere - as a self-cast, never saved against (ALLY-CAST C1's law for a gift), once, at the
+   *  cast: the burst passes its caster by (explodeAt). A spell with harm in it is DFU's: its caster only where its blast
+   *  reaches them, and saved against. */
+  function giveAreaToCaster(sp) {
+    if (!allyCastable(sp)) return;
+    const r = applySpellToPlayer({ ...sp, rangeType: 0 }, effectiveLevel(playerEntity), playerCaster());
+    if (r.healed > 0) say(`You are healed ${r.healed} points.`);
+  }
   function explodeAt(pos, spell, casterLevel, playerFeet, caster = null, { excludeFoe = null, playerHeight = CAPSULE_HEIGHT, allies = false, duel = false, boss = duel } = {}) {
     // SHIPMATES: a blast of the player's own crew passes the player and the rest of the crew by (combat/friendlyFire.js)
     const crewBlast = isShipmate(caster?.foe);
@@ -599,7 +629,13 @@ export function createPlayerMagic({
     if (boss && caster?.entity === playerEntity) for (const t of sweepFoes(pos, EXPLOSION_RADIUS, bossMarksFor(spell))) giveToBoss(t, spell);   // AUDIT WBX F5: `boss` - a Soul Trap is no duel spell, and it meets him too
     // ROAD-H H2: the player is a COLLIDER in DFU's OverlapSphere like every foe (DaggerfallMissile.cs:481) - its CharacterController capsule, at the LIVE height PlayerHeightChanger keeps (:54-57/:475-478). This measured ONE POINT at the STANDING half-capsule, feet + 0.9: a metre and a half wrong on a mount, half a metre wrong crouched, and short of DFU's catch by a whole body radius in every stance. AUDIT 65 CV-2: and that body is the PLAYER's 0.35 (PlayerAdvanced.prefab:82), not the foe's 0.45 - the rim is 4.35.
     if (playerFeet && !crewBlast && sphereOverlapsCapsule(pos, EXPLOSION_RADIUS, playerFeet, playerHeight, PLAYER_BODY_RADIUS)) {
-      applySpellToPlayer(spell, casterLevel, caster);
+      // AREA-SELF (FIELD BUGS 2026-10-01, Opaldes: "Big Regen Spell doesnt do anything" - Area at Range, Regenerate and
+      // Fortify): MY OWN BLAST OF GIFTS IS NEVER SAVED AGAINST BY ME - DFU save-scales every bundle that is not
+      // CasterOnly, so its caster resisted their own Regenerate round by round (two rounds in three for a Breton) and
+      // their own Fortify at the landing. AREA-CASTER: it landed on me at the cast, as a self-cast (giveAreaToCaster),
+      // so the burst passes me by. A blast that is not all gifts (allyCastable), and a foe's, are saved against as before.
+      const gift = caster?.entity === playerEntity && allyCastable(spell);
+      if (!gift) applySpellToPlayer(spell, casterLevel, caster);
     }
   }
 
@@ -804,6 +840,7 @@ export function createPlayerMagic({
       giveToCompanions(sweepFoes(eye, EXPLOSION_RADIUS, companionMarksFor(sp)), sp);   // COMPANION-KIT: and my companions
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, duelMarksFor(sp))) giveToDuel(t, sp);   // DUEL1: and my duel opponent, if they stand in it
       for (const t of sweepFoes(eye, EXPLOSION_RADIUS, bossMarksFor(sp))) giveToBoss(t, sp);   // WB4b: and the court's boss, if any of him stands in it
+      giveAreaToCaster(sp);   // AREA-CASTER: and me, when it is all gifts
       return done(true);
     }
     if (sp.rangeType !== 2 && sp.rangeType !== 4) return done(false);
@@ -811,6 +848,7 @@ export function createPlayerMagic({
     tallyCastSkills(sp);
     surfacePlayer();
     missiles.push({ spell: sp, pos: [eye[0], eye[1], eye[2]], dir: [...dir], age: 0, batch: null, fromPlayer: true, ally: !readiedFree && allyCastable(sp), duel: !!duelSpellOf(sp), boss: !!duelSpellOf(sp) || (sp.effects ?? []).some((e) => e && isSoulTrapEffect(e)) || spellSways(sp) });   // AID1 onto ALLY-CAST: may be given to a party mate it strikes (never a free ready's); DUEL1: may strike my duel opponent; AUDIT WBX F5: may meet the court's boss - a harmful spell, or a Soul Trap (at range or bursting, as by touch)
+    if (sp.rangeType === 4) giveAreaToCaster(sp);   // AREA-CASTER: an Area at Range spell of gifts lands on me too, wherever it bursts
     return done(true);
   }
 
@@ -825,6 +863,7 @@ export function createPlayerMagic({
     const sp = readiedSpell;
     if (!sp) return false;
     if (barredHere()) return false;   // HOME-MAGIC: a spell readied outside is not fired inside another's home
+    if (wardedHere(sp)) return false;   // AUDIT-SEATS G5: a spell readied before a battle is not fired in its wards
     // S27 / SilenceCheck (EntityEffectManager :1932-1946). DFU tests
     // this at CAST as well as at ready, and BOTH clear the readied
     // spell - a silence landing mid-aim disarms you rather than
@@ -894,6 +933,7 @@ export function createPlayerMagic({
    *  is in hand or cast, false when a gate refused it. */
   function readySpell(sp, { free = false } = {}) {
     if (barredHere()) return false;   // HOME-MAGIC: before every other gate, a free ready's too (an item's spell)
+    if (wardedHere(sp)) return false;   // AUDIT-SEATS G5: a battle's wards, before it costs anything
     if (!free && silenceBlocksCast(playerEntity)) { readiedSpell = null; readiedCost = 0; say(SILENCED_TEXT); return false; }
     // ROAD-E6: :315's second term - "Do nothing if silenced OR CAST
     // ALREADY IN PROGRESS". Nothing can be readied while the hands are
@@ -1123,6 +1163,7 @@ export function createPlayerMagic({
    *  item casts). The caster is the player, casterLevel the player's. */
   function castByItemSelf(spell, item = null) {
     if (barredHere()) return null;   // HOME-MAGIC: an item's spell on its user is a cast too
+    if (wardedHere(spell)) return null;   // AUDIT-SEATS G5: and a battle's wards turn it
     // D9: EntityEffectBundle.CastByItem (CastWhenUsed.cs:136) - the
     // SOURCE ITEM rides the bundle, and AssignBundle copies it onto
     // the live bundle (EntityEffectManager.cs:469). Open.CheckCastByItem
@@ -1289,6 +1330,20 @@ export function createPlayerMagic({
     missileCount: () => missiles.length,   // M5 probe surface
     readied: () => readiedSpell,
     readiedIndex: () => readiedSpell?.index ?? null,
+    // CAST-USE (AUDIT part five CU2): the ready's STORED price - 0 for a free one (an item's, a trap's) - which the HUD's
+    // ready line prints, never a price recomputed off the record
+    readiedCost: () => (readiedSpell ? readiedCost : 0),
+    // CAST-USE (AUDIT part five CU1): a mode flip hands the ready on to the engine that fires where the player now stands
+    // (the street's and the dungeon context's are two) - DFU's one EntityEffectManager keeps readySpell, its freeness and
+    // its price across a transition. A ready left on the other engine was stranded (the street's fired at the first
+    // click back outside) or destroyed with the dungeon's, the item's condition spent and no spell cast.
+    handReadyTo(other) {
+      if (!readiedSpell || !other?.takeReady) return false;
+      other.takeReady({ sp: readiedSpell, free: readiedFree, cost: readiedCost });
+      readiedSpell = null; readiedFree = false; readiedCost = 0; pendingClickCast = false;
+      return true;
+    },
+    takeReady({ sp = null, free = false, cost = 0 } = {}) { readiedSpell = sp; readiedFree = !!sp && !!free; readiedCost = sp ? cost : 0; },
     allyInReach,   // AUDIT ALLY-CAST A5: the plaque's question, answered by THIS engine's pick and collider
     setReadiedByIndex(index, spellsByIndex) {
       // S1: a MADE spell has no SPELLS.STD index (it carries a

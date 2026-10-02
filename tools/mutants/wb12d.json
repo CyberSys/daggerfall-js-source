@@ -115,11 +115,12 @@
   {
     "name": "WB12d-the-version-law",
     "file": "src/net/wire.js",
-    "old": "export const RITE_RELAY_MIN = 141;",
-    "new": "export const RITE_RELAY_MIN = 140;",
+    "old": "export const RITE_RELAY_MIN = 151;",
+    "new": "export const RITE_RELAY_MIN = 150;",
     "tests": [
       "test/wb12d_rite_law.test.js"
-    ]
+    ],
+    "note": "The merge (re-aimed): world151, past main's world141-world150."
   },
   {
     "name": "WB12d-the-pose-unasked",
@@ -3148,6 +3149,33 @@
     "tests": [
       "test/wb12a_breach_words.test.js",
       "test/wb9g_insignia.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-WB12d-the-rite-s-row-takes-the-region",
+    "file": "server-account/src/accounts.js",
+    "old": ".bind(c.d, player.id, c.b, c.x, nowS, c.x !== 'rite' && seatRegionOk(region) ? region : null, embers);",
+    "new": ".bind(c.d, player.id, c.b, c.x, nowS, seatRegionOk(region) ? region : null, embers);",
+    "tests": [
+      "test/wb12d_rite_law.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-WB12d-the-rite-credits-a-seat",
+    "file": "server-account/src/index.js",
+    "old": "if (r.recorded && !r.rite && body.region != null) answer.seat",
+    "new": "if (r.recorded && body.region != null) answer.seat",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "MERGE-WB12d-the-row-without-its-embers",
+    "file": "server-account/src/accounts.js",
+    "old": "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')\n    .bind(c.d, player.id, c.b, c.x, nowS, c.x !== 'rite' && seatRegionOk(region) ? region : null, embers);",
+    "new": "VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)')\n    .bind(c.d, player.id, c.b, c.x, nowS, c.x !== 'rite' && seatRegionOk(region) ? region : null, embers);",
+    "tests": [
+      "test/wb12d_rite_law.test.js"
     ]
   }
 ]

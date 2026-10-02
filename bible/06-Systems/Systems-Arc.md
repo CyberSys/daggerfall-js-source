@@ -3196,7 +3196,7 @@ collapse is a bare `RaiseTime(1 * SecondsPerHour)` (`:2429`) that
 returns; `Update` is not re-entered.
 
 The port's hosts implement that same RaiseTime as
-`playerTicker.advance(60)` (`exterior.js:1090`, `world.js:3075`), fired
+`playerTicker.advance(60)` (`exterior.js:1092`, `world.js:3227`), fired
 from inside `sinks.drainFatigue` - so it re-enters `tickPlayerMinutes`
 from inside that function's own fatigue band. The nested tick wrote the
 marker an hour ahead, the outer frame's own `setWorldMinutes` then
@@ -3354,7 +3354,7 @@ PNG through the DOM and cached `{ width, height, data }` - the shape
 pass that object straight on as a colour32
 (`const color32 = swap ?? t.getColor32(bitmap, ...)`), and
 `renderer.uploadTexture` reads `color32.colors` and calls `asBytes` on
-it (`renderer.js:3280`). `colors` was `undefined`, `asBytes` reads
+it (`renderer.js:3312`). `colors` was `undefined`, `asBytes` reads
 `.buffer` off it, and the upload threw. Every pin on this door held:
 they asserted the cache stored the object the decoder returned, by
 IDENTITY, which is precisely the assertion that cannot see a wrong
@@ -3365,8 +3365,8 @@ orientation is not its only problem".
 **And orientation was the other half.** The port's texel convention is
 bottom-up: `getColor32` writes `dstRow = (dstHeight - 1 - border - y) *
 dstWidth` (`baseImageFile.js:143`, `BaseImageFile.cs:250`), the upload
-leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3270`), and `BB_VS`
-samples the quad's top at v=1 (`renderer.js:383-414`). A browser decode
+leaves `UNPACK_FLIP_Y_WEBGL` off (`renderer.js:3302`), and `BB_VS`
+samples the quad's top at v=1 (`renderer.js:391-422`). A browser decode
 is TOP row first. So a swap named correctly would still have drawn
 mirrored beside the classic art in the same batch loop - the exact
 defect AUDIT 62 F26 fixed for the seasons mod's textures, one door over.
@@ -3872,8 +3872,8 @@ should get reduced stats in day and get the bonus at night"; asked,
 "Day -20 / night +20") - a Port-Ledger section A departure: the sun's
 racial arm is gone. The vampire burns no more (a save's curse keeps
 its flag and burns no more either); its +20 on the seven stats (and
-an Anthotis mind) is the night's, and 06:00-18:00 by the clock the
-same stats are 20 down (`systems/vampirism.js` vampireStatMod), held
+an Anthotis mind) is the night's, and 06:00-18:00 in the street's sun the
+same stats are 20 down (`systems/vampirism.js` vampireStatMod - FIELD BUGS 2026-10-01b: never under a roof or underground, where DFU's +20 holds), held
 at a live 1 where the stat is read so a dawn never kills
 (`systems/statMods.js` liveStat). Holy ground still burns, the career
 bit still burns, and the flag still keys the travel rules.
@@ -3890,7 +3890,7 @@ map by day and its arrival is not pushed to dusk. Bare-headed, the
 door says DFU's line and then "Raise the hood of a cloak or robe to
 travel by day." Online this was the whole wait: the shared clock's day
 is one real hour, and no rest or trip moves it. The day's -20 is the
-hour's, not the sun's, and stays.
+street's sun on the stats (FIELD BUGS 2026-10-01b), and stays under a hood.
 
 THE SEAM IS REGISTERED BY THE MODE MACHINE. worldModes owns mode and
 interiorBuilding for BOTH town pages - world.js and exterior.js each
@@ -4597,7 +4597,7 @@ the true clause along with the false ones is in the campaign, because
 over-retiring is the equal and opposite failure.
 
 **And one delegation pointed at a flag nobody had ever written.**
-`world.js:4544` said the dungeon-mode enchant ctx was "FLAGGED there
+`world.js:4760` said the dungeon-mode enchant ctx was "FLAGGED there
 with the rest of its enchant wiring" in `dungeonContext.js`. It was
 not. `setDefaultEnchantCtx` had exactly **one** caller in the tree, so
 the standalone `?dungeon` host ran every arm that needs a host
@@ -5347,7 +5347,7 @@ blocked.
 Mac: "let's work on the horses and carts". The port has carried the CART
 as an inventory fact since the W-slice - the wagon's 750kg, the
 dungeon-exit prompt, the transfer guards - and the HORSE as an item
-nobody could sit on. `motor.js:813` passed `riding: false` into the
+nobody could sit on. `motor.js:859` passed `riding: false` into the
 climbing gate with the note "the transport arc pends", and
 `DaggerfallTransportWindow` is the last of DFU's 60 real windows the
 port does not have (UI-Arc.md's table).
@@ -5575,7 +5575,7 @@ to that cite and moves under the same content check; citeMerge had
 done this since CS2 and citeShift only reported them, so the two
 regexes are one law now, exported from citeShift (`ANY_CITE`,
 `CONTINUATION`) and imported by citeMerge. (2) A TEST'S ESCAPED
-LITERAL FOLLOWS THE ROW IT PINS: `world\.js:10278` in citedrift.test.js
+LITERAL FOLLOWS THE ROW IT PINS: `world\.js:10611` in citedrift.test.js
 is a quote of a Ledger row's text; the row is STRUCK and its number
 held, and the literal used to move anyway, parting the pin from its
 row at every shift. The CLI plans every doc first, learns which

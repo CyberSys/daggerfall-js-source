@@ -114,12 +114,12 @@ test('MARKS1 the law: a balance holds 10,000,000; the gate strikes 50, two a UTC
   assert.deepEqual([1, 300, 0, -1, 1.5, 301, NaN, '5'].map((n) => marksAmountOk(n, 300)), [true, true, false, false, false, false, false, false]);
   assert.equal(exchangeGold(300), 2400);
   assert.ok(MARKS_RID_RE.test('req-000001') && !MARKS_RID_RE.test('short') && !MARKS_RID_RE.test('has space in it'));
-  assert.deepEqual([marksText(1), marksText(1240)], ['1 Drake', '1,240 Drakes']);
+  assert.deepEqual([marksText(1), marksText(1240)], ['1 silver', '1,240 silver']);
 });
 
 test('MARKS1: GOLD NEVER BUYS MARKS - no kind, route, table or statement takes gold in and strikes a Mark', () => {
   // PROF1 built the second: a Court writ's pay, struck for units the service took out of the Stores (test/prof1_service)
-  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate', 'writ'], 'the faucets built - each a witnessed act');
+  assert.deepEqual(Object.entries(MARKS_KINDS).filter(([, way]) => way === 'mint').map(([k]) => k), ['gate', 'writ', 'siege-honours', 'gate-incursion', 'seat-strike-refund'], 'the faucets built - each a witnessed act');   // PIN MOVED (AUDIT-SEATS): a siege's relay-signed Honours and an Incursion's agreed gate days, registered at last
   assert.ok(![...ROUTES].some((r) => r.startsWith('/v1/marks/') && /buy|purchase|gold/i.test(r)), 'no route to buy Drakes');
   const marks = src('server-account/src/marks.js').replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const mints = [...marks.matchAll(/SELECT 'mint', NULL, 'account', \?1, '([a-z-]+)'/g)].map((m) => m[1]);
@@ -175,15 +175,15 @@ test('MARKS1 the gate\'s receipt: 50 Marks for a gate counted, two a UTC day - a
   assert.equal((await call('/v1/account', undefined, g.secret, 'GET')).body.account.marks, null);
 });
 
-test('AUDIT WB12d (A2, A3): A RECEIPT OF THE RITE ALONE strikes no Drakes and answers none - the game says "Rite recorded." alone, on a day two breaches already struck too; a guest\'s is the rite\'s own line, kept for its week (mutants: the rite answered a Drakes line; the guest told of a breach)', async (t) => {
+test('AUDIT WB12d (A2, A3): A RECEIPT OF THE RITE ALONE strikes no Drakes and answers none, nor the seats\' influence (SEAT1b, at the merge) - the game says "Rite recorded." alone, on a day two breaches already struck too; a guest\'s is the rite\'s own line, kept for its week (mutants: the rite answered a Drakes line; the rite credited a seat; the guest told of a breach)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { registered, claim, call, mint } = await stand();
   const a = await registered('Anna');
   await claim(a, 700, T0); await claim(a, 701, T0);   // the UTC day's two strikes spent
   const rite = await mint({ d: 702, s: a.id, x: 'rite' });
-  const answer = await call('/v1/gate/claim', { receipt: rite }, a.secret);
+  const answer = await call('/v1/gate/claim', { receipt: rite, region: 21, character: 'anna-1' }, a.secret);
   assert.equal(answer.status, 200);
-  assert.deepEqual(answer.body, { recorded: true, stones: 1, rite: true, closed: 2 }, 'no `marks` - the rite alone strikes none');
+  assert.deepEqual(answer.body, { recorded: true, stones: 1, rite: true, closed: 2 }, 'no `marks` - the rite alone strikes none; nor `seat` (SEAT1b at the merge: the rite alone is no kill, and no influence)');
   const said = [];
   const claims = createGateClaims({ claim: async () => ({ ok: true, data: answer.body }), me: () => a.id, say: (x) => said.push(x), onMarks: () => 'a Drakes line' });
   claims.add(rite);
@@ -198,7 +198,7 @@ test('AUDIT WB12d (A2, A3): A RECEIPT OF THE RITE ALONE strikes no Drakes and an
   assert.equal(gateClaimVerdict({ ok: true, data: { recorded: false, why: 'guest', closed: 0 } }, { x: 'rite' }), 'keep', 'kept for its week');
 });
 
-test('AUDIT WB12d (A1): A FIGHTER\'S `r` is let go only once a service that answers its embers has counted it - one from before acct46 (no `stones`) keeps it for its week, and acct46 makes its row good on the claim again; every other receipt as it was (mutants: an `r` let go at one ember; every receipt kept)', async (t) => {
+test('AUDIT WB12d (A1): A FIGHTER\'S `r` is let go only once a service that answers its embers has counted it - one from before acct62 (no `stones`) keeps it for its week, and acct62 makes its row good on the claim again; every other receipt as it was (mutants: an `r` let go at one ember; every receipt kept)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   assert.equal(gateClaimVerdict({ ok: true, data: { recorded: true, closed: 1 } }, { x: 'dealt', r: 1 }), 'keep', 'acct45: counted at one');
   assert.equal(gateClaimVerdict({ ok: true, data: { recorded: false, why: 'claimed', closed: 1 } }, { x: 'dealt', r: 1 }), 'keep');
@@ -455,7 +455,7 @@ test('MARKS1 the wiring: online the streaming host holds the book and hands it t
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /sellMarks: host\.marks \? \(n\) => host\.marks\.sell\(n, marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\), bankRegion\(\)\) : null,/);
   assert.match(m, /void host\.marks\.settle\(marksSaleCredit\(\(\) => playerEntity\.bankAccounts, bankRegion, host\.saveSoon\)\)/, 'a kept sale settles as the counter opens');
-  assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell Drakes', act: \(\) => w\._button\('sellMarks'\)/);
-  assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Drake treasury'\)\);/);
-  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Drakes', marksText\(flow\.account\.marks\)\);/);
+  assert.match(src('src/ui/enhancedPorts.js'), /\{ label: w\.hooks\.marks\.pending\(\) \? 'Counting a sale\.\.\.' : 'Sell silver', act: \(\) => w\._button\('sellMarks'\)/);
+  assert.match(src('src/ui/socialPanel.js'), /if \(g\.marks\?\.state\?\.open === true\) \{\n\s*out\.push\(el\('div', 'dfsocial-sec', 'Silver treasury'\)\);/);
+  assert.match(src('src/ui/enhancedAccount.js'), /if \(Number\.isSafeInteger\(flow\.account\.marks\)\) row\('Silver', marksText\(flow\.account\.marks\)\);/);
 });

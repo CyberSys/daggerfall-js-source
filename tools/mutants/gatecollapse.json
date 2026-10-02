@@ -30,20 +30,10 @@
     ]
   },
   {
-    "name": "GATE-COLLAPSE-the-seal-line-names-the-seal",
-    "file": "src/net/gateLaw.js",
-    "old": "It collapses at ${clock(GATE_WRATH_MINUTE)} (${at} your time).",
-    "new": "It collapses at ${clock(GATE_SEAL_MINUTE)} (${at} your time).",
-    "tests": [
-      "test/wb1_gate_omen.test.js",
-      "test/wb2_gate.test.js"
-    ]
-  },
-  {
     "name": "GATE-COLLAPSE-the-seal-line-at-the-seal's-time",
     "file": "src/systems/gateOmen.js",
-    "old": "say(sealLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));",
-    "new": "say(sealLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));",
+    "old": "say(sealTimeLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));",
+    "new": "say(sealTimeLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));",
     "tests": [
       "test/wb1_gate_omen.test.js",
       "test/wb2_gate.test.js"

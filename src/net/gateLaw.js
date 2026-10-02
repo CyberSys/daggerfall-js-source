@@ -318,16 +318,13 @@ export function gateModsOf(day) {
 
 // ═══ THE WORDS ════════════════════════════════════════════════════════
 //
-// The lines the chat says at the gate's moments - each client says its own, off the clock (bible World-Bosses.md
-// section 2). `place` is where ("Copperham, Wrothgarian Mountains"), `near` the town alone; `at` is a real time
-// on this machine's clock ("14:32"); `left` a countdown ("4:07").
-const clock = (minute) => `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+// The lines the chat says at the gate's moments that name no time - each client says its own, off the clock (bible
+// World-Bosses.md section 2). `near` is the town ("Copperham"); `left` a countdown ("4:07"). TIME1: the three that
+// named a time (the omen, the opening, the seal) are systems/gateOmen.js's, in local time alone; WB12's relay deploy
+// (world151) retired them here.
 // WB13b (2026-10-01, Mac: "clean up text to be less explanatory and less AI"): each line the event, where and when -
 // the map's ring, the banner and the countdowns say the rest
-export const omenLine = ({ place, at }) => `The sky burns near ${place}. Dagon's faithful open a breach at ${clock(GATE_OPEN_MINUTE)} (${at} your time).`;
 export const riseLine = ({ near, left }) => `Dagon's Breach rises near ${near}. It opens in ${left}.`;
-export const openLine = ({ near, at }) => `Dagon's Breach near ${near} is open. The Covenant seals it at ${clock(GATE_SEAL_MINUTE)} (${at} your time).`;
-export const sealLine = ({ near, at }) => `The Covenant has sealed Dagon's Breach near ${near}. It collapses at ${clock(GATE_WRATH_MINUTE)} (${at} your time).`;   // GATE-COLLAPSE: and says when it goes
 export const wrathLine = ({ near, boss }) => `The Covenant tears Dagon's Breach near ${near} shut. ${boss} is cast back into the Deadlands.`;
 /** WB8c: the Warden's marks said beside the omen (and to a player who comes in later, beside the line they hear first).
  *  WB13b: by name - "Valkynaz Ruhn comes the Rime-Wrought tonight, Colossal and Echoing." - the marks' card and the bar

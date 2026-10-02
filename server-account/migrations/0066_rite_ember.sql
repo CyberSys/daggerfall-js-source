@@ -1,5 +1,8 @@
 -- WB12d (2026-10-01) - THE FAITHFUL'S RITE: AN EMBER MORE.
 --
+-- (0046 on its branch: main's GUILD1d to SEAT-HALL took 0046-0065 first, and
+-- none of them touches `stones`. D1 applies by name in order.)
+--
 --   npx wrangler d1 migrations apply daggerfall-accounts --remote
 --
 -- Applied exactly once through the `d1_migrations` ledger, which the

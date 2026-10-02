@@ -339,7 +339,11 @@ test('AUDIT 63 F22: the gate is Tavern / TG / DB, the picture is clothing record
   // the container still stands. 0xffff is LocationTypes.None.
   assert.equal(DUNGEON_LOOT_KEYS[0xffff], undefined);
   assert.deepEqual(addPileLootExtras(generateItems('-', { level: 1, gender: 'male' }), '-'), []);
-  const off = run(TAVERN, 0xffff);
+  // the dice held high: LR1's unique find (lootRarity.js rollUniqueFinds) adds to ANY pile, an empty one too
+  const dice = Math.random;
+  Math.random = () => 0.999;
+  let off;
+  try { off = run(TAVERN, 0xffff); } finally { Math.random = dice; }
   assert.equal(off._piles.length, 1, 'the container stands on an out-of-range location');
   assert.deepEqual(off._piles[0].items, [], '...holding what the empty matrix gave it');
 

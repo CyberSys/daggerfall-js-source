@@ -26,27 +26,18 @@
 //   systems/chopAct.js; the Wood-Axe draws DFU's War Axe in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { trees, nodeKey, WOOD_TABLES } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, woodAxeBand, chopsFor, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { createChopAct } from '../systems/chopAct.js';
 import { FT } from '../systems/foragingLaw.js';
-import { foragingActRefusal, foragingToolIn } from '../systems/foragingInstall.js';
+import { foragingActRefusal, foragingToolIn, actChecksRefusal } from '../systems/foragingInstall.js';
 import { materialLabel } from '../systems/profItems.js';
 import { liveStat } from '../systems/statMods.js';
 import { getPref } from '../systems/uiPrefs.js';
 import { TERRAIN_SIZE } from '../world/terrainSampler.js';
+import { insideRocks, TREE_RECORDS, isTreeRecord, FOREST } from '../world/terrainNature.js';   // NODE-CLEAR: the rock check's one home; FOREST1: and the Tree records', and what the woods are
 
-/** World of Daggerfall's Tree records, by the climate's summer nature archive (LocationHelper.cs billboards). */
-export const TREE_RECORDS = Object.freeze({
-  500: Object.freeze([12, 13, 14, 15, 16, 18, 30]),
-  501: Object.freeze([11, 12, 13, 16, 30]),
-  502: Object.freeze([12, 13, 15, 16, 17, 18, 30]),
-  503: Object.freeze([5, 11, 12, 13, 28, 30]),
-  504: Object.freeze([12, 13, 14, 15, 16, 17, 18, 25, 30]),
-  506: Object.freeze([5, 11, 12, 13, 14, 15, 16, 24, 25, 30]),
-  508: Object.freeze([13, 15, 16, 18, 24, 25, 30]),
-  510: Object.freeze([5, 11, 12, 13, 15, 16, 24, 25, 30]),
-});
-export const isTreeRecord = (baseArchive, record) => !!TREE_RECORDS[baseArchive]?.includes(record);
+/** World of Daggerfall's Tree records (FOREST1: their home is world/terrainNature.js, where the forests read them). */
+export { TREE_RECORDS, isTreeRecord };
 /** The stump a felled tree leaves: the archive's Tree Trunk (record 19) where the table names one; the logs at its foot
  *  the archive's Logs (record 31) where it has them. */
 export const STUMP_RECORD = 19;
@@ -71,19 +62,26 @@ export const axeHandFrame = (swing) => (swing > 0 ? { state: 'StrikeDownRight', 
  * A PIXEL'S TREES AS THE CLIENT STANDS THEM: the law's trees of the day, each at the unclaimed forest tree flat nearest
  * its law point - `{ key, what: 'tree', slot, tier, material, rare, flat, local, lift }`, `local` pixel-local metres,
  * `flat` the forest flat it is (`{ id, group, i, x, y, z }`). A pixel whose forest holds no tree flat stands none.
+ * NODE-CLEAR (AUDIT 2026-10-01 part four): never a flat inside a rock piece (`rocks`, the pixel's) - the next outside.
+ * FOREST1 (AUDIT FOREST1 F3): under Real forests a flat carries how wooded its tile is (`wood`), and the day's trees
+ * stand at the woods' own (FOREST.woods and over) wherever the pixel has any - the plains' lone trees stand only where
+ * a pixel has no wood at all. DFU's scatter carries no `wood`, and every flat of it is the nearest's to take.
  * @param {{ px: number, py: number, day: number, climate: number, confirmed?: boolean,
- *   forest?: { trees: Array<{ id: number, group: string, i: number, x: number, y: number, z: number }> }|null }} p
+ *   forest?: { trees: Array<{ id: number, group: string, i: number, x: number, y: number, z: number, wood?: number }> }|null,
+ *   rocks?: number[][] }} p
  */
-export function standTrees({ px, py, day, climate, confirmed = false, forest = null }) {
+export function standTrees({ px, py, day, climate, confirmed = false, forest = null, rocks = [] }) {
   const out = [];
-  const flats = forest?.trees ?? [];
-  if (!WOOD_TABLES[climate] || !flats.length) return out;
+  const all = forest?.trees ?? [];
+  if (!WOOD_TABLES[climate] || !all.length) return out;
+  const woods = all.filter((f) => (f.wood ?? 0) >= FOREST.woods);   // FOREST1 (F3)
+  const flats = woods.length ? woods : all;
   const claimed = new Set();
   for (const t of trees({ x: px, y: py, day, climate, confirmed })) {
     const lx = t.u * TERRAIN_SIZE, lz = t.v * TERRAIN_SIZE;
     let best = null, bestD = Infinity;
     for (const f of flats) {
-      if (claimed.has(f.id)) continue;
+      if (claimed.has(f.id) || insideRocks(rocks, f.x, f.z)) continue;   // NODE-CLEAR (AUDIT 2026-10-01 part four): never a tree inside a rock piece, where no look reaches it
       const d = (f.x - lx) ** 2 + (f.z - lz) ** 2;
       if (d < bestD) { bestD = d; best = f; }
     }
@@ -156,7 +154,7 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     id: 'tree',
     professions: Object.freeze(['logging']),
     nodesOf({ px, py, day, info, confirmed, entry }) {
-      return standTrees({ px, py, day, climate: info.climate, confirmed, forest: entry.forest ?? null });
+      return standTrees({ px, py, day, climate: info.climate, confirmed, forest: entry.forest ?? null, rocks: entry.rocks ?? [] });   // NODE-CLEAR
     },
     /** A standing tree is the forest's own flat: the node adds none. */
     flatsOf: () => [],
@@ -176,11 +174,14 @@ export function treeKind({ book, renderer = null, flatBatchAabb = null, getTextu
     gone: (n) => book.taken(n.key, 'logs'),
     mark: (n) => (book.taken(n.key, 'logs') ? null : TREE_MARK),   // NODE-MARKS: a standing tree; a felled one's stump none
     tools: Object.freeze([FT.WoodAxe]),   // TOOL-USE: the Wood-Axe's Use at a tree is E there
+    where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID
+    /** PROF-MENU: the menu's title - the tree its wood is. */
+    nodeName: (n) => `${materialLabel(n.material).replace(/ Log$/, '')} Tree`,
     plan(n, { entity, rank, specs }) {
       const plan = treePlan({
         node: n, taken: book.taken(n.key, 'logs'), counting: book.counting(n.key, 'logs'), rank: rank('logging'),
         lumberjack: specs?.('logging')?.[50] === 'lumberjack',
-        axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000),
+        axe: !!foragingToolIn(entity, FT.WoodAxe), storesFull: (key) => storesFullIn(book, key),   // STORES-ROOM: every origin, as the service counts
         today: book.state.today?.logging ?? 0, cap: book.state.caps?.harvests ?? 60,
       });
       return { ...plan, profession: 'logging' };

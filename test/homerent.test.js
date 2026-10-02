@@ -240,7 +240,8 @@ test('HOME-RENT held rent comes with a sale, and a delete waits for it: rent nob
   assert.equal(homeSoldLine(tab.refund, tab.decorBack, tab.rent), 'You sold your home. 2540 gold went to this region\'s bank account, 40 of it rent you had not collected.');
 });
 
-test('HOME-RENT the client\'s registry and door: the town is asked for the playing character, a row keeps its rooms free and its tenancy, a tenant\'s door opens, and the door\'s rows say "Go in" where it opens, "Rent a room" from the cheapest, and a tenant\'s own room to renew (mutants: the character unsent; the tenancy dropped; the rent row where none is free)', async () => {
+test('HOME-RENT the client\'s registry and door: the town is asked for the playing character, a row keeps its rooms free and its tenancy, a tenant\'s door opens, and the door\'s rows say "Go in" where it opens, "Rent a room" from the cheapest, and a tenant\'s own room to renew (mutants: the character unsent; the tenancy dropped; the rent row where none is free)', async (t) => {
+  t.mock.method(Date, 'now', () => T0 * 1000);   // AUDIT SEATS-3 F6: the door asks the clock - a tenancy of T0 + 100 ran out on the real one
   const asked = [];
   const api = {
     town: async (mapId, character) => {
@@ -402,7 +403,7 @@ test('HOME-RENT the host by source: the door lists a tenant\'s and a room-to-ren
   assert.match(wm, /action: \(\) => openHomeRentConfirm\(bd, room, d\)/, 'the price asked before it is paid');
   // PIN MOVED (FIELD BUGS 2026-10-01 RENT-REST): the tenant's bed rides the rest's bag as the home's bed, which stands
   // where a bought house stands (test/fb1001_rent.test.js drives it through canRest)
-  assert.match(wm, /homeBed: homeBedIsMine\(interiorHome, Math\.floor\(Date\.now\(\) \/ 1000\)\),/);
+  assert.match(wm, /homeBed: homeBedIsMine\(interiorHome, Math\.floor\(Date\.now\(\) \/ 1000\)\) \|\| !!interiorSeatHall\?\.member,/);   // PIN MOVED (SEAT-HALL): and the palace holder's members rest there
   assert.match(wm, /if \(home && !home\.own && rentDaysLeft\(home\.tenant, Math\.floor\(Date\.now\(\) \/ 1000\)\) > 0\) say\(rentWelcomeLine/);
   assert.match(wm, /rent: \(\) => decorRentDoor\(\),/);
   assert.match(wm, /if \(!api \|\| !interiorHome\?\.own \|\| !b\) return null;/, 'the owner\'s alone');

@@ -78,7 +78,7 @@ const craft = (who, recipe, extra = {}) => ({ character: who.character, recipe, 
 
 // ─── A TREE ──────────────────────────────────────────────────────────
 
-test('PROF4 service: a tree felled - the law\'s wood\'s logs into the Stores, own; Logging XP 15 x tier; Resin one tree in four; asked again one; a tree once a day; logs, never herbs; the night refuses', async () => {
+test('PROF4 service: a tree felled - the law\'s wood\'s logs into the Stores, own; Logging XP 15 x tier; Resin one tree in four; asked again one; a tree once a day; logs, never herbs; felled by night too (ANY-HOUR)', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   s.setXp(mac, xpForRank(10), 'logging');
@@ -101,8 +101,13 @@ test('PROF4 service: a tree felled - the law\'s wood\'s logs into the Stores, ow
   assert.deepEqual([top.body.qty, top.body.extra], [TREE_YIELD[1], undefined], 'the top: four logs, no Resin');
   const t3 = treeAt(WOODS, GLENUMBRA, OAK, { from: t2.x + 1 });
   assert.deepEqual((await s.call('/v1/prof/harvest', chop(mac, t3, { kind: 'herbs' }), mac.secret)).body, { error: 'prof-kind' });
+  // PIN MOVED (ANY-HOUR, 2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"):
+  // 02:00 refused a tree (`prof-night`, "the wilderness keeps Foraging's day"); now it is felled as at noon
+  const t4 = treeAt(WOODS, GLENUMBRA, OAK, { from: t3.x + 1 });
   clock(secondAt(today() * DAY + 60, 2));
-  assert.deepEqual((await s.call('/v1/prof/harvest', chop(mac, t3, { at: _now - 2 }), mac.secret)).body, { error: 'prof-night' }, 'the wilderness keeps Foraging\'s day');
+  const dark = await s.call('/v1/prof/harvest', chop(mac, t4, { at: _now - 2 }), mac.secret);
+  assert.equal(dark.status, 200, JSON.stringify(dark.body));
+  assert.deepEqual([dark.body.material, dark.body.kind], ['log:oak', 'logs'], 'felled by night');
   clock(NOON);
   s.setXp(mac, xpForRank(9), 'logging');
   assert.deepEqual((await s.call('/v1/prof/harvest', chop(mac, t3), mac.secret)).body, { error: 'prof-rank' }, 'Oak asks Logging 10');
@@ -241,7 +246,7 @@ test('PROF4 service: arrows are twenty at no quality (their record -1), one piec
   assert.deepEqual(s.stores(mac, 'p1:8'), []);
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'arrows:south'), mac.secret)).body.error, 'stores-short', 'the southern Twigs are another material');
   s.setXp(mac, xpForRank(RAM_KIT_RANK), 'carpentry');
-  assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'ramkit:oak'), mac.secret)).body, { error: 'prof-later' });
+  assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'ramkit:oak'), mac.secret)).body, { error: 'stores-short' });   // SEAT2b part two (PIN MOVED): made now - refused for its inputs alone
   s.setXp(mac, 0, 'carpentry');
   s.give(mac, 'plank:oak', 'own', 3);
   assert.deepEqual((await s.call('/v1/prof/craft', craft(mac, 'table-small:oak'), mac.secret)).body, { error: 'prof-rank' }, 'Oak asks Carpentry 10');

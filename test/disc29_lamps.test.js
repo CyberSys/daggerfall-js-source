@@ -142,7 +142,7 @@ test('DISC29-E: BB_VS faces the lamp per vertex - right = up x (lamp - flat) off
   const bb = vs.slice(vs.indexOf('const BB_VS = `'), vs.indexOf('}`;', vs.indexOf('const BB_VS = `')));
   assert.match(bb, /uniform vec4 uFacePoint;/);
   assert.match(bb, /vec3 right = uRight;\n\s+if \(uFacePoint\.w > 0\.5\) \{\n\s+vec2 toLamp = uFacePoint\.xz - vBBBase\.xz;\n\s+float lampDist = length\(toLamp\);\n\s+if \(lampDist > 1e-4\) right = vec3\(toLamp\.y, 0\.0, -toLamp\.x\) \/ lampDist;/);
-  assert.match(bb, /vec3 world = aCenter \+ uOrigin\n\s+\+ right \* \(aCorner\.x \* uSize\.x\)/, 'the quad is placed with that right');
+  assert.match(bb, /vec3 world = aCenter \+ uOrigin\n\s+\+ right \* \((?:aCorner|cn)\.x \* uSize\.x\)/, 'the quad is placed with that right');   // ELITE FOES: `cn` is aCorner, widened only for an elite
   // the same law the replay's per-batch fallback computes: (dz, 0, -dx) / |d| is perpendicular to the lamp's direction
   const faceRight = (lamp, base) => { const dx = lamp[0] - base[0], dz = lamp[2] - base[2], l = Math.hypot(dx, dz); return [dz / l, 0, -dx / l]; };
   const rgt = faceRight([0, 2.5, 0], [3, 0, 4]);

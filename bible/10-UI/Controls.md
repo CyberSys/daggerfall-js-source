@@ -186,6 +186,24 @@ found seventeen things; every one is paid and pinned by execution in `test/kb1_a
 - **The classic grid and mouse popup** no longer offer the two hidden actions' slots.
 - Listeners that hold no host ring (the hotbar, the windows) read keys without writing the host's modifier latch.
 
+## TOUCH-HOLD - Interact on a phone and a pad (2026-10-01 part four, Mac: "Interact button + knife Use")
+
+No Interact existed on a phone or in the pad's shipped layouts, and `Interact` (E) is the professions' start and their
+hold - so a common herb, a body and the net's haul could not be played there. Now:
+
+- **The pad, classic layer**: B (`JoystickButton1`) is `Interact` in the world - a PAD1 secondary row, filled into an
+  old file at the next load like every pad row. B did nothing in the world (DFU's Back answers only while a window is
+  up, and a window's press never reaches the world's edge ring - `ui/input.js`); in a window it is Back still.
+- **The pad, Enhanced Plus**: LT (`JoystickAxis9Button0`) is `Interact` - every Plus button held a row, and a trigger
+  holds while the right thumb draws the knife's line. Recast, which LT held, is the d-pad's right held. Layout 2
+  (`ui/plusPad.js` `PLUS_PAD_LAYOUT_VERSION`): a store on layout 1 moves once, taking back layout 1's Recast on LT
+  where it still stands (`PLUS_PAD_RETIRED`); a row the player set themselves stands. The Controller bindings window
+  has the row.
+- **The touch corner**: its third slot is `Interact` by default (`ui/touchButtons.js`, glyph E, held while the finger
+  is) - the mode cycle and F a slot further in, the corner 16..344 px, inside the widest the HUD keeps clear of.
+- **The prompts**: with a pad in hand the professions' prompts and lines name its button (B, LT, Circle) - the sea's
+  readout's law (AUDIT NAV1); else the key.
+
 ## The defaults
 
 Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane draws exactly these groups. Held so by `test/audit0928_input.test.js` (AUDIT PRE-MERGE 0928 D2: the Come Sail Away table had shown two of its nine rows).
@@ -235,7 +253,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 | Action | Key | Pad | What it does |
 |---|---|---|---|
 | `ActivateCenterObject` | LEFT CLICK |  | Activate (mouse) |
-| `Interact` | E |  | Interact |
+| `Interact` | E | `JoystickButton1` | Interact |
 | `StealMode` | F1 |  | Steal mode |
 | `GrabMode` | F2 |  | Grab mode |
 | `InfoMode` | F3 |  | Info mode |
@@ -293,7 +311,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 
 | Action | Key | Pad | What it does |
 |---|---|---|---|
-| `ActChoice` | UP |  | At an herb patch: the herbs or the Basket; at a body: skin it or search it |
+| `ActChoice` | UP |  | At a profession node: the next of its acts on the list |
 | `Professions` | DOWN |  | Open your Professions and Stores (online) |
 
 ### Game

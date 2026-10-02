@@ -89,7 +89,7 @@ test('GR1: grass records come from the archive\u2019s own texels - none for road
   // GR5: the field follows the eye by CELLS now - filled at the leading
   // edge, freed at the trailing one - rather than re-scattering whole
   // when the eye moved 60m.
-  assert.match(w, /labGrassField\.update\(ex, ez, keep, ground\);/, 'the field follows the eye');
+  assert.match(w, /labGrassField\.update\(ex, ez, keep, ground, slope\);/, 'the field follows the eye');
   assert.match(w, /labGrass\.draw\(proj, view, new Float32Array\(cam\.pos\), now \/ 1000,/);
   assert.match(w, /renderer\.markForeignPass\(\);   \/\/ EV6: the grass changed programs/);
 });
@@ -151,7 +151,7 @@ test('GR2: darker green and a billboard about Y in the lab and the game alike; o
   // GR5 replaced the time-sliced walk with a world-anchored field filled
   // a cell or two a frame - the same promise (no stall) kept a
   // different way, pinned in the GR5 tests below.
-  assert.match(w, /labGrassField\.update\(ex, ez, keep, ground\);/, 'four milliseconds a frame');
+  assert.match(w, /labGrassField\.update\(ex, ez, keep, ground, slope\);/, 'four milliseconds a frame');
   // GR5: nothing is swapped in whole any more - a cell arrives by one
   // bufferSubData into its own slot. The whole-field swap WAS the hitch.
   assert.doesNotMatch(w, /labGrass\.set\(/, 'no whole-field swap');
@@ -211,7 +211,8 @@ test('GR4: the game feeds each tile\'s MEAN colour, averaged once where the texe
   // color32 in audit68_worldjs), learned beside grassRecords whenever the
   // SCENE's map lacks the archive, not on the renderer's cache miss.
   const learn = world.slice(world.indexOf('if (!grassRecords.has(groundArchive)) {'), world.indexOf('const terrain = renderer.createTerrainSurface('));
-  assert.match(learn, /groundMeanColour\.set\(groundArchive, layers\.map\(tileMeanColour\)\);/);
+  // GRASS-LIT2: off the tile set that is DRAWN - a texture mod's, where one dresses the archive (test/grasslit2.test.js)
+  assert.match(learn, /groundMeanColour\.set\(groundArchive, drawnMeans \?\? layers\.map\(tileMeanColour\)\);/);   // AUDIT GRASS-LIT2 B2: the uploaded layers' means
   // ground(x, z) is keep's OWN lookup - same pieces, same tile maths -
   // answering with the colour instead of the height, so the root under
   // a blade takes the colour of the very tile keep let it stand on.
@@ -219,7 +220,7 @@ test('GR4: the game feeds each tile\'s MEAN colour, averaged once where the texe
   assert.match(g, /const tx = Math\.floor\(lx \/ 6\.4\); const tz = Math\.floor\(lz \/ 6\.4\);/);
   assert.match(g, /const rec = p\.tilemapBytes\[tz \* TERRAIN_TILE_DIM \+ tx\] >> 2;/);
   assert.match(g, /return groundMeanColour\.get\(p\.groundArchive\)\?\.\[rec\] \?\? null;/);
-  assert.match(world, /labGrassField\.update\(ex, ez, keep, ground\);/, 'and the field is handed it');
+  assert.match(world, /labGrassField\.update\(ex, ez, keep, ground, slope\);/, 'and the field is handed it');
 });
 
 // ── GR5: THE FIELD IS ANCHORED TO THE WORLD ───────────────────────
@@ -285,8 +286,8 @@ test('GR5: a cell grows the same blades whoever is looking, and walking touches 
 
 test('GR5: the host runs the field, not the walk', () => {
   const world = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
-  assert.match(world, /labGrassField = createGrassField\(labGrass, \{ keep, ground, density: grassDensity \}\);/);   // PERF1: at the pane's fraction of the lab's field
-  assert.match(world, /labGrassField\.update\(ex, ez, keep, ground\);/, 'this frame\'s keep/ground, since the near pieces move with the eye');
+  assert.match(world, /labGrassField = createGrassField\(labGrass, \{ keep, ground, slope, density: grassDensity \}\);/);   // PERF1: at the pane's fraction of the lab's field
+  assert.match(world, /labGrassField\.update\(ex, ez, keep, ground, slope\);/, 'this frame\'s keep/ground, since the near pieces move with the eye');
   assert.doesNotMatch(world, /placeLabGrassSteps|labGrassWalk\b|labGrass\.set\(/, 'the whole-field walk and its 60MB swap are gone');
   assert.match(world, /    arrows\.arrows\.length = 0;[^\n]*\n(    \/\/[^\n]*\n)+    labGrassField = null;\n/, 'a new world starts empty (PERF-EXT21: the teleport says so; the crossing keeps its field)');
   const src = readFileSync(new URL('../src/render/labGrass.js', import.meta.url), 'utf8');

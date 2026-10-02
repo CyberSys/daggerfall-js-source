@@ -137,6 +137,7 @@ export class LookFilter {
   constructor() {
     this.residualYaw = 0;
     this.residualPitch = 0;
+    this.turnYaw = 0;   // AUDIT CLIMB-ARC F13: the game's turns, owed apart from the mouse's look (settle never drops them)
   }
 
   /** SetFacing -> Init (:274-279): lookTarget = lookCurrent - the owed
@@ -155,6 +156,17 @@ export class LookFilter {
    *  sway to a key that is not a hand moving the mouse. */
   centerPitch(cam) {
     this.residualPitch = -(cam?.pitch ?? 0);
+  }
+
+  /** CLIMB4: a TURN the game asks of the view (the climb's - facing the wall it lowers onto, turning with a corner, the
+   *  eject's way): owed and paid out like any look, under the same pitch clamp, but never latched as the frame's look -
+   *  the weapon widget sways to a hand on the mouse, not to the body turning on the wall (centerPitch's way). */
+  turn(dyaw, dpitch = 0) {
+    // AUDIT CLIMB-ARC F13: a turn is the game's, not the hand's - owed apart, so a held swing's settle (WeaponSwingMode
+    // 0, every frame) cannot drop the corner it was turning the view round; the feel eases it already, so it is paid
+    // whole at the tick
+    this.turnYaw += dyaw;
+    this.residualPitch += dpitch;
   }
 
   /** ApplyLook's `lookTarget += delta` (:126): the scaled deltas, in
@@ -176,7 +188,8 @@ export class LookFilter {
     const s = frameSmoothing(_controllerLook && smoothing < 0.5 ? 0.5 : smoothing, dt);   // GP1: the controller's floor
     const stepYaw = this.residualYaw * (1 - s);
     const stepPitch = this.residualPitch * (1 - s);
-    cam.yaw += stepYaw;
+    cam.yaw += stepYaw + this.turnYaw;   // AUDIT CLIMB-ARC F13: the game's turn, whole
+    this.turnYaw = 0;
     cam.pitch += stepPitch;
     this.residualYaw -= stepYaw;
     this.residualPitch -= stepPitch;

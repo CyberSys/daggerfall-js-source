@@ -13,7 +13,7 @@ import {
   RITE_BUCKET, RITE_GROUND_EVERY, RITE_SIGIL_DRAW_M, RITE_FLAME_SCALE, RITE_FLAME_PHASES,
 } from '../src/scenes/riteHost.js';
 import { riteLocalOf, riteFaithfulOf, RITE_REACH_M, RITE_WORD_MS, RITE_SUMMONER_CAREER, RITE_HELPERS_MAX } from '../src/net/gateRite.js';
-import { gateTimes, gateSpotLocal, gateModsOf, gateBossOf, marksLine, omenLine, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
+import { gateTimes, gateSpotLocal, gateModsOf, gateBossOf, marksLine, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
 import { worldRoom, validRiteOut, RITE_COUNT_MAX, RITE_BY_MAX } from '../src/net/wire.js';
 import { riteLayout, buildRiteModel, RITE_BRAZIERS, RITE_BRAZIER_R, RITE_BRAZIER_W, RITE_RING_R, RITE_TENT_R, RITE_SIGIL_LIFT, RITE_SIGIL_REACH, RITE_SIGIL_R, RITE_ALTAR } from '../src/world/riteModel.js';
 import { GATE_PLINTH_RECORD, GATE_STONE_RECORD, RITE_SIGIL_RECORD, GATE_ARCHIVE } from '../src/world/gateModel.js';
@@ -930,7 +930,7 @@ test('WB12d the spoils: a receipt of the rite alone pays its ember and nothing e
   assert.match(read('src/scenes/world.js'), /spoilsPool\.grant\(\{ day: c\.d, seed: c\.c, level: spoilsLevel\(playerEntity\.level \?\? 1, c\.l\), acct: c\.s, claims: c, text: c\.x === 'rite' \? SPOILS_TEXT\.rite : SPOILS_TEXT\.granted \}\)/);
 });
 
-test('WB12d the claim: a rite\'s own receipt is "Rite recorded." and closes no breach; refused its claims by a service from before acct46, it is kept for its week - for that refusal alone (mutants: let go; said a breach; kept on any refusal; the verdict blind to the receipt)', async () => {
+test('WB12d the claim: a rite\'s own receipt is "Rite recorded." and closes no breach; refused its claims by a service from before acct62, it is kept for its week - for that refusal alone (mutants: let go; said a breach; kept on any refusal; the verdict blind to the receipt)', async () => {
   assert.equal(GATE_CLAIM_TEXT.rite, 'Rite recorded.');
   assert.equal(gateClaimVerdict({ ok: false, error: 'receipt', why: 'claims' }, { x: 'rite' }), 'keep');
   assert.equal(gateClaimVerdict({ ok: false, error: 'receipt', why: 'expired' }, { x: 'rite' }), 'done');
@@ -952,7 +952,7 @@ test('WB12d the claim: a rite\'s own receipt is "Rite recorded." and closes no b
   };
   assert.deepEqual(await run('rite', { ok: true, data: { recorded: true, rite: true, stones: 1, closed: 3 } }), { said: [GATE_CLAIM_TEXT.rite], kept: 0 }, 'its own line, no breach closed, let go');
   assert.deepEqual(await run('dealt', { ok: true, data: { recorded: true, stones: 1, closed: 3 } }), { said: [GATE_CLAIM_TEXT.recorded(3)], kept: 0 });
-  assert.deepEqual((await run('rite', { ok: false, error: 'receipt', why: 'claims' })).kept, 1, 'a service from before acct46: kept');
+  assert.deepEqual((await run('rite', { ok: false, error: 'receipt', why: 'claims' })).kept, 1, 'a service from before acct62: kept');
   assert.deepEqual((await run('dealt', { ok: false, error: 'receipt', why: 'claims' })).kept, 0, 'a fighter\'s refused for good');
 });
 
@@ -975,7 +975,6 @@ test('WB12d the omen\'s order: right after the omen\'s line, before tonight\'s m
   assert.deepEqual(ok.seen, [[DAY, PX, PY]], 'asked of this breach\'s circle, once');
   assert.deepEqual(run({ broken: true }).said.slice(1), [marks]);
   assert.deepEqual(run({ ready: false }).said.slice(1), [marks]);
-  void omenLine;
   const w = read('src/scenes/world.js');
   assert.match(w, /riteBroken: \(day, s\) => !!riteHost\?\.isBroken\(day, s\?\.px, s\?\.py\),/);
   assert.match(w, /riteReady: \(\) => !!online\?\.riteOk,/);

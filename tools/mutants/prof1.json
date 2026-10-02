@@ -282,15 +282,6 @@
     ]
   },
   {
-    "name": "PROF1-31-gathering-by-night",
-    "file": "server-account/src/professions.js",
-    "old": "  if (!deep && !isBody && !isForagingDaylight(sharedHourAt(at))) return { error: 'prof-night' };",
-    "new": "",
-    "tests": [
-      "test/prof1_service.test.js"
-    ]
-  },
-  {
     "name": "PROF1-32-a-lie-on-a-confirmed-pixel",
     "file": "server-account/src/professions.js",
     "old": "  if (confirmed && (fact.climate !== climate || fact.region !== region)) {\n",

@@ -297,19 +297,21 @@ test('AUDIT NAV2 F20 helmWay.js\'s measured figures are the runtime\'s, like-for
 
 test('AUDIT NAV2 F31 the frame\'s gate, lifted from the world: while the guns are laid Interact - the readout\'s "E: hold fire" - holds fire as Activate does, spent before a patch or the ladder (whose naval arm grappled a struck ship with a broadside owed on the release); with nothing laid E is the ladder\'s as ever (mutants: E not the hold, the patch taking the hold\'s press)', () => {
   const start = WORLD.indexOf('        // GUN-HOLD: Activate while the guns are laid holds fire');
-  // PIN MOVED (the merge with AUDIT 32 H5: a click mid-act is the act's)
-  const ifLine = '        if (((_act.activate && !gatherHost?.acting()) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
+  // PIN MOVED (the merge with AUDIT 32 H5: a click mid-act is the act's; AUDIT 2026-10-01 part four CLICK-LIFT: and the
+  // click an act took, to its release - `_activateDown` the gate's press, handed in)
+  // PIN MOVED (PROF-MENU: a click a profession node's list took is the list's - `nodeClicked`)
+  const ifLine = '        if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
   const end = WORLD.indexOf(ifLine, start);
   assert.ok(start > 0 && end > start, 'the gate is where it was');
   const cond = ifLine.trim().slice('if ('.length, -') {'.length);
   // eslint-disable-next-line no-new-func
-  const gate = new Function('_act', 'naval', 'magic', 'gatherHost', 'travelView', 'pressed', 'latch', 'keys', 'modes',
+  const gate = new Function('_act', 'naval', 'magic', 'gatherHost', 'travelView', 'pressed', 'latch', 'keys', 'modes', '_activateDown',
     `${WORLD.slice(start, end)}return { holdFire: _holdFire, nodeTook, ladder: !!(${cond}) };`);
   const run = ({ activate = false, cast = false, e = false, aiming = true } = {}) => {
     const calls = [];
     const naval = { aiming, holdFire() { calls.push('holdFire'); return aiming; } };
-    const gatherHost = { acting: () => false, press: () => { calls.push('patch'); return false; } };
-    const r = gate({ activate, cast }, naval, { interceptAttack: () => calls.push('cast') }, gatherHost, null, (_e, _k, a) => e && a === 'Interact', { edge: null }, null, { transitioning: false });
+    const gatherHost = { acting: () => false, press: () => { calls.push('patch'); return false; }, clickTaken: () => false };
+    const r = gate({ activate, cast }, naval, { interceptAttack: () => calls.push('cast') }, gatherHost, null, (_e, _k, a) => e && a === 'Interact', { edge: null }, null, { transitioning: false }, activate);
     return { ...r, calls };
   };
   const laidE = run({ e: true });

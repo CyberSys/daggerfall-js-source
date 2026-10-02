@@ -42,7 +42,7 @@ import { announceSkillRaise, announceMastery, announceSkillMilestone } from '../
 import { masterSkillsBoxDue, setMasterSkills, MASTER_SKILLS_OFFER_ROWS, MASTER_SKILLS_INFO_ROWS, MASTER_SKILLS_DECLINED_TEXT, MASTER_SKILLS_INTRO_ROWS, nextMasteryChoice, masteryChoiceRows, masterSkill } from '../systems/masterSkills.js';   // SOFTCAP3/4
 import { DOOR_SPELL_TEXT, castBySkeletonKey } from '../systems/mysticism.js';   // X1: the door-spell alert lines; D9: Open.CheckCastByItem
 import { raiseSkills } from '../systems/advancement.js';   // AUDIT 23 (entity-1): the rest-end raise
-import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
+import { tickPlayerMinutes, runMagicRoundsFor, worldMinutes, skyMinutes, setWorldMinutes, ownMinutes, advanceOwnMinutes, tickInFlight, MINUTES_PER_DAY, CLASSIC_MINUTES_PER_SECOND, sharedClockOn } from '../systems/worldTick.js';
 import { REST_KIND, REST_TEXT_SURVIVAL, restCost, restHour, stiffen } from '../systems/survival/rest.js';   // SURV4: the rest law - a bed and a fire sleep, the window alone is rough
 import { survivalRules } from '../systems/survival/switch.js';   // SURV-TIERS: the rest's price is the tier's, read at the open
 import { sleepStage } from '../systems/survival/needs.js';   // AUDIT SURV-TIERS (the third pass): the rough night's lesser sleep, said
@@ -62,7 +62,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../pla
 import { FOOTSTEP_VOLUME } from '../systems/footsteps.js';   // AUDIT 58: PlayerFootsteps.FootstepVolumeScale (:30), which its one-shots carry too
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { SOUND } from '../systems/soundClips.js';
-import { surfacePlayer, hurtPlayer, duelSpare, staffFly } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time
+import { surfacePlayer, hurtPlayer, duelSpare, staffFly, levitateWarded, freeFlight } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { readSpellsStd, spellsByIndexMap } from '../formats/spellsStd.js';   // G4: the two magic registries, one home
 import { readMagicDef } from '../formats/magicDef.js';
 import { setMagicItemTemplates, setSpellRecordsByIndex } from '../systems/loot.js';
@@ -81,6 +81,7 @@ import { installDetailedShipsArt } from '../systems/detailedShips.js';   // DS1:
 import { installWarmAshesShips } from '../systems/warmAshesShips.js';   // WA1: Warm Ashes - Ships' quest list and save slot
 import { installForaging } from '../systems/foragingInstall.js';   // FORAGE1: Foraging's quest list, tools, foods, pictures and console command
 import { installSmithing } from '../systems/smithItems.js';   // PROF3: the Repair Kit's use
+import { installHealingSupply } from '../systems/healingSupply.js';   // POTION-COMMON: Potions of Healing in the loot
 import { installRaidingParties } from '../systems/raidingParties.js';   // RAID1: World Events - Raiding Parties' save slot
 import '../systems/gateSpoils.js';   // WB5: the Sigil Stone's own template (570) registers in every host, so a save carrying one loads it in any of the four
 import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this character bought today) registers its save slot in every host, so a save made anywhere carries it
@@ -543,6 +544,11 @@ export function createSkyController(gl, params) {
         // hours of wind they missed; a load to an EARLIER clock costs
         // no minutes (the jump stamp takes the row whole either way).
         const nowMin = extra?.classicMinutes ?? 0;
+        // TIME1: TWO MINUTES. `classicMinutes` is the clock the presentation WALKS - dt, the ease, the wind, the drift, the
+        // clouds' boil - the event clock online, so every TimeScale 12 constant below stays true; `skyMinutes` is the one
+        // it READS the date off - the moons' phases, the season, the mod's calendar - the sky's own clock online. A host
+        // that hands one gets the one clock for both, as offline.
+        const skyNow = extra?.skyMinutes ?? nowMin;
         const dt = lastMin === null || nowMin < lastMin ? 0 : nowMin - lastMin;   // GAME MINUTES
         lastMin = nowMin;
         const dtReal = weatherAt === null ? 0 : Math.min(MAX_DELTA_SECONDS, Math.max(0, seconds - weatherAt));   // the mod's own frame (DS1): Time.deltaTime, clamped as Unity clamps it
@@ -594,9 +600,9 @@ export function createSkyController(gl, params) {
           // latch included - and the skybox's _LightColor0 takes the
           // SAME number the world's key light takes, as in DFU. The
           // calendar recompute stays for a caller that passes no `sun`.
-          const winter = seasonValue(dateFromClassicMinutes(nowMinutes)) === SEASONS.Winter;
+          const winter = seasonValue(dateFromClassicMinutes(skyNow)) === SEASONS.Winter;   // TIME1: the sky's season
           const st = dynamic.tick({
-            minuteOfDay, classicMinutes: nowMinutes, weather: skyWord, seconds, dt: dtReal,   // EVENT1: the sky's word
+            minuteOfDay, classicMinutes: skyNow, weather: skyWord, seconds, dt: dtReal,   // EVENT1: the sky's word; TIME1: its date (the moons) the sky's
             weatherScale: extra?.sun ?? weatherSunlightScale(weatherName, winter),   // SunlightManager.ScaleFactor, as WeatherManager sets it
             playerPos: extra?.pos ?? null,   // FlashOnce reads playerTransform.position live (MODS AUDIT)
           });
@@ -608,7 +614,7 @@ export function createSkyController(gl, params) {
           // the MOD's horizon; and the ground's deck takes their shadow.
           if (clouds) {
             const cb = dreadW > 0 ? { word: skyWord, row: weatherRowNow } : cloudBaseOf(extra, weatherName, weatherRowNow);   // WEATHER3c; EVENT1: the dread's deck over the map's clear air
-            clouds.setState(cloudsStateUnderMod(st, dynamicMoons, { minuteOfDay, weather: cb.word, classicMinutes: nowMinutes, seconds, drift: driftXZ, row: cb.row }),
+            clouds.setState(cloudsStateUnderMod(st, dynamicMoons, { minuteOfDay, weather: cb.word, classicMinutes: nowMinutes, skyMinutes: skyNow, seconds, drift: driftXZ, row: cb.row }),
               cb.row, cb.word, easeDt, driftXZ, (extra?.flash ?? 0) + dreadGlow, extra?.pos ?? null, extra?.cells ?? null);   // WEATHER2c: the field's cells; EVENT1: the red strikes' glow
             if (clouds.shadow) Object.assign(dynamicDeck, clouds.shadow);
           }
@@ -618,6 +624,7 @@ export function createSkyController(gl, params) {
           minuteOfDay,
           weather: skyWord,   // EVENT1
           classicMinutes: extra?.classicMinutes ?? 0,
+          skyMinutes: skyNow,   // TIME1: the moons' date
           seconds,
           drift: driftXZ,   // WIND2
           row: weatherRowNow,
@@ -631,7 +638,7 @@ export function createSkyController(gl, params) {
           // far cumulus is lit white while the storm overhead is dark by its own grey. The dome, the fog and the sun
           // keep the worn word, eased on the front. Off the lane the clouds take the dome's own state, as before.
           const cb = dreadW > 0 ? { word: skyWord, row: weatherRowNow } : cloudBaseOf(extra, weatherName, weatherRowNow);   // EVENT1: as above
-          const cloudSky = cb.row === weatherRowNow ? enhancedSky.state : skyState({ minuteOfDay, weather: cb.word, classicMinutes: extra?.classicMinutes ?? 0, seconds, drift: driftXZ, row: cb.row });
+          const cloudSky = cb.row === weatherRowNow ? enhancedSky.state : skyState({ minuteOfDay, weather: cb.word, classicMinutes: extra?.classicMinutes ?? 0, skyMinutes: skyNow, seconds, drift: driftXZ, row: cb.row });
           clouds.setState(cloudSky, cb.row, cb.word, easeDt, driftXZ, (extra?.flash ?? 0) + dreadGlow, extra?.pos ?? null, extra?.cells ?? null);   // WEATHER2c: the field's cells; EVENT1: the red strikes' glow
         }
         // VC4: the ground's deck carries the slab's own shadow map and its square
@@ -770,6 +777,22 @@ export function parkourSwitchOn(search) {
   return (isOnlinePage(search) || isEnhanced(search)) && !!row;
 }
 
+/** FOREST1: THE REAL FORESTS' SWITCH - the Features row (`realForests`) on
+ *  the enhanced skin, and on for everyone online whatever their skin: the
+ *  woods are the ground Logging's trees stand on, and the room agrees on
+ *  its ground (parkourSwitchOn's shape). `?forests=off` the kill door, offline. The
+ *  world host reads it once, at its mount (a flip reaches the next world). */
+export function realForestsOn(search) {
+  // AUDIT FOREST1 F6: the kill door is offline's alone - online the woods are the room's ground, and a peer who shut
+  // them would stand Logging's trees where nobody else sees a tree
+  if (pageParam('forests', search) === 'off' && !isOnlinePage(search)) return false;
+  const row = onlineForcedPref('realForests', search) ?? getPref('realForests');
+  return !!row && (isOnlinePage(search) || isEnhanced(search));
+}
+/** FOREST1: the LocationTypes (DFRegion.cs:66-86) the woods close round - DungeonLabyrinth 4, DungeonKeep 7,
+ *  ReligionCult 9, DungeonRuin 10, Graveyard 12, Coven 13. Every other place stands in cleared fields. */
+export const FOREST_HIDDEN_LOCATION_TYPES = Object.freeze(new Set([4, 7, 9, 10, 12, 13]));
+
 /** CLIMB1: the enhanced climb's deps every host wires the same way - the
  *  switch, read live (the row takes effect at once), and the Climbing
  *  skill's reads, the same the classic climb's chance takes (climbingDeps:
@@ -779,7 +802,9 @@ export function parkourSwitchOn(search) {
  *  CLIMB2: the body's Fatigue over its most (the grip's time), the pack's
  *  weight over what it can carry (the reach), and the Climbing tally the free
  *  climb takes at the classic climb's cadence (climbingDeps' own). */
-export function parkourDeps(entity, say = null) {
+/** CLIMB-NODE (FIELD BUGS 2026-10-01, Mac: "Hold it at nodes"): `hold` - whether the free climb's walk-in start is held
+ *  (the world host's: a profession's node under the look, or an act playing - player/motor.js _freeStart). */
+export function parkourDeps(entity, say = null, { hold = null } = {}) {
   return {
     enabled: () => parkourSwitchOn(),
     inputs: () => {
@@ -795,6 +820,7 @@ export function parkourDeps(entity, say = null) {
     },
     tally: () => tallyMovementSkill(entity, SKILLS.Climbing),
     say,
+    hold,
   };
 }
 
@@ -1024,7 +1050,7 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // DW-D: Iliac Puddle No More's forge rides this ONE write - LevitateMotor.IsSwimming's setter arms CancelMovement
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
-  player.levitating = hasActiveEffect(entity, 'levitate') || staffFly();   // STAFF1: /fly
+  player.levitating = hasActiveEffect(entity, 'levitate') && !levitateWarded() || staffFly() || freeFlight();   // STAFF1: /fly   // AUDIT-SEATS G5: a siege's ward holds the effect (`&&` first: the staff's /fly is never warded)   // AUDIT-SEATS G4: a battle's spectator flies
   player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }
@@ -1287,6 +1313,7 @@ export function ensureAudio(fetch = fetchBytes) {
     .catch(() => 0);
   installRaidingParties();   // RAID1: the mod's save record, in every host - a save made in a dungeon carries the day's raids too
   installSmithing();   // PROF3: the Repair Kit's use on the item-use door, in every host (a kit is the pack's, offline too)
+  installHealingSupply();   // POTION-COMMON: Potions of Healing in the loot - after the smithing install, its field kit's roll first
   // MW-IMPORT: same seam, same never-traps rule - no data means the
   // opt-in layer stays inert, which is its resting state anyway.
   const morrowind = registerMorrowindData().catch(() => 0);
@@ -2007,7 +2034,7 @@ export function wireInfectionVideos(renderer, { textAt = null, factionDict = nul
       const province = dict && regionIndex >= 0 ? findFactions(dict, { type: FACTION_TYPES.Province, region: regionIndex })[0] : null;
       return vampireClanForFaction(province);
     },
-    hourNow: () => Math.floor((worldMinutes() % MINUTES_PER_DAY) / 60),
+    hourNow: () => Math.floor((skyMinutes() % MINUTES_PER_DAY) / 60),   // TIME1: the hour of the sky
   });
 }
 
@@ -2157,7 +2184,7 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
  *  through to `cam.yaw += movementX` - so every swing inside a
  *  building or a dungeon turned the camera with it.
  *
- *  `dungeon.js:280`, the standalone host, has always had the right
+ *  `dungeon.js:283`, the standalone host, has always had the right
  *  shape: attack, then return. It has no modal sibling to share the
  *  drag with, which is why it never needed a mode in the test at all.
  *
@@ -2347,7 +2374,7 @@ export function createRestDeps(entity, opts = {}) {
       return healed;
     },
     fullyHealed: () => restFullyHealed(entity),
-    sharedMinutes: () => (sharedClockOn() ? worldMinutes() : null),   // OL2: the window's world-clock line online, and the session's quest gate (RESTX2) - LIVED1: the rest's own hours are the character's
+    sharedMinutes: () => (sharedClockOn() ? skyMinutes() : null),   // OL2: the window's world-clock line online (TIME3: the session's quest gate, RESTX2's, is gone) - LIVED1: the rest's own hours are the character's; TIME1: the world time it says is the sky's
     dead: () => entity.health <= 0,
     vitals: () => ({
       health: entity.health, maxHealth: entity.maxHealth,
@@ -2404,6 +2431,14 @@ export function liveEnchantFoes(mode, dungeonCtx, exteriorPool, insidePool) {
   if (mode === 'interior') return insidePool?.() ?? [];
   if (mode === 'exterior') return exteriorPool?.() ?? [];
   return [];
+}
+
+/** CAST-USE (FIELD BUGS 2026-10-01): the player-cast engine live in `mode` - the one whose click and frame fire
+ *  a ready. Underground that is the dungeon context's OWN (dungeonContext.js builds one and drives it: its
+ *  playerAttackInput eats the click, its frame calls firePending); above ground and indoors it is the host's `own`
+ *  (worldModes takes the host's for the interior arm). A context left from a descent never answers outside one. */
+export function liveCastEngine(mode, dungeonCtx, own) {
+  return (mode === 'dungeon' ? dungeonCtx?.castEngine : null) ?? own;
 }
 
 /** The sinks for a record liveEnchantFoes handed out.

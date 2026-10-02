@@ -284,7 +284,7 @@ test('AUDIT 65 XL-5: a climb writes IsStandingStill - the cached standing/half-s
   assert.match(climb, /this\.standing = this\.grounded;[\s\S]{0,400}return true;/, '_climbStep writes standing before its `return true`');
   // CLIMB1: the fourth - the enhanced climb's move owns its step above the
   // classic climb's, carries no input vector, and mirrors the pair itself.
-  const advance = motorSrc.slice(motorSrc.indexOf('  _parkourAdvance(dt) {'), motorSrc.indexOf('\n  }\n', motorSrc.indexOf('  _parkourAdvance(dt) {')));
+  const advance = motorSrc.slice(motorSrc.indexOf('  _parkourAdvance(dt, spent = false) {'), motorSrc.indexOf('\n  }\n', motorSrc.indexOf('  _parkourAdvance(dt, spent = false) {')));
   assert.match(advance, /this\.standing = this\.grounded;\n    this\.movingLessThanHalfSpeed = /, '_parkourAdvance writes the cached pair');
   // CLIMB2: the fifth - the enhanced climb's hold on the wall owns its step too, with no input vector.
   const wall = motorSrc.slice(motorSrc.indexOf('  _wallStep(dt, input, yaw, pk) {'), motorSrc.indexOf('\n  }\n', motorSrc.indexOf('  _wallStep(dt, input, yaw, pk) {')));

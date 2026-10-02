@@ -87,12 +87,13 @@ import { rentRoomsView, rentAnchorOfRoom } from '../systems/homeRent.js';   // H
 import { createDecorPlacer, DECOR_TURN_STEP, DECOR_TURN_FINE, DECOR_RAISE_STEP, DECOR_RAISE_FINE } from '../systems/decorPlacer.js';
 import { createDecorButton, createDecorPanel, createDecorBar, decorWhyNot } from '../ui/decorPanel.js';
 import { DECOR_CAP, DECOR_PRICE_PER_METRE, DECOR_HIDDEN_CAP, decorPrice, decorPieceOf, decorRefund, decorRescale, mintDecorId, DECOR_STATIONS, DECOR_STATION_FEES, DECOR_STATION_NAMES } from '../net/decorLaw.js';
-import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind } from '../systems/decorCatalogue.js';
+import { decorKey, DECOR_KINDS, decorFlatLight, modelKind, flatKind, decorRoomEntries } from '../systems/decorCatalogue.js';
 import { decorOwnEntry, decorItemName, decorMountDye, decorMountDyeTarget } from '../systems/decorItems.js';
 import { decorFurnishingEntry, isFurnishing } from '../systems/decorFurnish.js';
 import { itemLongName } from '../systems/itemInfo.js';
 import { decorMatrix, decorKeyOf, loadMountPicture, decorMountQuad, decorMountFloats, DECOR_MODEL_RETRY_MS, MW_STAND_ARCHIVE } from './decorRoom.js';
 import { decorIsMount, decorFlatMirrored } from '../net/decorLaw.js';
+import { SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the Charter Room's rule, in its words
 import { forgeOffered, PROF_STATIONS, stationColdLine } from '../ui/profPages.js';   // AUDIT 29 B2; PROF4: the workbench too
 /** HOME-STATIONS: an online home whose service does not keep a station yet (one from before this) - said, and nothing paid. */
 export const DECOR_STATION_UNKEPT = 'Your home could not keep a station yet - nothing was paid.';
@@ -313,7 +314,8 @@ export const eyePoint = (collider, eye, dir, skip = null) => eyeHit(collider, ey
  *   renderer         - drawMesh, panelFrame, createBillboardBatch, destroyBillboardBatch
  *   pool             - the room's placed pieces (scenes/decorRoom.js)
  *   names            - the host's Map of hover names by piece key, filled once the catalogue is read
- *   room()           - where the player may decorate now: { kind: 'home'|'house'|'ship', where, mapId?, buildingKey? },
+ *   room()           - where the player may decorate now: { kind: 'home'|'house'|'ship', where, mapId?, buildingKey?, hall? }
+ *                      (GUILD1d: `hall` - a guild's hall, an online home its keepers furnish),
  *                      or null
  *   base()           - BASE-HIDE: the room's own furniture, piece by piece (scenes/decorBase.js), or null
  *   scanDeps()       - systems/decorScan.js's deps (the blocks, the two measures)
@@ -516,6 +518,24 @@ export function createDecorTool(deps) {
   }
   /** Where a placed piece stands, in this visit's frame. */
   const piecePoint = (piece) => { const o = deps.origin?.() ?? [0, 0, 0]; return [o[0] + piece.pos[0], o[1] + piece.pos[1], o[2] + piece.pos[2]]; };
+  /** SEAT-HALL (Seats-Arc 7.2: "the Charter Room - the palace's largest room"; "the decor tool refuses a piece within 2 m
+   *  of any NPC or quest marker"): why the piece being placed cannot stand in a palace's Charter Room, or null - outside the
+   *  palace's largest room (its rooms once found: the most floor), or too near the court (the host's `charterClear`). Null
+   *  in every other room. */
+  function charterWhyNot(p) {
+    const r = deps.room?.();
+    if (!r?.charter || !p?.piece) return null;
+    const at = piecePoint(p.piece);
+    const list = roomList();
+    if (list) {
+      const big = list.reduce((a, b) => (b.cells > a.cells ? b : a));
+      if (rooms.roomOf(at)?.id !== big.id) return SEAT_HALL_TEXT.room;
+    }
+    return deps.charterClear?.(at) ?? null;
+  }
+  /** Why the piece cannot stand where the ghost shows it: off a yard's lot (HOME-YARD), outside the Charter Room's rule
+   *  (SEAT-HALL), or null. */
+  const whyNotHere = (p) => deps.placeOk?.(p.piece, footprintOf(p)) ?? charterWhyNot(p);
   /** The room chosen: the owner's pick, else the one the eye stands in, else the first. */
   const roomChosen = (list) => list.find((r) => r.id === roomPick) ?? rooms.roomOf(deps.eye?.() ?? null) ?? list[0];
   /** DECOR-ROOMS: WHERE A FLIGHT BEGINS - over the floor of the room chosen (a piece being moved: its own room's) when
@@ -603,11 +623,13 @@ export function createDecorTool(deps) {
       // DECOR-ROOMS: a house of two rooms or more - each one's name, and the one chosen (the panel's tabs, and its lists)
       rooms: list ? list.map((room) => ({ id: room.id, name: room.name })) : null,
       roomId: list ? roomChosen(list).id : null,
-      // DECOR2a: what in the pack can stand here - free, and back to the pack when taken down
-      own: ownEntries(),
+      // DECOR2a: what in the pack can stand here - free, and back to the pack when taken down; GUILD1d: never in a guild's
+      // hall, which holds the catalogue's pieces alone (a keeper's own thing would be whose at its sale?)
+      own: r?.hall ? [] : ownEntries(),
       base: baseRows(),   // BASE-HIDE: the room's own furniture
       where: r?.where ?? '',
-      entries: r?.yard ? s.entries()?.filter((e) => e.kind !== 'door') ?? null : s.entries(),   // HOME-YARD: a door hangs in a doorway, never in a yard
+      hall: !!r?.hall,   // AUDIT GUILD1d A9: a hall's piece gives its half to the guild's treasury (the panel says so)
+      entries: decorRoomEntries(s.entries(), r),   // HOME-YARD: a door hangs in a doorway, never in a yard; GUILD1e: a hall's board in a hall alone
       yard: !!r?.yard,
       progress: s.progress(),
       ready: s.phase() === 'done',
@@ -623,7 +645,7 @@ export function createDecorTool(deps) {
   }
 
   /** HOME-YARD: how many pieces this place holds - a yard its own, a room DECOR_CAP. */
-  const capHere = (r) => (r?.yard && Number.isSafeInteger(deps.yardCap) ? deps.yardCap : DECOR_CAP);
+  const capHere = (r) => (r?.yard && Number.isSafeInteger(deps.yardCap) ? deps.yardCap : Number.isSafeInteger(r?.cap) ? r.cap : DECOR_CAP);   // SEAT-HALL: a room's own cap (the Charter Room's hundred)
   /** HOME-LOOK: A LOOK TRIED ON THE HOUSE (`preview`, the owner's own screen), PUT AWAY (`reset`), or PAINTED (`commit` -
    *  written to the service, said). */
   async function paintAct(what, look) {
@@ -863,7 +885,7 @@ export function createDecorTool(deps) {
     if (p.entry.kind === 'own') return commitOwn(p, r);
     const price = p.piece.paid;
     if (decorWhyNot({ price, ready: true, gold: deps.wallet().gold, count: pool.size(), cap: capHere(r), yard: !!r?.yard })) return false;   // the bar says why
-    if (deps.placeOk?.(p.piece, footprintOf(p))) return false;   // HOME-YARD: off the lot - the bar says why
+    if (whyNotHere(p)) return false;   // HOME-YARD: off the lot; SEAT-HALL: out of the Charter Room - the bar says why
     p.busy = true;
     p.refused = null;
     const piece = p.piece;
@@ -986,7 +1008,7 @@ export function createDecorTool(deps) {
    *  back - then back to the room's view with the piece chosen. */
   async function commitMove(p, r) {
     const was = p.editing;
-    if (deps.placeOk?.(p.piece, footprintOf(p))) return false;   // HOME-YARD: off the lot - the bar says why
+    if (whyNotHere(p)) return false;   // HOME-YARD: off the lot; SEAT-HALL: out of the Charter Room - the bar says why
     const price = decorEditPrice(p.radius, was, p.piece.scale);
     if (price.pay > (deps.wallet?.().gold ?? 0)) return false;   // the bar says why
     p.busy = true;
@@ -1002,7 +1024,7 @@ export function createDecorTool(deps) {
           return false;
         }
         if (price.pay > 0) deps.wallet().pay(price.pay);
-        if (price.refund > 0) deps.wallet().credit?.(price.refund);
+        if (price.refund > 0 && !r.hall) deps.wallet().credit?.(price.refund);   // AUDIT GUILD1d A4: a hall's half is the treasury's, the service's
       }
       if (deps.visit?.() === visit) pool.put(stood);
       if (decorIsDoor(stood)) forgetRooms();   // HOME-DOORS: a door moved frees one doorway and takes another
@@ -1023,6 +1045,7 @@ export function createDecorTool(deps) {
     let paid = piece.paid;
     const act = r.kind === 'home' && decorRefund(paid) > 0 ? deps.realm?.() : null;
     let back = 0;
+    let toGuild = 0;   // GUILD1d: a hall's piece gives its half to the guild's treasury, never to the purse
     if (act) {
       // REALM P2.2b: the piece's going and its half back are one write on the service; the purse takes the service's half
       const res = await act({
@@ -1032,6 +1055,7 @@ export function createDecorTool(deps) {
         needsAnswer: true,
         apply: (/** @type {any} */ a) => {
           back = Math.max(0, Number(a.data?.gold) || 0);
+          toGuild = Math.max(0, Number(a.data?.treasury) || 0);
           if (back > 0) deps.wallet?.().credit?.(back);
         },
         call: (/** @type {any} */ at) => deps.homeDecor.remove({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id, realm: at }),
@@ -1042,13 +1066,14 @@ export function createDecorTool(deps) {
         const res = await deps.homeDecor?.remove?.({ mapId: r.mapId, buildingKey: r.buildingKey, character: deps.character?.(), id: piece.id });
         if (!res?.ok) { deps.say?.(deps.refusal?.(res?.error) ?? 'The piece could not be removed.'); return false; }
         paid = decorPieceOf(res.data?.piece)?.paid ?? paid;   // the service's own record of what it cost
+        toGuild = r.hall ? Math.max(0, Number(res.data?.treasury) || 0) : 0;
       }
-      back = decorRefund(paid);
+      back = r.hall ? 0 : decorRefund(paid);   // AUDIT GUILD1d A4: a hall's half is the treasury's, never the purse's
       if (back > 0) deps.wallet?.().credit?.(back);
     }
     if (deps.visit?.() === visit) pool.remove(piece.id);
     if (decorIsDoor(piece)) forgetRooms();   // HOME-DOORS: its doorway open again, the rooms either side one
-    deps.say?.(`${entryOf(piece).name} removed - ${back} gold back.`);
+    deps.say?.(toGuild > 0 ? `${entryOf(piece).name} removed - ${toGuild} gold back to the guild's treasury.` : `${entryOf(piece).name} removed - ${back} gold back.`);
     return true;
   }
 
@@ -1354,7 +1379,7 @@ export function createDecorTool(deps) {
       return decorDoorAimLine(free.length);
     }
     if (!p.piece) return p.entry.mount ? DECOR_MOUNT_NO_SURFACE : 'It cannot stand there.';
-    const lotWhy = deps.placeOk?.(p.piece, footprintOf(p)) ?? null;   // HOME-YARD: the lot
+    const lotWhy = whyNotHere(p) ?? null;   // HOME-YARD: the lot; SEAT-HALL: the Charter Room
     if (lotWhy) return lotWhy;
     if (p.editing) {   // a move is never refused for the room's count; a resize may be for the gold
       const { pay } = decorEditPrice(p.radius, p.editing, p.door ? p.piece.scale : p.placer.state().scale);

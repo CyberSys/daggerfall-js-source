@@ -239,7 +239,7 @@
   {
     "name": "PROF3-svc-rank-unchecked",
     "file": "server-account/src/professions.js",
-    "old": "  if (!recipeOpen(r, rank)) return { error: 'prof-rank' };\n",
+    "old": "  if (!recipeOpen(r, rank, specs)) return { error: 'prof-rank' };\n",
     "new": "",
     "tests": [
       "test/prof3_service.test.js"
@@ -438,9 +438,9 @@
     ]
   },
   {
-    "name": "PROF3-kit-past-whole",
+    "name": "PROF3-kit-unclamped",
     "file": "src/systems/smithItems.js",
-    "old": "  it.currentCondition = Math.min(it.maxCondition, it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));",
+    "old": "  it.currentCondition = Math.min(kitCeiling(it), it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR)));   // KIT-CEILING: never past three quarters",
     "new": "  it.currentCondition = it.currentCondition + Math.ceil(it.maxCondition * (kit.fieldKit === true ? FIELD_KIT_REPAIR : KIT_REPAIR));",
     "tests": [
       "test/prof3_client.test.js"
@@ -449,8 +449,8 @@
   {
     "name": "PROF3-kit-not-spent",
     "file": "src/systems/smithItems.js",
-    "old": "  if (i >= 0) items.splice(i, 1);\n  return { item: it, before, after: conditionShare(it) };",
-    "new": "  return { item: it, before, after: conditionShare(it) };",
+    "old": "  if (i >= 0) items.splice(i, 1);\n  return { item: it, before, after: conditionShare(it), from, to: conditionPercentage(it) };",
+    "new": "  return { item: it, before, after: conditionShare(it), from, to: conditionPercentage(it) };",
     "tests": [
       "test/prof3_client.test.js"
     ]
@@ -494,8 +494,8 @@
   {
     "name": "PROF3-page-stock-at-home",
     "file": "src/ui/profPages.js",
-    "old": "if (sale && have < inp.n && forge.kind === 'shop' && p.stock) {",
-    "new": "if (sale && have < inp.n && p.stock) {",
+    "old": "      if (sale && have < inp.n && forge.kind === 'shop') counterBuy(line, { el, p, state: _anvil,",
+    "new": "      if (sale && have < inp.n) counterBuy(line, { el, p, state: _anvil,",
     "tests": [
       "test/prof3_client.test.js"
     ]

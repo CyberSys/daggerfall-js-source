@@ -23,11 +23,11 @@
 //   Sickle's steady hand draws DFU's Tanto in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { herbPatches, nodeKey, HERB_TABLES } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, actBand, PROF_RANK_MAX, herbKey } from '../net/professionLaw.js';
-import { natureStandsAt } from '../world/terrainNature.js';
+import { tierOpen, TIER_RANKS, actBand, PROF_RANK_MAX, herbKey, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
+import { natureStandsAt, insideRocks } from '../world/terrainNature.js';
 import { createHerbAct } from '../systems/herbAct.js';
 import { FT } from '../systems/foragingLaw.js';
-import { foragingActRefusal, foragingToolIn } from '../systems/foragingInstall.js';
+import { foragingActRefusal, foragingToolIn, actChecksRefusal } from '../systems/foragingInstall.js';
 import { materialLabel } from '../systems/profItems.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { liveStat } from '../systems/statMods.js';
@@ -46,17 +46,19 @@ export const PATCH_MARK = Object.freeze({ w: 2.2, h: 1.3 });
 /**
  * A PIXEL'S PATCHES AS THE CLIENT STANDS THEM: the law's patches of the day, each at the tile its (u, v) falls on,
  * where DFU's nature would stand there - `{ key, slot, herb, tier, offSeason, local }`, `local` pixel-local metres.
+ * NODE-CLEAR (AUDIT 2026-10-01 part four): never inside a rock piece (`rocks`, the pixel's) - one stood there, on the compass
+ * and glowing, and no look reached it; it stands nowhere, as VEIN-CLEAR's last vein does.
  * @param {{ px: number, py: number, day: number, climate: number, confirmed?: boolean, seasonalEye?: boolean,
- *   samples: Float32Array, tilemap: Uint8Array, locationRect?: any }} p
+ *   samples: Float32Array, tilemap: Uint8Array, locationRect?: any, rocks?: number[][] }} p
  */
-export function standPatches({ px, py, day, climate, confirmed = false, seasonalEye = false, samples, tilemap, locationRect = null }) {
+export function standPatches({ px, py, day, climate, confirmed = false, seasonalEye = false, samples, tilemap, locationRect = null, rocks = [] }) {
   const out = [];
   if (!HERB_TABLES[climate]) return out;
   for (const p of herbPatches({ x: px, y: py, day, climate, confirmed, seasonalEye })) {
     const tx = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(p.u * WORLD_MAP_TILE_DIM));
     const ty = Math.min(WORLD_MAP_TILE_DIM - 1, Math.floor(p.v * WORLD_MAP_TILE_DIM));
     const base = natureStandsAt(samples, tilemap, locationRect, tx, ty);
-    if (!base) continue;
+    if (!base || insideRocks(rocks, base.x, base.z)) continue;   // NODE-CLEAR
     out.push({ key: nodeKey({ kind: 'herb', x: px, y: py, day, slot: p.slot }), slot: p.slot, herb: p.herb, tier: p.tier, offSeason: p.offSeason, local: [base.x, base.y, base.z] });
   }
   return out;
@@ -115,8 +117,17 @@ export const SICKLE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 114,
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function herbKind({ book }) {
-  let basketChoice = false;   // the choice key's pick at the targeted patch
   const gone = (p) => book.taken(p.key, 'herbs') && book.taken(p.key, 'food');
+  /** The patch's plan for its herbs (`basket` false) or its food, `only` that harvest (a tool's Use, a menu's row). */
+  const planOf = (p, { entity, info, rank }, basket, only) => {
+    const plan = patchPlan({
+      patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket, only,
+      rank: rank('herbalism'), sickle: !!foragingToolIn(entity, FT.Sickle), basketTool: !!foragingToolIn(entity, FT.Basket),
+      storesFull: (key) => storesFullIn(book, key), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),   // STORES-ROOM: every origin, as the service counts
+      today: book.state.today?.herbalism ?? 0, cap: book.state.caps?.harvests ?? 60,
+    });
+    return { ...plan, harvest: plan.kind, profession: 'herbalism' };
+  };
   return {
     id: 'herb',
     professions: Object.freeze(['herbalism']),
@@ -125,6 +136,7 @@ export function herbKind({ book }) {
       return standPatches({
         px, py, day, climate: info.climate, confirmed, seasonalEye: specs('herbalism')[100] === 'seasonal-eye',
         samples: entry.samples, tilemap: entry.tilemap, locationRect: entry.locationRect ?? entry.wodSite ?? null,   // AUDIT 29 C8: a WoD site's rect, as nature keeps off it (terrainGen.js)
+        rocks: entry.rocks ?? [],   // NODE-CLEAR: and never inside a rock piece
       });
     },
     flatsOf(p) {
@@ -134,20 +146,23 @@ export function herbKind({ book }) {
     gone,
     mark: (p) => (gone(p) ? null : PATCH_MARK),   // NODE-MARKS: on the compass and lit while either harvest stands
     tools: Object.freeze([FT.Sickle, FT.Basket]),   // TOOL-USE
-    choose() { basketChoice = !basketChoice; },
-    retarget() { basketChoice = false; },
-    plan(p, { entity, info, rank, keyLabel, tool = null }) {
-      // TOOL-USE: the Sickle's Use asks the herbs and the Basket's the food, whatever the choice key picked - the pick unmoved
+    where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID
+    /** PROF-MENU: the menu's title - the patch's herb. */
+    nodeName: (p) => templateByIndex(p.herb)?.name ?? 'Herbs',
+    plan(p, { entity, info, rank, tool = null }) {
+      // TOOL-USE: the Sickle's Use asks the herbs and the Basket's the food; E (no tool) the herbs first while untaken
       const only = tool === FT.Sickle ? 'herbs' : tool === FT.Basket ? 'food' : null;
-      const plan = patchPlan({
-        patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket: only ? only === 'food' : basketChoice, only: !!only,
-        rank: rank('herbalism'), sickle: !!foragingToolIn(entity, FT.Sickle), basketTool: !!foragingToolIn(entity, FT.Basket),
-        storesFull: (key) => book.held(key) >= (book.state.caps?.stores ?? 5000), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),
-        today: book.state.today?.herbalism ?? 0, cap: book.state.caps?.harvests ?? 60,
-      });
-      return { ...plan, harvest: plan.kind, profession: 'herbalism', alt: plan.both ? `[${keyLabel('ActChoice')}] ${plan.kind === 'food' ? 'the herbs' : 'the Basket'}` : '' };
+      return planOf(p, { entity, info, rank }, only ? only === 'food' : false, !!only);
     },
-    start(p, plan, { entity, rank, tool: used = null }) {
+    /** PROF-MENU (2026-10-01, Mac: "use the same menu the loot menu uses"): THE PATCH'S TWO HARVESTS AS THE MENU'S ROWS -
+     *  its herbs and its food (the act choice key's toggle, retired), each its own refusal; gathered whole, its one row. */
+    rows(p, ctx) {
+      const herbs = planOf(p, ctx, false, true), food = planOf(p, ctx, true, true);
+      if (!herbs.both && !herbs.ready && !food.ready && herbs.verb === food.verb) return [{ ...herbs, id: 'herbs' }];
+      return [{ ...herbs, id: 'herbs' }, { ...food, id: 'food' }];
+    },
+    start(p, plan, { entity, rank, keyLabel = () => 'E', tool: usedTool = null, byPress = false }) {
+      const used = usedTool ?? (byPress || null);   // PROF-MENU: a click's or a list's press holds the act as a tool's Use does
       const common = plan.harvest === 'herbs' && p.tier === 1;
       const refusal = foragingActRefusal(plan.harvest === 'food' ? FT.Basket : FT.Sickle);
       if (refusal) return { refused: refusal };
@@ -156,7 +171,10 @@ export function herbKind({ book }) {
       const r = rank('herbalism');
       return {
         act: createHerbAct({ kind, band: actBand(liveStat(entity, 'intelligence')), botanist: book.track('herbalism').specs?.[50] === 'botanist', master: r >= PROF_RANK_MAX, gentle: getPref('gentleActs') === true }),
-        harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'tap the glint' : '',
+        // STEADY-SAID (AUDIT 2026-10-01 part four): the steady hand's key, which E's start must hold to the end - the meter
+        // said "hold still" and nothing of the key, and a tap of E ended the act with nothing taken (the Sickle's Use
+        // holds it itself: no key to name)
+        harvest: plan.harvest, tool, profession: 'herbalism', label: plan.harvest === 'food' ? 'tap the glint' : kind === 'steady' && !used ? keyLabel('Interact') : '',
         hand: (a) => (a.harvest === 'herbs' && a.tool ? SICKLE_HAND : null),
         heldByUse: !!used && kind === 'steady',   // TOOL-USE: the Sickle's Use holds the steady hand - keep still, no E held
       };

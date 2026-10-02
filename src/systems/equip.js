@@ -44,6 +44,11 @@ export const equipOf = (entity) => (entity.equip ??= createEquipTable());
 export const equipTableOf = (entity) => equipOf(entity).slots;
 
 export const getEquipSlot = (entity, item) => equipOf(entity).getEquipSlot(numeric(item));
+/** RARITY-WEAR (FIELD BUGS 2026-10-01, Cruor: a King's Mark "spawn[ed] as wands, they cannot be equipped"): WHETHER ANY
+ *  SLOT COULD EVER TAKE THE ITEM - GetEquipSlot asked of an empty table. A Wand answers no (GetJewelleryEquipSlot's
+ *  None - equipRules.js has no row for 140), so a tier rolled on one is read by nothing: the affix fold and a Held
+ *  enchantment read worn pieces alone. */
+export const wearableItem = (item) => !!item && createEquipTable().getEquipSlot(numeric(item)) !== EQUIP_SLOTS.None;
 
 /** UnequipItem(slot): clears the slot + the item's mark. */
 /** CH3 (AUDIT 23 characters-13), REBUILT AT FX1 (F128): the SWAP
@@ -328,7 +333,7 @@ export function fillEquipTable(slots, items) {
  *  chargenSession.js:142 (?class= headless) and :235 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a
  *  no-op for any character that went through either. What is left is
- *  residue at the two host calls (world.js:5020, exterior.js:1303):
+ *  residue at the two host calls (world.js:5239, exterior.js:1305):
  *  a chargenDone entity whose bag AND equip table are both empty
  *  still takes a free dagger here. Deleting the calls is a behaviour
  *  change, so it waits for a slice that owns one. */
@@ -462,30 +467,47 @@ export const bodyPartForSlot = (slot) => SLOT_BODY_PART.get(slot) ?? -1;
  *  arc with the rest of the payloads. Returns true on a break. */
 const PLURAL_BREAK_TEMPLATES = new Set([103, 104, 108]);   // Armor.Gauntlets, Greaves, Boots
 
-/** BALANCE1 (2026-09-27, Mac: "I want to adjust fatigue drain and durability
- *  drain. Just needs some balancing. Currently things drain a little too
- *  fast"): A BLOW WEARS GEAR 40% LESS. DFU's wear (FormulaHelper's
- *  DamageEquipment, formulas.js) is kept verbatim, but the default game
- *  wears through the combat overhaul (PCAAO, on by default and online),
- *  which measured ~2.8x DFU's wear on a weapon per landed hit and ~15x on
- *  armour - and Roleplay Realism's equipDamage (armour x5) where the
- *  overhaul's formula is off. This scales what a BLOW takes, on every one
- *  of those paths and a duel's; an enchantment's charge, a torch's burn
- *  and survival's rust are not blows and keep their amounts. A departure:
- *  Ledger A. */
-export const CONDITION_WEAR_SCALE = 0.6;
+/** THE SCALE ON A BLOW'S WEAR - 1, Daggerfall Unity's own. BALANCE1
+ *  (2026-09-27) set it to 0.6 because the default game wore gear through
+ *  the combat overhaul's wear module (~2.8x DFU on a weapon per landed
+ *  hit, ~15x on armour) and Roleplay Realism's equipDamage (armour x5).
+ *  WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded
+ *  feature that increases durability loss. Vanilla values work fine")
+ *  turned those modules off by default (modSettings.js) and this back to
+ *  1, so a blow wears what DFU's DamageEquipment says. The seam stays on
+ *  every blow's path - DFU's, the two mods' (a player may still turn them
+ *  on offline) and a duel's - for the economy's tuning; an enchantment's
+ *  charge, a torch's burn and survival's rust are not blows. */
+export const CONDITION_WEAR_SCALE = 1;
 let _wearScale = CONDITION_WEAR_SCALE;
-/** TEST SEAM: DFU's and the mods' own wear, unscaled (1) - their parity
- *  pins read those formulas verbatim, and a scale of 1 draws no roll, so
- *  their scripted rolls stay DFU's; test/balance1.test.js pins the scale.
+/** TEST SEAM: any scale, for the pins of the roll below (balance1.test.js);
+ *  a scale of 1 draws no roll, so a scripted DFU roll sequence stays DFU's.
  *  No argument puts the port's scale back. */
 export function _wearScaleForTests(scale = CONDITION_WEAR_SCALE) { _wearScale = scale; }
 
+/** WEAR-TWICE (2026-10-02, the field, of the economy triage: "maybe we overdid it too much. Good changes all around but
+ *  I still want there to be some challenge"; asked which lever, "Faster wear"): THE PORT'S OWN WEAR IS TWICE DFU'S. A
+ *  blow's DamageEquipment amount - (10 x damage + 50) / 100, the 20% floor roll's 1 included - is doubled where DFU's
+ *  member wears gear (formulas.js damageEquipment: the overhaul's core and DFU's own) and on a duel's blade
+ *  (scenes/world.js). At DFU's own rate (WEAR-VANILLA) a steel longsword lost about 6.5% of itself to a hundred swings
+ *  and armour hardly wore, so wear put no pressure on an outing - the economy arc's friction ("the pressure to return
+ *  is capacity, supplies and wear, never price", 06-Systems/Economy-Arc.md). The mods' own wear modules, which a
+ *  player may turn on offline, keep their own amounts; repairs keep REPAIR-RATE's third. A whole number, so it draws
+ *  no roll. A departure (Ledger A, WEAR-TWICE). */
+export const DFU_WEAR_MULTIPLE = 2;
+let _dfuMultiple = DFU_WEAR_MULTIPLE;
+/** TEST SEAM: the files that pin DFU's DamageEquipment verbatim run it at 1, beside the scale's own seam above
+ *  (wear_vanilla.test.js pins the 2). No argument puts the port's back. */
+export function _dfuWearMultipleForTests(m = DFU_WEAR_MULTIPLE) { _dfuMultiple = m; }
+/** WEAR-TWICE: a blow's DFU amount as the port wears it - the multiple, then the scale (blowWear). */
+export const dfuBlowWear = (amount, rolls = Math.random) => (amount > 0 ? blowWear(amount * _dfuMultiple, rolls) : amount);
+
 /** A blow's wear on the port's scale. The amounts are small (a blade's is
- *  0-2 a hit), so the fraction is ROLLED rather than rounded: a 1-point
- *  wear at 0.6 costs 1 on 60% of blows, where rounding would cost 1 on
- *  every blow (no change) and flooring none (no wear). The average is the
- *  scale's exactly, and a whole amount draws no roll. */
+ *  0-2 a hit), so under a fractional scale the fraction is ROLLED rather
+ *  than rounded: a 1-point wear at 0.6 costs 1 on 60% of blows, where
+ *  rounding would cost 1 on every blow (no change) and flooring none (no
+ *  wear). The average is the scale's exactly, and a whole amount - every
+ *  amount at the scale of 1 - draws no roll. */
 export function blowWear(amount, rolls = Math.random) {
   if (!(amount > 0)) return amount;
   const x = amount * _wearScale;

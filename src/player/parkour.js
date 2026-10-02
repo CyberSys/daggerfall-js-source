@@ -68,8 +68,15 @@ export const PARKOUR_FACING_DOT = Math.cos((50 * Math.PI) / 180);
 /** A face is a wall while its normal's y is at most this (60 degrees from
  *  level or steeper); anything flatter is a slope the body walks. */
 export const PARKOUR_FACE_MAX_NY = 0.5;
-/** A top pitched past 45 degrees is a roof the body would slide off. */
-export const PARKOUR_TOP_MIN_NY = Math.cos((45 * Math.PI) / 180);
+/** A top pitched past 50 degrees is a roof the body would slide off. AUDIT CLIMB-FIELD R1 (Mac: "You cant mantle the
+ *  bottom of roofs"): it was 45, and Daggerfall's own steep roofs are not 45 - their vertices are whole units, and of
+ *  the town blocks' 392 building models the 45-degree family runs 45.1 to 48.7 (157 models, ~2,500 placements, every
+ *  one refused at its eave: no hang, no mantle, the free climb stalled under it). 50 takes all of them and stays inside
+ *  what the probes were built for: the face scan's lean (a 50-degree roof's rung stands 0.084 back, past the 0.08 lean,
+ *  so its eave still ends the face) and the top probes' rise (under PARKOUR_TOP_PROBE + s to a metre in). */
+export const PARKOUR_TOP_MIN_NY = Math.cos((50 * Math.PI) / 180);
+/** The run of the steepest top for a unit rise: a top rising a rung stands at least this many rungs back. */
+export const PARKOUR_TOP_RUN = PARKOUR_TOP_MIN_NY / Math.sqrt(1 - PARKOUR_TOP_MIN_NY * PARKOUR_TOP_MIN_NY);
 /** The wall scan's rung: level rays this far apart up the face. AUDIT CLIMB1
  *  G4: 0.2 at CLIMB1, and a table top thinner than a rung was found only when
  *  a rung happened to land in its edge. */
@@ -78,6 +85,12 @@ export const PARKOUR_SCAN_STEP = 0.1;
  *  (a face leaning back up to ~38 degrees); farther, or nothing, and the face
  *  has ended under that rung - a 45-degree roof's rise is 0.1 a rung. */
 export const PARKOUR_FACE_LEAN = 0.08;
+/** CRACK-LIP (FIELD BUGS 2026-10-02): Daggerfall's stacked wall pieces stand a unit apart (2.5 cm) - a slot a level ray
+ *  passes through, over the lower piece's own top. An opening no taller than this, the face going on above it at the
+ *  depth it had below, is a crack: no lip, and the scan goes on up the wall. */
+export const PARKOUR_CRACK = 0.03;
+/** ...the slot's top and foot found to this (AUDIT): a measured slot reads up to two steps taller than it is. */
+export const PARKOUR_CRACK_STEP = 0.0025;
 /** The lip is the top just past the face: the down ray that finds it lands
  *  this far in. AUDIT CLIMB1 G1/G3: it was 0.2 in, which read a pitched
  *  roof's lip 0.2 up its slope and missed a fence thinner than 0.2 outright. */
@@ -132,6 +145,25 @@ export const PARKOUR_BAND_SLACK = 0.02;
  *  go of, then these far out from the face: the nearest that clears, within
  *  the wall's contact (PARKOUR_CONTACT). */
 export const PARKOUR_LEAN = [0, 0.02, 0.05, 0.1];
+/** SEAM-STEP (FIELD BUGS 2026-10-02): a free climber stuck going straight up moves along the wall to the nearest
+ *  place within this that the body rises PARKOUR_SIDESTEP_RISE again (asked every PARKOUR_SIDESTEP_PROBE, both ways)
+ *  - a hand's width past the corner of the 3.2 m dungeon unit above, never across the wall. */
+export const PARKOUR_SIDESTEP_MAX = 0.45;
+export const PARKOUR_SIDESTEP_PROBE = 0.05;
+export const PARKOUR_SIDESTEP_RISE = 0.1;
+/** ...and the way it went is kept until the body has risen this far past where it stuck. */
+export const PARKOUR_SIDESTEP_CLEAR = 0.3;
+/** HUG-TOUCH (FIELD BUGS 2026-10-02): the free climb presses the body to the face and this far in each step. */
+export const PARKOUR_HUG_PRESS = 0.01;
+/** STEP-BACK (FIELD BUGS 2026-10-02): the free climb finds the top of the face it held, stepping back over it, by level
+ *  rays this far apart up the body. */
+export const PARKOUR_STEP_SCAN = 0.02;
+/** CORNER-TOP (FIELD BUGS 2026-10-02): the look turned this far along the held wall (sin 20 degrees) asks the top of
+ *  the corner's other wall on that side. */
+export const PARKOUR_CORNER_LOOK = Math.sin((20 * Math.PI) / 180);
+/** AUDIT (FIELD BUGS 2026-10-02): the free climb's hold turned more than this (the dot of the normals, about 2.5
+ *  degrees) onto a new face is asked along that face before it is followed. */
+export const PARKOUR_TURN_HOLDS = 0.999;
 /** The path is proven at least this often - under a quarter of the radius. */
 export const PARKOUR_PATH_STEP = 0.08;
 /** After a lip is found and every way onto or over it refused, the air catch
@@ -326,6 +358,9 @@ export const parkourRefusal = () => _gate?.() ?? null;
  *  that reaches such a point crosses the solid's face on the way, and the
  *  path is proven at every step - pathClear.) */
 export function capsuleFits(collider, p, height) {
+  // CLIMB-DOWN: and never under the terrain - the meshes' resolve does not know it (the move's own clamp does: the
+  // collider's restFloor), and a hang under a lip lower than its 1.8 m, outdoors, hung its feet in the ground
+  if (collider.restFloor && p[1] < collider.restFloor(p[0], p[2]) - PARKOUR_FIT_EPS) return false;
   if (!(collider.penetrationAt(p, height) < PARKOUR_FIT_EPS) || !bandsClear(collider, p, height)) return false;
   return !Number.isFinite(collider.raycast([p[0], p[1] + 0.05, p[2]], [0, 1, 0], height - 0.1));
 }
@@ -378,10 +413,30 @@ function scanFace(collider, feet, dir, low, high, reach) {
       continue;
     }
     const d = collider.raycast([feet[0], y, feet[2]], dir, faceDist + PARKOUR_FACE_LEAN);
-    if (!Number.isFinite(d)) return { ...wall, openY: y, faceDist };
+    if (!Number.isFinite(d)) {
+      if (!faceGoesOn(collider, feet[0], y, feet[2], dir, faceDist, PARKOUR_SCAN_STEP)) return { ...wall, openY: y, faceDist };
+      continue;   // CRACK-LIP: a crack between two of the wall's pieces, the face going on over it
+    }
     faceDist = d;
   }
   return wall ? { ...wall, openY: null, faceDist } : null;
+}
+
+/** CRACK-LIP: is the opening a level ray at `y` passed through (the face met at `dist`, `below` under it) a crack - the
+ *  face going on over it at that depth, the slot no taller than PARKOUR_CRACK? AUDIT: the slot itself is measured,
+ *  its top and its foot each to PARKOUR_CRACK_STEP - the first cut asked one ray 4 cm over the open one, and an open
+ *  ray anywhere up a slot read slots to 9 cm as cracks. */
+function faceGoesOn(collider, x, y, z, dir, dist, below) {
+  const meets = (yy) => {
+    const d = collider.raycast([x, yy, z], dir, dist + PARKOUR_FACE_LEAN);
+    return Number.isFinite(d) && Math.abs(d - dist) <= PARKOUR_FACE_LEAN;
+  };
+  let top = null;
+  for (let h = PARKOUR_CRACK_STEP; h <= PARKOUR_CRACK + 1e-9 && top == null; h += PARKOUR_CRACK_STEP) if (meets(y + h)) top = y + h;
+  if (top == null) return false;
+  let foot = y - below;
+  for (let h = PARKOUR_CRACK_STEP; h < below - 1e-9; h += PARKOUR_CRACK_STEP) if (meets(y - h)) { foot = y - h; break; }
+  return top - foot <= PARKOUR_CRACK + 2 * PARKOUR_CRACK_STEP;
 }
 
 /** THE WALL, by its top (AUDIT CLIMB1 G4): a slab whose edge is thinner than a
@@ -393,7 +448,7 @@ function scanSlab(collider, feet, dir, low, high, reach, radius) {
   for (const d of [radius + 0.1, radius + 0.25, reach]) {
     if (Number.isFinite(collider.raycast([feet[0], y0, feet[2]], dir, d + 0.02))) continue;
     const down = collider.surfaceHit([feet[0] + dir[0] * d, y0, feet[2] + dir[2] * d], [0, -1, 0], high + 0.05 - low);
-    if (!Number.isFinite(down.dist) || !down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY) continue;
+    if (!Number.isFinite(down.dist) || !down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) continue;
     const topY = y0 - down.dist;
     const f = faceHit(collider, [feet[0], topY - PARKOUR_UNDER, feet[2]], dir, reach);
     if (!f) continue;
@@ -404,7 +459,7 @@ function scanSlab(collider, feet, dir, low, high, reach, radius) {
 }
 
 /** The top's profile, walked away from the face along `into`: down rays from
- *  over a 45-degree rise, every PARKOUR_TOP_STEP out to the walk. The top goes
+ *  over a 45-degree rise (a 50-degree one's under it to a metre), every PARKOUR_TOP_STEP out to the walk. The top goes
  *  on while each finds a surface no more than PARKOUR_TOP_DROP under the lip;
  *  the first that does not is past its far edge, which a bisection finds to a
  *  centimetre (`depth`; null for a top that runs on past the walk). */
@@ -426,7 +481,7 @@ function topProfile(collider, face, into, lipY) {
 }
 
 /** The landing on the top at `s` past the face at (fx, fz): the surface there,
- *  if it is the lip's own - no steeper than 45 degrees, on the plane the
+ *  if it is the lip's own - no steeper than the top's limit (50), on the plane the
  *  lip's slope draws give or take the slack (a flat tread a riser above is the
  *  next stair), and no lower than the top's drop - with the feet lifted so the
  *  capsule's round foot rests on a slope rather than in it (r/cos - r). A
@@ -442,7 +497,14 @@ function landingAt(collider, fx, fz, into, lipY, s, radius) {
     const ny = h.normal[1];
     const y = oy - h.dist;
     const tan = ny > 0 ? Math.sqrt(Math.max(0, 1 - ny * ny)) / ny : Infinity;
-    if (ny >= PARKOUR_TOP_MIN_NY && y - lipY <= s * tan + PARKOUR_SLOPE_SLACK) return { y: y + radius / ny - radius, key: h.key ?? null };
+    if (ny >= PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER && y - lipY <= s * tan + PARKOUR_SLOPE_SLACK) {
+      let top = y + radius / ny - radius;
+      // AUDIT CLIMB-ARC D2: a top that is the GROUND is stood on at the capsule's floor (restFloor - capsuleFits' own,
+      // since CLIMB-DOWN), which on a real grade lies up to 8 cm over the drawn ground surfaceHit read: the fit refused
+      // the landing it was asked about, and a bank's retaining wall could not be climbed onto
+      if (h.key == null && collider.restFloor) { const rf = collider.restFloor(px, pz); if (Number.isFinite(rf)) top = Math.max(top, rf); }
+      return { y: top, key: h.key ?? null };
+    }
     oy = y - 0.02;
     if (oy <= floor) return null;
   }
@@ -499,7 +561,7 @@ function pathClear(collider, m, body) {
  * senseOver). The whys are what the pins and the probe read.
  */
 export function senseLedge(collider, feet, dir, opts) {
-  const { low, high, radius, stand, crouch, height = stand, footing = false } = opts;
+  const { low, high, radius, footing = false } = opts;
   if (!collider?.raycastHit) return { ok: false, why: 'no-collider' };
   const reach = radius + PARKOUR_WALL_REACH;
   const wall = scanFace(collider, feet, dir, low, high, reach) ?? scanSlab(collider, feet, dir, low, high, reach, radius);
@@ -514,7 +576,7 @@ export function senseLedge(collider, feet, dir, opts) {
   const down = collider.surfaceHit([ex, ey, ez], [0, -1, 0], ey - (wall.y - 0.05));
   if (!Number.isFinite(down.dist)) return { ok: false, why: 'no-top' };
   const lipY = ey - down.dist;
-  if (!down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY) return { ok: false, why: 'steep-top' };
+  if (!down.normal || down.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) return { ok: false, why: 'steep-top' };
   const rise = lipY - feet[1];
   if (rise > high) return { ok: false, why: 'too-high' };
   if (rise < low - 0.05) return { ok: false, why: 'too-low' };
@@ -528,7 +590,24 @@ export function senseLedge(collider, feet, dir, opts) {
   // 3. the top
   const { depth } = topProfile(collider, face, into, lipY);
   const ledge = { ok: true, lipY, rise, normal: wn, into, face, depth, faceKey: wall.key, mantle: null, why: null };
-  // 4. the landing
+  return landOn(collider, feet, ledge, opts);
+}
+
+/** AUDIT CLIMB-FIELD E3: an eave's hold as a ledge - its edge the face, its normal the wall's - and the way onto its roof
+ *  from the hang under it (senseLedge's landing). The ledge sensor reads a lip off the face under it, and an eave
+ *  standing out past the grab's reach has none in reach: its hang climbed onto nothing. Answers the ledge, `mantle` set
+ *  when there is a way onto the top. */
+export function senseEaveLedge(collider, feet, grip, opts) {
+  const wn = grip.normal, into = [-wn[0], 0, -wn[2]], face = [grip.face[0], grip.lipY, grip.face[2]];
+  const { depth } = topProfile(collider, face, into, grip.lipY);
+  const ledge = { ok: true, lipY: grip.lipY, rise: grip.lipY - feet[1], normal: wn, into, face, depth, faceKey: grip.key ?? null, mantle: null, why: null };
+  return landOn(collider, feet, ledge, opts);
+}
+
+/** senseLedge's 4th stage, THE LANDING, for the ledge it found (filled in place: `mantle`, or the refusal's `why`). */
+function landOn(collider, feet, ledge, opts) {
+  const { radius, crouch, stand, height = stand } = opts;
+  const { lipY, rise, normal: wn, into, face, depth } = ledge;
   const full = radius + PARKOUR_TOP_INSET;
   let s;
   if (depth == null || depth >= full + 0.05) s = full;
@@ -686,6 +765,7 @@ export function offsetMove(m, offset) {
     p[0] += offset[0]; p[1] += offset[1]; p[2] += offset[2];
   }
   if (m.hang) m.hang.lipY += offset[1];
+  if (m.next) offsetMove(m.next, offset);   // CLIMB-DOWN: the move chained on after it
 }
 
 /** AUDIT CLIMB1 F5: a move onto what moves - a boat's hull, a lift - rides it.
@@ -697,6 +777,7 @@ export function carryMove(m, was, now) {
   const y0 = m.to[1];
   for (const p of [m.from, m.up, m.to]) carryPoint(p, was, now);
   if (m.hang) carryLip(m.hang, m.to[1] - y0, was, now);   // AUDIT CLIMB2 C5: the hang it ends in, as a hold is carried
+  if (m.next) carryMove(m.next, was, now);   // CLIMB-DOWN: the move chained on after it
 }
 
 /** A hold's (or a move's hang's) wall turned with its bucket, its lip raised
@@ -733,8 +814,10 @@ export const PARKOUR_GRIP_RUNG = 0.05;
  *  rung back each; the float of the hit, not a centimetre of the shape). */
 export const PARKOUR_RAY_SCATTER = 0.001;
 /** A face the free climber's hands and feet press: its normal's y at most
- *  this (the classic probe took any hit; a floor or a ceiling is no wall). */
-export const PARKOUR_WALL_MAX_NY = 0.7;
+ *  this (the classic probe took any hit; a floor or a ceiling is no wall). AUDIT CLIMB-FIELD R1: what a top is not -
+ *  it was 0.7 (45.6 degrees), and a 46-degree roof was both a top to stand on and a wall to grab, the air's grab
+ *  taking the roof itself for a free climb. */
+export const PARKOUR_WALL_MAX_NY = PARKOUR_TOP_MIN_NY;
 
 /**
  * THE HAND-HOLD. A lip near `lipY` on the face through `face` (a point on the
@@ -746,24 +829,44 @@ export const PARKOUR_WALL_MAX_NY = 0.7;
  *      every PARKOUR_GRIP_RUNG: the lip is where the wall steps OUT toward the
  *      body by the grip's depth - a rung meeting nothing, or a wall set back
  *      (a sill's), over one meeting the face where it was expected - or where
- *      a top no steeper than 45 degrees rises from it (an eave: its roof is
+ *      a top no steeper than the top's limit (50) rises from it (an eave: its roof is
  *      the grip's depth back only a rung or two up, so the depth is read up
  *      the rungs the top rises through). A rung on the face is one the rung
  *      under it stands out from by no more than the edge's inset: a rung on
  *      a roof is not, however near the edge. No such step is no lip here: a
  *      wall that runs on through the window, or air;
  *   2. THE TOP - a ray down just past the face from the open rung: no steeper
- *      than 45 degrees, in the window;
+ *      than the top's limit, in the window;
  *   3. THE FACE UNDER IT - a level ray just under the top meets the face, its
  *      normal within PARKOUR_FACE_FOLLOW of the one expected (the hang follows
  *      a curving wall and does not turn a corner); under an eave, whose roof
  *      runs on past the edge, the ray from the face's rung under the lip;
  *   4. THE HANG (with `fit`) - the body off the face by its radius and a gap,
  *      the lip PARKOUR_HANG_DROP over its feet, fitting there standing.
- * Answers { lipY, normal, face, feet, key } or null. `opts` = { radius, stand }.
+ * AUDIT CLIMB-FIELD E1: no lip on the face, and the face no plain wall - THE EAVE over it (senseEave, below; `eave`
+ * false asks the face's own law alone).
+ * Answers { lipY, normal, face, feet, key, eave? } or null. `opts` = { radius, stand }.
  */
-export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
+export function senseGrip(collider, face, normal, lipY, opts, fit = true, eave = true) {
   if (!collider?.raycastHit || !Number.isFinite(lipY)) return null;
+  const seen = new Map();
+  const g = plainGrip(collider, face, normal, lipY, opts, fit, seen);
+  if (g || !eave) return g;
+  // AUDIT CLIMB-FIELD E1: no lip on the face - is there an eave over it? Not over a plain wall (every rung cast met the
+  // face where it was expected), which is every step of a free climb up the middle of one - CRACK-LIP: a rung through a
+  // crack between the wall's pieces, the face going on over it, is the plain wall's too
+  const back = opts.radius + PARKOUR_HANG_GAP;
+  const dir = [-normal[0], 0, -normal[2]], ox = face[0] + normal[0] * back, oz = face[2] + normal[2] * back;
+  for (const [i, d] of seen) {
+    if (Math.abs(d - back) <= PARKOUR_EDGE_INSET) continue;
+    if (!Number.isFinite(d) && faceGoesOn(collider, ox, lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG, oz, dir, back, PARKOUR_GRIP_RUNG)) continue;
+    return senseEave(collider, face, normal, lipY, opts, fit);
+  }
+  return null;
+}
+
+/** senseGrip's own law: the lip on the face through `face` (above). `seen` keeps the rungs it cast. */
+function plainGrip(collider, face, normal, lipY, opts, fit, seen) {
   const { radius, stand } = opts;
   const dir = [-normal[0], 0, -normal[2]];
   const back = radius + PARKOUR_HANG_GAP;
@@ -771,7 +874,6 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   const far = back + PARKOUR_LIP_FOLLOW + PARKOUR_GRIP_DEPTH + 0.05;
   const rungs = Math.round((2 * PARKOUR_LIP_FOLLOW) / PARKOUR_GRIP_RUNG);
   const rungY = (i) => lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG;
-  const seen = new Map();
   const at = (i) => {   // rung i's distance into the wall (Infinity for none), each ray cast once
     if (!seen.has(i)) { const d = collider.raycast([ox, rungY(i), oz], dir, far); seen.set(i, Number.isFinite(d) ? d : Infinity); }
     return seen.get(i);
@@ -779,14 +881,21 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   let hiY = null, loY = null;
   for (let i = 1; i <= rungs && hiY == null; i++) {
     const dist = at(i);
-    if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist < PARKOUR_EDGE_INSET) continue;
+    // AUDIT CLIMB-FIELD R1: the rung over it need only stand back AT ALL - the depth below is the test. It asked the
+    // edge's inset, and over an eave the rung over the face can stand a centimetre over the edge: a 46-degree roof's
+    // rung 3 cm up stands 2.9 cm back, and with no rung higher in the window the eave was no hold
+    if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist <= PARKOUR_RAY_SCATTER) continue;
     if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;   // a rung on a top rising away from the edge, not on the face
-    // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than 45 degrees rises through (each a rung's
-    // height or more back, less the rays' scatter - a wall standing up again, or set back a few centimetres a rung, is
-    // no such top); a level top or a set-back wall is the depth at the first
+    // CRACK-LIP (FIELD BUGS 2026-10-02): an open rung with the face going on a crack's height over it is the slot
+    // between two of the wall's pieces - a free climb took it for a lip, hung from it, found nothing there and let go
+    if (!Number.isFinite(at(i - 1)) && faceGoesOn(collider, ox, rungY(i - 1), oz, dir, dist, PARKOUR_GRIP_RUNG)) continue;
+    // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than the top's limit rises through (each its
+    // run back - PARKOUR_TOP_RUN rungs, a rung at 45 degrees, AUDIT CLIMB-FIELD R1 - less the rays' scatter: a wall
+    // standing up again, or set back a few centimetres a rung, is no such top); a level top or a set-back wall is the
+    // depth at the first
     let deep = at(i - 1);
     for (let j = i - 2; j >= i - 3 && deep - dist < PARKOUR_GRIP_DEPTH; j--) {
-      if (at(j) - deep < PARKOUR_GRIP_RUNG - PARKOUR_RAY_SCATTER) break;
+      if (at(j) - deep < PARKOUR_GRIP_RUNG * PARKOUR_TOP_RUN - PARKOUR_RAY_SCATTER) break;
       deep = at(j);
     }
     if (deep - dist >= PARKOUR_GRIP_DEPTH) { hiY = rungY(i - 1); loY = rungY(i); }
@@ -796,7 +905,7 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   const d0 = collider.raycast([ox, loY, oz], dir, far);
   const ex = ox + dir[0] * (d0 + PARKOUR_EDGE_INSET), ez = oz + dir[2] * (d0 + PARKOUR_EDGE_INSET);
   const top = collider.surfaceHit([ex, hiY + 0.01, ez], [0, -1, 0], hiY - loY + 0.06);
-  if (!Number.isFinite(top.dist) || !top.normal || top.normal[1] < PARKOUR_TOP_MIN_NY) return null;
+  if (!Number.isFinite(top.dist) || !top.normal || top.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) return null;
   const y = hiY + 0.01 - top.dist;
   if (Math.abs(y - lipY) > PARKOUR_LIP_FOLLOW + 0.01) return null;
   // 3. the face under it - under an eave the roof runs on past the edge, and the face is the rung's under the lip
@@ -809,6 +918,100 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   const feet = [fx + n[0] * back, y - PARKOUR_HANG_DROP, fz + n[2] * back];
   if (fit && !capsuleFits(collider, feet, stand)) return null;
   return { lipY: y, normal: n, face: [fx, y, fz], feet, key: top.key ?? under.key ?? null };
+}
+
+// ---- AUDIT CLIMB-FIELD E1: THE EAVE (Mac: "You cant mantle the bottom of roofs, you get stuck") -----------------------
+//
+// Daggerfall's roofs stand OUT from their walls: of the town blocks' 392 building models, 151 carry a soffit, the common
+// one a 0.4 m overhang whose roof rises from a knife edge (ARCH3D 201: wall to 3.22, soffit 3.22 out to 0.4, the roof
+// 37 degrees up from the edge; 127: a soffit falling 3.22 to 3.03 under a 46-degree roof). The hand-hold above reads the
+// lip where a face steps OUT - and an eave steps IN: the free climb's head met the soffit, the rungs over it met the roof
+// nearer than the wall, and the climber hung on under it until the grip ran out (measured on three real town blocks: 380
+// of 612 climbs). So when the face shows no lip and is not a plain wall, the edge is sought OUT from it: down rays over
+// the face's normal, from past the farthest eave the hands reach in, the first top met is the eave, its edge bisected.
+// A face standing under that edge (a fascia, a sill's front) is the hand-hold's own law again, from that face; none (the
+// wall set back under a soffit) is an overhang, and the body hangs free under the edge, off it as off a face.
+
+/** The farthest an eave's edge stands out from the face line and is still in the hands' reach. */
+export const PARKOUR_EAVE_OUT = 0.8;
+/** The eave is sought in from past that by down rays this far apart, and its edge bisected this many times (3 mm). */
+export const PARKOUR_EAVE_STEP = 0.1;
+export const PARKOUR_EAVE_BISECT = 5;
+/** ...and as far back as this inside the face line (a hang's re-ask, its face the edge, on an eave that curves in). */
+export const PARKOUR_EAVE_IN = 0.2;
+const DOWN = Object.freeze([0, -1, 0]);
+
+/** THE EAVE. Over the face through `face` (normal `normal`, out of the wall), a lip near `lipY` standing out from it:
+ *  answers senseGrip's grip (`eave: true` for an overhang's, its face the edge itself) or null. */
+function senseEave(collider, face, normal, lipY, opts, fit) {
+  const { radius, stand } = opts;
+  const n = normal, back = radius + PARKOUR_HANG_GAP;
+  const y0 = lipY + PARKOUR_LIP_FOLLOW + 0.3, len = 2 * PARKOUR_LIP_FOLLOW + 0.3;
+  // what a down ray `s` out from the face line meets, from over the window to under it, or null - the meshes' alone: an
+  // eave is a building's, and the terrain is never a hold (CLIMB1's law - a cliff of heightmap is no eave to lower from)
+  const down = (s) => {
+    const h = collider.raycastHit([face[0] + n[0] * s, y0, face[2] + n[2] * s], DOWN, len);
+    return Number.isFinite(h.dist) && h.normal ? h : null;
+  };
+  const isTop = (h) => !!h && h.normal[1] >= PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER;
+  // 1. THE EDGE: open air past the farthest eave, then in to the first thing met - a top, or no eave
+  let a = PARKOUR_EAVE_OUT + PARKOUR_EAVE_STEP, b = null;
+  if (down(a)) return null;
+  for (let s = PARKOUR_EAVE_OUT; s >= -PARKOUR_EAVE_IN - 1e-9; s -= PARKOUR_EAVE_STEP) {
+    const h = down(s);
+    if (!h) { a = s; continue; }
+    if (!isTop(h)) return null;
+    b = s;
+    break;
+  }
+  if (b == null) return null;
+  for (let k = 0; k < PARKOUR_EAVE_BISECT; k++) { const m = (a + b) / 2; if (down(m)) b = m; else a = m; }
+  const ex = face[0] + n[0] * b, ez = face[2] + n[2] * b;
+  // 2. THE TOP: at the edge itself (its height, which the face under it is asked under), and a lip's inset in (the
+  // hands' hold, in the window), running in the grip's depth no lower than the lip
+  const atEdge = down(b - 0.005), inset = down(b - PARKOUR_EDGE_INSET), deep = down(b - PARKOUR_GRIP_DEPTH);
+  if (!isTop(atEdge) || !isTop(inset) || !isTop(deep)) return null;
+  const edgeY = y0 - atEdge.dist, y = y0 - inset.dist;
+  if (Math.abs(y - lipY) > PARKOUR_LIP_FOLLOW + 0.01 || y0 - deep.dist < y - PARKOUR_TOP_DROP) return null;
+  // 3. UNDER THE EDGE: a face there is the hand-hold's own law, from that face (a fascia, a sill's front - and a sill too
+  // thin for the fingers is as thin from here); none in the grip's depth is an overhang
+  const q = [ex + n[0] * back, Math.min(edgeY, y) - PARKOUR_UNDER, ez + n[2] * back];
+  const under = collider.raycastHit(q, [-n[0], 0, -n[2]], back + PARKOUR_GRIP_DEPTH);
+  if (Number.isFinite(under.dist)) {
+    return plainGrip(collider, [q[0] - n[0] * under.dist, 0, q[2] - n[2] * under.dist], n, lipY, opts, fit, new Map());
+  }
+  // 4. THE HANG: under the edge, off it by the body's radius and the gap - turned with the roof where its pitch faces
+  // within the follow of the face's (a round tower's cone), the face's own otherwise (a flat slab)
+  const tn = inset.normal, tl = Math.hypot(tn[0], tn[2]);
+  let nn = n;
+  if (tl > 0.1 && (tn[0] * n[0] + tn[2] * n[2]) / tl >= PARKOUR_FACE_FOLLOW) nn = [tn[0] / tl, 0, tn[2] / tl];
+  const feet = [ex + nn[0] * back, y - PARKOUR_HANG_DROP, ez + nn[2] * back];
+  const hangs = !fit || capsuleFits(collider, feet, stand);
+  return hangs ? { lipY: y, normal: nn, face: [ex, y, ez], feet, key: inset.key ?? null, eave: true } : null;
+}
+
+/** AUDIT CLIMB-FIELD E2: THE EAVE AHEAD. A jump at an eave whose wall stands back past the grab's reach (a body under
+ *  or just outside a 0.4 m overhang has its wall 0.8-1.0 m off) meets no face for the ledge sensor to read the lip by,
+ *  and caught nothing unless it stood under the soffit. From the body looking along `dir`: down rays ahead from over
+ *  the band (`opts` the ledge sensor's: low, high, radius, stand), the first top in it is a roof - and its edge toward
+ *  the body, sought by the eave's own law from there, is the hold: an overhang's only (a face under the edge is the
+ *  ledge sensor's). Answers senseGrip's grip, or null. */
+export function senseEaveAhead(collider, feet, dir, opts) {
+  if (!collider?.raycastHit) return null;
+  const { low, high, radius } = opts;
+  const n = [-dir[0], 0, -dir[2]], y0 = feet[1] + high + 0.05;
+  for (const d of [radius + 0.1, radius + 0.25, radius + PARKOUR_WALL_REACH]) {
+    if (Number.isFinite(collider.raycast([feet[0], y0, feet[2]], dir, d + 0.02))) return null;
+    const px = feet[0] + dir[0] * d, pz = feet[2] + dir[2] * d;
+    const h = collider.raycastHit([px, y0, pz], DOWN, high + 0.05 - low);   // a roof: the meshes' (the eave's own law)
+    if (!Number.isFinite(h.dist) || !h.normal || h.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) continue;
+    // the roof rises from its edge toward the point met: the edge is sought from there down the windows under it
+    for (let k = 0; k < 4; k++) {
+      const g = senseGrip(collider, [px, 0, pz], n, y0 - h.dist - k * 2 * PARKOUR_LIP_FOLLOW, opts);
+      if (g) return g.eave && g.lipY - feet[1] >= low - 0.05 ? g : null;
+    }
+  }
+  return null;
 }
 
 /** Is the way from `feet` into the hang the grip found clear the whole way
@@ -904,4 +1107,405 @@ export function carryHold(pos, hold, was, now) {
   const y0 = pos[1];
   carryPoint(pos, was, now);
   carryLip(hold, pos[1] - y0, was, now);
+}
+
+// ---- CLIMB-DOWN: the way down (Mac: "So plsyers can get stuck on the very top of roofs") ----------------------------
+//
+// The climb took players up every wall, and only a fall brought them down: a roof's parapet walled a climber in for
+// good (the vault and the clamber refuse its drop, the plain jump cannot clear it), and every other top asked the jump
+// off it. Two ways down, both ending in the hang that Back climbs down from (or Crouch lets go of, a body's height
+// lower than the top): CROUCH WALKED TO AN EDGE lowers the body over it into a hang from its lip (senseEdge, planLower -
+// Assassin's Creed's and Dying Light's own climb down), and JUMP AT A THIN TOP over a drop the clamber would not take
+// climbs over it into a hang on its far side (senseOverHang).
+
+/** An edge the lower takes: the floor ahead of the body's front gone more than this under the feet (a step down the
+ *  walk takes is none; a drop under the hang's own 1.8 m leaves no room to hang, which senseGrip's fit refuses). */
+export const PARKOUR_EDGE_DROP = 1.0;
+/** ...the floor asked this far past the body's front (its radius off the axis). */
+export const PARKOUR_EDGE_AHEAD = 0.1;
+/** The edge between the last floor and the first air, bisected to this. */
+export const PARKOUR_EDGE_BISECT = 6;
+/** The face under an edge: a level ray this far under the lip, back toward the body from this far out past the edge
+ *  (under an eave it meets the wall the roof stands on, as the hang's own rays do). */
+export const PARKOUR_EDGE_FACE_DROP = 0.1;
+export const PARKOUR_EDGE_FACE_OUT = 0.6;
+/** Seconds the lower takes over a lip the hands then hang from, at Climbing 0 and 100. */
+export const PARKOUR_LOWER_MIN_S = 1.0;
+export const PARKOUR_LOWER_MAX_S = 0.6;
+/** The lower's first leg (out over the edge) as a share of its time; the rest is the drop into the hang. */
+export const PARKOUR_LOWER_SPLIT = 0.4;
+
+/** CLIMB-DOWN: seconds the lower into a hang takes at this Climbing skill. */
+export function lowerDuration(skill) {
+  return lerp(PARKOUR_LOWER_MIN_S, PARKOUR_LOWER_MAX_S, clamp01(skill / 100));
+}
+
+/** What the edge's floor is: ground the walk stands on - the motor's slopeLimit (70 degrees; restated, not read,
+ *  for the import cycle, and pinned equal) - so the body walking down a 45-degree roof is on its floor to the eave. */
+export const PARKOUR_EDGE_FLOOR_NY = Math.cos((70 * Math.PI) / 180);
+
+/** The floor's height under a point, asked from `top` down `reach`, or null (none: past the edge). */
+function floorAt(collider, x, top, z, reach) {
+  const h = collider.surfaceHit([x, top, z], [0, -1, 0], reach);
+  return Number.isFinite(h.dist) && h.normal && h.normal[1] >= PARKOUR_EDGE_FLOOR_NY ? top - h.dist : null;
+}
+
+/** The face under a lip at `lipY`, out from `edge` along `out` (horizontal unit): a level ray back toward the edge
+ *  from PARKOUR_EDGE_FACE_OUT past it - { point, normal } (the normal out of the wall, level), or null. */
+function faceUnder(collider, edge, out, lipY) {
+  const o = [edge[0] + out[0] * PARKOUR_EDGE_FACE_OUT, lipY - PARKOUR_EDGE_FACE_DROP, edge[2] + out[2] * PARKOUR_EDGE_FACE_OUT];
+  const h = faceHit(collider, o, [-out[0], 0, -out[2]], PARKOUR_EDGE_FACE_OUT + PARKOUR_WALL_REACH);
+  if (!h || h.normal[0] * out[0] + h.normal[2] * out[2] < PARKOUR_FACING_DOT) return null;
+  return { point: [o[0] - out[0] * h.dist, lipY, o[2] - out[2] * h.dist], normal: h.normal };
+}
+
+/**
+ * THE EDGE (CLIMB-DOWN). From the feet, moving along `dir` (a horizontal unit vector): does the floor end within
+ * the body's front (PARKOUR_EDGE_AHEAD past its radius) over a drop the walk would fall (PARKOUR_EDGE_DROP) - and is
+ * there a lip there the hands can hang from, on the face under it, facing out along `dir`?
+ *   1. THE EDGE - the floor asked at the front and, where it is gone, bisected back to the axis: the lip is the last
+ *      floor's height (a pitched roof's eave, under the feet on its slope);
+ *   2. THE FACE - a level ray back under the lip (faceUnder), facing out within PARKOUR_FACING_DOT of the way walked;
+ *   3. THE HANG - senseGrip from outside, the body fitting under the lip, and the way out over the edge and down
+ *      into the hang proven clear for the standing body (the move stands it).
+ * Answers { grip, lipY } or null. `opts` = the ledge sensor's (radius, stand).
+ */
+export function senseEdge(collider, feet, dir, opts) {
+  if (!collider?.surfaceHit || !collider.raycastHit) return null;
+  const { radius, stand } = opts;
+  const top = feet[1] + PARKOUR_TOP_PROBE, reach = PARKOUR_TOP_PROBE + PARKOUR_EDGE_DROP;
+  const ahead = radius + PARKOUR_EDGE_AHEAD;
+  if (floorAt(collider, feet[0] + dir[0] * ahead, top, feet[2] + dir[2] * ahead, reach) != null) return null;
+  let lo = 0, hi = ahead, lipY = floorAt(collider, feet[0], top, feet[2], reach);
+  if (lipY == null) return null;   // no floor under the axis: no edge the body stands at
+  for (let i = 0; i < PARKOUR_EDGE_BISECT; i++) {
+    const mid = (lo + hi) / 2;
+    const y = floorAt(collider, feet[0] + dir[0] * mid, top, feet[2] + dir[2] * mid, reach);
+    if (y == null) hi = mid; else { lo = mid; lipY = y; }
+  }
+  const edge = [feet[0] + dir[0] * lo, lipY, feet[2] + dir[2] * lo];
+  // AUDIT CLIMB-FIELD E1: an eave standing further out than the face's ray reaches back (past 0.5 m) shows it no wall -
+  // its hold is sought from the edge itself, the eave's own law (an overhang's only)
+  const face = faceUnder(collider, edge, dir, lipY);
+  const grip = face ? senseGrip(collider, face.point, face.normal, lipY, opts) : senseGrip(collider, edge, dir, lipY, opts);
+  if (!face && !grip?.eave) return null;
+  if (!grip) return null;
+  const m = planLower(feet, grip, 0);
+  return pathClear(collider, m, stand) ? { grip, lipY: grip.lipY } : null;
+}
+
+/** CLIMB-DOWN: the lower's move - out over the edge at the lip's height (a mantle's `up`, the body just off the
+ *  face), then down the face into the hang under the lip. It ends held (`hang`), standing: the move stands a crouched
+ *  body (`stand`) as the second leg begins - the eye rising on the stand's own clock while the feet go down, so it
+ *  sinks the whole way, where stood at the start it rose 0.4 m over the edge before it fell. */
+export function planLower(feet, grip, skill) {
+  const n = grip.normal, off = PARKOUR_BODY_RADIUS + PARKOUR_UP_GAP;
+  return {
+    kind: 'lower',
+    from: [feet[0], feet[1], feet[2]],
+    up: [grip.face[0] + n[0] * off, Math.max(feet[1], grip.lipY) + PARKOUR_UP_GAP, grip.face[2] + n[2] * off],
+    to: [...grip.feet],
+    split: PARKOUR_LOWER_SPLIT, arc: 0,
+    dur: lowerDuration(skill),
+    crouch: false,
+    stand: true,
+    exit: null,
+    hang: { normal: [...grip.normal], lipY: grip.lipY },
+    key: grip.key ?? null,
+    t: 0,
+  };
+}
+
+/**
+ * OVER A THIN TOP, INTO A HANG (CLIMB-DOWN): a parapet or a rail whose far side drops further than the clamber steps
+ * down (PARKOUR_OVER_DROP) - climbed over, and the body lowered into a hang from the top's far edge, facing back at it.
+ * The near face's `up` and the far edge's `over` are senseOver's points; the far face under the top (faceUnder,
+ * from past the far edge) holds the hang (senseGrip). The way up and over, and the way down from there, proven clear.
+ * Answers { up, over, grip } or null.
+ */
+export function senseOverHang(collider, feet, ledge, opts) {
+  if (!(ledge?.ok) || ledge.depth == null || ledge.depth > PARKOUR_VAULT_DEPTH) return null;
+  const { radius, stand } = opts;
+  const { face, into, normal, lipY, depth } = ledge;
+  const y = lipY + PARKOUR_VAULT_CLEAR;
+  const tangent = [-into[2], 0, into[0]];
+  for (const n of PARKOUR_NUDGE) {
+    const fx = face[0] + tangent[0] * n, fz = face[2] + tangent[2] * n;
+    const far = faceUnder(collider, [fx + into[0] * depth, lipY, fz + into[2] * depth], into, lipY);
+    if (!far) continue;
+    const grip = senseGrip(collider, far.point, far.normal, lipY, opts);
+    if (!grip) continue;
+    const off = radius + PARKOUR_UP_GAP;
+    const up = [fx + normal[0] * off, y, fz + normal[2] * off];
+    const over = [grip.face[0] + grip.normal[0] * off, y, grip.face[2] + grip.normal[2] * off];
+    if (!capsuleFits(collider, up, stand) || !capsuleFits(collider, over, stand)) continue;
+    if (!pathClear(collider, path(feet, up, over, 0.4, 0.1), stand)) continue;
+    if (!pathClear(collider, path(over, over, grip.feet, 0, 0), stand)) continue;
+    return { up, over, grip };
+  }
+  return null;
+}
+
+/** CLIMB-DOWN: over a thin top and down into a hang on its far side - a clamber's move up and over (billed as a
+ *  climb), and chained on it (`next`) the drop into the hang, unbilled. */
+export function planOverHang(feet, ledge, oh, skill) {
+  const down = {
+    kind: 'lower',
+    from: [...oh.over],
+    up: [...oh.over],
+    to: [...oh.grip.feet],
+    split: 0, arc: 0,
+    dur: lowerDuration(skill) * (1 - PARKOUR_LOWER_SPLIT),
+    crouch: false,
+    stand: true,   // AUDIT CLIMB-ARC D4: a crouched Jump over the parapet hangs standing (the lower's own law), never crouched
+    exit: null,
+    hang: { normal: [...oh.grip.normal], lipY: oh.grip.lipY },
+    key: oh.grip.key ?? null,
+    t: 0,
+  };
+  return {
+    kind: 'mantle',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...oh.up],
+    to: [...oh.over],
+    split: 0.4, arc: 0.1,
+    dur: mantleDuration(ledge.rise, skill) * 1.15,
+    crouch: false,
+    exit: null,
+    key: ledge.faceKey ?? null,
+    next: down,
+    t: 0,
+  };
+}
+
+// ---- CLIMB3: LEAPS (Mac's "Parkour leap, skill-scaled": "a leap from a hang or a sprint off an edge has its own
+// longer, flatter arc scaled by Jumping; the plain jump is unchanged") ------------------------------------------------
+//
+// From a hold - the hang or the free climb - a fresh Jump leaps: with Left or Right to a hand-hold along the wall, with
+// nothing (or Forward) and no top to climb onto to one above, with Back off the wall altogether (the eject). On the
+// ground a running Jump at an edge is a running leap, and a running Jump at a wall runs up it. A leap to a hand-hold is
+// a move along a proven path into the hang (as the catch is); the eject and the running leap are flights, the catch
+// armed for them, its reach the leap's (magnetism). Every leap is the Jumping skill's: its reach, its pace, its arc.
+
+/** A side leap reaches a hand-hold this far along the wall from the hands, at Jumping 0 and 100. */
+export const PARKOUR_LEAP_SIDE_MIN = 1.5;
+export const PARKOUR_LEAP_SIDE_MAX = 2.5;
+/** An up leap reaches a lip this far over the one held, at Jumping 0 and 100. */
+export const PARKOUR_LEAP_UP_MIN = 1.0;
+export const PARKOUR_LEAP_UP_MAX = 1.8;
+/** The search for a leap's hold: along the wall every this; the side leap's lips at these heights from the one held
+ *  (each asked within senseGrip's own window, PARKOUR_LIP_FOLLOW). */
+export const PARKOUR_LEAP_SCAN = 0.1;
+export const PARKOUR_LEAP_HEIGHTS = Object.freeze([0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9]);
+/** A leap to a hold flies its path at this pace (m/s, at Jumping 0 and 100), over this arc (a side leap's). */
+export const PARKOUR_LEAP_SPEED_MIN = 4;
+export const PARKOUR_LEAP_SPEED_MAX = 6;
+export const PARKOUR_LEAP_ARC = 0.25;
+/** The grip a leap off a hold spends at once (the hold it lands in spends its own after). */
+export const PARKOUR_LEAP_GRIP = 0.1;
+/** The eject: off the wall at this speed out (m/s) and this up, at Jumping 0 and 100. */
+export const PARKOUR_EJECT_OUT_MIN = 3.5;
+export const PARKOUR_EJECT_OUT_MAX = 5.5;
+export const PARKOUR_EJECT_UP_MIN = 3.0;
+export const PARKOUR_EJECT_UP_MAX = 4.5;
+/** The running leap: a flight to a landing level with the take-off this far ahead, over an apex this high, at Jumping 0
+ *  and 100 - longer than the plain running jump's 3.4-4.6 m at every skill, and flatter (its apex 0.5-1.1 m). */
+export const PARKOUR_RUNLEAP_DIST_MIN = 4.0;
+export const PARKOUR_RUNLEAP_DIST_MAX = 7.0;
+export const PARKOUR_RUNLEAP_APEX_MIN = 0.45;
+export const PARKOUR_RUNLEAP_APEX_MAX = 0.8;
+/** ...asked when the floor ends this far ahead of the body's front - or the body left it running this long ago (the
+ *  late jump: a press a beat after the edge still leaps, never a plain jump's). */
+export const PARKOUR_RUNLEAP_EDGE = 1.2;
+export const PARKOUR_COYOTE_S = 0.15;
+/** Running is at least this share of the run's speed. */
+export const PARKOUR_RUN_SHARE = 0.75;
+/** Magnetism: in a leap's flight the catch reaches this much further. */
+export const PARKOUR_LEAP_REACH = 0.25;
+/** The wall run: a running Jump at a wall this near (from the body's front) runs up it this high (at the skills' 0 and
+ *  100 - Climbing and Jumping, averaged) at this pace; a lip coming to the hands on the way is caught there. */
+export const PARKOUR_WALLRUN_REACH = 1.0;
+export const PARKOUR_WALLRUN_MIN = 1.0;
+export const PARKOUR_WALLRUN_MAX = 2.0;
+export const PARKOUR_WALLRUN_SPEED = 5;
+
+/** CLIMB3: a leap's reach and pace at this Jumping skill. */
+export function leapSideReach(jumping) { return lerp(PARKOUR_LEAP_SIDE_MIN, PARKOUR_LEAP_SIDE_MAX, clamp01(jumping / 100)); }
+export function leapUpReach(jumping) { return lerp(PARKOUR_LEAP_UP_MIN, PARKOUR_LEAP_UP_MAX, clamp01(jumping / 100)); }
+export function leapSpeed(jumping) { return lerp(PARKOUR_LEAP_SPEED_MIN, PARKOUR_LEAP_SPEED_MAX, clamp01(jumping / 100)); }
+/** CLIMB3: the eject's launch - { out, up } m/s - at this Jumping skill. */
+export function ejectLaunch(jumping) {
+  const t = clamp01(jumping / 100);
+  return { out: lerp(PARKOUR_EJECT_OUT_MIN, PARKOUR_EJECT_OUT_MAX, t), up: lerp(PARKOUR_EJECT_UP_MIN, PARKOUR_EJECT_UP_MAX, t) };
+}
+/** CLIMB3: the running leap's launch - { along, up } m/s - at this Jumping skill under this gravity: the apex and the
+ *  distance (to a landing level with the take-off) are the law; the speeds follow. */
+export function runLeapLaunch(jumping, gravity) {
+  const t = clamp01(jumping / 100);
+  const apex = lerp(PARKOUR_RUNLEAP_APEX_MIN, PARKOUR_RUNLEAP_APEX_MAX, t), dist = lerp(PARKOUR_RUNLEAP_DIST_MIN, PARKOUR_RUNLEAP_DIST_MAX, t);
+  const up = Math.sqrt(2 * gravity * apex);
+  return { along: dist / ((2 * up) / gravity), up };
+}
+/** CLIMB3: the wall run's height at these skills. */
+export function wallRunHeight(climbing, jumping) {
+  return lerp(PARKOUR_WALLRUN_MIN, PARKOUR_WALLRUN_MAX, clamp01((clamp01(climbing / 100) + clamp01(jumping / 100)) / 2));
+}
+
+/**
+ * THE LEAP'S HOLD (CLIMB3). From the hang under `held` ({ face, normal, lipY, feet } - the hold now), a hand-hold the
+ * leap reaches: `way` 'up' (a lip over this one, up the same face, from PARKOUR_LIP_FOLLOW past it to `reach`) or
+ * 'side' with `side` +1/-1 (the hands' right or left facing the wall: lips along the wall from two hand spans to
+ * `reach`, nearest first, each at the heights PARKOUR_LEAP_HEIGHTS from this one). The way there - an arc for a side
+ * leap - proven clear for the standing body. Answers the grip (senseGrip's) with the move's `up`, or null.
+ */
+export function senseLeapHold(collider, feet, held, way, reach, opts, side = 0) {
+  if (!collider?.raycastHit || !held) return null;
+  const { stand, radius } = opts;
+  const n = held.normal, t = [-n[2] * side, 0, n[0] * side], back = radius + PARKOUR_HANG_GAP;
+  // the face under a lip near `lipY` along the column of a body at `face` (on the held face's line): the NEAREST face
+  // level rays meet in the lip's window - the face under a lip is what stands out (a moulding proud of the wall, a
+  // sill), and the held face's own line can be 0.15 m behind it or more (the free climb's hands are on the wall)
+  const faceNear = (face, lipY) => {
+    const ox = face[0] + n[0] * back, oz = face[2] + n[2] * back;
+    let best = null;
+    for (let y = lipY - PARKOUR_LIP_FOLLOW - PARKOUR_GRIP_RUNG; y <= lipY + PARKOUR_LIP_FOLLOW + 1e-9; y += PARKOUR_GRIP_RUNG) {
+      const h = faceHit(collider, [ox, y, oz], [-n[0], 0, -n[2]], back + PARKOUR_WALL_REACH);
+      if (h && (!best || h.dist < best)) best = h.dist;
+    }
+    return best == null ? face : [ox - n[0] * best, lipY, oz - n[2] * best];
+  };
+  const tryGrip = (face, lipY, arc) => {
+    const g = senseGrip(collider, faceNear(face, lipY), n, lipY, opts);
+    if (!g || Math.abs(g.lipY - held.lipY) < 1e-3 && Math.hypot(g.feet[0] - feet[0], g.feet[2] - feet[2]) < 0.05) return null;
+    // the way there: out from the wall first to the further of the two holds' distances (a free climber is pressed to
+    // the wall, and a hold's lip can stand out over it), then on - an up leap rises there, a side leap arcs over the
+    // midpoint
+    const out = Math.max(feet[0] * n[0] + feet[2] * n[2], g.feet[0] * n[0] + g.feet[2] * n[2]);
+    const mid = way === 'up'
+      ? [g.feet[0], feet[1] + 0.25 * (g.feet[1] - feet[1]), g.feet[2]]
+      : [(feet[0] + g.feet[0]) / 2, Math.max(feet[1], g.feet[1]) + arc, (feet[2] + g.feet[2]) / 2];
+    const shift = out - (mid[0] * n[0] + mid[2] * n[2]);
+    mid[0] += n[0] * shift; mid[2] += n[2] * shift;
+    return pathClear(collider, path(feet, mid, g.feet, way === 'up' ? 0.3 : 0.5, 0), stand) ? { ...g, up: mid, split: way === 'up' ? 0.3 : 0.5 } : null;
+  };
+  if (way === 'up') {
+    // each ask covers its own window (PARKOUR_LIP_FOLLOW either side): the asks tile the reach, and a lip found past
+    // it is not taken
+    for (let d = 2 * PARKOUR_LIP_FOLLOW; d - PARKOUR_LIP_FOLLOW <= reach + 1e-9; d += 2 * PARKOUR_LIP_FOLLOW) {
+      const g = tryGrip(held.face, held.lipY + d, 0);
+      if (g && g.lipY > held.lipY + PARKOUR_LIP_FOLLOW && g.lipY - held.lipY <= reach + 1e-9) return g;
+    }
+    return null;
+  }
+  // the lip held runs on this far that way unbroken - the shimmy's, not a leap's: a leap at its own height is to a hold
+  // past where it ends (across a gap, a pillar, a window's frame)
+  // AUDIT CLIMB-ARC L9: FOLLOWED as the shimmy follows it - each probe a span on from the last grip, along ITS face and
+  // at ITS lip's height (a sloped coping, a round tower's ring) - not along the held face's line at the held height,
+  // which left a curving or rising lip early and leapt along the very lip the hands could shimmy. Every grip the run
+  // passes is kept: a candidate on one of them is the same lip.
+  let runs = 0;
+  const run = [];
+  for (let at = { face: held.face, normal: n, lipY: held.lipY }; runs + PARKOUR_HAND_SPAN <= reach;) {
+    const tt = [-at.normal[2] * side, 0, at.normal[0] * side];
+    const g = senseGrip(collider, [at.face[0] + tt[0] * PARKOUR_HAND_SPAN, at.lipY, at.face[2] + tt[2] * PARKOUR_HAND_SPAN], at.normal, at.lipY, opts, false);
+    if (!g || g.normal[0] * at.normal[0] + g.normal[2] * at.normal[2] < PARKOUR_FACE_FOLLOW - PARKOUR_RAY_SCATTER) break;
+    run.push(g);
+    at = { face: g.face, normal: g.normal, lipY: g.lipY };
+    runs += PARKOUR_HAND_SPAN;
+  }
+  const onRun = (g) => run.some((r) => Math.hypot(r.face[0] - g.face[0], r.face[2] - g.face[2]) < PARKOUR_HAND_SPAN && Math.abs(r.lipY - g.lipY) < PARKOUR_LIP_FOLLOW);
+  for (let s = 2 * PARKOUR_HAND_SPAN; s <= reach + 1e-9; s += PARKOUR_LEAP_SCAN) {
+    const face = [held.face[0] + t[0] * s, held.lipY, held.face[2] + t[2] * s];
+    for (const dy of PARKOUR_LEAP_HEIGHTS) {
+      if (Math.abs(dy) > reach - s + 0.3) continue;   // the reach is the leap's whole way, along and up or down
+      if (Math.abs(dy) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN) continue;
+      const g = tryGrip(face, held.lipY + dy, PARKOUR_LEAP_ARC);
+      if (g && !(Math.abs(g.lipY - held.lipY) < PARKOUR_LIP_FOLLOW && s <= runs + PARKOUR_HAND_SPAN) && !onRun(g)) return g;
+    }
+  }
+  return null;
+}
+
+/** CLIMB3: a leap's move into the hold senseLeapHold found - its path's own `up`, at the leap's pace. */
+export function planLeap(feet, g, jumping) {
+  const len = Math.hypot(g.up[0] - feet[0], g.up[1] - feet[1], g.up[2] - feet[2]) + Math.hypot(g.feet[0] - g.up[0], g.feet[1] - g.up[1], g.feet[2] - g.up[2]);
+  return {
+    kind: 'leap',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...g.up],
+    to: [...g.feet],
+    split: g.split ?? 0.5, arc: 0,
+    dur: 0.15 + len / leapSpeed(jumping),
+    crouch: false,
+    exit: null,
+    hang: { normal: [...g.normal], lipY: g.lipY },
+    key: g.key ?? null,
+    t: 0,
+  };
+}
+
+/**
+ * THE WALL RUN (CLIMB3). Running at a wall along `dir`: its face within PARKOUR_WALLRUN_REACH of the body's front, and
+ * the body running up it `height` - and a lip the hands then reach (`reach` over the run's top, the air catch's) is
+ * caught: the run goes on to the hang under it. No lip there, the run ends against the wall, the hands on it (a free
+ * climb). Answers { up, to, grip, normal } (`grip` the lip it ends in, or null) or null. The way there proven clear.
+ */
+export function senseWallRun(collider, feet, dir, height, reach, opts) {
+  if (!collider?.raycastHit) return null;
+  const { radius, stand } = opts;
+  const hit = faceHit(collider, [feet[0], feet[1] + stand * 0.5, feet[2]], dir, radius + PARKOUR_WALLRUN_REACH);
+  if (!hit) return null;
+  const n = hit.normal, back = radius + PARKOUR_HANG_GAP;
+  const fx = feet[0] + dir[0] * hit.dist, fz = feet[2] + dir[2] * hit.dist;
+  const up = [fx + n[0] * back, feet[1] + 0.1, fz + n[2] * back];
+  // the lip the run comes to: the first height the face is gone, along the run's own column
+  let lipTop = null;
+  for (let y = feet[1] + stand * 0.5; y <= feet[1] + height + reach + 1e-9; y += PARKOUR_SCAN_STEP) {
+    if (!Number.isFinite(collider.raycast([up[0], y, up[2]], [-n[0], 0, -n[2]], back + PARKOUR_FACE_LEAN + 0.05))) { lipTop = y; break; }
+  }
+  let grip = null, top = feet[1] + height;
+  if (lipTop != null) {
+    grip = senseGrip(collider, [fx, lipTop, fz], n, lipTop - PARKOUR_SCAN_STEP / 2, opts);
+    if (!grip) return null;   // a lip with no hold under it: no run
+    top = grip.feet[1];
+  }
+  const to = grip ? [...grip.feet] : [up[0], top, up[2]];
+  if (to[1] <= feet[1] + 0.2) return null;
+  return pathClear(collider, path(feet, up, to, 0.25, 0), stand) ? { up, to, grip, normal: n, key: hit.key ?? null } : null;   // AUDIT CLIMB-ARC L11: the face's own key - a run with no lip rides its hull too
+}
+
+/** CLIMB3: the wall run's move - in to the wall and up it at PARKOUR_WALLRUN_SPEED; it ends in the hang at the lip it
+ *  came to, or on the wall (`wall`: the hands take it, a free climb). */
+export function planWallRun(feet, run) {
+  const len = Math.hypot(run.up[0] - feet[0], run.up[2] - feet[2]) + (run.to[1] - run.up[1]);
+  return {
+    kind: 'wallrun',
+    from: [feet[0], feet[1], feet[2]],
+    up: [...run.up],
+    to: [...run.to],
+    split: 0.25, arc: 0,
+    dur: 0.1 + len / PARKOUR_WALLRUN_SPEED,
+    crouch: false,
+    exit: null,
+    hang: run.grip ? { normal: [...run.grip.normal], lipY: run.grip.lipY } : null,
+    wall: run.grip ? null : { normal: [...run.normal] },
+    key: run.grip?.key ?? run.key ?? null,
+    t: 0,
+  };
+}
+
+/** CLIMB3: does the floor end within `ahead` of the body's front along `dir` - a drop past it the walk would fall
+ *  (PARKOUR_EDGE_DROP), asked every PARKOUR_LEAP_SCAN? The running leap's edge (a gap between roofs, a wall top's end). */
+export function senseDrop(collider, feet, dir, radius, ahead) {
+  if (!collider?.surfaceHit) return false;
+  // AUDIT CLIMB-ARC L1: each sample asked from the floor the last one found - a BREAK in the floor, not depth under the
+  // feet: a staircase falls a riser a tread and never reads as an edge (the running Jump down it was a 7-38 m leap)
+  const reach = PARKOUR_TOP_PROBE + PARKOUR_EDGE_DROP;
+  let prev = feet[1];
+  for (let s = radius; s <= radius + ahead + 1e-9; s += PARKOUR_LEAP_SCAN) {
+    const y = floorAt(collider, feet[0] + dir[0] * s, prev + PARKOUR_TOP_PROBE, feet[2] + dir[2] * s, reach);
+    if (y == null) return true;
+    prev = y;
+  }
+  return false;
 }

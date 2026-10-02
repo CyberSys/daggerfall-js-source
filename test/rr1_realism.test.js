@@ -36,12 +36,13 @@ import { createFactionRep, getReputation } from '../src/systems/factionRep.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { WEAPONS, WEAPON_MATERIALS } from '../src/characters/weapons.js';
 import { mintCondition, setItemFields } from '../src/systems/itemTemplates.js';
-import { equipTableOf, EQUIP_SLOTS, _wearScaleForTests } from '../src/systems/equip.js';
+import { equipTableOf, EQUIP_SLOTS, _wearScaleForTests, _dfuWearMultipleForTests } from '../src/systems/equip.js';
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';
 import { carriedWeight } from '../src/systems/inventory.js';
 
 // BALANCE1: this file pins DFU's / the mod's own wear verbatim, so it runs the port's wear scale at 1 (test/balance1.test.js pins the scale)
 _wearScaleForTests(1);
+_dfuWearMultipleForTests(1);   // WEAR-TWICE: and DFU's amount unmultiplied (wear_vanilla.test.js pins the 2)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -68,7 +69,8 @@ test('RR1 the record: the manifest, the switches (27 keys - 26 on the pane, figh
       assert.ok(keys[name], `${name} is on the pane`);
       assert.equal(keys[name].description, k.Description, `${name}: the mod's own words`);
       const expected = typeof k.Value === 'string' ? (k.Value === 'True' ? true : k.Value === 'False' ? false : Number(k.Value)) : k.Value;
-      if (name === 'shipPorts') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'SHIP-PORTS: the ONE recorded departure from the mod\'s defaults - the boat stays reachable from anywhere until a player asks for the port rule'); n++; continue; }
+      if (name === 'shipPorts') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'SHIP-PORTS: a recorded departure from the mod\'s defaults - the boat stays reachable from anywhere until a player asks for the port rule'); n++; continue; }
+      if (name === 'equipDamage') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'WEAR-VANILLA: the other recorded departure - armour wears at DFU\'s rate, not x5'); n++; continue; }
       assert.equal(keys[name].default, expected, `${name}: the mod's own default`);
       n++;
     }
@@ -183,6 +185,7 @@ test('RR1 equipDamage: armor takes damage x5 and the override answers true, a we
   // replaces FormulaHelper's whole member while its equipmentDamageEnhanced is on (as in DFU, where the mod that
   // registered last owns the member) - off here, so DFU's member and this override's slot inside it run
   setModSetting('pcaao', 'equipmentDamageEnhanced', false);
+  on('equipDamage');   // WEAR-VANILLA: the port ships it off - the law under test is the module's
   const attacker = { items: [], activeEffects: [] };
   const target = { items: [], activeEffects: [] };
   const worn = mint({ group: 'Armor', templateIndex: 102, material: 0 });
@@ -424,7 +427,7 @@ test('RR1 bedSleeping and the wiring: the three bed models, listed by the interi
   assert.match(wm, /if \(key\.startsWith\('bed:'\)\) \{\n        restFromInteriorBed\(\);/, 'BedActivation is the rest gate');
   assert.match(wm, /const restFromInteriorBed = \(\) => \{ _restFromBed = true; try \{ interiorKeyCtx\.toggleRest\(\{ ignoreAllocatedBed: true \}\); \} finally \{ _restFromBed = false; \} \};/, 'and `new DaggerfallRestWindow(uiManager, true)` (:524) - AUDIT-RR F6 (CSA-J: through the bed\'s own door, which drops the GiveOffer rung)');
   assert.match(wm, /joinGuild\(memberships, guild, ownDate\(\), store\);/);   // LIVED1: a join is dated on the character's own clock (the rank wait's)
-  assert.match(wm, /const doused = rrDouseOnDungeonExit\(playerEntity, \{ isDay: isDayFromMinutes\(Math\.floor\(worldMinutes\(\)\)\) \}\);\n      if \(doused\) townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[expandItemMacro\(USE_TEXT\.lightDouse, doused\)\]\)\);/, 'the douse on the dungeon exit with the light\'s own box');
+  assert.match(wm, /const doused = rrDouseOnDungeonExit\(playerEntity, \{ isDay: isDayFromMinutes\(Math\.floor\(skyMinutes\(\)\)\) \}\);[^\n]*\n      if \(doused\) townTalk\?\.showOverlay\?\.\(new ActionTextBox\(\[expandItemMacro\(USE_TEXT\.lightDouse, doused\)\]\)\);/, 'the douse on the dungeon exit with the light\'s own box');
   assert.match(wm, /setRrHostSeams\(\{ spawnFoe: \(mobileType, opts\) => standInteriorLooseFoe\(mobileType, opts\) \}\);/);
   assert.match(rd('src/combat/formulas.js'), /chanceToHitMod \+= _overrides\.get\('calculateWeaponToHit'\)\?\.\(weapon\) \?\? \(WEAPON_MATERIAL_MODIFIER\[weapon\.material\] \?\? 0\) \* 10;/);
   assert.match(rd('src/combat/formulas.js'), /if \(_overrides\.get\('applyConditionDamageThroughPhysicalHit'\)\?\.\(item, owner, damage, \{ say, rolls \}\) === true\) return;/);   // BALANCE1: the override is handed the rolls, for the wear scale's rounding

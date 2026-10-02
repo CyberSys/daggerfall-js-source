@@ -65,7 +65,7 @@
 // below, per mille, so the feel can be tuned without touching a roll.
 
 import { getPref } from './uiPrefs.js';
-import { armorBodyParts, equipTableOf } from './equip.js';   // LR4: the parts a piece covers, the foe's worn table
+import { armorBodyParts, equipTableOf, wearableItem } from './equip.js';   // LR4: the parts a piece covers, the foe's worn table; RARITY-WEAR: whether any slot takes it
 import { registerEntityFold, registerWeaponDamageMod, newMods, EMPTY_MODS } from './entityMods.js';   // RF1: the fold is one of the entity's, read once per channel
 import { templateByIndex, itemBaseValue, isAmmunition } from './itemTemplates.js';   // AUDIT 68 S27-ammo-arrow-only: the ammunition registry's home
 import { rriVariantWord } from './rriItems.js';   // DISC29-B: the word Roleplay & Realism: Items' mint put before the template's name
@@ -128,6 +128,7 @@ export const rarityRank = (item) => RARITIES[rarityOf(item)].rank;
  *  roll Magic and shatter itself. */
 export function rarityEligible(item) {
   if (!item || item.questItem || item.artifact || item.magic || item.rarity || enchanted(item) || item.equipSlot != null) return false;
+  if (!wearableItem(item)) return false;   // RARITY-WEAR: no slot, no tier - every affix and a Held enchantment read worn pieces alone
   if (item.group === 'Weapons') return !isAmmunition(item);
   return item.group === 'Armor' || item.group === 'Jewellery';
 }
@@ -903,6 +904,31 @@ export function repairRarityNames(items) {
   return n;
 }
 
+/** RARITY-WEAR (FIELD BUGS 2026-10-01): THE WEARABLE HOME of a rolled piece minted on a base no slot takes - a group's
+ *  template of the same weight and condition that a slot does take: the Wand's (140, 0.25 kg, 800) is the Amulet's
+ *  (133, 0.25 kg, 800). */
+export const RARITY_HOME = Object.freeze({ Jewellery: 133 });
+/** RARITY-WEAR: THE WANDS A SAVE KEPT. The Gate's spoils and a town's thanks minted one jewel in eight on the Wand before
+ *  the fix (gateSpoils.js spoilsBase), and a King's Mark on one could never be worn. On load a Magic, Rare or Legendary
+ *  piece on a base nothing can wear moves to its group's RARITY_HOME: a Legendary keeps its record's name, a Magic or
+ *  Rare one built on the old base is named for the new (as the ladder names it), and the price moves by the two bases.
+ *  DFU's own wands (MAGIC.DEF's, `magic`, their Use a cast) and a plain one are wands and stay so; a second load finds
+ *  nothing. In place, as the save's other repairs are; answers how many moved. */
+export function repairRarityBases(items) {
+  let n = 0;
+  for (const it of Array.isArray(items) ? items : []) {
+    if (!it || typeof it !== 'object' || !ROLLED_TIERS.includes(it.rarity) || !Object.isExtensible(it)) continue;
+    const home = RARITY_HOME[it.group];
+    if (home == null || wearableItem(it)) continue;
+    const from = { ...it };
+    it.templateIndex = home;
+    if (it.rarity !== 'legendary' && Array.isArray(it.affixes) && it.name === rarityName(from, it.rarity, it.affixes)) it.name = rarityName(it, it.rarity, it.affixes);
+    if (Number.isFinite(it.value)) it.value += itemBaseValue(it) - itemBaseValue(from);
+    n++;
+  }
+  return n;
+}
+
 /** The gold the affixes add. */
 export const affixesWorth = (affixes) => (affixes ?? []).reduce((n, a) => n + (AFFIX_WORTH[a.id] ?? 0) * (a.value | 0), 0);
 
@@ -1143,14 +1169,20 @@ export const CHAMPION_SOURCE = Object.freeze({ tier: 4, quality: 1.5 });
  *  entity.items and onto the equip table, writing no equipSlot), so the
  *  roll runs over the items NOT on its table: the loot it carries, not
  *  the sword it swings - a Legendary in a Daedra Lord's hand would have
- *  struck the player with it. The source is corpseSource's. */
+ *  struck the player with it. The source is corpseSource's.
+ *  LOOT7-CHECK CORPSE-FIND: the roll runs over a COPY (the carried cut), and the door's unique find is pushed onto the
+ *  list it is handed - so the find landed on the copy and was thrown away with it: no body ever kept one (the
+ *  Thunderlock's "tier-4 corpse, about 1 in 700"; 0 of 20,000 level-12 champions' bodies, where the list door kept 111).
+ *  What the roll added past the carried pieces goes onto the body. */
 export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50, qualityMult = 1 } = {}) {
   if (!lootRarityOn() || !entity) return entity?.items ?? [];
   const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
   const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
+  const carried = loot.length;
   const source = corpseSource(basics, entity.level, entity.mobileType);   // LOOT6: its family
   const champ = typeof entity.champion === 'string' && entity.champion !== '';   // LOOT7: a champion is a stronger source
   rollLootRarity(loot, { ...source, tier: source.tier + (champ ? CHAMPION_SOURCE.tier : 0), qualityMult: qualityMult * (champ ? CHAMPION_SOURCE.quality : 1) }, { rolls, luck });
+  if (loot.length > carried) (entity.items ??= []).push(...loot.slice(carried));   // LOOT7-CHECK CORPSE-FIND: the find onto the body
   return entity.items;
 }
 /** SIGIL1 (Mac: "weapons obtained through online play recieve a sort of sigil power"; "Magic and up, found online";

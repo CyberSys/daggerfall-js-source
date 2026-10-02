@@ -28,7 +28,7 @@
 //   species' own item, into the pack once.
 // ═══════════════════════════════════════════════════════════════════
 import { haulKey, parseNodeKey, schoolSpots, SCHOOLS_PER_PIXEL, SCHOOL_R, pixelKey } from '../net/nodeLaw.js';
-import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL } from '../net/professionLaw.js';
+import { HAULS_PER_DAY, FISH_KEY, actBand, PEARL, storesFullIn } from '../net/professionLaw.js';
 import { createFishAct } from '../systems/fishAct.js';
 import { FT, attributeAverage } from '../systems/foragingLaw.js';
 import { foragingActRefusal, actChecksRefusal, foragingToolIn, foragingHost } from '../systems/foragingInstall.js';
@@ -45,6 +45,11 @@ import { TERRAIN_SIZE } from '../world/terrainSampler.js';
 /** The cast stands this far ahead of the look (m), and is reached from this far. */
 export const CAST_AHEAD_M = 3;
 export const CAST_REACH_M = 6;
+/** CAST-LOOK (FIELD BUGS 2026-10-01 audit): the cast stands where the look crosses CAST_AHEAD_M ahead, held within this
+ *  many metres over or under the eye - it stood 0.6 m under it whatever the look, so it left the 12-degree cone a degree
+ *  over the level: looking out over the water there was no prompt, E went to the door behind, and the net's Use told an
+ *  angler in the water to "stand in it". */
+export const CAST_RISE_M = 4.5;
 /** The prompt says a school rises within this far of the angler (m). */
 export const SCHOOL_SAID_M = 40;
 /** A school's flats: three of its species' fish, small, a metre apart on the water. */
@@ -57,9 +62,11 @@ export const SCHOOL_MARK = Object.freeze({ w: 4.4, h: 0.8 });
  *  their records in DFU's TEXTURE.216 are other things. */
 export const SCHOOL_PICTURE = Object.freeze([211, 9]);
 const schoolPicture = () => { const t = templateByIndex(FT.Fish); return t?.worldTextureArchive ? [t.worldTextureArchive, t.worldTextureRecord ?? 0] : SCHOOL_PICTURE; };
-/** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines). */
-export const NET_WHERE = Object.freeze(['inside', 'town', 'daylight']);
-export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement', daylight: 'the fish bite by daylight (07:00-17:59)' });
+/** The net's own words where the cast stands but the ground refuses it (the prompt's; the act says Foraging's lines).
+ *  ANY-HOUR (2026-10-01, Mac: "Remove the time limit for professions. Should be available at any time"): never the
+ *  hour - the fish bite by night as by day (foragingInstall.js foragingActRefusal). */
+export const NET_WHERE = Object.freeze(['inside', 'town']);
+export const NET_WHERE_WORDS = Object.freeze({ inside: 'not in here', town: 'not in a settlement' });
 /** FISH-TIRED (FIELD BUGS 2026-09-30b: "you can get instakilled when fishing"). The minute's band charges an angler
  *  treading water the swim's price, 8 or 33 fatigue every five real seconds (systems/worldTick.js; FATIGUE-IDLE spares
  *  dry ground only), and in the water a collapse was DFU's death whatever the health - now a tenth of the health a game
@@ -128,6 +135,15 @@ export function fishPlan({ taken, counting, hauls, cap = HAULS_PER_DAY, rank, st
   return { harvest, verb, rest: `Fishing ${rank}${school ? ` - ${school}` : ''}`, ready: true };
 }
 
+/** CAST-LOOK: where the cast stands for an eye - CAST_AHEAD_M ahead along the look's bearing, at the height the look
+ *  crosses there (held within CAST_RISE_M of the eye). @param {{ pos: ArrayLike<number>, dir: ArrayLike<number> }} eye */
+export function castAt({ pos, dir }) {
+  const l = Math.hypot(dir[0], dir[2]);
+  if (!(l > 1e-6)) return [pos[0], pos[1] + (dir[1] > 0 ? CAST_RISE_M : -CAST_RISE_M), pos[2]];   // straight up or down: no bearing, on the look
+  const rise = Math.max(-CAST_RISE_M, Math.min(CAST_RISE_M, (dir[1] / l) * CAST_AHEAD_M));
+  return [pos[0] + (dir[0] / l) * CAST_AHEAD_M, pos[1] + rise, pos[2] + (dir[2] / l) * CAST_AHEAD_M];
+}
+
 /** A bearing's word, from the angler to a school (scene XZ: +x east, +z north). */
 export function bearingWord(dx, dz) {
   const words = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
@@ -163,7 +179,8 @@ export function standSchools({ px, py, day, samples, tilemap }) {
  *   pixel: () => ({ x: number, y: number }|null), ground: () => ({ climate: number, region: number }|null),
  *   eye: () => ({ pos: number[], dir: number[] }), feet: () => number[], hour: () => number, storm: () => boolean,
  *   climateAt: (x: number, y: number) => number|null, trophy: (species: any) => boolean,
- *   day: () => number, rand?: () => number, tug?: () => void } }} deps `tug` - the floats dip (the touch layer's buzz)
+ *   day: () => number, rand?: () => number, tug?: () => void, busy?: () => boolean } }} deps `tug` - the floats dip (the
+ *   touch layer's buzz); `busy` - the hands are the ship's (HELM-NET: at a helm, the guns laid, a boarding): no cast
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function fishKind({ book, host }) {
@@ -236,10 +253,15 @@ export function fishKind({ book, host }) {
     }] : []),
     /** The cast: one, just ahead of the look, while the pack holds a net and the player stands in the net's water. */
     looseNodesOf: ({ entity, dungeon }) => {
-      if (dungeon || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];
+      // HELM-NET (FIELD BUGS 2026-10-02, "New fishing context pop up clashes with come sail away!"): at sea the net's
+      // water is everywhere, so the cast stood under the crosshair at the helm and over the guns' aim; while the hands
+      // are the ship's (the helm, the guns laid, a boarding) there is no cast - a deck stood on still fishes
+      if (dungeon || host.busy?.() || !foragingToolIn(entity, FT.FishingNet) || !inWater()) return [];
       const c = castNow();
       if (!c) return [];
-      return [{ key: c.key, at: () => { const { pos, dir } = host.eye(); const l = Math.hypot(dir[0], dir[2]) || 1; return [pos[0] + (dir[0] / l) * CAST_AHEAD_M, pos[1] - 0.6, pos[2] + (dir[2] / l) * CAST_AHEAD_M]; }, lift: 0, reach: CAST_REACH_M }];
+      // CAST-LOOK: on the look at its distance ahead, at any pitch to CAST_RISE_M - and the look itself, so a node in the
+      // cone (an herb on the bank) is the target before it
+      return [{ key: c.key, at: () => castAt(host.eye()), lift: 0, reach: CAST_REACH_M, yields: true }];
     },
     /** A school is never a target; the cast is gone once its haul is asked (a new one stands). */
     gone: (n) => !!n.school || book.taken(n.key, 'fish'),
@@ -252,10 +274,12 @@ export function fishKind({ book, host }) {
       translation = t;
       if (live && !live.act.state.done && tooTiredForTheWater(live.entity)) { live.act.cancel(); live = null; }   // FISH-TIRED
     },
+    /** PROF-MENU: the menu's title - the water the net is cast on. */
+    nodeName: () => 'Open Water',
     plan(n, { rank, entity }) {
       const plan = fishPlan({
         taken: book.taken(n.key, 'fish'), counting: book.counting(n.key, 'fish'), hauls: book.state.hauls ?? 0, cap: book.state.caps?.hauls ?? HAULS_PER_DAY,
-        rank: rank('fishing'), storesFull: book.held(FISH_KEY) >= (book.state.caps?.stores ?? 5000), where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
+        rank: rank('fishing'), storesFull: storesFullIn(book, FISH_KEY) /* STORES-ROOM: every origin, as the service counts */, where: actChecksRefusal(NET_WHERE, NET_WHERE_WORDS) ?? (tooTiredForTheWater(entity) ? NET_TIRED_WORDS : null), school: schoolWords(),
       });
       return { ...plan, profession: 'fishing' };
     },

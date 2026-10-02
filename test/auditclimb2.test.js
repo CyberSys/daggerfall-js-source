@@ -208,18 +208,18 @@ function roofed(deg, H = 3) {
 }
 const BOX = (x0, y0, z0, x1, y1, z1) => new Float32Array([x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1]);
 
-test('AUDIT CLIMB2 C1: a pitched roof\'s eave is a hand-hold up to 45 degrees - held from anywhere in the window, caught, and shimmied along, as CLIMB1 climbs onto the same roof', () => {
+test('AUDIT CLIMB2 C1: a pitched roof\'s eave is a hand-hold up to 50 degrees (AUDIT CLIMB-FIELD R1) - held from anywhere in the window, caught, and shimmied along, as CLIMB1 climbs onto the same roof', () => {
   const geo = { radius: CAPSULE_RADIUS, stand: CAPSULE_HEIGHT };
-  for (const deg of [0, 10, 15, 20, 30, 38, 44]) {
+  for (const deg of [0, 10, 15, 20, 30, 38, 44, 46.2, 48.7]) {
     const { col } = roofed(deg);
     for (let k = -12; k <= 12; k++) {
       const g = senseGrip(col, [0, 0, 1], [0, 0, -1], 3 + k * 0.01, geo);
       assert.ok(g, `${deg} deg: the eave held, sought at ${(3 + k * 0.01).toFixed(2)}`);
-      assert.ok(g.lipY >= 3 - 1e-3 && g.lipY <= 3.06, `${deg} deg: the hands at the eave (${g.lipY.toFixed(3)})`);
+      assert.ok(g.lipY >= 3 - 1e-3 && g.lipY <= 3.075, `${deg} deg: the hands at the eave (${g.lipY.toFixed(3)})`);   // the top read up to 6 cm in: 7 at 50 degrees
       assert.ok(near(g.normal[2], -1) && near(g.feet[2], 1 - CAPSULE_RADIUS - 0.04, 0.01), `${deg} deg: hung off the wall under it`);
     }
   }
-  assert.equal(senseGrip(roofed(50).col, [0, 0, 1], [0, 0, -1], 3, geo), null, 'a roof over 45 degrees is no top (CLIMB1\'s)');
+  assert.equal(senseGrip(roofed(55).col, [0, 0, 1], [0, 0, -1], 3, geo), null, 'a roof over 50 degrees is no top (CLIMB1\'s)');
   // the depth is read up a top that rises, not across a wall that stands up again: a moulding 6 cm deep, its wall set
   // back a further 4 cm a hand above it, is no hold (the grip's 8 cm)
   const mo = scene();
@@ -514,19 +514,24 @@ test('AUDIT CLIMB2 G3: a crouched body under a low slab takes no wall it cannot 
 });
 
 test('AUDIT CLIMB2 G4: a free climb takes the lip its hands come to - a sill as it reaches it, never butting the head first; a cornice it cannot get past by reaching round it', () => {
-  // a sill 12 cm out and 10 cm tall on a tall wall: held as the hands come to it, the climb never stopped under it
+  // a sill 12 cm out and 10 cm tall on a tall wall: taken as the hands come to it, the climb never stopped under it
+  // (CLIMB3 moved this pin: with Forward held the hold it takes there goes on up the wall over it, past the sill)
   {
     const s = scene(); s.box(-3, 0, 1.12, 3, 12, 4); s.box(-1.5, 5.4, 1.0, 1.5, 5.5, 1.12);
     const m = motor(s.col, { skill: 100, z: 0.74 });
-    let stalls = 0, climbing = false;
-    for (let i = 0; i < 600 && !m.hanging; i++) {
+    let stalls = 0, climbing = false, worst = 0, took = false;
+    for (let i = 0; i < 900 && m.pos[1] < 6; i++) {
       const y = m.pos[1];
       step(m, { forward: 1 });
       if (climbing && m.onWall && !m.hanging && m.pos[1] - y < 1e-4) stalls++;
       climbing ||= m.onWall;
+      took ||= m._wall?.past != null && near(m._wall.past, 5.5, 0.02);
+      worst = Math.max(worst, overlap(s.boxes, m.pos, m.height));
     }
-    assert.ok(m.hanging && near(m._wall.lipY, 5.5, 0.02), `hanging from the sill (lip ${m._wall?.lipY})`);
+    assert.ok(took, 'the sill taken as the hands came to it');
+    assert.ok(m.onWall && m.pos[1] >= 6, `and the climb went on up past it (at ${m.pos[1].toFixed(2)})`);
     assert.equal(stalls, 0, 'the climb never stopped under it');
+    assert.ok(worst < 0.03, `never into the sill (${worst.toFixed(3)})`);
   }
   // a cornice 0.12-0.15 out and 0.2 tall: the head stops under it with the lip 1.9 over the feet - the hands reach round
   for (const out of [0.12, 0.15]) {

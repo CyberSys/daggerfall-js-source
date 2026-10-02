@@ -11,9 +11,10 @@ export async function withClock(fn) {
 }
 /** An id at ID_RE's bound (forty characters), distinct by `n`; `c` fills it. */
 export const long = (n, c = 'x') => `p${String(n).padStart(3, '0')}`.padEnd(40, c);
-/** A pose at the wire's bounds, every float at seventeen significant digits and every counter at its widest - the
+/** AUDIT CLIMB-ARC N7: the climb's fields too (CLIMB5's cl/cw, CLIMB6's move ck/cy/cd), at their widest.
+ *  A pose at the wire's bounds, every float at seventeen significant digits and every counter at its widest - the
  *  mount too (RIDE's cart and last sprite set, DISC7's half-speed bit: the merge of main's world99 and world100). */
-export const WIDE_POSE = Object.freeze({ x: -(POSE_BOUND - 0.012345678901234), y: -(POSE_Y_BOUND - 0.0123456789012), z: -(POSE_BOUND - 0.098765432109876), yaw: -3.141592653589792, pitch: -1.2345678901234567, mv: 2, wd: 2, an: 65535, as: 6, am: 1, sr: 1, cn: 65535, cr: 4, ce: 4, ar: 65535, fk: 5, rd: POSE_RIDE.Cart, rv: POSE_RIDE_SPRITES - 1, hs: 1 });
+export const WIDE_POSE = Object.freeze({ x: -(POSE_BOUND - 0.012345678901234), y: -(POSE_Y_BOUND - 0.0123456789012), z: -(POSE_BOUND - 0.098765432109876), yaw: -3.141592653589792, pitch: -1.2345678901234567, mv: 2, wd: 2, an: 65535, as: 6, am: 1, sr: 1, cn: 65535, cr: 4, ce: 4, ar: 65535, fk: 5, rd: POSE_RIDE.Cart, rv: POSE_RIDE_SPRITES - 1, hs: 1 , cl: 3, cw: -3.141592653589792, ck: 8, cy: -600, cd: 600});
 export const HEAL_SPELL = { name: 'H'.repeat(32), element: 4, rangeType: 1, effects: [{ type: 10, subType: 8, magnitudeBaseLow: 20, magnitudeBaseHigh: 20, magnitudeLevelBase: 0, magnitudeLevelHigh: 0, magnitudePerLevel: 1, durationBase: 0, durationMod: 0, durationPerLevel: 1, chanceBase: 100, chanceMod: 0, chancePerLevel: 1 }] };
 /** INSPECT1: a card the wire carries - its contents never touch the attachment, only its arm's meter does. */
 export const WIDE_CARD = Object.freeze({ level: 999, attrs: [100, 100, 100, 100, 100, 100, 100, 100], vitals: [99999, 99999, 99999], look: { race: 'Nord', gender: 'male', faceIndex: 0, items: [] } });

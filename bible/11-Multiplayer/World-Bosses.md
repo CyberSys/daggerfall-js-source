@@ -45,6 +45,14 @@ The online world's clock runs at TimeScale 12 (`ONLINE_MINUTES_PER_MS`): a game 
 a game-day event, so its times are clock times every player can read off the game's own clock, and real times
 every player's machine can compute.
 
+[TIME1, 2026-10-01 (`bible/06-Systems/Online-Time-Arc.md` section 7): this clock is the EVENT clock now, and the
+gate keeps it - a gate every two real hours, the same real phases, the relay unchanged. The SKY a player sees runs
+at its own rate (a day every real hour since SKY-SLOW), so the game-time column below is the event clock's and no
+longer a time the player can read off their sky: it RETIRES from the words. The gate's lines say real local times
+alone (`systems/gateOmen.js` `omenTimeLine`, `openTimeLine`, `sealTimeLine`), and the panel always did.
+`net/gateLaw.js`'s own word functions stay in the relay's bundle until a relay deploy that happens anyway retires
+them. WB12's merge with main (world151) retired them.]
+
 | game time | real time | what |
 |---|---|---|
 | 17:00 | T - 15 min | **the omen**: the sky over the site burns; the map ring and the chat line |
@@ -100,6 +108,10 @@ the clock's moments - the relay sends none of them. Nothing is said, and no gate
 read and the hub has welcomed the player (or eight seconds on the relay's clock alone), and then `OMEN_SETTLE_MS` more,
 so the hub's word of a kill lands first; a line is said only past the last one said for its day, so a clock that
 steps back never says one twice (AUDIT WB C4):
+
+[TIME1: the three lines that named a game time now say this machine's local time alone - in WB12's words since the
+merge, *Dagon's faithful open a breach at 14:32 your time.*, *... The Covenant seals it at 14:42 your time.*, *... It
+collapses at 14:52 your time.* The table below is the words as they stood before.]
 
 | when | line |
 |---|---|
@@ -1730,11 +1742,11 @@ and name until it is emptied, and wears *Opened* after.
   so every screen knows him by his kind), the window (`riteHolds` from the omen to the opening; `riteStands` to the
   collapse, an early kill's too; `riteHeard` 2 s past the opening), the word's reach (60 m) and beat (5 s), and at most
   64 helpers a circle.
-- The relay (world141): the cell keeps up to 4 circles a day and the hub 8, each on its own. One fall at a time: the
+- The relay (world151): the cell keeps up to 4 circles a day and the hub 8, each on its own. One fall at a time: the
   breach's room asks the hub for the helpers every 15 s from the opening, waits 2 s at most at the kill, and keeps its
   last answer. One tell in flight, its retry armed before it goes. The rite's bucket at the relay is twice the client's
   burst. At the kill, fighters who helped carry `r`; helpers who did not fight are minted the rite's own receipt.
-- acct46: `r` is two embers in the purse; the rite's own receipt one, with no breach closed and no Drakes. Every claim's
+- acct62: `r` is two embers in the purse; the rite's own receipt one, with no breach closed and no Drakes. Every claim's
   answer carries the row's embers (`stones`).
 - `scenes/riteHost.js` stands the circle on the camps' law (site `px,py:rite.<day>`): the faithful spring within 100 m,
   the word is said from within 55 m, again 1 s after a change; an orphaned circle is taken after 10 s and an empty
@@ -1755,20 +1767,23 @@ and name until it is emptied, and wears *Opened* after.
 
 ### Versions and the deploy
 
-The relay's law moves to **world141** (the words of `gateLaw.js` and `gateHerald.js`, the rite's word and the
-receipt's `r`); the brain's law stays 5. The account service moves to **acct46** (migration 0046's `stones` - the
-rite's ember in the purse - and the claim of `r` and of a rite alone). **The order of the two deploys does not matter**
-(AUDIT WB12d A1): acct46 answers every claim with the row's embers, so a fighter's `r` that acct45 counted at one ember
+The relay's law moves to **world151** (world141 on the branch; main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and
+the Seats arc took world141-world150 first): the words of `gateHerald.js`, the rite's word and the receipt's `r`, and
+`gateLaw.js` without the three lines that named a time (TIME1 said the next relay deploy retires them; the client says
+them in local time, `systems/gateOmen.js`). The brain's law stays 5. The account service moves to **acct62** (acct46 on
+the branch, past main's acct46-acct61): migration 0066's `stones` (0046 on the branch) - the rite's ember in the purse -
+and the claim of `r` and of a rite alone. **The order of the two deploys does not matter**
+(AUDIT WB12d A1): acct62 answers every claim with the row's embers, so a fighter's `r` that acct61 counted at one ember
 is made good when it is claimed again, and the game keeps an `r` receipt until a service that answers its embers has
-counted it; acct45 refuses the rite's own receipt, and the game keeps that for its week. Each deploy drops connected
-players once, as every relay deploy does. A game from before world141 still fights the breach (the brain's law is
+counted it; acct61 refuses the rite's own receipt, and the game keeps that for its week. Each deploy drops connected
+players once, as every relay deploy does. A game from before world151 still fights the breach (the brain's law is
 unchanged): it knows nothing of the rite, never says its word, and is paid nothing for it.
 
 ### What does not change
 
 Every mechanic of the Warden's fight; the schedule; the rotation of marks; the spoils' dice for the fight; the Broker's
 wares and prices; and the bytes of every id, key and column whose name A changed. The rite adds its own: the receipt's
-`r` and `x: 'rite'`, migration 0046's `stones`, the save's `RiteDay` and `RiteChest`, the relay's `rite` key. The court
+`r` and `x: 'rite'`, migration 0066's `stones`, the save's `RiteDay` and `RiteChest`, the relay's `rite` key. The court
 is the Burning Court; the Deadlands are the Deadlands.
 
 ### AUDIT WB12d (2026-10-02, Mac: "Audit this. Its needs to be detailed and perfection. AAA grade")
@@ -1986,7 +2001,7 @@ Every line the feature says, traced to the tests that hold it and rewritten to s
 5. Nothing the screen already shows: the ring, the bar, the card and the countdowns carry state.
 6. Orders are short imperatives, one exclamation at most.
 7. The effect, not the sensation.
-8. Numbers as numerals; game time with the player's own beside it.
+8. Numbers as numerals; game time with the player's own beside it (TIME1, at the merge with main: the player's own alone).
 9. The lore nouns exact: Dagon's Breach, the Covenant, Dagon's faithful, the Deadlands, the Burning Court, Deadlands
    Embers, Valkynaz Ruhn.
 
@@ -2000,7 +2015,7 @@ What changes beyond the wording:
 
 **As built:**
 - The omen, rise and open lines say the event, where and when (*"The sky burns near Copperham. Dagon's faithful open a
-  breach at 20:00 (14:32 your time)."*).
+  breach at 20:00 (14:32 your time)."*; since TIME1, at the merge, *"... open a breach at 14:32 your time."*).
 - The rise line no longer contradicts itself ("has torn open... It opens in").
 - The marks line names the marks. The aspects' omens lose their "X, not Y"; the arrival and floor words are gone.
 - Every trial reads as one statement with its number ("deal 25% more", "heals him 3%"). Every tip is one order.
@@ -2691,3 +2706,16 @@ developed"*):
 - world141 re-hashed in place; acct46 (migration 0046) - deploy it first. The brain's law stays 5.
 - Pins `test/wb12d_rite_law.test.js` (6), `test/wb12d_rite_relay.test.js` (4), `test/wb12d_rite_world.test.js` (15);
   mutants `tools/mutants/wb12d.json` (94).
+
+**The merge with main (2026-10-02).** Main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took
+world141-world150 and acct46-acct61 first, so WB12's and WB13's relay law is world151 and the rite's service acct62, its
+migration 0066 (0046 on the branch): the law row over the merged bundle (main's ten rows kept), every version pin
+re-chained ("WB12 moved it on last (world151 ...); before it SEAT2b part two (b) moved it on (world150 ..."), RITE_RELAY_MIN
+151, disc7's list, soc1.json's S38, gatekeys.json's pin and BOUNTY1 B4. Main's TIME1 says the gate's times in local time
+alone: the omen, the opening and the seal (`systems/gateOmen.js` omenTimeLine, openTimeLine, sealTimeLine) say WB12's
+words in it, and this relay deploy retires `gateLaw.js`'s three, as TIME1 said it would. Main's SILVER: the breach's
+line of the counting-houses says silver ("No silver for this breach. The counting-houses strike it for two breaches a
+day."). Main's SEAT1b: a gate claim carries its region and is the war-guild's influence; a rite's own row records no
+region and earns no influence, the rite alone being no kill. Main's siege tick runs before the rite's tell in a room's
+alarm. The patch notes ride the pull request (REL6). Merging deploys world151 and acct62, which drops connected players
+once.

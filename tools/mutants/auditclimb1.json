@@ -182,7 +182,7 @@
   {
     "name": "AUDITCLIMB1-F9-bag-says-nothing",
     "file": "src/player/motor.js",
-    "old": "    climbing: !!(player.climb?.isClimbing || player.mantling),\n",
+    "old": "    climbing: !!(player.climb?.isClimbing || player.mantling || player.onWall),\n",
     "new": "",
     "tests": [
       "test/auditclimb1.test.js",
@@ -238,8 +238,8 @@
   {
     "name": "AUDITCLIMB1-G1-foot-in-the-slope",
     "file": "src/player/parkour.js",
-    "old": "return { y: y + radius / ny - radius, key: h.key ?? null };",
-    "new": "return { y, key: h.key ?? null };",
+    "old": "let top = y + radius / ny - radius;",
+    "new": "let top = y;",
     "tests": [
       "test/auditclimb1.test.js",
       "test/parkour.test.js",

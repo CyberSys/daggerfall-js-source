@@ -69,8 +69,8 @@
   {
     "name": "INFECTION-KEPT-the-turn-keeps-the-old-infection",
     "file": "src/systems/lycanthropy.js",
-    "old": "import { cureAllDiseases } from './effects.js';",
-    "new": "import { cureDiseasesInfectionsLast as cureAllDiseases } from './effects.js';",
+    "old": "import { cureAllDiseases, cureAllPoisons } from './effects.js';",
+    "new": "import { cureDiseasesInfectionsLast as cureAllDiseases, cureAllPoisons } from './effects.js';",
     "tests": [
       "test/fb0929h_infectionkept.test.js"
     ]

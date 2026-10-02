@@ -86,7 +86,7 @@
   {
     "name": "CLIMB2-grip-steep-top",
     "file": "src/player/parkour.js",
-    "old": "  if (!Number.isFinite(top.dist) || !top.normal || top.normal[1] < PARKOUR_TOP_MIN_NY) return null;\n  const y = hiY",
+    "old": "  if (!Number.isFinite(top.dist) || !top.normal || top.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) return null;\n  const y = hiY",
     "new": "  if (!Number.isFinite(top.dist) || !top.normal) return null;\n  const y = hiY",
     "tests": [
       "test/climb2.test.js",
@@ -314,8 +314,8 @@
   {
     "name": "CLIMB2-wall-not-a-climb",
     "file": "src/player/motor.js",
-    "old": "    this._fcStart = null;\n    this.climb?.hold();\n",
-    "new": "    this._fcStart = null;\n",
+    "old": "    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6\n    this.climb?.hold();\n",
+    "new": "    this._pkOffEdge = null;   // AUDIT CLIMB-ARC L6\n",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -422,7 +422,7 @@
   {
     "name": "CLIMB2-grip-silent",
     "file": "src/player/motor.js",
-    "old": "    if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); }\n",
+    "old": "    if (!w.warned && this.grip <= PARKOUR_GRIP_LOW) { w.warned = true; pk.say?.(PARKOUR_GRIP_LOW_TEXT); this._pkEmit('gripLow'); }\n",
     "new": "",
     "tests": [
       "test/climb2.test.js",
@@ -482,8 +482,8 @@
   {
     "name": "CLIMB2-under-a-sill-no-seek",
     "file": "src/player/motor.js",
-    "old": "      w.seek = true;\n",
-    "new": "",
+    "old": "seeking the wall under a sill\n      w.lipY = null;\n      w.seek = true;\n",
+    "new": "seeking the wall under a sill\n      w.lipY = null;\n",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -542,8 +542,8 @@
   {
     "name": "CLIMB2-corner-billed",
     "file": "src/player/motor.js",
-    "old": "    if (move.bill !== false) this.parkoured = move.kind;",
-    "new": "    this.parkoured = move.kind;",
+    "old": "if (move.bill !== false) this.parkoured = this.parkoured ? [].concat(this.parkoured, move.kind) : move.kind;",
+    "new": "this.parkoured = this.parkoured ? [].concat(this.parkoured, move.kind) : move.kind;",
     "tests": [
       "test/climb2.test.js",
       "test/parkour.test.js",
@@ -554,7 +554,7 @@
   {
     "name": "CLIMB2-no-top-arrival",
     "file": "src/player/motor.js",
-    "old": "      if (g && g.lipY - this.pos[1] <= PARKOUR_HANG_DROP + 0.04) {",
+    "old": "      if (level && !g.eave) {",
     "new": "      if (false) {",
     "tests": [
       "test/climb2.test.js",

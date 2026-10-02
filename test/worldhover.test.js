@@ -667,8 +667,11 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   const wm = read('src/scenes/worldModes.js');
   // WB9f: and a FOURTH, the Burning Court's own - his spoils on its floor - registered where the court is stood, beside
   // the court's own namer (a family the court alone can answer: the dungeon arm's `spoil` rung)
-  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 4,
-    'the exit doors, the quest stands and the static NPCs - three, named - and the court\'s spoils');
+  // AUDIT-SEATS: and a FIFTH, the Hall of Records' shelves in a seat's castle (`records:` - empty off a castle
+  // that keeps them, so a dungeon without the Hall offers nothing)
+  // CROWN-HALL (PIN MOVED): and a SIXTH, a crown's throne room's board and chest (`crown:` - empty off a held crown's castle)
+  assert.equal((wm.match(/ctx\.addActivationTargets\(/g) ?? []).length, 6,
+    'the exit doors, the quest stands, the Records shelves, the throne room\'s pieces and the static NPCs - five, named - and the court\'s spoils');
   assert.match(wm, /ctx\.addActivationTargets\(\(\) => host\.spoilTargets\?\.\(\) \?\? NO_TARGETS\);\n\s*ctx\.addActivationNamer\(\(key\) => \(typeof key === 'string' && key\.startsWith\('spoil'\) \? host\.spoilName\?\.\(key\) \?\? null : null\)\);/,
     'the spoils stood with their words');
   assert.doesNotMatch(read('src/scenes/dungeon.js'), /addActivationTargets/,
@@ -1420,10 +1423,12 @@ test('AUDIT-WH H2: the mod\'s MOBILE BAND - a townsperson and a live foe, named 
   assert.match(read('src/characters/enemyEntity.js'), /name: isClass \? career\.name : undefined,/,
     'the departure above is this line - if the port ever loads monster careers, the fallback stops being reachable');
   // ...and all FOUR hosts read it through that one door rather than
-  // reaching for the corpse's member again.
+  // reaching for the corpse's member again. LOOT7-CHECK CHAMP-HOVER: each
+  // tells the door whether it is a CHAMPION too - the mod's one recorded
+  // exception (test/loot7check.test.js pins the law).
   for (const [f, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/cityGuards.js', 'g'],
     ['src/scenes/worldModes.js', 'f'], ['src/scenes/dungeonContext.js', 'f']]) {
-    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile \}\)`),
+    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile, champion: !!${v}\.entity\?\.champion \}\)`),
       `${f}: the live arm takes Entity.Name, with the enemy name only as the port's fallback`);
   }
 

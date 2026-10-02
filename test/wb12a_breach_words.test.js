@@ -11,10 +11,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import * as acorn from 'acorn';
-import { omenLine, riseLine, openLine, sealLine, wrathLine, gateBossOf } from '../src/net/gateLaw.js';
+import { riseLine, wrathLine, gateBossOf } from '../src/net/gateLaw.js';
 import { omenPost, fellPost } from '../src/net/gateHerald.js';
 import { GATE_NO_WORDS } from '../src/net/wire.js';
-import { fellLine } from '../src/systems/gateOmen.js';
+import { fellLine, omenTimeLine, openTimeLine, sealTimeLine } from '../src/systems/gateOmen.js';   // TIME1, at the merge: the three that name a time, in local time alone
 import { GATE_TEXT } from '../src/scenes/gatePool.js';
 import { GATE_LEGEND_TEXT } from '../src/ui/gateMapMark.js';
 import { MARKS_CARD_TEXT } from '../src/ui/gateMarksView.js';
@@ -65,12 +65,12 @@ test('WB12a the guard: no shipped string names an Oblivion Gate or a Sigil Stone
   assert.deepEqual(left, []);
 });
 
-test('WB12a the chat\'s lines (WB13b: each the event, where and when): Dagon\'s faithful open a breach, it rises and opens, the Covenant seals it and tears it shut, and his fall collapses the breach (mutants: a line of the old frame)', () => {
-  assert.equal(omenLine({ place: 'Copperham, Wrothgarian Mountains', at: '14:32' }),
-    'The sky burns near Copperham, Wrothgarian Mountains. Dagon\'s faithful open a breach at 20:00 (14:32 your time).');
+test('WB12a the chat\'s lines (WB13b: each the event, where and when; TIME1, at the merge: a time the player\'s own alone): Dagon\'s faithful open a breach, it rises and opens, the Covenant seals it and tears it shut, and his fall collapses the breach (mutants: a line of the old frame)', () => {
+  assert.equal(omenTimeLine({ place: 'Copperham, Wrothgarian Mountains', at: '14:32' }),
+    'The sky burns near Copperham, Wrothgarian Mountains. Dagon\'s faithful open a breach at 14:32 your time.');
   assert.equal(riseLine({ near: 'Copperham', left: '4:07' }), 'Dagon\'s Breach rises near Copperham. It opens in 4:07.');
-  assert.equal(openLine({ near: 'Copperham', at: '16:32' }), 'Dagon\'s Breach near Copperham is open. The Covenant seals it at 22:00 (16:32 your time).');
-  assert.equal(sealLine({ near: 'Copperham', at: '16:52' }), 'The Covenant has sealed Dagon\'s Breach near Copperham. It collapses at 00:00 (16:52 your time).');
+  assert.equal(openTimeLine({ near: 'Copperham', at: '16:32' }), 'Dagon\'s Breach near Copperham is open. The Covenant seals it at 16:32 your time.');
+  assert.equal(sealTimeLine({ near: 'Copperham', at: '16:52' }), 'The Covenant has sealed Dagon\'s Breach near Copperham. It collapses at 16:52 your time.');
   assert.equal(wrathLine({ near: 'Copperham', boss: 'Valkynaz Ruhn' }), 'The Covenant tears Dagon\'s Breach near Copperham shut. Valkynaz Ruhn is cast back into the Deadlands.');
   assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran'] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach near Copperham, struck down by Mac and Bran. The breach collapses.');
   assert.equal(fellLine({ near: null, boss: 'Valkynaz Ruhn', top: [] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach in the wilds. The breach collapses.', 'WB13b: a screen that never found the site says what Discord says');
@@ -91,7 +91,7 @@ test('WB12a the names on screen: the plaque, the banner and the map\'s legend sa
   assert.equal(MARKS_CARD_TEXT.gate('Valkynaz Ruhn', 'the Rime-Wrought'), 'Valkynaz Ruhn comes the Rime-Wrought tonight', 'WB13b: one subtitle near the gate and inside');
   assert.equal(GATE_CLAIM_TEXT.recorded(4), 'Breach recorded. Breaches closed: 4.');
   assert.equal(GATE_CLAIM_TEXT.guest, 'Breach not recorded. Add a username within a week to keep it.');
-  assert.equal(MARKS_TEXT.capped, 'No Drakes for this breach. The counting-houses strike them for two breaches a day.');
+  assert.equal(MARKS_TEXT.capped, 'No silver for this breach. The counting-houses strike it for two breaches a day.');   // SILVER: the currency's name
   assert.equal(profileGateLine({ gates: { closed: 3 } }), 'Breaches closed: 3');
   assert.match(read('src/ui/enhancedAccount.js'), /if \(gates\) row\('Breaches closed', gates\);/);
   assert.equal(accountRefusalText('short'), 'Your account has too few embers for that.');   // AUDIT WB12d (A4): a rite's ember counts

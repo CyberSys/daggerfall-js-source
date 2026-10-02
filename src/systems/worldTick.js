@@ -144,7 +144,8 @@ import { FACTION_TYPES } from '../formats/factionFile.js';
 import { MERCHANTS_FACTION_ID } from './guilds.js';   // AUDIT ALL E8: no Merchants, no walk, no flags (DFU's own gate)            // FormulaHelper.UpdateRegionalPrices (:2053); ECON1: the world's price seam and the walk's one-home pieces
 import { REGION_COUNT } from './regionConditions.js';   // ECON1: the world's walk is region-major, as DFU's
 import { ONLINE_EPOCH_MINUTES, ONLINE_MINUTES_PER_MS } from '../net/wire.js';   // ECON1: the world's economy begins the day the online world stood at the classic start
-import { rollClimateWeathersForDay, evolveClimateWeathers } from './weatherSim.js';      // WeatherManager.SetClimateWeathers (:419); CLK2: the enhanced lane's hourly evolution
+import { rollClimateWeathersForDay, evolveClimateWeathers } from './weatherSim.js';
+import { setSkyCalendar } from './skyCalendar.js';   // TIME1: the weather's season and hour are the sky's, switched on with the sky      // WeatherManager.SetClimateWeathers (:419); CLK2: the enhanced lane's hourly evolution
 import { seededRng } from './wind.js';   // WORLD6b: the shared day's own generator for the region's walk
 import { removeExpiredRooms } from './tavern.js';                 // PlayerEntity.RemoveExpiredRentedRooms (:257)
 import { removeExpiredItems } from './createItem.js';             // X11b: ItemCollection.RemoveExpiredItems (:125), the per-minute sweep
@@ -387,7 +388,7 @@ export function runMagicRoundsFor(entity, from, to, { sinks, rolls = Math.random
     // (UpdateSatiation, LycanthropyEffect.cs:159 / VampirismEffect.cs:95-96).
     consumeRacialOverridePending(entity, { now: clockMinutes });
     consumeVampirismPending(entity, { now: clockMinutes });
-    lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, say });   // DISC10-E V1: the round for the nag's cadence, the clock for the kill; LIVED1: the sky's for the moon
+    lycanthropyMagicRound(entity, { nowMinutes: r + 1, clockMinutes, skyMinutes: sky, moonNight: Number.isFinite(skyMinutes), say });   // DISC10-E V1: the round for the nag's cadence, the clock for the kill; LIVED1: the sky's for the moon; TIME2: a sky handed is the online lane, where the full moon forces its night alone
     vampirismMagicRound(entity, { nowMinutes: clockMinutes, skyMinutes: sky });   // DISC10-D V1: IsSatiated reads the clock (VampirismEffect.cs:238-241); LIVED1: VAMP-DAY's day the sky's
     updatePoisons(entity, r + 1, sinks, rolls, say);
     tickActiveEffects(entity, sinks);
@@ -655,6 +656,7 @@ function tickPlayerMinutesOnce({
     // LAST reading, so the window below is counted once - ownMinutes() would read the world's current one
     classicMinutes = _ownMinutes ?? worldFrom;
     _ownMinutes = classicMinutes + (worldTo - worldFrom) + (raiseMinutes > 0 ? raiseMinutes : 0);
+    if (raiseMinutes > 0) _raisedMinutes += raiseMinutes;   // TIME3: the raise, counted - a quest charges it whole
   }
   // AUDIT LIVED1 I: the world's arms walk no world minute twice - AUDIT LIVED1b P3: and lose none lived; they walk the
   // parts of the reading's window no walk this session covered (worldArmsPieces)
@@ -674,7 +676,7 @@ function tickPlayerMinutesOnce({
   // LIVED1: on the character's own clock; the sky its rounds read (IsDay, the
   // moons) is the world's reading.
   const magicRoundWindow = claimMagicRounds(classicMinutes, next);
-  const rounds = runMagicRoundsFor(entity, magicRoundWindow.from, magicRoundWindow.to, { sinks, rolls, say, skyMinutes: _sharedClock ? worldTo : null });
+  const rounds = runMagicRoundsFor(entity, magicRoundWindow.from, magicRoundWindow.to, { sinks, rolls, say, skyMinutes: _sharedClock ? skyMinutes() : null });   // TIME1: the sky's, not the event window's end
 
   // PLAYERENTITY'S OWN MARKER, which is not the broker's. The per-minute loop
   // in PlayerEntity.Update (:453-477) runs on lastGameMinutes and - this is the
@@ -758,10 +760,11 @@ function tickPlayerMinutesOnce({
   // and trains the skill it used: a vault is a leap (Jumping), a mantle a
   // climb (Climbing). The motor never raises `jumped` for either, so neither
   // is billed twice. MOVE-REAL's odometer still weighs the tally past 100.
-  if (activity.parkoured) {
+  // AUDIT CLIMB-ARC L13: a frame that began two moves (the motor's flag a list then) bills each
+  for (const kind of [].concat(activity.parkoured || [])) {
     const exertion = FATIGUE_LOSS.Jumping;   // priced as the jump it takes the place of
     sinks.drainFatigue?.(Math.trunc(exertion * fatigueMultiplier * FATIGUE_DRAIN_SCALE));
-    tallyMovementSkill(entity, activity.parkoured === 'vault' ? SKILLS.Jumping : SKILLS.Climbing);
+    tallyMovementSkill(entity, kind === 'vault' || kind === 'leap' ? SKILLS.Jumping : SKILLS.Climbing);   // CLIMB3: a leap is the Jumping skill's
   }
 
   // AUDIT 23 (entity-5) - PlayerEntity.cs:309-320: TallySkill(Running, 1)
@@ -1113,6 +1116,14 @@ let _worldMinutes = CLASSIC_GAME_START_TIME;
 // the WORLD's clock's; a character's own time is theirs to spend - advanceOwnMinutes, below.]
 let _sharedClock = null;
 let _sharedLastTick = null;
+// TIME1 (Mac, 2026-10-01: "I don't want a band aid, I want a detailed way we can do this"): THE SKY, the third clock
+// (bible/06-Systems/Online-Time-Arc.md). Online the shared clock above becomes the EVENT clock - the economy, the
+// relay's events, every term and stamp, at WORLD5's TimeScale 12 for good - and the hour, the date and the moons a
+// player sees read the sky's own source (net/skyLaw.js, a faster rate), installed beside it. Nothing walks the sky and
+// nothing is stamped on it: skyMinutes() is read for "now". A shared clock installed without a sky (a test's bare
+// source) has its sky read the event clock, the one rate WORLD5 had; offline the sky is the one clock.
+let _skySource = null;
+let _skyWall = null;
 // AUDIT LIVED1 I (K1): THE WORLD'S ARMS WALK EACH WORLD MINUTE ONCE. The reading re-anchors DOWN when the source steps
 // back (C2 below) or a correction lowers it (alignEntityClocks), and the world's arms - the seven-day power walk and the
 // thirty-eight-day conditions walk, neither of them idempotent - then walked the minutes between again. The per-minute
@@ -1206,15 +1217,20 @@ export const worldMinutesToSave = () => (_absenceWaiting ? _absenceWaiting.left 
 // ticker's advance is that bare move while a tick is in flight (shared.js createPlayerTicker advance).
 let _tickDepth = 0;
 export const tickInFlight = () => _tickDepth > 0;
-/** Install (a function answering classic minutes) or remove (null) the shared clock. */
-export function setSharedClock(source, wallOf = null) {
+/** Install (a function answering classic minutes) or remove (null) the shared clock. TIME1: `sky` (classic minutes) and
+ *  `skyWall` (this machine's ms for a sky minute) install the sky beside it - read only while the shared clock stands. */
+export function setSharedClock(source, wallOf = null, { sky = null, skyWall = null } = {}) {
   _sharedClock = typeof source === 'function' ? source : null;
   _sharedWall = _sharedClock && typeof wallOf === 'function' ? wallOf : null;
+  _skySource = _sharedClock && typeof sky === 'function' ? sky : null;
+  _skyWall = _skySource && typeof skyWall === 'function' ? skyWall : null;
+  setSkyCalendar(!!_skySource);   // TIME1: an event minute reads the sky's date while a sky stands
   _sharedLastTick = null;
   _worldWalked = [];   // AUDIT LIVED1 I, LIVED1b P3: a new session's world arms start at its first reading
   _sharedClockHeard = false;   // AUDIT LIVED1b P4: and it has not heard the relay's clock yet
   _absenceWaiting = null;
   _ownMinutes = null;   // LIVED1: a clock installed or removed is a new session - the character's own time comes from its load
+  _raisedMinutes = 0;   // TIME3: ...and its raises are counted from nought
   // ECON1: the world's prices stand with the world's clock - every consumer of regionPriceAdjustment reads today's
   // world index while the clock stands, and the player's own again when it goes
   setWorldPriceSource(_sharedClock ? (regionIndex) => worldRegionPrice(regionIndex, _sharedClock()) : null);
@@ -1234,6 +1250,18 @@ export const sharedClockOn = () => _sharedClock !== null;
 // The rule for which one a law reads: the sun, the moons, the calendar and the world everyone shares read the world's;
 // the body, its magic, its needs, its contracts and its standing read the character's (bible/06-Systems/Lived-Time.md).
 let _ownMinutes = null;
+// TIME3 (bible/06-Systems/Online-Time-Arc.md 6.3): THE SESSION'S RAISES - the minutes the character's clock has run
+// AHEAD of the world's this session, counted as they are raised (every RaiseTime: the ticker's advance, through the
+// tick's raiseMinutes, and advanceOwnMinutes). A quest's countdowns run on the character's clock, which moves two
+// ways online: with the world while they live in it - a quest charges that by one played step a frame at most, the
+// rest is time away and forgiven (WORLD7: a hidden tab, a menu left open) - and ahead of it when they raise time, which
+// a quest charges whole, as DFU charges a RaiseTime: a three-day wait is a 72-hour rest. This count tells the two
+// apart. A load moves the clock and raises nothing; a clock installed or removed starts a session and the count with
+// it; offline there is one clock, no raise to tell apart, and it reads 0.
+let _raisedMinutes = 0;
+/** TIME3: the minutes raised this session - a quest's countdown charges the raised part of its clock whole. Nought
+ *  offline: the count starts again with every clock installed or removed, and only the online lane adds to it. */
+export const raisedMinutes = () => _raisedMinutes;
 /** LIVED1: the character's own clock - online the one the load restored, run by the tick and every RaiseTime; offline
  *  the world's clock itself. Before a load online it reads the world's (a character born online starts there). */
 export const ownMinutes = () => (_sharedClock ? (_ownMinutes ?? _sharedClock()) : _worldMinutes);
@@ -1251,6 +1279,7 @@ export function advanceOwnMinutes(delta) {
   if (!_sharedClock) return setWorldMinutes(_worldMinutes + d);
   if (!Number.isFinite(d)) return ownMinutes();   // AUDIT LIVED1b F3: an Infinity would set a clock the calendar loop never ends on
   _ownMinutes = ownMinutes() + d;
+  if (d > 0) _raisedMinutes += d;   // TIME3: the raise, counted
   return _ownMinutes;
 }
 /** AUDIT LIVED1b S1: whether a raise waits for its walk online - the character's clock a whole minute past the minute
@@ -1277,13 +1306,17 @@ export const sharedWallMs = (classicMinutes) => (_sharedWall && Number.isFinite(
 // and the raids read `sharedWallMs` itself.]
 /** LIVED1: THE SUN IS EVERYONE'S. A single player waits out the day with a rest; online a rest moves their own clock
  *  and not the sky, so a refusal that waits on the night (the vampire's CheckFastTravel, a sun-damaged career's box)
- *  says when the world's night falls, in real minutes at the wire's one rate. Null offline, or when it is night. */
+ *  says when the world's night falls, in real minutes. Null offline, or when it is night. TIME1: the SKY's night, timed
+ *  through the sky's own inverse - at the sky's rate, which the event clock's ONLINE_MINUTES_PER_MS no longer is (it
+ *  would have said four times too long); a sky with no inverse installed is timed at the wire's one rate. */
 export function worldNightfallText() {
   if (!_sharedClock) return null;
-  const now = Math.floor(_sharedClock());
+  const sky = skyMinutes();
+  const now = Math.floor(sky);
   if (!isDayFromMinutes(now)) return null;
-  const toDusk = DUSK_HOUR * 60 - (((now % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY);
-  const real = Math.max(1, Math.ceil(toDusk / ONLINE_MINUTES_PER_MS / 60000));
+  const dusk = Math.floor(now / MINUTES_PER_DAY) * MINUTES_PER_DAY + DUSK_HOUR * 60;
+  const ms = _skyWall ? _skyWall(dusk) - _skyWall(sky) : (dusk - sky) / ONLINE_MINUTES_PER_MS;
+  const real = Math.max(1, Math.ceil(ms / 60000));
   return `The sun is the world's - night falls in about ${real} minute${real === 1 ? '' : 's'}.`;
 }
 /** LIVED1: a deadline on the CHARACTER's own clock (a room's end, a loan's due day, a repair's ready minute), said as
@@ -1333,6 +1366,11 @@ let _lastMagicRoundMinute = null;
  *  which is what ToClassicDaggerfallTime returns and what gameDays divides.
  *  A new game starts at CLASSIC_GAME_START_MINUTES, not at zero. */
 export const worldMinutes = () => (_sharedClock ? _sharedClock() : _worldMinutes);
+/** TIME1: THE SKY - the minute the hour, the date, the season and the moons are read off. Online the sky's own source
+ *  (net/skyLaw.js skyClassicMinutes through the relay's offset), or the event clock where none was installed; offline
+ *  the one clock. Read for "now": a reading that is saved, sent or compared later is worldMinutes()'s or ownMinutes()'s
+ *  (bible/06-Systems/Online-Time-Arc.md section 5). */
+export const skyMinutes = () => (_sharedClock ? (_skySource ? _skySource() : _sharedClock()) : _worldMinutes);
 
 /** Set the clock - a load restores it, a rest or a court sentence jumps it. WORLD5: refused under the shared clock. */
 export function setWorldMinutes(v) {

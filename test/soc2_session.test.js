@@ -48,7 +48,7 @@ test('SOC2: the account\'s pair - minted once in the storage handed in, kept, th
 test('SOC2: the hello carries the account when the session holds both halves and NOTHING when it does not - a presence session is never handed one, a build before SOC1 sends the hello it always sent (mutants: the account defaulted from storage; one half sent; the keys on the presence hello)', () => quiet(() => {
   const { ws } = hubLink();
   const hello = JSON.parse(ws.sent[0]);
-  assert.deepEqual(hello, { t: 'hello', id: 'peer-me', secret: 'secret-of-peer-me', name: 'Mac', look: { race: 'Breton', gender: 'male', faceIndex: 0, items: [] }, pose: null, acct: 'acct-me', asecret: 'secret-of-acct-me' });
+  assert.deepEqual(hello, { t: 'hello', id: 'peer-me', secret: 'secret-of-peer-me', name: 'Mac', look: { race: 'Breton', gender: 'male', faceIndex: 0, items: [] }, pose: null, acct: 'acct-me', asecret: 'secret-of-acct-me', ps: 1 });   // AUDIT FRIENDS-SYNC F5: and `ps`, this build's word that it reads the player's picture
   assert.ok(ws.sent[0].startsWith('{"t":"hello"'), 'the prefix the relay reads first');
   const half = hubLink({ acct: 'acct-me', asecret: null });
   assert.ok(!('acct' in JSON.parse(half.ws.sent[0])) && !('asecret' in JSON.parse(half.ws.sent[0])), 'one half is no account');

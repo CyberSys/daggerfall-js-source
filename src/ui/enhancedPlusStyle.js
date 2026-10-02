@@ -16,6 +16,8 @@ import { LV2_CSS } from './levelUpStyle.js';
 import { MOTION_CSS } from './windowMotion.js';
 import { CURSOR_CSS } from './plusCursor.js';   // PLUS7: the gauntlet pointer
 import { SIGIL_RUNE_TILE_URL } from './sigilRune.js';   // SIGIL-UI: the rune in a sigil weapon's tile corner (AUDIT MERGE-PLUS D5: a picture, its outline drawn in)
+import { PROF_ACT_CSS } from './profActStyle.js';   // PROF-RETICLE: the acts on the crosshair, dressed
+import { PROF_STATION_CSS } from './profStationStyle.js';   // PROF-STATIONS: the stations' acts, dressed
 
 export const PLUS_STYLE_ID = 'enhanced-plus-style';
 
@@ -1006,6 +1008,25 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-days { width: 6em; }
 .notice-count { align-self: flex-end; font-size: 11px; color: #5a4630; }
 .notice-tip { margin: 0; font-size: 12px; color: #5a4630; font-style: italic; }
+/* GUILD1e: the Guilds tab - a guild's own notes under its banner, and the town's recruitment posters */
+.notice-section { margin: 4px 4px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
+.notice-section + .notice-grid { margin-bottom: 18px; }
+.notice-banner { flex: none; width: 30px; height: auto; filter: drop-shadow(2px 3px 0 rgba(5,6,8,0.45)); }
+.notice-poster .notice-banner { width: 38px; align-self: center; }
+/* SEAT1b: the Seat tab - the week's clock, the standings (each guild under its banner, the reader's own marked), the
+   reader's own lines and the levers (ui/seatTab.js) */
+.notice-seat-week, .notice-seat-mine { margin: 4px 6px 10px; font-size: 13px; color: #e6dccb; text-shadow: 1px 1px 0 #050608; }
+.notice-standings { list-style: none; margin: 0 4px 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.notice-standing { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 14px; color: #f3ead8;
+  background: rgba(5,6,8,0.35); text-shadow: 1px 1px 0 #050608; }
+.notice-standing.mine { outline: 1px solid rgba(243,239,44,0.55); }
+.notice-standing .notice-banner { width: 26px; }
+.notice-seat-levers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 4px 12px; }
+.notice-seat-drakes { width: 7em; }
+/* SEAT1c: this week's battle, and the Chronicle */
+.notice-seat-battle { margin: 4px 6px 10px; font-size: 13px; color: #f3ef2c; text-shadow: 1px 1px 0 #050608; }
+.notice-chronicle { margin: 0 6px 14px 22px; padding: 0; font-size: 13px; color: #e6dccb; line-height: 1.45; text-shadow: 1px 1px 0 #050608; }
 @media (max-width: 720px) {
   .notice-shell { padding: 8px; }
   .notice-cork { padding: 10px; }
@@ -1100,6 +1121,17 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-strike.hit { color: #f6d58a; }
 .prof-strike.miss { color: #d98b6e; }
 @media (prefers-reduced-motion: reduce) { .prof-heatbar { box-shadow: none; } }
+/* PROF11: the mason's bench - a work's two buttons in the row's button track; the chisel's stone, its scored lines
+   across it, the marked one lit (a shape as well as a colour: its line doubled), the chisel's own line framed */
+.prof-smelt .prof-workacts { grid-column: 3; grid-row: 1; display: flex; gap: 4px; }
+.prof-stone { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px;
+  background: linear-gradient(180deg, #8a8478, #6c675d 60%, #57534b); border: 1px solid rgba(192,138,62,0.5); }
+.prof-chisel-line { position: relative; height: 22px; padding: 0 6px; text-align: left; font: inherit; font-size: 11px; color: #2a2620;
+  background: transparent; border: 0; border-bottom: 2px dashed rgba(40,36,30,0.55); cursor: pointer; }
+.prof-chisel-line.marked { border-bottom: 4px double #f6d58a; color: #fff6e0; text-shadow: 0 0 4px #f6d58a; }
+.prof-chisel-line.at { outline: 2px solid #efe0b8; outline-offset: -2px; }
+.prof-stone.prof-inband { box-shadow: 0 0 6px #f6d58a; }
+@media (pointer: coarse) { .prof-chisel-line { height: 40px; } }
 @media (pointer: coarse) { .prof-recipe { min-height: 40px; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }
@@ -1268,7 +1300,9 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   .market-line { display: none; }
   .market-auction { grid-template-columns: minmax(0, 1fr); } .market-auction > * { grid-column: 1 / -1; }
   .market-row b { white-space: normal; overflow-wrap: anywhere; } }
-@media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;
+@media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }
+${PROF_ACT_CSS}
+${PROF_STATION_CSS}`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
 ${rarityVarsCss()}

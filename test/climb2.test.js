@@ -118,14 +118,14 @@ test('CLIMB2: the hand-hold - the lip where the wall steps out, the body hanging
   assert.equal(senseGrip(sill(0.05), [0, 0, 1], N, 2.5, GEO), null, 'a 5 cm one is too thin for the fingers');
   assert.equal(senseGrip(wall(1.5), [0, 0, 1], N, 1.5, GEO), null, 'the floor too near under the lip for a body to hang');
   assert.ok(senseGrip(wall(1.5), [0, 0, 1], N, 1.5, GEO, false), '...though the hands could hold it');
-  // a pitched top past 45 degrees is no hold
+  // a pitched top past 50 degrees is no hold
   const roof = scene();
   roof.col.addMesh('roof', new Float32Array([-3, 2.5, 1, 3, 2.5, 1, 3, 3.5, 1.5, -3, 3.5, 1.5]), [0, 2, 1, 0, 3, 2], I);
   roof.box(-3, 0, 1, 3, 2.5, 1.02);
   assert.equal(senseGrip(roof.col, [0, 0, 1], N, 2.5, GEO), null, 'a 63-degree roof');
-  // a knife-edge ridge - the top falling back from the face's edge at 50 degrees - is no hold (steeper, and the
-  // top's ray, a rung and a little long, finds nothing under the edge at all)
-  const ridge = scene(), P = [], fall = 2.5 - 0.3 * Math.tan((50 * Math.PI) / 180);
+  // a knife-edge ridge - the top falling back from the face's edge at 55 degrees - is no hold (steeper than a top, and
+  // the top's ray, a rung and a little long, finds nothing under the edge at all)
+  const ridge = scene(), P = [], fall = 2.5 - 0.3 * Math.tan((55 * Math.PI) / 180);
   for (const x of [-3, 3]) P.push(x, 0, 1, x, 2.5, 1, x, fall, 1.3, x, 0, 1.3);
   const Q = [[0, 4, 5, 1], [1, 5, 6, 2], [2, 6, 7, 3], [0, 3, 7, 4], [0, 1, 2, 3], [4, 7, 6, 5]];
   ridge.col.addMesh('ridge', new Float32Array(P), Q.flatMap(([a, b, c, d]) => [a, b, c, a, c, d]), I);
@@ -238,9 +238,12 @@ test('CLIMB2 LIVE: let go of a free climb with Jump held - the lip above is not 
   assert.ok(!r.log.slice(let_).some((e) => e.st === 'move:catch' || e.st === 'hang' || e.st === 'climb'), 'the Jump held through the letting go caught nothing');
 });
 
-test('CLIMB2 LIVE: a lip with no top to climb onto - a sill under a window - holds; Forward asks once; Back climbs down the face', () => {
+test('CLIMB2 LIVE: a lip with no top to climb onto - a sill under a soffit - holds; Forward asks once; Back climbs down the face', () => {
+  // CLIMB3 moved this pin: a sill on a wall that goes on up over it is climbed past (test/climb3.test.js); this one is
+  // under a soffit standing out over the body 0.4 m above it, nothing for the hands to go on up
   const s = scene();
-  s.box(-3, 0, 1.12, 3, 8, 4, 'wall');
+  s.box(-3, 0, 1.12, 3, 2.7, 4, 'wall');
+  s.box(-3, 2.7, 0.1, 3, 2.9, 4, 'soffit');
   s.box(-1.5, 2.2, 1, 1.5, 2.3, 1.12, 'sill');
   let asks = 0;
   const r = drive(s.col, { skill: 100, steps: 200, input: (i, m) => {
@@ -379,9 +382,11 @@ test('CLIMB2 LIVE: the free climb - Forward held against a wall, the skill\'s st
 });
 
 test('CLIMB2 LIVE: on the wall - Back climbs down to the floor and stands; across, the wall\'s edge stops the body; held still, the grip drains at half', () => {
-  const down = drive(wall(6), { skill: 50, z: 0.6, steps: 420, input: (i) => ({ forward: i < 150 ? 1 : -1 }) });
-  assert.ok(down.log[149].pos[1] > 3, 'up past the face\'s own seam (the box face\'s diagonal crosses x = 0 at y = 3)');
-  const off = down.log.findIndex((e, i) => i > 150 && e.st === 'ground');
+  // (HUG-TOUCH, FIELD BUGS 2026-10-02: 165 steps up, not 150 - the classic hug's deep press leaned on that seam and shoved
+  // the climb up it 0.5 cm a step faster than its pace, as on the far side of such a seam it shoved a climb down)
+  const down = drive(wall(6), { skill: 50, z: 0.6, steps: 440, input: (i) => ({ forward: i < 165 ? 1 : -1 }) });
+  assert.ok(down.log[164].pos[1] > 3, 'up past the face\'s own seam (the box face\'s diagonal crosses x = 0 at y = 3)');
+  const off = down.log.findIndex((e, i) => i > 165 && e.st === 'ground');
   assert.ok(off > 150 && near(down.log[off].pos[1], 0, 0.02), 'down and standing');
   assert.ok(Math.abs(down.log[off].pos[0]) < 1e-3, `straight down: the hug's press slides nothing along the face (it took a climb 2.8 m sideways; x ${down.log[off].pos[0].toFixed(3)})`);
   // let go high on the wall: the fall is billed from where the hands let go, the whole of it
