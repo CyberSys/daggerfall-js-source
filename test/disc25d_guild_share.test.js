@@ -46,7 +46,8 @@ test('DISC25-D: a guild quest refused to a non-member names the guild - a temple
 test('DISC25-D: the Online pane says what the shared clock does to a quest - and no longer that the quest clocks stand still', () => {
   const menu = rd('src/ui/enhancedMenu.js');
   assert.doesNotMatch(menu, /the quest clocks stand still/, 'false since WORLD7: quest clocks count played time');
-  assert.match(menu, /a quest that waits for a time of day waits for the world\\u2019s\. Your character also keeps their own time[^.]*\.[^.]*\. Quest timers run while you play\./);   // LIVED1: the character's own time, said between
-  // the law the sentence says: online a quest clock charges played time (WORLD7), and a rest moves no world time
+  assert.match(menu, /a quest that waits for a time of day waits for the world\\u2019s[^.]*\. Your character also keeps their own time[^.]*\. Your wounds[^.]*repairs and quest timers run on it, so a rest spends a quest\\u2019s days as it does in Daggerfall\./);   // LIVED1: the character's own time, said between; TIME3: and the quest timers on it
+  // the law the sentence says: online a quest clock charges the time lived one played step at most (WORLD7) and the
+  // time raised whole (TIME3), and a rest moves no world time
   assert.match(rd('src/systems/quest/clock.js'), /export const PLAYED_STEP_MAX_SECONDS = 30 \* 60;/);
 });

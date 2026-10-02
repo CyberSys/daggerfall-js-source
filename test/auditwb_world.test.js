@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createGateOmen, OMEN_SETTLE_MS } from '../src/systems/gateOmen.js';
+import { createGateOmen, OMEN_SETTLE_MS, omenTimeLine, openTimeLine } from '../src/systems/gateOmen.js';   // TIME1: the lines that name a time say local time alone
 import { gateTimes, omenLine, riseLine, openLine, marksLine, gateModsOf, GATE_RISE_MS } from '../src/net/gateLaw.js';
 /** WB8c: tonight's marks, said once a day beside the first moment a player hears - never a moment itself. */
 const marks = (day) => marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(day) });
@@ -37,7 +37,7 @@ test('AUDIT WB C4 the omen waits for the world\'s clock: silent and standing now
   assert.equal(lines.length, 0);
   clock.now += 1;
   assert.equal(omen.frame().phase, 'open');
-  assert.deepEqual(lines, [openLine({ near: 'Copperham', at: `L${640 * 1440 + 1320}` }), marks(640)], 'the one line for now - no omen, no rise - and (WB8c) tonight\'s marks beside it');
+  assert.deepEqual(lines, [openTimeLine({ near: 'Copperham', at: `L${640 * 1440 + 1320}` }), marks(640)], 'the one line for now - no omen, no rise - and (WB8c) tonight\'s marks beside it');
   assert.equal(omen.standing().phase, 'open');
   clock.now -= 60_000;   // a correction steps the relay's clock back: the settled omen is not silenced by it
   assert.equal(omen.frame()?.phase, 'sealed', 'the gate as the stepped clock has it - not nothing');
@@ -88,12 +88,12 @@ test('AUDIT WB C4 a clock that steps BACK never says a line twice; a new day say
   assert.equal(omen.current().phase, 'sealed');
   clock.now = t.openAt + 5000;
   omen.frame();
-  assert.deepEqual(lines, [openLine({ near: 'Copperham', at: `L${641 * 1440 + 1320}` }), marks(641)], 'no rise said behind the open, no second open, and the marks once');
+  assert.deepEqual(lines, [openTimeLine({ near: 'Copperham', at: `L${641 * 1440 + 1320}` }), marks(641)], 'no rise said behind the open, no second open, and the marks once');
   // the next day's gate: its omen is said though it ranks below the open - and its own marks beside it
   const u = gateTimes(642);
   clock.now = u.omenAt + 1000;
   omen.frame();
-  assert.equal(lines[2], omenLine({ place: SITE.place, at: `L${642 * 1440 + 1200}` }));
+  assert.equal(lines[2], omenTimeLine({ place: SITE.place, at: `L${642 * 1440 + 1200}` }));
   assert.equal(lines[3], marks(642));
   clock.now = u.riseAt + 1000;
   omen.frame();

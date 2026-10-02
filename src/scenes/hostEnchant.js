@@ -26,7 +26,7 @@
 // passed those in would be re-answering a question the port answers
 // once.
 import { playerInSunlight, playerInHolyPlace } from '../systems/passiveSpecials.js';   // V2c: the two E1 conditional flags
-import { worldMinutes } from '../systems/worldTick.js';
+import { skyMinutes } from '../systems/worldTick.js';   // TIME1: a season's or a moon's enchantment reads the sky
 import { getBool } from '../systems/settings.js';
 import { seasonValue, SEASONS, dateFromClassicMinutes, lunarPhasesFromMinutes, LUNAR_PHASES } from '../systems/gameDate.js';
 import { placeFoeFreely } from '../systems/quest/sceneMount.js';   // B1: CreateFoe's raycast ring
@@ -257,7 +257,7 @@ export function createEnchantCtx({
     // ExtraSpellPts.cs:184-189), not the calendar enum (Fall=0..
     // Winter=3) - the map is the two ends swapped.
     season: () => {
-      const s = seasonValue(dateFromClassicMinutes(worldMinutes()));
+      const s = seasonValue(dateFromClassicMinutes(skyMinutes()));
       return s === SEASONS.Winter ? 0 : s === SEASONS.Fall ? 3 : s;
     },
     // V2c: the moon arms, off V2a's lunar law. ExtraSpellPts'
@@ -265,7 +265,7 @@ export function createEnchantCtx({
     // EITHER moon shows the phase; half counts both the waxing and
     // waning half. Params 4/5/6 = Full/Half/New (:190-192).
     moonPhase: (param) => {
-      const { masser, secunda } = lunarPhasesFromMinutes(worldMinutes());
+      const { masser, secunda } = lunarPhasesFromMinutes(skyMinutes());
       const either = (...phases) => phases.includes(masser) || phases.includes(secunda);
       if (param === 4) return either(LUNAR_PHASES.Full);
       if (param === 5) return either(LUNAR_PHASES.HalfWax, LUNAR_PHASES.HalfWane);

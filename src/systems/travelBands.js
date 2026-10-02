@@ -65,7 +65,7 @@ const seedOf = (cx, cy, life) => (Math.imul(cx, 73856093) ^ Math.imul(cy, 193496
 
 /**
  * THE BAND a cell holds in a life, or null: `{ id, cx, cy, life, seed, born: {x, z} (native), bornMs }`. `night` is
- * whether the life begins at night (the host's clock); `ok(x, z)` the land's test (not water, not a town's rect).
+ * whether the life is a night's (the host's clock, read at the life's middle - AUDIT TIME); `ok(x, z)` the land's test (not water, not a town's rect).
  * @param {{ cx: number, cy: number, life: number, night: boolean, ok: (x: number, z: number) => boolean }} q
  */
 export function bandOf({ cx, cy, life, night, ok }) {

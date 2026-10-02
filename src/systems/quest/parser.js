@@ -47,8 +47,8 @@ export class Parser {
    *   ride the parse too since Q2b-ii - the Item mint reads player/
    *   guild/region facts at create (DFU parses with the live world).
    */
-  parse(source, factionId = 0, { partialParse = false, rolls, actionFactory, nowSeconds, hooks, questClockStepMax = null } = {}) {
-    const quest = new Quest({ rolls, actionFactory, nowSeconds, hooks, questClockStepMax });   // WORLD7: the played step rides the parse like the clock does
+  parse(source, factionId = 0, { partialParse = false, rolls, actionFactory, nowSeconds, skySeconds = null, worldSeconds = null, raisedSeconds = null, hooks, questClockStepMax = null } = {}) {
+    const quest = new Quest({ rolls, actionFactory, nowSeconds, skySeconds, worldSeconds, raisedSeconds, hooks, questClockStepMax });   // WORLD7: the played step rides the parse like the clock does; TIME3: and the sky, the event clock and the raises
     quest.factionId = factionId;
     let inQRC = false, inQBN = false;
     const qrcLines = [], qbnLines = [];

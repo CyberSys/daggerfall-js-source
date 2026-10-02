@@ -284,7 +284,7 @@ test('SURV6: by source - the overworld host alone rolls, opens in the slot, pass
   const world = read('src/scenes/world.js'), ext = read('src/scenes/exterior.js'), leaf = read('src/systems/survival/hunting.js');
   assert.match(world, /const hunting = createHunting\(\{/);
   assert.match(world, /minute: Math\.floor\(ownMinutes\(\)\), climateIndex: maps\.getClimateIndex\(playerTravelPixel\(\)\.x, playerTravelPixel\(\)\.y\),/);   // LIVED1: the hunt's minute is the body's
-  assert.match(world, /luck: liveStat\(playerEntity, 'luck'\), winter: seasonValue\(dateFromClassicMinutes\(worldMinutes\(\)\)\) === SEASONS\.Winter,/);
+  assert.match(world, /luck: liveStat\(playerEntity, 'luck'\), winter: seasonValue\(dateFromClassicMinutes\(skyMinutes\(\)\)\) === SEASONS\.Winter,/);   // TIME1: the sky's winter
   assert.match(world, /outdoors: _mode\(\) === 'exterior' && !\(walkMode && playerSpawned && player\.isPlayerSwimming\), afloat: playerAfloat\(\), inLocationRect: _musicInLocationRect\(\), night: isNight\(minuteNow\(\)\),/);
   assert.match(world, /enemiesNear: huntFoesNear\(\), resting: !!playerEntity\.isResting \|\| !!playerEntity\.preventEnemySpawns,/);   // HUNT-FOES
   assert.match(world, /const huntFoesNear = \(\) => \{\n\s+if \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\)\)\) return true;/);

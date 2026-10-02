@@ -224,8 +224,8 @@
   {
     "name": "DISC10-E-V1-the-moon-reads-the-past-round",
     "file": "src/systems/lycanthropy.js",
-    "old": "isFullMoonFromMinutes(skyMinutes) && !entry.isTransformed",
-    "new": "isFullMoonFromMinutes(nowMinutes) && !entry.isTransformed",
+    "old": "const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(skyMinutes);",
+    "new": "const moonForces = moonNight ? isFullMoonNightFromMinutes(skyMinutes) : isFullMoonFromMinutes(nowMinutes);",
     "tests": [
       "test/disc10_lycan.test.js"
     ]

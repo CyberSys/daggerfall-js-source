@@ -85,7 +85,7 @@ test('CLOCK-REFUSAL (LIVED1): no caller asks the world clock to move - every cal
   const world = [...callers(/\badvanceWorldMinutes\s*\(/).keys()].filter((rel) => rel !== 'src/systems/worldTick.js');
   assert.deepEqual(world, [], 'a caller that means elapsed time and asks the WORLD for it is the prison-release bug again');
   const own = [...callers(/\badvanceOwnMinutes\s*\(/).keys()].filter((rel) => rel !== 'src/systems/worldTick.js').sort();
-  assert.deepEqual(own, ['src/scenes/arrestFlow.js', 'src/scenes/shared.js', 'src/scenes/world.js'], 'the sentence, the turn\'s fortnight, the cures and a quest\'s RaiseTime');
+  assert.deepEqual(own, ['src/scenes/arrestFlow.js', 'src/scenes/dungeonContext.js', 'src/scenes/shared.js', 'src/scenes/world.js'], 'the sentence, the turn\'s fortnight, the cures, a quest\'s RaiseTime - and TIME3: the dungeon\'s rest and collapse, raises counted like the rest');
 });
 
 test('CLOCK-REFUSAL: the prison release, the one that paid for this - LIVED1: its days are the prisoner\'s own, served online too, so it refills in both lanes', () => {
