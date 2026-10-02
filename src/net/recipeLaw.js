@@ -92,6 +92,10 @@ export const REPAIR_KIT_TEMPLATE = 692;
  *  piles and on foes that carry loot, never crafted - mends any metal's weapon or armour, by less than a smith's kit. */
 export const FIELD_KIT_REPAIR = 0.15;
 export const KIT_REPAIR = 0.25;
+/** KIT-CEILING (2026-10-01, the economy arc - bible/06-Systems/Economy-Arc.md: field repair stays partial): no kit, a
+ *  field kit or a smith's, mends a piece past three quarters of its condition - the overhaul's normal band (a blade at
+ *  61-75% strikes at its own damage); the sharp edge above it is a smith's work. */
+export const KIT_CEILING = 0.75;
 
 /** The metals a recipe is made in: every ingot but the Daedric's and the Warforged's for the tools (Iron alone). */
 const SMITH_INGOTS = Object.freeze(INGOTS.map((i) => i.key));
@@ -446,9 +450,9 @@ export const markedName = (maker, name) => `${maker}'s ${name}`;
 /** The lines a crafted piece's tooltip and card carry above its powers (PROF0 9.2): its quality and its maker - or a
  *  Repair Kit's work. Nothing for a piece no anvil or workbench made. */
 export function pieceLines(item) {
-  if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, once`];   // REPAIR-EASE: a looted kit has no provenance
+  if (item?.fieldKit === true) return [`Mends ${Math.round(FIELD_KIT_REPAIR * 100)}% of a weapon's or armour's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // REPAIR-EASE: a looted kit has no provenance; KIT-CEILING
   if (!item || typeof item.provenance !== 'string' || !PROVENANCE_RE.test(item.provenance)) return [];
-  if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, once`];
+  if (Number.isInteger(item.kitMetal)) return [`Mends a quarter of a ${METAL_WORDS[item.kitMetal] ?? ''} piece's condition, up to ${Math.round(KIT_CEILING * 100)}%, once`];   // KIT-CEILING
   const out = [];
   if (Number.isInteger(item.quality) && item.quality >= 0 && item.quality <= MASTERWORK) out.push(QUALITY_NAMES[item.quality]);
   if (typeof item.maker === 'string' && item.maker) out.push(`Made by ${item.maker}`);
