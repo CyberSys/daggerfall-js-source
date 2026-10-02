@@ -114,20 +114,31 @@ Hovel, The Hold of Buckingsmith, Theodastyr Laboratory, The Citadel of Woodford,
 C'ircba, Thercrn's Hold, The Fortress of Verpe, The Abbey of Baleusulla and The Haunt of Viscount Lithovon. Square and
 8 degrees either side, at Climbing 100.
 
-| | Before | After |
+| | Before | After (the final code, the audit's included) |
 |---|---|---|
 | walls with a top in reach (25 dungeons) | 3,214 | 3,214 |
 | climbs (each wall square and 8 degrees either side) | 9,642 | 9,642 |
-| topped | 7,946 | 8,062 |
-| failed where the classic lane topped | 81 | 33 |
+| topped (stood on: still on the top a second later, nothing held) | 7,946 | 8,050 |
+| failed where the classic lane topped | 81 | 45 |
 | the reporter's dungeon: topped / failed where the classic topped (402 climbs) | 267 / 5 | 284 / 0 |
 
-The climbs that neither lane topped and that never took hold within 1 m of where they started (1,458 after) are
+The 45: N0000011's ridges (21; Thercrn's Hold, 64 degrees on the near side and 68 on the far, no flat at all),
+N0000014's 53-degree ramps (14; Castle Lhishen, the Abbey of Baleusulla), N0000041's 55-degree tops (4; Gaerwing's
+Guard), N0000008's 67-68 degree peaked top (3; the Pit of Sahoth), and the lips with no landing behind them
+(N0000034, 2; N0000026, 1). The batch's own run, before the audit, said 8,062 and 33. The difference is the audit's
+turn law (B1 below): where the contact met a face the hold does not hold along, the batch's hands let go, and at the
+lip of a ridge past 50 degrees the feet landed on it and stood (the base did the same: 13 of N0000011's were classic-
+only there, 21 now). The same let-go dropped B1's climber 11 m from under a leaning top. The final code holds at the
+lip, as the 50-degree law has it; Jump pushes off, Back climbs down, Crouch lets go. One more, at Thercrn's Hold, the
+batch passed by letting go under an overhang's lip and catching again; the base fails it too.
+
+The climbs that neither lane topped and that never took hold within 1 m of where they started (1,457 after) are
 approaches that slid along the wall, a top that was not what the probe guessed (a slope, a void behind a thin top), or
 a start in a void outside the level. The classic lane, with every roll passing, failed them too.
 
-**What still stalls, and why it is no trap.** A top past 50 degrees: N0000014's and N0000011's 53-degree ramps over
-their walls (Castle Lhishen, the Abbey of Baleusulla, Thercrn's Hold) and N0000041's sloped faces (Gaerwing's Guard).
+**What still stalls, and why it is no trap.** A top past 50 degrees: N0000014's 53-degree ramps over their walls
+(Castle Lhishen, the Abbey of Baleusulla), N0000011's 64-68 degree ridges (Thercrn's Hold), N0000041's 55-degree tops
+(Gaerwing's Guard) and N0000008's peaked top (the Pit of Sahoth).
 This is AUDIT CLIMB-FIELD's own limit (`PARKOUR_TOP_MIN_NY`, chosen to take in Daggerfall's 45-48.7 degree roofs). The
 classic climb ends up standing on such a slope only because Unity's controller grounds a body on a steep slope. The
 other stall is a lip with no landing right behind its edge: Castle Kingwing's N0000034 (a pillar's corner 0.5 m

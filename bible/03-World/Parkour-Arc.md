@@ -941,10 +941,11 @@ passing), and found five faults the classic climb never had (the fifth, CORNER-T
 | STEP-BACK | A piece set 0.2-0.3 m behind the one under it (too shallow a top to stand on) ended the hands' contact at the step, or hung the climber from it to let go and fall | N0000033 (the Mordywyr Mines, the Convocation of Elona) | going up (straight or across), a face that steps back, turned within the hold's 30 degrees, is climbed on to as CLIMB3 passes a sill: straight past the step's top unpressed (`w.past`, `_fcFaceTop`), then the grab's 0.5 m reach (`w.seek`, a save's retake too). Down past it stops above it, as above a sill; down from under its top reaches as the grab does (`w.down`) and gets to the floor |
 | CORNER-TOP | In a narrow corner the start can take the side wall, which runs on past the front wall's top, and the climb went on up it | Carololda's N0000090 pit, by hand | going up, the look turned 20 degrees or more along the held wall as the hands took it (read once a hold) asks the top of a face on that side in contact (`_fcCornerSide`, `_fcCornerWall`) |
 
-What still stalls: tops past 50 degrees (N0000014's and N0000011's 53-degree ramps, N0000041's slopes; AUDIT
+What still stalls: tops past 50 degrees (N0000014's 53-degree ramps, N0000011's ridges, N0000041's slopes, N0000008's peak; AUDIT
 CLIMB-FIELD's own limit) and a lip with no landing right behind its edge (Castle Kingwing's N0000034, a pillar;
-Castle Faallem's N0000026, a gap). None is a trap. Over 3,214 walls and 9,642 climbs: 7,946 topped before and 8,062
-after; failures where the classic lane topped went from 81 to 33, all of them those.
+Castle Faallem's N0000026, a gap). None is a trap. Over 3,214 walls and 9,642 climbs: 7,946 topped before and 8,050
+after, the audit's included (a top is one stood on a second later); failures where the classic lane topped went from 81
+to 45, all of them those (N0000011's 64-68 degree ridges, 21 of them, the base reached by letting go at the lip).
 The grip at low skill and Fatigue is recorded there and not changed (Mac's "Free-climb on grip"). Pinned:
 `test/fb1002_climb.test.js` (7; its last on ARENA2); `tools/mutants/fb1002_climb.json` (15, all dead). PIN MOVED:
 `climb2.test.js`'s seam climb (165 steps at the honest pace: the old press shoved it up that seam).
