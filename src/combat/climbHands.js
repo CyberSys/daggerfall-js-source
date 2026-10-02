@@ -22,8 +22,9 @@
 //     let go as the body crests; a lower brings them up over the edge; a corner carries them round with the wall; a wall
 //     run reaches high.
 //   - THE GRIP FAILING: the hands tremble, harder the lower the grip.
-//   - LOOKING AWAY: turned off the wall's face, the hand on the side looked toward lets go and the reaching arm comes up
-//     in its place, open toward the way the eye looks; the other hand keeps its hold, carried toward its own edge.
+//   - LOOKING AWAY: turned off the wall's face, both fists drop out of the view and the reaching arm alone comes up on the
+//     side looked toward, open toward the way the eye looks (Mac, 2026-10-02: "For look right/left dont use the hand
+//     aiming straight up. Only use the angled arm").
 // Every sprite's arm runs off the bottom edge with BOTTOM_SLACK to spare, so no lift shows its cut sleeve.
 //
 // The enhanced climb only (the motor's hold, a move in flight): DFU's own climb keeps WeaponManager's empty screen.
@@ -76,8 +77,6 @@ export const HANDS = Object.freeze({
   // looking away from the wall
   LOOK_FROM_DEG: 40,       // turned this far off the wall's face, the reach begins...
   LOOK_FULL_DEG: 75,       // ...and is whole here
-  HOLD_SLIDE: 70,          // the hand that holds, carried toward its own edge
-  HOLD_DROP: 26,           // ...and down a little
   SEARCH_X: 5,             // the reaching arm feeling for a hold
   SEARCH_Y: 4,
   SEARCH_HZ: 0.6,
@@ -186,10 +185,7 @@ export class ClimbHands {
       const lat = s === 'R' ? 1 : -1;
       let x = NATIVE_W / 2 + lat * HANDS.GRIP_APART - gw / 2 + off[s].x;
       let y = NATIVE_H - gh + HANDS.BOTTOM_SLACK + off[s].y + enter + gone;
-      if (a > 0) {
-        if (s === side) y += a * (gh + HANDS.BOTTOM_SLACK);   // lets go for the reach
-        else { x += -(side === 'R' ? 1 : -1) * HANDS.HOLD_SLIDE * a; y += HANDS.HOLD_DROP * a; }
-      }
+      y += smooth(a) * (gh + HANDS.BOTTOM_SLACK);   // looked away: the fists drop out, the angled arm alone
       // never lifted past the sleeve's slack
       y = Math.max(y, NATIVE_H - gh);
       if (y >= NATIVE_H) continue;

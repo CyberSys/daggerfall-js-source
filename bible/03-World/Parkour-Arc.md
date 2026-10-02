@@ -952,8 +952,9 @@ by `combat/weaponRig.js`.
   the edge; a corner carries them round; a wall run reaches high. A grip under `PARKOUR_GRIP_LOW` trembles, harder the lower.
   Looking more than 50 degrees down, the hands go out of view.
 - **Looking away**: turned off the wall's face (from `LOOK_FROM_DEG` 40 to whole at `LOOK_FULL_DEG` 75, read off the wall's
-  normal), the hand on that side lets go and the reaching arm comes up there, feeling a little for a hold; the other hand keeps
-  its hold, carried toward its own edge. A move in flight keeps the hold's hands.
+  normal), both fists drop out of the view and the reaching arm alone comes up on that side, feeling a little for a hold
+  (Mac, 2026-10-02: *"For look right/left dont use the hand aiming straight up. Only use the angled arm"* - the first cut
+  kept the other fist holding at its edge). A move in flight keeps the hold's hands.
 - **Pinned**: `test/climbhands.test.js` (8).
 - **Not yet seen in game**: the layouts were checked in a rendered preview of the law's boxes, not yet on a real install.
 

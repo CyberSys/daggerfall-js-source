@@ -47,7 +47,7 @@ test('CLIMB-HANDS the hold: two fists come up from below, the left as painted an
   assert.equal(out.reach, null, 'facing the wall, no reach');
 });
 
-test('CLIMB-HANDS looking away: past LOOK_FROM_DEG the hand on that side lets go and the reaching arm comes up there - as painted to the right, mirrored to the left - while the other hand holds', () => {
+test('CLIMB-HANDS looking away: past LOOK_FROM_DEG both fists drop out and the reaching arm alone comes up on that side - as painted to the right, mirrored to the left', () => {
   const near = settle(new ClimbHands(), hang(), { yaw: (HANDS.LOOK_FROM_DEG - 5) * DEG });
   assert.equal(near.reach, null, 'a glance along the wall is no reach');
   assert.equal(near.grips.length, 2);
@@ -56,13 +56,11 @@ test('CLIMB-HANDS looking away: past LOOK_FROM_DEG the hand on that side lets go
   assert.deepEqual([right.reach.side, right.reach.flip], ['R', false]);
   assert.ok(right.reach.x + right.reach.w > NATIVE_W - 10 && right.reach.x + right.reach.w <= NATIVE_W, 'at the right edge, the open hand whole');
   assert.ok(Math.abs(right.reach.w / right.reach.h - REACH_ART.w / REACH_ART.h) < 1e-9);
-  assert.equal(grip(right, 'R'), null, 'the right hand let go for it');
-  const rest = grip(settle(new ClimbHands(), hang()), 'L');
-  assert.ok(grip(right, 'L') && grip(right, 'L').x < rest.x, 'the left holds, carried toward its own edge');
+  assert.equal(right.grips.length, 0, 'the angled arm alone - no fist (Mac: "Only use the angled arm")');
   const left = settle(new ClimbHands(), hang(), { yaw: -85 * DEG });
   assert.deepEqual([left.reach.side, left.reach.flip], ['L', true], 'turned left: mirrored');
   assert.ok(left.reach.x >= 0 && left.reach.x < 10, 'at the left edge');
-  assert.equal(grip(left, 'L'), null);
+  assert.equal(left.grips.length, 0);
   // on the free climb too, and a move in flight keeps the hold's hands
   assert.ok(settle(new ClimbHands(), climb(), { yaw: 90 * DEG }).reach);
   assert.equal(settle(new ClimbHands(), { ...hang(), move: { kind: 'mantle', t: 0.1, split: 0.5 } }, { yaw: 90 * DEG }).reach, null);
@@ -152,18 +150,19 @@ test('CLIMB-HANDS the draw: Mac\'s two paintings, loaded once, each box a screen
   assert.equal(hands.draw(canvas), false, 'the first ask draws nothing');
   await new Promise((r) => setTimeout(r, 0));
   assert.equal(hands.draw(canvas), true);
-  assert.deepEqual(asked.sort(), ['art/climb-grip.png', 'art/climb-reach.png']);
-  assert.equal(uploads.length, 2, 'once each');
-  assert.equal(quads.length, 2, 'the reach and the hand that holds (the left, as painted)');
+  assert.deepEqual(asked, ['art/climb-reach.png']);
+  assert.equal(uploads.length, 1, 'only what is drawn is asked for');
+  assert.equal(quads.length, 1, 'the reach alone');
   const reach = quads.find((q) => q.tex.key.includes('reach'));
   assert.equal(reach.uv, undefined, 'to the right: as painted');
-  const held = quads.find((q) => q.tex.key.includes('grip'));
-  assert.equal(held.uv, undefined, 'the left fist as painted');
   for (let i = 0; i < 60; i++) hands.update(1 / 60, hang(), { yaw: 0 });
+  hands.draw(canvas);
+  await new Promise((r) => setTimeout(r, 0));
   quads.length = 0;
   hands.draw(canvas);
   assert.deepEqual(quads.map((q) => q.uv ?? null), [null, { u0: 1, v0: 0, u1: 0, v1: 1 }], 'facing the wall: the left as painted, the right its mirror');
-  assert.equal(held.rect.h, HANDS.GRIP_H * 2, 'scaled to the canvas');
+  assert.equal(quads[0].rect.h, HANDS.GRIP_H * 2, 'scaled to the canvas');
+  assert.equal(uploads.length, 2, 'each painting once');
   assert.equal(hands.draw(null), false);
 });
 
