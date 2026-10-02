@@ -261,7 +261,10 @@ test('WX2 the hosts: both read the front under the enhanced sky only, and the cl
     assert.doesNotMatch(h.slice(h.indexOf('function frame(now)')), /\bweatherFog\b(?!\s*=)/, `${host}: no frame consumer reads the raw fog row any more`);
     assert.match(h, /const weatherTerms = \(\) => \(\{ sun: weatherSun, dim: (LAB_DIM\[weather\] \?\? 1|1), fog: weatherFog \}\);/, `${host}: the terms are the weather's own numbers`);
   }
-  assert.match(read('src/scenes/world.js'), /dim: wxNow\.dim,\n\s+sunScale: renderer\._sunScale, moonDir: renderer\._moonDir, moonScale: renderer\._moonScale, moonCol: renderer\._moonColor \},\s+\/\/ WX2/, 'the grass dim crosses on the front - WIND4: beside the sun\'s scale and the moon, so the sward darkens with the ground');
+  // GRASS-LIT (2026-10-01): the grass takes NO weather dim - the ambient and the sun it is handed are weathered already, and
+  // the dim on top darkened a rainy field a third past the ground it stood in. The sward darkens with the ground by the
+  // ground's own light (WIND4's sun scale and moon, beside it), and the lane, the deck and the sun map come with it.
+  assert.match(read('src/scenes/world.js'), /dim: 1, lane: renderer\.lightingLane, exposure: renderer\.exposure, adaptTex: renderer\.adaptTexture,\n\s+cloud: renderer\._cloudShadow, shadows: renderer\._shadows, indirect: renderer\._indirect, indirectColor: renderer\._indirectColor,\n\s+sunScale: renderer\._sunScale, moonDir: renderer\._moonDir, moonScale: renderer\._moonScale, moonCol: renderer\._moonColor,\s+\/\/ WX2[^\n]*\n(?:\s+\/\/[^\n]*\n)*\s+points: renderer\._pointLights, pointColors: /, 'the grass takes the ground\'s own light, and no second weather dim (GRASS-LIT2: its lanterns too)');
   // the classic sky never ticks the wind model, so under it the arrival
   // is 1 and the front is a pass-through: pinned at the seam
   const sh = read('src/scenes/shared.js');

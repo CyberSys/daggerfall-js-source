@@ -38,7 +38,7 @@ import { settlementsOf, loadModRoads, basicRoadsPathsPoint, WATER_BYTE } from '.
 import { modSetting, modSettingsOf, modSettingsGeneration, MOD_SETTINGS, latchModLoaded } from '../systems/modSettings.js';   // ROADS 24; HCC: the mod's eight switches; CSA-D: a mod's title for the load's failure line; AUDIT PRE-MERGE 0928 S4: the next-load mods latched at mount
 import { hasPort, PORT_LOCATION_IDS } from '../systems/travelPorts.js';   // AUDIT-RR2 G22: Travel Options' port list for RR's ship gate
 import { WoodsFile, MAP_WIDTH, MAP_HEIGHT } from '../formats/woodsFile.js';
-import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, groundOffPlane, terrainSampleHeightAt, lowestGroundUnder } from '../world/terrainSurface.js';
+import { buildTerrainIndices, isOutdoorWaterTile, TERRAIN_TILE_DIM, TERRAIN_SKIRT_DEPTH, surfaceHeightAt, surfaceNormalAt, groundOffPlane, terrainSampleHeightAt, lowestGroundUnder } from '../world/terrainSurface.js';   // GRASS-LIT2: the ground's normal under a blade
 import { waterUniforms, buildWaterIndices, waterSwitchOn } from '../render/waterSurface.js';   // WATER1: the enhanced water surface over the pixel's own grid; WATER-AUDIT: its own index set
 import { waterCorners, WATER_DRAW_MASK_TABLE } from '../world/waterCorners.js';   // GRASS-WET1: the one table that says which of a tile's corners stand in water - the DRAW's, because a blade in a puddle is a picture, not a physics
 import { windowEmissionRGB } from '../render/windowEmission.js';
@@ -159,7 +159,7 @@ import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   //
 import { createBreather, frameFitBudget } from '../systems/buildBreather.js';   // PERF7: the stream build yields to the frame; PERF-EXT24: a slice of what the frame left
 import { pieceIndex } from '../render/labGrass.js';   // PERF8: the piece under a point, by arithmetic
 import { meterFor } from '../render/perfMeter.js';   // GRASS2: the field gets a zone of its own - it was inside the world's
-import { LabGrassRenderer, createGrassField, grassRecordsOf, tileMeanColour, discSlotCount, LAB_GRASS, LAB_DIM } from '../render/labGrass.js';   // GR1: the lab's grass, byte for byte; PERF-EXT20: the field's slot count, warmed at mount
+import { LabGrassRenderer, createGrassField, grassRecordsOf, tileMeanColour, discSlotCount, LAB_GRASS, LAB_DIM, GRASS_TONES, GRASS_TONES_CLASSIC } from '../render/labGrass.js';   // GR1: the lab's grass, byte for byte; PERF-EXT20: the field's slot count, warmed at mount
 import { windDrive, floraSwayOf, floraSwayOn } from '../systems/windDrive.js';   // WIND3: the one wind in every consumer's units; the flats' sway
 import { WindWispsRenderer, wispsOn, SAND_LOOK } from '../render/windWisps.js';   // WIND3: the wind, seen; WEATHER2d: the sandstorm's sand in the same program
 import { createWindAudio, windSoundOn } from '../systems/windAudio.js';   // WIND3: the wind, heard
@@ -187,6 +187,8 @@ import { createGatherHost } from './gatherHost.js'; import { rockFootprint } fro
 import { herbKind } from './herbHost.js';   // PROF1: Herbalism's patches, a kind in it
 import { mineKind } from './mineHost.js'; import { nodeCompassPoints } from '../ui/nodeMarks.js'; import { createNodeGlowPass } from '../render/nodeGlow.js';   // PROF2: Mining's veins and Quarrying's boulders, a kind in it; NODE-MARKS: every profession's nodes on the compass in its colour, and lit where they stand
 import { treeKind, isTreeRecord } from './treeHost.js';   // PROF4: Logging's trees - the forest's own - a kind in it
+import { realForestsOn, FOREST_HIDDEN_LOCATION_TYPES } from './shared.js';   // FOREST1: the Real forests switch, and the places the woods hide
+import { insideRocks, forestAt } from '../world/terrainNature.js';   // FOREST1 (AUDIT F1): a wood's flats keep out of the rock pieces; GRASS-LIT2: the shot hook's woods
 import { huntKind, createBodyStamps, bodiesOf, trackerMarks } from './huntHost.js';   // PROF7: Hunting's bodies - a kind in it, the kills that stamp them, a Tracker's marks
 import { fishKind } from './fishHost.js';   // PROF8: Fishing's casts and schools - a kind in it
 import { utcDayOfMs } from '../net/nodeLaw.js';   // PROF8: a haul's UTC day
@@ -349,7 +351,7 @@ import { hasActiveEffect } from '../systems/effects.js';   // PEERLIGHT2: my Lig
 import { combatVisualsOn, peerDraw } from '../systems/combatVisuals.js';   // INVIS-LOOK: a concealed peer, drawn as the enhanced lane draws a concealed foe
 import { isEntityWaterWalking, assignModBundle, removeBundleNamed, WATER_WALKING_SILENT_KIND } from '../systems/effects.js';   // CSA-I: the boat's water walk
 import { ANIMALS_ARCHIVE, ANIMAL_SOUND_BY_RECORD } from '../systems/soundClips.js';
-import { boxNearPath, pointNearPath, wodSiteClear, UNITS_PER_METRE, WOD_PIECE_ROAD_CLEAR, CAMP_ROAD_CLEAR_M } from '../world/roadClearance.js';   // ROADS-CLEAR: WoD sites and pieces, and the camps, off the painted roads
+import { boxNearPath, pointNearPath, wodSiteClear, wodPiecewise, wodSiteFootprint, UNITS_PER_METRE, WOD_PIECE_ROAD_CLEAR, CAMP_ROAD_CLEAR_M } from '../world/roadClearance.js';   // FOREST1: and which picks are sites, and a site's footprint   // ROADS-CLEAR: WoD sites and pieces, and the camps, off the painted roads
 import { gateClearFor, gateSiteTest, boxNearGate, pointNearGate, createGateClearSweep, WOD_FLAT_GATE_CLEAR_M } from '../world/gateClearance.js';   // GATE-CLEAR: WoD's rock off the day's Oblivion Gate
 import { raidMapMarks } from '../ui/eventMapMarks.js';   // EVENT-TIP: the towns under attack, on the held map
 import { StreamingWorldState, TerrainSlots, worldCoordToMapPixel, locationWorldRect, isInLocationRect, mapPixelToWorldCoords, SCENE_MAP_RATIO, nearestFirstFrom } from '../world/streamingWorld.js';   // HCC: StreamingWorld.SceneMapRatio; AUDIT BRANCH (WoD) L1-3: DFU's terrain array; AUDIT 68 S22: the load list's one order
@@ -987,6 +989,10 @@ export async function bootWorld(canvas, renderer, params, status) {
   // loads the room's list instead (worldOfDaggerfall.js says why). A
   // failure here costs the world its camps, never the stream.
   const wod = wodOn() ? openWodWorld({ online: params.has('online') }) : null;
+  // FOREST1: REAL FORESTS (world/terrainNature.js layoutForests) - read
+  // once, as the world mounts: every pixel of a world stands one forest,
+  // and a flip of the row reaches the next world.
+  const forests = realForestsOn();
   const wodOpened = wod
     ? wod.open().then(() => true, (e) => { console.warn(`[wod] World of Daggerfall did not open: ${e?.message ?? e}`); return false; })
     : Promise.resolve(false);
@@ -1619,6 +1625,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   const grassRecords = new Map();   // archive -> Set of grass records
   const groundPuddles = new Map();   // WATER-PUDDLE: archive -> its layers, each puddle record's water in its alpha (the pass's own mask)
   const groundMeanColour = new Map();   // GR4: archive -> [record] -> mean rgb 0..1
+  const groundDrawnMeans = new Map();   // AUDIT GRASS-LIT2 B2: archive -> the uploaded mod tile set's record means (null: the classic file's)
   // PERF1: the density pref is a fraction of the lab's field; 0 is the
   // same as ?grass=off - no renderer, no field, nothing drawn.
   const grassDensity = Math.max(0, Math.min(1, Number(getPref('grassDensity')) || 0)) * LAB_GRASS.density;
@@ -1626,6 +1633,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     ? new LabGrassRenderer(renderer.gl) : null;
   let labGrassField = null;   // GR5: the world-anchored field, filled a cell or two a frame
   if (labGrass) discSlotCount(LAB_GRASS.span);   // PERF-EXT20: the field's one sweep, paid here behind the loading screen - every createGrassField after reads the memo
+  const grassNormalScratch = [0, 1, 0];   // GRASS-LIT2: the slope's answer, one array for every blade (the placer copies it)
   let hccGroundMoved = null;   // DISC20-C: the horse-cart pool's re-stand over a pixel just built - bound once the pool is (the boot's first pixel builds before it)
   // WATER1: the water surface - enhanced skin, its own switch, `?water=off`
   // the kill door. A draw only: nothing here tells the game where water is.
@@ -3241,7 +3249,11 @@ export async function bootWorld(canvas, renderer, params, status) {
     const stride = strideFor(px, py);
     const { samples, tilemap, positions, normals, tilemapBytes, avg, nature, withRoads, paths, wodAverages } = await terrainGen.generate({
       px, py, stride, tilemap: seedTilemap, locationRect, hasLocation: !!dfLocation, climateType: climateBase,
-      wod: wodPicks ? { picks: wodPicks.map((p) => ({ flatten: p.flatten, rect: p.rect })) } : null,   // WOD2: the smoothing arms run in the kernel
+      // WOD2: the smoothing arms run in the kernel; FOREST1: and whether each pick is a SITE the woods close round (a camp, a
+      // fort, a ruin - not a rock field or a mountain, AUDIT FOREST1 F1) and its whole footprint (its objects, F7)
+      wod: wodPicks ? { picks: wodPicks.map((p) => ({ flatten: p.flatten, rect: p.rect, hide: !wodPiecewise(p.prefabName), bounds: forests ? wodSiteFootprint(p.prefab, p.rect) : null })) } : null,
+      // FOREST1: the woods' archive (the climate's summer one, which names its Trees) and whether this pixel's place is one they hide
+      forests: forests ? { archive: climate.natureArchive, hidden: FOREST_HIDDEN_LOCATION_TYPES.has(dfLocation?.mapTableData?.locationType) } : null,
     });
     // DW-B: HandlePromote's synchronous arm - a pixel beside the player's is
     // promoted now, on the Deep Waters worker while this build lays out, and
@@ -3270,6 +3282,9 @@ export async function bootWorld(canvas, renderer, params, status) {
       // GROUND1-W: a mod's tile set takes its puddles' shapes from the classic records (carryPuddleMask)
       const layers = modLayers ? carryPuddleMask(modLayers, markPuddleWater(classic)) : classic;
       renderer.uploadTileArray(groundArchive, modLayers ? layers : markPuddleWater(layers));   // WATER-PUDDLE: a puddle record's water in its layer's alpha
+      // AUDIT GRASS-LIT2 B2: the grass's colours off THESE layers - the ones drawn - and not a second ask of the mod
+      // door, whose cache a mod indexed mid-session empties (another decode, maybe another mod's tiles than these)
+      if (labGrass) groundDrawnMeans.set(groundArchive, modLayers ? modLayers.map(tileMeanColour) : null);
     }
     renderer.applyGroundSharpness();   // GRAIN AUDIT 1: the ground-sharpness tier lands on THIS load, on every cached archive - the cache outlives the scene
     // GR1: which of this archive's records are GRASS, from its own texels -
@@ -3278,6 +3293,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // tile-cache miss - the tile array cache lives on the renderer and
     // outlives this scene, so an archive the exterior host had uploaded
     // came back here cached, skipped the block above, and grew no grass.
+    // GRASS-LIT2: the tile set that is DRAWN - an attached texture mod's (GROUND1, the cached promise the upload above
+    // asked) - is what the grass's colour is taken off; asked BEFORE the three below are learned, so all three land in
+    // one step and no pixel places a field against records whose colours are still on their way
+    // AUDIT GRASS-LIT2 B2: the means taken at the upload above when it ran in this scene; asked of the door only for a
+    // tile array an earlier scene uploaded (the renderer's cache outlives the scene)
+    const drawnMeans = grassRecords.has(groundArchive) ? null
+      : groundDrawnMeans.has(groundArchive) ? groundDrawnMeans.get(groundArchive)
+      : (await dfmodGroundLayers(groundArchive, groundTex.recordCount))?.map(tileMeanColour) ?? null;
     if (!grassRecords.has(groundArchive)) {
       const layers = [];
       for (let r = 0; r < groundTex.recordCount; r++) layers.push(groundTex.getColor32(groundTex.getDFBitmap(r, 0), 0));
@@ -3287,7 +3310,11 @@ export async function bootWorld(canvas, renderer, params, status) {
       // it - averaged once, rather than sampled per blade. AUDIT 68 S17:
       // learned here, beside grassRecords (the tile cache outlives the
       // scene), and off the color32's texels - it read the object's length.
-      groundMeanColour.set(groundArchive, layers.map(tileMeanColour));
+      // GRASS-LIT2: off the mod's tile where one dresses the archive - the
+      // ground a blade stands in is the one drawn. Which records are grass
+      // stays the classic file's question: a record means the same tile
+      // under any picture of it.
+      groundMeanColour.set(groundArchive, drawnMeans ?? layers.map(tileMeanColour));
     }
     const terrain = renderer.createTerrainSurface(positions, normals,
       stride === 1 ? TERRAIN_INDICES : TERRAIN_INDICES_LOD);
@@ -3790,8 +3817,14 @@ export async function bootWorld(canvas, renderer, params, status) {
     // a Tree by the climate's summer archive, each its group and its place in it: Logging's trees stand at them
     const pixelTrees = [];
     for (const f of nature) {
+      // GATE-CLEAR (AUDIT FOREST1 F5): the day's Oblivion Gate keeps its clearing of nature as it keeps it of World of
+      // Daggerfall's flats - a tree no longer stands through the plinth or the Sigil Broker (the sweep builds the
+      // pixel again when the gate's day turns). FOREST1 (F1): and a wood's flats keep out of the rock pieces it grows
+      // round - DFU's own scatter, with the switch off, is left as DFU lays it
+      if (pointNearGate(gateClear, px, py, f.x, f.z, WOD_FLAT_GATE_CLEAR_M)) continue;
+      if (forests && insideRocks(pixelRocks, f.x, f.z)) continue;
       const i = addFlat(natureArchive, f.record, f.x, f.y, f.z);
-      if (isTreeRecord(climate.natureArchive, f.record)) pixelTrees.push({ id: pixelTrees.length, group: `${natureArchive}_${f.record}`, i, x: f.x, y: f.y, z: f.z });
+      if (isTreeRecord(climate.natureArchive, f.record)) pixelTrees.push({ id: pixelTrees.length, group: `${natureArchive}_${f.record}`, i, x: f.x, y: f.y, z: f.z, wood: f.wood ?? 0 });   // FOREST1: how wooded its tile is - Logging's trees stand in the woods
     }
     // WOD4: THE CAMP AT PRIVATEER'S HOLD (world/wodPrivateersHold.js).
     // DungeonExterior finds the block by name and PrivateersHold.Start
@@ -3967,6 +4000,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       withRoads,   // ROADS 25: painted with the network present, or before it arrived (see below)
       _box: bounds,   // EV3: pixel-local presentation bounds (terrain + models + flats)
       _stride: stride,   // EV4: the terrain surface's current ring class
+      groundNormals: labGrass && stride === 1 ? normals : null,   // GRASS-LIT2: the near grid's vertex normals - the grass reads its slope off them; AUDIT B1: only where there is grass (200 KB a pixel)
       population, locOrigin, personBatches,   // T2 towns
       npcs: pixelNpcs,   // AUDIT 26 (F019): RMBLayout's street StaticNPCs, pixel-local
       npcBatches: [], npcQuestPass: false,   // E3: their billboards (a subset of `batches`) and the one-shot SetupIndividualStaticNPC latch
@@ -4258,6 +4292,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const waterIndices = waterOn ? buildWaterIndices(p._dwBytes ?? p.tilemapBytes, stride) : null;   // DW-F: the cap's TileMap, where it patched one
     p.water = waterIndices ? renderer.createWaterSurface(p.terrain, waterIndices) : null;
     p._stride = stride;
+    p.groundNormals = labGrass && stride === 1 ? grid.normals : null;   // GRASS-LIT2: the grass's slope, at the ring class it stands on; AUDIT B1: only with grass
     if (p._dwBytes) dwClipTerrain(p);   // DW-C: the clip, at the new ring class
     // PERF-EXT21: a promotion is the other way a pixel joins the grass
     // (its near pieces are the stride-1 ones), and the crossing no longer
@@ -13277,6 +13312,57 @@ export async function bootWorld(canvas, renderer, params, status) {
     window.__csaConsole = (line) => { const [name, ...args] = String(line).trim().split(/\s+/); return csaRuntime?.console[name]?.(args) ?? null; };   // CSA-C: a command, as the console runs it
     window.__csaReady = () => !!csaRuntime && csa.ready();
     window.__csaNodes = () => csaRuntime?.AllBoats.map((b) => ({ pixel: b.MapPixel, nodes: [...b.NodeTileMapIndices], active: b.GameObject.activeSelf })) ?? null;
+    /** GRASS-LOOK probe (tools/grassLookProbe.mjs): where to stand to see a FIELD - the centre of the first `r`-tile
+     *  square of grass the archive's own records call grass (the player's pixel first), off any location's tiles, and
+     *  the yaw that looks along it. `skip` passes over the first so many such squares, for a second look. GRASS-LIT2:
+     *  `steep` asks for a hillside - the square's far half leaning at least that much (the ground normal's xz, off the
+     *  near grid's normals), and the yaw that looks up or down it. */
+    window.__grassSpot = (r = 6, skip = 0, steep = 0) => {
+      r = Math.max(1, r | 0);   // AUDIT GRASS-LIT2 B5: a zero step never left the loop
+      const cur = built.get(`${state.current.x},${state.current.y}`);
+      for (const p of [cur, ...built.values()]) {
+        const grass = p?.tilemapBytes ? grassRecords.get(p.groundArchive) : null;
+        if (!grass?.size) continue;
+        const t = state.pixelTranslation(p.px, p.py, [0, 0, 0]);
+        for (let tz = r; tz < 128 - r * 3; tz += r) for (let tx = r; tx < 128 - r; tx += r) {
+          let all = true;
+          for (let dz = -r; dz <= r * 3 && all; dz++) for (let dx = -r; dx <= r && all; dx++) all = grass.has(p.tilemapBytes[(tz + dz) * TERRAIN_TILE_DIM + tx + dx] >> 2);
+          if (!all) continue;
+          const x = t[0] + (tx + 0.5) * 6.4, z = t[2] + (tz + 0.5) * 6.4;
+          const n = steep > 0 && p.groundNormals ? surfaceNormalAt(p.groundNormals, (tx + 0.5) * 6.4, (tz + r * 2 + 0.5) * 6.4, [0, 1, 0]) : null;   // AUDIT B5: the far half's middle
+          if (steep > 0 && !(n && Math.hypot(n[0], n[2]) >= steep)) continue;
+          if (skip-- > 0) continue;
+          return { feet: [x, heightAt(x, z), z], yaw: n ? Math.atan2(n[0], n[2]) : 0, pixel: [p.px, p.py], archive: p.groundArchive, normal: n };   // AUDIT B5: a hillside's yaw looks down it
+        }
+      }
+      return null;
+    };
+    /** GRASS-LOOK probe: the field painted with other tones (render/labGrass.js GRASS_TONES' shape, four [r, g, b]
+     *  ratios), or the shipped ones again with none */
+    window.__grassTones = (tones, classic = false) => { if (labGrass) labGrass[classic ? 'tonesClassic' : 'tones'] = new Float32Array((tones ?? (classic ? GRASS_TONES_CLASSIC : GRASS_TONES)).flat()); return !!labGrass; };   // GRASS-LIT2: or the classic lane's
+    /** GRASS-LIT2 probe (tools/grassLookProbe.mjs): the heart of the deepest wood in the built pixels - the tile whose
+     *  `r`-tile square reads the most forest (FOREST1's field, terrainNature.js forestAt) on ground the archive grows
+     *  grass on, its feet and its pixel, the square's mean forest, and the pixel's origin. Where to look down on a wood
+     *  from. `here` keeps to the player's own pixel, so a camera posed off it does not cross into the next. */
+    window.__forestSpot = (r = 10, here = false) => {
+      r = Math.max(1, r | 0);   // AUDIT GRASS-LIT2 B5
+      let best = null;
+      const cur = built.get(`${state.current.x},${state.current.y}`);
+      for (const p of here ? [cur] : built.values()) {
+        const grass = p?.tilemapBytes ? grassRecords.get(p.groundArchive) : null;
+        if (!grass?.size) continue;
+        for (let tz = r; tz < 128 - r; tz += r) for (let tx = r; tx < 128 - r; tx += r) {
+          if (!grass.has(p.tilemapBytes[tz * TERRAIN_TILE_DIM + tx] >> 2)) continue;
+          let w = 0, k = 0;
+          for (let dz = -r; dz <= r; dz += 2) for (let dx = -r; dx <= r; dx += 2) { w += forestAt(p.px * 128 + tx + dx, -p.py * 128 + tz + dz); k++; }
+          if (!best || w / k > best.wood) best = { p, tx, tz, wood: w / k };
+        }
+      }
+      if (!best) return null;
+      const t = state.pixelTranslation(best.p.px, best.p.py, [0, 0, 0]);
+      const x = t[0] + (best.tx + 0.5) * 6.4, z = t[2] + (best.tz + 0.5) * 6.4;
+      return { feet: [x, heightAt(x, z), z], pixel: [best.p.px, best.p.py], wood: best.wood, origin: [t[0], t[2]] };
+    };
     /** CSA-C probe: a land tile 3 tiles off a water tile (the player's pixel first) - where to stand, facing the water. */
     window.__csaShore = () => {
       const cur = built.get(`${state.current.x},${state.current.y}`);
@@ -24445,8 +24531,17 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         const rec = p.tilemapBytes[tz * TERRAIN_TILE_DIM + tx] >> 2;
         return groundMeanColour.get(p.groundArchive)?.[rec] ?? null;
       };
-      if (!labGrassField) labGrassField = createGrassField(labGrass, { keep, ground, density: grassDensity });   // PERF1: the pref's fraction of the lab's field
-      labGrassField.update(ex, ez, keep, ground);
+      // GRASS-LIT2: the ground's normal under a blade - the drawn surface's own (the near grid's vertex normals over the
+      // triangle the root stands in), so a field on a hillside is lit as the hillside is. Written into one scratch; the
+      // placer copies it before it asks again.
+      const slope = (x, z) => {
+        const hit = pieceAt(x, z);   // PERF8
+        if (!hit?.p.groundNormals) return null;
+        const { p, t } = hit;
+        return surfaceNormalAt(p.groundNormals, x - t[0], z - t[2], grassNormalScratch);
+      };
+      if (!labGrassField) labGrassField = createGrassField(labGrass, { keep, ground, slope, density: grassDensity });   // PERF1: the pref's fraction of the lab's field
+      labGrassField.update(ex, ez, keep, ground, slope);
       window.__grassStats = () => ({ blades: labGrass.count, drawn: labGrass.drawn, vertsPerBlade: labGrass._oneQuad ? labGrass.vertsFar : labGrass.verts, nearPixels: nearPieces().length, cells: labGrassField?.live.size ?? 0, slots: labGrassField?.slots ?? 0,   // GRASS AUDIT 1: `verts` below is the near blade's; `vertsPerBlade` is the frame's. PERF-URL: `cells` and `slots` had been swallowed by this comment - the hook answered without them
         perCell: labGrass.perCell, range: LAB_GRASS.range, height: LAB_GRASS.height, verts: labGrass.verts,
         // GRASS2: what the field HOLDS, against what a slot-sized draw
@@ -24460,6 +24555,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // windDrive.js) - the grass, the rain, the wisps and the flats read
       // the same numbers by construction.
       meterFor(renderer.gl)?.mark('grass');   // GRASS2
+      renderer.snapshotAoDepth();   // GRASS-LIT: the AO reads the world without the field (render/airPass.js snapshotAoDepth)
       labGrass.draw(proj, view, new Float32Array(cam.pos), now / 1000,
         // WIND4 (Mac: "grass doesnt get darker at night"): the WHOLE of
         // the scene's light, not three of its five terms - the sun's
@@ -24467,8 +24563,17 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // when it has. The same fields render/renderer.js hands its own
         // programs.
         { fog: { mode: renderer._fogMode, density: renderer._fogDensity, range: renderer._fogRange, color: renderer._fogColor, camPos: renderer._camPos, dw: renderer._dwFog },   // DISC20-A: the fog the ground took this frame, from the view's own eye; DW-C: and the sea's
-          sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor, dim: wxNow.dim,
-          sunScale: renderer._sunScale, moonDir: renderer._moonDir, moonScale: renderer._moonScale, moonCol: renderer._moonColor },   // WX2: the dim crosses on the front
+          sunDir: renderer._lightDir, amb: renderer._ambient, sunCol: renderer._sunColor,
+          // GRASS-LIT (render/labGrass.js): no weather dim - the ambient and the sun above are weathered already
+          // (exteriorAmbient, the sun's scale x wxNow.sun), and the lab's LAB_DIM on top darkened a rainy field a
+          // third past the ground it stood in. And the rest of the ground's light: the lane and its eye, the deck's
+          // shadow, the sun map, the player's light.
+          dim: 1, lane: renderer.lightingLane, exposure: renderer.exposure, adaptTex: renderer.adaptTexture,
+          cloud: renderer._cloudShadow, shadows: renderer._shadows, indirect: renderer._indirect, indirectColor: renderer._indirectColor,
+          sunScale: renderer._sunScale, moonDir: renderer._moonDir, moonScale: renderer._moonScale, moonCol: renderer._moonColor,   // WX2: the dim crossed on the front until GRASS-LIT
+          // GRASS-LIT2: the frame's lanterns, torches and candles - the list the ground took, its display colours (the
+          // grass decodes them under the lane, as the rest)
+          points: renderer._pointLights, pointColors: renderer._pointColorData(renderer._pointLights.length >> 2, true) },
         { dir: wd.dir, speed: wd.slider * wd.gust, windV: wd.windV },
         LAB_GRASS.range, getPref('grassStyle'));   // GRASS-PX: the row's word, read live - the style is a uniform, so it flips without a reload
       // GRASS2: the field had been inside the WORLD's span, which is the

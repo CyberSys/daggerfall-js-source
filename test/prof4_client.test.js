@@ -464,7 +464,7 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
 
 test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of Daggerfall\'s table, their groups\' batches); the host mints furniture among the home\'s things, asks the station by the recipe, the plane\'s band off AGI and WIL; the workbench a Furniture Store\'s or a home\'s station; the billboard shader tips a felled tree; DECOR marks a set-down piece from the service\'s own row', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /if \(isTreeRecord\(climate\.natureArchive, f\.record\)\) pixelTrees\.push\(\{ id: pixelTrees\.length, group: `\$\{natureArchive\}_\$\{f\.record\}`, i, x: f\.x, y: f\.y, z: f\.z \}\);/);
+  assert.match(w, /if \(isTreeRecord\(climate\.natureArchive, f\.record\)\) pixelTrees\.push\(\{ id: pixelTrees\.length, group: `\$\{natureArchive\}_\$\{f\.record\}`, i, x: f\.x, y: f\.y, z: f\.z, wood: f\.wood \?\? 0 \}\);/);   // FOREST1 (AUDIT F3): and how wooded its tile is
   assert.match(w, /forest: \{ base: climate\.natureArchive, archive: natureArchive, trees: pixelTrees\.filter\(\(t\) => forestGroups\.has\(t\.group\)\), groups: forestGroups \},/);
   assert.equal((w.match(/if \(archive === natureArchive\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 2, 'both the season\'s batch and the classic one');
   assert.match(w, /if \(isCraftedFurniture\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\);\n\s*else addItem\(\(playerEntity\.items \?\?= \[\]\), it, 'back'\);/);
