@@ -43,12 +43,12 @@ export function eventTimerRows(src) {
   const phase = gatePhase(t, now, fell);
   const place = src?.gate?.place ? `Near ${src.gate.place}` : null;
   // (gateLaw's words: 'sealed' is the risen gate not yet open, 'closed' the gate shut for the night)
-  if (phase === 'quiet') coming(`gate:${t.day}`, 'gate', 'Oblivion Gate opens', t.openAt, null, 'Its omen burns in the sky 15 minutes before');
-  else if (phase === 'omen' || phase === 'rising' || phase === 'sealed') coming(`gate:${t.day}`, 'gate', 'Oblivion Gate opens', t.openAt, place, 'The omen is in the sky');
-  else if (phase === 'open') live(`gate:${t.day}`, 'gate', 'Oblivion Gate open', t.sealAt, place, 'Seals when this runs out - get inside');
-  else if (phase === 'closed') live(`gate:${t.day}`, 'gate', 'Oblivion Gate sealed', t.wrathAt, place, 'Collapses when this runs out');
+  if (phase === 'quiet') coming(`gate:${t.day}`, 'gate', 'Dagon\'s Breach opens', t.openAt, null, 'Its omen burns in the sky 15 minutes before');
+  else if (phase === 'omen' || phase === 'rising' || phase === 'sealed') coming(`gate:${t.day}`, 'gate', 'Dagon\'s Breach opens', t.openAt, place, 'The omen is in the sky');
+  else if (phase === 'open') live(`gate:${t.day}`, 'gate', 'Dagon\'s Breach open', t.sealAt, place, 'Seals when this runs out - get inside');
+  else if (phase === 'closed') live(`gate:${t.day}`, 'gate', 'Dagon\'s Breach sealed', t.wrathAt, place, 'Collapses when this runs out');
   // ...and the gate after it, once this one is under way
-  if (phase !== 'quiet') coming(`gate:${t.day + GATE_EVERY_DAYS}`, 'gate', 'Next Oblivion Gate opens', gateTimes(t.day + GATE_EVERY_DAYS).openAt);
+  if (phase !== 'quiet') coming(`gate:${t.day + GATE_EVERY_DAYS}`, 'gate', 'Next Dagon\'s Breach opens', gateTimes(t.day + GATE_EVERY_DAYS).openAt);
 
   // ── THE TOWN RAIDS (the mod's day: each town's raid a two-hour classic window) ──
   // AUDIT TIMERS1 D3: the day rolls about twenty-two across the Iliac Bay - the window held them all, twenty-seven rows.

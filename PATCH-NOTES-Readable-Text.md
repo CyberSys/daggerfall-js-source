@@ -16,7 +16,7 @@
   - the detail lines on an inventory item's card
   - the controller bindings headings and the controller prompt bar
   - the death screen
-  - the burning-ground warning at an Oblivion Gate
+  - the burning-ground warning at Dagon's Breach
   - the opening film's credits and buttons
   - the asset pickers (music, sounds, lighting, Morrowind bodies)
 - **Text that was still drawn in the 1996 font** under Enhanced is now in the Enhanced font:
