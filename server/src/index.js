@@ -2322,7 +2322,18 @@ export class Room {
   // fighters are kept by ACCOUNT (one seat an account, the gate's law), checkpointed as the gate's fight is.
   /** The room's fighters, by account - the instance's while it is awake, storage's after a wake. */
   async _siegeOf() {
-    if (this._siege === undefined) { const v = await this.state.storage.get('siege'); this._siege = v && typeof v === 'object' ? v : null; }
+    if (this._siege === undefined) {
+      const v = await this.state.storage.get('siege'); this._siege = v && typeof v === 'object' ? v : null;
+      // A fighter's kept step lives in memory between checkpoints; its socket's attachment, which the runtime keeps across
+      // a wake, holds the newest. A woken room takes each fighter's pose from it, or it judges reach from the checkpoint
+      // and pulls the fighter back (the merge with WB12: the test Room now copies storage as the runtime does)
+      if (this._siege?.fighters) {
+        for (const [sub, f] of Object.entries(this._siege.fighters)) {
+          const pose = this._siegeSocketOf(sub)?.[1].pose;
+          if (f && pose) f.pose = pose;
+        }
+      }
+    }
     return this._siege;
   }
   async _siegeSave(now, force) {
