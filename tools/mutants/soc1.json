@@ -92,11 +92,12 @@
   {
     "name": "S11-state-to-every-tab",
     "file": "server/src/index.js",
-    "old": "await this._sayState(m.acct, rec, now, ws);\n    this._sayPresence(m.acct, rec, now);",
-    "new": "await this._sayState(m.acct, rec, now);\n    this._sayPresence(m.acct, rec, now);",
+    "old": "await this._sayState(me, rec, now, ws);\n    if (me !== m.acct && !m.ps)",
+    "new": "await this._sayState(me, rec, now);\n    if (me !== m.acct && !m.ps)",
     "tests": [
       "test/soc1_hub.test.js"
-    ]
+    ],
+    "note": "AUDIT 2026-10-01 part five (re-aimed by content): FRIENDS-SYNC F5 put a line between them / a field on the line."
   },
   {
     "name": "S12-presence-to-the-room",
@@ -338,12 +339,12 @@
   {
     "name": "S38-version-not-bumped",
     "file": "src/net/wire.js",
-    "old": "export const RELAY_VERSION = 'world141';",
+    "old": "export const RELAY_VERSION = 'world142';",
     "new": "export const RELAY_VERSION = 'world131';",
     "tests": [
       "test/soc1_hub.test.js",
       "test/relayversion.test.js"
     ],
-    "note": "HERALD (PIN MOVED): world138."
+    "note": "HERALD (PIN MOVED): world138. FRIENDS-SYNC (re-aimed by content): world141 - CLIMB5/CLIMB6 moved it on without this record; then world142, FRIENDS-SYNC's own."
   }
 ]
