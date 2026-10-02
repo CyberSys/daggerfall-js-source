@@ -83,8 +83,8 @@
   {
     "name": "WD3-ONLINE-DOOR-SHUT",
     "file": "src/formats/worldDataReplacement.js",
-    "old": "const worldDataOn = () => assetInjectionOn() || isOnlinePage();",
-    "new": "const worldDataOn = () => assetInjectionOn();",
+    "old": "export const worldDataDoorOpen = () => _doorLatched ?? (assetInjectionOn() || isOnlinePage());",
+    "new": "export const worldDataDoorOpen = () => _doorLatched ?? assetInjectionOn();",
     "tests": [
       "test/wd3_door.test.js"
     ]
