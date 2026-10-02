@@ -68,8 +68,15 @@ export const PARKOUR_FACING_DOT = Math.cos((50 * Math.PI) / 180);
 /** A face is a wall while its normal's y is at most this (60 degrees from
  *  level or steeper); anything flatter is a slope the body walks. */
 export const PARKOUR_FACE_MAX_NY = 0.5;
-/** A top pitched past 45 degrees is a roof the body would slide off. */
-export const PARKOUR_TOP_MIN_NY = Math.cos((45 * Math.PI) / 180);
+/** A top pitched past 50 degrees is a roof the body would slide off. AUDIT CLIMB-FIELD R1 (Mac: "You cant mantle the
+ *  bottom of roofs"): it was 45, and Daggerfall's own steep roofs are not 45 - their vertices are whole units, and of
+ *  the town blocks' 392 building models the 45-degree family runs 45.1 to 48.7 (157 models, ~2,500 placements, every
+ *  one refused at its eave: no hang, no mantle, the free climb stalled under it). 50 takes all of them and stays inside
+ *  what the probes were built for: the face scan's lean (a 50-degree roof's rung stands 0.084 back, past the 0.08 lean,
+ *  so its eave still ends the face) and the top probes' rise (under PARKOUR_TOP_PROBE + s to a metre in). */
+export const PARKOUR_TOP_MIN_NY = Math.cos((50 * Math.PI) / 180);
+/** The run of the steepest top for a unit rise: a top rising a rung stands at least this many rungs back. */
+export const PARKOUR_TOP_RUN = PARKOUR_TOP_MIN_NY / Math.sqrt(1 - PARKOUR_TOP_MIN_NY * PARKOUR_TOP_MIN_NY);
 /** The wall scan's rung: level rays this far apart up the face. AUDIT CLIMB1
  *  G4: 0.2 at CLIMB1, and a table top thinner than a rung was found only when
  *  a rung happened to land in its edge. */
@@ -407,7 +414,7 @@ function scanSlab(collider, feet, dir, low, high, reach, radius) {
 }
 
 /** The top's profile, walked away from the face along `into`: down rays from
- *  over a 45-degree rise, every PARKOUR_TOP_STEP out to the walk. The top goes
+ *  over a 45-degree rise (a 50-degree one's under it to a metre), every PARKOUR_TOP_STEP out to the walk. The top goes
  *  on while each finds a surface no more than PARKOUR_TOP_DROP under the lip;
  *  the first that does not is past its far edge, which a bisection finds to a
  *  centimetre (`depth`; null for a top that runs on past the walk). */
@@ -429,7 +436,7 @@ function topProfile(collider, face, into, lipY) {
 }
 
 /** The landing on the top at `s` past the face at (fx, fz): the surface there,
- *  if it is the lip's own - no steeper than 45 degrees, on the plane the
+ *  if it is the lip's own - no steeper than the top's limit (50), on the plane the
  *  lip's slope draws give or take the slack (a flat tread a riser above is the
  *  next stair), and no lower than the top's drop - with the feet lifted so the
  *  capsule's round foot rests on a slope rather than in it (r/cos - r). A
@@ -509,7 +516,7 @@ function pathClear(collider, m, body) {
  * senseOver). The whys are what the pins and the probe read.
  */
 export function senseLedge(collider, feet, dir, opts) {
-  const { low, high, radius, stand, crouch, height = stand, footing = false } = opts;
+  const { low, high, radius, footing = false } = opts;
   if (!collider?.raycastHit) return { ok: false, why: 'no-collider' };
   const reach = radius + PARKOUR_WALL_REACH;
   const wall = scanFace(collider, feet, dir, low, high, reach) ?? scanSlab(collider, feet, dir, low, high, reach, radius);
@@ -538,7 +545,24 @@ export function senseLedge(collider, feet, dir, opts) {
   // 3. the top
   const { depth } = topProfile(collider, face, into, lipY);
   const ledge = { ok: true, lipY, rise, normal: wn, into, face, depth, faceKey: wall.key, mantle: null, why: null };
-  // 4. the landing
+  return landOn(collider, feet, ledge, opts);
+}
+
+/** AUDIT CLIMB-FIELD E3: an eave's hold as a ledge - its edge the face, its normal the wall's - and the way onto its roof
+ *  from the hang under it (senseLedge's landing). The ledge sensor reads a lip off the face under it, and an eave
+ *  standing out past the grab's reach has none in reach: its hang climbed onto nothing. Answers the ledge, `mantle` set
+ *  when there is a way onto the top. */
+export function senseEaveLedge(collider, feet, grip, opts) {
+  const wn = grip.normal, into = [-wn[0], 0, -wn[2]], face = [grip.face[0], grip.lipY, grip.face[2]];
+  const { depth } = topProfile(collider, face, into, grip.lipY);
+  const ledge = { ok: true, lipY: grip.lipY, rise: grip.lipY - feet[1], normal: wn, into, face, depth, faceKey: grip.key ?? null, mantle: null, why: null };
+  return landOn(collider, feet, ledge, opts);
+}
+
+/** senseLedge's 4th stage, THE LANDING, for the ledge it found (filled in place: `mantle`, or the refusal's `why`). */
+function landOn(collider, feet, ledge, opts) {
+  const { radius, crouch, stand, height = stand } = opts;
+  const { lipY, rise, normal: wn, into, face, depth } = ledge;
   const full = radius + PARKOUR_TOP_INSET;
   let s;
   if (depth == null || depth >= full + 0.05) s = full;
@@ -745,8 +769,10 @@ export const PARKOUR_GRIP_RUNG = 0.05;
  *  rung back each; the float of the hit, not a centimetre of the shape). */
 export const PARKOUR_RAY_SCATTER = 0.001;
 /** A face the free climber's hands and feet press: its normal's y at most
- *  this (the classic probe took any hit; a floor or a ceiling is no wall). */
-export const PARKOUR_WALL_MAX_NY = 0.7;
+ *  this (the classic probe took any hit; a floor or a ceiling is no wall). AUDIT CLIMB-FIELD R1: what a top is not -
+ *  it was 0.7 (45.6 degrees), and a 46-degree roof was both a top to stand on and a wall to grab, the air's grab
+ *  taking the roof itself for a free climb. */
+export const PARKOUR_WALL_MAX_NY = PARKOUR_TOP_MIN_NY;
 
 /**
  * THE HAND-HOLD. A lip near `lipY` on the face through `face` (a point on the
@@ -758,24 +784,38 @@ export const PARKOUR_WALL_MAX_NY = 0.7;
  *      every PARKOUR_GRIP_RUNG: the lip is where the wall steps OUT toward the
  *      body by the grip's depth - a rung meeting nothing, or a wall set back
  *      (a sill's), over one meeting the face where it was expected - or where
- *      a top no steeper than 45 degrees rises from it (an eave: its roof is
+ *      a top no steeper than the top's limit (50) rises from it (an eave: its roof is
  *      the grip's depth back only a rung or two up, so the depth is read up
  *      the rungs the top rises through). A rung on the face is one the rung
  *      under it stands out from by no more than the edge's inset: a rung on
  *      a roof is not, however near the edge. No such step is no lip here: a
  *      wall that runs on through the window, or air;
  *   2. THE TOP - a ray down just past the face from the open rung: no steeper
- *      than 45 degrees, in the window;
+ *      than the top's limit, in the window;
  *   3. THE FACE UNDER IT - a level ray just under the top meets the face, its
  *      normal within PARKOUR_FACE_FOLLOW of the one expected (the hang follows
  *      a curving wall and does not turn a corner); under an eave, whose roof
  *      runs on past the edge, the ray from the face's rung under the lip;
  *   4. THE HANG (with `fit`) - the body off the face by its radius and a gap,
  *      the lip PARKOUR_HANG_DROP over its feet, fitting there standing.
- * Answers { lipY, normal, face, feet, key } or null. `opts` = { radius, stand }.
+ * AUDIT CLIMB-FIELD E1: no lip on the face, and the face no plain wall - THE EAVE over it (senseEave, below; `eave`
+ * false asks the face's own law alone).
+ * Answers { lipY, normal, face, feet, key, eave? } or null. `opts` = { radius, stand }.
  */
-export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
+export function senseGrip(collider, face, normal, lipY, opts, fit = true, eave = true) {
   if (!collider?.raycastHit || !Number.isFinite(lipY)) return null;
+  const seen = new Map();
+  const g = plainGrip(collider, face, normal, lipY, opts, fit, seen);
+  if (g || !eave) return g;
+  // AUDIT CLIMB-FIELD E1: no lip on the face - is there an eave over it? Not over a plain wall (every rung cast met the
+  // face where it was expected), which is every step of a free climb up the middle of one
+  const back = opts.radius + PARKOUR_HANG_GAP;
+  for (const d of seen.values()) if (Math.abs(d - back) > PARKOUR_EDGE_INSET) return senseEave(collider, face, normal, lipY, opts, fit);
+  return null;
+}
+
+/** senseGrip's own law: the lip on the face through `face` (above). `seen` keeps the rungs it cast. */
+function plainGrip(collider, face, normal, lipY, opts, fit, seen) {
   const { radius, stand } = opts;
   const dir = [-normal[0], 0, -normal[2]];
   const back = radius + PARKOUR_HANG_GAP;
@@ -783,7 +823,6 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   const far = back + PARKOUR_LIP_FOLLOW + PARKOUR_GRIP_DEPTH + 0.05;
   const rungs = Math.round((2 * PARKOUR_LIP_FOLLOW) / PARKOUR_GRIP_RUNG);
   const rungY = (i) => lipY + PARKOUR_LIP_FOLLOW - i * PARKOUR_GRIP_RUNG;
-  const seen = new Map();
   const at = (i) => {   // rung i's distance into the wall (Infinity for none), each ray cast once
     if (!seen.has(i)) { const d = collider.raycast([ox, rungY(i), oz], dir, far); seen.set(i, Number.isFinite(d) ? d : Infinity); }
     return seen.get(i);
@@ -791,14 +830,18 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   let hiY = null, loY = null;
   for (let i = 1; i <= rungs && hiY == null; i++) {
     const dist = at(i);
-    if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist < PARKOUR_EDGE_INSET) continue;
+    // AUDIT CLIMB-FIELD R1: the rung over it need only stand back AT ALL - the depth below is the test. It asked the
+    // edge's inset, and over an eave the rung over the face can stand a centimetre over the edge: a 46-degree roof's
+    // rung 3 cm up stands 2.9 cm back, and with no rung higher in the window the eave was no hold
+    if (Math.abs(dist - back) > PARKOUR_LIP_FOLLOW || at(i - 1) - dist <= PARKOUR_RAY_SCATTER) continue;
     if (dist - at(i + 1) > PARKOUR_EDGE_INSET) continue;   // a rung on a top rising away from the edge, not on the face
-    // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than 45 degrees rises through (each a rung's
-    // height or more back, less the rays' scatter - a wall standing up again, or set back a few centimetres a rung, is
-    // no such top); a level top or a set-back wall is the depth at the first
+    // AUDIT CLIMB2 C1: the step's depth, up the rungs a top no steeper than the top's limit rises through (each its
+    // run back - PARKOUR_TOP_RUN rungs, a rung at 45 degrees, AUDIT CLIMB-FIELD R1 - less the rays' scatter: a wall
+    // standing up again, or set back a few centimetres a rung, is no such top); a level top or a set-back wall is the
+    // depth at the first
     let deep = at(i - 1);
     for (let j = i - 2; j >= i - 3 && deep - dist < PARKOUR_GRIP_DEPTH; j--) {
-      if (at(j) - deep < PARKOUR_GRIP_RUNG - PARKOUR_RAY_SCATTER) break;
+      if (at(j) - deep < PARKOUR_GRIP_RUNG * PARKOUR_TOP_RUN - PARKOUR_RAY_SCATTER) break;
       deep = at(j);
     }
     if (deep - dist >= PARKOUR_GRIP_DEPTH) { hiY = rungY(i - 1); loY = rungY(i); }
@@ -821,6 +864,100 @@ export function senseGrip(collider, face, normal, lipY, opts, fit = true) {
   const feet = [fx + n[0] * back, y - PARKOUR_HANG_DROP, fz + n[2] * back];
   if (fit && !capsuleFits(collider, feet, stand)) return null;
   return { lipY: y, normal: n, face: [fx, y, fz], feet, key: top.key ?? under.key ?? null };
+}
+
+// ---- AUDIT CLIMB-FIELD E1: THE EAVE (Mac: "You cant mantle the bottom of roofs, you get stuck") -----------------------
+//
+// Daggerfall's roofs stand OUT from their walls: of the town blocks' 392 building models, 151 carry a soffit, the common
+// one a 0.4 m overhang whose roof rises from a knife edge (ARCH3D 201: wall to 3.22, soffit 3.22 out to 0.4, the roof
+// 37 degrees up from the edge; 127: a soffit falling 3.22 to 3.03 under a 46-degree roof). The hand-hold above reads the
+// lip where a face steps OUT - and an eave steps IN: the free climb's head met the soffit, the rungs over it met the roof
+// nearer than the wall, and the climber hung on under it until the grip ran out (measured on three real town blocks: 380
+// of 612 climbs). So when the face shows no lip and is not a plain wall, the edge is sought OUT from it: down rays over
+// the face's normal, from past the farthest eave the hands reach in, the first top met is the eave, its edge bisected.
+// A face standing under that edge (a fascia, a sill's front) is the hand-hold's own law again, from that face; none (the
+// wall set back under a soffit) is an overhang, and the body hangs free under the edge, off it as off a face.
+
+/** The farthest an eave's edge stands out from the face line and is still in the hands' reach. */
+export const PARKOUR_EAVE_OUT = 0.8;
+/** The eave is sought in from past that by down rays this far apart, and its edge bisected this many times (3 mm). */
+export const PARKOUR_EAVE_STEP = 0.1;
+export const PARKOUR_EAVE_BISECT = 5;
+/** ...and as far back as this inside the face line (a hang's re-ask, its face the edge, on an eave that curves in). */
+export const PARKOUR_EAVE_IN = 0.2;
+const DOWN = Object.freeze([0, -1, 0]);
+
+/** THE EAVE. Over the face through `face` (normal `normal`, out of the wall), a lip near `lipY` standing out from it:
+ *  answers senseGrip's grip (`eave: true` for an overhang's, its face the edge itself) or null. */
+function senseEave(collider, face, normal, lipY, opts, fit) {
+  const { radius, stand } = opts;
+  const n = normal, back = radius + PARKOUR_HANG_GAP;
+  const y0 = lipY + PARKOUR_LIP_FOLLOW + 0.3, len = 2 * PARKOUR_LIP_FOLLOW + 0.3;
+  // what a down ray `s` out from the face line meets, from over the window to under it, or null - the meshes' alone: an
+  // eave is a building's, and the terrain is never a hold (CLIMB1's law - a cliff of heightmap is no eave to lower from)
+  const down = (s) => {
+    const h = collider.raycastHit([face[0] + n[0] * s, y0, face[2] + n[2] * s], DOWN, len);
+    return Number.isFinite(h.dist) && h.normal ? h : null;
+  };
+  const isTop = (h) => !!h && h.normal[1] >= PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER;
+  // 1. THE EDGE: open air past the farthest eave, then in to the first thing met - a top, or no eave
+  let a = PARKOUR_EAVE_OUT + PARKOUR_EAVE_STEP, b = null;
+  if (down(a)) return null;
+  for (let s = PARKOUR_EAVE_OUT; s >= -PARKOUR_EAVE_IN - 1e-9; s -= PARKOUR_EAVE_STEP) {
+    const h = down(s);
+    if (!h) { a = s; continue; }
+    if (!isTop(h)) return null;
+    b = s;
+    break;
+  }
+  if (b == null) return null;
+  for (let k = 0; k < PARKOUR_EAVE_BISECT; k++) { const m = (a + b) / 2; if (down(m)) b = m; else a = m; }
+  const ex = face[0] + n[0] * b, ez = face[2] + n[2] * b;
+  // 2. THE TOP: at the edge itself (its height, which the face under it is asked under), and a lip's inset in (the
+  // hands' hold, in the window), running in the grip's depth no lower than the lip
+  const atEdge = down(b - 0.005), inset = down(b - PARKOUR_EDGE_INSET), deep = down(b - PARKOUR_GRIP_DEPTH);
+  if (!isTop(atEdge) || !isTop(inset) || !isTop(deep)) return null;
+  const edgeY = y0 - atEdge.dist, y = y0 - inset.dist;
+  if (Math.abs(y - lipY) > PARKOUR_LIP_FOLLOW + 0.01 || y0 - deep.dist < y - PARKOUR_TOP_DROP) return null;
+  // 3. UNDER THE EDGE: a face there is the hand-hold's own law, from that face (a fascia, a sill's front - and a sill too
+  // thin for the fingers is as thin from here); none in the grip's depth is an overhang
+  const q = [ex + n[0] * back, Math.min(edgeY, y) - PARKOUR_UNDER, ez + n[2] * back];
+  const under = collider.raycastHit(q, [-n[0], 0, -n[2]], back + PARKOUR_GRIP_DEPTH);
+  if (Number.isFinite(under.dist)) {
+    return plainGrip(collider, [q[0] - n[0] * under.dist, 0, q[2] - n[2] * under.dist], n, lipY, opts, fit, new Map());
+  }
+  // 4. THE HANG: under the edge, off it by the body's radius and the gap - turned with the roof where its pitch faces
+  // within the follow of the face's (a round tower's cone), the face's own otherwise (a flat slab)
+  const tn = inset.normal, tl = Math.hypot(tn[0], tn[2]);
+  let nn = n;
+  if (tl > 0.1 && (tn[0] * n[0] + tn[2] * n[2]) / tl >= PARKOUR_FACE_FOLLOW) nn = [tn[0] / tl, 0, tn[2] / tl];
+  const feet = [ex + nn[0] * back, y - PARKOUR_HANG_DROP, ez + nn[2] * back];
+  const hangs = !fit || capsuleFits(collider, feet, stand);
+  return hangs ? { lipY: y, normal: nn, face: [ex, y, ez], feet, key: inset.key ?? null, eave: true } : null;
+}
+
+/** AUDIT CLIMB-FIELD E2: THE EAVE AHEAD. A jump at an eave whose wall stands back past the grab's reach (a body under
+ *  or just outside a 0.4 m overhang has its wall 0.8-1.0 m off) meets no face for the ledge sensor to read the lip by,
+ *  and caught nothing unless it stood under the soffit. From the body looking along `dir`: down rays ahead from over
+ *  the band (`opts` the ledge sensor's: low, high, radius, stand), the first top in it is a roof - and its edge toward
+ *  the body, sought by the eave's own law from there, is the hold: an overhang's only (a face under the edge is the
+ *  ledge sensor's). Answers senseGrip's grip, or null. */
+export function senseEaveAhead(collider, feet, dir, opts) {
+  if (!collider?.raycastHit) return null;
+  const { low, high, radius } = opts;
+  const n = [-dir[0], 0, -dir[2]], y0 = feet[1] + high + 0.05;
+  for (const d of [radius + 0.1, radius + 0.25, radius + PARKOUR_WALL_REACH]) {
+    if (Number.isFinite(collider.raycast([feet[0], y0, feet[2]], dir, d + 0.02))) return null;
+    const px = feet[0] + dir[0] * d, pz = feet[2] + dir[2] * d;
+    const h = collider.raycastHit([px, y0, pz], DOWN, high + 0.05 - low);   // a roof: the meshes' (the eave's own law)
+    if (!Number.isFinite(h.dist) || !h.normal || h.normal[1] < PARKOUR_TOP_MIN_NY - PARKOUR_RAY_SCATTER) continue;
+    // the roof rises from its edge toward the point met: the edge is sought from there down the windows under it
+    for (let k = 0; k < 4; k++) {
+      const g = senseGrip(collider, [px, 0, pz], n, y0 - h.dist - k * 2 * PARKOUR_LIP_FOLLOW, opts);
+      if (g) return g.eave && g.lipY - feet[1] >= low - 0.05 ? g : null;
+    }
+  }
+  return null;
 }
 
 /** Is the way from `feet` into the hang the grip found clear the whole way
@@ -993,9 +1130,11 @@ export function senseEdge(collider, feet, dir, opts) {
     if (y == null) hi = mid; else { lo = mid; lipY = y; }
   }
   const edge = [feet[0] + dir[0] * lo, lipY, feet[2] + dir[2] * lo];
+  // AUDIT CLIMB-FIELD E1: an eave standing further out than the face's ray reaches back (past 0.5 m) shows it no wall -
+  // its hold is sought from the edge itself, the eave's own law (an overhang's only)
   const face = faceUnder(collider, edge, dir, lipY);
-  if (!face) return null;
-  const grip = senseGrip(collider, face.point, face.normal, lipY, opts);
+  const grip = face ? senseGrip(collider, face.point, face.normal, lipY, opts) : senseGrip(collider, edge, dir, lipY, opts);
+  if (!face && !grip?.eave) return null;
   if (!grip) return null;
   const m = planLower(feet, grip, 0);
   return pathClear(collider, m, stand) ? { grip, lipY: grip.lipY } : null;

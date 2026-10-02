@@ -47,8 +47,8 @@
   {
     "name": "BOATMENU-passengers-ignored",
     "file": "src/systems/csaBoatMenu.js",
-    "old": " : (s.passengers ?? 0) > 0 ? BOAT_MENU_WHY.passengers : null;",
-    "new": " : null;",
+    "old": " : (s.passengers ?? 0) > 0 ? BOAT_MENU_WHY.passengers\n      : s.noDeed",
+    "new": "\n      : s.noDeed",
     "tests": [
       "test/boatmenu.test.js"
     ]

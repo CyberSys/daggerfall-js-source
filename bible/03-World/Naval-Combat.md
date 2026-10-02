@@ -1436,6 +1436,133 @@ host drawing none below, the captains and the errands by night, the lanterns, th
 the world's wiring); AUDIT WATCH-KIT's `test/auditwatchkit_crew.test.js` and `auditwatchkit_sea.test.js`.
 `tools/mutants/shipwatch.json`: 54 mutants, all dead.
 
+## SEA-EASE (2026-10-01) - a quieter, safer bay, and the crown's ships at the player's side - DECLARED
+
+Mac: *"Also, too many ships are appearing. Friendly AI should help the player in combat. The sea is too dangerous right
+now"*. All of it the port's own, over NAV-C's traffic and SEA-PEACE's tempers (`systems/naval/navalDirector.js`,
+`navalAI.js`, `navalRaiders.js`, `scenes/navalHost.js`).
+
+- **Fewer ships.** The densities keep one, two or four ships near a player (`DENSITY` few, some, many - they kept two,
+  three and five), rolled for every `SPAWN_EVERY` (60-140 s, was 30-65) and the first `FIRST_ROLL_S` (30 s, was 12)
+  after the water is reached; one raider of Warm Ashes' at a time (`RAIDER_SHIPS_MAX`, was two). Measured by the
+  director's own law (a straight course at 6 m/s for twenty hours, `test/seaease.test.js`): at the default "Some" 18
+  ships an hour where it launched 31, and 6 pirates where it launched 15.
+- **A safer sea.** The open bay's weights 30 pirates, 45 merchantmen, 25 crown's ships (`FACTION_WEIGHTS`, were 45, 38
+  and 17), and within `PORT_PIXELS` of a port the pirates' weight cut to `PORT_PIRATE_K` (a half) - the crown's own
+  waters; a quarter of the pirates bold (`BOLD_SHARE`, was two in five) - the rest wary, taking only a prize they
+  outgun; a boat lying still grappled after `GRAPPLE_STILL_S` (15 s, was 5) - a captain who stops to look about is not
+  boarded for it.
+- **THE RELIEF** (`navalDirector.js`). While a pirate I stand fights a lawful player - engaged on them or coming
+  alongside - and no crown's ship that does not hunt them sails within `RELIEF_NEAR_M` of them (`navalHost.js
+  distressAt`: me at my helm, a peer at theirs; their notoriety in the waters' crown under `NAVY_HUNTS`), the
+  director's next roll comes within `RELIEF_WAIT_S` and, on `RELIEF_CHANCE` of it (its own `RELIEF_SALT` stream), launches
+  a navy ship on the ring about them, facing them - in a berth past the density's own, one relief at a time, and while
+  they fight it launches nothing else: the sea sends help, never more strangers. Her course is laid for where they
+  were (`ship.course`), kept until her lookout has a fight (the guns she sails for are not one) or she is within
+  `RELIEF_REACHED_M` of it; no errand of her own. She is a crown's ship like any, and sails on when it is done.
+- **A crown's ship stands by a lawful player** (`navalAI.js standsBy`, `fightsAny`). Of the pirates in her lookout,
+  one fighting a player she does not hunt (in her fight with them, or coming alongside) is hers first - chosen as if
+  `AID_PRIORITY` (a half) nearer than she is. A navy ship that takes on a pirate fighting me says so, once: "*her name*
+  comes to your aid!".
+- **THE STRAY** (`navalHost.js strayOnAlly`). A ball of mine that strikes a crown's ship of mine fighting a pirate is a
+  stray, not a feud, while what I have struck her for stays under `ALLY_STRAY_SHARE` (15%) of her hull: no Piracy, no
+  notoriety, no provocation and no witness, and "Check your fire! *her name* fights on your side." said once; past it,
+  the law as ever. A peer's ball on her is weighed the same (their own client charges their own law).
+
+Said: the Ships at sea setting keeps its three tiers - their numbers moved; a player who wants the old sea picks
+"Many" (four). Not done: merchantmen do not come to anyone's aid (a merchant fights no one - SEA-PEACE); a relief is
+sent only by the player who stands the sea (SEA-TRAFFIC's election).
+
+Pins: `test/seaease.test.js` (the numbers, the measured hour, the relief's law, standing by, the host's relief and its
+cry, no relief, the stray and the peer's stray). `tools/mutants/seaease.json`: 37 mutants, all dead.
+
+## SHIP-PRICE (2026-10-01) - a boat about a quarter of the price - WITHDRAWN before the merge
+
+Built on the branch for Mac's *"make ship prices more reasonable"* ("About a quarter": the hulls at 1,000 to 50,000) and
+withdrawn at the review before the merge, never shipped: *"Remove the changes to ship reduction cost."* Come Sail
+Away's own prices stand - 4,000 (Rowboat), 8,000 (Large Boat), 100,000 (Small Ship), 200,000 (Large Galley) and
+150,000 (Carrack) (`systems/comeSailAwayBoat.js HULL_PRICES`). Its pin and its two mutants went with it;
+`test/csa_items.test.js` reads the shelf's literal prices again. SHIP-CREDIT and SHIP-CLAIM stand on the mod's prices.
+
+## SHIP-CREDIT (2026-10-01) - a boat bought on the bank's credit - DECLARED
+
+Mac's second pick of the same ask: *"Buy on credit - Pay part now; the bank lends you the rest under Daggerfall's own
+loan rules."* At a shop's counter a lot of boats and nothing else (Come Sail Away's parts or deeds - `tradeModes.js
+lotAllBoats`) that the purse falls short of is offered on credit, in both trade skins (`ui/nativeTrade.js`,
+`ui/enhancedTrade.js`):
+the purse pays what it holds - `CREDIT_DOWN_SHARE` (a fifth) of the price at least - and the bank of the shop's region
+lends the rest under BorrowLoan's own law (`banking.js creditDecision`): borrowDecision's refusals (a loan or a
+default standing there; online the Empire's one loan a character, in its own words), `LOAN_MINIMUM` at least (a
+shortfall under it borrows the minimum and the purse pays the less), CalculateMaxBankLoan at most (level x 50,000;
+online a tenth); repaid with its 10% within the year, LoanChecker's reminders and default as for any loan
+(`takeCredit`). The lent gold goes to the shop, never into the account. The box: what the purse holds against the
+price, what the bank lends, what is paid now and owed within the year, and "Buy on credit?"; a refusal says why under
+the gold's own. The host asks the bank again at the Yes (`worldModes.js commitTrade`) and buys nothing on a credit no
+longer given.
+
+THE BOAT ALONE (the review before the merge, 2026-10-01): a basket that held a boat put the whole basket on the bank's
+credit - a sword and a cask of wine lent on beside the hull. The bank lends on boats bought by themselves: a lot that
+holds a boat among other goods is refused under the gold's own refusal ("The bank lends on a boat bought by itself.",
+`CREDIT_BOAT_ALONE`), and the Yes buys nothing on credit for more than boats.
+
+Pins: `test/shipcredit.test.js` (5). `tools/mutants/shipcredit.json`: 33 mutants, all dead (SHIP-PRICE's two withdrawn
+with it; five for the boat alone).
+
+## SHIP-CLAIM (2026-10-01) - a prize claimed as the captor's own boat - DECLARED
+
+Mac: *"provide more accessibility options to acquiring"* ships - and of the choices put to him, *"Claim captured prizes -
+Keep a ship you take by boarding as your own boat, instead of scuttling her or casting her adrift"*. Daggerfall has no
+ships and Come Sail Away no captured one; the claim is the port's own, and the boat she becomes is the mod's.
+
+- **Her third fate** (`ui/navalPlunderWindow.js`): HER FATE has CLAIM HER beside Scuttle her and Cast her adrift, and
+  under the three a line saying what she becomes ("Keep her as your own Small Ship: her deed to your pack, her hold
+  aboard her. She has no crew."; a small boat's "Keep her as your own Large Boat where she lies, her hold aboard
+  her."). Offered (the model's `claimOffer`, `navalHost.js claimable`) for a prize I stand - one another player stands
+  is theirs to settle - and only where Come Sail Away can place her: its runtime's placing and the world's mint and
+  pack (none with the mod off). A voyage raid's window has none (its one way on is Sail on). The press asks the host
+  again; a refusal stays, with a word. Her fate answers a boolean from every exit (THE MODAL CONTRACT).
+- **Her deed** (`systems/comeSailAwayItems.js mintDeed`): the shelf's own deed - the mod's items' UID off the world's
+  mint (`mintUid`), her hull and variant in its message and name ("Deed to Small Ship 'I'") - worth `PRIZE_DEED_SHARE`
+  (a quarter) of her hull's shelf price (`navalPlunder.js prizeDeedValue`: 2,000 a Large Boat, 25,000 a Small Ship,
+  50,000 a Large Galley, 37,500 a Carrack): her papers - a taken ship is no bought one, and a full-price deed would make
+  every pirate a fortune to sell. Into the pack as the mod adds its items (`packDeed`: AddItem, no weight's gate).
+- **Her boat where she lies** (`systems/comeSailAway.js LaunchFromDeed`, LaunchFromParts' sibling for a deed):
+  PlaceBoat at her place, her bow along her heading, on the terrain under her (`terrainAt`), then the item's half
+  (takePlaceItem): the deed's UID on her, so the deed answers her. A bought deed's port rule is untouched - a deed whose
+  boat stands is refused there, the port's to move. A hull the mod spends a deed on placing (not `crewed`: the Large
+  Boat - a pirate sloop or a coaster) spends this one too: she is the mod's small boat, picked up into her parts and
+  placed again like any other - and since SHIP-PACK (`03-World/Come-Sail-Away.md`) so is every claimed ship, her deed
+  in the pack, her parts at her papers' worth.
+- **Her hold**, what is left of it, aboard her as her cargo.
+- **Her hurts, as shares**, on her state as a boat of mine (`myBoatState`, by her deed's UID): her hull - never under
+  one point, she floats - and her canvas, so she wants a shipwright; her crew gone - NO hands aboard (the yard sells
+  them), and a crewed hull with nobody aboard mends nothing alone; her fire barrels what she has left; no hand of hers
+  counted against her spirits. WHAT WAS TAKEN FROM HER IS GONE FROM HER: her timber that made good my hull and canvas
+  is out of hers, and her powder taken leaves her no barrels.
+- **ALL OR NOTHING**: a placing that throws or stands no boat takes her deed back out of the pack; she lies a prize
+  still.
+- **Let go from the sea unsunk** (`drop`): no bell, no casks, no reward. Her living crew go with her record; her dead
+  lie on her deck still (the world's `redeck` - my hull stands where hers was). A harbour's moored ship claimed is not
+  stood at her berth again that day. I am back at my own helm, as her other fates put me. Said: "The Red Wake is yours
+  - her deed is in your pack. She has no crew: hire hands at a shipwright." - a small boat's "... is yours - she lies
+  where you took her."
+- **The saves**: the naval save keeps her state by her UID as every boat of mine (`NavalCombat` v1, no new field);
+  Come Sail Away's keeps her boat (UID, hull, variant, place, heading, hold).
+- **Online**: only my own stood prize. My word stops saying her and every other player lets her go at once (a prize
+  is no sinking); her boat is one of mine on Come Sail Away's own word. Nothing under `server/src` or `src/net`.
+- **THE FOUR HOSTS RULE**: the seams are the naval host's board in `scenes/world.js` (`mintUid`, `packDeed`,
+  `terrainAt`, `redeck`); `scenes/exterior.js` (no Come Sail Away runtime), `scenes/worldModes.js` and
+  `scenes/dungeonContext.js` (no sea) stand none - pinned by a sweep.
+
+~~OPEN for Mac: a claimed Large Boat is the mod's small boat to the letter - her deed spent on placing, and Pick up packs
+her into Parts at PackBoat's full price, not her papers' quarter.~~ CLOSED by SHIP-PACK at the review before the merge:
+a boat's parts carry the worth of what placed her (`itemValue`), so a claimed prize of any hull packs at her papers'
+quarter - a pirate sloop's 2,000, never the shelf's 8,000 - and a taken ship is no fortune in parts.
+
+Pins: `test/shipclaim.test.js` (14 - the two SHIP-PACK ones: a claimed ship picked up and placed again is the same
+ship, her hurts and her empty crew kept by her number; a claimed Large Boat packs at her papers' worth).
+`tools/mutants/shipclaim.json`: 58 mutants, all dead; `tools/mutants/shippack.json` holds the pick-up's.
+
 ## The tests
 
 One suite a slice - `test/nav_a_guns.test.js` (the flight, the aim, the volley, the reload, a ball's hurt, a ship's

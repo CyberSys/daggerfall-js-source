@@ -10,9 +10,9 @@
 //   ray (FixedUpdate casts each rider's height down from its centre), CSA_ABOARD_BELOW longer so a fall is met before
 //   it lands - meeting the boat's colliders no higher than a step over the feet. A swimmer is never taken aboard by the
 //   ray (inside a hull the ray meets its floor from within): the ladder is the way up out of the water, as in the mod.
-// - THE DECK HOLDS ONLY WHO IS ABOARD. Another player's boat never walls anyone out (PR-WAGON1, Mac: "Others' wagons
-//   don't block"): its colliders stand in a player's own collider only while that player is aboard it, re-stood as it
-//   moves (the host's csaSyncColliders), and gone the moment they are not.
+// - HER DECK STANDS FOR EVERYONE (FIELD BUGS 2026-10-01b, Mac: "Players aren't colliding with other players' boats and
+//   can't stand on board" - PR-WAGON1's "Others' wagons don't block" set aside for boats): its colliders stand in every
+//   player's collider as their own boats' do, aboard it or not (the host's csaSyncColliders); standing on it is aboard.
 // - CARRIED. Each frame, once the peers' boats are posed, the one aboard is carried by their boat's move - its root's
 //   pose before the frame and after (scenes/comeSailAwayPeers.js moveOf): the feet kept at their place on the deck and
 //   the facing turned with the boat about up (carriedPoint and yawDelta, the helm's own law for its child), in the air
@@ -22,7 +22,7 @@
 //   over a moored boat, the shore under its bow) is not aboard, and is never dragged away by the boat's going.
 // - OFF. Walking or jumping off its side (the ray meets nothing of it and the motor stands on nothing of it), standing
 //   on something else, swimming, the boat gone (packed, its owner gone from the room, a clear) or the host's own
-//   leaving (a transition, a fast travel, a death, the mod off) puts them off at once, the colliders with it; the motor
+//   leaving (a transition, a fast travel, a death, the mod off) puts them off at once, its colliders standing on; the motor
 //   falls or swims as ever. The ladder's first frames are its own (CSA_ABOARD_GRACE): the body stands on the deck only
 //   once the motor has stepped there.
 // - SEEN ON THE DECK. My place aboard - whose boat, which of theirs, and my feet in its own frame - rides my foes frame
@@ -219,7 +219,7 @@ export function createComeSailAwayAboard({ peers, geometry, selfId = () => null 
       for (const o of peers.shown()) {
         for (const s of o.boats) {
           if (!s?.boat?.GameObject?.activeSelf || !near(s.boat, feet)) continue;
-          if (me.ground(s.boat) == null && deckUnder(s.boat, feet, me.height)) { board(s.boat); break; }   // landed on from above - never taken off what the body stands on
+          if (on(s.boat, me)) { board(s.boat); break; }   // FIELD BUGS 2026-10-01b: stood on - her colliders stand for everyone, as one's own boat's do, so a deck stepped, climbed or come up onto is aboard her - or landed on from above; never taken off anything else the body stands on
         }
         if (aboard) break;
       }

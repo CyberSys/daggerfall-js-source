@@ -155,7 +155,7 @@
   {
     "name": "NAV-C-the-density-ignored",
     "file": "src/systems/naval/navalDirector.js",
-    "old": "      if (alive >= (ctx.density ?? 0) || random() >= SHIP_SPAWN_CHANCE) return out;",
+    "old": "      if (alive >= (ctx.density ?? 0) + (distress ? 1 : 0) || random() >= SHIP_SPAWN_CHANCE) return out;",
     "new": "      if (random() >= SHIP_SPAWN_CHANCE) return out;",
     "tests": [
       "test/nav_c_ships.test.js"
@@ -182,8 +182,8 @@
   {
     "name": "NAV-C-the-port-weights-dropped",
     "file": "src/systems/naval/navalDirector.js",
-    "old": "  if (nearPort) { w.merchant += PORT_WEIGHTS.merchant; w.navy += PORT_WEIGHTS.navy; }",
-    "new": "",
+    "old": "  if (nearPort) { w.merchant += PORT_WEIGHTS.merchant; w.navy += PORT_WEIGHTS.navy; w.pirate *= PORT_PIRATE_K; }",
+    "new": "  if (nearPort) { w.pirate *= PORT_PIRATE_K; }",
     "tests": [
       "test/nav_c_ships.test.js"
     ]
