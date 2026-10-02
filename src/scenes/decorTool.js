@@ -655,7 +655,8 @@ export function createDecorTool(deps) {
     if (what === 'reset') { door.preview(undefined); return true; }
     if (what !== 'commit') return false;
     const r = await door.commit(look ?? null);
-    deps.say?.(r?.ok ? (look ? 'Your house is painted.' : 'Your house wears the town\'s own look again.') : (deps.refusal?.(r?.error) ?? 'The house could not be painted.'));
+    const whose = deps.room?.()?.hall ? 'Your guild\'s hall' : 'Your house';   // GUILD-YARD: a hall painted by its keeper
+    deps.say?.(r?.ok ? (look ? `${whose} is painted.` : `${whose} wears the town's own look again.`) : (deps.refusal?.(r?.error) ?? 'The house could not be painted.'));
     return !!r?.ok;
   }
   /** HOME-RENT: THE OWNER'S ROOMS TO RENT - each room the house's walls part it into beside its offer (and an offer whose

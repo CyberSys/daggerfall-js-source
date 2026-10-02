@@ -227,13 +227,14 @@
   {
     "name": "GUILD1d-hall-stands-a-yard",
     "file": "server-account/src/decor.js",
-    "old": "    if (yard === true) return { error: 'hall-yard' };\n",
+    "old": "    if (yard === true && S.seat) return { error: 'hall-yard' };\n",
     "new": "",
     "tests": [
-      "test/guild1d_service.test.js"
+      "test/guild1d_service.test.js",
+      "test/seathall_service.test.js"
     ],
     "equivalent": true,
-    "why": "AUDIT GUILD1d S3: the hall's rule is in the placement's INSERT too (its own mutant, AUDIT-GUILD1d-S3-insert-takes-a-hall-item) - the read before it only names the refusal sooner"
+    "why": "GUILD-YARD: a palace's alone now (a guild's hall stands its yard - test/guild_yard.test.js); AUDIT GUILD1d S3: the hall's rule is in the placement's INSERT too (its own mutant, AUDIT-GUILD1d-S3-insert-takes-a-hall-item) - the read before it only names the refusal sooner"
   },
   {
     "name": "GUILD1d-piece-half-to-the-keeper",

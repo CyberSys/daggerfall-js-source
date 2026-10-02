@@ -3651,7 +3651,8 @@ export async function bootWorld(canvas, renderer, params, status) {
           const homeRow = homeKey != null ? townHomes?.get(homeKey) ?? null : null;
           const homeLook = homeRow ? lookOfHome(homeTown, homeKey, homeRow) : null;
           // AUDIT: a painted home, or this account's, leaves the merge (PERF4 for every other); unpainted, the pixel's table
-          if (homeRow && (homeLook || homeRow.mine)) {
+          // GUILD-YARD: and a guild's hall this character keeps - its painter tries a look on it as an owner's does
+          if (homeRow && (homeLook || homeRow.mine || homeRow.keeper)) {
             entry._home = { bk: homeKey, sig: homeLookSig(homeLook), seq: 0 };
             entry.texRemap = homeLook ? await homeLookRemap(gpu.subMeshes, texRemap, homeLook, season, pipeline) : null;
             pixelHomeKeys.add(homeKey);
@@ -4694,7 +4695,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       let merged = false;
       // a home the merge swallowed rebuilds its pixel once a look is WRITTEN on it, or once it is this account's - never
       // for the painter's preview (AUDIT: a colour tried tore the owner's street down under the open panel)
-      for (const [bk, row] of homes) if (!p.homeKeys.has(bk) && p.buildingKeys.has(bk) && (row?.look || row?.mine)) merged = true;
+      for (const [bk, row] of homes) if (!p.homeKeys.has(bk) && p.buildingKeys.has(bk) && (row?.look || row?.mine || row?.keeper)) merged = true;   // GUILD-YARD: a hall kept
       if (merged) { _reskin.mark(key); continue; }
       for (const m of p.models) {
         if (!m._home) continue;
