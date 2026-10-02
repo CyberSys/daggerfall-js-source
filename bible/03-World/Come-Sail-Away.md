@@ -2261,16 +2261,24 @@ need to give this a proper texture, along with a wheel at the helm, the sails an
 from the cannon holes properly."* Hull 2, the Small Ship (the pirate brig's, the merchant galleon's and the navy
 cutter's hull too), is Mac's own model now, fitted out round it. The Port-Ledger's GALLEON row carries the departures.
 
-**Her model.** Mac sent three Blender exports of one scene (only their creation stamps differ); one is committed,
-`src/assets/galleon/source/New_Ship.fbx`, and `tools/bakeGalleon.mjs` bakes it to `src/assets/galleon/galleon.json`:
-each of the scene's objects named to its ROLE and checked to stand where it was read (the hull, her gun deck and main
-deck, two hatch covers, the castle with its parapet and rail, the bulkhead, the two flights up the castle, the
-balustrades, the masts with their partners and steps, the crow's nest and the bowsprit), the scene's second station
-(one more copy of her parts 60 m off) skipped, the hull's five rudder faces split off to turn on their own post, every
-polygon in the boat's frame (0.7 of the scene, the waterline and the midship taken off) and triangulated as Blender
-fills it - and a face neither ear clip fills inside itself (the port side's inner planking, a 24-gon that runs round
-her ports and folds back along their lintels) filled by its own winding (`slabFill`): the first bake laid two
-triangles over two of her ports from inside. `test/galleon_model.test.js` re-bakes it to the byte.
+**Her model.** Mac's export is committed - `src/assets/galleon/source/New_Ship.fbx`, his second since GALLEON-2 (the
+first came as three copies differing only in their creation stamps) - and `tools/bakeGalleon.mjs` bakes it to
+`src/assets/galleon/galleon.json`: each of the scene's objects named to its ROLE and refused unless it stands in the
+scene box it was read in, 2 cm let pass (the hull, her gun deck and main deck, two hatch covers, the castle with its
+parapet and rail, the bulkhead, the two flights up the castle, the balustrades, the masts with their partners and steps,
+the crow's nest and the bowsprit, her six deck beams - AUDIT GN-B5, which refuses a mirroring transform, an unread pivot
+or offset and an export's other axes as well); the scene's other stations, its spare pieces and her parts' twins
+skipped, each checked to be what it is said to be; the hull's five rudder faces split off to turn on their own post;
+every polygon cut as Blender cuts it (`tools/fbxMesh.mjs blenderTessellate`: a float32 port of mesh_tessellate's
+projection and BLI_polyfill_calc, on the mesh's own corners in their own order - AUDIT GN-B1) and refused by object and
+polygon unless its triangles tile it exactly, then carried into the boat's frame (0.7 of the scene, the waterline and
+the midship taken off). The bake adds no vertex. Mac's faces are not all flat - his sides lean out of their planes by up
+to 0.55 m where he drew the bow in - so the cut decides their shape, and it is Blender's: the first bake's own ear clip
+cut her two sides unlike each other (a 22 m wedge 65 deg off its face on one, the sides 0.49 m apart) and its own fill
+laid two triangles over two of her ports from inside. Five faces still stand apart from their mirrors where Blender cuts
+them on other diagonals - the stern quarter's most, 0.37 m - as they do in his scene, and thirteen of the cut's
+triangles lie on corners he drew on one line (no area: the drawing drops them). `test/galleon_model.test.js` re-bakes it
+to the byte; `test/auditgalleon_bake.test.js` holds the cut to Blender's.
 
 **Her prefab** (`world/galleonModel.js galleonPrefab`) is Come Sail Away's data shape built on the bake and stands in
 for prefab 112412 (`systems/comeSailAwayModels.js`: her components after the mod's, her meshes decoded already, her
@@ -2348,13 +2356,17 @@ seen in a browser.
 Mac, sending `New_Ship_Even_EVEN_newer.fbx`: *"Replace it with this updated model and also textures should be 64x64."*
 
 **The model.** Committed over `New_Ship.fbx` and read against the first, part for part (`tools/bakeGalleon.mjs`'s
-header): the ship stands 36.25 m along the scene's Y now (`FRAME.centreline`, her hull's beam halved, is taken off as
-the waterline and the midship are); her hull is new below the wale - a deeper V on a keel 4.64 m under the sea where
-the first's was 3.89, a finer entry and a forefoot swept up to the stem (95 faces where it was 87); six deck beams carry
-her main deck over the gun deck (`deckBeam`, six objects of one role); and every other part bakes to the first's to a
-tenth of a millimetre in her frame - her decks, ports, castle, stairs, masts, hatch covers and shutter. The scene keeps
-a twin of most parts standing in the same place (a Shift+D never moved), skipped and checked vertex for vertex against
-the part it twins (`SKIP` `twin`), and three more working stations far along Y beside the first's one (`minY`).
+header): the ship stands 36.25 m along the scene's Y now (`FRAME.centreline` - the hull object's own scene Y,
+36.24673828125 to the bit, AUDIT GN-B6 - is taken off as the waterline and the midship are); her hull is new on both
+sides of the wale - a deeper V on a keel 4.64 m under the sea where the first's was 3.89 (1.08 m lower in the scene),
+the wale's forward corners drawn in from 8.37 m to 7.48 m off her centreline, a finer entry and a forefoot swept up to
+the stem (95 faces where it was 87); six deck beams carry her main deck over the gun deck (`deckBeam`, six objects of
+one role); and every other part stands where the first's did to 3 µm in her frame - her decks, ports, castle, stairs,
+masts, hatch covers and shutter (cut as Blender cuts them since AUDIT GN-B1). The scene keeps a twin of most parts
+standing in the same place (a Shift+D never moved), skipped and checked vertex for vertex against the part it twins
+(`SKIP` `twin`), and, far along Y (`minY`), the first export's ship joined into one object with its fore hatch cover, a
+hull between the two exports with her parts and beams, her current parts joined twice over, and a spare aft cover, fore
+cover and gunport lid.
 
 **Her beams** are one node (`DeckBeams`), solid, in her oak with the grain along each (`MEASURED.beams`: 0.775 m fore
 and aft, their feet 5.22 m over the sea, their heads in the deck); none crosses a hatchway or a mast, and each companion
