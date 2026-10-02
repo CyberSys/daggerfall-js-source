@@ -154,12 +154,12 @@ test('AUDIT CLIMB-HANDS A3: the shimmy - a hand takes the lip every span, the tw
     const bothHold = steady.filter((f) => f.L.y > low.L - 0.6 && f.R.y > low.R - 0.6).length;
     assert.ok(bothHold >= 3, `both hands on the lip between the reaches (${bothHold} frames)`);
   }
-  // a new hold (another lip) starts the gait square: the next grip a span's reach past it, as the ear restarts there
+  // a lip stepped within the motor's follow is the same hold going on (the ear plays on): the grips keep their beats
   const law = new ClimbHands();
   drive(law, [...still(60, hang()), ...Array.from({ length: 10 }, (_, i) => ({ climb: hang((i + 1) * 0.01) }))]);
-  const onNew = drive(law, Array.from({ length: 40 }, (_, i) => ({ climb: hang(0.1 + (i + 1) * 0.01, { lipY: 2.9 }) })));
-  const first = landings(onNew, 'R', 'x', 1, (i) => (i + 1) * 0.01)[0];
-  assert.ok(first > SPAN - 0.05 && first <= SPAN + 0.011, `the first grip on the new lip a span's reach past it (${first})`);
+  const stepped = drive(law, Array.from({ length: 40 }, (_, i) => ({ climb: hang(0.1 + (i + 1) * 0.01, { lipY: 2.9 }) })));
+  const next = 0.1 + landings(stepped, 'R', 'x', 1, (i) => (i + 1) * 0.01)[0];
+  assert.ok(next > SPAN - 0.05 && next <= SPAN + 0.011, `the grip after a followed step on its beat (${next.toFixed(2)} m from the hold)`);
 });
 
 test('AUDIT CLIMB-HANDS A4: the free climb - hand over hand from a new hold, the left first (the 3D body\'s gait), a hand taking the face every FEEL.REACH climbed as the ear plays it; a held hand goes down the view as the body climbs past it, and up it climbing down', () => {
@@ -381,9 +381,129 @@ test('AUDIT CLIMB-HANDS A15: the weapon and the hands are never on the screen to
 
 test('AUDIT CLIMB-HANDS A16: by source - the hands are stepped on the classic lane alone (the Morrowind arms and the third-person body take the climb themselves) and the weapon\'s lowering waits on them', () => {
   const rig = rd('src/combat/weaponRig.js');
-  assert.match(rig, /const handsLane = !fpArm\.active\(\) && !eotbHidesWeapon\(\);/);
+  assert.match(rig, /const handsLane = !fpArm\.active\(\) && !fpArm\.thirdActive\(\) && !eotbHidesWeapon\(\);/);
   assert.match(rig, /_climbLower = climbLowerStep\(_climbLower, climbing \|\| \(handsLane && climbHands\.showing\(\)\), dt\);/);
   assert.match(rig, /climbHands\.update\(dt, handsLane && _climbLower >= CLIMB_HANDS_AFTER \? \(camNow\?\.climb \?\? null\) : null, camNow \?\? \{\}\);/);
   const pose = rd('src/player/climbPose.js');
   assert.doesNotMatch(pose, /m\.way \? Math\.sign\(m\.way\[0\]/, 'the corner reads its own path, not a field the motor never sets');
+});
+
+// ---- AUDIT CLIMB-HANDS, second round: an independent review's findings, on the real motor where they live ----------
+
+import { PlayerMotor } from '../src/player/motor.js';
+import { Collider } from '../src/player/collider.js';
+import { climbRigInput } from '../src/player/climbPose.js';
+import { PARKOUR_LIP_FOLLOW } from '../src/player/parkour.js';
+
+const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+const BOX_IDX = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 3, 7, 6, 3, 6, 2, 0, 4, 7, 0, 7, 3, 1, 2, 6, 1, 6, 5];
+/** A floor and one solid of eight corners (a box, or a wedge whose top slopes), a motor on it with the parkour on. */
+const world = (corners) => {
+  const col = new Collider(() => -100);
+  col.addMesh('floor', new Float32Array([-20, 0, -20, 20, 0, -20, 20, 0, 20, -20, 0, 20]), [0, 1, 2, 0, 2, 3], I4);
+  col.addMesh('wall', new Float32Array(corners), BOX_IDX, I4);
+  const m = new PlayerMotor(col, { speed: 50, running: 30 }, {
+    climbing: { inputs: () => ({ climbing: 100, luck: 50 }), tally: () => {}, say: () => {}, rolls: () => 0 },
+    parkour: { enabled: () => true, inputs: () => ({ climbing: 100, fatigue: 1, load: 0, enhanced: false, jumping: 100 }), say: () => {}, tally: () => {} },
+  });
+  m.spawn(0, 0.02, 0.4);
+  return m;
+};
+/** A wall at z = 1 from x -3 to 3, its top `yA` at the left end and `yB` at the right. */
+const wedge = (yA, yB) => world([-3, 0, 1, 3, 0, 1, 3, yB, 1, -3, yA, 1, -3, 0, 4, 3, 0, 4, 3, yB, 4, -3, yA, 4]);
+
+test('AUDIT CLIMB-HANDS B1 (second round): on a lip the shimmy follows - sloping, or carried on a hull - the hands walk as on a level one: the motor re-reads the lip every step, and the gait restarted on every new height had the fists frozen square (ClimbPose\'s own hands too: found on the way)', () => {
+  for (const slope of [0, 0.02]) {
+    const m = wedge(2.3 - 3 * slope, 2.3 + 3 * slope);
+    const law = new ClimbHands(), pose = new ClimbPose();
+    const lips = new Set(), xs = [], poseXs = [];
+    for (let i = 0; i < 200; i++) {
+      m.update(DT, { forward: 0, strafe: i >= 80 && i < 180 ? 1 : 0, run: false, jump: i >= 10 && i < 40, crouch: false }, 0);
+      const c = climbRigInput(m, 0);
+      const o = law.update(DT, c, { yaw: 0, pitch: 0 });
+      const po = pose.update(DT, c);
+      if (i >= 80 && i < 180 && c?.mode === 'hang') {
+        lips.add(c.lipY);
+        const R = o.grips.find((g) => g.side === 'R');
+        if (R) xs.push(R.x);
+        if (po.hands.R.at) poseXs.push(po.hands.R.at[0] - c.feet[0]);
+      }
+    }
+    if (slope) assert.ok(lips.size > 20, `the motor re-reads a sloping lip every step (${lips.size} heights)`);
+    assert.ok(Math.max(...xs) - Math.min(...xs) > 25, `slope ${slope}: the right fist walks the lip (${(Math.max(...xs) - Math.min(...xs)).toFixed(1)} px)`);
+    assert.ok(Math.max(...poseXs) - Math.min(...poseXs) > 0.15, `slope ${slope}: and the body's right hand (${(Math.max(...poseXs) - Math.min(...poseXs)).toFixed(3)} m)`);
+  }
+  // a lip stepped further than the motor follows is another hold: the gait starts square there
+  const law = new ClimbHands();
+  drive(law, [...still(60, hang()), ...Array.from({ length: 10 }, (_, i) => ({ climb: hang((i + 1) * 0.01) }))]);
+  const jumped = drive(law, Array.from({ length: 40 }, (_, i) => ({ climb: hang(0.1 + (i + 1) * 0.01, { lipY: 2.8 + PARKOUR_LIP_FOLLOW + 0.1 }) })));
+  const first = landings(jumped, 'R', 'x', 1, (i) => (i + 1) * 0.01)[0];
+  assert.ok(first > SPAN - 0.05 && first <= SPAN + 0.011, `past the follow, a new hold: the first grip a span's reach past it (${first})`);
+});
+
+test('AUDIT CLIMB-HANDS B2 (second round): a free climb whose way wavers frame to frame (a diagonal over mouldings, a pad\'s stick) keeps its hands climbing - every change of way past 6 degrees was a change of state, and the carry pinned both fists', () => {
+  const law = new ClimbHands();
+  drive(law, still(60, climb()));
+  let x = 0, y = 1;
+  const frames = Array.from({ length: 240 }, (_, i) => {
+    const a = Math.PI / 4 + (Math.floor(i / 3) % 2 ? 0.25 : -0.25);   // up and right, the way swinging 14 degrees each side
+    x += 0.01 * Math.sin(a); y += 0.01 * Math.cos(a);
+    return { climb: climb(x, y) };
+  });
+  const seq = drive(law, frames);
+  const still2 = seq.filter((f, i) => i > 0 && Math.hypot(f.L.x - seq[i - 1].L.x, f.L.y - seq[i - 1].L.y) < 1e-6 && Math.hypot(f.R.x - seq[i - 1].R.x, f.R.y - seq[i - 1].R.y) < 1e-6).length;
+  assert.ok(still2 < 5, `both fists frozen on ${still2} of ${seq.length - 1} frames of climbing`);
+  assert.deepEqual(pops(seq), [], 'and no hand jumps');
+});
+
+test('AUDIT CLIMB-HANDS B3 (second round, and found on the way for CLIMB6): a catch\'s landing is as hard as the body came - the motor said its speed on the move\'s event alone, so the hands\' landing and ClimbPose\'s pendulum (`m.speed`) both read a standstill on every catch', () => {
+  const m = wedge(2.3, 2.3);
+  let caught = null, said = null;
+  for (let i = 0; i < 80 && !caught; i++) {
+    m.update(DT, { forward: 0, strafe: 0, run: false, jump: i >= 10 && i < 40, crouch: false }, 0);
+    for (const e of m.climbEvents ?? []) if (e.type === 'move' && e.kind === 'catch') said = e.speed;
+    if (m.climbMove?.kind === 'catch') caught = m.climbMove;
+  }
+  assert.ok(caught && said > 1, `a jump caught at the lip (${said?.toFixed(2)} m/s)`);
+  assert.equal(caught.speed, said, 'the move carries the speed its event says');
+  // the hands land harder the faster the body came
+  const lift = (speed) => {
+    const law = new ClimbHands();
+    drive(law, still(10, null));
+    drive(law, moveFrames({ kind: 'catch', from: [0, 0.8, 0.3], up: at(0), to: at(0), split: 1, speed, hang: { normal: N, lipY: 2.8 } }, 0.3, (t) => air([0, lerp(0.8, 1, t), 0])));
+    return REST_Y - Math.min(...drive(law, still(60, hang())).map((f) => f.R.y));
+  };
+  assert.ok(lift(4) > lift(0) + 1, `a fall caught lands harder (${lift(4).toFixed(1)} px against ${lift(0).toFixed(1)})`);
+  // ...and the body's pendulum
+  const swing = (speed) => { const p = new ClimbPose(); const mv = { ...caught, t: 0.01, speed }; p.update(DT, { ...hang(), move: mv }); return p.swingAmp; };
+  assert.ok(swing(4) > swing(0), 'the body swings harder the faster it came');
+});
+
+test('AUDIT CLIMB-HANDS B4 (second round): a leap\'s lead is as much as it goes across - a leap straight up, its hold a fraction of a millimetre aside, swung the hands the whole 26 px', () => {
+  const lead = (across) => {
+    const law = new ClimbHands();
+    const rest = drive(law, still(40, hang())).at(-1);
+    const seq = drive(law, moveFrames({ kind: 'leap', from: at(0), up: [across, 1.6, 0], to: at(across, 2.2), split: 0.5, hang: { normal: N, lipY: 4.0 } }, 0.6, (t) => hang(lerp(0, across, t), { track: at(lerp(0, across, t), lerp(1, 2.2, t)), feet: at(lerp(0, across, t), lerp(1, 2.2, t)) })));
+    return Math.max(...seq.filter((f) => f.R).map((f) => Math.abs(f.R.x - rest.R.x)));
+  };
+  assert.ok(lead(0.0002) < 1, `straight up: no lead (${lead(0.0002).toFixed(2)} px)`);
+  assert.ok(lead(1.2) > HANDS.LEAP_LEAD * 0.9, `a leap well across: the whole lead (${lead(1.2).toFixed(1)} px)`);
+});
+
+test('AUDIT CLIMB-HANDS B5 (second round): looking straight back from the wall the reaching arm keeps its side - turning past 180 degrees flipped the look\'s sign, and the fists flashed up onto the hold between the two arms', () => {
+  const law = new ClimbHands();
+  drive(law, still(60, hang(), { yaw: Math.PI - 0.002, pitch: 0 }));
+  const sweep = drive(law, Array.from({ length: 40 }, (_, i) => ({ climb: hang(), view: { yaw: Math.PI - 0.002 + (i * 0.004) / 39, pitch: 0 } })));
+  for (const f of sweep) assert.ok(!f.L && !f.R, 'no fist comes up while looking away');
+  assert.ok(sweep.every((f) => f.reach), 'the reaching arm stays up');
+  // turned on round to the other side for real, the arm goes over to it - down off the one, up on the other, the fists
+  // still down all the way
+  const over = drive(law, Array.from({ length: 60 }, (_, i) => ({ climb: hang(), view: { yaw: Math.PI + 0.002 + (i / 59) * (Math.PI / 2), pitch: 0 } })));
+  for (const f of over) assert.ok(!f.L && !f.R, 'no fist between the arms');
+  assert.ok(over.some((f) => !f.reach), 'the arm went down off its side...');
+  assert.equal(over.at(-1).reach?.side, 'L', '...and is up on the side looked to');
+});
+
+test('AUDIT CLIMB-HANDS B6 (second round): by source - the law is handed no climb when the Morrowind body is drawn in third person (the arm is not first person\'s alone: fpArm.active() is), so it never holds that weapon down', () => {
+  assert.match(rd('src/combat/weaponRig.js'), /const handsLane = !fpArm\.active\(\) && !fpArm\.thirdActive\(\) && !eotbHidesWeapon\(\);/);
 });

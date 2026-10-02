@@ -37,7 +37,7 @@
 // The weight eases in fast (a catch is a grab) and out slower; a limb's own weight lets it go (a pull-up's hands) or
 // take hold (a lower's). The head's look and the shoulders' shrug are shares, never all of the rig.
 
-import { PARKOUR_BODY_RADIUS, PARKOUR_HANG_GAP, PARKOUR_UP_GAP, PARKOUR_HANG_DROP, PARKOUR_GRIP_LOW } from './parkour.js';
+import { PARKOUR_BODY_RADIUS, PARKOUR_HANG_GAP, PARKOUR_UP_GAP, PARKOUR_HANG_DROP, PARKOUR_GRIP_LOW, PARKOUR_LIP_FOLLOW } from './parkour.js';
 import { FEEL } from './climbFeel.js';   // the reach and the shimmy's span: the body's hands keep the camera's rhythm
 
 /** The constants of the pose. Metres, radians, seconds. */
@@ -256,7 +256,9 @@ export class ClimbPose {
     out.frame = fr;
     let along = d[0] * fr.right[0] + d[2] * fr.right[2];
     // a hold newly taken (off a move, a leap, another lip) is the shimmy's stone 0: the hands square over it
-    if (this.prevMode !== 'hang' || this.hangLip !== c.lipY) {
+    // AUDIT CLIMB-HANDS (found on the way): a lip the motor follows (a sloping one, a hull's - re-read every step) is the
+    // same hold going on; the shimmy restarted on every new height and the hands never left stone 0
+    if (this.prevMode !== 'hang' || !(Math.abs(c.lipY - this.hangLip) <= PARKOUR_LIP_FOLLOW)) {
       this.travel = 0; along = 0;
       for (const k of ['L', 'R', 'FL', 'FR']) this.settle[k] = { v: 0, prev: 0, cycle: null };
     }

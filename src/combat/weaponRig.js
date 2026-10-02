@@ -1506,8 +1506,9 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       // AUDIT CLIMB-HANDS: THE WEAPON AND THE HANDS ARE NEVER ON THE SCREEN TOGETHER. The weapon stays down while a hand
       // shows (it comes back once they are off the screen) and the hands come up once it is half down
       // (CLIMB_HANDS_AFTER). The classic lane's alone: the Morrowind arms and the third-person body take the climb
-      // themselves, so there the law is handed no climb and never holds the weapon down.
-      const handsLane = !fpArm.active() && !eotbHidesWeapon();
+      // themselves, so there the law is handed no climb and never holds the weapon down (AUDIT CLIMB-HANDS, second round:
+      // the Morrowind body in third person too - `fpArm.active()` is first person's alone).
+      const handsLane = !fpArm.active() && !fpArm.thirdActive() && !eotbHidesWeapon();
       _climbLower = climbLowerStep(_climbLower, climbing || (handsLane && climbHands.showing()), dt);
       climbHands.update(dt, handsLane && _climbLower >= CLIMB_HANDS_AFTER ? (camNow?.climb ?? null) : null, camNow ?? {});   // CLIMB-HANDS: the hold, the shimmy, the free climb, the moves and the look off the wall
       const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !climbing && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool

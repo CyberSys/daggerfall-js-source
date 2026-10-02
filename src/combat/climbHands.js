@@ -39,7 +39,7 @@
 // The enhanced climb only (the motor's hold, a move in flight): DFU's own climb keeps WeaponManager's empty screen.
 
 import { FEEL, tremble } from '../player/climbFeel.js';
-import { PARKOUR_GRIP_LOW, PARKOUR_HANG_DROP } from '../player/parkour.js';
+import { PARKOUR_GRIP_LOW, PARKOUR_HANG_DROP, PARKOUR_LIP_FOLLOW } from '../player/parkour.js';
 import { POSE, gait, shimmyGait, wallFrame } from '../player/climbPose.js';
 import { decodePng } from '../systems/textureReplacement.js';
 import { toScreenOrder } from '../formats/color32Order.js';
@@ -80,7 +80,8 @@ export const HANDS = Object.freeze({
   VAULT_APART: 12,
   LOWER_LOW: 60,           // a lower's hands on the edge, low in the view as the body squats over it
   LEAP_DROP: 70,           // a leap's push: the hands down off the hold...
-  LEAP_LEAD: 26,           // ...and leading toward the leap's side across the flight
+  LEAP_LEAD: 26,           // ...and leading toward the leap's side across the flight...
+  LEAP_FULL: 0.5,          // ...all of it for a leap this far across or more (metres), as much less as it goes less
   CORNER_REACH: 22,        // a corner's hand reaching round, the way it goes...
   CORNER_LIFT: 12,         // ...lifted off the lip
   WALLRUN_PUMP: 16,        // a wall run's arms pumping with its steps
@@ -94,9 +95,12 @@ export const HANDS = Object.freeze({
   LOOK_FROM_DEG: 40,       // turned this far off the wall's face, the reach begins...
   LOOK_FULL_DEG: 75,       // ...and is whole here
   LOOK_TAU: 0.09,
+  LOOK_BACK_DEG: 170,      // turned past this (straight back), the reaching arm keeps the side it is on
   SEARCH_X: 5,             // the reaching arm feeling for a hold
   SEARCH_Y: 4,
   SEARCH_HZ: 0.6,
+  // the free climb's way, eased: the stones turn with it and mirror through the body when it turns back
+  WAY_TAU: 0.12,
   // looking straight down off the wall
   DOWN_FROM_DEG: 50,
   DOWN_FULL_DEG: 80,
@@ -131,14 +135,17 @@ export function lookOffWall(c, viewYaw) {
   return wrapAngle(viewYaw - wallYawOf(c.normal));
 }
 
-/** The way a move goes along the wall it began on (+1 to the right facing it, -1 left, 0 straight in or up), read off
- *  its own path - the motor sets its way on the move's event alone, never on the move. */
-export function moveSide(m, normal) {
-  if (!m?.from || !normal) return 0;
-  const to = m.up ?? m.to;
-  if (!to) return 0;
+/** How far a move goes along the wall it began on (metres, + to the right facing it) to `to` (its first leg's end, else
+ *  its end), read off its own path - the motor sets its way on the move's event alone, never on the move. */
+export function moveAcross(m, normal, to = m?.up ?? m?.to) {
+  if (!m?.from || !normal || !to) return 0;
   const fr = wallFrame(normal);
-  const a = (to[0] - m.from[0]) * fr.right[0] + (to[2] - m.from[2]) * fr.right[2];
+  return (to[0] - m.from[0]) * fr.right[0] + (to[2] - m.from[2]) * fr.right[2];
+}
+
+/** The way a move goes along the wall it began on: +1 to the right facing it, -1 left, 0 straight in or up. */
+export function moveSide(m, normal) {
+  const a = moveAcross(m, normal);
   return Math.abs(a) > 1e-4 ? Math.sign(a) : 0;
 }
 
@@ -155,15 +162,13 @@ export class ClimbHands {
     this.present = 0;
     this.t = 0;
     this.prev = null;          // the body's last point on the wall (its own way, the snapshot's `track`)
-    this.speed = 0;            // ...and its pace there (m/s): a catch's landing is harder the faster it came
-    this.src = null;           // what places the hands: a move (the motor's own object) or a hold (its mode and lip)
+    this.src = null;           // what places the hands: a move (the motor's own object) or a hold (its mode)
+    this.lipY = null;          // the hold's lip as last read: one moved past the motor's follow is another hold
     this.travel = 0;           // the gaits' travel from the hold's start: along the lip (signed) or up the face (path)
-    this.travelDir = [0, 1];   // the way the free climb last went, in the wall's (right, up)
-    this.turned = false;       // ...turned this frame: the hands carried over to the gait's other way
+    this.travelDir = [0, 1];   // the way the free climb goes, in the wall's (right, up), eased (WAY_TAU)
     this.settle = { L: { v: 0, prev: 0, cycle: null }, R: { v: 0, prev: 0, cycle: null } };
     this.moveStart = null;     // the hands' offsets when the move in flight began (null: they were not up)
     this.moveNormal = null;    // ...and the wall it began on
-    this.moveSpeed = 0;        // ...and the pace the body came to it at
     this.base = null;          // last frame's offsets, the carry in them (the start of the next change)
     this.carry = pair();       // what a change of state still owes the new place, eased out on POSE.LIMB_TAU
     this.ringT = Infinity;     // seconds since the hands landed on a hold from a catch, a reach or a leap...
@@ -171,7 +176,9 @@ export class ClimbHands {
     this.ringArmed = false;
     this.swayW = 0;            // the still hang's sway, eased in and out
     this.drawn = pair();       // the frame's offsets, everything in them: off the wall the hands leave from here
-    this.look = 0;             // the eased reach, signed by side
+    this.look = 0;             // how far the view is turned off the wall (0..1, eased): the fists drop out with it...
+    this.side = 'R';           // ...the side the reaching arm is on...
+    this.arm = 0;              // ...and how far it is up (0..1, eased): it changes sides down off one and up the other
     this.out = { present: 0, grips: [], reach: null };
   }
 
@@ -184,15 +191,14 @@ export class ClimbHands {
     this.present += ((want ? 1 : 0) - this.present) * (1 - Math.exp(-dt / tau));
     if (Math.abs(this.present - (want ? 1 : 0)) < 0.005) this.present = want ? 1 : 0;
     if (!want && this.present <= 0) { this.reset(); return this.out; }
-    // the body's travel since the last frame, read whenever the climb says where it is (a leap's flight too: the speed a
-    // catch comes at) - a teleport is none, and nothing is read across a frame with no climb
+    // the body's travel since the last frame, read whenever the climb says where it is - a teleport is none, and nothing is
+    // read across a frame with no climb
     const p = c?.track ?? c?.feet ?? null;
     let d = [0, 0, 0];
     if (p && this.prev) d = [p[0] - this.prev[0], p[1] - this.prev[1], p[2] - this.prev[2]];
     if (Math.hypot(d[0], d[1], d[2]) > 1) d = [0, 0, 0];
     this.prev = p ? [p[0], p[1], p[2]] : null;
     if (want) this._place(dt, c, d, view);
-    if (dt > 0) this.speed = Math.hypot(d[0], d[1], d[2]) / dt;
     // off the wall: the hands leave from where they were, the look as it was (`drawn` and `look` stand)
     return this._layout(view);
   }
@@ -200,17 +206,19 @@ export class ClimbHands {
   /** The frame's offsets for each hand (`drawn`) and the look off the wall. */
   _place(dt, c, d, view) {
     const m = c.move ?? null;
-    // what places the hands: a move (each its own object), else the hold - a new mode or lip starts the gaits square
-    // (ClimbPose's: a face followed round a bend is the same hold going on)
-    const key = m ? null : `${c.mode}|${c.lipY ?? ''}`;
-    const src = m ?? key;
-    let changed = src !== this.src;
+    // what places the hands: a move (each its own object), else the hold - a new mode starts the gaits square, and so does
+    // a lip past the one the motor follows (AUDIT CLIMB-HANDS, second round: a sloping lip, or a hull's, is re-read every
+    // step - the same hold going on, as a face followed round a bend is)
+    const lip = Number.isFinite(c.lipY) ? c.lipY : null;
+    const lipJump = !m && lip != null && this.lipY != null && Math.abs(lip - this.lipY) > PARKOUR_LIP_FOLLOW;
+    this.lipY = lip;
+    const src = m ?? c.mode;
+    const changed = src !== this.src || lipJump;
     if (changed) {
       this.src = src;
       if (m) {
         this.moveStart = this.present >= 0.5 && this.base ? copyPair(this.base) : null;
         this.moveNormal = c.normal ?? m.hang?.normal ?? null;
-        this.moveSpeed = this.speed;   // the pace the body came to it at (last frame's)
         this.ringArmed = false;
       } else {
         // square over the hold just taken - the frame that took it moves no stone (ClimbPose: `along = 0` there)
@@ -221,7 +229,6 @@ export class ClimbHands {
       }
     }
     const base = m ? this._move(m, c) : c.mode === 'hang' ? this._hang(dt, c, d) : this._climb(dt, c, d);
-    if (this.turned) { changed = true; this.turned = false; }
     // a change of state carries the hands from where they were onto the new place (ClimbPose._ease's law)
     const k = Math.exp(-dt / POSE.LIMB_TAU);
     for (const s of SIDES) {
@@ -253,11 +260,20 @@ export class ClimbHands {
       off.R[0] += HANDS.TREMBLE * fail * tremble(ft + 3.1); off.R[1] += HANDS.TREMBLE * fail * tremble(ft * 1.3 + 11);
     }
     this.drawn = off;
-    // looking away from the wall: eased, signed by side (a move in flight keeps the hold's hands)
+    // looking away from the wall: how far, eased (a move in flight keeps the hold's hands) - and the reaching arm's side.
+    // AUDIT CLIMB-HANDS (second round): the arm changes sides by going down off the one and up on the other, the fists
+    // staying down; turned past LOOK_BACK_DEG (straight back) it keeps its side, where the look's sign flipped at 180
+    // degrees and the fists flashed up between the two arms
     const turn = lookOffWall(c, view.yaw);
-    const lookT = !m ? Math.sign(turn) * smooth((Math.abs(turn) / DEG - HANDS.LOOK_FROM_DEG) / (HANDS.LOOK_FULL_DEG - HANDS.LOOK_FROM_DEG)) : 0;
-    this.look += (lookT - this.look) * (1 - Math.exp(-dt / HANDS.LOOK_TAU));
-    if (Math.abs(this.look - lookT) < 0.002) this.look = lookT;
+    const deep = !m ? smooth((Math.abs(turn) / DEG - HANDS.LOOK_FROM_DEG) / (HANDS.LOOK_FULL_DEG - HANDS.LOOK_FROM_DEG)) : 0;
+    const kl = 1 - Math.exp(-dt / HANDS.LOOK_TAU);
+    this.look += (deep - this.look) * kl;
+    if (Math.abs(this.look - deep) < 0.002) this.look = deep;
+    const toSide = Math.abs(turn) > HANDS.LOOK_BACK_DEG * DEG ? this.side : turn >= 0 ? 'R' : 'L';
+    if (toSide !== this.side && this.arm < 0.2) this.side = toSide;   // under the screen's edge by then: over it goes
+    const armT = toSide === this.side ? this.look : 0;
+    this.arm += (armT - this.arm) * kl;
+    if (Math.abs(this.arm - armT) < 0.002) this.arm = armT;
   }
 
   /** The sprites from the offsets, the presence, the look and the view's pitch. */
@@ -266,7 +282,7 @@ export class ClimbHands {
     out.present = this.present;
     out.grips = [];
     out.reach = null;
-    const a = Math.abs(this.look), side = this.look >= 0 ? 'R' : 'L';
+    const a = this.look, side = this.side;
     // looking straight down off the wall: the hands are over the head, out of the view
     const pitch = Number.isFinite(view.pitch) ? view.pitch : 0;
     const gone = smooth((-pitch / DEG - HANDS.DOWN_FROM_DEG) / (HANDS.DOWN_FULL_DEG - HANDS.DOWN_FROM_DEG)) * OUT;
@@ -281,7 +297,7 @@ export class ClimbHands {
       if (y >= NATIVE_H) continue;
       out.grips.push({ side: s, x, y, w: gw, h: gh, flip: s === 'R' });   // the painting is the left hand: the right is its mirror
     }
-    if (a > 0.001) {
+    if (this.arm > 0.001) {
       const rw = HANDS.REACH_W, rh = rw * REACH_ART.h / REACH_ART.w;
       const sx = HANDS.SEARCH_X * Math.sin(2 * Math.PI * HANDS.SEARCH_HZ * this.t);
       const sy = HANDS.SEARCH_Y * Math.sin(2 * Math.PI * HANDS.SEARCH_HZ * 1.6 * this.t + 0.7);
@@ -289,7 +305,7 @@ export class ClimbHands {
       // the right half (Mac, 2026-10-02: "look left and right are on the wrong side of the screen")
       const xl = HANDS.REACH_X_IN + sx;
       const x = side === 'R' ? xl : NATIVE_W - xl - rw;
-      const y = Math.max(NATIVE_H - rh, NATIVE_H - rh + HANDS.REACH_SLACK + sy + (1 - smooth(a)) * (rh + HANDS.REACH_SLACK) + enter + gone);
+      const y = Math.max(NATIVE_H - rh, NATIVE_H - rh + HANDS.REACH_SLACK + sy + (1 - smooth(this.arm)) * (rh + HANDS.REACH_SLACK) + enter + gone);
       if (y < NATIVE_H) out.reach = { side, x, y, w: rw, h: rh, flip: side === 'L' };
     }
     return out;
@@ -331,10 +347,12 @@ export class ClimbHands {
     const a = d[0] * fr.right[0] + d[2] * fr.right[2], u = d[1];
     const step = Math.hypot(a, u);
     if (step > 1e-5) {
-      const dir = [a / step, u / step];
-      if (dir[0] * this.travelDir[0] + dir[1] * this.travelDir[1] < 0.995) this.turned = true;   // the stones mirror: carried over
+      // AUDIT CLIMB-HANDS (second round): the way eased, never a change of state - a diagonal over mouldings, a pad's
+      // stick, wavers every frame, and carrying each wobble over pinned both fists; turned back, the stones mirror
+      // through the body
+      const k = 1 - Math.exp(-dt / HANDS.WAY_TAU);
+      this.travelDir = [this.travelDir[0] + (a / step - this.travelDir[0]) * k, this.travelDir[1] + (u / step - this.travelDir[1]) * k];
       this.travel += step;
-      this.travelDir = dir;
     }
     const moving = step > 1e-5;
     const [ta, tu] = this.travelDir;
@@ -367,14 +385,15 @@ export class ClimbHands {
         // ClimbPose._toHang: the hands onto the hold over the first 0.45, where the swing begins
         const k = smooth(t / 0.45);
         for (const s of SIDES) out[s] = [lerp(from(s)[0], 0, k), lerp(from(s)[1], 0, k)];
-        if (t >= 0.45) this._land(this.moveSpeed);
+        if (t >= 0.45) this._land(m.speed ?? 0);   // the pace the body came to it at (the motor's, on the move)
         break;
       }
       case 'leap': {
         // ClimbPose._leap: off the stone at the push (0.18), reaching for the hold across the flight, on it at 0.8
-        const side = moveSide(m, this.moveNormal);
+        // AUDIT CLIMB-HANDS (second round): the lead as much as the leap goes across - straight up, none
+        const across = Math.max(-1, Math.min(1, moveAcross(m, this.moveNormal, m.to) / HANDS.LEAP_FULL));
         const push = smooth(t / 0.18), reach = smooth((t - 0.18) / 0.62);
-        const lead = side * HANDS.LEAP_LEAD * bump((t - 0.18) / 0.62);
+        const lead = across * HANDS.LEAP_LEAD * bump((t - 0.18) / 0.62);
         for (const s of SIDES) {
           const f = from(s);
           out[s] = t < 0.18 ? [lerp(f[0], 0, push), lerp(f[1], HANDS.LEAP_DROP, push)] : [lead, lerp(HANDS.LEAP_DROP, 0, reach)];

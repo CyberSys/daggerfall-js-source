@@ -71,8 +71,8 @@
   {
     "name": "CLIMBHANDS-look-during-a-move",
     "file": "src/combat/climbHands.js",
-    "old": "const lookT = !m ? Math.sign(turn)",
-    "new": "const lookT = true ? Math.sign(turn)",
+    "old": "const deep = !m ? smooth(",
+    "new": "const deep = true ? smooth(",
     "tests": [
       "test/climbhands.test.js",
       "test/auditclimbhands.test.js"
@@ -171,10 +171,10 @@
     ]
   },
   {
-    "name": "AUDIT-CLIMBHANDS-climb-turn-not-carried",
+    "name": "AUDIT-CLIMBHANDS-way-not-eased",
     "file": "src/combat/climbHands.js",
-    "old": "if (dir[0] * this.travelDir[0] + dir[1] * this.travelDir[1] < 0.995) this.turned = true;",
-    "new": "if (false) this.turned = true;",
+    "old": "const k = 1 - Math.exp(-dt / HANDS.WAY_TAU);",
+    "new": "const k = 1;",
     "tests": [
       "test/climbhands.test.js",
       "test/auditclimbhands.test.js"
@@ -201,10 +201,20 @@
     ]
   },
   {
-    "name": "AUDIT-CLIMBHANDS-hold-key-ignores-lip",
+    "name": "AUDIT-CLIMBHANDS-lip-follow-restarts",
     "file": "src/combat/climbHands.js",
-    "old": "const key = m ? null : `${c.mode}|${c.lipY ?? ''}`;",
-    "new": "const key = m ? null : `${c.mode}`;",
+    "old": "Math.abs(lip - this.lipY) > PARKOUR_LIP_FOLLOW;",
+    "new": "Math.abs(lip - this.lipY) > 0;",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-lip-jump-ignored",
+    "file": "src/combat/climbHands.js",
+    "old": "const changed = src !== this.src || lipJump;",
+    "new": "const changed = src !== this.src;",
     "tests": [
       "test/climbhands.test.js",
       "test/auditclimbhands.test.js"
@@ -363,10 +373,78 @@
   {
     "name": "AUDIT-CLIMBHANDS-leap-leads-right-always",
     "file": "src/combat/climbHands.js",
-    "old": "const lead = side * HANDS.LEAP_LEAD",
-    "new": "const lead = HANDS.LEAP_LEAD",
+    "old": "const across = Math.max(-1, Math.min(1, moveAcross(m, this.moveNormal, m.to) / HANDS.LEAP_FULL));",
+    "new": "const across = 1;",
     "tests": [
       "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-leap-lead-all-or-nothing",
+    "file": "src/combat/climbHands.js",
+    "old": "const across = Math.max(-1, Math.min(1, moveAcross(m, this.moveNormal, m.to) / HANDS.LEAP_FULL));",
+    "new": "const across = moveSide(m, this.moveNormal);",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-arm-flips-straight-back",
+    "file": "src/combat/climbHands.js",
+    "old": "const toSide = Math.abs(turn) > HANDS.LOOK_BACK_DEG * DEG ? this.side : turn >= 0 ? 'R' : 'L';",
+    "new": "const toSide = turn >= 0 ? 'R' : 'L';",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-arm-jumps-sides",
+    "file": "src/combat/climbHands.js",
+    "old": "if (toSide !== this.side && this.arm < 0.2) this.side = toSide;",
+    "new": "if (toSide !== this.side) this.side = toSide;",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-fists-up-with-the-arm",
+    "file": "src/combat/climbHands.js",
+    "old": "const a = this.look, side = this.side;",
+    "new": "const a = this.arm, side = this.side;",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-landing-at-a-standstill",
+    "file": "src/combat/climbHands.js",
+    "old": "if (t >= 0.45) this._land(m.speed ?? 0);",
+    "new": "if (t >= 0.45) this._land(0);",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-move-without-its-speed",
+    "file": "src/player/motor.js",
+    "old": "    move.speed = Math.hypot(this.velY, this._airVelX, this._airVelZ);\n    this._pkMoveEvent(move, move.speed);",
+    "new": "    this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));",
+    "tests": [
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-pose-restarts-every-height",
+    "file": "src/player/climbPose.js",
+    "old": "!(Math.abs(c.lipY - this.hangLip) <= PARKOUR_LIP_FOLLOW)",
+    "new": "this.hangLip !== c.lipY",
+    "tests": [
       "test/auditclimbhands.test.js"
     ]
   },
@@ -563,8 +641,18 @@
   {
     "name": "AUDIT-CLIMBHANDS-hands-on-every-lane",
     "file": "src/combat/weaponRig.js",
-    "old": "const handsLane = !fpArm.active() && !eotbHidesWeapon();",
+    "old": "const handsLane = !fpArm.active() && !fpArm.thirdActive() && !eotbHidesWeapon();",
     "new": "const handsLane = true;",
+    "tests": [
+      "test/climbhands.test.js",
+      "test/auditclimbhands.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-CLIMBHANDS-hands-under-the-third-person-body",
+    "file": "src/combat/weaponRig.js",
+    "old": "const handsLane = !fpArm.active() && !fpArm.thirdActive() && !eotbHidesWeapon();",
+    "new": "const handsLane = !fpArm.active() && !eotbHidesWeapon();",
     "tests": [
       "test/climbhands.test.js",
       "test/auditclimbhands.test.js"

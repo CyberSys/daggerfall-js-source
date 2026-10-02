@@ -1022,11 +1022,43 @@ contact sheets of every animation, frame by frame. ClimbPose is now the one chor
 - With them: the presence eases on the pose's own weights (`POSE.IN_TAU`, `OUT_TAU`), the tremble on the feel's noise at
   the pose's rate.
 
+### Second round: an independent review
+
+A reviewer with no part in the fixes drove the real `PlayerMotor` and `Collider` through `climbRigInput` into the law,
+against the first round's commit. Five findings, each reproduced, pinned red (`B1`-`B6`), then fixed:
+
+- **B1 A lip the shimmy follows froze the fists square.** The motor re-reads the lip every step (`motor.js _hangStep`)
+  and a hull carries it every frame, and the first round's hold, keyed on the exact lip, restarted the gait on every new
+  height: on a lip rising 2 %, the right fist moved 0.6 px across a 2 m shimmy. A hold now restarts only on a new mode or
+  a lip past `PARKOUR_LIP_FOLLOW`. **Found on the way (CLIMB6): ClimbPose had the same keying all along** - its hands never
+  left stone 0 on a sloping lip; the same rule there.
+- **B2 A wavering free climb pinned both fists.** Every change of way past 6 degrees was a change of state, and a diagonal
+  over mouldings (or a pad's stick) wavers every frame: frozen on 222 of 256 frames. The way is eased now
+  (`HANDS.WAY_TAU`), never a change of state: the stones turn with it and mirror through the body when it turns back.
+- **B3 Every catch landed at a standstill's swing.** The motor said a move's speed on its event alone, so the hands'
+  landing read 0 - and **found on the way (CLIMB6), ClimbPose's pendulum reads `m.speed` too**: every catch, on every body,
+  swung at its minimum. `motor.js _parkourBegin` sets `move.speed` now (climb4's `CLIMB4-catch-speed-unmeasured` re-aimed
+  at it).
+- **B4 A leap straight up swung the hands the whole lead** when its hold stood a fraction of a millimetre aside: the lead
+  is as much as the leap goes across now (`LEAP_FULL` 0.5 m for all of it).
+- **B5 Looking straight back flashed the fists.** The look's sign flipped at 180 degrees and the fists came up between the
+  two arms (older than the audit). The look is a depth and a side now: the reaching arm changes sides by going down off
+  the one and up on the other, the fists staying down, and past `LOOK_BACK_DEG` (170) it keeps its side.
+- **B6 The Morrowind body in third person** stepped the law (`fpArm.active()` is first person's alone): the lane is the
+  classic sprite's, `!fpArm.thirdActive()` with it.
+
+And not found: no other pop on the real motor (a clamber chained into a lower, a crouch-lower, a catch into a mantle,
+corners both ways round a block, the free climb every way, a re-grab while the hands leave, the climb dropped for 1 to 25
+frames mid-shimmy); no NaN under a fuzz of missing normals, tracks and feet, any dt, every move kind without a path, t
+outside 0-1; the rig's other gates untouched. Peers' rebuilt moves carry no path (the wire has none), so a peer's corner
+keeps the old right-hand lead.
+
 ### The mutation run
 
-`tools/mutants/climbhands.json` (59): 58 dead, 1 recorded equivalent (the slack's clamp: belt and braces, no motion
+`tools/mutants/climbhands.json` (68): 67 dead, 1 recorded equivalent (the slack's clamp: belt and braces, no motion
 reaches it). The first run left four alive (a let-go placed from an empty climb, hidden by the exit; the shimmy's lift; a
-clamber's let-go; a late lower), each pinned since.
+clamber's let-go; a late lower), each pinned since. `tools/mutants/climb4.json` and `climb6.json` re-run whole on the
+changed motor and pose: 100 dead (two records re-aimed: the catch's speed, the shimmy's restart).
 
 ### What the pins could not reach
 
@@ -1036,7 +1068,7 @@ clamber's let-go; a late lower), each pinned since.
 
 ### Records
 
-`test/auditclimbhands.test.js` (17), `test/climbhands.test.js` (8: three rewritten for the gaits),
+`test/auditclimbhands.test.js` (23), `test/climbhands.test.js` (8: three rewritten for the gaits),
 `tools/mutants/climbhands.json`.
 
 ## Still open
