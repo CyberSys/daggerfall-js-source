@@ -60,7 +60,7 @@ export const BASKET_SPREAD = Object.freeze([110, 60, 10]);
 /**
  * Where an angle off the look stands from the crosshair, CSS pixels - `[x right, y down]`: a point `p` (`[yaw, pitch]`,
  * degrees, on the node's face) against the crosshair's `aim` on it, through the lens's `focal`. Pure.
- * @param {number[]} p @param {{ yaw: number, pitch: number }|null} aim @param {number} focal
+ * @param {readonly number[]} p @param {{ yaw: number, pitch: number }|null} aim @param {number} focal
  */
 export function offsetOf(p, aim, focal) {
   const rad = Math.PI / 180;
@@ -88,7 +88,8 @@ const setSvgClass = (n, c) => { if (n.getAttribute?.('class') !== c) n.setAttrib
 const setClass = (n, c) => { if (n.className !== c) n.className = c; };
 const show = (n, on) => { const d = on ? '' : 'none'; if (n.style.display !== d) n.style.display = d; };
 /** A mark at a screen offset from the crosshair, CSS pixels. */
-const place = (n, [x, y]) => { const l = `${r1(x)}px`, t = `${r1(y)}px`; if (n.style.left !== l) n.style.left = l; if (n.style.top !== t) n.style.top = t; };
+/** @param {any} n @param {readonly number[]} at */
+const place = (n, at) => { const l = `${r1(at[0])}px`, t = `${r1(at[1])}px`; if (n.style.left !== l) n.style.left = l; if (n.style.top !== t) n.style.top = t; };
 /** A mark at an offset in HUD-scaled pixels. */
 const placeScaled = (n, x, y) => { n.style.left = `calc(${r1(x)}px * var(--hud-scale, 1))`; n.style.top = `calc(${r1(y)}px * var(--hud-scale, 1))`; };
 

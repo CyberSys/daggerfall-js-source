@@ -66,7 +66,7 @@ export function createToastQueue({ max = PROF_TOASTS_MAX, ttl = PROF_TOAST_S } =
 const STYLE_ID = 'prof-hud-style';
 
 /**
- * @param {{ doc?: Document }} [o]
+ * @param {{ doc?: Document, anchor?: (() => ({ x: number, y: number, focal?: number } | null)) | null }} [o]
  */
 export function createProfHud({ doc = globalThis.document, anchor = null } = {}) {
   if (!doc?.body) return null;
