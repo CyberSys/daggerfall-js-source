@@ -325,21 +325,21 @@ let _pickedSaveKey = null;
 let _pickedSaveName = null;
 let _saveNameDraft = '';
 /** TIME4 (bible/06-Systems/Online-Time-Arc.md section 7): THE SKY'S DAY, SAID AT THE DOOR - what is true when the
- *  pane opens. From the sky's switch on (net/skyLaw.js SKY_SEGMENTS) a day is half an hour; its midnights and its dusks
- *  (18:00, twenty-two and a half real minutes after a midnight) are said in this machine's own minutes - on the hour
- *  and the half hour for most of the world, a quarter past and a quarter to where a clock is set fifteen minutes off.
+ *  pane opens. From the sky's switch on (net/skyLaw.js SKY_SEGMENTS) a day is an hour (SKY-SLOW); its midnights and its
+ *  dusks (18:00, forty-five real minutes after a midnight) are said in this machine's own minutes - on the hour for most
+ *  of the world, at the half hour or a quarter past where a clock is set off the hour.
  *  Before the switch the sky is still the event clock's, a day every two hours, and the sentence says when it turns.
  *  test/time4_words.test.js holds the numbers to the law. */
 export function skyDayWords(nowMs = Date.now(), localTime = (ms) => new Date(ms).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }),
   localMinute = (ms) => { const d = new Date(ms); return d.getMinutes() + d.getSeconds() / 60; }) {
   const turn = SKY_SEGMENTS[SKY_SEGMENTS.length - 1].fromMs;
   const midnight = wallMsForSkyMinutes(Math.ceil(skyClassicMinutes(turn) / 1440) * 1440);
-  const m0 = ((localMinute(midnight) % 30) + 30) % 30;
+  const m0 = ((localMinute(midnight) % 60) + 60) % 60;
   const at = (m) => { const v = ((m % 60) + 60) % 60; return `:${String(Math.floor(v)).padStart(2, '0')}${v % 1 ? ':30' : ''}`; };
-  const day = `${m0 === 0 ? 'midnight falls on the hour and the half hour' : `midnight falls at ${at(m0)} and ${at(m0 + 30)}`}, and dusk at ${at(m0 + 22.5)} and ${at(m0 + 52.5)}`;
+  const day = `${m0 === 0 ? 'midnight falls on the hour' : `midnight falls at ${at(m0)}`}, and dusk at ${at(m0 + 45)}`;
   return nowMs >= turn
-    ? `A day in the world is half an hour of real time: ${day}.`
-    : `A day in the world is two hours of real time until ${localTime(turn)}; from then on it is half an hour: ${day}.`;
+    ? `A day in the world is an hour of real time: ${day}.`
+    : `A day in the world is two hours of real time until ${localTime(turn)}; from then on it is an hour: ${day}.`;
 }
 
 export function takePickedSaveKey() { const k = _pickedSaveKey; _pickedSaveKey = null; return k; }
