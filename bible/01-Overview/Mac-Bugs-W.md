@@ -270,9 +270,9 @@ Outside it is not.
 
 | host | collider | where the ground is |
 |---|---|---|
-| `dungeonContext.js:376` | `new Collider(() => -Infinity)` | floor meshes |
+| `dungeonContext.js:377` | `new Collider(() => -Infinity)` | floor meshes |
 | `interiorContext.js:332` | `new Collider(() => -Infinity)` | floor meshes |
-| `exterior.js:585` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
+| `exterior.js:587` | `new Collider(() => GROUND_OFFSET * 0.025)` | **`heightAt`** |
 | `world.js:2253` | `new Collider(heightAt)` | **`heightAt`** |
 
 `heightAt` is applied to the **capsule**, in `_resolveSphere`, and

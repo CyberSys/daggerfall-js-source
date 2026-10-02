@@ -7,6 +7,7 @@
 // collider (no wall is crossed), and never off an edge (a walker the push would leave with no ground under its centre
 // stays where it was - the drop the motor's own fall check refuses, EnemyMotor's FallCheck, characters/enemyMotor.js
 // _fallCheck). A departure: DFU's controllers block, the port's pools push.
+import { worldAabb } from '../player/activate.js';   // AUDIT TACT C6: an action door's box
 import { CAPSULE_HEIGHT, CAPSULE_RADIUS } from '../player/motor.js';
 import { FALL_CHECK_DROP } from './enemyMotor.js';
 
@@ -147,8 +148,8 @@ export const DOORWAY_CLEAR_SPEED = 1.6;
  * TACT3: NO FOE STANDS IN A DOORWAY. A foe whose feet are in a door's threshold and whose way does not lie through it
  * (its motor's destination on its own side of the door, or none) is eased out along the door's normal to the edge of
  * the threshold on the side it stands - so a watch called to a door, a pack that chased someone to it, or a crowd a
- * griefer led there never holds it shut. A foe walking through (its destination across the door) is left to walk, and a
- * hostile one whose quarry stands in the doorway itself fights it there (no sanctuary on a door's sill).
+ * griefer led there never holds it shut. A foe walking through (its destination across the door) is left to walk; one
+ * fighting someone on the sill fights from the threshold's edge, which is within its reach (AUDIT TACT C2).
  * `doors` are { pos: [x,y,z] (the door's centre), normal: [x,y,z] } in the foes' frame. Answers how many moved.
  */
 export function clearDoorways(foes, doors, collider, dt, skip = spacingSkips) {
@@ -169,10 +170,12 @@ export function clearDoorways(foes, doors, collider, dt, skip = spacingSkips) {
       const dest = ai.destination;
       const side = along >= 0 ? 1 : -1;
       if (dest) {
-        const da = (dest[0] - p[0]) * nx + (dest[2] - p[2]) * nz, dc = -(dest[0] - p[0]) * nz + (dest[2] - p[2]) * nx;
+        const da = (dest[0] - p[0]) * nx + (dest[2] - p[2]) * nz;
         if (Math.sign(da) !== side && Math.abs(da) > 0.3) break;   // on its way through
-        // a foe after someone who stands IN the doorway fights them there - the threshold is no sanctuary
-        if (ai.isHostile && Math.abs(da) < DOORWAY_DEPTH && Math.abs(dc) < DOORWAY_HALF_WIDTH) break;
+        // AUDIT TACT C1/C2: NO EXEMPTION FOR A FOE WHOSE QUARRY STANDS IN THE DOORWAY. It kept a griefer's watch on the
+        // sill for good (a stale destination after the quarry left kept it there forever, and other players' clicks
+        // stopped on it). It need not stand there to fight: the threshold's edge is within its reach of anyone on the
+        // sill (DOORWAY_DEPTH under DFU's 2.25 m).
       }
       const need = side * DOORWAY_DEPTH - along;   // to the threshold's edge on its own side
       if (nudge(ai, nx * need, nz * need, DOORWAY_CLEAR_SPEED * dt, collider)) moved++;
@@ -197,3 +200,23 @@ export function doorSpotsNear(doors, near, range = 40, doorOf = (e) => e) {
   }
   return out;
 }
+
+/** AUDIT TACT C6/C7: the ACTION doors' doorways (an interior's inner swing doors, a dungeon's doors) as threshold spots -
+ *  each door's CLOSED pose (its base matrix), its box's centre, the normal across its thin axis. `objects` an
+ *  ActionSystem's (kind 'door'); within `range` of `near`. */
+const _doorBoxes = new WeakMap();
+export function actionDoorSpots(objects, near, range = 30) {
+  const out = [];
+  if (!objects) return out;
+  for (const o of objects.values()) {
+    if (o?.kind !== 'door' || !o.cpu?.positions || !o.base) continue;
+    let box = _doorBoxes.get(o);   // the closed pose never moves: its box once, not a vertex walk a frame
+    if (!box || box.base !== o.base) { box = worldAabb(o.cpu.positions, o.base); box.base = o.base; _doorBoxes.set(o, box); }
+    const cx = (box.min[0] + box.max[0]) / 2, cy = (box.min[1] + box.max[1]) / 2, cz = (box.min[2] + box.max[2]) / 2;
+    if (near && Math.hypot(cx - near[0], cz - near[2]) > range) continue;
+    const ex = box.max[0] - box.min[0], ez = box.max[2] - box.min[2];
+    out.push({ pos: [cx, cy, cz], normal: ex < ez ? [1, 0, 0] : [0, 0, 1] });   // a door is thin across its doorway
+  }
+  return out;
+}
+

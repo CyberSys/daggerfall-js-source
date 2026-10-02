@@ -5,7 +5,7 @@
 //   a. foes of DIFFERENT pools (the watch and a street's encounters, a building's own foes and the watch called in)
 //      keep apart as each pool keeps its own;
 //   b. no foe holds a doorway - one with no business in the threshold is eased out to its own side, one walking
-//      through walks through, one fighting someone who stands in the doorway fights them there;
+//      through walks through, one fighting someone on the sill fights from the threshold's edge (AUDIT TACT C2);
 //   c. the indoor watch walks into the room past the threshold, each on its own lane, never a stack in the door;
 //   d. a door click passes a PEACEFUL foe standing in front of the door - the press and the plaque alike.
 import './modsOff.js';
@@ -97,14 +97,18 @@ test('TACT3b: within a second a whole guard wall stacked in the door is out of i
   }
 });
 
-test('TACT3b: one walking through walks through; one fighting someone who stands IN the doorway fights them there; a foe outside it, on another storey or a door with no normal is left alone', () => {
+test('TACT3b: one walking through walks through; one fighting someone on the sill steps to the edge, still in reach (AUDIT TACT C2: no exemption); a foe outside it, on another storey or a door with no normal is left alone', () => {
   const ground = new Collider(() => 0);
   const through = body(0.4, 0, { isHostile: true, destination: [-4, 0, 0] });
-  const fighting = body(0.9, 0, { isHostile: true, destination: [0.1, 0, 0.3] });
   const outside = body(DOORWAY_DEPTH + 0.01, 0, { isHostile: false });
   const wide = body(0, DOORWAY_HALF_WIDTH + 0.01, { isHostile: false });
   const upstairs = body(0.2, 0, { isHostile: false, flies: true }); upstairs.ai.feet[1] = 3;   // a flyer: free to move, so only the storey rule holds it
-  assert.equal(clearDoorways([through, fighting, outside, wide, upstairs], [DOOR], ground, DT), 0);
+  assert.equal(clearDoorways([through, outside, wide, upstairs], [DOOR], ground, DT), 0);
+  // AUDIT TACT C2: a hostile foe whose quarry stands on the sill is NOT exempt - it is eased to the edge, which is in its reach
+  const fighting = body(0.9, 0, { isHostile: true, destination: [0.1, 0, 0.3] });
+  for (let i = 0; i < 120; i++) clearDoorways([fighting], [DOOR], ground, DT);
+  assert.ok(Math.abs(fighting.ai.feet[0] - DOORWAY_DEPTH) < 1e-6, 'out to the edge');
+  assert.ok(Math.hypot(fighting.ai.feet[0] - 0.1, fighting.ai.feet[2] - 0.3) < 2.25, 'and still within DFU\'s reach of the one on the sill');
   assert.equal(clearDoorways([body(0.2, 0)], [{ pos: [0, 0, 0], normal: [0, 1, 0] }], ground, DT), 0, 'a door with no level normal');
   // the same sill-fighter at PEACE has no quarry: it steps out
   const idle = body(0.9, 0, { isHostile: false, destination: [0.1, 0, 0.3] });
@@ -213,11 +217,11 @@ test('TACT3d: the plaque agrees - liveFoeTargets marks the peaceful, peacefulFoe
 
 test('TACT3: the hosts wire it - the street and the building each frame, the press and the plaque', () => {
   const w = rd('src/scenes/world.js'), m = rd('src/scenes/worldModes.js');
-  assert.match(w, /exteriorFoes\.update\(foeDt[^\n]*\n\s*if \(_deckBodies\.size\) navalLeash\(\);[^\n]*\n(?:[^\n]*\n){0,3}\s*spaceAcross\(\[cityGuards\.guards, exteriorFoes\.foes\], collider, foeFrameDt\(foeDt\), _ownTact\);\n\s*clearDoorways\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\], doorSpotsNear\(buildingDoors, _pf, 40, shiftedDoor\), collider, foeFrameDt\(foeDt\), _ownTact\);/);
+  assert.match(w, /exteriorFoes\.update\(foeDt[^\n]*\n\s*if \(_deckBodies\.size\) navalLeash\(\);[^\n]*\n(?:[^\n]*\n){0,3}\s*spaceAcross\(\[cityGuards\.guards, exteriorFoes\.foes\], collider, foeFrameDt\(foeDt\), _ownTact\);\n\s*if \(cityGuards\.guards\.length \|\| exteriorFoes\.foes\.length\) clearDoorways\(\[\.\.\.cityGuards\.guards, \.\.\.exteriorFoes\.foes\], _tactDoorSpots\(_pf\), collider, foeFrameDt\(foeDt\), _ownTact\);/);
   assert.match(w, /const _ownTact = \(f\) => spacingSkips\(f\) \|\| f\._ownFrom != null \|\| _deckBodies\.has\(f\);/);
-  assert.match(m, /if \(interiorCtx && !overlayHeld\) \{\n[^\n]*\n\s*spaceAcross\(\[interiorFoes\?\.foes \?\? \[\], interiorGuards\?\.guards \?\? \[\]\], interiorCtx\.collider, foeFrameDt\(foeDt\), own\);\n\s*clearDoorways\(interiorFoePool\(\), doorSpotsNear\(interiorCtx\.doors, player\.pos, 30\), interiorCtx\.collider, foeFrameDt\(foeDt\), own\);/);
+  assert.match(m, /if \(interiorCtx && !overlayHeld\) \{\n[^\n]*\n\s*spaceAcross\(\[interiorFoes\?\.foes \?\? \[\], interiorGuards\?\.guards \?\? \[\]\], interiorCtx\.collider, foeFrameDt\(foeDt\), own\);\n\s*clearDoorways\(interiorFoePool\(\), \[\.\.\.doorSpotsNear\(interiorCtx\.doors, player\.pos, 30\), \.\.\.actionDoorSpots\(interiorCtx\.actions\?\.objects, player\.pos, 30\)\], interiorCtx\.collider, foeFrameDt\(foeDt\), own\);/);
   assert.match(w, /\[\.\.\.exteriorFoes\.foes, \.\.\.cityGuards\.guards\], collider, reach,\n\s*getInteractionMode\(\), playerEntity, \{\n\s*nearerThan,\n\s*doorBehind: _race\.doorDistance,/);
-  assert.match(m, /tryMobileEnemyActivate\(eye, dir, interiorFoePool\(\), interiorCtx\.collider,\n\s*reach, getInteractionMode\(\), playerEntity, \{\n\s*nearerThan,\n\s*doorBehind: nearerThan,/);
-  assert.match(w, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(cam\.pos, _hd, ft, collider\), ft, modes\.exteriorActivationDistance\(cam\.pos, _hd\)\)\)\(\[\.\.\.exteriorFoes\.liveTargets\(\), \.\.\.cityGuards\.liveTargets\(\)\]\),/);
-  assert.match(m, /foe: peacefulFoePass\(pickActivatableHit\(mwv\.eye, d, liveFoes, interiorCtx\.collider\), liveFoes, ground\?\.distance \?\? Infinity\),/);
+  assert.match(m, /tryMobileEnemyActivate\(eye, dir, interiorFoePool\(\), interiorCtx\.collider,\n\s*reach, getInteractionMode\(\), playerEntity, \{\n\s*nearerThan,\n\s*doorBehind: doorDistanceOf\(eye, dir, targets, interiorCtx\.collider\),/);
+  assert.match(w, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(cam\.pos, _hd, ft, collider\), ft, modes\.exteriorActivationDistance\(cam\.pos, _hd\), getInteractionMode\(\)\)\)\(\[\.\.\.exteriorFoes\.liveTargets\(\), \.\.\.cityGuards\.liveTargets\(\)\]\),/);
+  assert.match(m, /foe: peacefulFoePass\(pickActivatableHit\(mwv\.eye, d, liveFoes, interiorCtx\.collider\), liveFoes, doorDistanceOf\(mwv\.eye, d, interiorActivationTargets\(\), interiorCtx\.collider\), getInteractionMode\(\)\),/);
 });

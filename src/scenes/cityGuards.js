@@ -486,7 +486,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // wall or player - so a guard NPC in range and facing the
           // crime raises the watch even from behind a market stall.
           const hit = collider.raycast(eye, dir, dist);
-          const clear = (!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist) < dist - 1e-3);   // TACT1: not through a tree or a stall's crates
+          const clear = (!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3);   // TACT1: not through a tree or a stall's crates
           if (clear) seen = true;
           // ...and seenByGuard rides the RAYCAST ITSELF, not the clear
           // line. DFU's `Physics.Raycast(ray, out hit, 77.5f)` is aimed
@@ -598,7 +598,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       const eye = [p.pos[0], p.pos[1] + 0.7, p.pos[2]];
       const dir = [toPlayer[0] / (dist || 1), (toPlayer[1] + 0.6) / (dist || 1), toPlayer[2] / (dist || 1)];
       const hit = collider.raycast(eye, dir, dist);
-      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist) < dist - 1e-3)) return p;   // TACT1: cover hides him
+      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3)) return p;   // TACT1: cover hides him
     }
     return null;
   }
@@ -754,7 +754,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  and ALL THREE of this pool's arms reach the door: the melee swing
    *  and the spell through `damageGuard`'s `fromPlayer` gate below, and
    *  the player's ARROW through the hosts' `onAttackFromPlayer` seam,
-   *  which arrowFlight.js calls unconditionally (arrowFlight.js:319)
+   *  which arrowFlight.js calls unconditionally (arrowFlight.js:321)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
    *  encounter pool's is (exteriorFoes.js:2624). */
@@ -1676,6 +1676,12 @@ export function indoorWatchSpot(at, normal, i, collider = null) {
   const lane = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * GUARD_INDOOR_LANE;
   const inset = GUARD_INDOOR_INSET - GUARD_INDOOR_DOOR_OFFSET;
   const spot = [...at];
+  // AUDIT TACT C3: `at` is the door's CENTRE, a metre or more over the sill (a static door's quad middle) - down to the
+  // floor first, or the walk's step-down refuses both legs and every watchman stands at the one point after all
+  if (collider?.raycast) {
+    const down = collider.raycast([spot[0], spot[1] + 0.1, spot[2]], [0, -1, 0], 3.5);
+    if (Number.isFinite(down)) spot[1] = spot[1] + 0.1 - down;
+  }
   const legs = [[nx * inset, nz * inset], [-nz * lane, nx * lane]];
   for (const [dx, dz] of legs) {
     if (!(Math.hypot(dx, dz) > 1e-6)) continue;

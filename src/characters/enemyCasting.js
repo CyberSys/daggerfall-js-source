@@ -253,6 +253,7 @@ export class EnemyCaster {
       if (ai._tacShoot === false) continue;   // TACT2: no ranged token - it waits its turn (unset with the switch off)
       if (this.rolls() >= RANGED_SPELL_CHANCE) continue;
       decision = { spell: this.selectedSpell, touch: false };
+      ai._tacShot = (ai._tacShot ?? 0) + 1;   // AUDIT TACT A2: a ranged spell spends the ranged token as a shot does
     }
     return decision;
   }

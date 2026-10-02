@@ -650,7 +650,7 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   // - but it is still that one list and no other.
   assert.match(ctx, /ground: pickActivatableHit\(eye, d, api\.dungeonActivationTargets\(\), collider\),/,
     'the plaque races the same list the press does');
-  assert.match(ctx, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),/,
+  assert.match(ctx, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),/,
     '...and the live foes beside it, through the one precedence');
   // BOTH ladders read it, and neither composes one.
   for (const [f, src] of [['src/scenes/worldModes.js', read('src/scenes/worldModes.js')],

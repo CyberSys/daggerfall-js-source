@@ -3438,7 +3438,7 @@ void main() {
     if (!list?.length || !this._proj || !this._view) return 0;
     this._close2D();
     if (!this._foeTelegraph) this._foeTelegraph = new FoeTelegraphPass(this.gl);
-    const n = this._foeTelegraph.draw(list, this._proj, this._view);
+    const n = this._foeTelegraph.draw(list, this._proj, this._view, { mode: this._fogMode, density: this._fogDensity, range: this._fogRange, camPos: this._camPos, focus: this._focus });   // AUDIT TACT D9: the frame's fog (and the travel view's focus)
     this.markForeignPass();   // the pass bound its own program and VAO
     return n;
   }

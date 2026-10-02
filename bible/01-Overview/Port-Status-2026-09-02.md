@@ -301,7 +301,7 @@ reference surface absent · **Departure** = deliberate, ledgered.
 | **formats-mw** | Departure lane, faithful within it | **Departure lane, now consumed** | `clipSweepTimes` has a production caller: `combat/fpArm.js:2211` runs the whole-clip reach sweep the superseded page said had never run in the game. 17 modules / 8,842 lines. |
 | **world-terrain** | Near-1:1 | **Near-1:1** | ROAD-A A1 moved the texture season onto `DaggerfallDateTime.SeasonValue` - climate swaps, the winter sunlight term and sky selection - and demoted `?season` to a debug override. The lightning flash stays a recorded enhanced-lane departure. |
 | **world-layout** | Near-1:1 | **Near-1:1** | `rmbLayout`'s shared-block mutation is gated: `attachWindmillRecord` runs only when `enhanced` is true, is idempotent by a `subs.findIndex(r => r?.windmill)` guard, and the header names `subRecords.length` as the count three subsystems bind on (`world/rmbLayout.js:154-165` the gated call, `:208` the guard). |
-| **scenes-world** | Law 1:1 / seams broken | **Near-1:1** | `currentWeatherKey` reads a live getter (`world.js:12709`). Region identity, the quest region/vampire faction seams and `CleanupUntrackedObjects` were the wave; `world.js:9244` carries the sweep and `hostMagic.js:1099` its missile half. |
+| **scenes-world** | Law 1:1 / seams broken | **Near-1:1** | `currentWeatherKey` reads a live getter (`world.js:12709`). Region identity, the quest region/vampire faction seams and `CleanupUntrackedObjects` were the wave; `world.js:9244` carries the sweep and `hostMagic.js:1103` its missile half. |
 | **scenes-modes** | Solid, pause parity broken | **Near-1:1** | ROAD-B B1 put `UserInterfaceManager`'s real stack under this host's slot (`ui/windowStack.js`, 295 lines, imported at `worldModes.js:91`). See "the pause primitive" below - the stack exists, its `paused()` member has no reader. |
 | **scenes-dungeon** | Deep, one lifecycle leak | **Near-1:1** | The three process-global seams return on destroy. ROAD-D D8 made this the fourth caller of `playerArrowHitFoe`, moved its action flats, mounted the enchant ctx off the shared `scenes/hostEnchant.js`, and routed its chargen through the one construction seam. |
 | **scenes-support** | Near-1:1 | **Near-1:1** | ROAD-D D9 stood the city-watch fallback through `FoeSpawner.PlaceFoeFreely` on its own collider. Court reads the live region. |
@@ -309,7 +309,7 @@ reference surface absent · **Departure** = deliberate, ledgered.
 | **render-modules** | Verbatim (classic) / Partial (enhanced) | **unchanged, and still un-oracled** | The port-original modules (frustum, far ring, precipitation, enhanced sky) have no parity oracle by construction. This is the one structural verification hole the campaign did not touch. |
 | **player** | Near-1:1 / one lethal seam | **Near-1:1** | `cancelMovement` is a real motor field set on the mode edges (`player/motor.js:502,:588,:596`). ROAD-A A6 took the -0.28 doorway head-dip, `PlayerMoveScanner`'s three probes, `controllerSwimHeight` 0.30 with Do(Un)Sinking, and `FreezeMotor` on teleports. |
 | **combat** | Math exact / wiring broken | **Verbatim** | Four hosts resolve a player arrow. ROAD-A A12 shipped the left-hand weapon (ToggleHand/SwitchHand/`usingRightHand`, the classic import's `usingLeftHandWeapon`, the mirrored draw). |
-| **characters-ai** | Verbatim | **Verbatim** | `stopDistance` picks `CLASSIC_MELEE_DISTANCE_VS_AI` per pass (`enemyMotor.js:1319`, `enemyAttack.js:198`). ROAD-A A5 took enemy levitation, invisibility/Shade as live sources, foe fall damage and the Seducer transform pair. |
+| **characters-ai** | Verbatim | **Verbatim** | `stopDistance` picks `CLASSIC_MELEE_DISTANCE_VS_AI` per pass (`enemyMotor.js:1319`, `enemyAttack.js:206`). ROAD-A A5 took enemy levitation, invisibility/Shade as live sources, foe fall damage and the Seducer transform pair. |
 | **characters-voxel** | Departure (deliberate) | **Departure, still editor-only** | 86 designs across seven tables - 42 of the 43 monster mobiles, 19 class, 25 villager. The rig is 1,791 lines across 7 modules and is still gated: `worldModes.js:5907` passes `voxelfolk`, `scenes/interiorContext.js:612` consumes it. |
 | **sys-entity** | Law byte-exact / three dead seams | **Verbatim** | ROAD-A A11 took the "master of" box (TEXT.RSC 4020) with `ArenaFanfareLevelUp`, `skillsRecentlyRaised` and the sheet's own leveling arm. |
 | **sys-magic** | Near-complete | **Verbatim** | 91 keys, 0 inert; `minimumCastingCost` live; ROAD-D D9 took the held-bundle instant re-fire and the caster block's `BundleType == Spell` test on all three gates. |
@@ -420,7 +420,7 @@ are the **narrowed remainders** Wave D recorded rather than shipped
 
 **Blocked - host scope.**
 
-- **`src/scenes/exterior.js:2307`** - Recall pends here; the anchor
+- **`src/scenes/exterior.js:2310`** - Recall pends here; the anchor
   machinery lives in the streaming `?world` host. *(The triage measured
   this row at `:1033`; RE-RESOLVED onto the live refusal at ROAD-G G7,
   because this is the one row in the two lists that is still OPEN - a

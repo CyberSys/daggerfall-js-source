@@ -38,17 +38,38 @@ export function isCoverFlat(archive, record, size) {
 
 /** The proxy of one flat: `base` its [x, y, z] (the billboard's BASE, bottom-anchored), by reference. */
 export function coverProxy(base, size) {
-  return { c: base, r: size.w * COVER_RADIUS_FRAC, h: size.h * COVER_HEIGHT_FRAC };
+  return { c: base, r: size.w * COVER_RADIUS_FRAC, h: size.h * COVER_HEIGHT_FRAC, lift: 0 };
+}
+/** AUDIT TACT B2: a TREE is its trunk and its crown, not one fat column - the design's "a tree: its trunk's width to
+ *  its crown's height". The trunk a body's width (COVER_TRUNK_R) up to where the crown starts, the crown the drawn
+ *  width from there to the top: a player beside a trunk is beside it, never inside a 1 m pillar of air. */
+export const COVER_TRUNK_R = 0.3;
+export const COVER_CROWN_FROM = 0.45;
+export function coverProxies(base, size, { tree = false } = {}) {
+  if (!tree) return [coverProxy(base, size)];
+  const h = size.h * COVER_HEIGHT_FRAC, from = size.h * COVER_CROWN_FROM;
+  return [
+    { c: base, r: Math.min(size.w * COVER_RADIUS_FRAC, COVER_TRUNK_R), h: from, lift: 0 },
+    { c: base, r: size.w * COVER_RADIUS_FRAC, h: h - from, lift: from },
+  ];
 }
 
 /** The first distance along a unit ray from `o` (in the cylinder's frame) at which it meets the upright cylinder
- *  { c: base, r, h }, within `maxDist`; Infinity for none. A ray that STARTS inside a proxy is not blocked by it (a
- *  foe in a thicket still sees out of it, an arrow loosed from beside a trunk still flies). */
-export function rayCylinder(o, d, cyl, maxDist) {
-  const cx = cyl.c[0], cy = cyl.c[1], cz = cyl.c[2], r = cyl.r, top = cy + cyl.h;
+ *  { c: base, r, h, lift }, within `maxDist`; Infinity for none. A ray that STARTS inside a proxy is not blocked by it
+ *  (a foe in a thicket still sees out of it, an arrow loosed from beside a trunk still flies). AUDIT TACT B2: and a
+ *  SIGHT ray (`endAt`, its length) that ENDS inside one is not either - the law is two-way: one in a crown sees out of it AND
+ *  is seen in it, never the one-way hiding place it was. A felled tree (`c.sunk`) and a person (`c.noCover`) are no
+ *  cover at all. */
+export function rayCylinder(o, d, cyl, maxDist, endAt = null) {
+  const c0 = cyl.c;
+  if (c0.sunk || c0.noCover) return Infinity;
+  const cx = c0[0], cy = c0[1] + (cyl.lift ?? 0), cz = c0[2], r = cyl.r, top = cy + cyl.h;
   const ox = o[0] - cx, oz = o[2] - cz;
-  const inside = ox * ox + oz * oz <= r * r && o[1] >= cy && o[1] <= top;
-  if (inside) return Infinity;
+  if (ox * ox + oz * oz <= r * r && o[1] >= cy && o[1] <= top) return Infinity;
+  if (endAt != null) {   // the sight ray's own end (its target's eye), however short the search has been cut
+    const ex = ox + d[0] * endAt, ey = o[1] + d[1] * endAt, ez = oz + d[2] * endAt;
+    if (ex * ex + ez * ez <= r * r && ey >= cy && ey <= top) return Infinity;
+  }
   let best = Infinity;
   // the side
   const a = d[0] * d[0] + d[2] * d[2];
@@ -65,8 +86,8 @@ export function rayCylinder(o, d, cyl, maxDist) {
   }
   // the caps (a ray from above into a crown, from below into a ledge's bush)
   if (Math.abs(d[1]) > 1e-12) {
-    for (const py of [top, cy]) {
-      const s = (py - o[1]) / d[1];
+    for (let k = 0; k < 2; k++) {   // AUDIT TACT D11: no array a test
+      const s = ((k ? cy : top) - o[1]) / d[1];
       if (s < 0 || s > maxDist || s >= best) continue;
       const x = ox + d[0] * s, z = oz + d[2] * s;
       if (x * x + z * z <= r * r) best = s;
@@ -76,6 +97,10 @@ export function rayCylinder(o, d, cyl, maxDist) {
 }
 
 const ZERO3 = Object.freeze([0, 0, 0]);
+const _lo = [0, 0, 0];   // AUDIT TACT D11: the ray in a set's frame - one scratch, not one a call
+/** AUDIT TACT D11: a broad-phase cell's key as a number (no string a cell a ray); cells within +-32768 of the frame's
+ *  origin - 131 km at 4 m, past any pixel or room. */
+const cellKey = (gx, gz) => (gx + 32768) * 65536 + (gz + 32768);
 
 /** TACT1: cover is read with the Enhanced AI switch on - this module is the switch's one reader for it, so a host
  *  stands its index without seeing the switch (enhancedAI4's AUDIT 55 holds who may). */
@@ -98,16 +123,16 @@ export function createCoverIndex({ enabled = coverSwitchOn } = {}) {
       sets.set(key, set);
     }
     for (const it of items) {
-      if (!(it?.r > 0) || !(it.h > 0) || !it.c) continue;
+      if (!(it?.r > 0) || !(it.h > 0) || !it.c || it.c.noCover) continue;   // AUDIT TACT B3: a person is no cover
       it._mark = 0;
       set.items.push(it);
       const [x, y, z] = it.c;
       set.min[0] = Math.min(set.min[0], x - it.r); set.max[0] = Math.max(set.max[0], x + it.r);
-      set.min[1] = Math.min(set.min[1], y - 64); set.max[1] = Math.max(set.max[1], y + it.h + 64);   // a felled tree sinks; slack, not a bound
+      set.min[1] = Math.min(set.min[1], y - 64); set.max[1] = Math.max(set.max[1], y + (it.lift ?? 0) + it.h + 64);   // slack, not a bound
       set.min[2] = Math.min(set.min[2], z - it.r); set.max[2] = Math.max(set.max[2], z + it.r);
       for (let gx = Math.floor((x - it.r) / COVER_CELL); gx <= Math.floor((x + it.r) / COVER_CELL); gx++) {
         for (let gz = Math.floor((z - it.r) / COVER_CELL); gz <= Math.floor((z + it.r) / COVER_CELL); gz++) {
-          const k = gx + ',' + gz;
+          const k = cellKey(gx, gz);
           let cell = set.grid.get(k);
           if (!cell) set.grid.set(k, cell = []);
           cell.push(it);
@@ -119,11 +144,13 @@ export function createCoverIndex({ enabled = coverSwitchOn } = {}) {
 
   function remove(key) { sets.delete(key); }
 
-  /** The nearest cover along the unit ray `dir` from `origin` within `maxDist`; Infinity for none. */
-  function hit(origin, dir, maxDist) {
+  /** The nearest cover along the unit ray `dir` from `origin` within `maxDist`; Infinity for none. `sight`: the ray
+   *  is a line of sight to a target at `maxDist`, which a proxy holding that end does not hide (AUDIT TACT B2). */
+  function hit(origin, dir, maxDist, sight = false) {
     if (!(maxDist > 0) || !sets.size) return Infinity;
     let best = Infinity;
-    const lo = [0, 0, 0];
+    const lo = _lo;
+    const endAt = sight ? maxDist : null;
     for (const set of sets.values()) {
       const t = set.t();
       lo[0] = origin[0] - t[0]; lo[1] = origin[1] - t[1]; lo[2] = origin[2] - t[2];
@@ -136,12 +163,12 @@ export function createCoverIndex({ enabled = coverSwitchOn } = {}) {
       const gz0 = Math.floor(Math.min(lo[2], ez) / COVER_CELL), gz1 = Math.floor(Math.max(lo[2], ez) / COVER_CELL);
       for (let gx = gx0; gx <= gx1; gx++) {
         for (let gz = gz0; gz <= gz1; gz++) {
-          const cell = set.grid.get(gx + ',' + gz);
+          const cell = set.grid.get(cellKey(gx, gz));
           if (!cell) continue;
           for (const it of cell) {
             if (it._mark === stamp) continue;
             it._mark = stamp;
-            const s = rayCylinder(lo, dir, it, Math.min(maxDist, best));
+            const s = rayCylinder(lo, dir, it, Math.min(maxDist, best), endAt);
             if (s < best) best = s;
           }
         }
@@ -165,10 +192,27 @@ export function createCoverIndex({ enabled = coverSwitchOn } = {}) {
  * stop it, within `maxDist` - Infinity when the collider has no cover, cover is off (the Enhanced AI switch), or
  * nothing stands in the way.
  */
-export function coverDistance(collider, origin, dir, maxDist) {
+export function coverDistance(collider, origin, dir, maxDist, sight = false) {
   const cover = collider?.cover;
   if (!cover || !cover.on()) return Infinity;
-  return cover.hit(origin, dir, maxDist);
+  return cover.hit(origin, dir, maxDist, sight);   // AUDIT TACT B2: `sight` - a line of sight to a target at maxDist
+}
+
+/**
+ * AUDIT TACT B5: A MISSILE MEETS COVER AS IT MEETS A BODY - BY TOUCH. A wall is met at the step's whole reach (DFU's
+ * own sweep); cover answered the same way ate every shot at someone standing in front of a trunk whenever a frame's
+ * step crossed both (a 20 fps arrow never struck a player half a metre before a tree). So: the missile stops on cover
+ * only when its own radius touches it (`cov <= radius`); short of that, it is advanced only as far as the touch (the
+ * step's `along`, in the step's own units), and the body tests run there first.
+ * `cov` the cover's distance along the unit ray, `wall` the collider's, `reach` the step's reach (its length in unit
+ * terms plus `radius`), `stepLen` |dir| x step. Answers { stop } - the distance it stops at (Infinity: it does not) -
+ * and { advance } - the share of the step to take (1: all of it).
+ */
+export function coverStep(cov, wall, reach, radius, stepLen) {
+  if (Number.isFinite(wall) && wall <= reach && !(cov < wall)) return { stop: wall, advance: 1 };
+  if (!(cov <= reach)) return { stop: Number.isFinite(wall) && wall <= reach ? wall : Infinity, advance: 1 };
+  if (cov <= radius + 1e-6) return { stop: cov, advance: 1 };
+  return { stop: Infinity, advance: stepLen > 1e-9 ? Math.min(1, (cov - radius) / stepLen) : 1 };
 }
 
 /**

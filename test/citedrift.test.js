@@ -508,7 +508,7 @@ const AF = 'src/combat/arrowFlight.js';   // ROAD-H tail (review)
 // WM3 (2026-09-15): A LITERAL IN THE PICK REGEX IS NOT A CHECK.
 //
 // These entries used to bake the OTHER half of a cite pair into the
-// pick - `/exterior\.js:(\d+)\/:1547/`, `/exterior\.js:973\/:(\d+)/` -
+// pick - `/exterior\.js:(\d+)\/:1547/`, `/exterior\.js:976\/:(\d+)/` -
 // and that number asserts nothing: nothing reads it against the target,
 // it only decides whether the regex MATCHES AT ALL. So when citeShift
 // correctly moved the cite, the pin stopped matching and this file
@@ -699,9 +699,9 @@ const SOURCE_CITES = [
   // AUDIT QS6 F1, a fifth time and at a second door: this row names FIVE hosts
   // and the table captured ONE, with a sixth number baked into the pick - so
   // citeMerge bumped the LITERAL at the BOX1/TI3 merge and left the doc, and
-  // four of the five had been stale for waves (`worldModes.js:8341` for a line
-  // that is 5921, `world.js:21034` for 8836, `interior.js:326` for 329,
-  // `dungeon.js:982` for 959). Every one is captured now, against the
+  // four of the five had been stale for waves (`worldModes.js:8342` for a line
+  // that is 5921, `world.js:21044` for 8836, `interior.js:326` for 329,
+  // `dungeon.js:985` for 959). Every one is captured now, against the
   // projection each host really builds.
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:(\d+)`, `dungeon\.js:\d+`/, EX, /^ {6}fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?,/],   // CLIMB4: the climb's kick on the lens
   ['bible/10-UI/Settings-Screen-Spec.md', /`exterior\.js:\d+`, `dungeon\.js:(\d+)`/, 'src/scenes/dungeon.js', /^ {4}const proj = mirrorProjectionX\(perspective\(fieldOfView\(\)( \+ climbFeel\.fovRad\(\))?, largeHudWorldAspect/],
@@ -760,7 +760,7 @@ const SOURCE_CITES = [
   // ROAD-G G1 (review): BOTH ends, because the half-shifted range is
   // exactly the defect this file exists to catch - the leading number
   // was re-resolved and the trailing one left where it was, leaving a
-  // range that cannot exist (`exterior.js:1768-1428`).
+  // range that cannot exist (`exterior.js:1771-1431`).
   ['bible/01-Overview/Port-Ledger.md', /`exterior\.js:(\d+)-\d+` build `createDetectFeed`/,
     EX, /const detectFeed = createDetectFeed\(playerEntity, \{/],
   ['bible/01-Overview/Port-Ledger.md', /`exterior\.js:\d+-(\d+)` build `createDetectFeed`/,
@@ -974,7 +974,7 @@ test('CD6: every `src/` line Port-Status cites is the line it describes', () => 
 //
 // The G1 lane re-resolved ~180 `:NNN` cites after moving code in four
 // hosts, and the pass advanced only the LEADING number of every
-// multi-number citation: `cityGuards.js:1020-924`, `world.js:14051-14002`,
+// multi-number citation: `cityGuards.js:1020-924`, `world.js:14061-14012`,
 // `worldModes.js:1546 against :1318`. Forty of them came out as ranges
 // that cannot exist, and every pin in this file was green throughout,
 // because each one resolves a single number a human chose to list.

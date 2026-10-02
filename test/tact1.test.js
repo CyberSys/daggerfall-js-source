@@ -132,7 +132,7 @@ test('TACT1: a foe does not see the player behind a tree - with the switch on; o
   assert.equal(eyeLevel(field(true, [0, 0, 14])), true, 'the tree behind him');
   assert.equal(eyeLevel(field(true, [4, 0, 5])), true, 'beside the line');
   assert.equal(canSeeTarget(field(true), [0, 0, 0], 0, 1.8, [0, 0, 3.5]), true, 'in front of the tree');
-  assert.equal(canSeeTarget(field(true), [0, 0, 0], 0, 1.8, [0, 0, 4.5]), false, 'IN its crown - hidden');
+  assert.equal(canSeeTarget(field(true), [0, 0, 0], 0, 1.8, [0, 0, 4.5]), true, 'IN its crown - seen there (AUDIT TACT B2: the law is two-way, no one-way hiding place)');
   // the door-opening arm (blockerOut) answers the same, and a tree is no door
   const out = { key: null };
   assert.equal(canSeeTarget(field(true), [0, 0, 0], 0, 1.8, [0, 0, 10], 1.8, out), false);
@@ -181,13 +181,14 @@ test('TACT1: every host stands its cover on its collider, under the switch; ever
   for (const f of ['src/scenes/world.js', 'src/scenes/dungeonContext.js', 'src/scenes/interiorContext.js', 'src/scenes/exterior.js']) assert.match(rd(f), sw, f);
   const w = rd('src/scenes/world.js');
   assert.match(w, /collider\.cover\.remove\(key\);\n\s*if \(coverItems\.length\) collider\.cover\.add\(key, coverItems, \(\(o\) => \(\) => state\.pixelTranslation\(px, py, o\)\)\(\[0, 0, 0\]\)\);/, 'the pixel\'s, in its frame, under its bucket key');
-  assert.equal((w.match(/if \(isCoverFlat\(archive, record, (?:sib\.)?size\)\) for \(const c of centers\) coverItems\.push\(coverProxy\(c, (?:sib\.)?size\)\);/g) ?? []).length, 3, 'the seasonal, the classic and the scaled groups');
+  assert.equal((w.match(/if \(isCoverFlat\(archive, record, (?:sib\.)?size\)\) for \(const c of centers\) coverItems\.push\((?:\.\.\.coverProxies|coverProxy)\(c, (?:sib\.)?size/g) ?? []).length, 3, 'the seasonal, the classic and the scaled groups');
   assert.match(rd('src/scenes/dungeonContext.js'), /if \(isCoverFlat\(archive, record, size\)\) for \(const c of based\) coverItems\.push\(coverProxy\(c, size\)\);\n\s*\}\n\s*collider\.cover\.add\('tact1:flats', coverItems\);/, 'the dungeon\'s, at the BASE (an RDB flat\'s y is its centre)');
   assert.match(rd('src/scenes/interiorContext.js'), /if \(isCoverFlat\(archive, record, size\)\) collider\.cover\.add\('tact1:flats', centers\.map\(\(c\) => coverProxy\(c, size\)\)\);/);
   assert.equal((rd('src/scenes/exterior.js').match(/collider\.cover\.add\('tact1:flats'/g) ?? []).length, 2);
   for (const f of ['src/scenes/hostMagic.js', 'src/scenes/dungeonContext.js']) {
-    assert.match(rd(f), /const hitWall = Math\.min\(collider\.raycast\(m\.pos, _unit, reach\), coverDistance\(collider, m\.pos, _unit, reach\)\);/, `${f}: the bolts`);
+    assert.match(rd(f), /const _cs = coverStep\(coverDistance\(collider, m\.pos, _unit, reach\), collider\.raycast\(m\.pos, _unit, reach\), reach, reach - step \* _len, step \* _len\);\n\s*const hitWall = _cs\.stop;/, `${f}: the bolts (AUDIT TACT B5: cover met by touch)`);
+    assert.match(rd(f), /const _adv = step \* _cs\.advance;/, `${f}: no further than cover's touch`);
   }
-  assert.equal((rd('src/scenes/cityGuards.js').match(/coverDistance\(collider, eye, dir, dist\) < dist - 1e-3/g) ?? []).length, 2, 'the witness and the guard who sees him');
+  assert.equal((rd('src/scenes/cityGuards.js').match(/coverDistance\(collider, eye, dir, dist, true\) < dist - 1e-3/g) ?? []).length, 2, 'the witness and the guard who sees him - lines of sight (AUDIT TACT B2)');
   assert.match(rd('src/player/collider.js'), /this\.cover\?\.remove\(bucketKey\);/);
 });

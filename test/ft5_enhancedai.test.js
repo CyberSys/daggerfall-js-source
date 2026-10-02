@@ -27,7 +27,7 @@ test('FT5: the registry row - Enhanced only, over the pref, off by default, soun
   assert.deepEqual(f.kinds, ['enhanced'], 'the port\'s own; DFU\'s EnhancedCombatAI is a different thing and wears no label here');
   assert.deepEqual(f.control, { store: 'prefs', key: 'enhancedAI', initial: false, online: true });   // RF4: the row declares its default and the lane's answer
   assert.equal(PREF_DEFAULTS.enhancedAI, false, 'off by default: the classic motor is the 1:1 law');
-  assert.equal(f.effect, 'Takes effect on the next dungeon you enter.');
+  assert.equal(f.effect, 'At once - the dungeon pathfinding from the next dungeon you enter.');   // AUDIT TACT D7: the tactics, cover and blows read the switch live; only the navmesh waits
   assert.deepEqual(checkFeature(f), []);
   assert.equal(featureForControl('prefs', 'enhancedAI'), f);
 });

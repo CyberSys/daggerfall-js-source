@@ -25,7 +25,8 @@
 import { getPref } from '../systems/uiPrefs.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
-import { throwsBlows, blowShapesOf, makeBlow, inBlow, setLiveBlow, windupNear, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR } from './foeBlows.js';   // TACT4
+import { throwsBlows, blowShapesOf, makeBlow, fitBlowToGround, inBlow, setLiveBlow, windupNear, offsetBlows, BLOW_CHANCE, BLOW_COOLDOWN_MIN, BLOW_COOLDOWN_MAX, BLOW_COLOR } from './foeBlows.js';   // TACT4
+import { tacticsNow, setTacticsClock, tickTactics } from './tacticsClock.js';   // AUDIT TACT D10/A3
 
 export const tacticsSwitchOn = () => getPref('enhancedAI') === true;
 
@@ -49,10 +50,13 @@ export const TACT = Object.freeze({
   BACKOFF: 2,                // ...for this long
   FLEE_SHARE: 0.2,           // a coward below this share of its health runs
   FLEE_SECONDS: 8,
-  KITE_RANGE: 5,             // a shooter backs off a target nearer than this
+  KITE_IN: 6,                // a shooter with a token backs off a target inside DFU's own bow band's near edge (MIN_RANGED_DISTANCE)...
+  KITE_OUT: 7,               // ...until it stands this far off (AUDIT TACT A1: past the band's edge, never jittering on it)
+  KITE_CORNERED: 3,          // a shooter whose step back meets a wall fights hand to hand this long (s)
+  RANGED_LEASE: 5,           // a ranged token held this long without a shot is handed on (s)
+  BACKOFF_GAP: 2,            // a foe backing off stands this far past the ring
   BACK_TURNED_DEG: 110,      // the target's facing this far from the foe: its back is turned
   STALE: 1.5,                // a token holder unseen this long (despawned, unloaded) loses it
-  SKIPPED: 0.09,             // a gap between the brain's turns past one classic tick (1/16 s): the motor skipped it - knocked, paralysed
 });
 
 /** The cowardly human classes (Mac's call): the ones who live by not being hit. */
@@ -64,11 +68,9 @@ export function isCoward(mobileId) {
   return ENEMY_BASICS[mobileId]?.affinity === 'Animal';
 }
 
-let clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
-/** Tests: drive the brain's clock. */
-export function setTacticsClock(fn) { clock = fn; }
-/** The brain's clock, for the ground's draw (ai/foeBlows.js drawableBlows). */
-export const tacticsNow = () => clock();
+// AUDIT TACT (D10/A3): the foes' own time, ticked by the hosts (ai/tacticsClock.js) - never the wall's
+const clock = tacticsNow;
+export { tacticsNow, setTacticsClock, tickTactics };
 
 /** @type {Map<any, { melee: Map<any, number>, ranged: Map<any, number>, waiting: Map<any, number> }>} */
 const _boards = new Map();
@@ -82,6 +84,14 @@ export function noteLocalPlayer(feet, fwd) {
 }
 /** Tests: forget every board and the noted player. */
 export function resetTactics() { _boards.clear(); _me = null; }
+/** AUDIT TACT D3: a floating-origin recentre - the noted player and every live wind-up move with the world. */
+export function offsetTactics(offset) {
+  if (!offset) return;
+  if (_me) { _me.feet[0] += offset[0]; _me.feet[1] += offset[1]; _me.feet[2] += offset[2]; }
+  offsetBlows(offset);
+}
+/** AUDIT TACT A7: how many boards are held (tests, probes) - an emptied one is dropped. */
+export const boardsHeld = () => _boards.size;
 
 const LOCAL = Object.freeze({ local: true });
 /** The board's key for an ai's target: the local player is one key; a peer by its owner; a foe by itself. */
@@ -97,11 +107,17 @@ function board(key) {
 }
 /** Release every token and place `ai` holds (it died, despawned, lost its target, fled). */
 export function releaseTactics(ai) {
-  for (const b of _boards.values()) { b.melee.delete(ai); b.ranged.delete(ai); b.waiting.delete(ai); }
+  for (const [k, b] of _boards) {
+    b.melee.delete(ai); b.ranged.delete(ai); b.waiting.delete(ai);
+    if (k !== LOCAL && !b.melee.size && !b.ranged.size && !b.waiting.size) _boards.delete(k);   // AUDIT TACT A7: no dead target held
+  }
   if (ai._tac) { ai._tac.key = null; if (ai._tac.state === 'windup') ai._tac.state = 'wait'; ai._tac.blow = null; }
   setLiveBlow(ai, null);   // TACT4: a wind-up dies with its foe's place
+  clearBlowState(ai);
   ai._tacDir = null; ai._tacStrike = undefined; ai._tacShoot = undefined;
 }
+/** AUDIT TACT A4/D5/D6: a blow's landing state, spent - no verdict, weight or forced swing left for a later swing. */
+function clearBlowState(ai) { ai._blowVerdict = null; ai._blowMult = undefined; ai._blowSwing = false; }
 /** How many tokens of `kind` the target `key` has out (tests, probes). */
 export function tokensOut(key, kind) { return _boards.get(key)?.[kind]?.size ?? 0; }
 export const LOCAL_TARGET = LOCAL;
@@ -110,7 +126,7 @@ export const LOCAL_TARGET = LOCAL;
 const shooter = (ai) => !!ai.hasBowAttack || !!ai.canCastRangedSpell?.();
 
 function prune(b, now) {
-  for (const m of [b.melee, b.ranged, b.waiting]) for (const [a, seen] of m) if (now - (a._tac?.seen ?? -Infinity) > TACT.STALE || a._tac?.seen == null) m.delete(a);
+  for (const m of [b.melee, b.ranged, b.waiting]) for (const [a] of m) if (now - (a._tac?.seen ?? -Infinity) > TACT.STALE || a._tac?.seen == null) m.delete(a);
 }
 
 /** Take a token of `kind` for `ai` if one is free - or, past its patience, whatever the count. */
@@ -142,20 +158,23 @@ export function tacticsStep(ai, dx, dz) {
   ai._tacSpeed = 1;
   if (!tacticsSwitchOn()) { if (ai._tac) releaseTactics(ai); ai._tac = null; ai._tacStrike = undefined; ai._tacShoot = undefined; return false; }
   const now = clock();
-  const s = ai._tac ?? (ai._tac = { key: null, kind: 'melee', state: 'wait', until: 0, slot: Math.random() * Math.PI * 2, hp: [], fled: false, seen: now, swung: 0 });
-  const gap = now - s.seen;   // TACT4: a step it did not decide (knocked back, paralysed) - the motor skips the brain then
+  const s = ai._tac ?? (ai._tac = { key: null, kind: 'melee', state: 'wait', until: 0, slot: Math.random() * Math.PI * 2, hp: [], fled: false, seen: now, swung: 0, shot: 0, kiting: false, meleeUntil: 0, leased: 0 });
+  // AUDIT TACT D1/A3: a step it did not decide - knocked back, paralysed, held - is the MOTOR's word (`_tacSkipped`,
+  // set when it could not act), never a gap on any clock: a slow frame is not a knock
+  const skipped = !!ai._tacSkipped;
+  ai._tacSkipped = false;
   s.seen = now;
   const dist = ai._dist;
   const fighting = ai.inSight && ai.detected && Number.isFinite(dist) && dist <= (shooter(ai) ? TACT.SHOOT_RANGE : TACT.ENGAGE_RANGE) && !ai.follow;
   const key = fighting ? targetKey(ai) : null;
   ai._tacStrike = undefined; ai._tacShoot = undefined;
   // TACT4: a wind-up, once begun, is committed - it lands where it was aimed whether or not the target stays in sight
-  if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, gap);
+  if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);
   if (s.key !== key) { releaseTactics(ai); s.key = key; s.state = 'wait'; }
   if (!fighting) return false;
   const b = board(key);
   prune(b, now);
-  s.kind = shooter(ai) && dist > TACT.KITE_RANGE * 0.5 ? 'ranged' : 'melee';
+  s.kind = shooter(ai) && now >= s.meleeUntil ? 'ranged' : 'melee';   // AUDIT TACT A1: a cornered shooter fights hand to hand a while
   if (!b.waiting.has(ai) && !b.melee.has(ai) && !b.ranged.has(ai)) b.waiting.set(ai, now);
 
   // health: the window's losses, and the coward's run
@@ -198,15 +217,33 @@ export function tacticsStep(ai, dx, dz) {
 
   // a shooter: the token gates its shot; with one, it kites a closing target
   if (s.kind === 'ranged') {
+    // AUDIT TACT A2: a shot spends the token (the longest waiter shoots next), and a token held without a shot is a lease
+    const shot = ai._tacShot ?? 0;
+    if (shot !== s.shot) { s.shot = shot; if (b.ranged.delete(ai)) b.waiting.set(ai, now); }
+    if (b.ranged.has(ai) && now - s.leased > TACT.RANGED_LEASE) { b.ranged.delete(ai); b.waiting.set(ai, now); }
+    const had = b.ranged.has(ai);
     const has = take(b, 'ranged', ai, now, TACT.RANGED_TOKENS);
+    if (has && !had) s.leased = now;
     ai._tacShoot = has;
-    if (has && dist < TACT.KITE_RANGE) {
-      ai._tacDir = [-ux, -uz]; ai._tacSpeed = TACT.STEP_SPEED; ai.moving = true; face();
-      return true;
+    if (has) {
+      // AUDIT TACT A1: inside the bow band's near edge it backs out, past the edge, and only then stands to shoot
+      if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {
+        if (ai._tacBlocked) {   // a wall behind it: cornered, it fights hand to hand
+          ai._tacBlocked = false; s.kiting = false; s.meleeUntil = now + TACT.KITE_CORNERED;
+          b.ranged.delete(ai); b.waiting.set(ai, now);
+          return false;
+        }
+        s.kiting = true;
+        ai._tacDir = [-ux, -uz]; ai._tacSpeed = TACT.STEP_SPEED; ai.moving = true; face();
+        return true;
+      }
+      s.kiting = false;
+      return false;   // the classic stand-off and shot
     }
-    if (has) return false;   // the classic stand-off and shot
+    s.kiting = false;
     return holdRing(ai, s, b, ux, uz, dist, ring + 2, now, face);
   }
+  ai._tacBlocked = false;
 
   // melee
   const backTurned = key === LOCAL && _me && backTurnedOn(ai);
@@ -215,42 +252,45 @@ export function tacticsStep(ai, dx, dz) {
   }
   if (s.state === 'engage' && !b.melee.has(ai) && !backTurned) s.state = 'wait';
   // TACT4: a telegraphed blow - a holder in reach of the tier, its cooldown spent, nobody else winding up near me
-  if (s.state === 'engage' && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {
+  if (s.state === 'engage' && b.melee.has(ai) && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder's, never an opportunist's
     const ent = ai.vitals?.();
     if (throwsBlows(ent) && !windupNear(_me.feet, now, ai) && Math.random() < BLOW_CHANCE) {
       const shapes = blowShapesOf(ent.mobileType);
-      s.blow = makeBlow(shapes[Math.floor(Math.random() * shapes.length)], ai.feet, Math.atan2(dx, dz), now, BLOW_COLOR);
+      s.blow = fitBlowToGround(makeBlow(shapes[Math.floor(Math.random() * shapes.length)], ai.feet, Math.atan2(dx, dz), now, BLOW_COLOR), ai.collider);   // AUDIT TACT D8: on the ground it marks
       setLiveBlow(ai, s.blow);
       s.state = 'windup';
     }
   }
-  if (s.state === 'windup') return windupTurn(ai, s, now, gap);
+  if (s.state === 'windup') return windupTurn(ai, s, now, skipped);
   if (s.state === 'engage') { ai._tacStrike = true; return false; }   // the classic walk in and swing
   if (s.state === 'swing') { ai._tacStrike = false; ai.moving = false; face(); return true; }   // stands its blow
   ai._tacStrike = false;
-  if (s.state === 'recover' || s.state === 'backoff') {
-    const out = s.state === 'backoff' ? ring + 1.5 : ring;
-    if (dist < out - TACT.RING_SLACK) { ai._tacDir = [-ux, -uz]; ai._tacSpeed = TACT.STEP_SPEED; ai.moving = true; face(); return true; }
-  }
-  return holdRing(ai, s, b, ux, uz, dist, ring, now, face);
+  // AUDIT TACT A5: a foe backing off holds its OWN farther ring - out of reach, circling - not the waiting ring it
+  // would be walked back in to the moment it got there
+  const hold = s.state === 'backoff' ? ring + TACT.BACKOFF_GAP : ring;
+  return holdRing(ai, s, b, ux, uz, dist, hold, now, face);
 }
 
 /** TACT4: the wind-up's turn - broken by a knock or a paralysis (a step the motor did not let the brain decide), else
  *  stood, its aim locked, until the landing: where my feet stand decides it, and the swing comes now. */
-function windupTurn(ai, s, now, gap) {
+function windupTurn(ai, s, now, skipped) {
   const cooled = now + BLOW_COOLDOWN_MIN + Math.random() * (BLOW_COOLDOWN_MAX - BLOW_COOLDOWN_MIN);
-  if (ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0 || gap > TACT.SKIPPED) {
+  if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0) {
     setLiveBlow(ai, null); s.blow = null; s.state = 'engage'; s.blowReady = cooled;
+    clearBlowState(ai);
     return false;
   }
   if (now >= s.blow.land) {
-    ai._blowVerdict = !!_me && inBlow(s.blow, _me.feet[0], _me.feet[2]);
-    ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;
+    // AUDIT TACT A4/D6: only ever at ME - a wind-up whose foe has turned on another lands on no one here
+    if (_me && targetKey(ai) === LOCAL) {
+      ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);
+      ai._blowMult = s.blow.mult; ai._blowAt = now; ai._blowSwing = true;
+    } else clearBlowState(ai);
     s.blowReady = cooled; s.state = 'engage'; s.blow = null;
     ai._tacStrike = true;
     return false;
   }
-  ai._tacStrike = false; ai.moving = false;
+  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up
   return true;
 }
 

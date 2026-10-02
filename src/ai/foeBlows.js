@@ -15,6 +15,7 @@
 // one, and both helpers answer the classic value.
 
 import { MOBILE_TYPES } from '../characters/mobileTypes.js';
+import { tacticsNow } from './tacticsClock.js';   // AUDIT TACT: the foes' own time
 
 const M = MOBILE_TYPES;
 
@@ -30,7 +31,8 @@ export const BLOW_COOLDOWN_MAX = 15;
 export const BLOW_CHANCE = 1 / 10;      // a classic tick in reach with a token: the roll to wind one up
 export const BLOW_NEAR = 20;            // at most one wind-up from any foe within this of the player
 export const BLOW_FLASH = 0.3;          // the landing's flash on the ground (seconds)
-export const BLOW_VERDICT_LIFE = 2;     // a verdict the swing never spent (a knock, a death) goes stale
+export const BLOW_VERDICT_LIFE = 1;     // a verdict the swing never spent (a knock, a death) goes stale - a swing's own length
+export const BLOW_STALE = 0.3;          // AUDIT TACT D4: a blow whose foe the brain has not seen this long (dead, gone, another host's) is gone
 
 /** The families: which shapes a kind may throw (one or two). Not here: no telegraphed blow (the casters, the
  *  spectral, the small and the flying). */
@@ -56,7 +58,7 @@ export function blowShapesOf(mobileType) {
 /** Is this body of the tier that telegraphs (Mac: level 10 and up, or an elite)? */
 export function blowTier(entity) {
   if (!entity) return false;
-  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.elite === true || entity.eliteFoe === true;
+  return (entity.level ?? 0) >= BLOW_TIER_LEVEL || entity.eliteFoe === true;
 }
 /** Does this foe telegraph at all? */
 export const throwsBlows = (entity) => blowTier(entity) && blowShapesOf(entity.mobileType).length > 0;
@@ -66,6 +68,26 @@ export function makeBlow(kind, origin, yaw, now, color = null) {
   const P = BLOW[kind];
   return { kind, origin: [origin[0], origin[1], origin[2]], yaw, start: now, land: now + P.windup, mult: P.mult, color };
 }
+
+/**
+ * AUDIT TACT D8: THE GROUND UNDER A BLOW. The mark is one flat quad; on a hillside or a stair it sank into the rise and
+ * floated over the fall. So the ground is sampled under it - at its foot, 2 m ahead, 2 m across - and the quad tilts to
+ * that plane: `origin`'s y the ground's, `slope` the rise per metre (across, along), each clamped to 1 (45 degrees).
+ * No collider, or nothing under a sample: flat at the feet, as before.
+ */
+export function fitBlowToGround(b, collider) {
+  if (!b || !collider?.raycast) return b;
+  const fx = Math.sin(b.yaw), fz = Math.cos(b.yaw), wx = -fz, wz = fx;
+  const at = (x, z) => { const d = collider.raycast([x, b.origin[1] + 2.5, z], DOWN, 5); return Number.isFinite(d) ? b.origin[1] + 2.5 - d : null; };   // a stair's rise 2 m off is within reach
+  const h0 = at(b.origin[0], b.origin[2]);
+  if (h0 == null) return b;
+  const hf = at(b.origin[0] + fx * 2, b.origin[2] + fz * 2), hw = at(b.origin[0] + wx * 2, b.origin[2] + wz * 2);
+  const clamp = (v) => Math.max(-1, Math.min(1, v));
+  b.origin[1] = h0;
+  b.slope = [hw == null ? 0 : clamp((hw - h0) / 2), hf == null ? 0 : clamp((hf - h0) / 2)];
+  return b;
+}
+const DOWN = Object.freeze([0, -1, 0]);
 
 /** Is the point (px, pz) inside the blow's shape? The verdict at the landing. */
 export function inBlow(b, px, pz) {
@@ -100,7 +122,7 @@ export function setLiveBlow(ai, b) { if (b) _live.set(ai, b); else _live.delete(
 /** Is any foe winding up within BLOW_NEAR of `feet`? (one at a time near the player) */
 export function windupNear(feet, now, except = null) {
   for (const [ai, b] of _live) {
-    if (ai === except || now >= b.land) continue;
+    if (ai === except || now >= b.land || gone(ai, now)) continue;
     if (Math.hypot(b.origin[0] - feet[0], b.origin[2] - feet[2]) <= BLOW_NEAR) return true;
   }
   return false;
@@ -111,11 +133,17 @@ export function drawableBlows(now, near = null, range = 40) {
   const out = [];
   for (const [ai, b] of _live) {
     const phase = blowPhase(b, now);
-    if (!phase) { _live.delete(ai); continue; }
+    if (!phase || (now < b.land && gone(ai, now))) { _live.delete(ai); continue; }   // AUDIT TACT D4: a dead foe's wind-up goes with it
     if (near && Math.hypot(b.origin[0] - near[0], b.origin[2] - near[2]) > range) continue;
     out.push({ blow: b, phase });
   }
   return out;
+}
+/** AUDIT TACT D4: a blow whose foe is no longer stepped (dead, despawned, left behind in another host) is no one's. */
+const gone = (ai, now) => ai?._tac?.seen != null && now - ai._tac.seen > BLOW_STALE;
+/** AUDIT TACT D3: a floating-origin recentre moves every live wind-up with the world. */
+export function offsetBlows(offset) {
+  for (const b of _live.values()) { b.origin[0] += offset[0]; b.origin[1] += offset[1]; b.origin[2] += offset[2]; }
 }
 /** Tests: forget every blow. */
 export function resetBlows() { _live.clear(); }
@@ -124,7 +152,7 @@ export function resetBlows() { _live.clear(); }
  * The host's hit resolution, asked in place of its reach test: a foe whose telegraphed blow just landed answers the
  * shape's verdict (the feet in it, or out of it - dodged), once; any other swing answers `classic`.
  */
-export function blowConnects(ai, classic, now = null) {
+export function blowConnects(ai, classic, now = tacticsNow()) {
   const v = ai?._blowVerdict;
   if (v == null) return classic;
   const fresh = now == null || ai._blowAt == null || now - ai._blowAt <= BLOW_VERDICT_LIFE;

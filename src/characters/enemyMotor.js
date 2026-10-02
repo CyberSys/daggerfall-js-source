@@ -269,7 +269,7 @@ export function canSeeTarget(collider, feet, yaw, height, targetFeet, targetHeig
 /** TACT1: does cover (a tree, a crate, a statue - ai/cover.js) stand between the eye and a target `el` away along
  *  the unit (ux, uy, uz)? Never with the Enhanced AI switch off. A cover hit is no door, so `blockerOut` is left. */
 function coveredSight(collider, eye, ux, uy, uz, el) {
-  return coverDistance(collider, eye, [ux, uy, uz], el) < el - 1e-3;
+  return coverDistance(collider, eye, [ux, uy, uz], el, true) < el - 1e-3;   // AUDIT TACT B2: a line of sight - one in a crown is seen in it
 }
 
 // EnemyMotor.cs:34 - the maximum distance to open a door.
@@ -990,7 +990,7 @@ export class EnemyAI {
     // measured from the BODY, so it overshoots by originDistance.
     const hit = this.collider.sphereCast(origin, radius, [dx, dy, dz], dist);
     // TACT1: and no cover between - an archer behind a tree steps out rather than loose into the bark
-    return !Number.isFinite(hit.dist) && !(coverDistance(this.collider, origin, [dx, dy, dz], dist) < dist - originDistance);
+    return !Number.isFinite(hit.dist) && !(coverDistance(this.collider, origin, [dx, dy, dz], dist - originDistance, true) < dist - originDistance - 1e-3);   // AUDIT TACT B2: to the target, which a crown it stands in does not hide
   }
 
   /**
@@ -1439,7 +1439,7 @@ export class EnemyAI {
     // "Classic AI moves only as close as melee range. It uses a
     // different range for the player and for other AI." The port held
     // the 2.25 literal at both sites, so two infighting foes each
-    // halted 0.75 outside the 1.5 swing gate enemyAttack.js:165-166
+    // halted 0.75 outside the 1.5 swing gate enemyAttack.js:168-184
     // already honours - a stand-off that never resolved.
     this.stopDistance = (this._armedTargeting && this.target && !this.target.isPlayer)
       ? CLASSIC_MELEE_DISTANCE_VS_AI : MELEE_DISTANCE;
@@ -1457,7 +1457,8 @@ export class EnemyAI {
     // TACT2 (ai/tactics.js, the Enhanced AI switch on): the tokens, the ring, the beat after a blow, backing off,
     // a coward's run, an archer's kiting - a foe in sight of its target, not detouring. Off, it answers false and
     // touches nothing.
-    if (tacticsStep(this, dx, dz) && !detouring) return;
+    const _took = tacticsStep(this, dx, dz);
+    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup')) return;   // AUDIT TACT A6: a committed wind-up and a coward's run are never the detour's
     this._tacDir = null;
     // Ranged attacks (:468-470) - the FIRST branch of TakeAction's
     // action ladder, AHEAD of the detour (AUDIT 26 F011: the port took
@@ -1803,6 +1804,7 @@ export class EnemyAI {
     // MT-iii's hostility narrowing, now on THIS step's target machine.
     const foeTarget = this._armedTargeting && this.target != null && !this.target.isPlayer;
     this.canAct = !paralyzed && !knocked && (this.isHostile || foeTarget);
+    if (!this.canAct || paused) this._tacSkipped = true;   // AUDIT TACT D1/A3: a step it could not decide - the brain's word for a knock, never a clock's
     if (targeting && targetFeet == null) {
       this.inSight = false;
       this.detected = false;
@@ -1971,7 +1973,7 @@ export class EnemyAI {
         // The translation is the ELSE arm (:989-996) - a blocked foe
         // does not move this step at all, it picks a way round. Gravity
         // is separate (ApplyGravity, :167) and still applies.
-        if (this._tacDir) this._tacDir = null;   // TACT2: a wall or a drop behind it: it stands its ground
+        if (this._tacDir) { this._tacDir = null; this._tacBlocked = true; }   // TACT2: a wall or a drop behind it: it stands its ground (AUDIT TACT A1: and the brain hears of it)
         else this._findDetour(dir2d);
       } else {
         const k = this._tacDir ? this._tacSpeed : 1;

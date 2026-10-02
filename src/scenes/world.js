@@ -429,8 +429,8 @@ import { locationArrivalLanding, locationStartMarkers } from '../world/locationE
 import { preloadPrisonScreenArt, preloadCourtScreenArt } from '../ui/prisonScreen.js';   // PRIS00I0 - the serving-time screen   // ROAD-B B5: CORT01I0 - the courtroom the trial is pushed over
 import { TerrainGenClient } from '../world/terrainGenClient.js';   // EV7: the pixel kernel, off the main thread (samples/blend/tiles/grid/nature moved whole to terrainGen.js)
 import { getPref } from '../systems/uiPrefs.js';
-import { createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
-import { noteLocalPlayer, tacticsNow } from '../ai/tactics.js';   // TACT2; TACT4: the brain's clock
+import { createCoverIndex, isCoverFlat, coverProxy, coverProxies } from '../ai/cover.js';   // TACT1: billboards are cover
+import { noteLocalPlayer, tacticsNow, tickTactics, offsetTactics } from '../ai/tactics.js';   // TACT2; TACT4: the brain's clock; AUDIT TACT: its tick, the recentre's shift
 import { drawableBlows } from '../ai/foeBlows.js';   // TACT4
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
 import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, hourOf, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
@@ -4047,7 +4047,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         unionBox(batch._box);
         batches.push(batch);
         if (archive === natureArchive) forestGroups.set(k, { batch, centers, size: sib.size });   // PROF4: a felled tree's batch
-        if (isCoverFlat(archive, record, sib.size)) for (const c of centers) coverItems.push(coverProxy(c, sib.size));
+        if (isCoverFlat(archive, record, sib.size)) for (const c of centers) coverItems.push(...coverProxies(c, sib.size, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) }));   // AUDIT TACT B2: a tree's trunk and crown
         continue;
       }
       uploadRecord(archive, record);
@@ -4059,7 +4059,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
       batches.push(batch);
       if (archive === natureArchive) forestGroups.set(k, { batch, centers, size });   // PROF4: a felled tree's batch
-      if (isCoverFlat(archive, record, size)) for (const c of centers) coverItems.push(coverProxy(c, size));
+      if (isCoverFlat(archive, record, size)) for (const c of centers) coverItems.push(...coverProxies(c, size, { tree: archive === natureArchive && isTreeRecord(natureArchive, record) }));   // AUDIT TACT B2: a tree's trunk and crown
     }
     // WOD2: the scaled flats - billboardSize times the object's own scale.
     for (const { archive, record, scale, centers } of scaledGroups.values()) {
@@ -8677,7 +8677,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2779 mounts the same one, gated on
+  // and dungeonContext.js:2782 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6856
@@ -11291,7 +11291,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7815), so exterior mode and a
+    // composer, dungeonContext.js:7824), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -13428,7 +13428,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     lookFilter.add(e.movementX * lookScale(), -e.movementY * lookScale() * lookInvert());
   });
   // U41: `!townTalk.overlayActive` is the dungeon host's own gate
-  // (dungeon.js:250, "a right-click on a window is the window's...
+  // (dungeon.js:252, "a right-click on a window is the window's...
   // never a swing"), which these two hosts never got. It matters now
   // that the travel map makes RMB a ROUTINE gesture - its zoom - and
   // an ungated one fires a readied spell or looses an arrow at the
@@ -13922,6 +13922,16 @@ export async function bootWorld(canvas, renderer, params, status) {
   // floating-origin translation for the machine's world-space math
   // (translations freeze while a mode is active - the modal frame
   // returns before the streaming step).
+  // AUDIT TACT C4: THE STREET'S DOORWAYS, ONCE A GENERATION. Mapping every streamed door through shiftedDoor each frame
+  // was the WORLD-HOVER cost all over again (0.1-1.1 ms a frame); the world spots move only when a door arrives or leaves
+  // or the origin moves - each of which bumps doorGeneration - so they are mapped then, and a frame only filters them.
+  let _tactDoorGen = -1, _tactDoorWorld = [];
+  const _tactDoorSpots = (near, range = 40) => {
+    if (_tactDoorGen !== doorGeneration) { _tactDoorGen = doorGeneration; _tactDoorWorld = doorSpotsNear(buildingDoors, null, Infinity, shiftedDoor); }
+    const out = [];
+    for (const d of _tactDoorWorld) if (Math.hypot(d.pos[0] - near[0], d.pos[2] - near[2]) <= range) out.push(d);
+    return out;
+  };
   const shiftedDoor = (entry) => {
     const [px, py] = entry.pixelKey.split(',').map(Number);
     const t = state.pixelTranslation(px, py);
@@ -14001,7 +14011,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10399-10463 -
+  // worldModes answers it in BOTH modes (worldModes.js:10400-10464 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20904,7 +20914,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // main.js sets ?load when the menu resolves it, and its comment says
   // "Load Game rides the dungeon host's OWN quickLoad" - true when the
   // classic start booted scenes/dungeon.js, and U31 moved it HERE. The
-  // only reader of `load` in the whole tree is dungeon.js:122, so the
+  // only reader of `load` in the whole tree is dungeon.js:124, so the
   // flag arrived in this host and was discarded: the player got a
   // brand-new character in Privateer's Hold and the only way to reach
   // their save was to start a new game and press F11. A load is not a
@@ -22912,6 +22922,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     const fwd = [Math.sin(cam.yaw) * Math.cos(cam.pitch), Math.sin(cam.pitch), Math.cos(cam.yaw) * Math.cos(cam.pitch)];
     const right = [Math.cos(cam.yaw), 0, -Math.sin(cam.yaw)];   // HANDEDNESS (mat4's law): screen-right = (cos, 0, -sin) under the mirrored projection - Unity's own right
     noteLocalPlayer(walkMode && playerSpawned ? player.pos : cam.pos, fwd);   // TACT2: where I stand and face - a foe behind me sees my back (ai/tactics.js)
+    tickTactics(foeFrameDt(_questBoxHoldsFoes() ? 0 : dt));   // AUDIT TACT D10/A3: the brain's clock is the foes' own step - held when they are
 
     // Modal frame (worldModes.js): interior/dungeon consume the frame
     // entirely - the early return also freezes streaming (the
@@ -23919,6 +23930,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       cityGuards.offsetAll(r.offset);
       exteriorFoes.offsetAll(r.offset);   // X-slice
       labGrassField?.shiftOrigin(r.offset);   // PERF-EXT21: the field keeps its own origin and follows this one - every cell stays where it grew (AUDIT 49 F2 / GR5 threw it away here and regrew it for three seconds)
+      offsetTactics(r.offset);   // AUDIT TACT D3: the noted player and every live wind-up move with the world
       droppedLoot.offsetAll(r.offset);
       dwFish?.offsetAll(r.offset);   // DW-E3: the fish and their schools' centres (Port-Ledger A, the Iliac Puddle row)
       droppedTorches.offsetAll(r.offset);   // HT1: the torches too
@@ -24837,7 +24849,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // apart from each other as each pool keeps its own, and none of them holds a building's doorway
       const _ownTact = (f) => spacingSkips(f) || f._ownFrom != null || _deckBodies.has(f);   // another player's foe is placed by its owner's frame; a deck's by her leash
       spaceAcross([cityGuards.guards, exteriorFoes.foes], collider, foeFrameDt(foeDt), _ownTact);
-      clearDoorways([...cityGuards.guards, ...exteriorFoes.foes], doorSpotsNear(buildingDoors, _pf, 40, shiftedDoor), collider, foeFrameDt(foeDt), _ownTact);
+      if (cityGuards.guards.length || exteriorFoes.foes.length) clearDoorways([...cityGuards.guards, ...exteriorFoes.foes], _tactDoorSpots(_pf), collider, foeFrameDt(foeDt), _ownTact);   // AUDIT TACT C4: nobody to clear, no work
       navalCrewFrame(gamePaused() ? 0 : foeDt);   // LIVING CREW: the crews at their work on the decks near the eye - AUDIT NAV2 F53: held with the sea under a window
       livePersonBatches.push(...exteriorFoes.batches(), ...navalCrew.batches());
       if (playerSpawned) _townWatchFrame(foeDt);   // DISC19-F: the town's answer to what the pools just did
@@ -25443,7 +25455,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
             // above raceActivation - a live foe and a walking
             // townsperson. Without them the plaque named the shopfront
             // behind whoever was standing in front of it.
-            foe: ((ft) => peacefulFoePass(pickActivatableHit(cam.pos, _hd, ft, collider), ft, modes.exteriorActivationDistance(cam.pos, _hd)))([...exteriorFoes.liveTargets(), ...cityGuards.liveTargets()]),   // TACT3d: a peaceful guard in front of a door is no hit
+            foe: ((ft) => peacefulFoePass(pickActivatableHit(cam.pos, _hd, ft, collider), ft, modes.exteriorActivationDistance(cam.pos, _hd), getInteractionMode()))([...exteriorFoes.liveTargets(), ...cityGuards.liveTargets()]),   // TACT3d: a peaceful guard in front of a door is no hit
             person: _hoverPersonPick(cam.pos, _hd),
             peer: _hoverPeerPick(cam.pos, _hd),   // PEER-PLAQUE1: another player, raced as the F key picks them
           })),

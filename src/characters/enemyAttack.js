@@ -29,12 +29,15 @@
 // the constructor defaults (10 / 2 / 50) are neutral fallbacks only.
 
 import { rand } from '../formats/dfRandom.js';
+import { tacticsNow } from '../ai/tacticsClock.js';   // AUDIT TACT: a landing's swing is on the foes' own time
 import {
   createWeaponMachine, machineAttack, machineStep,
   MELEE_NUM_FRAMES, CLASSIC_UPDATE_INTERVAL,
 } from './weaponStates.js';
 import { STRIKES, ATTACKS_1H, sampleClip } from './anims.js';
 import { MELEE_DISTANCE, CLASSIC_MELEE_DISTANCE_VS_AI, withinYaw, MIN_RANGED_DISTANCE, MAX_RANGED_DISTANCE } from './enemyMotor.js';
+/** AUDIT TACT A4: a telegraphed blow's swing not taken this long after its landing is spent (s). */
+export const BLOW_SWING_LATE = 0.25;
 
 export const ATTACK_SPEED_FLOOR = 8;               // EnemyAttack.cs speedFloor
 export const ATTACK_YAW_DEG = 22.5;                // MeleeAnimation yaw gate
@@ -163,24 +166,29 @@ export class EnemyAttack {
       // DFRandom stream, so gating it slides nothing. `!== false`
       // keeps the old callers (and the headless tests' bare-object
       // ai stubs) on the permissive default.
+      // TACT4 (ai/foeBlows.js): a telegraphed blow's landing - the swing comes NOW, whatever the clock, the reach or the
+      // bow band (AUDIT TACT A4/D5: above the band's arm, so an archer's landing is never parked for later); a landing
+      // the swing could not take at once is spent, never fired seconds later off a stale verdict. Never set with the
+      // switch off.
+      if (ai._blowSwing) {
+        ai._blowSwing = false;
+        if (ai._blowAt != null && tacticsNow() - ai._blowAt > BLOW_SWING_LATE) { ai._blowVerdict = null; ai._blowMult = undefined; }
+        else {
+          if (oneShot) { this.machine.state = 'Idle'; this.machine.acc = 0; }
+          const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
+          if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; ai._tacSwung = (ai._tacSwung ?? 0) + 1; }
+          this.meleeTimer = resetMeleeTimer(this.playerLevel, this.reflexes, this.rolls());
+          continue;
+        }
+      }
       if (this.rangedAttack && ai.canAct !== false && ai.inSight && ai.detected && ai.giveUpTimer > 0
           && dist > MIN_RANGED_DISTANCE && dist < MAX_RANGED_DISTANCE) {
         // ...and the 1/32 roll itself sits behind `if (!isPlayingOneShot)`
         // (:587), so a swing in flight DOES hold the bow roll.
         if (!oneShot && withinYaw(ai.yaw, dx, dz, ATTACK_YAW_DEG) && ai._tacShoot !== false && this.rolls() < BOW_SHOT_CHANCE) {   // TACT2: no ranged token, no shot (unset with the switch off)
           const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
-          if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; }
+          if (machineAttack(this.machine, strike)) { this.firedRanged = true; this.swingSeq++; ai._tacShot = (ai._tacShot ?? 0) + 1; }   // AUDIT TACT A2: a shot spends the ranged token
         }
-        continue;
-      }
-      // TACT4 (ai/foeBlows.js): a telegraphed blow's landing - the swing comes NOW, whatever the clock or the reach
-      // (the shape decides whether it lands: the host's blowConnects); never set with the switch off
-      if (ai._blowSwing) {
-        ai._blowSwing = false;
-        if (oneShot) { this.machine.state = 'Idle'; this.machine.acc = 0; }
-        const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
-        if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; ai._tacSwung = (ai._tacSwung ?? 0) + 1; }
-        this.meleeTimer = resetMeleeTimer(this.playerLevel, this.reflexes, this.rolls());
         continue;
       }
       if (!meleePass) continue;

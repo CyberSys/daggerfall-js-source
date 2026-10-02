@@ -36,14 +36,15 @@ const vp = new Float32Array(16);
 for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) vp[c*4+r] = proj[r]*view[c*4] + proj[4+r]*view[c*4+1] + proj[8+r]*view[c*4+2] + proj[12+r]*view[c*4+3];
 const pass = new FoeTelegraphPass(gl);
 window.err = gl.getError();
-window.draw = (kind, when) => {
+window.draw = (kind, when, fog = null, slope = null) => {
   gl.viewport(0, 0, 512, 512);
   gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(pr); gl.uniformMatrix4fv(gl.getUniformLocation(pr, 'vp'), false, vp);
   gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 6); gl.bindVertexArray(null);
   const blow = makeBlow(kind, [0, 0, 0], 0, 10);   // at the origin, facing +z
   const at = when === 'land' ? blow.land + 0.02 : 10 + (blow.land - 10) * 0.4;   // the landing's flash, or 40% through the wind-up
-  const n = pass.draw([{ blow, phase: blowPhase(blow, at) }], proj, view);
+  if (slope) blow.slope = slope;
+  const n = pass.draw([{ blow, phase: blowPhase(blow, at) }], proj, view, fog);
   // read the ground at a world point
   const px = (x, z) => { const v = [x, 0, z, 1]; const c = [0,0,0,0]; for (let r = 0; r < 4; r++) c[r] = vp[r]*v[0] + vp[4+r]*v[1] + vp[8+r]*v[2] + vp[12+r]*v[3];
     const sx = Math.round((c[0]/c[3]*0.5+0.5)*511), sy = Math.round((c[1]/c[3]*0.5+0.5)*511); const o = new Uint8Array(4); gl.readPixels(sx, sy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, o); return o[0]; };
@@ -82,6 +83,11 @@ try {
   const lunge = await page.evaluate(() => window.draw('lunge', 'land'));
   check('the lunge reaches past the slam\'s disc and stays in its lane', lunge.probes.far > GROUND + 60 && Math.abs(lunge.probes.wide - GROUND) < 6, JSON.stringify(lunge.probes));
   const sweep = await page.evaluate(() => window.draw('sweep', 'land'));
+  const fogged = await page.evaluate(() => window.draw('lunge', 'land', { mode: 1, range: new Float32Array([2, 16]), density: 0, camPos: new Float32Array([0, 14, 0]) }));
+  check('fogged: the mark dims in the frame\'s fog (AUDIT TACT D9)', fogged.probes.ahead < 255 && fogged.probes.ahead > 46, JSON.stringify(fogged.probes));
+  const down = await page.evaluate(() => window.draw('lunge', 'land', null, [0, -0.5]));   // told the ground falls away ahead: over this flat ground its lane sinks under it, hidden
+  const up = await page.evaluate(() => window.draw('lunge', 'land', null, [0, 0.5]));   // told it rises: the lane stands over the flat ground, seen to its end
+  check('tilted: the mark follows the slope it is given (AUDIT TACT D8)', Math.abs(down.probes.ahead - 46) < 6 && Math.abs(down.probes.far - 46) < 6 && up.probes.ahead > 46 + 60 && up.probes.far > 46 + 60, JSON.stringify({ down: down.probes, up: up.probes }));
   check('the sweep\'s cone holds the diagonal ahead', sweep.probes.wide > GROUND + 60, JSON.stringify(sweep.probes));
 } finally {
   await browser.close();

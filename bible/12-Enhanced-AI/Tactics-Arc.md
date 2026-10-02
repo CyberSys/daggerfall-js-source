@@ -82,7 +82,7 @@ A thin decision layer over the motor, per foe, the motor still doing the walking
   a row from one foe, and only from the engage ring (TACT2) - a foe in a corridor never sweeps the wall.
 - **Fair:** damage is the foe's own blow scaled, armor and skill as DFU's; dodgeable by moving out; a block halves it.
 - Online: the foe's owner (each client for its own foes, the dungeon host for the dungeon's) decides and resolves it;
-  the wind-up rides the existing foe stream so peers near it see the same telegraph.
+  the wind-up rides the existing foe stream so peers near it see the same telegraph. (Not built - see TACT4's record.)
 
 ## Order and proof
 
@@ -109,9 +109,10 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   capsule gap, push speed and edge rule as a pool's own `spaceFoes`; another player's foe (`_ownFrom`) is its owner's.
 - **b. No foe holds a doorway** - `clearDoorways` over `doorSpotsNear` (the street's building doors within 40 m; a
   building's own doors within 30 m): a threshold 1.4 m deep each side and 1.2 m either way across; a foe in it is eased
-  along the door's normal to its own side's edge at 1.6 m/s - unless its way lies through the door, or it is hostile and
-  its quarry stands in the doorway itself (no sanctuary on a sill). Through the collider: never through a wall or off
-  an edge; another storey is not this door's.
+  along the door's normal to its own side's edge at 1.6 m/s - unless its way lies through the door (AUDIT TACT C2: no
+  other exemption - one fighting someone on the sill fights from the edge, which is in its reach). Through the
+  collider: never through a wall or off an edge; another storey is not this door's. AUDIT TACT C6/C7: the inner swing
+  doors and a dungeon's or castle's doors too (`actionDoorSpots`, each door's closed pose).
 - **c. No guard wall** - `scenes/cityGuards.js indoorWatchSpot`: PlayerEntity's 2-5 watchmen no longer stand at ONE
   point in the door; each walks from that point 2.0 m into the room and out to its own lane (0, -0.9, +0.9, -1.8,
   +1.8 m), the collider stopping it at a wall.
@@ -137,8 +138,9 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
 - **Read by** `canSeeTarget` (both arms; a tree is never a door to open), the foe's clear shot
   (`hasClearPathToShootProjectile` - an archer behind a trunk holds its shot), every missile (`ArrowFlight`, the
   hosts' bolts in `hostMagic`, the dungeon's arrows and bolts - an area spell bursts on the cover), and the watch's two
-  witness rays (a crime behind a market stall's crates is unseen). Hearing is not cover (Mac's call: sight and
-  missiles).
+  witness rays (a townsperson does not witness a crime behind a stall's crates; a guard NPC facing it still raises the
+  watch whatever the ray meets - DFU's seenByGuard quirk, kept: AUDIT TACT B6). Hearing is not cover (Mac's call: sight
+  and missiles).
 - **Off** - with the switch off `coverDistance` answers Infinity before the index is asked: DFU's sight to the bit.
 - The switch's Features note says it (+63 chars). Not looked at on a real install yet.
 - Pins `test/tact1.test.js` (9); mutants `tools/mutants/tact1.json` (23), all dead.
@@ -158,12 +160,15 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
 - **The ring** - the waiting stand 1.5 m outside their reach (+-0.6), circle slowly toward their own slot angle (each
   its own, drifting), never swinging. A target whose back is turned on a waiting foe at the ring is open: it goes in.
   (The local player's feet and facing, noted by the world host each frame - `noteLocalPlayer`.)
-- **Backing off** - a quarter of its health lost inside 3 s: out to 3 m past the ring for 2 s, then back in the queue.
+- **Backing off** - a quarter of its health lost inside 3 s: it holds its own ring 2 m past the waiting ring for 2 s,
+  circling there, then back in the queue (AUDIT TACT A5).
 - **Fleeing** - animals and the cowardly classes (Mage, Sorcerer, Healer, Bard, Burglar, Acrobat, Thief) below a
   fifth of their health run, once (DFU's own `flee`, 8 s); the watch, undead, daedra, constructs and every other class
   fight on. The hosts hand each foe's entity (`vitals`) for the read.
-- **Kiting** - a shooter holding a ranged token backs away from a target inside 5 m; a shooter without one holds its
-  fire.
+- **Kiting** - a shooter holding a ranged token backs away from a target inside DFU's own bow band's near edge (6 m)
+  until it stands 7 m off, then shoots; a wall at its back corners it and it fights hand to hand for 3 s; a shot hands
+  the token on (and one held 5 s without a shot is a lease run out); a shooter without one holds its fire (AUDIT TACT
+  A1/A2).
 - **Not built** - the player's other open moments (mid-swing recovery, casting, drinking, staggered) are not read;
   ranged foes do not yet seek a clear line round cover; guards giving up a door is TACT3's doorway rule.
 - The switch's Features note says it. Not looked at on a real install yet.
@@ -195,3 +200,45 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
 - **Not built** - online, a peer does not see another's foe's telegraph (the wind-up does not ride the foe stream yet),
   and a blow is never at a peer; a block halving it (the port has no player block).
 - Pins `test/tact4.test.js` (13); mutants `tools/mutants/tact4.json` (30), all dead.
+
+## AUDIT TACT - 2026-10-02 (Mac: "Audit this and ensure perfection")
+
+Four lenses over the four slices - the brain, cover, the crowd and the door, the hosts and the ground - each finding
+reproduced on the TACT4 head, pinned red (`test/audittact.test.js`) and fixed. With the switch off DFU's motor was
+proven unchanged by a seeded run against the pre-TACT tree (same hash, same 440 draws).
+
+- **The brain (A).** A1 an archer between 5 and 6 m jittered forever, never shooting or swinging (the kite band ended
+  inside DFU's bow band's edge), and froze with a wall behind it - it now backs out past the edge (6 -> 7 m) and,
+  cornered, fights. A2 the 2-ranged-token cap broke after 6 s (tokens were never handed back) - a shot hands it on, a
+  5 s lease. A3/D1 the wind-up's knock test was a wall-clock gap, so below ~22 fps (or on one 90 ms hitch, or a pause)
+  no blow ever landed - the motor now says when it could not act (`_tacSkipped`), and the brain's clock is the foes'
+  own time (`ai/tacticsClock.js`, ticked by each host with the frame's foe step: a held fight freezes the brain with
+  it). A4/D5 an archer shot mid-wind-up, and its landing was parked under the bow band and fired seconds later on a
+  stale verdict - it holds fire, the forced swing sits above the band and is spent if it cannot come at once, and the
+  verdict's life is a swing's (1 s) on the brain's clock without a host passing one. A5 a backing-off foe jittered on
+  the ring's edge - it holds its own farther ring. A6 a detour walked a committed wind-up away - it stands. A7 / D4 the
+  token boards held every dead foe target forever, and a dead foe's wind-up was drawn and blocked others - an emptied
+  board goes, a blow whose foe is no longer stepped goes. A4/D6 a wind-up whose foe turned on another left its verdict
+  and weight for the next swing at me - none is set. An opportunist (no token) no longer telegraphs.
+- **Cover (B).** B1 a felled tree kept its cover (felling builds new arrays) - the original centre carries `sunk`.
+  B2 standing inside a tree's 1 m proxy was one-way invisibility (see out, never seen) - a tree is a body-wide trunk
+  and a crown over the heads, and a line of sight that ENDS in cover is not hidden by it. B3 people were cover in the
+  dungeons and the location host - never now. B5 at 20 fps a shaft or a bolt was lost on the tree behind a player half
+  a metre before it - missiles meet cover by touch (`coverStep`), the bodies before it tested first. B6 the record's
+  witness claim corrected (above). Not done: a record-level table of see-through flats (fences, banners, hanging decor)
+  - the repo carries no game data to measure them by; the size floor stands.
+- **The crowd and the door (C).** C1 THE GRIEF ITSELF: another player's watch, streamed to me as puppets, is minted
+  hostile, so my click never passed it - "hostile" is hostile to ME (`hostileToMe`: a puppet on me). C2 the sill
+  exemption kept a griefer's guards in the doorway, forever after he left (a stale destination) - removed. C3 the
+  indoor watch still stacked: a real door's centre is a metre over the sill and the walk refused both legs - floored
+  first. C4 the street mapped every door every frame (up to 1 ms) - once a door generation, nothing with no foes.
+  C5 the pass took my companion's pack and turned a pickpocket into a lockpick, and indoors passed to a shelf - it is
+  a DOOR's (`doorDistanceOf`), never a companion's or a Steal click's. C6/C7 inner swing doors, dungeons, castles and
+  the standalone hosts were unwired - all are now.
+- **The hosts and the ground (D).** D2 the location host never noted the player indoors - before every frame branch
+  now. D3 a recentre left live wind-ups and the noted player in the old frame - `offsetTactics`. D8 the mark was flat
+  at the feet - fitted to the ground under it (sampled at its foot, ahead and across, to 45 degrees). D9 it glowed
+  through fog - fogged as the ground. D7 the switch's effect line said the next dungeon - the tactics, cover and blows
+  are at once; only the navmesh waits. D11 the cover's broad phase built a string a cell a ray - numeric keys, no
+  allocation a test. `tools/foeTelegraphProbe.mjs` now holds the fog and the tilt too (14 held).
+- Pins `test/audittact.test.js` (31); mutants `tools/mutants/audittact.json` (47), all dead. The four slices' own lists re-run over the fixes.

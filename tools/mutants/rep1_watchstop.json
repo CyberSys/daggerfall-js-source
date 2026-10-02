@@ -119,7 +119,7 @@
   {
     "name": "REP1-the-wall-ignored",
     "file": "src/scenes/cityGuards.js",
-    "old": "      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist) < dist - 1e-3)) return p;   // TACT1: cover hides him",
+    "old": "      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist, true) < dist - 1e-3)) return p;   // TACT1: cover hides him",
     "new": "      return p;   // TACT1: cover hides him",
     "tests": [
       "test/rep1_watchstop.test.js"

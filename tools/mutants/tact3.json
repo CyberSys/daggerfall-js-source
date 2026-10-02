@@ -47,8 +47,8 @@
   {
     "name": "TACT3b-sill-sanctuary",
     "file": "src/characters/foeSpacing.js",
-    "old": "        if (ai.isHostile && Math.abs(da) < DOORWAY_DEPTH && Math.abs(dc) < DOORWAY_HALF_WIDTH) break;",
-    "new": "        if (Math.abs(da) < DOORWAY_DEPTH && Math.abs(dc) < DOORWAY_HALF_WIDTH) break;",
+    "old": "        if (Math.sign(da) !== side && Math.abs(da) > 0.3) break;   // on its way through",
+    "new": "        if (Math.sign(da) !== side && Math.abs(da) > 0.3 || Math.abs(da) < DOORWAY_DEPTH) break;   // on its way through",
     "tests": [
       "test/tact3.test.js"
     ]
@@ -128,8 +128,8 @@
   {
     "name": "TACT3d-press-no-yield",
     "file": "src/player/mobileEnemyActivate.js",
-    "old": "  if (yieldsToDoor(hit.foe, deps.doorBehind)) return false;   // TACT3d: the door behind takes the click\n",
-    "new": "\n",
+    "old": "  if (yieldsToDoor(hit.foe, deps.doorBehind, mode)) return false;",
+    "new": "  if (false) return false;",
     "tests": [
       "test/tact3.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "TACT3d-hostile-yields",
     "file": "src/player/mobileEnemyActivate.js",
-    "old": "  return !!foe && !foe.ai?.isHostile && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;",
-    "new": "  return !!foe && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;",
+    "old": "  return !hostileToMe(foe) && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;",
+    "new": "  return Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;",
     "tests": [
       "test/tact3.test.js"
     ]
@@ -146,8 +146,8 @@
   {
     "name": "TACT3d-any-distance",
     "file": "src/player/mobileEnemyActivate.js",
-    "old": "  return !!foe && !foe.ai?.isHostile && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;",
-    "new": "  return !!foe && !foe.ai?.isHostile && Number.isFinite(doorBehind);",
+    "old": "  return !hostileToMe(foe) && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;",
+    "new": "  return !hostileToMe(foe) && Number.isFinite(doorBehind);",
     "tests": [
       "test/tact3.test.js"
     ]
@@ -155,8 +155,8 @@
   {
     "name": "TACT3d-plaque-unmarked",
     "file": "src/player/activate.js",
-    "old": "      ...(f.ai && !f.ai.isHostile ? { peaceful: true } : {}),   // TACT3d: passes a door click (peacefulFoePass)\n",
-    "new": "\n",
+    "old": "      ...(f.ai && !(f.puppet ? f._pupMine : f.ai.isHostile) && f.companion == null ? { peaceful: true } : {}),",
+    "new": "      ...({}),",
     "tests": [
       "test/tact3.test.js"
     ]
@@ -164,8 +164,8 @@
   {
     "name": "TACT3d-plaque-any-distance",
     "file": "src/player/activate.js",
-    "old": "  if (!foeHit || !(Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE)) return foeHit;",
-    "new": "  if (!foeHit || !Number.isFinite(doorBehind)) return foeHit;",
+    "old": "  if (!foeHit || mode === 'steal' || !(Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE)) return foeHit;",
+    "new": "  if (!foeHit || mode === 'steal' || !Number.isFinite(doorBehind)) return foeHit;",
     "tests": [
       "test/tact3.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "TACT3-street-unwired",
     "file": "src/scenes/world.js",
-    "old": "      clearDoorways([...cityGuards.guards, ...exteriorFoes.foes], doorSpotsNear(buildingDoors, _pf, 40, shiftedDoor), collider, foeFrameDt(foeDt), _ownTact);\n",
-    "new": "\n",
+    "old": "      if (cityGuards.guards.length || exteriorFoes.foes.length) clearDoorways(",
+    "new": "      if (false) clearDoorways(",
     "tests": [
       "test/tact3.test.js"
     ]

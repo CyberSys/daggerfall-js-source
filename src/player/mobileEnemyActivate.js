@@ -198,7 +198,7 @@ export function tryMobileEnemyActivate(eye, dir, foes, collider, reach, mode, pl
   // :419 is reached only for the ray's OWN hit - a nearer activatable
   // means the enemy was never the thing the ray struck.
   if (!(hit.distance < (deps.nearerThan ?? Infinity))) return false;
-  if (yieldsToDoor(hit.foe, deps.doorBehind)) return false;   // TACT3d: the door behind takes the click
+  if (yieldsToDoor(hit.foe, deps.doorBehind, mode)) return false;   // TACT3d: the door behind takes the click
   return activateMobileEnemy(hit.foe, hit.distance, mode, player, deps);
 }
 
@@ -211,6 +211,18 @@ export function tryMobileEnemyActivate(eye, dir, foes, collider, reach, mode, pl
  * longer eats the click: the door opens. A hostile foe still takes it
  * (DFU's one ray), and with no door in reach behind, nothing changes.
  */
-export function yieldsToDoor(foe, doorBehind) {
-  return !!foe && !foe.ai?.isHostile && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;
+export function yieldsToDoor(foe, doorBehind, mode = null) {
+  if (!foe || foe.companion != null || mode === 'steal') return false;   // AUDIT TACT C5: my companion's pack, a pickpocket - asked of HIM
+  return !hostileToMe(foe) && Number.isFinite(doorBehind) && doorBehind <= DOOR_ACTIVATION_DISTANCE;
+}
+
+/**
+ * AUDIT TACT C1: HOSTILE TO ME, not hostile at all. Another player's watch, streamed to me as puppets, is minted
+ * `isHostile` (this pool never pacifies a puppet) - so the door passed none of them, and a griefer's guards held every
+ * other player's door shut. A puppet is hostile to me only when it is on ME (`_pupMine`); my own foe by its own flag.
+ */
+export function hostileToMe(foe) {
+  if (!foe) return false;
+  if (foe.puppet) return !!foe._pupMine;
+  return !!foe.ai?.isHostile;
 }

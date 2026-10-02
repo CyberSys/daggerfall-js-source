@@ -48,7 +48,7 @@ test('AUDIT 23 magic-2: a wall hit explodes an AreaAtRange payload at the impact
   // DaggerfallMissile.cs:399-402 DoCollision - the port retired wall
   // hits with no payload. The wall branch now carries the explode arm.
   const src = dcSrc();
-  const i = src.indexOf('const hitWall = Math.min(collider.raycast');   // TACT1: the wall or the cover, whichever is first
+  const i = src.indexOf('const hitWall = _cs.stop;');   // TACT1: the wall or the cover, whichever is first
   assert.ok(i > 0);
   const branch = src.slice(i, src.indexOf('m.pos[0] += m.dir[0] * step', i));
   assert.ok(branch.includes("m.spell?.rangeType === 4"), 'the wall branch tests AreaAtRange');

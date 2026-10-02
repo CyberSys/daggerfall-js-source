@@ -56,8 +56,8 @@
   {
     "name": "TACT2-waiters-strike",
     "file": "src/ai/tactics.js",
-    "old": "  ai._tacStrike = false;\n  if (s.state === 'recover'",
-    "new": "  ai._tacStrike = undefined;\n  if (s.state === 'recover'",
+    "old": "  ai._tacStrike = false;\n  // AUDIT TACT A5",
+    "new": "  ai._tacStrike = undefined;\n  // AUDIT TACT A5",
     "tests": [
       "test/tact2.test.js"
     ]
@@ -74,8 +74,8 @@
   {
     "name": "TACT2-backoff-stays-in",
     "file": "src/ai/tactics.js",
-    "old": "    const out = s.state === 'backoff' ? ring + 1.5 : ring;",
-    "new": "    const out = 0;",
+    "old": "  const hold = s.state === 'backoff' ? ring + TACT.BACKOFF_GAP : ring;",
+    "new": "  const hold = s.state === 'backoff' ? 0 : ring;",
     "tests": [
       "test/tact2.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "TACT2-no-kite",
     "file": "src/ai/tactics.js",
-    "old": "    if (has && dist < TACT.KITE_RANGE) {",
-    "new": "    if (false) {",
+    "old": "      if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {",
+    "new": "      if (false) {",
     "tests": [
       "test/tact2.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "TACT2-release-keeps",
     "file": "src/ai/tactics.js",
-    "old": "  for (const b of _boards.values()) { b.melee.delete(ai); b.ranged.delete(ai); b.waiting.delete(ai); }",
-    "new": "  for (const b of _boards.values()) { b.waiting.delete(ai); }",
+    "old": "    b.melee.delete(ai); b.ranged.delete(ai); b.waiting.delete(ai);\n    if (k !== LOCAL",
+    "new": "    b.waiting.delete(ai);\n    if (k !== LOCAL",
     "tests": [
       "test/tact2.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "TACT2-motor-ignores",
     "file": "src/characters/enemyMotor.js",
-    "old": "    if (tacticsStep(this, dx, dz) && !detouring) return;",
-    "new": "    tacticsStep(this, dx, dz);",
+    "old": "    if (_took && (!detouring || this.fleeLeft > 0 || this._tac?.state === 'windup')) return;",
+    "new": "    void _took;",
     "tests": [
       "test/tact2.test.js"
     ]

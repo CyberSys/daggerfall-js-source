@@ -83,8 +83,8 @@
   {
     "name": "TACT4-spent-kept",
     "file": "src/ai/foeBlows.js",
-    "old": "    if (!phase) { _live.delete(ai); continue; }",
-    "new": "    if (!phase) continue;",
+    "old": "    if (!phase || (now < b.land && gone(ai, now))) { _live.delete(ai); continue; }",
+    "new": "    if (!phase || (now < b.land && gone(ai, now))) continue;",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -146,7 +146,7 @@
   {
     "name": "TACT4-many-windups",
     "file": "src/ai/foeBlows.js",
-    "old": "    if (ai === except || now >= b.land) continue;",
+    "old": "    if (ai === except || now >= b.land || gone(ai, now)) continue;",
     "new": "    continue;",
     "tests": [
       "test/tact4.test.js"
@@ -155,8 +155,8 @@
   {
     "name": "TACT4-no-cooldown",
     "file": "src/ai/tactics.js",
-    "old": "  if (s.state === 'engage' && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false && now >= (s.blowReady ?? 0)) {",
-    "new": "  if (s.state === 'engage' && key === LOCAL && _me && dist <= reach + 0.5 && ai.canAct !== false) {",
+    "old": "ai.canAct !== false && now >= (s.blowReady ?? 0)) {   // AUDIT TACT: a token holder",
+    "new": "ai.canAct !== false) {   // AUDIT TACT: a token holder",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -173,8 +173,8 @@
   {
     "name": "TACT4-knock-ignored",
     "file": "src/ai/tactics.js",
-    "old": "  if (ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0 || gap > TACT.SKIPPED) {",
-    "new": "  if (ai.canAct === false) {",
+    "old": "  if (skipped || ai.canAct === false || ai.hurtKnock || ai.knockbackSpeed > 0) {",
+    "new": "  if (false) {",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "TACT4-aim-follows",
     "file": "src/ai/tactics.js",
-    "old": "  ai._tacStrike = false; ai.moving = false;\n  return true;\n}",
-    "new": "  ai._tacStrike = false; ai.moving = false; ai.yaw += 0.05;\n  return true;\n}",
+    "old": "  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up",
+    "new": "  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false; ai.yaw += 0.05;   // AUDIT TACT A4: no shot, no spell, mid-wind-up",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -191,8 +191,8 @@
   {
     "name": "TACT4-walks-in-windup",
     "file": "src/ai/tactics.js",
-    "old": "  ai._tacStrike = false; ai.moving = false;\n  return true;\n}",
-    "new": "  ai._tacStrike = false;\n  return false;\n}",
+    "old": "  ai._tacStrike = false; ai._tacShoot = false; ai.moving = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up\n  return true;",
+    "new": "  ai._tacStrike = false; ai._tacShoot = false;   // AUDIT TACT A4: no shot, no spell, mid-wind-up\n  return false;",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -200,8 +200,8 @@
   {
     "name": "TACT4-verdict-always",
     "file": "src/ai/tactics.js",
-    "old": "    ai._blowVerdict = !!_me && inBlow(s.blow, _me.feet[0], _me.feet[2]);",
-    "new": "    ai._blowVerdict = true;",
+    "old": "      ai._blowVerdict = inBlow(s.blow, _me.feet[0], _me.feet[2]);",
+    "new": "      ai._blowVerdict = true;",
     "tests": [
       "test/tact4.test.js"
     ]
@@ -218,8 +218,8 @@
   {
     "name": "TACT4-sight-breaks",
     "file": "src/ai/tactics.js",
-    "old": "  if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, gap);\n",
-    "new": "\n",
+    "old": "  if (s.state === 'windup' && s.blow) return windupTurn(ai, s, now, skipped);\n  if (s.key !== key)",
+    "new": "  if (s.key !== key)",
     "tests": [
       "test/tact4.test.js"
     ]

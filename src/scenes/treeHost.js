@@ -108,7 +108,9 @@ export function sinkFelled(forest, sunk, renderer) {
     const had = g.sunkN ?? 0;
     let n = 0;
     const centers = g.centers.map((c, i) => {
-      if (!sunk.has(`${gk}#${i}`)) return c;
+      const felled = sunk.has(`${gk}#${i}`);
+      /** @type {any} */ (c).sunk = felled;   // AUDIT TACT B1: the tree's cover (ai/cover.js) reads its own flag - a felled one is no cover, a regrown one is
+      if (!felled) return c;
       n++;
       return [c[0], c[1] - g.size.h - 1, c[2]];
     });

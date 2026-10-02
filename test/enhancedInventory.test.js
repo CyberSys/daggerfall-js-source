@@ -1207,7 +1207,7 @@ test('PX21c / WORLD-HOVER: the plaque names a pile without opening it, on the ta
   // its own - but it is still that one list, built once, inside the call.
   assert.match(frame, /ground: pickActivatableHit\(eye, d, api\.dungeonActivationTargets\(\), collider\),/,
     'a THUNK, and the SAME list the press races - one construction seam, so the plaque cannot name what the button ignores');
-  assert.match(frame, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),/,
+  assert.match(frame, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),/,   // AUDIT TACT C7: a peaceful guard before a door is no hit
     '...and the live foes beside it, through the one precedence both readers share');
   assert.match(frame, /contents: api\.lootContents,/);
   assert.match(hov, /const hit = pick \? pick\(\) : pickActivatableHit\(eye, dir, targets\?\.\(\) \?\? \[\], collider\);/,

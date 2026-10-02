@@ -65,7 +65,8 @@ import { dateFromClassicMinutes } from '../systems/gameDate.js';   // SURV7: the
 import { playerEntity, surfacePlayer, hurtPlayer as hurtEntity, damageShieldPool, setDeathPresenter, setAvoidDeathHook, staffFly } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's, so every entity's door owes it
 import { addItem, spendAmmoFor, isEnchanted } from '../systems/inventory.js';
 import { useQuickslot, swapQuickslot, offHandQuickslot, spellQuickslotPress, offHandOffersSwap, tickQuickslotHold } from '../systems/quickslots.js';   // QS2/QS4: the diamond's performers   // QS6: the spell slot, the off hand's swap question, and the hold machine
-import { worldAabb, objectAabb } from '../player/activate.js';   // AUDIT 63 F37/F38: objectAabb is the LIVE box a ray or a collision meets
+import { worldAabb, objectAabb, peacefulFoePass, doorDistanceOf } from '../player/activate.js';   // AUDIT 63 F37/F38: objectAabb is the LIVE box a ray or a collision meets
+import { getInteractionMode } from '../player/interactionMode.js';   // AUDIT TACT C5: a pickpocket's plaque names the mark
 import { createWeaponRig, envAttack, sheetHolderOf } from '../combat/weaponRig.js';   // C10: the shared FP-weapon surface; MW-MAP1: the held map's holder
 import { mwViewFirstPerson } from '../player/mwView.js';   // MW-MAP1: the automap is read in the head (MAP-POV's law), underground too
 import { weaponPoseOf, applyWeaponPose } from '../combat/playerWeapon.js';   // HARD2c: the sheath+hand pair as ONE law (SerializablePlayer.cs:175-176 / :420-421)
@@ -92,7 +93,7 @@ import { setMidScreenText, midScreenText } from '../ui/midScreenText.js';   // A
 // their bytes; this one module is ~16 KB of source.
 import { EnhancedEnemyAI, makeNavWorld } from '../ai/enhancedMotor.js';
 import { foeFrameDt } from '../characters/enemyMotor.js';   // FOE-CATCHUP: the one cap every pool hands its foes
-import { spaceFoes, spacingSkips } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart
+import { spaceFoes, spacingSkips, clearDoorways, actionDoorSpots } from '../characters/foeSpacing.js';   // FOE-SPACING: the pack keeps apart; AUDIT TACT C7: and the doorways clear
 import { isStaleChunk, STALE_CHUNK_IN_PLAY_TEXT, STALE_CHUNK_IN_PLAY_SECONDS } from '../systems/staleChunk.js';   // DISC19-D: a chunk gone mid-session is said, not swallowed
 import { hudRenderEnabled } from '../ui/hudShortcuts.js';   // AUDIT 64 F37: the Draw override covers popupText too
 import { FntFile } from '../formats/fntFile.js';
@@ -253,7 +254,7 @@ const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPE
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
-import { coverDistance, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
+import { coverDistance, coverStep, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 
 
@@ -786,7 +787,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       // block that has to move.
       if (!(f.action && MOVE_ACTION_FLAGS.has(f.action.actionFlag))) {
         if (!flatGroups.has(key)) flatGroups.set(key, []);
-        flatGroups.get(key).push([f.x + b.originX, f.y, f.z + b.originZ]);
+        const at = [f.x + b.originX, f.y, f.z + b.originZ];
+        if (pn) at.noCover = true;   // AUDIT TACT B3: a person is no cover (the world's people never are)
+        flatGroups.get(key).push(at);
       }
       // A2 ambient sources: burning torches (RDBLayout.IsTorchFlat,
       // 210/{0,1,6,16..20}) loop within 5; animal flats (201) bark on
@@ -1358,7 +1361,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
          const archive = e.gender === 'female' ? basics.femaleTexture : basics.maleTexture;
          const key = `${archive}_0`;
          if (!flatGroups.has(key)) flatGroups.set(key, []);
-         flatGroups.get(key).push([e.x, e.y, e.z]);
+         flatGroups.get(key).push(Object.assign([e.x, e.y, e.z], { noCover: true }));   // AUDIT TACT B3: a foe's stand-in is no cover
        }
      }
       return;
@@ -1367,7 +1370,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const archive = e.gender === 'female' ? basics.femaleTexture : basics.maleTexture;
     const key = `${archive}_0`;
     if (!flatGroups.has(key)) flatGroups.set(key, []);
-    flatGroups.get(key).push([e.x, e.y, e.z]);
+    flatGroups.get(key).push(Object.assign([e.x, e.y, e.z], { noCover: true }));   // AUDIT TACT B3: a foe's stand-in is no cover
   }
   for (const e of enemies) await buildFoeAt(e);
   // ONLINE-DUNGEON-FOES (2026-09-20, Mac: "Issues with non-reactive enemies in dungeons in the
@@ -1929,7 +1932,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15117 / exterior.js:3772), set
+  // host's own townTalk sink (world.js:15127 / exterior.js:3775), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3058,7 +3061,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // NEXT updateMissiles pass to fill. But the push lands in a
     // MICROTASK - this is async and its one caller does not await it -
     // and both hosts draw dynamicDraws BEFORE they call drawFoes
-    // (dungeon.js:1122 against :1152; worldModes.js:8112 against :8132).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
+    // (dungeon.js:1126 against :1156; worldModes.js:8113 against :8133).   // QS6: both pairs' SECOND half was stale before this slice - they named neither `drawFoes` call, and a positional bump would have moved a wrong number by the right offset; re-resolved by content
     // So the very next frame drew the arrow with a NULL matrix, and
     // `uniformMatrix4fv(uModel, false, null)` throws - Float32List is
     // a non-nullable WebIDL union. Firing a bow killed the frame loop,
@@ -3816,7 +3819,10 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (m.age > MISSILE_LIFESPAN_S) { retireMissile(m); continue; }
       const step = MISSILE_SPEED * dt;
       const { unit: _unit, reach } = missileReach(m.dir, step);   // ROAD-H tail: DaggerfallMissile.cs:333/:337-339's reach along the normalised direction
-      const hitWall = Math.min(collider.raycast(m.pos, _unit, reach), coverDistance(collider, m.pos, _unit, reach));   // TACT1: cover stops a bolt or a shaft, and an area spell bursts on it
+      // TACT1: cover stops a bolt, and an area spell bursts on it; AUDIT TACT B5: by touch, the bodies before it tested first
+      const _len = Math.hypot(m.dir[0], m.dir[1], m.dir[2]) || 1;
+      const _cs = coverStep(coverDistance(collider, m.pos, _unit, reach), collider.raycast(m.pos, _unit, reach), reach, reach - step * _len, step * _len);
+      const hitWall = _cs.stop;
       if (Number.isFinite(hitWall) && hitWall <= reach) {
         // AUDIT 23 (magic-2) - DaggerfallMissile.cs:399-402 DoCollision:
         // an AreaAtRange payload explodes AT THE IMPACT POINT whatever
@@ -3836,7 +3842,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         retireMissile(m);
         continue;
       }
-      m.pos[0] += m.dir[0] * step; m.pos[1] += m.dir[1] * step; m.pos[2] += m.dir[2] * step;
+      const _adv = step * _cs.advance;   // AUDIT TACT B5: no further than cover's touch
+      m.pos[0] += m.dir[0] * _adv; m.pos[1] += m.dir[1] * _adv; m.pos[2] += m.dir[2] * _adv;
       // The batch was built ONCE at the fire position; flight rides
       // the batch's origin uniform (zero GL churn - the same thrash
       // class the engine audit killed stays killed).
@@ -3885,8 +3892,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:25220,
-              // exterior.js:5391 and worldModes.js:8833 already ran;
+              // playerArrowHitFoe is the one copy world.js:25232,
+              // exterior.js:5397 and worldModes.js:8834 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that
@@ -6181,7 +6188,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         if (!d) return null;
         const ray = raceWinner({
           ground: pickActivatableHit(eye, d, api.dungeonActivationTargets(), collider),
-          foe: pickActivatableHit(eye, d, liveFoeTargets(foes, 'mobileFoe'), collider),
+          foe: ((ft) => peacefulFoePass(pickActivatableHit(eye, d, ft, collider), ft, doorDistanceOf(eye, d, api.dungeonActivationTargets(), collider), getInteractionMode()))(liveFoeTargets(foes, 'mobileFoe')),   // AUDIT TACT C7: the plaque names the door the press opens
           peer: opts.peerHoverPick?.() ?? null,   // PEER-PLAQUE1: another player underground, raced as the F key picks them - off the key's own ray (AUDIT DROPS E3)
         });
         return opts.profHoverPick?.(ray) ?? ray;   // PROF-MENU: a vein or a body the press would take, over the race's winner
@@ -6408,6 +6415,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // FOE-SPACING: two bodies in one spot are pushed apart (characters/foeSpacing.js) - never a room's foe this page
     // does not own (its owner's stream poses it, as the loop's puppet arm below reads it)
     spaceFoes(foes, collider, foeFrameDt(dt), (f, i) => spacingSkips(f) || f._ownFrom != null || (!_authority && isRoomFoe(f, i)));   // AUDIT (pre-merge) D4: a party member's own foe (QUEST-PARTY 3c, SUMMON-SYNC) is a puppet too - its runner's frame places it
+    // AUDIT TACT C7: and no foe holds a dungeon's (or a castle's) doorway - TACT3's rule, always on, on the level's action doors
+    clearDoorways(foes, actionDoorSpots(actions.objects, playerFeet, 30), collider, foeFrameDt(dt), (f) => spacingSkips(f) || f._ownFrom != null || (!_authority && isRoomFoe(f, foes.indexOf(f))));
     for (const f of foes) {
       _fi++;
       if (f.dead) continue;

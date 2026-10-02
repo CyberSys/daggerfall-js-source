@@ -5,6 +5,7 @@
 // outline at once, filling outward as the wind-up runs, a bright flash at the landing. Added onto the frame (ONE, ONE)
 // so it only brightens what it lies on, depth-tested and never depth-written, lifted and offset off the ground.
 import { buildProgram } from './glProgram.js';
+import { FOG_FACTOR_GLSL } from './labGrass.js';   // AUDIT TACT D9: the renderer's one fog block
 import { BLOW } from '../ai/foeBlows.js';
 
 /** The shapes as the shader's `uKind` says them. */
@@ -46,13 +47,16 @@ uniform vec3 uOrigin;
 uniform float uYaw;
 uniform float uHalf;
 uniform float uLift;
+uniform vec2 uSlope;   // AUDIT TACT D8: the ground's rise per metre (across, along) - the quad lies on the slope it marks
 out vec2 vLocal;   // (across, along) in the blow's frame
+out vec3 vWorld;   // AUDIT TACT D9: where the fog measures from
 void main() {
   vec2 f = vec2(sin(uYaw), cos(uYaw));
   vec2 w = vec2(-f.y, f.x);   // across, as inBlow reads it: (-fz, fx)
   vLocal = aCorner * uHalf;
   vec2 xz = uOrigin.xz + w * vLocal.x + f * vLocal.y;
-  gl_Position = uVP * vec4(xz.x, uOrigin.y + uLift, xz.y, 1.0);
+  vWorld = vec3(xz.x, uOrigin.y + uLift + dot(uSlope, vLocal), xz.y);
+  gl_Position = uVP * vec4(vWorld, 1.0);
 }`;
 
 const FS = `#version 300 es
@@ -63,7 +67,13 @@ uniform float uT;
 uniform float uFlash;
 uniform vec3 uColor;
 uniform vec4 uP;   // lunge: len, halfW / sweep: r, halfArc / slam: r, ahead
+in vec3 vWorld;
+uniform int uFogMode;
+uniform float uFogDensity;
+uniform vec2 uFogRange;
+uniform vec3 uCamPos;
 out vec4 oColor;
+${FOG_FACTOR_GLSL}
 const float OUTLINE = ${OUTLINE.toFixed(3)};
 void main() {
   float across = vLocal.x, along = vLocal.y;
@@ -89,17 +99,21 @@ void main() {
   float a = rim ? 0.55 : 0.08;
   if (edge <= uT) a = max(a, 0.32);
   a = max(a, uFlash * 0.9);
+  a *= fogFactorAt(vWorld);   // AUDIT TACT D9: fogged as the ground it lies on - never a glow through the murk
   oColor = vec4(uColor * a, a);
 }`;
 
 const QUAD = new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]);
+const NO_FOG_RANGE = new Float32Array([0, 1]);
+const NO_FOG_RANGE3 = new Float32Array([0, 0, 0]);
+const NO_FOCUS = new Float32Array([0, 0, 0, 0]);
 
 export class FoeTelegraphPass {
   constructor(gl) {
     this.gl = gl;
     this.program = buildProgram(gl, VS, FS, 'foeTelegraph');
     this.u = {};
-    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uOrigin', 'uYaw', 'uHalf', 'uLift', 'uKind', 'uT', 'uFlash', 'uColor', 'uP', 'uSlope', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
     this.vbo = gl.createBuffer();
@@ -112,8 +126,9 @@ export class FoeTelegraphPass {
     this.drawn = 0;
   }
 
-  /** Draw each { blow, phase } (ai/foeBlows.js drawableBlows) under the camera `proj` x `view`. */
-  draw(list, proj, view) {
+  /** Draw each { blow, phase } (ai/foeBlows.js drawableBlows) under the camera `proj` x `view`, in the frame's `fog`
+   *  ({ mode, density, range, camPos }; none draws unfogged). */
+  draw(list, proj, view, fog = null) {
     this.drawn = 0;
     if (!list?.length || !proj || !view) return 0;
     const gl = this.gl, U = this.u;
@@ -122,6 +137,11 @@ export class FoeTelegraphPass {
     gl.uniformMatrix4fv(U.uVP, false, this._vp);
     gl.uniform1f(U.uHalf, BLOW_QUAD_HALF);
     gl.uniform1f(U.uLift, BLOW_LIFT);
+    gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
+    gl.uniform1f(U.uFogDensity, fog?.density ?? 0);
+    gl.uniform2fv(U.uFogRange, fog?.range ?? NO_FOG_RANGE);
+    gl.uniform3fv(U.uCamPos, fog?.camPos ?? NO_FOG_RANGE3);
+    if (U.uFocus) gl.uniform4fv(U.uFocus, fog?.focus ?? NO_FOCUS);   // AUDIT DEEP R-1's law: under the travel view the fog is the traveller's
     gl.bindVertexArray(this.vao);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
     gl.depthMask(false);
@@ -130,6 +150,7 @@ export class FoeTelegraphPass {
     for (const { blow: b, phase } of list) {
       gl.uniform3f(U.uOrigin, b.origin[0], b.origin[1], b.origin[2]);
       gl.uniform1f(U.uYaw, b.yaw);
+      gl.uniform2f(U.uSlope, b.slope?.[0] ?? 0, b.slope?.[1] ?? 0);
       gl.uniform1i(U.uKind, BLOW_KIND[b.kind] ?? 0);
       const P = BLOW[b.kind];
       if (b.kind === 'lunge') gl.uniform4f(U.uP, P.len, P.halfW, 0, 0);
