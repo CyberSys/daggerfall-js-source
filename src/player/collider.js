@@ -1542,7 +1542,14 @@ export class Collider {
       // centre rose past a low ceiling's plane stood on the ceiling's top face (the collider reads no face's facing), and
       // the report's own giant walked off a ledge and on through the air under a flat ceiling. A wall to it, as a
       // mid-body contact is (COL1).
-      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0 ? lowOneWay : false, tall && axis !== 0);
+      // AUDIT CLIMB-FIELD W2 (Mac: "hitting the top of an angled roof at a certain angle can get your character stuck"):
+      // and the PLAYER's head never grounds either. A contact under the head sphere's centre is the capsule's cylinder -
+      // never its foot - and COL1 F8's law for the middles is the head's too: an eave's knife edge at the chest, met by
+      // a jump or a fall beside it, sits in the chain's waist between the middle and the head, and the head's half of it
+      // leaned up past the slope limit - the body stood on its head on the edge, grounded in mid-air, and each jump off
+      // it landed back on it (measured: an eave 1.6 m up, a body held at 0.43 by its head, Jump held hopping forever).
+      // The swim stance's one sphere is the lower's, and keeps its floor.
+      this._resolveSphere(high, CAPSULE_RADIUS, out, standCeil, axis === 0 ? lowOneWay : false, axis !== 0);
       low[0] = high[0];
       low[2] = high[2];
       low[1] = high[1] - axis;
@@ -1800,6 +1807,13 @@ export class Collider {
     // swimming) is the one caller that drives a grounded capsule down
     // every step. So: when the down pass slid, come down only as far as
     // the capsule goes without being pushed (bisected), x/z untouched.
+    // AUDIT CLIMB-FIELD W1 (Mac: "hitting the top of an angled roof at a certain angle can get your character stuck"):
+    // A STOP IS WHERE THE BODY STANDS. The bisect refuses every descent the resolve pushes, and a body already leaning
+    // on a face too steep to stand on (past the slope limit: a 71-degree roof over a wall's top, a wall walk's 76-degree
+    // parapet over its floor) is pushed by that face at ANY descent - so it came down nothing, stood on nothing (the
+    // flags at rest read the steep face, no ground), and hung there with its fall speed growing, every frame (measured on
+    // ARCH3D 633 and 445: motionless at 6.5 m for 25 s, velY past -600). Unity's controller slides off such a face. So
+    // the stop is kept only when it stands; otherwise the down pass's own slide (the resolve's answer above) stands.
     if (dy < 0 && out.grounded && ((feet[0] - vx0) ** 2 + (feet[2] - vz0) ** 2) > 1e-12) {
       let lo = 0, hi = -dy;   // lo: a descent known clear; hi: one known to penetrate
       for (let i = 0; i < 10; i++) {
@@ -1809,9 +1823,14 @@ export class Collider {
         this._resolveCapsule(probe, pOut, height);
         if ((probe[0] - vx0) ** 2 + (probe[1] - (vy0 - mid)) ** 2 + (probe[2] - vz0) ** 2 < 1e-12) lo = mid; else hi = mid;
       }
-      feet[0] = vx0; feet[1] = vy0 - lo; feet[2] = vz0;
-      out.grounded = false; out.hitCeiling = false; out.pushedDown = false; out.groundKey = undefined; out.groundY = undefined;
-      this._resolveCapsule(feet, out, height);   // at rest in the skin shell: the flags, no push
+      const stop = [vx0, vy0 - lo, vz0];
+      const sOut = { grounded: false, hitCeiling: false, pushedDown: false };
+      this._resolveCapsule(stop, sOut, height);   // at rest in the skin shell: the flags, no push
+      if (sOut.grounded) {
+        feet[0] = stop[0]; feet[1] = stop[1]; feet[2] = stop[2];
+        out.grounded = true; out.hitCeiling = sOut.hitCeiling; out.pushedDown = sOut.pushedDown;
+        out.groundKey = sOut.groundKey; out.groundY = sOut.groundY;
+      }
     }
 
     // Ground snap when moving down: pulls onto steps/slopes. The

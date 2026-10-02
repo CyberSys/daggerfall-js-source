@@ -154,7 +154,10 @@ Items have no unique ids: "the port's items have no UID" (`save.js`), and "the p
   - Set powers multiply on top (Nightfall +60% against an unaware target).
 - **Online settings the player still controls.**
   - PCAAO's modules: `fixedStrengthDamageModifier` off doubles the strength bonus, and `fadingEnchantedItems` off
-    stops enchanted gear breaking for good.
+    stops enchanted gear breaking for good. [WEAR-VANILLA (2026-10-01): the room now holds `fadingEnchantedItems` OFF - the
+    port ships the overhaul's two wear modules off, and the room reads the port's default - so a broken enchanted piece
+    stays, repairable: the economy arc's choice (`06-Systems/Economy-Arc.md`), giving up the item sink this line
+    counted.]
   - Oblivion leveling's settings: up to 40 attribute points a level.
 - **Rest.** A rest online restores everything and runs a skill check in seconds. The shared clock runs at 12×, so the
   skill clock opens every 30 real minutes. [LIVED1 (2026-09-29): the skill clock reads the character's own clock, which

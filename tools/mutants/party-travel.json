@@ -551,8 +551,8 @@
   {
     "name": "PT-call-off-a-departed-round",
     "file": "src/systems/partyTravel.js",
-    "old": "if (trip && trip.go == null) { trip = null; host.poseDirty(); return 'You call off the journey.'; }",
-    "new": "if (trip) { trip = null; host.poseDirty(); return 'You call off the journey.'; }",
+    "old": "if (trip && trip.go == null) { trip = null; host.poseDirty(); host.mid('You call off the journey.'); return 'You call off the journey.'; }",
+    "new": "if (trip) { trip = null; host.poseDirty(); host.mid('You call off the journey.'); return 'You call off the journey.'; }",
     "tests": [
       "test/partytravel.test.js"
     ]

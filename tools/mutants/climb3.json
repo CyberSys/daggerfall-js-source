@@ -272,7 +272,7 @@
   {
     "name": "CLIMB3-hang-back-leaps-sideways",
     "file": "src/player/motor.js",
-    "old": "      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || true;",
+    "old": "      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || this._pkLeapFrom(dt, 'back', 0) || true;",
     "new": "      return this._pkLeapFrom(dt, 'side', Math.sign(side)) || true;",
     "tests": [
       "test/climb3.test.js",
@@ -839,8 +839,8 @@
   {
     "name": "CLIMB3-refused-leap-lets-go-of-the-step",
     "file": "src/player/motor.js",
-    "old": "      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || true;",
-    "new": "      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side));",
+    "old": "      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || this._pkLeapFrom(dt, 'back', 0) || true;",
+    "new": "      return this._pkLeapFrom(dt, vert < 0 ? 'back' : 'side', Math.sign(side)) || this._pkLeapFrom(dt, 'back', 0);",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",

@@ -143,7 +143,7 @@ test('VAMP-HOOD: the hood is the sun\'s, not the day\'s - a hooded vampire\'s se
   nextVariant(cloak);
   assert.equal(racialFastTravelBlock(v, at(12)), null, 'hooded');
   vampirismMagicRound(v, { nowMinutes: at(12) });
-  assert.equal(v.racialOverride.statMods.strength, -20, 'the weak hours hold under a hood - indoors and underground they always did');
+  assert.equal(v.racialOverride.statMods.strength, -20, 'the weak hours hold under a hood in the street\'s sun - indoors and underground there is none (FIELD BUGS 2026-10-01b)');
 });
 
 test('VAMP-HOOD: ONE hood law - vampirism reads survival/temperature.js cloakState and names no hooded garment of its own; THE FOUR HOSTS', () => {

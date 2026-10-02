@@ -2690,7 +2690,7 @@ ${badgeCss()}
 .tview-fdot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,0.65); opacity: 0.3; transition: opacity 120ms ease; }
 .tview-filter.on .tview-fdot { opacity: 1; }
 .tview-fdot-towns { background: #e9e4d9; } .tview-fdot-distant { background: #c08a3e; } .tview-fdot-dungeons { background: #b0443a; }
-.tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; }
+.tview-fdot-enemies { background: #e0503c; } .tview-fdot-travellers { background: #4e7f72; } .tview-fdot-gathering { background: linear-gradient(135deg, #e586ec, #d9894a 50%, #d4e157); }
 .tview-fnum { min-width: 2ch; text-align: right; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .tview-filter:not(.on) .tview-fnum { opacity: 0.6; }
 /* OW-CONFIRM: the view's own question - over the map's upper middle, in the block's stone; its presses the Path switch's */

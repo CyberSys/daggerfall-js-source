@@ -1051,6 +1051,118 @@ cell, from the registry), and the nine account-version pins (acct46, past PATREO
 `fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
 own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).
 
+## ROCK-FOOT and SETTLE-SAID: the boulders (Mac: "People are trying to mine boulders on the outside, but it's not letting people mine"; "it gives a notification but you cant mine")
+
+**Reproduced first** (the real `standMineNodes` over every shipped `WOD_Rocks_*` and `WOD_Mountain_*` layout's own
+transforms, a cube standing in for each model at sizes and origins that bracket a real rock's - the meshes are ARENA2's,
+not in CI): under one boulder in ten of the law's stood, and one in sixteen to thirty at a rock that shows. A piece was
+carried as its WHOLE mesh's box (`scenes/world.js` pixelRocks) - the fields are a few models scaled by tens to hundreds,
+turned and sunk, so a box ran 90 m to over a kilometre where the rock showed a few metres. A boulder's one foot stood on
+that box's edge facing its point, and AUDIT 29 C11 stood nothing when the foot fell inside a neighbour's box - most of
+the time in a field whose pieces overlap - with the piece spent and no other piece or side asked; and the veins had
+claimed the field's clear pieces first. Where a boulder stood, its stones lay out on open ground, so a look at the rock,
+E or the Pick-Axe found no node - the Use said "Mining is done at an ore vein or a boulder ... walk up to one until the
+prompt shows". And on a settlement's ground (a town, a farm, a temple, a tavern, a wealthy home - its footprint and a
+city block round it) the prompt of a vein, a boulder, a patch or a tree said it was ready, and E or the tool's Use said
+"You cannot mine in a settlement!" (the act's own check, FORAGE0 14.3), every time; Hunting's and Fishing's plans ask it.
+
+**The fix.** ROCK-FOOT: a piece is carried as it stands out of the ground (`world/terrainNature.js` rockFootprint - its
+mesh above the terrain, each vertex above it and each edge where it crosses it; none for a piece wholly under it); a
+node takes the nearest piece with a foot clear of every piece, the side facing its point first, then its others nearest
+that way (`scenes/mineHost.js` claim, footTargets); the boulders claim before the veins (a vein has the stone beside the
+field to fall back on, a boulder has nothing). Over the same layouts: three boulders in four stand, every one at a rock
+that shows, none inside a piece; the veins stand as often or more, and at a rock twice as often. The herbs' and trees'
+NODE-CLEAR read the same, truer, pieces. SETTLE-SAID: the ground's nodes ask the settlement's check in the plan
+(`net/professionLaw.js` GROUND_WHERE, each kind's `where`, `scenes/gatherHost.js` planFor) - the prompt says "not in a
+settlement", E goes on to the door or says it, the tool's Use says it; a dungeon's vein asks none. Node places are the
+client's alone (the service checks a node's key and slot, never where it stands): no service change.
+
+Pins: `test/fb1001_rockfoot.test.js` (4), `test/fb1001_settlesaid.test.js` (2); `tools/mutants/fb1001_boulders.json`
+(12, all dead). PIN MOVED, each by content: `prof2_client` (the rock pieces' line; PROF2 stand and DONE WHEN with the
+boulders' own pieces, claimed first), `fb1001_mining` VEIN-CLEAR (the field's one piece the boulder's). Mutant records
+re-aimed by content, dead: `audit29.json` AUDIT29-C11-a-foot-inside-a-neighbour, `prof2.json` PROF2-31, PROF2-32.
+FOUND, not changed: a boulder on a settlement's ground still stands (glowing, on the compass) where it can never be
+worked - its prompt now says why; standing none there needs the location's rect and type on the pixel. A pixel's
+boulders are 1 a day in the woods, 2 in the mountain woods, 3 in the mountains and deserts, none in swamps and
+rainforest (PROF0 6) - design, unchanged.
+
+## The rest of the life skills' audit (Mac: "Fix the rest")
+
+**BOULDERS and ROCK-SHARE.** With ROCK-FOOT a field's boulders stood, but a field holds few pieces with an open side,
+and one node a piece: on the shipped layouts (the stand-in meshes) raising the day's boulders alone stood two to two and
+a half a field a day whatever was asked, and took the veins' rocks - the veins at a rock fell from about 57% to 20% in the
+woods, 2 to 9% in the mountains. A piece now holds a node on each of its sides, every node at the field NODE_SPACING_M
+(6 m) from the next (`scenes/mineHost.js` claim), and the day's boulders are raised (`src/net/nodeLaw.js` NODE_COUNTS -
+the service's slot bound, so **acct47**): the Woodlands, the Haunted Woodlands and the Subtropical 3 (were 1), the
+Mountain Woods 4 (2), the Mountain and both Deserts 5 (3). The Swamp and the Rainforest keep none: their Court writs would
+start asking Rough Stone (PROF2's pin, "no boulders in a Swamp"). Measured over the same layouts: 93 to 98% of the day's
+boulders stand, and 93 to 98% of the veins at a rock. Deploy the account service (acct47) with or before the client: an
+older service refuses a boulder past its old count (`bad-node`).
+
+**SETTLE-STAND.** SETTLE-SAID made a ground node on a settlement's ground say so; it still stood there, glowing and on the
+compass, where no act could work it. The streaming world hands the gathering host the acts' own test (`settled`: the
+place's pixel's location, `isPlayerInTown` with its rect widened by a city block - Foraging's 'town', as `_musicLoc` and
+`_musicInLocationRect` answer it for the player), and the host stands no vein, boulder, herb patch or tree there
+(`scenes/gatherHost.js` stand: a kind with a `where`). SETTLE-SAID stays for the band's edge, where the player stands and
+the node does not.
+
+**CAST-LOOK.** Fishing's cast stood 0.6 m under the eye 3 m ahead whatever the look - inside the host's 12-degree cone only
+from some 23 degrees down to under one up (the audit drove the real host: a target at 0.5 degrees, none at 1). Looking out
+over the water there was no prompt, E went on to the door behind, and the net's Use told an angler in the water to
+"stand in it". The cast now stands where the look crosses 3 m ahead (`scenes/fishHost.js` castAt, held within
+CAST_RISE_M), and it yields: of the nodes in the cone, a node of the ground (an herb on the bank) is the target before it
+(`yields`, `scenes/gatherHost.js` findTarget).
+
+Pins: `test/fb1001_lifeskills.test.js` (4), `test/fb1001_rockfoot.test.js` ROCK-SHARE; `tools/mutants/fb1001_boulders.json`
+24, all dead. PIN MOVED, each by content: `prof1_law` (the counts), `prof2_law` and `prof2_service` (the Mountain's five; a
+sixth slot `bad-node`), `prof2_client` PROF2 stand (the nodes at a field 6 m apart), `fb1001_mining` VEIN-CLEAR (a stone a
+metre across over each vein's own tile, the boulders' - the veins fall back), `prof8_client` (the cast at the eye's
+height for a level look), and the nine account-version pins (acct47). Mutant records re-aimed by content, dead:
+`audit29.json` AUDIT29-C11 (its pins with the rock-foot suite), `prof2.json` PROF2-32 (the spacing at nothing).
+FOUND, not changed (the audit's "plausible"): a specialisation that changes what stands, taken mid-session, waits for
+the next state read (SEASONAL-EYE handles Herbalism 100's own); fishing from a deck may find the hull in the cast's ray.
+
+## AUDIT of the life skills' fixes (Mac: "audit this")
+
+**CAST-E (found, fixed).** The world's E reaches the gathering host before the door, the crew, the chest or the foe under
+the look (`scenes/world.js` nodeTook, PROF1's order), and CAST-LOOK made the cast the target at almost any look in the
+net's water - a sea's deck and a pier among it (the Ocean's climate is the net's water). With a net in the pack, E at a
+door or a crewman looked at level or up cast the net instead; a level look did so before CAST-LOOK too (the old point's
+cone held 0 degrees), so NAVAL-E guarded only boarding. Now the cast passes the press on as a node with a need does
+(VEIN-NEED's hand-back): `press` is false, the ladder tries what is under the look, and the host's `sayNeed` - called at
+the ladder's foot when nothing opened - casts it. A press the ladder took is never cast by a later hand-back
+(CAST_HANDBACK_MS). The net's Use casts at once, as before. Pins: `test/fb1001_lifeskills.test.js` CAST-LOOK and CAST-E;
+`fb0930b_fishtired`'s angler presses as the world does (the press, then the hand-back) - PIN MOVED; mutants
+`fb1001_boulders.json` CAST-E 3, dead; `fb0929h_veinneed.json` VEIN-NEED-said-twice re-aimed by content, dead.
+
+MERGE of main's PROF-MENU (a node's acts the loot plaque's list): CAST-E rides the menu - `hoverHit` yields the cast to
+the ray's winner in reach (the door's, the crew's or a chest's plaque kept), E unlit passes on as before, and a cast the
+plaque lit over nothing is cast by E or the click at once; SETTLE-SAID's ground check moved into `learned`, so every
+row of the list says it. Pin: `fb1001_lifeskills` CAST-E under PROF-MENU; CAST-E 5, dead.
+
+**Checked and sound.** The client keeps no service-version gate (acct47 is the deploy marker alone); the raised counts
+reach only the boulder law, the service's slot bound and two "any boulders" tests (`climateHolds`, the writs' Rough
+Stone) whose answers are unchanged; a slot's law point is its own hash, so slot 0 stands where it stood. The settlement
+test reads the location index filled at boot, before any pixel builds. `rockFootprint` reads the build's own `samples`
+(the entry's), costs some 0.15 ms a piece for a thousand-vertex mesh, warm, and the build yields between pieces.
+
+**FOOT-IN (found by the audit's independent pass, fixed).** Nothing kept a rock's foot on its own pixel: a field's pieces
+reach past the edge, and a vein or a boulder stood on the next pixel's ground - lit and on the compass (the marks walk
+256 m of pixels) but never the target, since the host asks only the pixels whose ground is in reach (`nearPixels`, 4.2
+m), and its height read off the edge's samples. Over the real sites as the loader places them (cube stand-ins, a
+seventh of the rock-field pixels): before the branch 20% of the few boulders that stood were off their pixel by more
+than the reach; after ROCK-FOOT and ROCK-SHARE 15% of the boulders and 19% of the veins. A foot now stands FOOT_INSET_M
+(0.5 m) inside its pixel (`scenes/mineHost.js` onPixel): none off it, 96% of the law's boulders standing, and the veins
+with no foot on the pixel on its own stone instead (93% stand - the rest stood where no look reached them). Pins:
+`test/fb1001_rockfoot.test.js` FOOT-IN (the host finds an edge boulder from the next pixel) and the shipped-fields test
+now over the real sites, every node on its pixel; mutants `fb1001_boulders.json` FOOT-IN 2, dead; `audit29.json` C11
+re-aimed by content, dead.
+
+**Noted, not changed.** A rock piece over the pixel's edge is measured against the edge's heights for its vertices past
+it (`groundAt` clamps) - its footprint there is approximate. A location a mod adds is a settlement on the client that
+has the mod, and its own act refuses there alike. The cast yields to any node in the cone, a node the player cannot work
+among them (E then says what that node needs) - as before when that node was nearer the look; looking away casts.
+
 ## Part five - the cast when used, the friend list, the mountain, the slow fall, the 3D map, the gate's health, the cursor
 
 Eight #bug-reports threads through Mac, as screenshots. Every report root-caused on the real modules before anything
@@ -1252,7 +1364,7 @@ pinned red on the branch before its fix (a gap pin's mutants are its claim) and 
 | WR1 | WOD-ROCK | the unfolding's frame was laid along the reference triangle's first edge - often a quad's diagonal - and an in-plane stretch keeps only that direction's angle: on the re-mapped non-rock pieces the textures with a grain turned - a palisade's planks (43001) 54 degrees off the wall, a fort piece's 32, a dock's stone blocks 14 (the rock, the same either way, hid it) | the frame along the texture's own rows (dP/du); every textured face of the 847 within 0.13 degrees |
 | WR2 | WOD-ROCK | one outcrop mixes pebbles under and over the 4x threshold (60610 at 3.01 beside 4.69; 60718 at 3.5 beside 60714 at 1.9): touching faces two to three and a half times each other's density | a rock pebble is unfolded from any real stretch, by the model id the host hands in (`WOD_ROCK_MODELS`) |
 | ROCK-CAP | WOD-ROCK (asked) | at the pebble's density the rock read as rock within some 10 m, a lattice at 30 to 100 m, flat from 300 m - a spire is seen from hundreds of metres. Mac: *"Cap at ~8 m a repeat"* | a rock face no finer than a repeat per 8 m (`WOD_ROCK_MAX_REPEATS_PER_M`) |
-| R | the record | part five's own page and rows: the FRIENDS-SYNC section said no frame changed shape (F5 added the hello's `ps`), 157 dead where 158 died, ORBIT-FREE's repro 20 px across where it was 30, the H1, the preface and Active-Arcs silent on part five, the Ledger row naming one of its two pins, a Testing row overstating its source pins, CAST-USE's audit tags F where the page said CU; and main's struck Ledger row 821, re-aimed by half (its `world.js:2584-2589` now `8855-8867`) | corrected; the cast-use tags CU1-CU3 in the source, the pins and the mutant names |
+| R | the record | part five's own page and rows: the FRIENDS-SYNC section said no frame changed shape (F5 added the hello's `ps`), 157 dead where 158 died, ORBIT-FREE's repro 20 px across where it was 30, the H1, the preface and Active-Arcs silent on part five, the Ledger row naming one of its two pins, a Testing row overstating its source pins, CAST-USE's audit tags F where the page said CU; and main's struck Ledger row 821, re-aimed by half (its `world.js:2585-2590` now `8855-8867`) | corrected; the cast-use tags CU1-CU3 in the source, the pins and the mutant names |
 
 The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
 Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2.json` C2-one-half-sent. Pin moved:

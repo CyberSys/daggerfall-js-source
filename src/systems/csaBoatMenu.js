@@ -19,6 +19,7 @@
 //    over as it did (boatMenuStart's -1).
 //  - A row the mod would refuse is listed with its reason (the plaque's refused rows, AUDIT DISC7 A4) and the
 //    press says the mod's own words (boatMenuRefusal).
+//  - SHIP-PACK (2026-10-01): every hull lists "Pick up" - a ship's refused while her deed is not in the pack.
 
 /** The verbs, by row id. */
 export const BOAT_VERB = Object.freeze({
@@ -34,6 +35,7 @@ export const BOAT_MENU_TEXT = Object.freeze({
 /** Why a row is refused - short, for the plaque's "(why)". */
 export const BOAT_MENU_WHY = Object.freeze({
   driving: 'at her helm', passengers: 'passengers aboard', moored: 'a deed ship stays afloat', sailing: 'not at the helm',
+  noDeed: 'her deed is not in your pack',   // SHIP-PACK: a ship is picked up with her deed (comeSailAway.js PackBoat)
 });
 
 /**
@@ -71,7 +73,8 @@ export function boatTriggers(root, modelOf, models) {
 /**
  * A boat of mine's rows, in the plaque's shape ({id, label, disabled, why}).
  * @param {{ boxes: Map<string, any[]>|Set<string>, packable?: boolean, sailingThis?: boolean, sailing?: boolean,
- *   aboard?: boolean, passengers?: number, variants?: boolean, naval?: boolean, crewed?: boolean, companions?: boolean }} s
+ *   aboard?: boolean, passengers?: number, variants?: boolean, naval?: boolean, crewed?: boolean, companions?: boolean,
+ *   noDeed?: boolean }} s
  */
 export function boatMenuRows(s) {
   const has = (b) => s.boxes.has(b);
@@ -80,7 +83,8 @@ export function boatMenuRows(s) {
   if (has('board') && !s.aboard && !s.sailingThis) rows.push({ id: BOAT_VERB.board, label: BOAT_MENU_TEXT.board });
   if (has('cargo')) rows.push({ id: BOAT_VERB.cargo, label: BOAT_MENU_TEXT.cargo });
   if (has('drive')) {
-    const why = !s.packable ? BOAT_MENU_WHY.moored : s.sailingThis ? BOAT_MENU_WHY.driving : (s.passengers ?? 0) > 0 ? BOAT_MENU_WHY.passengers : null;
+    const why = !s.packable ? BOAT_MENU_WHY.moored : s.sailingThis ? BOAT_MENU_WHY.driving : (s.passengers ?? 0) > 0 ? BOAT_MENU_WHY.passengers
+      : s.noDeed ? BOAT_MENU_WHY.noDeed : null;   // SHIP-PACK: a ship whose deed is not in the pack (the runtime's deedMissing)
     rows.push(why ? { id: BOAT_VERB.pack, label: BOAT_MENU_TEXT.pack, disabled: true, why } : { id: BOAT_VERB.pack, label: BOAT_MENU_TEXT.pack });
   }
   if (has('variant') && s.variants) rows.push(s.sailing ? { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant, disabled: true, why: BOAT_MENU_WHY.sailing } : { id: BOAT_VERB.variant, label: BOAT_MENU_TEXT.variant });
@@ -113,7 +117,8 @@ export function boatMenuStart(box, rows, mode) {
 export const boatMenuRefusal = (why) => (why === BOAT_MENU_WHY.driving ? 'You cannot pack a boat you are driving!'
   : why === BOAT_MENU_WHY.passengers ? 'You cannot pack a boat with passengers aboard!'
     : why === BOAT_MENU_WHY.moored ? 'A ship from a deed cannot be packed - she stays where she floats.'
-      : why === BOAT_MENU_WHY.sailing ? 'Not while at the helm.' : null);
+      : why === BOAT_MENU_WHY.sailing ? 'Not while at the helm.'
+        : why === BOAT_MENU_WHY.noDeed ? 'Her deed must be in your pack to pick her up.' : null);   // SHIP-PACK: comeSailAway.js DEED_NOT_HELD_TEXT (pinned equal)
 
 /**
  * The box a verb is pressed on: the one aimed at when it is that verb's (AUDIT BOAT-MENU C6: the far ladder aimed at

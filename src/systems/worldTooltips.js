@@ -312,9 +312,17 @@ export const mobilePersonName = (nameNPC) => (nameNPC || null);
  * standing without an `ai`. A hostile one answers nothing and the
  * plaque draws nothing over it, exactly as an unnamed key does: the
  * mod will not label the thing that is trying to kill you.
+ *
+ * LOOT7-CHECK CHAMP-HOVER - THE ONE EXCEPTION, A RECORDED DEPARTURE: a
+ * CHAMPION (systems/champions.js) is named while hostile. Mac asked for
+ * "single named foes with visible traits", and its name IS the trait
+ * ("Mighty Orc"): the warning the mod's silence would swallow, and on
+ * the classic skin - which has no target frame (ui/hudFoeTarget.js is
+ * the enhanced skin's) - the only word over it before it dies. Off is
+ * the mod exactly: with the loot-rarity row off no champion stands.
  */
-export function mobileEntityName(entityName, { hostile = false } = {}) {
-  if (hostile) return null;
+export function mobileEntityName(entityName, { hostile = false, champion = false } = {}) {
+  if (hostile && !champion) return null;
   return entityName || null;
 }
 

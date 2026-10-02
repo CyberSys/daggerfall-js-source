@@ -89,7 +89,7 @@ test('AUDIT pre-merge S1: a floor-keeping body\'s head never grounds - the repor
   assert.ok(!(giant[0] > 1 && giant[1] > -1), `never over the pit at the ledge's height (${giant[0].toFixed(2)}, ${giant[1].toFixed(2)}) - it walked there through the air`);
   assert.ok(giant[1] < -2.9 || giant[0] < 0.5, `in the pit, or held at its edge (${giant[0].toFixed(2)}, ${giant[1].toFixed(2)})`);
   const src = readFileSync(new URL('../src/player/collider.js', import.meta.url), 'utf8');
-  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0 \? lowOneWay : false, tall && axis !== 0\);/, 'the head a wall to a floor-keeping body, as a mid-body contact is');
+  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0 \? lowOneWay : false, axis !== 0\);/, 'the head a wall to a floor-keeping body, as a mid-body contact is (AUDIT CLIMB-FIELD W2: and to every body with an axis)');
 });
 
 test('AUDIT pre-merge S2: every FOE keeps its floor by its motor\'s word, whatever its height - a 1.8 to 2.6 m body under a lower ceiling sank and fell out of the level; the motor passes the flag at every move', () => {

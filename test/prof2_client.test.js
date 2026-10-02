@@ -12,11 +12,11 @@ import { readFileSync } from 'node:fs';
 import { standService, T0, sessionStorageOf } from './accountDb.mjs';
 import { accountProf, SESSION_KEY } from '../src/net/accountClient.js';
 import { createProfBook } from '../src/net/profBook.js';
-import { veins, nodeKey, utcDayOfMs, dveinKey } from '../src/net/nodeLaw.js';
+import { veins, boulders, nodeKey, utcDayOfMs, dveinKey } from '../src/net/nodeLaw.js';
 import { MINE_ACT, strikesFor, glintsMax, SMELT_RECIPES, smeltRecipe } from '../src/net/professionLaw.js';
 import { createMineAct, MINE_POINTS, aimOff } from '../src/systems/mineAct.js';
 import {
-  standMineNodes, rockFoot, mineFlats, mineRecord, minePlan, pickHandFrame, standDungeonVeins, ROCK_OFFSET, VEIN_FLATS, LODESTONE_RECORD,
+  standMineNodes, rockFoot, mineFlats, mineRecord, minePlan, pickHandFrame, standDungeonVeins, ROCK_OFFSET, NODE_SPACING_M, VEIN_FLATS, LODESTONE_RECORD,
   PICK_HAND, PROSPECT_M, DUNGEON_SKIP, mineKind,
 } from '../src/scenes/mineHost.js';
 import { createGatherHost, aimAt, wrapDeg } from '../src/scenes/gatherHost.js';
@@ -106,13 +106,15 @@ test('PROF2 act: every strike on the glint is the clean finish, in the fewest st
 
 // ─── WHERE A NODE STANDS ─────────────────────────────────────────────
 
-test('PROF2 stand: a vein stands at the foot of the rock piece nearest its law point, on the side facing it; a boulder IS a piece; a piece holds one node', () => {
+test('PROF2 stand: a vein stands at the foot of the rock piece nearest its law point, on the side facing it; a boulder IS a piece; the nodes at a field NODE_SPACING_M apart (ROCK-SHARE)', () => {
   const { samples, tilemap } = flatPixel(2);
   const day = 20500;
   const law = veins({ x: 400, y: 150, day, climate: MOUNTAIN, region: WAYREST });
-  // one rock piece close by every vein's point, and nothing else
+  // one rock piece close by every vein's point, and one about every boulder's (ROCK-FOOT: the boulders claim first)
   const rocks = law.map((v) => [v.u * TERRAIN_SIZE - 2, 0, v.v * TERRAIN_SIZE + 4, v.u * TERRAIN_SIZE + 2, 6, v.v * TERRAIN_SIZE + 8]);
-  const nodes = standMineNodes({ px: 400, py: 150, day, climate: MOUNTAIN, region: WAYREST, samples, tilemap, rocks });
+  const quarry = boulders({ x: 400, y: 150, day, climate: MOUNTAIN }).map((b) => [b.u * TERRAIN_SIZE - 2, 0, b.v * TERRAIN_SIZE - 2, b.u * TERRAIN_SIZE + 2, 5, b.v * TERRAIN_SIZE + 2]);
+  assert.equal(quarry.length, 5, 'the Mountain\'s five (BOULDERS)');
+  const nodes = standMineNodes({ px: 400, py: 150, day, climate: MOUNTAIN, region: WAYREST, samples, tilemap, rocks: [...quarry, ...rocks] });
   const vs = nodes.filter((n) => n.what === 'vein');
   assert.equal(vs.length, law.length);
   for (const n of vs) {
@@ -123,11 +125,20 @@ test('PROF2 stand: a vein stands at the foot of the rock piece nearest its law p
     assert.ok(Math.abs(n.local[2] - (z + 4 - ROCK_OFFSET)) < 1e-9, 'at the foot, a little off the box');
     assert.ok(Math.abs(n.local[1] - groundAt(samples, n.local[0], n.local[2])) < 1e-9, 'on the ground');
   }
-  assert.equal(nodes.filter((n) => n.what === 'boulder').length, 0, 'the pieces went to the veins: no boulder is left to quarry');
-  const more = [...rocks, [100, 0, 100, 104, 5, 104], [200, 0, 200, 204, 5, 204]];
-  const b = standMineNodes({ px: 400, py: 150, day, climate: MOUNTAIN, region: WAYREST, samples, tilemap, rocks: more }).filter((n) => n.what === 'boulder');
-  assert.equal(b.length, 2, 'two pieces left: two boulders of the Mountain\'s three');
-  assert.ok(b.every((n) => n.key.startsWith('boulder:400:150:') && n.lift >= 0.4 && n.lift <= 1.2));
+  const bs = nodes.filter((n) => n.what === 'boulder');
+  assert.deepEqual(bs.map((n) => n.rock), quarry, 'every boulder its own nearest piece');
+  assert.ok(bs.every((n) => n.key.startsWith('boulder:400:150:') && n.lift >= 0.4 && n.lift <= 1.2));
+  // the veins' pieces alone: the boulders claim first - ROCK-SHARE: a piece holds a node on each of its sides, the nodes
+  // NODE_SPACING_M apart - and a vein with no side left stands on the ground beside the field
+  assert.equal(NODE_SPACING_M, 6);
+  const only = standMineNodes({ px: 400, py: 150, day, climate: MOUNTAIN, region: WAYREST, samples, tilemap, rocks });
+  const onlyB = only.filter((n) => n.what === 'boulder');
+  assert.ok(onlyB.length >= 1 && onlyB.every((n) => rocks.includes(n.rock)), 'the boulders at the veins\' pieces');
+  assert.equal(only.filter((n) => n.what === 'vein').length, law.length, 'every vein stands');
+  const at = only.filter((n) => n.rock);
+  for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) {
+    assert.ok(Math.hypot(at[i].local[0] - at[j].local[0], at[i].local[2] - at[j].local[2]) >= 6 - 1e-9, 'two nodes at the field never closer than NODE_SPACING_M');
+  }
   assert.deepEqual(rockFoot([0, 0, 0, 10, 5, 10], 2, 5), [-ROCK_OFFSET, 5], 'a point inside a footprint: its nearest edge');
 });
 
@@ -372,10 +383,11 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
   const { samples, tilemap } = flatPixel(2);
   const law = veins({ x: px, y: py, day, climate: MOUNTAIN, region: WAYREST, confirmed: true });
   const rocks = law.map((v) => [v.u * TERRAIN_SIZE + 3, 0, v.v * TERRAIN_SIZE - 2, v.u * TERRAIN_SIZE + 9, 7, v.v * TERRAIN_SIZE + 2]);
-  const stood = standMineNodes({ px, py, day, climate: MOUNTAIN, region: WAYREST, confirmed: true, samples, tilemap, rocks });
-  assert.equal(stood.filter((n) => n.what === 'vein').length, 7, 'the Mountain\'s six and Wayrest\'s one');
+  const quarry = boulders({ x: px, y: py, day, climate: MOUNTAIN }).map((b) => [b.u * TERRAIN_SIZE - 2, 0, b.v * TERRAIN_SIZE - 2, b.u * TERRAIN_SIZE + 2, 5, b.v * TERRAIN_SIZE + 2]);   // ROCK-FOOT: the boulders' own, claimed first
+  const stood = standMineNodes({ px, py, day, climate: MOUNTAIN, region: WAYREST, confirmed: true, samples, tilemap, rocks: [...quarry, ...rocks] });
+  assert.equal(stood.filter((n) => n.what === 'vein').length, 13, 'the Mountain\'s twelve (PIN MOVED, MORE-NODES) and Wayrest\'s one');
   const first = stood.find((n) => n.signature);
-  assert.deepEqual([first.slot, first.material, first.rock], [6, 'ore:mithril', rocks[6]], 'Wayrest\'s signature, at its rock piece');
+  assert.deepEqual([first.slot, first.material, first.rock], [12, 'ore:mithril', rocks[12]], 'Wayrest\'s signature, at its rock piece');
   const r = await book.harvest({ node: first.key, kind: 'ore', climate: MOUNTAIN, region: WAYREST, act: { strikes: 4, glints: 4, clean: true }, at: NOON - 1 });
   assert.equal(r.ok, true, JSON.stringify(r));
   assert.equal(r.data.material, 'ore:mithril');
@@ -396,7 +408,7 @@ test('PROF2 DONE WHEN: veins placed on rock fields; signatures by kingdom - a co
 test('PROF2 hosts: the streaming world stands every kind through the one host, its rock pieces carried on the pixel; the dungeon\'s veins through its own doors; the forge at a smith\'s or a home; the Prospector\'s compass on both skins', () => {
   const w = src('src/scenes/world.js');
   assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\),[^\n]*\n\s*huntKind\(\{ book: profBook, bodies: \(\) => huntBodies\(\), openLoot: openHuntLoot \}\),/);   // PROF4: Logging's trees, the third; PROF7: Hunting's bodies, the fourth; PROF8's casts after them
-  assert.match(w, /if \(rockPick\(m\.pick\)\) pixelRocks\.push\(box\);/, 'a rock piece that stood - after the road\'s clearance');
+  assert.match(w, /if \(rockPick\(m\.pick\)\) \{ const foot = rockFootprint\(cpu\.positions, cpu\.indices, m\.matrix, samples\); if \(foot\) pixelRocks\.push\(foot\); \}/, 'a rock piece that stood - after the road\'s clearance; ROCK-FOOT: as it stands out of the ground');
   assert.match(w, /rocks: pixelRocks,/);
   assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/, 'Escape above the mode gate');

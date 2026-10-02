@@ -26,6 +26,18 @@
 // course, the pair on the spawn ring and crossing the player's waters as any ship does, so the fight is theirs and
 // in sight. The roll and the pair are drawn on the spawn's own ENCOUNTER_SALT stream (`encounterRng`), so a roll that
 // launches one ship draws exactly what it drew before; the company's seed is the next count's.
+//
+// SEA-EASE (2026-10-01, Mac: "too many ships are appearing", "The sea is too dangerous right now", "Friendly AI should
+// help the player in combat") - A QUIETER, SAFER BAY. The densities keep one, two or four ships near a player (they
+// kept two, three and five), rolled for every SPAWN_EVERY - a minute to two and a half, not half a minute to one - and
+// the first FIRST_ROLL_S after the water is reached; the open bay sails fewer pirates and more merchantmen and crown's
+// ships, and within PORT_PIXELS of a port the pirates' weight is cut to PORT_PIRATE_K - the crown's own waters. THE
+// RELIEF: while a pirate fights a lawful player (`ctx.distress`, where they are - the host's word) and no crown's ship
+// stands by them, the next roll comes within RELIEF_WAIT_S and, on RELIEF_CHANCE of it, launches a navy ship for their
+// waters - in a berth past the density's own, one relief at a time (`ctx.relieving`) - on the ring about them and
+// steering for them (`relief`: the host lays her course there); while they fight the roll launches nothing else - the
+// sea sends help, never more strangers. She is a crown's ship like any: the pirate is hers (navalAI.js AID_PRIORITY),
+// and she sails on when the fight is done.
 
 import { hash32 } from '../../world/spawnedDungeons.js';
 import { mulberry32 } from '../../combat/bloodArt.js';
@@ -33,22 +45,30 @@ import { classFor, HULL, SHIP_CLASSES } from './navalShips.js';
 import { HULL_VARIANT_COUNTS } from '../comeSailAwayBoat.js';
 import { classPower, odds, WARY_ODDS } from './navalAI.js';   // SEA-PEACE: a plunder's merchantman is one her pirate outguns
 
-/** How many ships the density keeps at sea near a player. */
-export const DENSITY = Object.freeze({ off: 0, few: 2, some: 3, many: 5 });
+/** How many ships the density keeps at sea near a player. SEA-EASE: one, two or four (they were two, three and five). */
+export const DENSITY = Object.freeze({ off: 0, few: 1, some: 2, many: 4 });
 export const DENSITY_KEYS = Object.freeze(Object.keys(DENSITY));
 /** Where a ship is launched (m from the player), how far from every player it must be, and where it leaves. */
 export const SPAWN_RING = Object.freeze([650, 1000]);
 export const SPAWN_CLEAR = 450;
 export const DESPAWN_BEYOND = 1900;
-/** Seconds between the director's rolls (a draw in the range), and the first roll's wait after the water is reached. */
-export const SPAWN_EVERY = Object.freeze([30, 65]);
-export const FIRST_ROLL_S = 12;
+/** Seconds between the director's rolls (a draw in the range), and the first roll's wait after the water is reached.
+ *  SEA-EASE: a minute to two and a half, and half a minute first (they were 30-65 s and 12 s). */
+export const SPAWN_EVERY = Object.freeze([60, 140]);
+export const FIRST_ROLL_S = 30;
 /** A roll's chance to launch a ship when there is room for one. */
 export const SHIP_SPAWN_CHANCE = 0.8;
-/** The factions' weights: the open bay, and what a port within PORT_PIXELS and a notoriety at HUNTER_AT add. */
-export const FACTION_WEIGHTS = Object.freeze({ pirate: 45, merchant: 38, navy: 17 });
+/** The factions' weights: the open bay, and what a port within PORT_PIXELS and a notoriety at HUNTER_AT add.
+ *  SEA-EASE: the open bay's pirates 30 (were 45), its merchantmen 45 (38) and its crown's ships 25 (17). */
+export const FACTION_WEIGHTS = Object.freeze({ pirate: 30, merchant: 45, navy: 25 });
 export const PORT_PIXELS = 3;
 export const PORT_WEIGHTS = Object.freeze({ merchant: 30, navy: 15 });
+/** SEA-EASE: the share of the pirates' weight left within PORT_PIXELS of a port - the crown's own waters. */
+export const PORT_PIRATE_K = 0.5;
+/** SEA-EASE - THE RELIEF: the most a roll waits while a lawful player is under a pirate's guns with no crown's ship by
+ *  them (s), and its chance to launch a navy ship for them. */
+export const RELIEF_WAIT_S = 20;
+export const RELIEF_CHANCE = 0.7;
 export const HUNTER_AT = 50;
 export const HUNTER_WEIGHT = 45;
 /** The bearings a spawn tries before it gives the roll up. */
@@ -61,6 +81,8 @@ export const ENCOUNTER_GAP = Object.freeze([140, 220]);
 export const ENCOUNTER_SALT = 0x3ea7f1a5;
 /** SEA-PEACE: the pair's stream off a spawn's seed - never the single spawn's own. */
 export const encounterRng = (seed) => mulberry32(((seed >>> 0) ^ ENCOUNTER_SALT) >>> 0);
+/** SEA-EASE: the relief's own stream's salt on the spawn's seed. */
+export const RELIEF_SALT = 0x2e11ef;
 
 /**
  * SEA-PEACE: the two classes of an encounter at the player's level - `plunder` a pirate (never the flagship) and a
@@ -102,7 +124,7 @@ export function weightedPick(weights, r) {
 /** The factions' weights for these waters. */
 export function factionWeights({ nearPort = false, notoriety = 0 } = {}) {
   const w = { ...FACTION_WEIGHTS };
-  if (nearPort) { w.merchant += PORT_WEIGHTS.merchant; w.navy += PORT_WEIGHTS.navy; }
+  if (nearPort) { w.merchant += PORT_WEIGHTS.merchant; w.navy += PORT_WEIGHTS.navy; w.pirate *= PORT_PIRATE_K; }   // SEA-EASE: the crown's own waters
   if (notoriety >= HUNTER_AT) w.navy += HUNTER_WEIGHT;
   return w;
 }
@@ -111,7 +133,9 @@ export function factionWeights({ nearPort = false, notoriety = 0 } = {}) {
  * The director. `step(dt, ctx)` answers `{ spawn: spec | null, despawn: id[] }`:
  *   ctx = { density, player: [x, y, z], players: [x, y, z][] (every player the host places - itself included),
  *           level, ships: [{ id, pos, classId, engaged, afloat, theirs, berthed }], isOpenWater(x, z, hull), nearPort, notoriety,
- *           seedBase, seaY }
+ *           seedBase, seaY, distress: [x, y, z] | null, relieving }
+ * SEA-EASE: `distress` where a lawful player is under a pirate's guns with no crown's ship by them, `relieving` a relief
+ * already at sea - a relief's spec carries `relief: true`.
  * AUDIT NAV1 (online): a ship `theirs` - another player's, near me - counts against the density and is never mine to
  * despawn; with `density` 0 (a player who does not stand the sea) the director only lets its own ships go.
  * Only a ship `afloat` (not false) counts against the density - a prize, a struck hulk, a ship going down is still at
@@ -146,6 +170,24 @@ export function createNavalDirector({ random = Math.random } = {}) {
     }
     return null;
   }
+  /** SEA-EASE - THE RELIEF: a crown's ship for a lawful player under a pirate's guns, on RELIEF_CHANCE of her own
+   *  RELIEF_SALT stream - on the ring about them, facing them, her class the navy's at the level - or null. */
+  function reliefSpawn(seed, ctx, nearest, at) {
+    const r = mulberry32(((seed >>> 0) ^ RELIEF_SALT) >>> 0);
+    if (!(r() < RELIEF_CHANCE)) return null;
+    const cls = classFor('navy', ctx.level ?? 1, r());
+    if (!cls) return null;
+    for (let i = 0; i < SPAWN_TRIES; i++) {
+      const a = r() * Math.PI * 2;
+      const d = SPAWN_RING[0] + r() * (SPAWN_RING[1] - SPAWN_RING[0]);
+      const pos = [at[0] + Math.sin(a) * d, ctx.seaY ?? at[1], at[2] + Math.cos(a) * d];
+      if (nearest(pos) < SPAWN_CLEAR || !ctx.isOpenWater(pos[0], pos[2], cls.hull)) continue;
+      const variants = HULL_VARIANT_COUNTS[cls.hull] ?? 0;
+      const variant = cls.hull === HULL.LargeBoat && variants > 0 ? Math.floor(r() * variants) : 0;
+      return { seed, classId: cls.id, variant, pos, yaw: Math.atan2(at[0] - pos[0], at[2] - pos[2]), hunter: false, relief: true };
+    }
+    return null;
+  }
   const director = {
     step(dt, ctx) {
       const out = { spawn: null, despawn: [] };
@@ -153,14 +195,22 @@ export function createNavalDirector({ random = Math.random } = {}) {
       const nearest = (p) => Math.min(...players.map((q) => Math.hypot(p[0] - q[0], p[2] - q[2])));
       for (const s of ctx.ships ?? []) if (!s.engaged && !s.theirs && nearest(s.pos) > DESPAWN_BEYOND) out.despawn.push(s.id);
       if (!((ctx.density ?? 0) > 0)) return out;   // AUDIT NAV1 (online): letting go only - no roll, no draw on the stream
+      // SEA-EASE: a lawful player under a pirate's guns with no crown's ship by them - help is rolled for soon, in a
+      // berth of its own, one relief at a time
+      const distress = Array.isArray(ctx.distress) && !ctx.relieving ? ctx.distress : null;
+      if (distress) wait = Math.min(wait, RELIEF_WAIT_S);
       wait -= Math.max(0, dt);
       if (wait > 0) return out;
       wait = SPAWN_EVERY[0] + random() * (SPAWN_EVERY[1] - SPAWN_EVERY[0]);
       // AUDIT NAV1 (B1): a prize, a hulk or a wreck going down fills no berth; SHIP-LIFE: nor a ship moored in a harbour
       // (the harbour's own count, navalHost.js HARBOUR_ROLL)
       const alive = (ctx.ships ?? []).filter((s) => !out.despawn.includes(s.id) && s.afloat !== false && !s.berthed).length;
-      if (alive >= (ctx.density ?? 0) || random() >= SHIP_SPAWN_CHANCE) return out;
+      if (alive >= (ctx.density ?? 0) + (distress ? 1 : 0) || random() >= SHIP_SPAWN_CHANCE) return out;
       const seed = hash32(ctx.seedBase >>> 0, count++);
+      if (distress) {   // while they fight, the sea sends help - never more strangers
+        out.spawn = reliefSpawn(seed, ctx, nearest, distress);
+        return out;
+      }
       // SEA-PEACE: a pair already at it, where the density has room for two
       if (alive + 2 <= (ctx.density ?? 0)) {
         const pair = encounterSpawn(seed, ctx, nearest);

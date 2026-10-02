@@ -262,7 +262,7 @@ function partyOf(names = ['Ann', 'Bran'], leaderName = names[0]) {
   const clients = new Map();
   const byAcct = (acct) => [...clients.values()].find((c) => c.acct === acct);
   for (const name of names) {
-    const c = { name, acct: `acct-${name}`, pose: { ...P }, feet: null, near: true, online: true, lines: [], mids: [], prompts: [], travels: [], opened: 0,
+    const c = { name, acct: `acct-${name}`, pose: { ...P }, feet: null, near: true, online: true, lines: [], mids: [], midSecs: [], prompts: [], travels: [], opened: 0, tab: false,
       busy: false, alive: true, outdoors: true, refusal: null, afford: true, travelGoes: true, at: { x: 0, z: 0 }, relayOk: true, moving: false, journeying: false, dirty: 0, sendFails: false };
     c.social = { acct: c.acct, party: null, leads() { return this.party?.leader === this.acct; }, now: () => clock.shared };
     c.host = {
@@ -279,7 +279,8 @@ function partyOf(names = ['Ann', 'Bran'], leaderName = names[0]) {
       placeName: (to, fb) => PLACES[`${to.x},${to.y}`] || fb || 'the wilderness',
       prompt: (rows, onYes, onNo) => { const h = { rows, onYes, onNo, closed: false }; c.prompts.push(h); return h; },
       closePrompt: (h) => { h.closed = true; },
-      say: (t) => c.lines.push(t), mid: (t) => c.mids.push(t),
+      say: (t) => c.lines.push(t), mid: (t, sec) => { c.mids.push(t); c.midSecs.push(sec); },
+      tabOpen: () => c.tab,   // PARTY-READY: the Social panel open on its Party tab
       travel: (pick, opts, computed) => { c.travels.push({ pick, opts, computed }); return Promise.resolve(c.travelGoes); },
       openMap: () => { c.opened++; },
       clock: () => clock.mono,
@@ -1208,4 +1209,63 @@ test('AUDIT PARTY-UI2 host by source: the map door SAYS it indoors - "You cannot
   assert.ok(door.indexOf('_travelMap.gotoPlace(_travelGoto)') > door.indexOf('_travelMap = buildTravelMapWindow('), '...once one has been built');
   assert.equal((door.match(/_travelGoto = null/g) ?? []).length, 1, 'and let go nowhere else - a refused open keeps it');
   assert.match(w, /let _travelGoto = null;\n\s*const toggleTravelMap = /, 'one target, kept beside the door across opens');
+});
+
+// PARTY-READY (2026-10-01, Mac: "Also when party readying up, the ui element is hidden"): the ready-up stays on screen.
+test('PARTY-READY session: THE LEADER\'S WAIT STANDS THE ROUND - the HUD label for the round\'s minute, not the host\'s four seconds; set again only as the count moves (every label is a notebook line), for what is left of it; the set-out, a call-off or a lapse says its own line over it (mutants: the wait for the host\'s default, set every tick, never moved, left standing over the outcome)', () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  w.step();
+  assert.equal(ann.pt.propose(PICK, OPTS, FARE), true);
+  assert.equal(ann.mids.at(-1), 'Waiting for the party to ready up (1/2 ready).');
+  assert.equal(ann.midSecs.at(-1), PARTY_READY_TIMEOUT_MS / 1000, 'for the round\'s whole minute');
+  const n = ann.mids.length;
+  w.step(); w.step();
+  assert.equal(ann.mids.length, n, 'the count unmoved: set no more');
+  bran.prompts[0].onYes();
+  w.step();
+  assert.deepEqual(ann.mids.slice(n), ['Waiting for the party to ready up (2/2 ready).', 'The party sets out for Wayrest.'], 'the count moved, then the round set out over it');
+  assert.equal(ann.midSecs[n], (PARTY_READY_TIMEOUT_MS - 3 * PARTY_TRIP_TICK_MS) / 1000, 'for what was left of the round');
+  assert.equal(ann.midSecs[n + 1], undefined, 'the outcome for the host\'s own short while');
+  // called off from the tab or the chat
+  const off = partyOf();
+  off.step();
+  off.c('Ann').pt.propose(PICK, OPTS, FARE);
+  assert.equal(off.c('Ann').pt.command('travel'), 'You call off the journey.');
+  assert.equal(off.c('Ann').mids.at(-1), 'You call off the journey.', 'over the wait');
+  // lapsed, unanswered
+  const late = partyOf();
+  late.step();
+  late.c('Ann').pt.propose(PICK, OPTS, FARE);
+  late.step(PARTY_READY_TIMEOUT_MS + PARTY_TRIP_TICK_MS);
+  assert.ok(late.c('Ann').mids.length >= 2 && late.c('Ann').mids.at(-1) === late.c('Ann').lines.at(-1), `the lapse said over it: ${late.c('Ann').mids.at(-1)}`);
+});
+
+test('PARTY-READY session: A MEMBER WITH THE PARTY TAB OPEN ANSWERS THERE - no box over the tab that asks it already (the box paused the game, and the pause took the tab and the party\'s HUD out of the page as the ready-up began), nor a line to type what it offers; the tab\'s Ready answers; closed unanswered, the box asks (mutants: the box over the tab, the round marked asked under it)', () => {
+  const w = partyOf();
+  const ann = w.c('Ann'), bran = w.c('Bran');
+  bran.tab = true;
+  w.step();
+  ann.pt.propose(PICK, OPTS, FARE);
+  w.step(); w.step();
+  assert.equal(bran.prompts.length, 0, 'no box over the tab');
+  assert.ok(!bran.lines.some((l) => l.includes('/travel')), 'nor a line to type what the tab offers');
+  assert.equal(bran.pt.status().round.gathered, true, 'the tab can answer it');
+  assert.equal(bran.pt.respond(true), 'You are ready to travel to Wayrest.');
+  const shut = partyOf();
+  shut.c('Bran').tab = true;
+  shut.step();
+  shut.c('Ann').pt.propose(PICK, OPTS, FARE);
+  shut.step();
+  assert.equal(shut.c('Bran').prompts.length, 0);
+  shut.c('Bran').tab = false;
+  shut.step();
+  assert.equal(shut.c('Bran').prompts.length, 1, 'the tab closed unanswered: the box asks');
+});
+
+test('PARTY-READY host by source: the wait\'s seconds reach the HUD\'s label, and the session reads the Party tab open (mutants: the seconds dropped at the seam, the tab never read)', () => {
+  const w = rd('src/scenes/world.js');
+  const host = w.slice(w.indexOf('partyTravel = createPartyTravel({'), w.indexOf('poseDirty: () => { _partyComposedAt = -Infinity; },'));
+  assert.match(host, /mid: \(text, seconds = PARTY_REST_FAR_SECONDS\) => setMidScreenText\(text, seconds\),/);
+  assert.match(host, /tabOpen: \(\) => !!socialPanel\?\.isOpen\?\.\(\) && socialPanel\.tab\(\) === 'party',/);
 });

@@ -706,7 +706,7 @@ function drawAnvil(detail, rerender, { el, divider }) {
     if (takesQuality(r) && recipeOpen(r, rank)) {
       const odds = qualityOdds(rank - r.rank, { masterwright: specs[100] === 'masterwright' });
       box.append(el('p', 'px-note', `Your rank ${rank}, margin ${rank - r.rank}: ${odds.map((o, q) => (o ? `${QUALITY_NAMES[q]} ${o}` : null)).filter(Boolean).join(' | ')}. A clean heat is a step better.`));
-    } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, once - a weapon or armour of its metal.'));
+    } else if (!takesQuality(r)) box.append(el('p', 'px-note', 'A Repair Kit mends a quarter of a piece\'s condition, up to three quarters, once - a weapon or armour of its metal.'));
     heartwoodToggle(box, el, r, book, _anvil, rerender, striking);   // PROF4: a Heartwood for a plank - the axes, hammers, shields, the Spade
     const gentle = getPref('gentleActs') === true;
     const elsewhere = handsAt(_anvil);   // AUDIT 32 P2

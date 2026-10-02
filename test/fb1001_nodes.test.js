@@ -187,7 +187,7 @@ test('SEASONAL-EYE: Herbalism 100\'s Seasonal Eye chosen mid-session stands the 
 
 test('NAVAL-E: at sea, a press the sea takes (a struck ship\'s rail, a prize, the grapples) is never offered to a node - the net\'s cast in the look; with nothing for the sea, the node has it first as ever (mutants: the sea never asked)', () => {
   const start = WORLD.indexOf('        // GUN-HOLD: Activate while the guns are laid holds fire');
-  const ifLine = '        if (((_act.activate && !gatherHost?.acting() && !_actClick) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
+  const ifLine = '        if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';   // PROF-MENU: and a node's lit row's click
   const end = WORLD.indexOf(ifLine, start);
   assert.ok(start > 0 && end > start, 'the street\'s gate');
   const cond = ifLine.trim().slice('if ('.length, -') {'.length);

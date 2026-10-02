@@ -57,6 +57,7 @@ import { calculateCost, calculateTradePrice, essentialPrice } from './shopStock.
 import { GOLD_PIECE_WEIGHT_KG, isEnchanted } from './inventory.js';
 import { calculateItemRepairCost, repairRefusal } from './repairService.js';
 import { itemValueOf, conditionPercentage } from './itemTemplates.js';
+import { isOnlinePage } from './onlineLane.js';   // SELL-AS-FOUND: online, a sale reads a piece as it was found
 import { isPotion } from './useItem.js';   // ESSENTIALS-HALF: the potion, by DFU's own IsPotion   // JAN1: the one value read; RRI2: ConditionPercentage, the Sell arm's third argument
 import { HOLIDAYS } from './holidays.js';
 import { GUILDS } from './guilds.js';
@@ -128,7 +129,7 @@ export const IDENTIFY_COST_MULTIPLIER = 25;
  *  no magic in it at all. It was never seen because the Identify
  *  destination was a null and the mode could not be opened; X7 opened
  *  it, so the derivation had to be right first. Both paths run at
- *  worldModes.js:2565 now (commitTrade) - the paid service and the spell. */
+ *  worldModes.js:2582 now (commitTrade) - the paid service and the spell. */
 export const itemIsIdentified = (item) => !isEnchanted(item) || item?.isIdentified === true;
 
 /** FormulaHelper.CalculateItemIdentifyCost (:1935-1955). FREE on the
@@ -217,6 +218,21 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
   return isPotion(item) && !holiday ? essentialPrice(held, { online }) : held;
 }
 
+/** SELL-AS-FOUND (AUDIT ECON O1, 2026-10-01): ONLINE A COUNTER PAYS FOR A PIECE AS THE WORLD HANDED IT OVER, AT BEST.
+ *  Roleplay & Realism: Items' condition prices are the room's (onlineLane.js), and its rolls hand pieces over worn - a
+ *  pile's and a body's at 20-75%, a poorer shelf's at 25-100% (rriRealism.js) - so a sale climbs with a repair. At
+ *  REPAIR-RATE's third (repairService.js) the repair cost less than the sale it added: mending worn loot to sell it paid
+ *  every player online - +102 gold on a value-1000 piece found at 20% (Mercantile 30, Personality 40, a quality-10
+ *  counter), +2,592 on a Daedric longsword. So online the Sell arm reads a piece's condition no higher than the
+ *  `foundCondition` those rolls leave on it: a repair or a kit is for using a piece, never for selling it, and wear
+ *  after the find still lowers the sale. A piece with no mark - handed over whole (a craft, a reward, a new shelf's),
+ *  or found before this - sells at its own condition, repaired or not. Offline, the mod's prices stand. */
+export function saleConditionPercentage(item, { online = isOnlinePage() } = {}) {
+  const found = item?.foundCondition;
+  if (!online || !Number.isInteger(found) || !(found < (item?.currentCondition ?? 0))) return conditionPercentage(item);
+  return conditionPercentage({ currentCondition: found, maxCondition: item.maxCondition });
+}
+
 /**
  * UpdateCostAndGold (:425-489). Answers the cost strip's number and
  * whether the mode-action button is ENABLED - which is the same walk,
@@ -236,7 +252,7 @@ export function buyItemPrice(item, { quality = 0, priceAdjustment = 1000, holida
 export function tradeCost(mode, staged = [], {
   quality = 0, priceAdjustment = 1000, holidayId = HOLIDAYS.None,
   guildFactionId = null, reducedRepairCost = null, reducedIdentifyCost = null,
-  usingIdentifySpell = false, isBeingRepaired = () => false,
+  usingIdentifySpell = false, isBeingRepaired = () => false, online = undefined,
 } = {}) {
   let cost = 0;
   let modeActionEnabled = false;
@@ -254,7 +270,8 @@ export function tradeCost(mode, staged = [], {
         // DFU passes ConditionPercentage (:462) into a slot its own
         // CalculateCost never reads - see the header; RRI2: Roleplay &
         // Realism: Items' override reads it, so the slot is passed.
-        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, conditionPercentage(item)) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN
+        // SELL-AS-FOUND: online, no better than the condition the world handed the piece over at
+        cost += calculateCost(itemValueOf(item), quality, priceAdjustment, saleConditionPercentage(item, { online })) * stack;   // JAN1: an item with no finite value is priced at its base, never NaN
         break;
       case 'SellMagic':
         // DFU's own TODO sits on this line: "Fencing base price higher
@@ -365,6 +382,40 @@ export function tradeDecision(mode, { cost, tradePrice, gold = 0 }) {
  *  not that explanation - it plays where GoldPieces would have. */
 export const LETTER_OF_CREDIT_TEXT = 'You are paid with a letter of credit.';
 
+/** SHIP-CREDIT (2026-10-01, Mac's "Buy on credit"): the templates a lot must hold to be bought on credit - Come Sail
+ *  Away's parts and deed (systems/comeSailAwayItems.js BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE; pinned equal). */
+export const CREDIT_ITEM_TEMPLATES = Object.freeze([1320, 1321]);
+/** SHIP-CREDIT: whether a lot staged to buy holds a boat - only a boat is sold on the bank's credit. */
+export const lotHasBoat = (staged = []) => staged.some((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex));
+/** SHIP-CREDIT (the review before the merge, 2026-10-01: a boat in the basket put the whole basket on the bank's
+ *  credit): whether a lot staged to buy is boats and nothing else - the one lot the bank lends on. */
+export const lotAllBoats = (staged = []) => staged.length > 0 && staged.every((it) => CREDIT_ITEM_TEMPLATES.includes(it?.templateIndex));
+/** SHIP-CREDIT: the refusal of a lot that holds a boat among other goods (creditRefusalRows names it). */
+export const CREDIT_BOAT_ALONE = 'boatAlone';
+/** SHIP-CREDIT: the offer's box - what the purse holds against the price, what the bank lends, what is paid now and
+ *  owed within the year (banking.js creditDecision's `credit`), and the question. */
+export function creditRows({ loan, pay, owed }, price, purse) {
+  return [
+    { text: `You have ${purse} of the ${price} gold.`, center: true },
+    { text: `The bank will lend you ${loan} gold for the boat.`, center: true },
+    { text: `You pay ${pay} now, and owe ${owed} within a year.`, center: true },
+    { text: 'Buy on credit?', center: true },
+  ];
+}
+/** SHIP-CREDIT: why the bank lends nothing, under the refusal's own box (creditDecision's `refuse`); none for a
+ *  refusal it does not name. `empireLines` the Empire's own words online (banking.js empireRefusalLines). */
+export function creditRefusalRows(r, empireLines = null) {
+  if (Array.isArray(empireLines) && empireLines.length) return empireLines.map((text) => ({ text, center: true }));
+  const text = r?.result === CREDIT_REFUSALS.ALREADY_HAVE_LOAN ? 'The bank will not lend: a loan of yours stands here.'
+    : r?.result === CREDIT_REFUSALS.ALREADY_DEFAULTED ? 'The bank lends nothing to one who has defaulted.'
+      : r?.result === CREDIT_REFUSALS.NOT_ENOUGH_GOLD ? `The bank lends on a boat only to one who pays ${r.down} gold down.`
+        : r?.result === CREDIT_REFUSALS.LOAN_REQUEST_TOO_HIGH ? `The bank will lend you no more than ${r.max} gold.`
+          : r?.result === CREDIT_BOAT_ALONE ? 'The bank lends on a boat bought by itself.' : null;
+  return text ? [{ text, center: true }] : [];
+}
+/** SHIP-CREDIT: the refusals creditRefusalRows names - banking.js TRANSACTION_RESULT's (pinned equal). */
+export const CREDIT_REFUSALS = Object.freeze({ ALREADY_DEFAULTED: 288, ALREADY_HAVE_LOAN: 289, LOAN_REQUEST_TOO_HIGH: 295, NOT_ENOUGH_GOLD: 454 });
+
 /** ConfirmTrade's SELL arm (:1035-1050): the proceeds are weighed
  *  BEFORE they are paid, and a purse that would push the player past
  *  MaxEncumbrance becomes a LETTER OF CREDIT for the full amount
@@ -448,7 +499,7 @@ export const DOESNT_NEED_IDENTIFY = 'This does not need to be identified.';
 //    (:161) feeds worldModes.js:2335-2355, which spends the magicka
 //    ONCE for the whole list whatever the outcome and tells the player
 //    "N of M identified"; the window opens from openIdentifyWindow
-//    (worldModes.js:9616), the entry point the magic arc owed.
+//    (worldModes.js:9647), the entry point the magic arc owed.
 //  - the LETTER OF CREDIT is tender and bankable: minted at systems/
 //    inventory.js:69, summed by creditAmount at systems/court.js:244,
 //    spent letters-before-coins by deductGold at court.js:286, and
