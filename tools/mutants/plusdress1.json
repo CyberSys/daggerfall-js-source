@@ -47,8 +47,8 @@
   {
     "name": "PLUS-DRESS-the-serif-left-on-the-gate",
     "file": "src/ui/enhancedPlusStyle.js",
-    "old": "body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400;",
-    "new": "body .wb-gate-banner { font-weight: 400;",
+    "old": "body .wb-gate-banner { ${PIXEL_FONT_CSS} font-size: 14px;",
+    "new": "body .wb-gate-banner { font-size: 14px;",
     "tests": [
       "test/plusdress1.test.js"
     ]

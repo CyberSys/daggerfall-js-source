@@ -266,7 +266,7 @@ test('WB13c the classic face is loaded by the gate\'s own screens - each asks fo
   }
   assert.match(MARKS_CARD_CSS, /\.wb-marks-text \{ font-size: 13px; opacity: 0\.92; \}\n\.wb-marks-tip \{ font-size: 13px; opacity: 0\.85; color: #e9c9a6; \}/);
   const plus = read('src/ui/enhancedPlusStyle.js');
-  assert.match(plus, /body \.wb-ground-warn \{ \$\{PIXEL_FONT_CSS\} font-weight: 400; font-size: 16px;[\s\S]{0,120}background: rgba\(5,6,8,0\.55\);/);
+  assert.match(plus, /body \.wb-ground-warn \{ \$\{PIXEL_FONT_CSS\} font-size: 16px;[\s\S]{0,120}background: rgba\(5,6,8,0\.55\);/);   // FONT3: the reading weight, not 400
   assert.match(plus, /body \.wb-boss-ward \{ inset: -5px; border-color: #ffe9a8;/, 'the ward a lit cage, apart from the frame\'s brass');
   assert.match(plus, /body \.wb-boss-track \{ margin: 7px 0 6px;/, 'room for the cage above and below');
 });

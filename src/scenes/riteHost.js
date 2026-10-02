@@ -188,7 +188,7 @@ export function createRiteHost({
       key: circleKey(s.day, s.px, s.py), win: riteWindow(s.day),
       local: [e, n], facing, layout, heart: [0, 0, 0], known: false,
       samples, sig: new Float64Array(samples.length / 2).fill(NaN), sampledAt: -Infinity, gen: 0, groundGen: 0,
-      bared: false, spawned: false, standAt: -Infinity, pending: 0, camp: null, ownLive: 0, pupLive: 0, counted: new Set(),
+      bared: false, spawned: false, standAt: -Infinity, pending: 0, retry: [], camp: null, ownLive: 0, pupLive: 0, counted: new Set(),
       passed: false, wordAt: -Infinity, saidKey: -1, resayAt: Infinity,
       pile: null, snap: null,
     };
@@ -281,13 +281,12 @@ export function createRiteHost({
   }
   /** THE FAITHFUL STOOD: the Summoner behind the altar, the rest on the ring - one camp, chanting - every one this
    *  character has not seen fall. Never in a save (AUDIT WB12d C5: a load stood them beside a fresh set). */
-  function stand(t) {
+  function stand(t, todo = survivors()) {
     C.standAt = t;
-    const todo = survivors();
     if (!todo.length) { C.spawned = true; return; }   // every one of them fell before my eyes: nothing stands, nothing is claimed
     foes.reclaim?.(C.site);   // a race lost earlier gave it away - its winner is gone
     sprang(C.site);
-    const c = C, site = C.site, camp = foes.campId(), ring = C.layout.ring(riteFaithfulOf(C.day).length - 1);
+    const c = C, site = C.site, camp = C.camp ?? foes.campId(), ring = C.layout.ring(riteFaithfulOf(C.day).length - 1);
     c.camp = camp;
     for (const [m, i] of todo) {
       const [x, z, yaw] = m.summoner ? c.layout.summoner : ring[i - 1];
@@ -295,6 +294,8 @@ export function createRiteHost({
       const landed = (f) => {
         c.pending--;
         if (f && (C !== c || now() >= c.win.to)) { foes.remove(f); return; }   // the circle went while it stood, or the breach opened (AUDIT WB12d: never the site with it)
+        // Keep only failed slots. Retrying the whole ring would duplicate the faithful that did stand.
+        if (!f && C === c && now() < c.win.to) c.retry.push([m, i]);
         if (f) { c.spawned = true; riteFoe(f, m.summoner, m.career, camp, true); if (f.entity && m.summoner) f.entity.properName = RITE_TEXT.summoner; }
         if (!c.pending && !c.spawned && C === c) unsprang(site);   // none stood: claimed by nobody, tried again
       };
@@ -340,7 +341,19 @@ export function createRiteHost({
   /** Whether to stand the faithful now - nobody's standing here (mine, a peer's copies, mine on their way), and nobody
    *  holds them: none ever sprang them, or their owner went quiet (AUDIT WB12d C2). */
   function maybeStand(t) {
-    if (C.pending || C.ownLive || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;
+    // A peer's ownership supersedes this client's failed slots; never retry beside their copy. THE MERGE (#534 B01 x
+    // BROKER-CAGE): nor once the hub says every one of them fell - the retry stands its slots past survivors(), whose
+    // law that is
+    if (C.pupLive || peerSprang(C.site) || clearedHere()) C.retry.length = 0;
+    if (C.pending || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;
+    if (C.retry.length && !peerSprang(C.site)) {
+      const mem = riteMemory(C.day);
+      const todo = C.retry.filter(([m]) => !m.summoner || (!mem.fell && !brokenHere()));
+      C.retry = [];
+      stand(t, todo);
+      return;
+    }
+    if (C.ownLive) return;
     if (peerSprang(C.site)) {
       if (!(peerHeldAgo(C.site) >= RITE_ORPHAN_MS)) return;   // a peer holds them - their copies on their way, or every one fallen
       forgetPeer(C.site);

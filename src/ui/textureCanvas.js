@@ -258,12 +258,12 @@ async function fitUrl(url, opts) {
  * SYNCHRONOUS for requestIcon's reason: a screen that rebuilds its DOM cannot await inside a render.
  * `trim: false` (UI2) fits the whole picture, margin and all - a spell icon's square.
  * @param {string} name @param {(onReady: (() => void)|null) => string|null} ask
- * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean, onReady?: (() => void)|null }} opts
+ * @param {{ box: number, dpr?: number, cap?: number, trim?: boolean, snap?: boolean, onReady?: (() => void)|null }} opts
  */
-export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, trim = true, onReady = null } = /** @type {any} */ ({})) {
+export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, trim = true, snap = true, onReady = null } = /** @type {any} */ ({})) {
   if (!(box > 0) || typeof ask !== 'function') return null;
   const r = clampDpr(dpr);
-  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}`;
+  const key = `${name}@${box}x${r}c${cap}${trim ? '' : 'w'}${snap ? '' : 'nosnap'}`;
   if (fitted.has(key)) { hear(fitWaiting.get(key), onReady); return fitted.get(key); }
   fitted.set(key, null);
   while (fitted.size > FIT_CACHE_MAX) {
@@ -276,7 +276,7 @@ export function requestFittedPicture(name, ask, { box, dpr = 1, cap = ICON_CAP, 
   const make = () => {
     const url = ask(null);
     if (!url) { fitWaiting.delete(key); return; }
-    fitUrl(url, { box, dpr: r, cap, trim }).then((pic) => {
+    fitUrl(url, { box, dpr: r, cap, trim, snap }).then((pic) => {
       fitWaiting.delete(key);
       if (!pic) return;
       fitted.set(key, pic);

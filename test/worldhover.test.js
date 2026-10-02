@@ -650,7 +650,7 @@ test('WORLD-HOVER: the dungeon\'s target list has ONE builder, and the hover rea
   // - but it is still that one list and no other.
   assert.match(ctx, /ground: pickActivatableHit\(eye, d, api\.dungeonActivationTargets\(\), collider\),/,
     'the plaque races the same list the press does');
-  assert.match(ctx, /foe: pickActivatableHit\(eye, d, liveFoeTargets\(foes, 'mobileFoe'\), collider\),/,
+  assert.match(ctx, /foe: \(\(ft\) => peacefulFoePass\(pickActivatableHit\(eye, d, ft, collider\), ft, doorDistanceOf\(eye, d, api\.dungeonActivationTargets\(\), collider\), getInteractionMode\(\)\)\)\(liveFoeTargets\(foes, 'mobileFoe'\)\),/,
     '...and the live foes beside it, through the one precedence');
   // BOTH ladders read it, and neither composes one.
   for (const [f, src] of [['src/scenes/worldModes.js', read('src/scenes/worldModes.js')],
@@ -1428,7 +1428,7 @@ test('AUDIT-WH H2: the mod\'s MOBILE BAND - a townsperson and a live foe, named 
   // exception (test/loot7check.test.js pins the law).
   for (const [f, v] of [['src/scenes/exteriorFoes.js', 'f'], ['src/scenes/cityGuards.js', 'g'],
     ['src/scenes/worldModes.js', 'f'], ['src/scenes/dungeonContext.js', 'f']]) {
-    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile, champion: !!${v}\.entity\?\.champion \}\)`),
+    assert.match(read(f), new RegExp(String.raw`mobileEntityName\(liveEntityName\(${v}, enemyDisplayName\(${v}\.mobileType\)\), \{ hostile: !!${v}\.ai\?\.isHostile, champion: foeTitled\(${v}\.entity\) \}\)`),
       `${f}: the live arm takes Entity.Name, with the enemy name only as the port's fallback`);
   }
 

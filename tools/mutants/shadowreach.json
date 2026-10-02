@@ -38,7 +38,7 @@
   {
     "name": "record-is-a-draw",
     "file": "src/render/renderer.js",
-    "old": "  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this._shadows.recordMesh(mesh, modelMatrix, texRemap); }",
+    "old": "  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1)); }",
     "new": "  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this.drawMesh(mesh, modelMatrix, texRemap); }",
     "tests": [
       "test/shadowreach.test.js"

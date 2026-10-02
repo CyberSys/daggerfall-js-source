@@ -45,6 +45,7 @@ import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';  
 import { hallMay } from '../../src/net/hallLaw.js';   // GUILD1d: a hall's keepers
 import { heraldryOfRow } from './halls.js';   // GUILD1d: a hall's heraldry, on its door
 import { openGatesAt } from './seatHolding.js';   // SEAT1d: Open Gates, where the town's holder proclaims it
+import { OWNS } from './decor.js';   // GUILD-YARD: a home's character, or a hall's keeper - as its decor asks
 
 const homeOf = (row) => ({
   mapId: row.map_id, buildingKey: row.building_key, region: row.region, character: row.char_id,
@@ -210,6 +211,9 @@ export async function setHomeEntry({ db }, player, { mapId, buildingKey, entry }
  * HOME-LOOK (2026-09-30): HOW A HOME LOOKS OUTSIDE, as its owner paints it (net/homeLaw.js homeLookOf) - the owner's
  * character's alone, free, a decorator's write against the hour's (decor.js's own count). `look` null paints it back
  * the town's own. Every client reads it with the town's homes.
+ * GUILD-YARD (Seats-Arc 8.2): a guild's hall is painted by its keepers - its Officers and its guildmaster, a realm
+ * character each (decor.js OWNS, the rule its rooms' pieces are placed by) - free, as a home's is; a member below them,
+ * and anyone outside the guild, paints nothing of it (`no-home`, as another's home).
  * @param {{db: any, nowS: number}} ctx
  */
 export async function setHomeLook({ db, nowS }, player, { mapId, buildingKey, character, look = null } = {}) {
@@ -218,10 +222,13 @@ export async function setHomeLook({ db, nowS }, player, { mapId, buildingKey, ch
   const next = look == null ? null : homeLookOf(look);
   if (look != null && !next) return { error: 'bad-look' };
   if (await overRate({ db, nowS }, `decor:${player.id}`, DECOR_OPS_MAX, DECOR_OPS_WINDOW_S)) return { error: 'decor-rate' };
-  const r = await db.prepare('UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ? AND player = ? AND char_id = ?')
-    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey, player.id, character).run();
+  const r = await db.prepare(`UPDATE homes SET look = ? WHERE map_id = ? AND building_key = ? AND ${OWNS}`)
+    .bind(next ? JSON.stringify(next) : null, mapId, buildingKey, mapId, buildingKey, player.id, character).run();
   return r?.meta?.changes ? { ok: true, look: next } : { error: 'no-home' };
 }
+
+/** HOME-LOOK: a row's look as the law takes it - `{ look }`, or nothing (the town's own). */
+const lookOfRow = (h) => { const look = h.look ? homeLookOf(h.look) : null; return look ? { look } : {}; };
 
 /**
  * A TOWN'S HOMES, for everyone standing in it - guests too: whose each is (the handle the relay signs), who may walk
@@ -257,6 +264,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
           buildingKey: h.building_key, owner: h.guild_name ?? h.owner_name, entry: h.entry, mine: false,
           hall: { name: h.guild_name ?? h.owner_name, tag: h.guild_tag ?? '', heraldry: heraldryOfRow(h.guild_heraldry) },
           ...(rank != null ? { member: true, ...(hallMay(rank, 'decorate') ? { keeper: true } : {}) } : {}),
+          ...lookOfRow(h),   // GUILD-YARD: how its keepers painted it, to everyone
         };
       }
       const mine = h.player === player.id;
@@ -266,7 +274,7 @@ export async function homesInTown({ db, nowS = Math.floor(Date.now() / 1000) }, 
         buildingKey: h.building_key, owner: h.owner_name, entry: open && !mine ? 'public' : h.entry, mine, ...(mine ? { character: h.char_id } : {}), ...(crossed ? { crossed } : {}),
         ...(Number(h.vacant) > 0 ? { rent: { vacant: Number(h.vacant), from: Number(h.rent_from) } } : {}),
         ...(Number.isSafeInteger(h.tenancy) && h.tenancy > nowS ? { tenant: h.tenancy } : {}),
-        ...(h.look ? (() => { const look = homeLookOf(h.look); return look ? { look } : {}; })() : {}),   // HOME-LOOK: how its owner painted it
+        ...lookOfRow(h),   // HOME-LOOK: how its owner painted it
         ...(h.guildmate === 1 ? { guildmate: true } : {}),   // GUILD1d: the named character is in the owner's character's guild
       };
     }),

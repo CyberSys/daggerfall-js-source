@@ -22,13 +22,15 @@ import {
   festivalBannerAnchors, festivalLanternsOf, festivalEnvironment, createFestivalStage, FESTIVAL_BANNERS_MAX, FESTIVAL_LANTERN_DROP_M, FESTIVAL_LANTERN_OUT_M,
 } from '../src/scenes/seatFestival.js';
 import { createSeatBanners } from '../src/scenes/seatBanners.js';
-import { hallBannerAnchors } from '../src/scenes/hallBanners.js';
+import { hallBannerAnchors, BANNER_REFRESH_MS } from '../src/scenes/hallBanners.js';
 import { fillLanternPool } from '../src/world/cityLights.js';
 import { createMusicDirector } from '../src/scenes/shared.js';
 import { LOCATION_TYPES, TAVERN_SONGS, MUSIC_ENV } from '../src/systems/songManager.js';
 import { BUILDING_TYPES } from '../src/world/buildingNames.js';
+import { createTownSeatBook, SEAT_LIST_CACHE_MS, SEAT_RED_READ_MS } from '../src/net/townSeatBook.js';   // AUDIT FESTIVAL S1
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+const tick = (n = 4) => new Promise((r) => { let i = 0; const go = () => (++i >= n ? r() : setTimeout(go, 0)); setTimeout(go, 0); });
 const SH = { id: 'g1', name: 'The Silver Hand', tag: 'SH', heraldry: { field: 'azure', border: 'gold', device: 'tower' } };
 
 // ─── STANDING-TREND ──────────────────────────────────────────────────
@@ -200,4 +202,91 @@ test('FESTIVAL-STAGE wired in the streets\' host: the build measures the Festiva
   assert.match(w, /worldLightAnimator\.ranges, festivalStage \? festivalStage\.lanterns : null\);/);
   assert.match(w, /arrested: Boolean\(playerEntity\.arrested\),\n\s*festival: festivalStage\?\.festive\(_musicLoc\?\.mapTableData\?\.mapId\) === true,/);
   assert.match(src('src/scenes/shared.js'), /const environment = festivalEnvironment\(held, merged\.festival === true\);/);
+});
+
+// ─── AUDIT FESTIVAL S1: THE TURNING WHILE THE PLAYER STAYS ──────────
+// The seats' list was read at the session's start and at a town's arrival alone, and an arrival inside SEAT_LIST_CACHE_MS
+// reused the last read - so a Festival (its music, banners, lanterns) or a Curfew outlived its week for a player who stayed
+// in town past the Turning, and one that became law at it was never staged. A list read in an earlier seat week is
+// expired; and the book's own frame tick (redTick, called each online frame) reads the list again once the week turns.
+
+/** A list door whose holder's Edict is `edictAt()` at the read's moment; `calls` counts its reads. */
+const turningDoor = (edictAt) => {
+  const door = { calls: 0, list: async () => { door.calls++; return { ok: true, data: { seats: [{ key: 3021, state: 'confirmed', holder: { guild: SH, edict: edictAt() } }] } }; } };
+  return door;
+};
+
+test('AUDIT FESTIVAL S1 the seats\' list read in an earlier seat week is expired: an arrival just after the Turning, inside SEAT_LIST_CACHE_MS of a read just before it, asks the service again and stages what rules now; inside one week the list is kept as before (mutants: the week unchecked; the cache unchecked)', async () => {
+  const W = seatWeekOf(Date.UTC(2026, 9, 1)), turning = seatWeekStartMs(W + 1);
+  let now = turning - 60_000;
+  const door = turningDoor(() => (now < turning ? 'festival' : null));
+  const book = createTownSeatBook({ door, nowMs: () => now });
+  await book.read();
+  assert.equal(book.dressed({ key: 3021 }).holder.edict, 'festival');
+  now = turning - 30_000;
+  await book.read();
+  assert.equal(door.calls, 1, 'the same week, inside the list\'s minutes: kept');
+  now = turning + 3 * 60_000;   // four minutes after the read: inside SEAT_LIST_CACHE_MS, but past the Turning
+  assert.ok(now - (turning - 60_000) < SEAT_LIST_CACHE_MS);
+  await book.read();
+  assert.equal(door.calls, 2, 'last week\'s list: asked again');
+  assert.equal(book.dressed({ key: 3021 }).holder.edict, null, 'the Festival ended at the Turning');
+  const stage = createFestivalStage({ seatAt: (m) => (m === 3021 ? book.dressed({ key: 3021 }) : null), now: () => now });
+  assert.equal(stage.festive(3021), false, 'no tavern music, banners or lanterns in week W+1');
+  now += 60_000;
+  await book.read();
+  assert.equal(door.calls, 2, 'this week\'s list: kept again');
+});
+
+test('AUDIT FESTIVAL S1 the book\'s frame tick reads the list again ONCE when the seat week turns - the Festival that ended unstaged, the one that became law staged, a Curfew the same - while the seats are open; never before the Turning, never twice, never for seats shut to this account; the host calls the tick each online frame (mutants: the re-read; the week compare; the open gate; once)', async () => {
+  const W = seatWeekOf(Date.UTC(2026, 9, 1)), turning = seatWeekStartMs(W + 1);
+  let now = turning - 60_000;
+  let edicts = ['festival', 'curfew'];   // week W's, then W+1's
+  const door = turningDoor(() => (now < turning ? edicts[0] : edicts[1]));
+  const book = createTownSeatBook({ door, nowMs: () => now });
+  await book.read();   // the arrival's
+  const stage = createFestivalStage({ seatAt: (m) => (book.open === true && m === 3021 ? book.dressed({ key: 3021 }) : null), now: () => now, version: () => (book.open === true ? 1 : 0) });
+  assert.equal(stage.festive(3021), true);
+  now = turning - 1;
+  book.redTick();
+  assert.equal(door.calls, 1, 'before the Turning: nothing asked');
+  now = turning + 1000;
+  book.redTick();
+  book.redTick();   // the same frame's second ask while the read is in flight
+  await tick();
+  assert.equal(door.calls, 2, 'the week turned: read again, once');
+  assert.equal(book.dressed({ key: 3021 }).holder.edict, 'curfew', 'the Curfew that became law');
+  now += BANNER_REFRESH_MS;
+  assert.equal(stage.festive(3021), false, 'the Festival that ended: unstaged within a second');
+  for (let i = 0; i < 5; i++) { now += 60_000; book.redTick(); }
+  await tick();
+  assert.equal(door.calls, 2, 'this week\'s list read: not asked again until SEAT_RED_READ_MS');
+  now = turning + 1000 + SEAT_RED_READ_MS;
+  book.redTick();
+  await tick();
+  assert.equal(door.calls, 3, 'the red lines\' own clock as before');
+  // a Festival that becomes law at the next Turning: staged
+  edicts = [null, 'festival'];
+  const W2 = seatWeekStartMs(W + 2);
+  now = W2 - 60_000;
+  const door2 = turningDoor(() => (now < W2 ? edicts[0] : edicts[1]));
+  const book2 = createTownSeatBook({ door: door2, nowMs: () => now });
+  await book2.read();
+  const stage2 = createFestivalStage({ seatAt: (m) => (m === 3021 ? book2.dressed({ key: 3021 }) : null), now: () => now });
+  assert.equal(stage2.festive(3021), false);
+  now = W2 + 5000;
+  book2.redTick();
+  await tick();
+  now += BANNER_REFRESH_MS;
+  assert.equal(stage2.festive(3021), true, 'the Festival that became law: staged');
+  // seats shut to this account: no week's read
+  now = turning - 60_000;
+  const shut = { calls: 0, list: async () => { shut.calls++; return { ok: false, error: 'seats-closed' }; } };
+  const book3 = createTownSeatBook({ door: shut, nowMs: () => now });
+  await book3.read();
+  now = turning + 1000;
+  book3.redTick();
+  await tick();
+  assert.equal(shut.calls, 1, 'shut: never asked at the Turning');
+  assert.match(src('src/scenes/world.js'), /\n    seatBook\?\.redTick\(\);   \/\/ CROWN2/, 'the host ticks the book each online frame');
 });

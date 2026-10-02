@@ -79,7 +79,8 @@ import { dfWornEquipment } from '../formats/mwItemMap.js';   // PX25
 import { hasDaggerfallArrows } from '../combat/fpArm.js';   // PX26
 import { ARMOR_ENUM } from '../combat/enemyEquipment.js';   // PX25
 import { inventoryItemImage, inventoryItemModel, templateByIndex, isAmmunition } from '../systems/itemTemplates.js';   // WEAR-UI: isAmmunition, spent not worn
-import { requestIcon, paperDollDataUrl, requestFittedPicture, iconName, fittedImg } from './textureCanvas.js';
+import { requestIcon, paperDollDataUrl, requestFittedPicture, requestFittedIcon, iconName, fittedImg } from './textureCanvas.js';
+import { fateColumn, fateKey, ensureFateStyle, FATE_FACE_BOX } from './revenantFateView.js';   // REVENANT-FATE: a beaten revenant's choice, this window's FATE side
 import { SLOT_BOX, gridBox, wornBox, screenDpr } from './iconFit.js';   // UI1: the fit law's boxes and the screen's ratio
 import { requestModelIconUrl } from './modelIcon.js';   // DISC24-B
 import { modelIconUrl as modelIconUrlOf } from './itemIconUrl.js';   // MW-D38, shared with the HUD's quickslots (QS3)
@@ -300,7 +301,7 @@ export function equippedModel(entity = {}) {
 /** What the remote side is CALLED, per DFU's four claims. The word is
  *  the port's; which claim is showing is inventorySession's. */
 export const REMOTE_TITLE = Object.freeze({
-  wagon: 'Wagon', reward: 'Choose one', container: 'Loot', storage: 'Storage', ground: 'Ground',
+  wagon: 'Wagon', reward: 'Choose one', container: 'Loot', storage: 'Storage', ground: 'Ground', fate: 'Fate',
 });
 /** What moving an item THERE is called. A verb per destination,
  *  because "Transfer" tells the player nothing about where. */
@@ -320,6 +321,8 @@ const GOLD_VERB = Object.freeze({ wagon: 'Stow', container: 'Drop', storage: 'St
  * wagon would be a second reading of that order.
  */
 export function remoteModel(deps = {}, state = {}) {
+  // REVENANT-FATE: a beaten revenant's choice - this window's remote side with no list of items, called by its name
+  if (deps.fate) return { kind: 'fate', title: deps.fate.name ?? REMOTE_TITLE.fate, items: [], count: 0, weight: 0, capacity: null, pile: null };
   const items = (remoteTarget(deps, state) ?? []).filter(Boolean);
   const kind = state.usingWagon ? 'wagon'
     : state.chooseOne ? 'reward'
@@ -446,11 +449,11 @@ export function linePictureUrl(line, { scale = 2, onReady = null } = {}) {
  *  (ui/iconFit.js SLOT_BOX), made at the screen's own device size: `{ src, w, h, smooth }`, or null while it is made
  *  (`onReady` fires when it lands) and for an item with no picture. The door above at scale 1 is its source, so the
  *  record, its dye and the cart's model are asked exactly as before; every enhanced list draws through this now. */
-export function linePicture(line, { box, onReady = null } = /** @type {any} */ ({})) {
+export function linePicture(line, { box, onReady = null, snap = true } = /** @type {any} */ ({})) {
   if (!line.image && line.model == null) return null;
   // MERGE (UI1 x DYE-ICON): the swatch the dye changes names the picture too - a silver blade is not the base one
   const name = line.image ? iconName(line.image.archive, line.image.record, line.image.dye, line.image.dyeTarget) : `model${line.model}`;
-  return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady });
+  return requestFittedPicture(name, (wake) => linePictureUrl(line, { scale: 1, onReady: wake }), { box, dpr: screenDpr(), onReady, snap });
 }
 
 /**
@@ -585,6 +588,7 @@ let tab = PAGE_IDS[0];
 const _scrollMemo = new Map();   // PX22: scrollTop per tab across repaints
 let _renderedTab = null;          // PX22: the tab the current DOM shows
 let picked = null;      // the selected item object
+let fatePick = null;    // REVENANT-FATE: the fate row picked ('kill' | 'spare'), the second press confirms
 let side = 'local';     // which list `picked` came out of
 let notice = null;
 /** CHAT-POST: what the card says after a post. */
@@ -1886,7 +1890,7 @@ function equippedList() {
   const plaque = armourPlaque(deps.entity);
   plaque.style.gridArea = '1 / 2';
   map.append(plaque);
-  wrap.append(statFlip(map, deps.entity));   // STATS-CARD: the worn map is the card's front; a Stats button turns it over
+  wrap.append(statFlip(map, deps.entity, deps.usingRightHand));   // STATS-CARD: the worn map is the card's front; a Stats button turns it over
   const byLabel = new Map();
   for (const row of worn.rows) {
     if (!byLabel.has(row.label)) byLabel.set(row.label, []);
@@ -1956,7 +1960,8 @@ function wornPanel(fam, byLabel, area) {
     return `${r.label}: ${l.name}${itemStatSuffix(l)}`;
   }).join('\n');
   if (area) b.style.gridArea = area;
-  b.append(tileWithWear(line, b, wornBox(area == null)));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's
+  // Keep equipment pictures at their slot's size across display zoom; integer snapping could shrink a 48px helm to 40px.
+  b.append(tileWithWear(line, b, wornBox(area == null), false));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's
   const txt = el('span', 'worntext');
   txt.append(el('span', 'wornslot', fam.label), el('span', 'wornname', line.name));
   b.append(txt);
@@ -2040,7 +2045,7 @@ function transportHalves() {
     const node = el(isCart && owned ? 'button' : 'div',
       `wornrow${owned ? '' : ' wornempty'}${isCart && owned && session.usingWagon ? ' on' : ''}`);
     const line = owned ? itemLine(owned, deps.entity) : null;
-    node.append(line ? itemTile(line, wornBox(true)) : el('span', 'worntile', '\u25c7'));   // UI1: a half panel's box
+    node.append(line ? itemTile(line, wornBox(true), render, false) : el('span', 'worntile', '\u25c7'));   // UI1: a half panel's box
     const txt = el('span', 'worntext');
     txt.append(el('span', 'wornslot', t.label), el('span', `wornname${owned ? '' : ' wornempty'}`, line ? line.name : t.empty));
     node.append(txt);
@@ -2089,7 +2094,7 @@ function shelfSocket(r, g) {
   const b = el('button', `wornsock${item === picked ? ' on' : ''}`);
   markItemFrame(b, item);   // RARITY-UI / SIGIL-UI: a socket is the icon's frame
   b.title = `${r.label}: ${line.name}${itemStatSuffix(line)}`;
-  b.append(tileWithWear(line, b, SLOT_BOX.socket));   // WEAR-UI
+  b.append(tileWithWear(line, b, SLOT_BOX.socket, false));   // WEAR-UI
   dragFrom(b, item, 'worn');   // MAC-M2's hold: off the body and into the pack
   b.onclick = (e) => {
     if (takeDragClick()) return;
@@ -2142,14 +2147,14 @@ function characterCol() {
  * scanning, which is what the prototype's tile was for. When the real
  * record lands the whole screen repaints and the letters give way.
  */
-function itemTile(line, box, ready = render) {
+function itemTile(line, box, ready = render, snap = true) {
   // MW-D38: the Morrowind ground mesh stands in for the sprite when a
   // body is built and the item resolves through the one map; the
   // classic icon stands otherwise. Enhanced only, like everything here.
   // UI1: both FITTED to the surface's own box (ui/iconFit.js SLOT_BOX) - the sprite no longer drawn at twice its size
   // and then capped at 30px by the sheet, whatever the slot around it.
   const pic = modelPicture(line.item, box)
-    || linePicture(line, { box, onReady: ready });
+    || linePicture(line, { box, onReady: ready, snap });
   if (pic) {
     const tile = el('span', 'tile has-icon');
     // NOT SQUASHED. These sprites are not square - a dagger is tall
@@ -2322,8 +2327,8 @@ export function wearBar(item) {
 }
 /** An item's picture with its wear bar in it; `holder` (the row or socket that frames it) is marked `hasbar`, so the
  *  sheet can lift what shares the tile's foot. */
-function tileWithWear(line, holder, box) {
-  const tile = itemTile(line, box);
+function tileWithWear(line, holder, box, snap = true) {
+  const tile = itemTile(line, box, render, snap);
   const bar = wearBar(line.item);
   if (bar) { tile.append(bar); holder.classList.add('hasbar'); }
   return tile;
@@ -2450,7 +2455,40 @@ function pileTabs(pile) {
   return bar;
 }
 
+/** REVENANT-FATE: the fate side - the trophy drawn as a looted weapon is, the revenant's portrait in its well. */
+function fateCol() {
+  ensureFateStyle(typeof document === 'undefined' ? null : document);
+  const fate = deps.fate;
+  const choose = (id) => {
+    const f = deps.fate;
+    fatePick = null;
+    onExit();   // the window's own close law first; the choice plays on an open world
+    try { f?.choose?.(id); } catch (e) { console.warn('[fate]', e?.message ?? e); }
+  };
+  return fateColumn(fate, fatePick, {
+    el,
+    trophyTile: (row, item) => {
+      markItemFrame(row, item); row.append(tileWithWear(itemLine(item, deps.entity), row, SLOT_BOX.loot));
+      // AUDIT (2026-10-02): its card on the hover, as a looted weapon's - its powers read before the choice, not after
+      row.onmouseenter = () => { if (getPref('plusItemHover') !== false) showTip(item, 'remote', row); };
+      row.onmouseleave = hideTip;
+    },
+    portrait: (face, p) => {
+      if (!p || !Number.isInteger(p.archive)) return false;
+      try {
+        const pic = requestFittedIcon(p.archive, p.record, { box: FATE_FACE_BOX, dpr: screenDpr(), cap: 8, onReady: () => { if (host && deps.fate === fate) render(); } });
+        if (!pic?.src) return false;
+        face.append(fittedImg(pic));
+        return true;
+      } catch { return false; }
+    },
+    onPick: fatePickAt,
+    onChoose: choose,
+  });
+}
+
 function remoteCol() {
+  if (remote.kind === 'fate') return fateCol();   // REVENANT-FATE
   const col = el('section', 'packcol packremote');
   if (remote.pile) col.append(pileTabs(remote.pile));
   const head = el('div', 'remotehead');
@@ -3367,7 +3405,7 @@ function render() {
     // PX21e: a long pile WIDENS rather than scrolls - two columns of
     // rows hold twice as much in the same height.
     const loot = (remote.kind !== 'ground' || remote.count > 0)
-      ? el('aside', `loot-win${remote.count > LOOT_ONE_COLUMN ? ' wide' : ''}`) : null;
+      ? el('aside', `loot-win${remote.count > LOOT_ONE_COLUMN ? ' wide' : ''}${remote.kind === 'fate' ? ' fate' : ''}`) : null;   // REVENANT-FATE: the fate side's own width
     if (loot) {
       for (const c of ['tl', 'tr', 'bl', 'br']) loot.append(el('span', `px-gem px-corner px-${c}`));
       loot.append(remoteCol());
@@ -3467,6 +3505,13 @@ function render() {
 // four lines of hooks above). A host that hands no sheet door gets a
 // key that falls through, which is the honest refusal every other
 // optional hook here gives.
+/** REVENANT-FATE: a row picked (or `null`, stepped out) - the confirm brought into view on a short screen, where the
+ *  window scrolls (the 2026-10-02 audit: a phone in landscape cut it off). */
+function fatePickAt(id) {
+  fatePick = id;
+  render();
+  if (id) host?.querySelector?.('.fate-confirm')?.scrollIntoView?.({ block: 'nearest' });
+}
 function onKey(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const t = e.target;
@@ -3474,6 +3519,8 @@ function onKey(e) {
   // DROPS-AUDIT F5: Escape with the PLUS7 menu open puts the MENU away, not the pack - this handler hears the key
   // first (window capture runs before the menu's own document listener), so it answers for the menu here
   if (menuEl && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); return; }
+  // REVENANT-FATE: K and S pick, a second press or Enter confirms, Back steps out of a pick (and then closes, below)
+  if (deps?.fate && !e.repeat && fateKey(e, deps.fate, fatePick, { onPick: fatePickAt, onChoose: (id) => { const f = deps.fate; fatePick = null; onExit(); try { f?.choose?.(id); } catch (err) { console.warn('[fate]', err?.message ?? err); } } })) { e.preventDefault(); e.stopPropagation(); return; }
   // AUDIT LOOT F7: THE CODEX OVER THE PACK HAS THE KEYS (after the menu's own Escape - the two never stand together:
   // the Codex's press puts the menu away). Its window's capture listener was laid after this one, so Back closed the
   // pack under it, and the pack's Inventory key left the Codex standing over the world: Back puts the Codex away and
@@ -3560,6 +3607,7 @@ export function mountEnhancedInventory(hostEl, d = {}) {
   // (PlayerActivate.cs:902-925), and the classic skin still does.
   packOpen = !d.loot || d.loot.storage === true;
   side = d.loot ? 'remote' : 'local';
+  fatePick = null;   // REVENANT-FATE: a fate comes as a body's loot does (an empty one - the host's door), its side alone
   // MAC-M2: the "that release was a drag" latch belongs to a GESTURE,
   // so it must not outlive the pane that held it - a session that ended
   // on a release no click ever followed (one off the panel lands on the

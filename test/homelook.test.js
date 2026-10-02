@@ -183,14 +183,14 @@ test('HOME-LOOK the world host by source: a town\'s homes are asked before its b
   // AUDIT: a town heard before is never waited for again (a rebuild stalled a second and a half)
   assert.match(w, /if \(onlineHomes\.known\(homeTown\)\) onlineHomes\.ensure\(homeTown\)\.catch\(\(\) => \{\}\);\n\s*else \{ try \{ await onlineHomes\.waitFor\(homeTown, HOME_LOOK_BUILD_WAIT_MS\); \}/);
   // AUDIT: only a painted home, or this account's, leaves the merge - and an unpainted one draws with the pixel's table
-  assert.match(w, /if \(homeRow && \(homeLook \|\| homeRow\.mine\)\) \{[\s\S]{0,300}entry\.texRemap = homeLook \? await homeLookRemap\(gpu\.subMeshes, texRemap, homeLook, season, pipeline\) : null;[\s\S]{0,80}\}\n\s*models\.push\(entry\);\n\s*if \(!entry\._home && !isCityGate/, 'a painted home stays out of the merge');
+  assert.match(w, /if \(homeRow && \(homeLook \|\| homeRow\.mine \|\| homeRow\.keeper\)\) \{[\s\S]{0,300}entry\.texRemap = homeLook \? await homeLookRemap\(gpu\.subMeshes, texRemap, homeLook, season, pipeline\) : null;[\s\S]{0,80}\}\n\s*models\.push\(entry\);\n\s*if \(!entry\._home && !isCityGate/, 'a painted home stays out of the merge');
   // AUDIT: each pixel from the registry as its build read it, the publish asking for a refresh; a merged home rebuilds
   // its pixel for a look written or its becoming this account's, never for the painter's preview
   assert.match(w, /homeLookRead = onlineHomes\.version\(\) \* 1024 \+ _lookPreviewGen;/);
   assert.match(w, /_lookV: homeLookRead,/);
   assert.match(w, /if \(homeTown\) _homeLookV = -1;/);
   assert.match(w, /if \(!p\.homeTown \|\| p\._lookV === v\) continue;/);
-  assert.match(w, /if \(!p\.homeKeys\.has\(bk\) && p\.buildingKeys\.has\(bk\) && \(row\?\.look \|\| row\?\.mine\)\) merged = true;/);
+  assert.match(w, /if \(!p\.homeKeys\.has\(bk\) && p\.buildingKeys\.has\(bk\) && \(row\?\.look \|\| row\?\.mine \|\| row\?\.keeper\)\) merged = true;/);
   assert.match(w, /if \(!look\) \{ m\.texRemap = null; continue; \}/);
   assert.match(w, /else renderer\.drawMesh\(m\.gpu, m\._world, m\.texRemap \?\? p\.texRemap\);/);
   assert.match(w, /renderer\.recordShadowMesh\(m\.gpu, m\._world, m\.texRemap \?\? p\.texRemap\);   \/\/ HOME-LOOK/);

@@ -317,8 +317,8 @@
   {
     "name": "WB12d-sprung-twice",
     "file": "src/scenes/riteHost.js",
-    "old": "if (C.pending || C.ownLive || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;",
-    "new": "if (C.pending || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;",
+    "old": "    if (C.ownLive) return;\n    if (peerSprang(C.site)) {",
+    "new": "    if (peerSprang(C.site)) {",
     "tests": [
       "test/wb12d_rite_world.test.js",
       "test/wb12d_rite_host.test.js"
@@ -1175,8 +1175,8 @@
   {
     "name": "AUDIT-WB12d-nothing-stood-once-broken",
     "file": "src/scenes/riteHost.js",
-    "old": "if (C.pending || C.ownLive || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;",
-    "new": "if (brokenHere() || C.pending || C.ownLive || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;",
+    "old": "if (C.pending || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;",
+    "new": "if (brokenHere() || C.pending || C.pupLive || t - C.standAt < RITE_RESTAND_MS) return;",
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]

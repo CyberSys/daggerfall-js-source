@@ -29,8 +29,8 @@
   {
     "name": "WEAR-UI-no-bar-on-the-body",
     "file": "src/ui/enhancedInventory.js",
-    "old": "  b.append(tileWithWear(line, b, wornBox(area == null)));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's",
-    "new": "  b.append(itemTile(line, wornBox(area == null)));",
+    "old": "  b.append(tileWithWear(line, b, wornBox(area == null), false));   // WEAR-UI: what you wear, worn down, without a hover; UI1: a half's box, or a panel's",
+    "new": "  b.append(itemTile(line, wornBox(area == null), render, false));",
     "tests": [
       "test/wearlock1.test.js"
     ]

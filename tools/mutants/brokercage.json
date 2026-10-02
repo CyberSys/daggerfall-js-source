@@ -757,5 +757,14 @@
     "tests": [
       "test/brokercage.test.js"
     ]
+  },
+  {
+    "name": "MERGE-B01-retried-past-the-open-cage",
+    "file": "src/scenes/riteHost.js",
+    "old": "if (C.pupLive || peerSprang(C.site) || clearedHere()) C.retry.length = 0;",
+    "new": "if (C.pupLive || peerSprang(C.site)) C.retry.length = 0;",
+    "tests": [
+      "test/release532_regressions.test.js"
+    ]
   }
 ]

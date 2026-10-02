@@ -199,8 +199,11 @@ test('IF: the pool is ARMED for targeting like every other pool, over its own da
     'and neither is still asking the encounter pool alone');
   // the only two surviving reaches for a RAW pool list are the join
   // itself and the magic-round fan-out, which subscribes each pool as
-  // its own subscriber exactly as the exterior host does
-  assert.equal((WM.match(/interiorFoes\?\.foes \?\? \[\]/g) ?? []).length, 2);
+  // its own subscriber exactly as the exterior host does - and TACT3's
+  // spacing ACROSS the two pools, which must tell them apart to push
+  // only the pairs no pool's own pass has
+  assert.equal((WM.match(/interiorFoes\?\.foes \?\? \[\]/g) ?? []).length, 3);
+  assert.match(WM, /spaceAcross\(\[interiorFoes\?\.foes \?\? \[\], interiorGuards\?\.guards \?\? \[\]\]/, 'the third is TACT3\'s spacing across the pools');
   assert.match(WM, /subscribeFoePools\(interiorTicker, \[\(\) => interiorFoes\?\.foes \?\? \[\], \(\) => interiorGuards\?\.guards \?\? \[\]\], insideFoeSinks\);/,
     'and the second is the fan-out, one thunk per pool');
   assert.match(WM, /const _interiorSenses = \(\) => sensesContext\(playerEntity, interiorTicker\.ownMinutes, \{/,

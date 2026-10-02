@@ -144,7 +144,7 @@ test('ECV1: the renderer\'s blended phase - spectral and concealed together, bac
   const ghost = batch(273, 1); ghost.origin = [0, 9, 0];
   r.drawBillboards([batch(255, 1), mid, ghost, near], [1, 0, 0], [0, 1, 0]);
   assert.equal(calls(log, 'drawElements').length, 4, 'every batch drew once - the spectral one in the blended phase only');
-  const u4 = calls(log, 'uniform4f').map((c) => c.slice(2));
+  const u4 = calls(log, 'uniform4f').filter((c) => c[1] !== r.bbUDissolve).map((c) => c.slice(2));   // DISSOLVE's own zero (the frame's burn set whole) is its law's, not the conceal's
   assert.deepEqual(u4, [
     [0, 0, 0, 0],                                    // the plain phase
     [0, 0, 0, 0],                                    // the ghost, farthest, first - plain uConceal, its spectral flag
@@ -180,7 +180,7 @@ test('ECV1: the billboard shader declares uConceal and draws each mode - the rip
   assert.match(fs, /vec4 tex = (?:\(uv\.x < 0\.0 \|\| uv\.x > 1\.0 \|\| uv\.y < 0\.0 \|\| uv\.y > 1\.0\) \? vec4\(0\.0\) : )?texture\(uTex, uv\);/, 'the rippled UV is what samples');   // ELITE FOES: past the sprite (an elite's widened quad) is empty
   assert.match(fs, /texture\(uEmissionTex, uv\)/, 'the emission map too');
   assert.match(fs, /if \(tex\.a < \(\(uSpectral == 1 \|\| uConceal\.x > 0\.0\) \? 0\.1 : 0\.5\)\) (?:discard;|\{)/, 'the concealed pass takes the blended threshold');   // ELITE FOES: the cut-out may draw an elite's rim first
-  assert.match(fs, /if \(uEliteGlow != 0\.0 && uConceal\.x == 0\.0\)/, 'ELITE FOES: a concealed foe draws no rim');
+  assert.match(fs, /if \(uEliteGlow != 0\.0 && uConceal\.x == 0\.0(?: && uDissolve\.x <= 0\.0)?\)/, 'ELITE FOES: a concealed foe draws no rim');   // PIN MOVED (the revenant audit): nor one dissolving
   assert.match(r, /if \(uConceal\.x == 2\.0\) lit \*= \$\{SHADE_DARK\};/, 'the FS takes the export, not a restated literal');
   assert.match(fs, /if \(uConceal\.x == 2\.0\) lit \*= 0\.12;/, 'a shade is pulled to black by SHADE_DARK - the one number, not two that agree');
   assert.match(fs, /if \(uConceal\.x > 0\.0\) alpha = tex\.a \* uConceal\.y;/, 'the visual\'s opacity');

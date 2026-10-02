@@ -1821,7 +1821,7 @@ machine's (SET7). A faithful seen to fall is counted by its career on each scree
 and killed again counts twice there. The collider's own: a body thrown at any solid at 0.74 m a move or more (a
 knockback, never a walk or a run) now and then comes out inside it - a whole block of stone as well as her walls.
 
-Relay **world153** (`net/wire.js` RELAY_VERSION, `relaySupportsCage`): the word's `c`, the cell's and the hub's `cl`,
+Relay **world154** (`net/wire.js` RELAY_VERSION, `relaySupportsCage`; world153 on its branch, renumbered past main's REVENANT-WIRE at the merge - a world153 relay never says `cl`, so it is not the cage's): the word's `c`, the cell's and the hub's `cl`,
 the hello's replay until midnight. An older relay ignores `c` (`validRiteIn` projects what it knows) and never says
 `cl`. An older client drops `cl` (`validRiteOut` knows `br` alone). Pinned: `test/brokercage.test.js` (8) and
 `test/set7_broker_world.test.js` (13, re-pinned for the cage); mutants `tools/mutants/brokercage.json` (82), set7's,

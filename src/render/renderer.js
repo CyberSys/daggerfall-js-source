@@ -8,6 +8,7 @@
 //   - Alpha 0 texels are palette-index cutouts; the shader discards them.
 
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // EE5 / VC4: the cloud shadow's reader - VC6c's one home, shared with the air pass's shafts
+import { BAYER_GLSL, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: the mesh shader's dissolve over the port's one bayer4
 import { FOG_GLSL } from './fogGlsl.js';
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share - a foe under Iliac Puddle No More's sea is in the depth texture its top reads   // AUDIT 68 S17-fog-glsl-dup: fogFactorAt's one home, for all seven world programs
 // ABOVE the first shader text on purpose: every template below is built
@@ -93,6 +94,8 @@ uniform float uAutomapMode;
 uniform float uAutomapWaterLevel;   // _WaterLevel: AddWater's per-block level (:1982-2001); the shader's own default is -10000
 uniform vec4 uAutomapWaterColor;    // _WaterColor: UnderwaterFog.waterMapColor, which Automap.cs:2590 injects into the one automap material
 ${CLOUD_SHADOW_GLSL}
+${BAYER_GLSL}
+${DISSOLVE_GLSL}
 out vec4 outColor;
 ${FOG_GLSL}
 void main() {
@@ -104,6 +107,7 @@ void main() {
   // and never draw the same fragment twice.
   if (amMode >= 3) { if (vWorldPos.y <= uClipY) discard; }
   else if (vWorldPos.y > uClipY) discard;
+  dissolveCut();   // SHIP-FADE: a ship sailing into the world or out of it, her share of her fragments (orderedDither.js)
   vec4 tex = texture(uTex, vUV);
   // INCIDENT 2026-09-04: no alpha clip here - DaggerfallDefault.shader is
   // RenderType Opaque with no clip(); the mortar runs of a wall texture
@@ -517,6 +521,7 @@ import { decalIndices, DECAL_FLOATS_PER_VERTEX } from '../combat/bloodDecals.js'
 import { BLOOD_ABSORB_ENCODED, INK_DEPTH } from '../combat/bloodArt.js';
 import { glslFloat } from './airPass.js';   // AUDIT BLOOD3 F9: a dial at a whole number is an INT literal in GLSL, and vec3 * int does not compile   // BLOOD3: the film's absorption - the classic mark takes the depth, the lane takes the sheen too
 import { SHADE_DARK } from '../systems/concealDraw.js';   // ECV1 / AUDIT 65 PN-3: the shade's pull toward black, interpolated into BB_FS below - the shader restated 0.12 as a second literal. The LEAF, not systems/combatVisuals.js, which re-exports it: that module's graph would take this file's closure from 13 modules to 69
+import { FLAT_DISSOLVE_GLSL } from '../systems/dissolve.js';   // DISSOLVE: a sprite burnt away, or gathered through a portal (a leaf)
 import { HIT_FLASH_GLSL, ELITE_GLOW_GLSL } from '../systems/hitFlash.js';   // HITFLASH1: the struck-red term, shared with the lane's billboard shader and the sprite quad (a LEAF, no imports)
 
 const BB_FS = `#version 300 es
@@ -530,6 +535,7 @@ uniform vec4 uConceal;  // ECV1: x mode (0 plain, 1 chameleon, 2 shade, 3 hit re
 uniform float uHitFlash;  // HITFLASH1: a body struck, 0..1 (batch.hitFlash)
 uniform float uEliteGlow;  // ELITE FOES: the glow's pulse, 0 off (batch.eliteGlow)
 uniform float uEliteTime;  // ELITE FOES: seconds, for the embers
+uniform vec4 uDissolve;  // DISSOLVE: x the share gone (0 whole, 1 gone), yzw the edge's colour (systems/dissolve.js)
 uniform vec3 uTint; // time-of-day: ambient (+ the moon's half); VC4: the sun's half rides uBBSun so a cloud's shadow can take it
 uniform vec3 uBBSun;
 uniform int uPointCount;
@@ -548,6 +554,7 @@ ${FOG_GLSL}
 ${COLUMN_GLSL}
 ${HIT_FLASH_GLSL}
 ${ELITE_GLOW_GLSL}
+${FLAT_DISSOLVE_GLSL}
 void main() {
   // ECV1: a chameleoned foe ripples - a slow horizontal wobble across
   // the sprite, phased per foe - so it reads as blending in, not as a
@@ -564,13 +571,14 @@ void main() {
   // blended too and takes the spectral threshold.
   if (tex.a < ((uSpectral == 1 || uConceal.x > 0.0) ? 0.1 : 0.5)) {
     // ELITE FOES: the rim - a cut-out texel beside the silhouette is the halo's - and the embers rising off it
-    if (uEliteGlow != 0.0 && uConceal.x == 0.0) {   // negative: an elite's corpse - the rim alone
+    if (uEliteGlow != 0.0 && uConceal.x == 0.0 && uDissolve.x <= 0.0) {   // negative: an elite's corpse - the rim alone; DISSOLVE: none round a body burning away or through a portal
       if (eliteRim(uTex, uv) > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(eliteRimK(uEliteGlow, uEliteTime)), fogFactorAt(vBBWorld)), 1.0); return; }
       float em = uEliteGlow > 0.0 ? eliteEmber(uTex, uv, uEliteTime) : 0.0;
       if (em > 0.0) { outColor = vec4(mix(uFogColor, eliteRimColor(uEliteGlow) * (0.55 + 0.6 * em), fogFactorAt(vBBWorld)), 1.0); return; }
     }
     discard;
   }
+  if (dissolveGone(uv)) discard;   // DISSOLVE: burnt away, or not yet through its portal
   // Point lights on flats: billboards have no normal, so the term is
   // attenuation-only (squared linear falloff) - documented equivalence
   // to Unity's vertex-lit billboards.
@@ -603,6 +611,7 @@ void main() {
   if (uConceal.x == 5.0) lit = mix(lit, vec3(0.95, 0.06, 0.04), uConceal.z);   // PEERFX3: a player struck flashes red for a moment (z the strength, fading)
   lit = eliteGlowLit(lit, albedo + emission, max(uEliteGlow, 0.0));   // ELITE FOES: the sprite warmed toward gold (never a corpse)
   lit = hitFlashLit(lit, albedo + emission, uHitFlash);   // HITFLASH1: over any concealment, never instead of it
+  lit = dissolveLit(lit, uv, uDissolve.yzw);   // DISSOLVE: the edge it burns along blazes
   if (uConceal.x == 4.0) lit = vec3(0.0);   // EOTB-IL: Eye Of The Beholder's shade - Color.black at the batch's alpha (UpdateMaterial, IL_4f69)
   float alpha = uSpectral == 1 ? tex.a : 1.0;
   if (uConceal.x > 0.0) alpha = tex.a * uConceal.y;
@@ -1402,10 +1411,15 @@ export class Renderer {
     this._dwColumn = null;   // DW-F: the water column's frame for the flats (setWaterColumn), a frame's like the fog
     this._bbColumnOn = 0;   // LA-COST1 x DW-F: the billboard program's uColumnOn as last sent (the frame block resets it)
     this._bbTipOn = false;   // PROF4: the billboard program's uTip as last sent - a falling tree's (the frame block resets it)
+    this._bbDissolveOn = false;   // DISSOLVE: the billboard program's uDissolve as last sent (the frame block resets it)
     this._dwCamFwd = new Float32Array(3);
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
     this._focus = new Float32Array(4);   // TV1: the travel view's focus, w 0 while there is none (setFocus)
+    /** @type {any} TACT4: the foes' ground pass (render/foeTelegraph.js), loaded on first use - off the boot graph */
+    this._foeTelegraph = null;
+    /** @type {Promise<void>|null} */
+    this._foeTelegraphLoad = null;
     this._focusArmed = false;   // AUDIT TV B1: set since the last beginFrame
     this._focusWide = false;   // AUDIT DEEP2 D7: the cascades grown to the view's picture - from half way up, not the rise's first frame
     this._clipY = 1e9;   // A1: the automap slice, off by default
@@ -1878,6 +1892,7 @@ export class Renderer {
     this.uIndirect = gl.getUniformLocation(this.program, 'uIndirect');
     this.uIndirectColor = gl.getUniformLocation(this.program, 'uIndirectColor');
     this._solidFog = this._fogLocs(this.program);
+    this.uDissolveCut = gl.getUniformLocation(this.program, 'uDissolveCut');   // SHIP-FADE: the installed mesh program's dissolve
     // Character program (C4b): rig vertex-color path, same scene
     // lighting/fog model as the mesh program.
     this.charProgram = set.char;
@@ -1947,6 +1962,7 @@ export class Renderer {
     this.bbUSpectral = gl.getUniformLocation(this.bbProgram, 'uSpectral');
     this.bbUConceal = gl.getUniformLocation(this.bbProgram, 'uConceal');   // ECV1
     this.bbUHitFlash = gl.getUniformLocation(this.bbProgram, 'uHitFlash');   // HITFLASH1
+    this.bbUDissolve = gl.getUniformLocation(this.bbProgram, 'uDissolve');   // DISSOLVE
     this.bbUEliteGlow = gl.getUniformLocation(this.bbProgram, 'uEliteGlow');   // ELITE FOES
     this.bbUEliteTime = gl.getUniformLocation(this.bbProgram, 'uEliteTime');   // ELITE FOES: the embers' clock
     this.bbUElitePad = gl.getUniformLocation(this.bbProgram, 'uElitePad');   // ELITE FOES: the widened quad
@@ -2095,7 +2111,7 @@ export class Renderer {
   }
   /** SHADOW-REACH: record a caster for the maps WITHOUT drawing it - the seams drawMesh, drawTerrain and drawBillboards
    *  record through, with none of their draw. The billboards take the frame's wind as drawBillboards does. */
-  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this._shadows.recordMesh(mesh, modelMatrix, texRemap); }
+  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1)); }   // AUDIT BAY A12: a fading ship's share
   recordShadowTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize) { if (this._casting && surface?.vao) this._shadows.recordTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize); }
   recordShadowBillboards(batches, camRight, camUp) { if (this._casting && batches?.length) this._shadows.recordBillboards(batches, this._flatWind, camRight, camUp); }
   /** LC1: the grid's two integer textures - the GRID (RG16UI: offset, count per cell) and the LIST (R8UI: light
@@ -3431,6 +3447,22 @@ void main() {
     try { this.drawDecals(batch, tex); } finally { this._decalPicture = false; }
   }
 
+  /** TACT4: the foes' telegraphed blows on the ground (render/foeTelegraph.js), under this frame's camera - each
+   *  { blow, phase } of ai/foeBlows.js drawableBlows. */
+  drawFoeTelegraphs(list) {
+    if (!list?.length || !this._proj || !this._view) return 0;
+    // AUDIT TACT (BOOT2's reach): the pass is loaded on its first use, never on the boot graph - a wind-up runs 0.7 s
+    // and more, so the frame or two its module takes to arrive is never a blow unseen
+    if (!this._foeTelegraph) {
+      this._foeTelegraphLoad ??= import('./foeTelegraph.js').then((m) => { this._foeTelegraph = new m.FoeTelegraphPass(this.gl); }).catch((e) => console.warn('[tact] the ground pass failed to load:', e?.message ?? e));
+      return 0;
+    }
+    this._close2D();
+    const n = this._foeTelegraph.draw(list, this._proj, this._view, { mode: this._fogMode, density: this._fogDensity, range: this._fogRange, camPos: this._camPos, focus: this._focus });   // AUDIT TACT D9: the frame's fog (and the travel view's focus)
+    this.markForeignPass();   // the pass bound its own program and VAO
+    return n;
+  }
+
   drawDecals(batch, tex, ranges = null) {
     if (!batch || !tex) return;
     this._close2D();   // PERF-2D: the baseline back, before anything that needs it
@@ -4621,6 +4653,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     }
   }
 
+  /** SHIP-FADE (2026-10-02): the share of the next meshes' fragments kept (1 = whole), uploaded at once - the boats'
+   *  pool sets it about a fading ship's draws and puts it back to 1 after them. */
+  setDissolve(v) {
+    const k = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 1));
+    if (k === (this._dissolve ?? 1)) return;
+    this._dissolve = k;
+    if (this.uDissolveCut) {
+      this._use(this.program);
+      this.gl.uniform1f(this.uDissolveCut, 1 - k);   // the share CUT: nought, a uniform's own start, is whole
+    }
+  }
+
   /**
    * A2 + c2/S6: the automap presentation mode for the SOLID mesh pass -
    * one of AUTOMAP_MODE. Immediate upload, same reason as setClipY: the
@@ -4989,7 +5033,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     return {
       vao, indexCount: count * 6, archive, record, size, buffers: [vb, ib], origin: null, frame: null, bounds, _quads: count, _dyn: !!dynamic,
       _place: count > 1 && !dynamic ? placementGrid(centers) : null,
-      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
+      _box: undefined, sway: undefined, tip: undefined, conceal: undefined, hitFlash: undefined, eliteGlow: undefined, eliteTime: undefined, elitePad: undefined, dissolve: undefined, noShadow: undefined, selfCard: undefined, _dead: undefined, _moveScratch: undefined, dwColumn: undefined,
       _bbKey: undefined, _bbKeyId: undefined, _bbKeyRecord: undefined, _bbKeyFrame: undefined, _bbKeyArchive: undefined,
       _shGen: undefined, _shAx: NaN, _shAy: NaN, _shAz: NaN, _shSeen: undefined, _shOx: NaN, _shOy: NaN, _shOz: NaN, _shFrame: undefined,
       _shRec: undefined, _shFlip: undefined, _shDyn: undefined, _shSway: undefined, _shMovedAt: undefined, _shId: undefined,
@@ -5721,6 +5765,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       this._bbColumnOn = 0;
       gl.uniform3f(this.bbUTip, 0, 0, 0);   // PROF4: every flat stands until a felled tree says otherwise
       this._bbTipOn = false;
+      gl.uniform4f(this.bbUDissolve, 0, 0, 0, 0);   // DISSOLVE: every flat whole until a burning one says otherwise - the shadow below is only true if this is sent
+      this._bbDissolveOn = false;
       if (this._dwColumn && bc.uColumnOn) {
         const dw = this._dwColumn, v = this._view;
         this._dwCamFwd[0] = -v[2]; this._dwCamFwd[1] = -v[6]; this._dwCamFwd[2] = -v[10];   // the camera's forward: minus the view's third row
@@ -5810,6 +5856,8 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
       const ep = eg !== 0 ? b.elitePad : null;   // ELITE FOES: the widened quad (an elite's, or its corpse's) and the embers' clock
       if (ep || this._bbPadOn) { gl.uniform4f(this.bbUElitePad, ep ? ep[0] : 0, ep ? ep[1] : 0, ep ? ep[2] : 0, ep ? ep[3] : 0); this._bbPadOn = !!ep; }
       if (eg !== 0) gl.uniform1f(this.bbUEliteTime, (performance.now() / 1000) % 3600);   // the embers' and the corpses' pulse clock (one clock, every elite batch)
+      const dv = b.dissolve;   // DISSOLVE: a body burning away or gathering through a portal ([share, r, g, b]); every other batch whole
+      if (dv || this._bbDissolveOn) { gl.uniform4f(this.bbUDissolve, dv ? dv[0] : 0, dv ? dv[1] : 0, dv ? dv[2] : 0, dv ? dv[3] : 0); this._bbDissolveOn = !!dv; }
       this._bindVao(b.vao);
       gl.drawElements(gl.TRIANGLES, b.indexCount, gl.UNSIGNED_INT, 0);
       this.stats.draws++;
@@ -5994,7 +6042,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._use(this.program);
     this._uploadCloudShadow('mesh');   // VC4
     gl.uniformMatrix4fv(this.uModel, false, modelMatrix);
-    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap);   // EL2
+    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));   // EL2; AUDIT BAY A12: a fading ship's share of her shadow
     this._bindVao(wire ? wireMesh.vao : mesh.vao);
     for (let smi = 0; smi < mesh.subMeshes.length; smi++) {
       const sm = mesh.subMeshes[smi];

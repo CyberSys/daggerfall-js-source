@@ -2,7 +2,7 @@
   {
     "name": "FB0929-lock-kept-under-a-freed-cursor",
     "file": "src/player/pointerLock.js",
-    "old": "    document.addEventListener('pointerlockchange', () => { if (_cursorActive && document.pointerLockElement) releaseLook(); }, false);\n",
+    "old": "    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && document.pointerLockElement) releaseLook(); }, false);\n",
     "new": "",
     "tests": [
       "test/fb0929_overworld_mouse.test.js"
@@ -11,7 +11,7 @@
   {
     "name": "FB0929-lock-let-go-whatever-the-cursor",
     "file": "src/player/pointerLock.js",
-    "old": "    document.addEventListener('pointerlockchange', () => { if (_cursorActive && document.pointerLockElement) releaseLook(); }, false);\n",
+    "old": "    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && document.pointerLockElement) releaseLook(); }, false);\n",
     "new": "    document.addEventListener('pointerlockchange', () => { if (document.pointerLockElement) releaseLook(); }, false);\n",
     "tests": [
       "test/fb0929_overworld_mouse.test.js"
@@ -20,8 +20,8 @@
   {
     "name": "FB0929-lock-let-go-when-lost",
     "file": "src/player/pointerLock.js",
-    "old": "    document.addEventListener('pointerlockchange', () => { if (_cursorActive && document.pointerLockElement) releaseLook(); }, false);\n",
-    "new": "    document.addEventListener('pointerlockchange', () => { if (_cursorActive && !document.pointerLockElement) releaseLook(); }, false);\n",
+    "old": "    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && document.pointerLockElement) releaseLook(); }, false);\n",
+    "new": "    document.addEventListener('pointerlockchange', () => { if ((_cursorActive || _cursorHolds.size) && !document.pointerLockElement) releaseLook(); }, false);\n",
     "tests": [
       "test/fb0929_overworld_mouse.test.js"
     ]

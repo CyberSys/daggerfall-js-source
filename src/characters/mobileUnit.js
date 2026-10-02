@@ -356,6 +356,22 @@ export class MobileUnit {
     return this.state === 'transform1' || this.state === 'transform2';
   }
 
+  /** REVENANT-FATE: a HELD POSE the host draws instead of the clock's - `state`'s anim at `frame` (a negative frame
+   *  counts back from its last: -1 the last), facing the camera as update() faces it (the scorpion's inverted flip
+   *  too). The unit's own state, frame and clock are untouched: a beaten revenant kneels on its hurt's last frame. */
+  heldPose(state, frame, yaw, feet, cameraPos) {
+    const was = this.state;
+    this.state = state;
+    try {
+      const anims = this._anims();
+      const a = anims[mobileOrientation(yaw, feet, cameraPos)] ?? anims[0];
+      const n = Math.max(1, this.frameCount(a.record) | 0);
+      const fr = frame < 0 ? n + frame : frame;
+      const flip = this.mobileType === MOBILE_GIANT_SCORPION ? !a.flip : a.flip;
+      return { record: a.record, frame: Math.max(0, Math.min(n - 1, fr)), flip: !!flip };
+    } finally { this.state = was; }
+  }
+
   /** MobileUnit.IsAttacking (:190-201) - the three attack states. */
   isAttacking() {
     return this.state === 'attack' || this.state === 'ranged';

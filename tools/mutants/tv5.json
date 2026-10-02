@@ -653,8 +653,8 @@
   {
     "name": "OVERWORLD-NAMES-guild-dropped",
     "file": "src/ui/travelViewHud.js",
-    "old": "  if (P.gt) { x.font = smallFont;",
-    "new": "  if (false) { x.font = smallFont;",
+    "old": "  } else if (P.gt) { x.font = smallFont;",
+    "new": "  } else if (false) { x.font = smallFont;",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
