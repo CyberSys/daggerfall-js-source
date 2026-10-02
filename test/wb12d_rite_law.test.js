@@ -14,7 +14,7 @@ import { gateSpotLocal, gateYaw, gateTimes, PIXEL_M, isGateDay, GATE_COLLAPSE_MS
 import { PIXEL_UNITS, mapPixelOfWire, validRiteIn, validRiteOut, parseClient, relaySupportsRite, RITE_RELAY_MIN, RITE_BY_MAX } from '../src/net/wire.js';
 import { RECEIPT_EARNED, receiptValid, mintReceipt, readReceipt, importReceiptKey } from '../src/net/gateReceipt.js';
 import { importPublicKeyB64 } from '../src/net/identityToken.js';
-import { createGuest, claimGate, gateRecordOf, insigniaPurse } from '../server-account/src/accounts.js';
+import { createGuest, claimGate, gateRecordOf, insigniaPurse, buyInsignia } from '../server-account/src/accounts.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const { subtle } = globalThis.crypto;
@@ -153,14 +153,44 @@ test('WB12d the account service: a fighter who broke the rite takes two embers, 
   const mint = (o) => mintReceipt({ b: 'ruhn', c: 4242, ...o }, priv, { subtle, nowS: T0 });
   const struck = [];
   const strike = (day) => { struck.push(day); return null; };
-  assert.deepEqual(await claimGate(ctx, A, await mint({ d: 700, s: A.id, x: 'dealt', r: 1 }), pubKey, { strike }), { recorded: true, day: 700, closed: 1 });
+  assert.deepEqual(await claimGate(ctx, A, await mint({ d: 700, s: A.id, x: 'dealt', r: 1 }), pubKey, { strike }), { recorded: true, day: 700, stones: 2, closed: 1 });
   assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 0 }), 2, 'the gate\'s ember and the rite\'s');
-  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'rite' }), pubKey, { strike }), { recorded: true, day: 700, rite: true, closed: 0 }, 'the rite alone: no breach closed');
+  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'rite' }), pubKey, { strike }), { recorded: true, day: 700, stones: 1, rite: true, closed: 0 }, 'the rite alone: no breach closed');
   assert.deepEqual(struck, [700], 'and no Drakes struck for it');
   assert.equal(await insigniaPurse({ db }, { id: B.id, insignia_spent: 0 }), 1);
-  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'dealt' }), pubKey), { recorded: false, why: 'claimed', closed: 0 }, 'one receipt a day and account, as ever');
-  assert.deepEqual(await claimGate(ctx, A, await mint({ d: 712, s: A.id, x: 'stood' }), pubKey), { recorded: true, day: 712, closed: 2 });
+  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 700, s: B.id, x: 'dealt' }), pubKey), { recorded: false, why: 'claimed', stones: 1, closed: 0 }, 'one receipt a day and account, as ever');
+  assert.deepEqual(await claimGate(ctx, A, await mint({ d: 712, s: A.id, x: 'stood' }), pubKey), { recorded: true, day: 712, stones: 1, closed: 2 });
   assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 1 }), 2, 'three embers, one spent');
   assert.deepEqual(await gateRecordOf({ db }, A.id), { closed: 2 });
   assert.match(src('server-account/migrations/0046_rite_ember.sql'), /^ALTER TABLE gate_kills ADD COLUMN stones INTEGER NOT NULL DEFAULT 1;$/m);
+});
+
+test('AUDIT WB12d (A1) the account service: A FIGHTER\'S `r` COUNTED AT ONE EMBER (a service from before acct46 kept its row as a plain receipt\'s) is made good when it is claimed again - and only that: a rite\'s own row, or a row already two, is never raised; every answer says the row\'s embers (mutants: never made good; a rite row raised; the embers unsaid)', async () => {
+  const db = d1();
+  const A = await member(db), B = await member(db);
+  const { priv, pubKey } = await gatePair();
+  const ctx = { db, nowS: T0 + 60, subtle };
+  const mint = (o) => mintReceipt({ b: 'ruhn', c: 4242, ...o }, priv, { subtle, nowS: T0 });
+  db._raw.prepare("INSERT INTO gate_kills (day, account, boss, earned, at) VALUES (700, ?, 'ruhn', 'dealt', 1)").run(A.id);   // acct45's row: no stones said
+  assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 0 }), 1, 'the rite\'s ember lost');
+  const again = await mint({ d: 700, s: A.id, x: 'dealt', r: 1 });
+  assert.deepEqual(await claimGate(ctx, A, again, pubKey), { recorded: false, why: 'claimed', stones: 2, closed: 1 }, 'claimed again: made good');
+  assert.equal(await insigniaPurse({ db }, { id: A.id, insignia_spent: 0 }), 2);
+  assert.deepEqual(await claimGate(ctx, A, again, pubKey), { recorded: false, why: 'claimed', stones: 2, closed: 1 }, 'and never more');
+  assert.deepEqual(await claimGate(ctx, B, await mint({ d: 701, s: B.id, x: 'rite' }), pubKey), { recorded: true, day: 701, stones: 1, rite: true, closed: 0 });
+  db._raw.prepare("UPDATE gate_kills SET earned = 'rite' WHERE day = 701 AND account = ?").run(B.id);
+  await claimGate(ctx, B, await mint({ d: 701, s: B.id, x: 'dealt', r: 1 }), pubKey);
+  assert.equal(await insigniaPurse({ db }, { id: B.id, insignia_spent: 0 }), 1, 'a rite\'s own row is never raised');
+});
+
+test('AUDIT WB12d (lens T F7) the Broker\'s sale spends the purse the card shows - a breach closed with its rite broken is two embers at the sale too (mutants: the sale\'s guard counting rows)', async () => {
+  const db = d1();
+  const A = await member(db);
+  const ins = db._raw.prepare("INSERT INTO gate_kills (day, account, boss, earned, at, stones) VALUES (?, ?, 'ruhn', 'dealt', 1, 2)");
+  for (let d = 0; d < 15; d++) ins.run(1000 + d, A.id);   // fifteen breaches, each with its rite broken: thirty embers
+  const player = db._raw.prepare('SELECT * FROM players WHERE id = ?').get(A.id);
+  assert.equal(await insigniaPurse({ db }, player), 30);
+  const sale = await buyInsignia({ db, nowS: T0 + 100 }, player, {}, 'title:gatebreaker');
+  assert.equal(sale.ok, true, JSON.stringify(sale));
+  assert.equal(sale.purse, 0);
 });

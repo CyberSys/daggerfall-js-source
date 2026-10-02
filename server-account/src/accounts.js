@@ -837,8 +837,9 @@ export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey
   if (c.s !== player.id) return { error: 'not-yours' };
   if (!player.handle) return { recorded: false, why: 'guest', ...(await gateRecordOf({ db }, player.id)) };
   // WB12d: the row's embers - an ember more for the faithful's rite broken (`r`); a rite's own receipt is one
+  const embers = c.r === 1 ? 2 : 1;
   const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
-    .bind(c.d, player.id, c.b, c.x, nowS, c.r === 1 ? 2 : 1);
+    .bind(c.d, player.id, c.b, c.x, nowS, embers);
   // MARKS1 / AUDIT 28 M4: the gate's Marks (marks.js gateStrikeStatement) IN THE SAME BATCH as the row - one transaction,
   // so a strike that fails takes the row with it and the retry claims afresh; `strike` null where Marks are not this
   // account's, and the row is written alone. WB12d: the rite alone is no breach closed - no strike
@@ -846,5 +847,11 @@ export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey
   const [r, m] = stmt ? await db.batch([kill, stmt]) : [await kill.run(), null];
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
   const struck = Number(m?.meta?.changes ?? 0) > 0;
-  return recorded ? { recorded, day: c.d, ...(c.x === 'rite' ? { rite: true } : {}), ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
+  if (recorded) return { recorded, day: c.d, stones: embers, ...(c.x === 'rite' ? { rite: true } : {}), ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) };
+  // AUDIT WB12d (A1): A FIGHTER'S `r` COUNTED AT ONE EMBER - a service from before acct46 took the receipt as a plain one
+  // and kept its row - is made good when the receipt is claimed again (the game keeps an `r` receipt until a service
+  // that answers its embers has counted it). One row a (day, account), one receipt a kill: the row is this receipt's
+  if (c.r === 1) await db.prepare("UPDATE gate_kills SET stones = 2 WHERE day = ?1 AND account = ?2 AND stones = 1 AND earned != 'rite'").bind(c.d, player.id).run();
+  const row = await db.prepare('SELECT stones FROM gate_kills WHERE day = ?1 AND account = ?2').bind(c.d, player.id).first();
+  return { recorded, why: 'claimed', ...(Number.isSafeInteger(row?.stones) ? { stones: row.stones } : {}), ...(await gateRecordOf({ db }, player.id)) };
 }

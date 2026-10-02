@@ -75,8 +75,17 @@ export function riteNear(day, px, py, x, z) {
 /** The rite holds from the omen until the breach opens (relay ms). */
 export const riteWindow = (day) => { const t = gateTimes(day); return { from: t.omenAt, to: t.openAt }; };
 export const riteHolds = (day, now) => { const w = riteWindow(day); return now >= w.from && now < w.to; };
-/** The circle stands - its fires, its chest and the word of a broken rite - from the omen until its breach collapses. */
-export const riteStands = (day, now) => { const t = gateTimes(day); return isGateDay(day) && now >= t.omenAt && now < t.wrathAt + GATE_COLLAPSE_MS; };
+/** AUDIT WB12d (R8): a word said in the rite's last moment reaches the relay a moment after it - believed this long past
+ *  the opening (a fall seen at the last second still breaks the rite). */
+export const RITE_GRACE_MS = 2000;
+export const riteHeard = (day, now) => { const w = riteWindow(day); return now >= w.from && now < w.to + RITE_GRACE_MS; };
+/** The circle stands - its fires, its chest and the word of a broken rite - from the omen until its breach collapses:
+ *  the Wrath's, or (AUDIT WB12d R7) an early kill's, `fellAt` (ms) when the Warden fell first. */
+export const riteStands = (day, now, fellAt = null) => {
+  const t = gateTimes(day);
+  const end = Math.min(t.wrathAt, Number.isFinite(fellAt) ? fellAt : Infinity) + GATE_COLLAPSE_MS;
+  return isGateDay(day) && now >= t.omenAt && now < end;
+};
 
 /**
  * The day's faithful, the Summoner first (a Sorcerer): `{ career, summoner }` - RITE_FAITHFUL_MIN to RITE_FAITHFUL_MAX of

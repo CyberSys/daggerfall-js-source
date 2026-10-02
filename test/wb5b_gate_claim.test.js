@@ -73,10 +73,10 @@ test('WB5b the claim: a receipt the relay signed, naming the claiming account, i
   const { priv, pubKey } = await gatePair();
   const ctx = { db, nowS: T0 + 60, subtle };
   const r700 = await receiptFor(A.id, 700, priv);
-  assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: true, day: 700, closed: 1 });   // MARKS1: the gate's day, which the Worker strikes its Marks against
-  assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: false, why: 'claimed', closed: 1 }, 'once, whatever happens to it');
-  assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 700, priv, T0 + 5), pubKey), { recorded: false, why: 'claimed', closed: 1 }, 'the day is the key, not the bytes');
-  assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 701, priv), pubKey), { recorded: true, day: 701, closed: 2 }, 'the next gate adds one');
+  assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: true, day: 700, stones: 1, closed: 1 });   // MARKS1: the gate's day, which the Worker strikes its Marks against
+  assert.deepEqual(await claimGate(ctx, A, r700, pubKey), { recorded: false, why: 'claimed', stones: 1, closed: 1 }, 'once, whatever happens to it');   // WB12d: the row's embers (AUDIT WB12d A1)
+  assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 700, priv, T0 + 5), pubKey), { recorded: false, why: 'claimed', stones: 1, closed: 1 }, 'the day is the key, not the bytes');
+  assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 701, priv), pubKey), { recorded: true, day: 701, stones: 1, closed: 2 }, 'the next gate adds one');
   assert.deepEqual(await claimGate(ctx, B, r700, pubKey), { error: 'not-yours' }, 'nobody claims another\'s');
   assert.deepEqual(await gateRecordOf({ db }, B.id), { closed: 0 });
   assert.deepEqual(await claimGate(ctx, A, await receiptFor(A.id, 702, null), pubKey), { error: 'receipt', why: 'unsigned' });
@@ -89,7 +89,7 @@ test('WB5b the claim: a receipt the relay signed, naming the claiming account, i
   const G = await guest(db);
   const rg = await receiptFor(G, 700, priv);
   assert.deepEqual(await claimGate(ctx, { id: G, handle: null }, rg, pubKey), { recorded: false, why: 'guest', closed: 0 });
-  assert.deepEqual(await claimGate(ctx, { id: G, handle: 'Registered' }, rg, pubKey), { recorded: true, day: 700, closed: 1 }, 'registered, the same receipt counts');
+  assert.deepEqual(await claimGate(ctx, { id: G, handle: 'Registered' }, rg, pubKey), { recorded: true, day: 700, stones: 1, closed: 1 }, 'registered, the same receipt counts');
   db._raw.prepare('DELETE FROM players WHERE id = ?').run(A.id);
   assert.equal(db._raw.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?').get(A.id).n, 0, 'the account gone, its gates with it');
   const sql = src('server-account/migrations/0014_gate_kills.sql');
@@ -132,7 +132,7 @@ test('WB5b the worker: /v1/gate/claim behind a session and never open - the sess
   assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r }, me.secret)).body, { recorded: false, why: 'guest', closed: 0 });
   assert.equal((await call('POST', '/v1/auth/register', { handle: 'GateCloser', password: 'correct horse battery', ...ACCEPTED }, me.secret)).status, 200);
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: r })).status, 401, 'a stranger claims nothing');
-  assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r, account: them.id }, me.secret)).body, { recorded: true, closed: 1, marks: null });   // MARKS1: `marks` null - the switch is off here (test/marks1.test.js strikes them)
+  assert.deepEqual((await call('POST', '/v1/gate/claim', { receipt: r, account: them.id }, me.secret)).body, { recorded: true, stones: 1, closed: 1, marks: null });   // MARKS1: `marks` null - the switch is off here (test/marks1.test.js strikes them)
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: r }, them.secret)).status, 403, 'another\'s receipt');
   assert.equal((await call('POST', '/v1/gate/claim', { receipt: 'r1.x.y' }, me.secret)).status, 400);
   // AUDIT WB A5: a refused receipt says which rung refused it - a signature the service's half does not verify is one

@@ -68,8 +68,8 @@
   {
     "name": "WB12d-the-circle-gone-at-the-opening",
     "file": "src/net/gateRite.js",
-    "old": "now >= t.omenAt && now < t.wrathAt + GATE_COLLAPSE_MS;",
-    "new": "now >= t.omenAt && now < t.openAt;",
+    "old": "const end = Math.min(t.wrathAt, Number.isFinite(fellAt) ? fellAt : Infinity) + GATE_COLLAPSE_MS;",
+    "new": "const end = t.openAt;",
     "tests": [
       "test/wb12d_rite_law.test.js",
       "test/wb12d_rite_relay.test.js"
@@ -106,8 +106,8 @@
   {
     "name": "WB12d-the-names-unbounded",
     "file": "src/net/wire.js",
-    "old": "m.by.slice(0, RITE_BY_MAX)",
-    "new": "m.by",
+    "old": ".filter((n) => typeof n === 'string' && n).slice(0, RITE_BY_MAX).map(sanitizeName)",
+    "new": ".filter((n) => typeof n === 'string' && n).map(sanitizeName)",
     "tests": [
       "test/wb12d_rite_law.test.js"
     ]
@@ -133,7 +133,7 @@
   {
     "name": "WB12d-the-window-unasked",
     "file": "server/src/index.js",
-    "old": "if (!isGateDay(m.d) || !riteHolds(m.d, now)) return;",
+    "old": "if (!isGateDay(m.d) || !riteHeard(m.d, now)) return;",
     "new": "if (!isGateDay(m.d)) return;",
     "tests": [
       "test/wb12d_rite_relay.test.js"
@@ -151,8 +151,8 @@
   {
     "name": "WB12d-the-hub-never-told",
     "file": "server/src/index.js",
-    "old": "    if (moved) await this._riteSave(led);\n    await this._riteTellHubOnce(led, now);",
-    "new": "    if (moved) await this._riteSave(led);",
+    "old": "    await this._riteSave(led);\n    await this._riteTellHub(now);\n  }",
+    "new": "    await this._riteSave(led);\n  }",
     "tests": [
       "test/wb12d_rite_relay.test.js"
     ]
@@ -178,7 +178,7 @@
   {
     "name": "WB12d-the-hello-unsaid",
     "file": "server/src/index.js",
-    "old": "if (r && riteStands(r.d, now)) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r) }));",
+    "old": "if (r && riteStands(r.d, now, await this._fellAtOf(r.d))) for (const c of Object.values(r.c)) if (c.said) this._send(ws, JSON.stringify({ t: 'rite', ...riteSaid(r.d, c) }));",
     "new": "void r;",
     "tests": [
       "test/wb12d_rite_relay.test.js"
@@ -187,7 +187,7 @@
   {
     "name": "WB12d-the-post-owed-nowhere",
     "file": "server/src/index.js",
-    "old": "      try { await this._heraldRiteOwe(r, Date.now()); }",
+    "old": "      try { await this._heraldRiteOwe(r.d, now); }",
     "new": "      try { void this._heraldRiteOwe; }",
     "tests": [
       "test/wb12d_rite_relay.test.js"
@@ -196,8 +196,8 @@
   {
     "name": "WB12d-no-retry",
     "file": "server/src/index.js",
-    "old": "{ await this._riteArm(now + RITE_TELL_RETRY_MS); return; }",
-    "new": "return;",
+    "old": "      await this._riteArm(now + RITE_TELL_RETRY_MS);\n      let moved = false;",
+    "new": "      let moved = false;",
     "tests": [
       "test/wb12d_rite_relay.test.js"
     ]
@@ -205,8 +205,8 @@
   {
     "name": "WB12d-the-helpers-unasked",
     "file": "server/src/index.js",
-    "old": "const helped = await this._riteHelpersOf(f.day);",
-    "new": "const helped = new Set();",
+    "old": "const asked = await this._riteHelpersOf(f.day, RITE_ASK_TIMEOUT_MS);",
+    "new": "const asked = new Set();",
     "tests": [
       "test/wb12d_rite_relay.test.js"
     ]
@@ -232,8 +232,8 @@
   {
     "name": "WB12d-the-rite-s-ember-unpaid",
     "file": "server-account/src/accounts.js",
-    "old": ".bind(c.d, player.id, c.b, c.x, nowS, c.r === 1 ? 2 : 1);",
-    "new": ".bind(c.d, player.id, c.b, c.x, nowS, 1);",
+    "old": "const embers = c.r === 1 ? 2 : 1;",
+    "new": "const embers = 1;",
     "tests": [
       "test/wb12d_rite_law.test.js"
     ]
@@ -851,5 +851,252 @@
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-first-circle-wins",
+    "file": "server/src/index.js",
+    "old": "      if (Object.keys(led.c).length >= RITE_CIRCLES_MAX) return;",
+    "new": "      if (Object.keys(led.c).length >= 1) return;",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-cell-circles-unbounded",
+    "file": "server/src/index.js",
+    "old": "      if (Object.keys(led.c).length >= RITE_CIRCLES_MAX) return;",
+    "new": "      if (false) return;",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-tells-unguarded",
+    "file": "server/src/index.js",
+    "old": "    if (this._riteTelling) return true;\n",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-told-for-ever",
+    "file": "server/src/index.js",
+    "old": "if (!owed.length || !riteStands(led.d, now)) return false;",
+    "new": "if (!owed.length) return false;",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-hub-said-past-collapse",
+    "file": "server/src/index.js",
+    "old": "    if (!riteStands(o.d, now, fellAt)) return json({ ok: true });",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-hub-first-circle-wins",
+    "file": "server/src/index.js",
+    "old": "      if (Object.keys(r.c).length >= RITE_HUB_CIRCLES_MAX) return json({ ok: true });",
+    "new": "      if (Object.keys(r.c).length >= 1) return json({ ok: true });",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-hub-circles-unbounded",
+    "file": "server/src/index.js",
+    "old": "      if (Object.keys(r.c).length >= RITE_HUB_CIRCLES_MAX) return json({ ok: true });",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-agreed-site-unread",
+    "file": "server/src/index.js",
+    "old": "riteHelpersBy(await this._riteOf(), d, agreedGateSite(await this._gateSiteOf(), d))",
+    "new": "riteHelpersBy(await this._riteOf(), d, null)",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-liar-paid-beside",
+    "file": "server/src/index.js",
+    "old": "  if (site) return cs.filter((c) => c.px === site.px && c.py === site.py);\n",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-fall-re-entered",
+    "file": "server/src/index.js",
+    "old": "    if (this._falling) return this._falling;\n",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-helpers-asked-at-the-kill-alone",
+    "file": "server/src/index.js",
+    "old": "      this._riteAskAhead(f, now);",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-last-answer-dropped",
+    "file": "server/src/index.js",
+    "old": "    if (asked) f.helped = [...asked];\n    const helped = new Set(f.helped ?? []);",
+    "new": "    const helped = asked ?? new Set();",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-said-twice",
+    "file": "server/src/index.js",
+    "old": "    let r = this._riteHub;\n",
+    "new": "    let r = await Promise.resolve(this._riteHub);\n",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-names-frozen",
+    "file": "server/src/index.js",
+    "old": "ritePost({ day: st.riteOwe.d, place: site?.pl ?? null, by: riteNames(c) })",
+    "new": "ritePost({ day: st.riteOwe.d, place: site?.pl ?? null, by: riteNames(c).slice(0, 1) })",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-early-kill-unread",
+    "file": "src/net/gateRite.js",
+    "old": "const end = Math.min(t.wrathAt, Number.isFinite(fellAt) ? fellAt : Infinity) + GATE_COLLAPSE_MS;",
+    "new": "const end = t.wrathAt + GATE_COLLAPSE_MS;",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-no-grace",
+    "file": "src/net/gateRite.js",
+    "old": "return now >= w.from && now < w.to + RITE_GRACE_MS; };",
+    "new": "return now >= w.from && now < w.to; };",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-client-s-burst",
+    "file": "src/net/wire.js",
+    "old": "tokenGate(bucket, nowMs, RITE_HZ_MAX, RITE_RELAY_BURST);",
+    "new": "tokenGate(bucket, nowMs, RITE_HZ_MAX);",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-an-unstruck-word-paid",
+    "file": "server/src/index.js",
+    "old": "if (m.s === 1 && !Object.hasOwn(c.h, a.sub)",
+    "new": "if (!Object.hasOwn(c.h, a.sub)",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-yesterday-folded-into-today",
+    "file": "server/src/index.js",
+    "old": "    if (!this._riteLed || this._riteLed.d < day) this._riteLed = { d: day, c: {} };",
+    "new": "    if (!this._riteLed) this._riteLed = { d: day, c: {} };",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-hub-s-second-day-never-fresh",
+    "file": "server/src/index.js",
+    "old": "    if (!r || r.d < o.d) r = { d: o.d, c: {} };",
+    "new": "    if (!r) r = { d: o.d, c: {} };",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-r-never-made-good",
+    "file": "server-account/src/accounts.js",
+    "old": "  if (c.r === 1) await db.prepare(\"UPDATE gate_kills SET stones = 2",
+    "new": "  if (false) await db.prepare(\"UPDATE gate_kills SET stones = 2",
+    "tests": [
+      "test/wb12d_rite_law.test.js",
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-rite-row-raised",
+    "file": "server-account/src/accounts.js",
+    "old": "AND stones = 1 AND earned != 'rite'\").bind",
+    "new": "AND stones = 1\").bind",
+    "tests": [
+      "test/wb12d_rite_law.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-embers-unsaid",
+    "file": "server-account/src/accounts.js",
+    "old": "  return { recorded, why: 'claimed', ...(Number.isSafeInteger(row?.stones) ? { stones: row.stones } : {}),",
+    "new": "  return { recorded, why: 'claimed',",
+    "tests": [
+      "test/wb12d_rite_law.test.js",
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-rite-answered-drakes",
+    "file": "server-account/src/index.js",
+    "old": "return json(r.recorded && !r.rite ? {",
+    "new": "return json(r.recorded ? {",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-an-r-let-go-at-one",
+    "file": "src/net/gateClaims.js",
+    "old": "    if (claims?.r === 1 && !Number.isSafeInteger(answer.data?.stones)) return 'keep';\n",
+    "new": "",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-guest-told-of-a-breach",
+    "file": "src/net/gateClaims.js",
+    "old": "say(live(r)?.x === 'rite' ? GATE_CLAIM_TEXT.guestRite : GATE_CLAIM_TEXT.guest);",
+    "new": "say(GATE_CLAIM_TEXT.guest);",
+    "tests": [
+      "test/marks1.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-read-undoes-a-word",
+    "file": "server/src/index.js",
+    "old": "if (this._riteLed === undefined) this._riteLed = riteRecordOk(v) ? v : null; }",
+    "new": "this._riteLed = riteRecordOk(v) ? v : null; }",
+    "tests": [
+      "test/wb12d_rite_relay.test.js"
+    ],
+    "equivalent": true,
+    "why": "belt and braces: the runtime closes the input gate across a storage read, so two first loads never overlap in production; the re-check keeps a harness or a future await honest"
   }
 ]

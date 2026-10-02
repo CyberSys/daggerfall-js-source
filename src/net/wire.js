@@ -3473,6 +3473,10 @@ export const relaySupportsRite = (v) => { const m = /^world(\d+)$/.exec(typeof v
 /** The rite's own bucket: a word every RITE_WORD_MS, one at a strike or the Summoner's fall, and a second's slack. */
 export const RITE_HZ_MAX = 2;
 export const riteGate = (bucket, nowMs) => tokenGate(bucket, nowMs, RITE_HZ_MAX);
+/** AUDIT WB12d (L4): the relay's bucket is DEEPER than the client's - the same rate, twice the burst - so words a
+ *  stalled socket bunched together are all read (the client's own gate passed each, and it says a word once). */
+export const RITE_RELAY_BURST = 4;
+export const riteRelayGate = (bucket, nowMs) => tokenGate(bucket, nowMs, RITE_HZ_MAX, RITE_RELAY_BURST);
 /** A client's rite word, projected: `{d, px, py, s, f}` - the gate's day, its pixel, 1 once I have struck one of the
  *  faithful, 1 once I have seen the Summoner fall - or null. */
 export function validRiteIn(m) {
@@ -3488,7 +3492,7 @@ export const RITE_BY_MAX = 8;
 export function validRiteOut(m) {
   if (!m || typeof m !== 'object' || !RITE_OUT_KINDS.includes(m.k)) return null;
   if (!Number.isSafeInteger(m.d) || m.d < 0 || !intIn(m.px, 0, 999) || !intIn(m.py, 0, 499) || !Number.isSafeInteger(m.at) || m.at <= 0) return null;
-  const by = Array.isArray(m.by) ? m.by.slice(0, RITE_BY_MAX).filter((n) => typeof n === 'string' && n).map(sanitizeName) : [];
+  const by = Array.isArray(m.by) ? m.by.filter((n) => typeof n === 'string' && n).slice(0, RITE_BY_MAX).map(sanitizeName) : [];   // AUDIT WB12d (L8): junk never hides a name
   return { k: 'br', d: m.d, px: m.px, py: m.py, at: m.at, by };
 }
 /** The doors between a circle's cell and the hub: the rite broken (its helpers ride it), and the day's helpers for the
@@ -3497,9 +3501,17 @@ export const RITE_INTERNAL_BROKEN = '/internal/rite/broken';
 export const RITE_INTERNAL_DAY = '/internal/rite/day';
 /** How soon a cell whose hub did not answer tells it again (the raid's number). */
 export const RITE_TELL_RETRY_MS = 5000;
-/** Where a cell keeps its circle's ledger and the hub the day's rite - one key each, the latest day's (never `world:`
+/** Where a cell keeps its circles' ledger and the hub the day's rites - one key each, the latest day's (never `world:`
  *  or `raid:` - those prefixes are swept). */
 export const RITE_KEY = 'rite';
+/** AUDIT WB12d (R1): the circles a cell keeps a day, and the hub - a word for one circle never stands in another's way
+ *  (a lie at a pixel no breach stands in is a circle of its own; the hub chooses by the gate's agreed site). */
+export const RITE_CIRCLES_MAX = 4;
+export const RITE_HUB_CIRCLES_MAX = 8;
+/** AUDIT WB12d (R2, L3): the breach's room asks the hub for the day's helpers this often from the opening, and waits
+ *  this long for the answer at the kill (the last answer stands when it does not come). */
+export const RITE_ASK_EVERY_MS = 15_000;
+export const RITE_ASK_TIMEOUT_MS = 2_000;
 
 // ═══ OW6L: THE OVERWORLD'S LEDGER, KEPT BY THE RELAY ═════════════════════════════════════════════
 //

@@ -683,7 +683,7 @@ const service = {
         // are not this account's
         const answer = { ...r };
         delete answer.day; delete answer.struck;   // the service's own: the line's day and whether the batch struck
-        return json(r.recorded ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);
+        return json(r.recorded && !r.rite ? { ...answer, marks: await gateStrikeAnswer(ctx, who.player, env, !!r.struck) } : answer, 200, origin);   // AUDIT WB12d (A2): the rite alone strikes no Drakes, and says none
       }
 
       if (path === '/v1/raid/claim' && request.method === 'POST') {

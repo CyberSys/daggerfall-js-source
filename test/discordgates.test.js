@@ -263,13 +263,13 @@ test('DISCORD-GATES relay: THE KILL - owed the moment the hub hears it (kept fir
   });
 });
 
-test('DISCORD-GATES relay: NO WEBHOOK, NO HERALD - nothing posted, nothing kept (no site record, no owe), the sweep armed as it always was; a webhook that is not Discord\'s is none; a `site` outside the hub is junk (mutants: the herald ignoring its door; the record kept for nothing)', async () => {
+test('DISCORD-GATES relay: NO WEBHOOK, NO HERALD - nothing posted, no owe, the sweep armed as it always was; a webhook that is not Discord\'s is none; a `site` outside the hub is junk. AUDIT WB12d (R1): the site record is kept all the same - the faithful\'s rite stands by the gate\'s agreed site, herald or none (mutants: the herald ignoring its door; the record kept only with a herald)', async () => {
   for (const env of [{}, { GATE_DISCORD_WEBHOOK: 'https://example.com/hook', GATE_DISCORD_ROLE: ROLE }]) {
     await withHerald(async ({ r, join, site, fell, posts, now, set }) => {
       const a = await join('a');
       assert.equal(r.alarm.at, now() - 10 + ACCOUNT_SWEEP_MS, 'the sweep\'s, untouched');
       await site(a, DAY, 100, 200, 'Copperham');
-      assert.equal(r.store.has('gatesite'), false);
+      assert.deepEqual(r.store.get('gatesite'), { d: DAY, c: [[100, 200, 'Copperham', ['acct-peer-a']]] }, 'kept for the rite');
       set(TT.omenAt); await r.fire();
       set(TT.openAt + 1000); await fell(DAY, ['Ann'], 1); await r.fire();
       assert.equal(r.store.has('herald'), false);
