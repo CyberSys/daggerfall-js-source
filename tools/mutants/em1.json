@@ -246,8 +246,8 @@
   {
     "name": "EM1-25-a-click-on-a-tab-also-picks-the-place-under-it",
     "file": "src/ui/heldMap.js",
-    "old": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
-    "new": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        this._sheet?.pickAt?.(px, py);",
+    "old": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else {\n          this._sheet?.pickAt?.(px, py);",
+    "new": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        {\n          this._sheet?.pickAt?.(px, py);",
     "tests": [
       "test/heldmap.test.js"
     ],
@@ -266,8 +266,8 @@
   {
     "name": "EM1-26-the-strip-is-never-asked-before-the-sheet",
     "file": "src/ui/heldMap.js",
-    "old": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else this._sheet?.pickAt?.(px, py);",
-    "new": "        // also pick the place under it.\n        this._sheet?.pickAt?.(px, py);",
+    "old": "        // also pick the place under it.\n        const tab = stripHit(this._strip, px, py);\n        if (tab) this._selectSheet(tab);\n        else {\n          this._sheet?.pickAt?.(px, py);",
+    "new": "        // also pick the place under it.\n        {\n          this._sheet?.pickAt?.(px, py);",
     "tests": [
       "test/heldmap.test.js"
     ],

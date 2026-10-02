@@ -172,7 +172,7 @@ test('AUDIT WB A10 the kill is kept before it is said, and the hub is told until
     await say(a, { k: 'hit', q: 1, d: 10, r: HIT_KINDS.Spell });
     assert.equal(saidAtWrite, 0, 'kept first, said after');
     assert.equal(gates(a, 'fell').length, 1);
-    assert.equal(asked, 1);
+    assert.equal(asked, 2, 'WB12d: the rite\'s helpers asked of it, then the kill told');
     assert.equal(r.store.get('gatefight').told, undefined, 'not told: the hub did not answer');
     await tick(1);
     assert.equal(r.alarm.at, now() + GATE_TELL_RETRY_MS, 'a beat set to tell it again');

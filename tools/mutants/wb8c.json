@@ -83,8 +83,8 @@
   {
     "name": "WB8c-the-resist-said-as-fire",
     "file": "src/scenes/gateCourt.js",
-    "old": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name, so.el)); return; }",
-    "new": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name)); return; }",
+    "old": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted(so.name)); return; }",
+    "new": "    if (dmg <= 0) { say(COURT_STRIKE_TEXT.resisted('Hellfire')); return; }",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -119,12 +119,14 @@
   {
     "name": "WB8c-an-unmarked-warden-speaks",
     "file": "src/scenes/gateCourt.js",
-    "old": "if (P.md && !s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }",
-    "new": "if (!s.fell && s.wrath == null) { say(COURT_MARKS_TEXT.arrive(P)); marksAt = t; } }",
+    "old": "if (P.md && !s.fell && s.wrath == null) marksAt = t; }",
+    "new": "if (!s.fell && s.wrath == null) marksAt = t; }",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/wbx_gate_fixes.test.js"
-    ]
+    ],
+    "equivalent": true,
+    "why": "WB13b: nothing is said on stepping in any more, and an unmarked Warden's card is no card (marksViewOf(null) is null) - the P.md check is belt and braces, kept"
   },
   {
     "name": "WB8c-a-stale-feeding-said",
@@ -145,13 +147,15 @@
     ]
   },
   {
-    "name": "WB8c-the-turn-in-fire-s-words",
+    "name": "WB8c-the-turn-s-card-the-first-turn-s",
     "file": "src/scenes/gateCourt.js",
-    "old": "const line = courtPhaseText(s.phase, P.aspect); if (line) say(line);",
-    "new": "const line = COURT_PHASE_TEXT[s.phase]; if (line) say(line);",
+    "old": "const c = courtPhaseCard(s.phase); if (c) beat = { kind: 'phase'",
+    "new": "const c = courtPhaseCard(2); if (c) beat = { kind: 'phase'",
     "tests": [
-      "test/wb8c_gate_detail.test.js"
-    ]
+      "test/wb8c_gate_detail.test.js",
+      "test/wb13e_beats.test.js"
+    ],
+    "note": "WB13e: the turn's words became its card (its numeral, its name, its one order) - the aspect's words went with the second order"
   },
   {
     "name": "WB8c-my-blows-meet-the-old-body",
@@ -237,8 +241,8 @@
   {
     "name": "WB8c-his-voice-unchanged",
     "file": "src/world/gateBoss.js",
-    "old": "  if (kind === 'windup') return { id: ASPECT_CUE_IDS[aspect],",
-    "new": "  if (kind === 'windup') return { ...cue, id: cue.id,",
+    "old": "  if (kind === 'windup' || kind === 'release') return { id: ASPECT_CUE_IDS[aspect],",
+    "new": "  if (kind === 'windup' || kind === 'release') return { ...cue, id: cue.id,",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -264,8 +268,8 @@
   {
     "name": "WB8c-the-telegraph-fire-s-colour",
     "file": "src/render/gateTelegraph.js",
-    "old": "alpha: fadeIn * Math.max(0, fadeOut), color: attackColor(A, P),",
-    "new": "alpha: fadeIn * Math.max(0, fadeOut), color: attackColor(A, BASE_PROFILE),",
+    "old": "alpha: Math.max(0, fadeOut), color: attackColor(A, P),",
+    "new": "alpha: Math.max(0, fadeOut), color: attackColor(A, BASE_PROFILE),",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -282,8 +286,8 @@
   {
     "name": "WB8c-the-callout-the-table-s-name",
     "file": "src/ui/gateBossBar.js",
-    "old": "{ text: P.atk[A.key].name, color: css(attackColor(A, P)) }",
-    "new": "{ text: A.name, color: css(attackColor(A, P)) }",
+    "old": "{ text: P.atk[A.key].name, color: css(attackColor(A, P)), t:",
+    "new": "{ text: A.name, color: css(attackColor(A, P)), t:",
     "tests": [
       "test/wb8c_gate_detail.test.js"
     ]
@@ -318,8 +322,8 @@
   {
     "name": "WB8c-the-herald-mute-on-marks",
     "file": "src/net/gateHerald.js",
-    "old": "holds it.${marks}`,",
-    "new": "holds it.`,",
+    "old": ".${map} ${RITE_OMEN_LINE}${marks}`,",
+    "new": ".${map} ${RITE_OMEN_LINE}`,",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/discordgates.test.js"

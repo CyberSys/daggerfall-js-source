@@ -27,6 +27,8 @@ import {
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { makeEnemyEntity } from '../characters/enemyEntity.js';
 import { courtToDungeon } from './gateArena.js';
+import { hitFlashStrength } from '../systems/hitFlash.js';   // WB13d: his body struck flashes on the game's own curve
+import { fxBurstOf } from '../render/gateFx.js';   // WB13d: a landing whose burst carries its own light lights there, not him
 
 /** Each boss's look, by its id (net/gateLaw.js GATE_BOSSES): the mobile whose sprite he wears, and how many times its
  *  size he stands (BOSS_H is the body the blows are measured against - three Daedra Lords tall). */
@@ -109,6 +111,34 @@ export const FLINCH_MS = 450;
 export const STUN_ANIM_SPEED = 3;
 /** The fall: the hurt frames played slowly this long, and then he is gone (WB5's spoils spill at the fall). */
 export const FALL_MS = 2400;
+/** WB13d (2026-10-01, Mac: "AAA grade polish"): HIS FIRE IS CAST, NOT SWUNG - the Daedra Lord's own spell frames
+ *  (characters/enemyBasics.js spellAnimFrames, [1, 1, 3, 3]): his attack's frame CAST_RAISE_FRAME held through a fire's
+ *  wind-up, CAST_LOOSE_FRAME as it is loosed. His blade and his weight keep the swing (frames 0, 1, then 2-4). */
+export const CAST_RAISE_FRAME = 1;
+export const CAST_LOOSE_FRAME = 3;
+/** WB13f: SPENT - his heaviest blows (net/gateBrain.js ATTACKS: their recovery the longer for it) leave him in their last
+ *  frame until his recovery ends, a window to punish: his blade's last swing frame, his fire's loosing one. */
+export const SPENT_ON = Object.freeze(['slam', 'leap', 'nova']);
+export const SPENT_FRAME = 4;
+/** WB13d: HIS BODY STRUCK, SEEN, as every foe's is (systems/hitFlash.js): a full flash for my own blow, GATE_FLASH_COURT
+ *  of one for the court's - a fall in his health the relay says of GATE_FLASH_SHARE of his whole or more. His host's
+ *  bodies the same, any fall. */
+export const GATE_FLASH_COURT = 0.4;
+export const GATE_FLASH_SHARE = 0.003;
+/** The flash on a body this frame (0..1), from when my blow and the court's last met it (the court's clock, ms). Pure. */
+export const gateHitFlash = (mineAt, courtAt, now) => Math.max(hitFlashStrength((now - mineAt) / 1000), GATE_FLASH_COURT * hitFlashStrength((now - courtAt) / 1000));
+/** WB13d: a landing's light stands this high over the floor it lands on. */
+export const LANDING_LIGHT_Y = 0.6;
+/** WB13e (2026-10-01, Mac: "AAA grade polish"): HIS FALL, AN EVENT - his body meets the floor THUD_AT_MS into it, then
+ *  sinks FALL_SINK_M into the stone over the rest of FALL_MS, in a column of embers, and leaves his corpse there at
+ *  CORPSE_SCALE (his mobile's own, characters/enemyBasics.js corpseTexture). */
+export const FALL_SINK_M = 1.5;
+export const CORPSE_SCALE = 3;
+/** WB13e: HIS WAKE - this long before the opening ends (the relay's `op`), his roar, his flare and his name. */
+export const WAKE_LEAD_MS = 1200;
+export const WAKE_FLARE_MS = 1500;
+/** WB13e: under this share of his health his ember sputters (and the bar pulses - ui/gateBossBar.js). */
+export const LOW_HEALTH = 0.1;
 
 /** The attacks' colours - the telegraph's on the ground and the glow on him - display-encoded (a foreign pass draws into
  *  an 8-bit display-encoded frame, render/duelWall.js). The ward's gold, and the ember he always carries. */
@@ -190,9 +220,9 @@ export function bossHop(s, now) {
 }
 
 /**
- * WHAT HE IS DOING at `now`: `act` one of gone, fall, windup, strike, run, walk, flinch, idle; `anims` the orientation
- * table that shows it; `frame` the frame index within the record (held frames are indices, a loop's a count to wrap);
- * `loop` whether it wraps; `atk` the attack's key while one is shown; `t` its wind-up's share.
+ * WHAT HE IS DOING at `now`: `act` one of gone, fall, stunned, windup, strike, spent, run, walk, flinch, idle; `anims`
+ * the orientation table that shows it; `frame` the frame index within the record (held frames are indices, a loop's a
+ * count to wrap); `loop` whether it wraps; `atk` the attack's key while one is shown; `t` its wind-up's share.
  * @param {any} s the court's state (net/gateLink.js GateState) @param {number} now the relay's clock
  * @param {number} [hurtAt] when a blow of mine last landed on him
  */
@@ -201,7 +231,9 @@ export function bossAct(s, now, hurtAt = -Infinity) {
   if (s.fell) {
     const since = now - s.fell.at;
     if (since >= FALL_MS) return { act: 'gone', anims: HURT_ANIMS, frame: 0, loop: false, atk: null, t: 1 };
-    return { act: 'fall', anims: HURT_ANIMS, frame: Math.max(0, Math.floor((since / FALL_MS) * 5)), loop: false, atk: null, t: since / FALL_MS };
+    // WB13e: his hurt frames until his body meets the floor, then he sinks into the stone
+    const sink = since > THUD_AT_MS ? FALL_SINK_M * Math.min(1, (since - THUD_AT_MS) / (FALL_MS - THUD_AT_MS)) : 0;
+    return { act: 'fall', anims: HURT_ANIMS, frame: Math.max(0, Math.min(4, Math.floor((since / THUD_AT_MS) * 5))), loop: false, atk: null, t: since / FALL_MS, sink };
   }
   // WB9c: STUNNED - his Reckoning broken, he reels on his hurt frames, slowly, until it passes (a blow still flinches him)
   if (now < (s.stunUntil ?? 0) && now >= (s.stunAt ?? 0)) return { act: 'stunned', anims: HURT_ANIMS, frame: Math.floor(((now - (s.stunAt ?? now)) / 1000) * STUN_ANIM_SPEED), loop: true, atk: null, t: 0 };
@@ -211,12 +243,14 @@ export function bossAct(s, now, hurtAt = -Infinity) {
     // WBX5: the leap in the air - his legs under him, as the charge runs; WB9b: and the bound's long flight
     const air = airOf(A);
     if ((A === ATTACKS.leap || A === ATTACKS.cross) && now < atk.at && now >= atk.at - air) return { act: 'run', anims: MOVE_ANIMS, frame: Math.floor(((now - atk.at + air) / 1000) * RUN_ANIM_SPEED), loop: true, atk: A.key, t: tel?.t ?? 1 };
-    if (tel && now < atk.at) return { act: 'windup', anims: PRIMARY_ATTACK_ANIMS, frame: tel.t < 0.5 ? 0 : 1, loop: false, atk: A.key, t: tel.t };
+    const cast = !!A.el;   // WB13d: his fire (his aspect's element is his fire) is cast
+    if (tel && now < atk.at) return { act: 'windup', anims: PRIMARY_ATTACK_ANIMS, frame: cast ? CAST_RAISE_FRAME : tel.t < 0.5 ? 0 : 1, loop: false, atk: A.key, t: tel.t };
     if (A === ATTACKS.charge && now < atk.at + A.active) {
       return { act: 'run', anims: MOVE_ANIMS, frame: Math.floor(((now - atk.at) / 1000) * RUN_ANIM_SPEED), loop: true, atk: A.key, t: 1 };
     }
     const played = Math.floor(((now - atk.at) / 1000) * PRIMARY_ATTACK_ANIM_SPEED);
-    if (A !== ATTACKS.charge && played < 3) return { act: 'strike', anims: PRIMARY_ATTACK_ANIMS, frame: 2 + played, loop: false, atk: A.key, t: 1 };
+    if (A !== ATTACKS.charge && played < 3) return { act: 'strike', anims: PRIMARY_ATTACK_ANIMS, frame: cast ? CAST_LOOSE_FRAME : 2 + played, loop: false, atk: A.key, t: 1 };
+    if (SPENT_ON.includes(A.key) && now < atk.at + A.active + A.recover) return { act: 'spent', anims: PRIMARY_ATTACK_ANIMS, frame: cast ? CAST_LOOSE_FRAME : SPENT_FRAME, loop: false, atk: A.key, t: 1 };   // WB13f
   }
   const at = s.move && s.move.v > 0 ? bossAt(s, now) : null;
   const walking = !!at && Math.hypot(s.move.tx - at[0], s.move.tz - at[1]) > 0.05;
@@ -247,7 +281,9 @@ export const GLOW_RANGE = Object.freeze({ ember: 7, windup: 12, landing: 18 });
  * THE GLOW ON HIM: a light at his chest in the court's own channel (`{ x, y, z, range, color }`, colour times
  * intensity - world/gateArena.js withCourtLights), the attack's colour climbing through its wind-up and flaring at the
  * landing, gold while the ward stands, a low ember otherwise; null when he is gone. WB8b: at his own chest (Colossal's
- * stands higher) and in his aspect's colours.
+ * stands higher) and in his aspect's colours. WB13d: the landing's flare on the floor where it lands, LANDING_LIGHT_Y
+ * over it - at his feet for his own; a landing that falls away from him (its burst carries its own light,
+ * render/gateFx.js FX_KINDS) leaves his ember.
  */
 export function bossGlow(s, now) {
   if (!s || s.day === null) return null;
@@ -255,22 +291,31 @@ export function bossGlow(s, now) {
   const P = profileOf(s), ember = emberColor(P);
   const [cx, cz] = bossPlace(s, now);
   const [x, y, z] = courtToDungeon(cx, P.bossH * 0.55, cz);
-  const lit = (color, k, range) => ({ x, y, z, range, color: color.map((c) => c * k) });
+  const lit = (color, k, range, ly = y) => ({ x, y: ly, z, range, color: color.map((c) => c * k) });
   if (s.fell) return lit(ember, 2.2 * (1 - (now - s.fell.at) / FALL_MS), GLOW_RANGE.landing);
   const atk = s.atk, A = atk ? ATTACK_BY_ID[atk.a] : null;
   if (A) {
     const tel = telegraphAt(atk, s.phase, now);
     const color = attackColor(A, P) ?? ember;
+    const floor = courtToDungeon(cx, LANDING_LIGHT_Y, cz)[1], away = !!fxBurstOf(A)?.light;
     if (tel && !tel.over) {
-      if (tel.landing) return lit(color, 2.4, GLOW_RANGE.landing);
+      if (tel.landing) return away ? lit(ember, 0.45, GLOW_RANGE.ember) : lit(color, 2.4, GLOW_RANGE.landing, floor);
       return lit(color, 0.35 + 1.25 * tel.t * tel.t, GLOW_RANGE.windup);
     }
-    if (tel && tel.since < Math.max(A.active, 1) + 350) return lit(color, 2.4 * (1 - (tel.since - Math.max(A.active, 1)) / 350), GLOW_RANGE.landing);
+    if (tel && !away && tel.since < Math.max(A.active, 1) + 350) return lit(color, 2.4 * (1 - (tel.since - Math.max(A.active, 1)) / 350), GLOW_RANGE.landing, floor);
   }
   if (now < s.shieldUntil) return lit(WARD_COLOR, 0.9 + 0.3 * Math.sin(now / 90), GLOW_RANGE.windup);
   if (now < (s.stunUntil ?? 0)) return lit(STUN_COLOR, 0.55 + 0.25 * Math.sin(now / 160), GLOW_RANGE.windup);   // WB9c: dazed
+  // WB13e: HIS WAKE - his ember flares as the opening ends (the relay's `op`)
+  const wake = (s.openUntil ?? 0) > 0 ? now - (s.openUntil - WAKE_LEAD_MS) : -1;
+  if (wake >= 0 && wake < WAKE_FLARE_MS) return lit(ember, 0.45 + 2.2 * Math.sin((Math.PI * wake) / WAKE_FLARE_MS), GLOW_RANGE.landing);
+  // WB13e: under LOW_HEALTH his ember sputters - a step of light every SPUTTER_STEP_MS, never steady
+  if (s.max > 0 && s.hp / s.max < LOW_HEALTH) return lit(ember, 0.45 * sputter(now), GLOW_RANGE.ember);
   return lit(ember, 0.45, GLOW_RANGE.ember);
 }
+/** WB13e: the sputter's step (ms) and its share of the ember's light at a moment - a hash of the step, 0.2 to 1. Pure. */
+export const SPUTTER_STEP_MS = 90;
+export const sputter = (now) => { const x = Math.sin(Math.floor(now / SPUTTER_STEP_MS) * 12.9898) * 43758.5453; return 0.2 + 0.8 * (x - Math.floor(x)); };
 
 /** HIS VOICE - DAGGER.SND records by index (`clip`: his own mobile's bark and attack, enemyBasics.js, pitched down for
  *  his size) or sound IDs (`id`: the fire's cast, played through audio.play3dId - systems/enemySpells.js's law), with
@@ -286,23 +331,44 @@ export const BODY_FALL = 15;   // systems/soundClips.js SOUND.BodyFall - a body 
 export const CRYSTAL_CLIPS = Object.freeze({ rise: 68, hit: 433, shatter: 342 });
 export const THUNDER_ROLL = 350;   // systems/ambientEffects.js AMBIENT_SOUNDS.storm's ThunderRoll (WB7)
 export const FIRE_CAST_ID = 352;   // systems/enemySpells.js SPELL_CAST_SOUND[0], the fire's
+export const SWING_LOW = 105;   // systems/soundClips.js SOUND.SwingLowPitch - WB13d: a great blade loosed
+/** WB13d: THE RELEASE - this long before each landing, a sound of its coming (render/gateTelegraph.js's last-moment
+ *  burn, heard): the wind-up's bark says what, the release says now. */
+export const RELEASE_LEAD_MS = 350;
+const fireLoosed = (volume, reach, at = 'him') => Object.freeze({ id: FIRE_CAST_ID, pitch: 1.1, volume, reach, at });
 export const BOSS_CUES = Object.freeze({
+  // WB13d: the wind-ups his one bark and his one cast carry each stand at least four semitones from the next of their
+  // clip in his rotation (2-3 apart, the Cleave, the Slam and the Leap were one sound)
   windup: Object.freeze({
-    cleave: voice(B.barkSound, 0.78),
-    slam: voice(B.barkSound, 0.66),
+    cleave: voice(B.barkSound, 0.96),
+    slam: voice(B.barkSound, 0.76),
     charge: voice(B.moveSound, 0.7),
     hellfire: Object.freeze({ id: FIRE_CAST_ID, pitch: 0.8, volume: 1.3, reach: 60, at: 'him' }),
-    nova: Object.freeze({ id: FIRE_CAST_ID, pitch: 0.62, volume: 1.4, reach: 60, at: 'him' }),
+    nova: Object.freeze({ id: FIRE_CAST_ID, pitch: 0.63, volume: 1.4, reach: 60, at: 'him' }),
     wrath: voice(B.barkSound, 0.45, 1.8),
     // WBX5: the new three - a bark as he gathers himself to leap, the fire's cast as the meteor is called, a deep bark
     // over the spokes' lanes
     leap: voice(B.barkSound, 0.6, 1.5),
     meteor: Object.freeze({ id: FIRE_CAST_ID, pitch: 0.5, volume: 1.5, reach: 70, at: 'him' }),
-    spokes: voice(B.barkSound, 0.52, 1.6),
+    spokes: voice(B.barkSound, 0.47, 1.6),
     // WB9b: the bound - his roar as he gathers himself, heard across every court; WB9c: the Reckoning - Dagon called,
     // the deepest roar and the fire's cast under it, heard from anywhere in the arena
     cross: Object.freeze({ clip: B.barkSound, pitch: 0.46, volume: 1.9, reach: 160, at: 'him' }),
     reckon: Object.freeze({ clip: B.barkSound, pitch: 0.38, volume: 2.1, reach: 160, at: 'him' }),
+  }),
+  // WB13d: the release - his blade's swing, his weight gathered as it comes down, his fire loosed (Dagon's too)
+  release: Object.freeze({
+    cleave: Object.freeze({ clip: SWING_LOW, pitch: 0.45, volume: 1.5, reach: 40, at: 'him' }),
+    charge: Object.freeze({ clip: SWING_LOW, pitch: 0.45, volume: 1.5, reach: 40, at: 'him' }),
+    slam: Object.freeze({ clip: BODY_FALL, pitch: 0.5, volume: 1.4, reach: 50, at: 'him' }),
+    leap: Object.freeze({ clip: BODY_FALL, pitch: 0.5, volume: 1.4, reach: 50, at: 'him' }),
+    cross: Object.freeze({ clip: BODY_FALL, pitch: 0.4, volume: 1.7, reach: 120, at: 'him' }),
+    hellfire: fireLoosed(1.1, 40, 'targets'),
+    nova: fireLoosed(1.3, 50),
+    meteor: fireLoosed(1.3, 60, 'targets'),
+    spokes: fireLoosed(1.3, 50),
+    wrath: fireLoosed(1.8, 120),
+    reckon: fireLoosed(1.8, 160),
   }),
   land: Object.freeze({
     cleave: voice(B.attackSound, 0.8),
@@ -338,6 +404,8 @@ export const BOSS_CUES = Object.freeze({
   stunned: Object.freeze({ clip: B.barkSound, pitch: 0.7, volume: 1.8, reach: 120, at: 'him' }),
   // WB9d: a step into his burning ground - the fire's hiss under my own feet, at once (the bite is a tick off)
   groundStep: Object.freeze({ clip: BURNING, pitch: 1.35, volume: 0.9, reach: 14, at: 'point' }),
+  // WB13e: a Meteor or a Leap aimed where I stand, at its word - the parry's ring, high and sharp, at my feet
+  sting: Object.freeze({ clip: CRYSTAL_CLIPS.hit, pitch: 2.2, volume: 1.3, reach: 20, at: 'point' }),
 });
 /**
  * WB8b: HIS ASPECT, HEARD - his elemental blows' wind-ups and landings under each aspect but his burning one: the
@@ -351,12 +419,12 @@ export const ASPECT_LAND = Object.freeze({
   storm: Object.freeze({ clip: THUNDER_ROLL, pitch: 0.9 }),
   venom: Object.freeze({ id: 350, pitch: 0.5 }),
 });
-/** The cue of `kind` ('windup' or 'land') for an attack under a profile (net/gateBrain.js fightProfile). */
+/** The cue of `kind` ('windup', WB13d 'release', or 'land') for an attack under a profile (net/gateBrain.js fightProfile). */
 export function bossCue(kind, A, P) {
   const cue = BOSS_CUES[kind]?.[A.key] ?? null;
   const aspect = P?.aspect?.id;
   if (!cue || isDagons(A) || !P?.atk?.[A.key]?.el || !(aspect in ASPECT_CUE_IDS)) return cue;   // Dagon's Wrath is Dagon's - WB9c: and his Reckoning
-  if (kind === 'windup') return { id: ASPECT_CUE_IDS[aspect], pitch: cue.pitch, volume: cue.volume, reach: cue.reach, at: cue.at };
+  if (kind === 'windup' || kind === 'release') return { id: ASPECT_CUE_IDS[aspect], pitch: cue.pitch, volume: cue.volume, reach: cue.reach, at: cue.at };
   const land = ASPECT_LAND[aspect];
   return { ...(land.clip != null ? { clip: land.clip } : { id: land.id }), pitch: land.pitch * (cue.pitch / 0.7), volume: cue.volume, reach: cue.reach, at: cue.at };
 }
@@ -374,6 +442,14 @@ export const GROWL_EVERY_MS = Object.freeze([7000, 13000]);
 export const HURT_GAP_MS = 1400;
 export const HURT_SHARE = 0.004;
 export const QUAKE_ON = Object.freeze(['slam', 'charge', 'nova', 'wrath', 'leap', 'meteor', 'cross', 'reckon']);   // WBX5: his leap's landing and a meteor's fall shake it too; WB9: the bound's and the Reckoning's
+/** WB13d: A LANDING FELT - the camera's shake (systems/betterAmbience.js weaponKick, under the player's own maxShake) at
+ *  nought metres from where it lands and the reach it fades to nothing over; a reach of none: the whole arena feels it. */
+export const LAND_SHAKE = Object.freeze({
+  slam: Object.freeze([2.5, 12]), leap: Object.freeze([2.5, 12]), cross: Object.freeze([4, 25]), meteor: Object.freeze([3.5, 15]),
+  nova: Object.freeze([2, 24]), wrath: Object.freeze([6, 0]), reckon: Object.freeze([6, 0]),
+});
+/** The shake a landing of `A` gives feet `d` metres from it (a reach of none: everywhere). Pure. */
+export const landShake = (A, d) => { const w = LAND_SHAKE[A?.key]; return !w ? 0 : !(w[1] > 0) ? w[0] : w[0] * Math.max(0, 1 - d / w[1]); };
 export const THUD_AT_MS = 1500;
 
 // ═══ WB11c: HIS HOST, SEEN AND HEARD ═══════════════════════════════════════════════════════════════════════════

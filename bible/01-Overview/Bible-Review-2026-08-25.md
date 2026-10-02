@@ -216,7 +216,7 @@ own AUDIT-18 correction.
 Doc review only, nothing fixed - but four code comments assert the
 opposite of their own code and deserve a slice's attention:
 - `src/ui/deathScreen.js:89-90` claims "`drop` is read by each host's
-  frame" - no host reads it (the Ledger row `:537` is right, the
+  frame" - no host reads it (the Ledger row `:539` is right, the
   comment is wrong).
 - `src/systems/mysticism.js:53` header "OPEN AND LOCK ARE NOT WIRED" -
   they are (X1, `actionSystem.js:1022-1023`).
@@ -233,13 +233,13 @@ opposite of their own code and deserve a slice's attention:
 
 ## Line-citation drift (low, batched)
 
-`Port-Ledger.md:634` (save.js:36/:587/:606 → :28/:683/:715), `:637`
-(world.js:5236 → :2412); `Quest-Arc.md:724`/`:2911`
+`Port-Ledger.md:636` (save.js:36/:587/:606 → :28/:688/:720), `:637`
+(world.js:5263 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:656 → :903); `Player-Arc.md:979` (worldModes.js:1008 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
 (CHAR_PIXEL "7" - `renderer.js:665` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`
-(interiorContext.js:214 → :199); `Rendering.md:173`
+(interiorContext.js:214 → :199); `Rendering.md:174`
 (CHAR_SPRITE_RT_SIZE "256" → 512).
 
 ## What checked out clean

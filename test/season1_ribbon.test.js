@@ -135,7 +135,7 @@ test('SEASON1 THE BANNER RIBBON ON THE TOKEN AND THE RELAY: a claim set may carr
   assert.equal('rb' in slyJoin, false, 'a frame that only types one gets none');
   // the wiring by source - the relay's two reads
   const relay = src('server/src/index.js');
-  assert.match(relay, /glyphs: c\.g, au: c\.au, rb: c\.rb, mu, lv: c\.lv,/);
+  assert.match(relay, /glyphs: c\.g, gx: c\.gx, au: c\.au, rb: c\.rb, mu, lv: c\.lv,/);
   assert.match(relay, /au: who\.au, \.\.\.\(who\.rb \? \{ rb: who\.rb \} : \{\}\), lv: who\.lv,/);
 });
 

@@ -18,7 +18,7 @@ import { readTip } from './eventMapMarks.js';   // EVENT-TIP: the ring's card, r
 export const GATE_RING_CSS = '#ff5a2a';
 export const GATE_FILL_CSS = 'rgba(255, 70, 30, 0.13)';
 export const GATE_DOT_RGB = Object.freeze([255, 82, 36]);
-export const GATE_LEGEND_TEXT = 'Oblivion Gate';
+export const GATE_LEGEND_TEXT = 'Dagon\'s Breach';   // WB12a
 
 /**
  * The host's mark, read and checked - null for none, a throw, or anything a map could not place.

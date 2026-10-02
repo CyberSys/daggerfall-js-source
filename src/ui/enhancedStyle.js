@@ -1159,6 +1159,14 @@ img.fit { image-rendering: pixelated; }   /* AUDIT UI A1: a fitted picture drawn
   font-size: 12.5px; color: var(--dim);
 }
 .card .acctglyphart { width: 15px; height: 15px; display: block; }
+/* GLYPH-WEAR: a glyph is pressed off and on - a bare chip, faded while hidden, full strength while shown */
+.card button.acctglyph {
+  background: none; border: 1px solid transparent; border-radius: 6px; padding: 3px 6px;
+  font: inherit; font-size: 12.5px; color: var(--dim); cursor: pointer; opacity: 0.45;
+}
+.card button.acctglyph.worn { opacity: 1; }
+.card button.acctglyph:hover:not(:disabled) { border-color: rgba(255, 255, 255, 0.18); }
+.card button.acctglyph:disabled { cursor: default; }
 /* PATREON-LINK - THE PATRON'S ROW. Link Patreon is a LINK (the account read carries it, so the press opens it at once,
    as TERMS1's document links do), worn as an .act so it reads as the button it is; what the pledge holds is a fact
    beside it, drawn as the glyphs' facts are - quiet, not pressable. */
@@ -3986,6 +3994,7 @@ ${badgeCss()}
 .hitnum-crit { font-size: calc(36px * var(--hud-scale, 1)); font-weight: 700; color: #f1c04f; text-shadow: 2px 2px 0 rgba(60,40,0,0.95), 0 0 10px rgba(241,192,79,0.45);
   animation-name: hitnum-crit; }
 .hitnum-miss, .hitnum-ineffective, .hitnum-absorbed { font-size: calc(20px * var(--hud-scale, 1)); font-weight: 500; color: rgba(168,159,136,0.85); }
+.hitnum-warded { font-size: calc(20px * var(--hud-scale, 1)); font-weight: 600; color: #ffdf8e; }   /* WB13d: the gate boss's ward, in its gold */
 /* PARTY-BUFFS: a heal I took - "+N" in green, from a little under the reticle so it never reads as a blow I struck */
 .hitnum-heal { top: 50%; color: #8fe27f; text-shadow: 2px 2px 0 rgba(0,40,0,0.9), 0 0 8px rgba(120,220,100,0.35); }
 .hitnum-tag { display: block; font-size: calc(12px * var(--hud-scale, 1)); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;

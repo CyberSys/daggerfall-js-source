@@ -39,6 +39,8 @@ export function numberFor(r) {
   if (!r) return null;
   if (r.ineffective) return { kind: 'ineffective', text: 'Ineffective', tag: null };
   if (!r.hit) return { kind: 'miss', text: 'Miss', tag: null };
+  // WB13d: a blow into the gate boss's ward lands nothing (the relay refuses it) - it says so, never a number
+  if (r.target?.warded) return { kind: 'warded', text: 'Warded', tag: null };
   const dmg = Math.max(0, Math.round(r.damage || 0));
   if (dmg === 0) return { kind: 'absorbed', text: '0', tag: null };
   if (r.backstab) return { kind: 'crit', text: String(dmg), tag: 'Backstab' };

@@ -343,6 +343,7 @@ function hostBoot(dev, R, realmSession, realmBoot) {
     setRealmSaveSink: (f) => { sink = f; },
     characterIdOf: () => R, realmSummaryOf: () => null, realmSaveWithHeld, playerEntity: {},
     createSpoilsPool, recoverSpoils, RAID_SPOILS_KEYS, RAID_SPOILS_RECORDS_MAX, SPOILS_TEXT, RAID_SPOILS_TEXT, takeSpoil,
+    takeGateSpoil: takeSpoil,   // WB12c: the breach's own door - its book is test/wb12c_burning_doors.test.js's
     _spoilsStore: spoilsStore(dev.storage), enumerateSaves: () => ({ info: new Map() }), setMidScreenText: (t) => said.push(t),
     console: { warn() {} },
   });

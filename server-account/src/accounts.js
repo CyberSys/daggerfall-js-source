@@ -36,7 +36,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { guestName, isHandleShaped, isGuestShaped } from './guestName.js';
-import { wardrobeOf, equipRefusal, canModerate, auraRefusal } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
+import { wardrobeOf, equipRefusal, canModerate, auraRefusal, glyphRefusal, glyphsHidden } from './titles.js';   // ACC3: what a player holds, wears and is true of - all four derived; WB9g: and the aura worn
 import { insigniaById, insigniaHeld } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - one law both ends
 import { ID_RE, nameIsIssuable } from '../../src/net/identityToken.js';
 import { PLAY_GRACE_S } from '../../src/net/playClock.js';   // ACC4: the widest gap one beat may credit - one home both ends
@@ -396,10 +396,27 @@ export async function equipAura({ db, nowS }, player, env, aura) {
   return { ok: true, ...wardrobeOf({ ...player, aura }, env, nowS) };
 }
 
+/**
+ * GLYPH-WEAR - SHOW ONE GLYPH, OR HIDE IT. Mac: "players can also equip/unequip their glyphs". Refused for a glyph
+ * that is not true of the player now (`not-held`), as a title is. `on` true shows it, false hides it. The stored
+ * list is rewritten from what is hidden now, so a lapsed glyph drops out of it on the next write. Answers the
+ * wardrobe after the write.
+ */
+export async function equipGlyph({ db, nowS }, player, env, glyph, on) {
+  const why = glyphRefusal(glyph, player, env, nowS);
+  if (why) return { error: why };
+  const off = glyphsHidden(player, env, nowS).filter((g) => g !== glyph);
+  if (!on) off.push(glyph);
+  const glyphs_off = off.join(' ') || null;
+  await db.prepare('UPDATE players SET glyphs_off = ?, last_seen = ? WHERE id = ?').bind(glyphs_off, nowS, player.id).run();
+  return { ok: true, ...wardrobeOf({ ...player, glyphs_off }, env, nowS) };
+}
+
 /** WB9g: what the account's own closed gates could still pay for - one Sigil Stone a gate closed (gate_kills, WB5b),
- *  less what its insignia already cost (`insignia_spent`). Never below 0. */
+ *  less what its insignia already cost (`insignia_spent`). Never below 0. WB12d: a row's own `stones` - two with the
+ *  faithful's rite broken, one for the rite alone (migration 0066). */
 export async function insigniaPurse({ db }, player) {
-  const r = await db.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1').bind(player.id).first();
+  const r = await db.prepare('SELECT COALESCE(SUM(stones), 0) AS n FROM gate_kills WHERE account = ?1').bind(player.id).first();
   const spent = Number.isSafeInteger(player?.insignia_spent) ? player.insignia_spent : 0;
   return Math.max(0, Number(r?.n ?? 0) - spent);
 }
@@ -427,7 +444,7 @@ export async function buyInsignia({ db, nowS }, player, env, id) {
        insignia_spent = insignia_spent + ?3, last_seen = ?4
      WHERE id = ?1
        AND (' ' || COALESCE(insignia, '') || ' ') NOT LIKE ('% ' || ?2 || ' %')
-       AND (SELECT COUNT(*) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
+       AND (SELECT COALESCE(SUM(stones), 0) FROM gate_kills WHERE account = ?1) - insignia_spent >= ?3
      RETURNING insignia, insignia_spent`,
   ).bind(player.id, offer.id, offer.price, nowS).first();
   if (!row) {
@@ -814,15 +831,17 @@ export async function reportDuelLoss({ db, nowS }, loser, winner) {
 // the row), so the client keeps the receipt and claims it again then,
 // inside the receipt's week.
 
-/** An account's gates: `{ closed }`, counted off the rows. */
+/** An account's gates: `{ closed }`, counted off the rows - WB12d: a rite's own row is no breach closed. */
 export async function gateRecordOf({ db }, playerId) {
-  const r = await db.prepare('SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1').bind(playerId).first();
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM gate_kills WHERE account = ?1 AND earned != 'rite'").bind(playerId).first();
   return { closed: Number(r?.n ?? 0) };
 }
 
 /**
  * THE CLAIM: `receipt` verified with the relay's public half and naming `player`, one row a (day, account). Answers
- * `{ recorded: true, closed }`, `{ recorded: false, why: 'claimed' | 'guest', closed }`, or `{ error }` -
+ * `{ recorded: true, day, stones, closed }` (WB12d: `stones` the row's embers, `rite` on a receipt of the rite alone,
+ * `struck` beside a Drakes strike), `{ recorded: false, why: 'claimed', stones, closed }` (AUDIT WB12d A1: the row's
+ * embers, a fighter's `r` made good), `{ recorded: false, why: 'guest', closed }`, or `{ error }` -
  * `no-gate-key` (this service holds no public half), `receipt` (not a receipt the relay signed, or expired - `why`
  * says which rung), `not-yours` (another account's).
  * @param {{ db: any, nowS: number, subtle: SubtleCrypto }} ctx
@@ -836,16 +855,25 @@ export async function claimGate({ db, nowS, subtle }, player, receipt, publicKey
   const c = v.claims;
   if (c.s !== player.id) return { error: 'not-yours' };
   if (!player.handle) return { recorded: false, why: 'guest', ...(await gateRecordOf({ db }, player.id)) };
+  // WB12d: the row's embers - an ember more for the faithful's rite broken (`r`); a rite's own receipt is one.
   // SEAT1b (Seats-Arc 4.2): with the region the claiming client derived for the kill's day - the day's region is the one
-  // at least three of its claims agree on (seatInfluence.js), null where the claim named none
-  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, region) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
-    .bind(c.d, player.id, c.b, c.x, nowS, seatRegionOk(region) ? region : null);
+  // at least three of its claims agree on (seatInfluence.js), null where the claim named none, and on the rite's own
+  // row, which is no kill
+  const embers = c.r === 1 ? 2 : 1;
+  const kill = db.prepare('INSERT OR IGNORE INTO gate_kills (day, account, boss, earned, at, region, stones) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)')
+    .bind(c.d, player.id, c.b, c.x, nowS, c.x !== 'rite' && seatRegionOk(region) ? region : null, embers);
   // MARKS1 / AUDIT 28 M4: the gate's Marks (marks.js gateStrikeStatement) IN THE SAME BATCH as the row - one transaction,
   // so a strike that fails takes the row with it and the retry claims afresh; `strike` null where Marks are not this
-  // account's, and the row is written alone
-  const stmt = strike?.(c.d) ?? null;
+  // account's, and the row is written alone. WB12d: the rite alone is no breach closed - no strike
+  const stmt = c.x === 'rite' ? null : strike?.(c.d) ?? null;
   const [r, m] = stmt ? await db.batch([kill, stmt]) : [await kill.run(), null];
   const recorded = Number(r?.meta?.changes ?? 0) > 0;
   const struck = Number(m?.meta?.changes ?? 0) > 0;
-  return recorded ? { recorded, day: c.d, ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) } : { recorded, why: 'claimed', ...(await gateRecordOf({ db }, player.id)) };
+  if (recorded) return { recorded, day: c.d, stones: embers, ...(c.x === 'rite' ? { rite: true } : {}), ...(stmt ? { struck } : {}), ...(await gateRecordOf({ db }, player.id)) };
+  // AUDIT WB12d (A1): A FIGHTER'S `r` COUNTED AT ONE EMBER - a service from before acct62 took the receipt as a plain one
+  // and kept its row - is made good when the receipt is claimed again (the game keeps an `r` receipt until a service
+  // that answers its embers has counted it). One row a (day, account), one receipt a kill: the row is this receipt's
+  if (c.r === 1) await db.prepare("UPDATE gate_kills SET stones = 2 WHERE day = ?1 AND account = ?2 AND stones = 1 AND earned != 'rite'").bind(c.d, player.id).run();
+  const row = await db.prepare('SELECT stones FROM gate_kills WHERE day = ?1 AND account = ?2').bind(c.d, player.id).first();
+  return { recorded, why: 'claimed', ...(Number.isSafeInteger(row?.stones) ? { stones: row.stones } : {}), ...(await gateRecordOf({ db }, player.id)) };
 }

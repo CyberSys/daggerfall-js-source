@@ -286,6 +286,9 @@ export function nameIsIssuable(name) {
  *      the account's realm characters, else 0; absent from a service
  *      before REALM-DOOR (the relay refuses a 0)
  *   au the aura WORN, absent for none (WB9g)
+ *   gx the glyphs the player has TAKEN OFF - each one in `g`, absent for
+ *      none (GLYPH-WEAR). Paint alone: `g` stays what is true and what
+ *      the rights read; a face drawing the badge leaves these out
  */
 
 /** The account id's own shape - the same one `net/social.js` already
@@ -329,6 +332,12 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
     if (!c.g.every((g) => GLYPHS.includes(g))) return false;
     if (new Set(c.g).size !== c.g.length) return false;   // a repeat is a longer claim set saying one thing
   }
+  // GLYPH-WEAR: the glyphs taken off - a list of `g`'s own, each once; absent for none, so a service before it signs
+  // nothing new. One `g` does not carry is refused: a token cannot hide what it never said was true.
+  if (c.gx !== undefined) {
+    if (!Array.isArray(c.gx) || !c.gx.length || !Array.isArray(c.g)) return false;
+    if (!c.gx.every((g) => c.g.includes(g)) || new Set(c.gx).size !== c.gx.length) return false;
+  }
   // MOD1: THE MUTE RIDES THE SIGNATURE, like the name and the badge, so
   // a player cannot talk their way out of one by reconnecting - every
   // hello re-reads it off a claim the service signed. Absent when not
@@ -353,7 +362,7 @@ export function claimsValid(c, { maxTtlS = MAX_TTL_S } = {}) {
  * MINT. The account service's half - it holds the private key and
  * nothing else does.
  *
- * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string, rb?:number[]}} who
+ * @param {{s:string, n:string, k:'guest'|'linked', t?:string, ts?:number[], g?:string[], mu?:number, lv?:number, gi?:string, gt?:string, gm?:string, rc?:0|1, au?:string, rb?:number[], gx?:string[]}} who
  * @param {CryptoKey} privateKey  an Ed25519 private key
  * @param {{subtle: SubtleCrypto, nowS: number, ttlS?: number}} env
  * @returns {Promise<string>}
@@ -374,6 +383,7 @@ export async function mintToken(who, privateKey, { subtle, nowS, ttlS = MAX_TTL_
   if (who?.rc !== undefined) claims.rc = who.rc;   // REALM-DOOR: a 0 is said, never dropped as falsy - it is the relay's refusal
   if (who?.au !== undefined) claims.au = who.au;   // WB9g: only while an aura is worn - a player wearing none mints the bytes they always did
   if (who?.rb !== undefined) claims.rb = who.rb;   // SEASON1 part two: only while a Season's ribbon is worn - none, the bytes as before
+  if (who?.gx !== undefined && who.gx.length) claims.gx = who.gx;   // GLYPH-WEAR: only while a glyph is taken off - a player hiding none mints the bytes they always did
   // A BAD CLAIM SET IS REFUSED AT THE MINTER. The verifier would refuse
   // it too, but at the player's machine, where the only thing anyone
   // learns is that online is broken.

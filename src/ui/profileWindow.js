@@ -100,7 +100,7 @@ export function profileDuelLine(record) {
 /** WB5b: their gates closed, off the same record - said only once there is one to say (a stranger's none is not news). */
 export function profileGateLine(record) {
   const n = record && typeof record === 'object' ? record.gates?.closed : null;
-  return Number.isSafeInteger(n) && n > 0 ? `Gates closed: ${n}` : null;
+  return Number.isSafeInteger(n) && n > 0 ? `Breaches closed: ${n}` : null;   // WB12a
 }
 /** RAID4: the towns they defended, off the same record - said only once there is one to say. */
 export function profileRaidLine(record) {

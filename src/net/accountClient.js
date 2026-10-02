@@ -143,10 +143,11 @@ export const REFUSALS = Object.freeze({
   'no-title': 'The account service does not know that title. The game may need updating.',
   // WB9g, the Broker's insignia (server-account/src/accounts.js buyInsignia, equipAura)
   'no-aura': 'The account service does not know that aura. The game may need updating.',
+  'no-glyph': 'The account service does not know that glyph. The game may need updating.',   // GLYPH-WEAR
   'no-insignia': 'The Broker does not sell that any more. The game may need updating.',
   owned: 'Your account already owns that.',
-  short: 'Your account has not closed enough Oblivion Gates to pay for that. Each gate closed pays one Sigil Stone.',
-  guest: 'The Broker records insignia only on an account with a username and password. Give this account one first.',
+  short: 'Your account has too few embers for that.',   // WB12a; WB13b: the card says the rule; AUDIT WB12d (A4): a rite's ember counts, and is no breach closed
+  guest: 'Insignia need a registered account. Add a username and password first.',
   // PATREON-LINK, a patron's own Patreon (server-account/src/patreon.js). `signature` is the webhook's, met by Patreon
   // and never a player; it has a sentence because every word the service says does.
   'patreon-closed': 'Linking Patreon is not switched on yet.',
@@ -613,6 +614,10 @@ export const equipTitle = (io, title) => call(io, '/v1/account/title', { title: 
 /** WB9g: wear one of the Broker's auras, or none - `{ ok, titles, title, glyphs, auras, aura, insignia }`, the wardrobe
  *  after the write. */
 export const equipAura = (io, aura) => call(io, '/v1/account/aura', { aura: aura ?? null });
+/** GLYPH-WEAR (2026-10-02, Mac: "players can also equip/unequip their glyphs"): show one glyph (`on` true) or hide it -
+ *  the wardrobe after the write (`glyphs` still all that is true, `glyphsOff` the ones taken off). The service refuses
+ *  `not-held` for a glyph that is not true of this account. */
+export const equipGlyph = (io, glyph, on) => call(io, '/v1/account/glyph', { glyph, on: !!on });
 /** WB9g: buy a piece of the Broker's insignia (net/insignia.js INSIGNIA) for this account - the wardrobe after the sale and
  *  the `purse` its closed gates can still pay, or a refusal (`owned`, `short` with `purse` and `price`, `guest`). */
 export const buyInsignia = (io, item) => call(io, '/v1/account/insignia', { item });
@@ -711,17 +716,21 @@ export function keepSession(storage, { id, name, kind, sessionId, secret, glyphs
  * after any wear (the account card's, the Broker's) - so this device's own player sees the fire at their feet the moment
  * any door changes it (systems/ownGlyphs.js ownAura). The room sees it from their next hello, off the signature.
  *
+ * GLYPH-WEAR (2026-10-02): LESS THE GLYPHS TAKEN OFF (`glyphsOff`), when the answer states them - what dresses my own
+ * player on my own screen is what the room is shown, so a Shadow Fang hidden is a wolf in no skin here as it is there.
+ *
  * @param {any} storage
- * @param {{ name?: string, kind?: string, glyphs?: string[], aura?: string|null, secret?: string }} [who]
+ * @param {{ name?: string, kind?: string, glyphs?: string[], glyphsOff?: string[], aura?: string|null, secret?: string }} [who]
  */
-export function adoptIdentity(storage, { name, kind, glyphs, aura, secret } = {}) {
+export function adoptIdentity(storage, { name, kind, glyphs, glyphsOff, aura, secret } = {}) {
   const was = storedSession(storage);
   if (!was) return false;
   if (typeof secret === 'string' && was.secret !== secret) return false;
   const next = { ...was };
   if (typeof name === 'string' && name) next.name = name;
   if (kind === 'guest' || kind === 'linked') next.kind = kind;
-  if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24).slice(0, 16);
+  const off = Array.isArray(glyphsOff) ? glyphsOff : [];   // GLYPH-WEAR
+  if (Array.isArray(glyphs)) next.glyphs = glyphs.filter((g) => typeof g === 'string' && g.length <= 24 && !off.includes(g)).slice(0, 16);
   if (aura !== undefined) next.aura = typeof aura === 'string' && AURAS.includes(aura) ? aura : null;   // WB9g: one that exists, or none
   const sameGlyphs = (next.glyphs ?? []).join('+') === (was.glyphs ?? []).join('+');
   const sameAura = (next.aura ?? null) === (was.aura ?? null);
@@ -845,6 +854,8 @@ export function accountTokenMinter({ fetch, storage, onIssued = null, character 
           xp: Number.isSafeInteger(answer.data.xp) && answer.data.xp >= 0 ? answer.data.xp : null,   // RENOWN4: the track's total, for the page's own bar - none from a service before acct13
           // GUILD1c: the tag my character's guild wears (null for none) - absent from a service before acct13, which says nothing
           ...('guild' in answer.data ? { guild: typeof answer.data.guild === 'string' ? answer.data.guild : null } : {}),
+          // GLYPH-WEAR: the glyphs my own name leaves out - `glyphs` stays all that is true (the staff rights read it)
+          ...(Array.isArray(answer.data.glyphsOff) ? { glyphsOff: answer.data.glyphsOff } : {}),   // absent for none
           // WB9g: the aura at my own feet (null for none) - absent from a service before acct38, which says nothing
           ...('aura' in answer.data ? { aura: typeof answer.data.aura === 'string' ? answer.data.aura : null } : {}),
           // SEASON1 part two: a Season's banner ribbon under my own name (null for none) - absent from a service before acct58
@@ -1114,7 +1125,8 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
 }
 
 /** SEAT1a: THE SEATS' REGISTRY (server-account/src/townSeats.js) through the one door - the seats the witnesses confirmed,
- *  a seat this client stands in reported, and a developer's strike. Each waited for ACCOUNT_ACT_WAIT_MS at most. */
+ *  a seat this client stands in reported, and a developer's strike (VOID: and a moderator's void of a battle). Each waited
+ *  for ACCOUNT_ACT_WAIT_MS at most. */
 export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
   const post = waitedPost({ fetch, storage }, waitMs);
   return {
@@ -1123,6 +1135,7 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     list: () => post('/v1/seats/list', {}),
     witness: (seat) => post('/v1/seats/witness', { seat }),
     strike: (key) => post('/v1/seats/strike', { key }),
+    voidSiege: (key) => post('/v1/seats/siege/void', { key }),   // VOID (Seats-Arc 18): a moderator's `/siege void <key>`
     // SEAT1b: influence - the standings at a seat (with the reader's own guild), a pledge set or taken down, the Watch's
     // receipts claimed, Tribute paid under its own request id
     standings: (key, character) => post('/v1/seats/standings', { key, character }),

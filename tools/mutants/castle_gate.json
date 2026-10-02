@@ -1,0 +1,65 @@
+[
+ {
+  "name": "CASTLE-GATE-highest",
+  "file": "src/systems/siegeField.js",
+  "old": "    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: [...d.box] }; }",
+  "new": "    if (Number.isFinite(y) && -y < low - 1e-6) { low = -y; best = { door: d.door, box: [...d.box] }; }",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-last-on-tie",
+  "file": "src/systems/siegeField.js",
+  "old": "    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: [...d.box] }; }",
+  "new": "    if (Number.isFinite(y) && y <= low + 1e-6) { low = y; best = { door: d.door, box: [...d.box] }; }",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-box-shared",
+  "file": "src/systems/siegeField.js",
+  "old": "    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: [...d.box] }; }",
+  "new": "    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: d.box }; }",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-banners-dropped",
+  "file": "src/scenes/seatBanners.js",
+  "old": "  pair(castle);   // CASTLE-GATE: a crown's two at its castle's entrance",
+  "new": "",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-banners-last",
+  "file": "src/scenes/seatBanners.js",
+  "old": "  pair(castle);   // CASTLE-GATE: a crown's two at its castle's entrance\n  for (const g of gates) add(gateBannerAnchor(g, centre));",
+  "new": "  for (const g of gates) add(gateBannerAnchor(g, centre));\n  pair(castle);",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-doors-ungathered",
+  "file": "src/scenes/world.js",
+  "old": "            if (dfLocation.hasDungeon) for (const d of cpu.doors) if (d.type === DOOR_TYPE.DUNGEON_ENTRANCE) pixelDungeonDoors.push({ door: doorCornersOf(d, local), box });   // CASTLE-GATE\n",
+  "new": "",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-every-tier",
+  "file": "src/scenes/world.js",
+  "old": "    const castleGate = seatTier === 'crown' ? castleEntranceOf(pixelDungeonDoors) : null;",
+  "new": "    const castleGate = castleEntranceOf(pixelDungeonDoors);",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-field-unhanded",
+  "file": "src/scenes/world.js",
+  "old": "      tier: seatTier, castle: castleGate,\n",
+  "new": "      tier: seatTier,\n",
+  "tests": ["test/castle_gate.test.js"]
+ },
+ {
+  "name": "CASTLE-GATE-banners-unhanded",
+  "file": "src/scenes/world.js",
+  "old": "      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys, castle: castleGate,\n",
+  "new": "      frames: pixelHomeFrames, palaceKeys: seatPalaceKeys,\n",
+  "tests": ["test/castle_gate.test.js"]
+ }
+]

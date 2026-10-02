@@ -130,15 +130,18 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
       // AUDIT SOC (2026-09-16): THE RUNTIME'S BATCH LIMIT IS A LAW HERE TOO. A Durable Object's batched get takes 128 keys
       // and its batched put 128 pairs; SLAM5 found the 130th player's hello throwing on exactly this wall, and the fake
       // let it pass - a fake that lies makes a pin pass that production would fail (this file's own header).
-      async get(k) { if (Array.isArray(k) && k.length > 128) throw new Error(`storage.get(): ${k.length} keys, the runtime takes 128 at most`); return Array.isArray(k) ? new Map(k.filter((x) => store.has(x)).map((x) => [x, store.get(x)])) : store.get(k); },
-      async put(k, v) { if (k && typeof k === 'object') { const e = Object.entries(k); if (e.length > 128) throw new Error(`storage.put(): ${e.length} pairs, the runtime takes 128 at most`); for (const [kk, vv] of e) store.set(kk, vv); } else store.set(k, v); },
+      // AUDIT WB12d (lens T, F8): A VALUE IS COPIED IN AND OUT, as the runtime's structured clone copies it - a fake that
+      // handed back the very object it was given let a write that never happened pass (a ledger mutated after its first
+      // put read back changed, with no second put to carry it)
+      async get(k) { if (Array.isArray(k) && k.length > 128) throw new Error(`storage.get(): ${k.length} keys, the runtime takes 128 at most`); return Array.isArray(k) ? new Map(k.filter((x) => store.has(x)).map((x) => [x, structuredClone(store.get(x))])) : structuredClone(store.get(k)); },
+      async put(k, v) { if (k && typeof k === 'object') { const e = Object.entries(k); if (e.length > 128) throw new Error(`storage.put(): ${e.length} pairs, the runtime takes 128 at most`); for (const [kk, vv] of e) store.set(kk, structuredClone(vv)); } else store.set(k, structuredClone(v)); },
       async delete(k) { if (Array.isArray(k) && k.length > 128) throw new Error(`storage.delete(): ${k.length} keys, the runtime takes 128 at most`); for (const x of Array.isArray(k) ? k : [k]) store.delete(x); },
       async deleteAll() { store.clear(); },
       // AUDIT SOC A4: list() pages as the runtime's does - `limit` keys at most, sorted, after `startAfter` - or a paged
       // sweep over this fake never ends (a page that is always full is always followed)
       async list({ prefix = '', limit = Infinity, startAfter = null } = {}) {
         const keys = [...store.keys()].filter((k) => k.startsWith(prefix) && (startAfter == null || k > startAfter)).sort();
-        return new Map(keys.slice(0, limit).map((k) => [k, store.get(k)]));
+        return new Map(keys.slice(0, limit).map((k) => [k, structuredClone(store.get(k))]));
       },
       async setAlarm(at) { alarm.at = at; },
       async getAlarm() { return alarm.at; },
@@ -193,7 +196,9 @@ export function fakeRoom(key, { now = () => Date.now(), ROOMS = null } = {}) {
   const world = (ws, data, extra = {}) => room.webSocketMessage(ws, JSON.stringify({ t: 'world', data, ...extra }));
   const raw = (ws, text) => room.webSocketMessage(ws, text);
   const drop = (ws) => { const i = sockets.indexOf(ws); if (i >= 0) sockets.splice(i, 1); return room.webSocketClose(ws, 1005, ''); };
-  const fire = () => room.alarm();
+  // AUDIT WB12d (lens R): the runtime's alarm is SPENT as its handler begins - getAlarm() answers null inside it, so a
+  // re-arm there is never mistaken for a sooner one already set
+  const fire = () => { alarm.at = null; return room.alarm(); };
   return { get room() { return room; }, state, store, sockets, alarm, connect, hello, token, signer, env, pose, chat, ping, world, raw, drop, wake, fire, now, look };
 }
 

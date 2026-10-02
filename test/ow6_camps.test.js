@@ -85,7 +85,7 @@ const liftCamps = (pool) => {
   const W = read('src/scenes/world.js');
   const m = /\n {2}function travelViewCamps\(\) \{\n[\s\S]*?\n {2}\}\n/.exec(W);
   assert.ok(m, 'travelViewCamps lifted');
-  return new Function('exteriorFoes', 'groupCamps', 'enemyDisplayName', `${m[0]} return travelViewCamps;`)(pool, groupCamps, () => 'Rat');
+  return new Function('exteriorFoes', 'groupCamps', 'enemyDisplayName', 'riteHost', 'RITE_TEXT', `${m[0]} return travelViewCamps;`)(pool, groupCamps, () => 'Rat', null, null);   // AUDIT WB12d (C15): no breach's faithful here
 };
 /** A camp of `n` stood by `pool` the way _standCampEncounter stands one: its number the pool's, each member tagged. */
 const standCamp = async (pool, n, kind = 'camp', at = [10, 0, 10]) => {

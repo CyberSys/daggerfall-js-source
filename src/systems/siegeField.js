@@ -12,11 +12,12 @@
 //     ATTACKERS' CAMP 14 m outside it. A town with no walls: 40 m and 60 m out from its middle, away from the palace;
 //   - THE MARKET: the rumour board nearest the town's middle (a town with none: the middle itself);
 //   - THE TEMPLE: the Temple building's door, else the largest guild hall's (6.2), else the town's middle;
-//   - A CROWN'S PALACE SQUARE (the fourth banner): DECIDED here: 20 m before the palace door, until CROWN1 measures the
-//     castle's entrance in the city. AUDIT-SEATS G21 (6.2: "the Gatehouse stands at the castle's entrance in the city"
-//     and "the Throne (the castle entrance)"): where the town's records stand the castle's dungeon-entrance door
-//     (`castle`, its frame), a crown's Throne, its defenders' camp and its Palace square stand before THAT door - the
-//     palace's only where none is found.
+//   - A CROWN'S PALACE SQUARE (the fourth banner): 20 m before its door. AUDIT-SEATS G21 (6.2: "the Gatehouse stands at
+//     the castle's entrance in the city" and "the Throne (the castle entrance)"): where the town's records stand the
+//     castle's dungeon-entrance door (`castle`, its frame), a crown's Throne, its defenders' camp and its Palace square
+//     stand before THAT door - the palace's only where none is found. CASTLE-GATE (2026-10-02, Mac: "lets finish the
+//     build work"): the city's host now finds it - castleEntranceOf, the LOWEST of the pixel's dungeon-entrance doors
+//     (DFU lands a player leaving the castle at its lowest: player/enterExit.js dungeonEntranceLanding).
 //
 // THE SAME ON EVERY MACHINE: every input is the town's own records (MAPS.BSA, the RMB blocks), and the world point is
 // pure arithmetic off the pixel and the local metres - never the floating origin - rounded to whole natives (the wire's
@@ -39,6 +40,23 @@ export function buildingKeysOfType(blocks, makeKey, type) {
 }
 
 export const SIEGE_FIELD = Object.freeze({ thronePaceM: 1.5, defendCampM: 12, gateInM: 6, attackCampM: 14, openGateM: 40, openCampM: 60, squareM: 20, templePaceM: 2 });
+
+/**
+ * CASTLE-GATE: A CROWN CITY'S CASTLE ENTRANCE - of a pixel's dungeon-entrance doors (each `{ door: { a, b }, box }`, the
+ * door's two corners and the box of the model it stands in, pixel-local metres), the lowest (its lower corner's height;
+ * on a tie the first, the records' order - the same on every machine): `{ door, box }`, the frame siegeFieldOf's
+ * `castle` and scenes/seatBanners.js seatBannerAnchors' take. Null for none. Pure.
+ * @param {Array<{ door: { a: number[], b: number[] } | null, box: number[] }>} doors
+ */
+export function castleEntranceOf(doors) {
+  let best = null, low = Infinity;
+  for (const d of doors ?? []) {
+    if (!d?.door || !Array.isArray(d.door.a) || !Array.isArray(d.door.b) || !Array.isArray(d.box) || d.box.length < 6) continue;
+    const y = Math.min(d.door.a[1], d.door.b[1]);
+    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: [...d.box] }; }
+  }
+  return best;
+}
 
 /** A door's middle and its face (square to the door's span, away from the building's middle) - or null. */
 export function doorFace(frame) {
@@ -118,6 +136,6 @@ export const siegeWorldPoint = (px, py, p) => [Math.round(px * PIXEL_UNITS + p[0
 /** The field as a pass carries it (`sf`): the banners, the Throne, the attackers' camp, the defenders' - world points. */
 export const siegeFieldWire = (px, py, f) => (f ? [...f.banners, f.throne, f.camps.attack, f.camps.defend].map((p) => siegeWorldPoint(px, py, p)) : null);
 /** CROWN1 part two: A ROYAL TOURNEY'S RING (Seats-Arc 7.6: "at the castle's entrance square") - the crown's Palace square,
- *  its field's fourth banner (SIEGE_FIELD.squareM before the palace door), as a pass carries it: one world point. Null for a
- *  field with no square (a palace's). */
+ *  its field's fourth banner (SIEGE_FIELD.squareM before the castle's entrance - CASTLE-GATE - or the palace door where the
+ *  town has none), as a pass carries it: one world point. Null for a field with no square (a palace's). */
 export const royalRingWire = (px, py, f) => (f && f.banners.length >= 4 ? [siegeWorldPoint(px, py, f.banners[3])] : null);

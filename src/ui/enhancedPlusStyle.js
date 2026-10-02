@@ -809,7 +809,7 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
   background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
 .broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
 .broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 112px 148px; align-items: center; gap: 10px;   /* SS2: the price's column one width in every row - "12 Sigil Stones" is 108px, "4" 101 - so the prices stand in a line */
+.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 124px 148px; align-items: center; gap: 10px;   /* SS2: the price's column one width in every row - WB12a: "12 Deadlands Embers" is 120px, "4" 115 - so the prices stand in a line */
   padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
 .broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
 .broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
@@ -1574,32 +1574,52 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
-/* WB9a: the night's marks under his health - each chip its sign and name over its line, in the HUD's pixel face */
-body .wb-boss-marks { gap: 14px; margin: 3px 0 4px; }
+/* WB13c: his epithet under his name; the trailing segment the foe bar's own */
+body .wb-boss-sub { font-size: 11px; letter-spacing: 0.08em; color: #d8cfae; text-shadow: ${OUTLINED}; }
+body .wb-boss-ghost { background: linear-gradient(180deg, #fff6e4 0 2px, #ffc08a 2px); opacity: 0.6; }
+/* WB9a: the night's marks under his health - each chip its sign and name, in the HUD's pixel face */
+body .wb-boss-marks { column-gap: 14px; margin: 3px 0 4px; }
 body .wb-boss-chip { text-shadow: ${OUTLINED}; }
 body .wb-boss-chip-head { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; }
 body .wb-boss-chip-icon { filter: drop-shadow(1px 1px 0 #050608); }
 body .wb-boss-chip-name { font-size: 11px; }
-body .wb-boss-chip-text { font-size: 11px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
-body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
+body .wb-boss-track { margin: 7px 0 6px; border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
 body .wb-boss-fill { background: linear-gradient(180deg, #ffc08a 0 2px, #ff7a3a 2px 4px, #d8341a 4px 8px, #9a1a0a 8px 10px, #5c0a04 10px); }
 body .wb-boss-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: min(2px, 100%); background: #ffd9a8; opacity: 0.85; }
 body .wb-boss-mark { top: 0; bottom: 0; z-index: 1; background: linear-gradient(90deg, #050608 0 1px, rgba(255,230,200,0.55) 1px); }
-body .wb-boss-ward { inset: -5px; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
-  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px #050608; }
+/* WB13c: the ward a lit cage, apart from the frame's brass */
+body .wb-boss-ward { inset: -5px; border-color: #ffe9a8; box-shadow: 0 0 0 1px #050608, 0 0 0 3px rgba(255,210,122,0.45), inset 0 0 0 1px #050608; }
 body .wb-boss-track::before, body .wb-boss-track::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 6px; z-index: 2;
   box-shadow: 0 0 0 1px #050608; background: ${CLASP}; }
 body .wb-boss-track::before { left: -6px; }
 body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
+body .wb-boss-callout.cin { animation-timing-function: steps(3); }
+/* WB13c: the line to the landing a hard pixel; Dagon's plate and MOVE in a black ring, no glow */
+body .wb-boss-callout-line { height: 2px; box-shadow: 0 1px 0 #050608; opacity: 1; }
+body .wb-boss-callout.dagon .wb-boss-callout-text { font-size: 15px; color: #efe8d6; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
+body .wb-boss-move { font-size: 12px; color: #fff6e4; background: #b8320c; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
+body .wb-boss-tag { background: rgba(5,6,8,0.6); border-color: #3a352a; box-shadow: 1px 1px 0 rgba(0,0,0,0.45); text-shadow: ${OUTLINED}; }
+body .wb-boss-wrath { color: #ff9a7a; border-color: #8a2820; }
+body .wb-boss-wrath.near { color: #fff6e4; }
+@media (max-width: 640px) { body .wb-boss-chip-head, body .wb-boss-chip-name { font-size: 11px; letter-spacing: 0; } }   /* FONT3's floor: a phone narrows the chip by its tracking, not under 11px */
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
-/* FONT3 (2026-10-02, Mac: "we need to ensure everything recieves our enhanced font"): the burning ground's warning was
-   the one gate surface this dress never reached - Cormorant, bold, over the HUD's pixel words. The trio's 500 is its
-   weight here (the four rules above wrote 400 to undo the serif's bold; FONT3's reading weight took that 400 off). */
-body .wb-ground-warn { ${PIXEL_FONT_CSS} font-size: 17px; letter-spacing: 0.16em; text-shadow: ${OUTLINED}; }
+/* WB13e: the fight's beats in the HUD's face, outlined - the name large, the rule a brass line */
+body .wb-title-card { ${PIXEL_FONT_CSS} color: #efe8d6; text-shadow: ${OUTLINED}; }
+body .wb-title-kicker { font-size: 12px; letter-spacing: 0.3em; color: ${FRAME_TONES.brassHi}; }
+body .wb-title-main { font-size: 34px; letter-spacing: 0.12em; color: #fff6e4; text-shadow: ${OUTLINED}, 0 0 14px rgba(255,90,30,0.45); }
+body .wb-title-rule { height: 2px; background: linear-gradient(90deg, transparent, ${FRAME_TONES.brass}, transparent); box-shadow: 0 1px 0 #050608; }
+body .wb-title-sub { font-size: 14px; letter-spacing: 0.06em; color: #d8cfae; }
+@media (max-width: 640px), (max-height: 480px) { body .wb-title-main { font-size: 24px; } body .wb-title-sub { font-size: 12px; } }
+/* FONT3 + WB13c (both 2026-10-02, the same surface found from two sides; the dress is WB13c's, the weight FONT3's
+   reading 500): the ground's warning in the HUD's face, outlined on a dark band (it stood in the serif among pixel words, orange
+   on the orange rim); the way out's arrow in a hard black edge */
+body .wb-ground-warn { ${PIXEL_FONT_CSS} font-size: 16px; letter-spacing: 0.1em; text-shadow: ${OUTLINED};
+  background: rgba(5,6,8,0.55); padding: 2px 8px; box-shadow: 0 0 0 1px rgba(5,6,8,0.8); }
+body .wb-ground-arrow svg { filter: drop-shadow(1px 0 0 #050608) drop-shadow(-1px 0 0 #050608) drop-shadow(0 1px 0 #050608) drop-shadow(0 -1px 0 #050608); }
 /* WB9a: the marks' card - a stone panel in the brass frame, the pixel face outlined; each aspect keeps its own colour */
 body .wb-marks-card { ${PIXEL_FONT_CSS} letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);
