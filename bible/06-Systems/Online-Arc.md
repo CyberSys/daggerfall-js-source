@@ -11852,6 +11852,37 @@ Pinned: `test/audit_seats3_service.test.js` (11), `test/audit_seats3_relay.test.
 (9). Mutants: `tools/mutants/audit_seats3_client.json` (20), `audit_seats3_service.json` (27), `audit_seats3_relay.json` (14),
 `audit_seats3_world.json` (5), and `seat_hall.json` +2, all dead; older records re-aimed by content, all still dead. Patch notes: `PATCH-NOTES-Seats.md` (Fixes).
 
+### SIEGE-VOID - a moderator voids a siege (`/siege void`) (2026-10-02)
+
+Mac: "lets finish the build work" - Seats-Arc 18's Moderation NOT YET: "Moderators (MOD1) may **void a siege**
+(`/siege void`) - a history row, the holder keeping the seat - when a fight was won by an exploit found after it."
+Modelled end to end on the developer's `/seat strike <key>`.
+
+- **The word** (`net/townSeatBook.js` parseSiegeCommand, SIEGE_USAGE; the chat arm in `scenes/world.js` beside
+  `/seat strike`): `/siege void <seat key>`, never guarded on the client (RED1's law) - the book asks
+  `POST /v1/seats/siege/void { key }` (`net/accountClient.js` accountSeats `voidSiege`) and says the answer in words.
+- **Who may** (`server-account/src/seatSiege.js` voidSiege): titles.js canModerate - a moderator (MOD1's list) or a
+  developer; anyone else `not-moderator` (403). A seat with no battle this week `battle-none` (404, "No battle is named
+  here this week."); a battle already void answers `repeat` - idempotent.
+- **What it does** - the seat's battle of this week (a siege, a Tourney or a revolt) void, a Chronicle row
+  (`siege-voided`: "the siege of X was voided by the Moderators"), no red line; no pass opens to it and a receipt claimed
+  after is `battle-void`. DECIDED, each: before its result, the Sellswords' escrow home now (signed or not), and the
+  challenger's Right does NOT carry (an exploit's void - the Turning carries only a battle still scheduled); after a
+  capture (or a revolt that stood), the Charter back to the guild that held it as the result kept it - its Standing, the
+  week it took the seat, its truce, Tithe and arrears (none kept: Standing 50 from this week) - its Legacy back, the
+  works' capture drop undone and a Fortifier's save unspent, the capturer's own projects fallen to the stockpile and its
+  Edict for next week void; after a hold (or a forfeit, or a revolt put down), the holder's Standing back where it stood
+  and its defence fifth struck, the challenger's bar lifted and its influence and Legacy back; after a Tourney, the
+  winner's Charter gone (the fee stays burnt). Honours, Marks, Renown and Spoils already claimed stand - never clawed
+  back; the Sellswords paid at the result stay paid; the palace's decor a capture cleared is not given back. A forfeit
+  the Moderators voided is not the pair's forfeit of the Season.
+- **Migration 0066** (`0066_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
+  result's own INSERT (the seat's Charter row, its Legacy rows from that week on, and at a capture the works' tiers
+  after the due projects rose), so the void gives back exactly that.
+
+Pinned: `test/siege_void.test.js` (8). Mutants: `tools/mutants/siege_void.json` (39, all dead). A new route and a
+migration; no service version bump (no pin required one) and no relay change.
+
 ### CASTLE-GATE - a crown's field and banners at its castle's entrance (2026-10-02)
 
 Mac: "lets finish the build work" - the first of the Seats arc's NOT YETs after its merge (#482). Seats-Arc 3.4's anchor

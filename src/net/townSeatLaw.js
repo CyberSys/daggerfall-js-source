@@ -609,6 +609,9 @@ export function chronicleLine(row, seat, zero = null) {
       : d.carried
         ? `${when}, no result of the siege of ${seat.name} came; it is void, ${guildWords(d.holder)} keeps it for now, and ${guildWords(d.guild)}'s Right of Siege carries to the next week.`
         : `${when}, no result of the siege of ${seat.name} came; it is void, and ${guildWords(d.holder)} keeps it.`;
+    // VOID (18: "Moderators (MOD1) may void a siege (`/siege void`) - a history row"): a battle of the week the Moderators
+    // voided (server-account/src/seatSiege.js voidSiege) - and where a Charter it had moved went back, to whom
+    case 'siege-voided': return `${when}, ${d.battle === 'tourney' ? `the Tourney for ${seat.name}` : d.battle === 'revolt' ? `the revolt at ${seat.name}` : `the siege of ${seat.name}`} was voided by the Moderators${d.restored ? `, and ${c} went back to ${guildWords(d.holder)}` : ''}.`;
     // CROWN1: Conscription paid (7.6) - at the crown, and at each seat that paid it
     // AUDIT-SEATS L7: in Drakes, the word every player-read sum says (DRAKES; marksLaw.js marksText)
     case 'conscription': return `${when}, the crown's Conscription brought ${guildWords(d.guild)} ${marksText(Number(d.marks ?? 0))} of its kingdom's Tithe.`;
@@ -1209,8 +1212,9 @@ export const SIEGE_WHY = Object.freeze({
   'field-unsettled': 'Waiting for the other side\'s scouts to agree on the field - try again in a moment.',
   'honours-character': 'Honours go to the character who signed for this battle - play them to claim it.',   // AUDIT SEATS-3 A3
   'honours-twice': 'Your Honours from this battle are claimed already.',
-  // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle
-  'battle-void': 'That battle was void at the Turning - its result came too late to count.',
+  // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle;
+  // VOID (18): or after the Moderators voided it (`/siege void`)
+  'battle-void': 'That battle is void - at its Turning, or by the Moderators - and its result does not count.',   // VOID: a moderator's too
   // AUDIT-SEATS S10 (8.1: "changing either ... is refused in a siege week")
   'heraldry-siege': 'Your guild fights a battle for a seat this week. Its heraldry may change after the Turning.',
 });

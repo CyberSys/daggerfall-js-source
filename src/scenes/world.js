@@ -477,7 +477,7 @@ import { setRenownLayer } from '../systems/renownLayer.js';   // RENOWN1: the le
 import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown and its bar, under the vitals
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
-import { createTownSeatBook, parseSeatCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed
+import { createTownSeatBook, parseSeatCommand, parseSiegeCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed   // VOID: a moderator's /siege void
 import { seatArrivalLine, seatHallOf, seatBannerOf, boardTithePct } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is; CROWN-HALL: the throne room's banners; AUDIT SEATS-3 D3: a board's Tithe
 import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
@@ -16252,6 +16252,16 @@ export async function bootWorld(canvas, renderer, params, status) {
           if ('error' in seatCmd) { say(seatCmd.error); return true; }
           if (!seatBook) { say(accountRefusalText('seats-closed')); return true; }
           seatBook.strike(seatCmd.key).then((r) => say(r.text), () => say(accountRefusalText('server')));
+          return true;
+        }
+        // VOID (Seats-Arc 18): `/siege void <key>` - a moderator's void of the seat's battle this week, won by an exploit.
+        // NOT GUARDED HERE (RED1's law): the service asks whether this player may, and its refusal comes back as a line.
+        const siegeCmd = parseSiegeCommand(text);
+        if (siegeCmd) {
+          const say = (line) => chatLog.push(tabId, { text: line, system: true });
+          if ('error' in siegeCmd) { say(siegeCmd.error); return true; }
+          if (!seatBook) { say(accountRefusalText('seats-closed')); return true; }
+          seatBook.voidSiege(siegeCmd.key).then((r) => say(r.text), () => say(accountRefusalText('server')));
           return true;
         }
         const noteCmd = parseNoteCommand(text);

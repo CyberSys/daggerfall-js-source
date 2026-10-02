@@ -1114,7 +1114,8 @@ export function accountBoard({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
 }
 
 /** SEAT1a: THE SEATS' REGISTRY (server-account/src/townSeats.js) through the one door - the seats the witnesses confirmed,
- *  a seat this client stands in reported, and a developer's strike. Each waited for ACCOUNT_ACT_WAIT_MS at most. */
+ *  a seat this client stands in reported, and a developer's strike (VOID: and a moderator's void of a battle). Each waited
+ *  for ACCOUNT_ACT_WAIT_MS at most. */
 export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
   const post = waitedPost({ fetch, storage }, waitMs);
   return {
@@ -1123,6 +1124,7 @@ export function accountSeats({ fetch, storage, waitMs = ACCOUNT_ACT_WAIT_MS }) {
     list: () => post('/v1/seats/list', {}),
     witness: (seat) => post('/v1/seats/witness', { seat }),
     strike: (key) => post('/v1/seats/strike', { key }),
+    voidSiege: (key) => post('/v1/seats/siege/void', { key }),   // VOID (Seats-Arc 18): a moderator's `/siege void <key>`
     // SEAT1b: influence - the standings at a seat (with the reader's own guild), a pledge set or taken down, the Watch's
     // receipts claimed, Tribute paid under its own request id
     standings: (key, character) => post('/v1/seats/standings', { key, character }),

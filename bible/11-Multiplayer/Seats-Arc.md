@@ -1242,9 +1242,22 @@ Every law in Home.md's Process section, and what it demands of this arc:
 - **Patch notes** for every slice, in the house style (`PATCH-NOTES-*.md`, Discord-sized, player-facing).
 - **Moderation.** Guild names and tags pass the name filter they already pass; heraldry is a fixed palette and fixed
   devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a
-  history row, the holder keeping the seat - when a fight was won by an exploit found after it. NOT YET (the audit of
-  the arc): no `/siege void` exists - no chat command, no service route; a battle is voided only by the deploy
-  blackout's forced deploy, a strike (3.2) or a Turning that finds it unfinished.
+  history row, the holder keeping the seat - when a fight was won by an exploit found after it. BUILT (VOID,
+  2026-10-02; Online-Arc SIEGE-VOID): `/siege void <seat key>` (`net/townSeatBook.js` parseSiegeCommand, never guarded on
+  the client) asks `POST /v1/seats/siege/void` (`server-account/src/seatSiege.js` voidSiege) - a moderator's or a
+  developer's (titles.js canModerate; anyone else `not-moderator`); it voids the seat's battle of this week (a siege, a
+  Tourney or a revolt) and writes a Chronicle row ("the siege of X was voided by the Moderators"); no red line; no pass
+  opens to it and a receipt claimed after is refused; a battle already void answers `repeat`, a seat with none this week
+  `battle-none`. DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
+  the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED: after a capture (or a revolt that
+  stood) the Charter goes back to the guild that held it as the result kept it (migration 0066's
+  `town_seat_results.prior`: its Standing, the week it took the seat, its truce, Tithe and arrears - none kept, Standing
+  50 from this week), its Legacy back, the works' capture drop undone and a Fortifier's save unspent; the capturer's own
+  projects fall and its Edict for next week is void. DECIDED: after a hold (a forfeit, a revolt put down) the holder's
+  Standing goes back where it stood and its defence fifth is struck - and the challenger's bar is lifted, its influence
+  and Legacy back. DECIDED: after a Tourney the winner's Charter is gone and its fee stays burnt. DECIDED: Honours, Marks,
+  Renown and Spoils already claimed stand (never clawed back), the Sellswords paid at the result stay paid, and the
+  palace's decor a capture cleared is not given back; a voided forfeit is not the pair's forfeit of the Season.
 - **Rate limits.** Every seat endpoint is bounded per account per hour (the guild's `GUILD_OPS_MAX` shape): pledges
   30, windows 5, edicts 5, witness reports 24.
 - **Data kept.** Influence rows are summed into weekly totals at the Turning and pruned after 4 weeks; the history is

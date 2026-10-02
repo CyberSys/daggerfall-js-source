@@ -1,0 +1,353 @@
+[
+ {
+  "name": "SIEGE-VOID-authority",
+  "file": "server-account/src/seatSiege.js",
+  "old": "  if (!canModerate(mod, env)) return { error: 'not-moderator' };\n  if (!seatKeyOk(key)) return { error: 'bad-seat' };\n  const W = weekAt(nowS);",
+  "new": "  if (!seatKeyOk(key)) return { error: 'bad-seat' };\n  const W = weekAt(nowS);",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-last-week",
+  "file": "server-account/src/seatSiege.js",
+  "old": "  const W = weekAt(nowS);\n  // a receipt that lands",
+  "new": "  const W = weekAt(nowS) - 1;\n  // a receipt that lands",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-repeat-dropped",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    if (b.state === 'void') return { ...out, repeat: true };\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-escrow-paid",
+  "file": "server-account/src/seatSiege.js",
+  "old": "        ...(await swordsSettled(db, W, key, nowS, { voided: true }))];   // the escrow home, as the Turning's void",
+  "new": "        ...(await swordsSettled(db, W, key, nowS, { voided: false }))];   // the escrow home, as the Turning's void",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-escrow-left",
+  "file": "server-account/src/seatSiege.js",
+  "old": "        ...(await swordsSettled(db, W, key, nowS, { voided: true }))];   // the escrow home, as the Turning's void",
+  "new": "        ];",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-no-result-unvoided",
+  "file": "server-account/src/seatSiege.js",
+  "old": "      : [db.prepare(`UPDATE town_seat_battles SET state = 'void' WHERE week = ?1 AND key = ?2 AND state = 'scheduled'",
+  "new": "      : [db.prepare(`UPDATE town_seat_battles SET state = 'scheduled' WHERE week = ?1 AND key = ?2 AND state = 'scheduled'",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-prior-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ${PRIOR_SQL}",
+  "new": "SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-prior-legacy-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "FROM town_seat_legacy WHERE key = ?2 AND week >= ?1)))`;",
+  "new": "FROM town_seat_legacy WHERE key = ?2 AND week > ?1)))`;",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-forts-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    stmts.push(...fortsDueStatements(db, nowS, K), db.prepare(`UPDATE town_seat_results SET prior = json_set(COALESCE(prior, '{}'), '$.forts',",
+  "new": "    stmts.push(...fortsDueStatements(db, nowS, K), db.prepare(`UPDATE town_seat_results SET prior = json_set(COALESCE(prior, '{}'), '$.fortz',",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-charter-unrestored",
+  "file": "server-account/src/seatSiege.js",
+  "old": "              owed = excluded.owed, at = excluded.at WHERE town_seat_holds.guild_id = ?12`)",
+  "new": "              owed = excluded.owed, at = excluded.at WHERE town_seat_holds.guild_id = ?2`)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-standing-50",
+  "file": "server-account/src/seatSiege.js",
+  "old": "num(h.since, W), num(h.standing, STANDING_START),",
+  "new": "num(h.since, W), STANDING_START,",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-since-fallback",
+  "file": "server-account/src/seatSiege.js",
+  "old": "num(h.since, W), num(h.standing, STANDING_START),",
+  "new": "num(h.since, W - 1), num(h.standing, STANDING_START),",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-since-lost",
+  "file": "server-account/src/seatSiege.js",
+  "old": "num(h.since, W), num(h.standing, STANDING_START),",
+  "new": "W, num(h.standing, STANDING_START),",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-tithe-lost",
+  "file": "server-account/src/seatSiege.js",
+  "old": "              num(h.truce, null), num(h.tithe, 0), num(h.titheWeek, null), num(h.owed, 0), nowS, b.attacker),\n          ...legacyBack,",
+  "new": "              num(h.truce, null), 0, num(h.titheWeek, null), 0, nowS, b.attacker),\n          ...legacyBack,",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-region-fallback",
+  "file": "server-account/src/seatSiege.js",
+  "old": "num(h.region, Number(seat?.region ?? 0))",
+  "new": "num(h.region, 0)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-legacy-unrestored",
+  "file": "server-account/src/seatSiege.js",
+  "old": "              num(h.truce, null), num(h.tithe, 0), num(h.titheWeek, null), num(h.owed, 0), nowS, b.attacker),\n          ...legacyBack,",
+  "new": "              num(h.truce, null), num(h.tithe, 0), num(h.titheWeek, null), num(h.owed, 0), nowS, b.attacker),",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-works-undropped",
+  "file": "server-account/src/seatSiege.js",
+  "old": "          for (const [work, t] of forts) stmts.push(",
+  "new": "          for (const [work, t] of []) stmts.push(",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-project-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "          ...(b.kind === 'siege' ? fortsGuildFallStatements(db, key, b.attacker) : []),\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-edict-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "          stmts.push(db.prepare(\"UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'\").bind(key, W + 1, b.attacker));\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-fortifier-spent",
+  "file": "server-account/src/seatSiege.js",
+  "old": "          stmts.push(db.prepare('DELETE FROM town_seat_fortifier WHERE key = ? AND at = ?').bind(key, Number(r.at)));",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-restored-unsaid",
+  "file": "server-account/src/seatSiege.js",
+  "old": "        restored = names.has(b.defender);\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-held-standing",
+  "file": "server-account/src/seatSiege.js",
+  "old": "          stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(held.standing, key, b.defender));\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-held-gain-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "SET standing = MAX(0, standing - ?) WHERE key = ? AND guild_id = ?').bind(gain, key, b.defender)",
+  "new": "SET standing = MAX(0, standing - ?) WHERE key = ? AND guild_id = ?').bind(0, key, b.defender)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-bonus-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "              AND ((guild_id = ?3 AND what = 'bonus') OR (guild_id = ?4 AND what = 'barred'))`)",
+  "new": "              AND guild_id = ?4 AND what = 'barred'`)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-bar-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "              AND ((guild_id = ?3 AND what = 'bonus') OR (guild_id = ?4 AND what = 'barred'))`)",
+  "new": "              AND guild_id = ?3 AND what = 'bonus'`)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-influence-voided",
+  "file": "server-account/src/seatSiege.js",
+  "old": "            db.prepare('UPDATE town_seat_influence SET voided = 0 WHERE week = ? AND key = ? AND guild_id = ?').bind(W, key, b.attacker),\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-tourney-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "            db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ? AND since_week = ?').bind(key, won, W),\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-tourney-edict-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "            db.prepare(\"UPDATE town_seat_edicts SET state = 'void' WHERE key = ? AND week = ? AND guild_id = ? AND state = 'proclaimed'\").bind(key, W + 1, won),\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-history-unwritten",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    stmts.push(db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)').bind(key, W, 'siege-voided',",
+  "new": "    stmts.push(db.prepare('INSERT INTO town_seat_history (key, week, kind, data, at) VALUES (?, ?, ?, ?, ?)').bind(key, W, 'siege-void',",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-forfeit-void-counted",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    WHERE r.result = 'forfeit' AND x.state <> 'void' AND x.attacker = ?",
+  "new": "    WHERE r.result = 'forfeit' AND x.attacker = ?",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-fall-stockpile",
+  "file": "server-account/src/seatForts.js",
+  "old": "      WHERE key = ?1 AND qty > 0 AND work IN (SELECT work FROM town_seat_forts WHERE ${theirs})",
+  "new": "      WHERE key = ?1 AND qty > 0 AND work IN (SELECT work FROM town_seat_forts WHERE ${theirs}) AND 0",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-fall-other-guild",
+  "file": "server-account/src/seatForts.js",
+  "old": "  const theirs = 'key = ?1 AND guild_id = ?2 AND building IS NOT NULL';",
+  "new": "  const theirs = 'key = ?1 AND guild_id <> ?2 AND building IS NOT NULL';",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-route",
+  "file": "server-account/src/service.js",
+  "old": "  '/v1/seats/siege/void',\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-chronicle-words",
+  "file": "src/net/townSeatLaw.js",
+  "old": "} was voided by the Moderators${d.restored ?",
+  "new": "} was voided${d.restored ?",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-chronicle-tourney",
+  "file": "src/net/townSeatLaw.js",
+  "old": "${d.battle === 'tourney' ? `the Tourney for ${seat.name}` :",
+  "new": "${d.battle === 'tourney ' ? `the Tourney for ${seat.name}` :",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-parse-op",
+  "file": "src/net/townSeatBook.js",
+  "old": "  if (String(op ?? '').toLowerCase() !== 'void' ||",
+  "new": "  if (String(op ?? '').toLowerCase() === 'strike' ||",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-parse-more",
+  "file": "src/net/townSeatBook.js",
+  "old": "!seatKeyOk(k) || more.length) return { error: SIEGE_USAGE };",
+  "new": "!seatKeyOk(k)) return { error: SIEGE_USAGE };",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-book-words",
+  "file": "src/net/townSeatBook.js",
+  "old": "is voided${r.data?.restored ? ' - its Charter went back to the guild that held it' : ''}.` };",
+  "new": "is voided.` };",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "SIEGE-VOID-book-refusal",
+  "file": "src/net/townSeatBook.js",
+  "old": "      if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };\n      at = -Infinity;",
+  "new": "      if (!r?.ok) return { ok: false, text: accountRefusalText('server') };\n      at = -Infinity;",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ }
+]
