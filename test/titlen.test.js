@@ -87,8 +87,8 @@ test('TITLE-N grants: the Dungeon Master is SquidKamer\'s alone and Disciple is 
     assert.deepEqual(glyphsOf(dev, denv, 1_900_000_000), ['dev'], `${h}: the dev glyph`);
   }
   // MOD2 (2026-10-02, Mac: "give tabbyvish the moderator title/glyph for ingame"): the moderator list, case-folded
-  assert.equal(v('MODERATOR_HANDLES'), 'Asynian,tabbyvish', 'MOD1: Asynian; MOD2: tabbyvish');
-  for (const h of ['asynian', 'TabbyVish']) {
+  assert.equal(v('MODERATOR_HANDLES'), 'Asynian,tabbyvish,Starempire42', 'MOD1: Asynian; MOD2: tabbyvish; MOD3 (Mac: "Also add Starempire42 as a moderator"): Starempire42');
+  for (const h of ['asynian', 'TabbyVish', 'starempire42']) {
     const mod = { handle: h, created_at: 1_800_000_000, registered_at: 1_900_000_000 };
     assert.deepEqual(glyphsOf(mod, { MODERATOR_HANDLES: v('MODERATOR_HANDLES') }, 1_900_000_000), ['mod'], `${h}: the mod shield`);
   }

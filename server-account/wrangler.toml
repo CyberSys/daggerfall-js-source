@@ -118,8 +118,9 @@ DEVELOPER_HANDLES = "Lattymoy,trashBattery,LostMyLeg,Tabby"
 # Asynian"). Taking a handle off revokes the shield on the next token
 # and the commands on the next call.
 # MOD2 (2026-10-02, Mac: "give tabbyvish the moderator title/glyph for
-# ingame"): the second, with the same shield and commands.
-MODERATOR_HANDLES = "Asynian,tabbyvish"
+# ingame"): the second, with the same shield and commands. MOD3 (same
+# day, Mac: "Also add Starempire42 as a moderator"): the third.
+MODERATOR_HANDLES = "Asynian,tabbyvish,Starempire42"
 # TITLE-N (2026-09-24, Mac): the Dungeon Master - the orange title, the
 # die beside the name, and /dm's orange line (the relay reads the right
 # off the `dm` glyph in the signed token, as /red reads `dev`). "This
