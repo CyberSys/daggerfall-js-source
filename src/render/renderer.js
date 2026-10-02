@@ -1416,6 +1416,10 @@ export class Renderer {
     this._fogColor = new Float32Array([0, 0, 0]);
     this._camPos = new Float32Array(3);
     this._focus = new Float32Array(4);   // TV1: the travel view's focus, w 0 while there is none (setFocus)
+    /** @type {any} TACT4: the foes' ground pass (render/foeTelegraph.js), loaded on first use - off the boot graph */
+    this._foeTelegraph = null;
+    /** @type {Promise<void>|null} */
+    this._foeTelegraphLoad = null;
     this._focusArmed = false;   // AUDIT TV B1: set since the last beginFrame
     this._focusWide = false;   // AUDIT DEEP2 D7: the cascades grown to the view's picture - from half way up, not the rise's first frame
     this._clipY = 1e9;   // A1: the automap slice, off by default
@@ -3441,6 +3445,22 @@ void main() {
   drawDecalPicture(batch, tex) {
     this._decalPicture = true;
     try { this.drawDecals(batch, tex); } finally { this._decalPicture = false; }
+  }
+
+  /** TACT4: the foes' telegraphed blows on the ground (render/foeTelegraph.js), under this frame's camera - each
+   *  { blow, phase } of ai/foeBlows.js drawableBlows. */
+  drawFoeTelegraphs(list) {
+    if (!list?.length || !this._proj || !this._view) return 0;
+    // AUDIT TACT (BOOT2's reach): the pass is loaded on its first use, never on the boot graph - a wind-up runs 0.7 s
+    // and more, so the frame or two its module takes to arrive is never a blow unseen
+    if (!this._foeTelegraph) {
+      this._foeTelegraphLoad ??= import('./foeTelegraph.js').then((m) => { this._foeTelegraph = new m.FoeTelegraphPass(this.gl); }).catch((e) => console.warn('[tact] the ground pass failed to load:', e?.message ?? e));
+      return 0;
+    }
+    this._close2D();
+    const n = this._foeTelegraph.draw(list, this._proj, this._view, { mode: this._fogMode, density: this._fogDensity, range: this._fogRange, camPos: this._camPos, focus: this._focus });   // AUDIT TACT D9: the frame's fog (and the travel view's focus)
+    this.markForeignPass();   // the pass bound its own program and VAO
+    return n;
   }
 
   drawDecals(batch, tex, ranges = null) {

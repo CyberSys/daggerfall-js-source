@@ -168,7 +168,7 @@ now has a name per host.
 readers asked one.** `interiorFoes` and `interiorGuards` are both live
 inside a building; the senses feed, the enchant pool and the rest refusal
 each walked only the first, so the indoor city watch was invisible to all
-three (`src/scenes/worldModes.js:1232-1326`). **The exterior host mounted no
+three (`src/scenes/worldModes.js:1235-1329`). **The exterior host mounted no
 enchant ctx at all** - the session has ONE, and that host set none, so
 every enchantment payload that needs a foe idled in the host a player
 spends most of their time in (`setDefaultEnchantCtx` is imported at
@@ -516,7 +516,7 @@ Left, deliberately, each recorded at its site or here:
   **G1's review closed the arm the lane missed**: an ARROW reaches a pool
   through two seams, and only `dealDamage` (inside `arrowFlight`'s own
   `dmg > 0` fork) had been wired - the unconditional `onAttackFromPlayer`
-  seam, which is where :630 actually lives (`arrowFlight.js:321`), still
+  seam, which is where :630 actually lives (`arrowFlight.js:324`), still
   excluded the guards in all three hosts that resolve a player shaft. So
   a zero-damage arrow into a pacified watchman turned nobody while the
   identical SWING turned the area. `handleAttackFromPlayer` is on the

@@ -94,8 +94,8 @@ export function presetForExterior(weather, night) {
  *  STATIC event - DaggerfallVidPlayerWindow.OnVideoStart/OnVideoEnd,
  *  subscribed per instance at AmbientEffectsPlayer.cs:92-93. The port
  *  has no static events, and the video player can reach none of the
- *  three hosts that own an instance privately (dungeonContext.js:6101,
- *  exterior.js:4387, world.js:21329), so the registry IS that event:
+ *  three hosts that own an instance privately (dungeonContext.js:6114,
+ *  exterior.js:4396, world.js:21351), so the registry IS that event:
  *  every instance joins on construction and leaves on dispose(). A
  *  mute wired into one host only would leave the rain audible over a
  *  video raised from another. */

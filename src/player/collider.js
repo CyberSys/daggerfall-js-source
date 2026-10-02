@@ -525,6 +525,8 @@ export class Collider {
     this.surfaceAt = typeof surfaceAt === 'function' ? surfaceAt : null;
     this._buckets = new Map(); // key -> {tris, grid: Map, t: () => [x,y,z], r: (() => number[]|null)|null, min: [x,y,z], max: [x,y,z]}   // AUDIT NAME1 F2: the bounds are the ray's broad phase
     this._broad = null;   // FB0930-FRAME: the buckets filed by broad cell (buildBroad), dropped by every addMesh and removeBucket
+    /** @type {any} TACT1: the billboards' cover (ai/cover.js createCoverIndex) - beside the meshes, never in them; null for none */
+    this.cover = null;
   }
 
   /** FB0930-FRAME: the buckets a query whose WORLD box is [x0, x1] x [z0, z1] (y unbounded) can reach, in the walk's
@@ -685,6 +687,7 @@ export class Collider {
 
   removeBucket(bucketKey) {
     if (this._buckets.delete(bucketKey)) this._broad = null;   // FB0930-FRAME: the filing is dropped with it
+    this.cover?.remove(bucketKey);   // TACT1: a bucket's cover leaves with it
   }
 
   /** AUDIT CLIMB1 F5: where a bucket stands now - `{ t, r }`, its translation and its turn (r null for an unturned
