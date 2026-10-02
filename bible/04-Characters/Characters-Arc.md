@@ -2111,7 +2111,7 @@ registry", and the function does exactly that - but NOTHING IN `src/` CALLS
 IT. Its only importer is test/names.test.js, so no scene ever builds the
 exterior NPC registry and no exterior static NPC is a talk or activation
 target in the running game. The interior twin IS live
-(interiorContext.js:214 -> collectInteriorPeople), which is what made the
+(interiorContext.js:216 -> collectInteriorPeople), which is what made the
 gap invisible: the feature demonstrably works on one side. The corpus pin
 (76 NPCs across 16 RMB blocks) pins the FUNCTION, not the game. Recorded as
 a Port-Ledger C row (static-NPC activation, exterior side) so the gap stops
@@ -2711,7 +2711,7 @@ retired rather than reworded.
 it.** A player ARROW reaches a pool through two separate seams:
 `dealDamage`, which `arrowFlight` calls inside its own `dmg > 0` fork,
 and `onAttackFromPlayer`, which it calls unconditionally
-(`arrowFlight.js:318`) precisely because that is where :630 lives. All
+(`arrowFlight.js:319`) precisely because that is where :630 lives. All
 three hosts that resolve a player arrow EXCLUDED the guards from the
 second seam, on a sentence — "the watch pool's damage door carries no
 hostility pair of its own" — that this lane's own `handleAttackFromPlayer`

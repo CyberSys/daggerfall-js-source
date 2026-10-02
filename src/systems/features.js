@@ -342,10 +342,11 @@ export const FEATURES = Object.freeze([
     id: 'enhanced-ai',
     group: 'combat',
     title: 'Enhanced AI',
-    note: 'Enemies in dungeons find their way around pillars and down corridors instead of walking into walls; '
-      + 'how they see you, decide and fight stays classic. Dungeons only for now: towns, interiors and doors '
-      + 'are still to come, and enemies can bunch up until then. Off keeps the classic movement. This is not '
-      + 'Daggerfall Unity’s “Smarter Enemies” setting, which the port does not run.',
+    note: 'Dungeon enemies path around pillars instead of walking into walls, and everywhere solid props - '
+      + 'trees, rocks, crates - block their sight and stop arrows and spells, yours and theirs. Dungeons only '
+      + 'for now for the pathfinding: towns, interiors and doors are still to come, and enemies can bunch up '
+      + 'until then. Off keeps the classic movement and sight. This is not Daggerfall Unity’s “Smarter '
+      + 'Enemies” setting, which the port does not run.',
     effect: 'Takes effect on the next dungeon you enter.',
     kinds: Object.freeze(['enhanced']),
     control: Object.freeze({ store: 'prefs', key: 'enhancedAI', initial: false, online: true }),   // OFF by default and it stays off: DFU's classic motor is the 1:1 law, this the port's departure (as EnhancedCombatAI is DFU's own opt-in)

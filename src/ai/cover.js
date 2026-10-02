@@ -1,0 +1,191 @@
+// @ts-check
+// TACT1 - COVER (bible/12-Enhanced-AI/Tactics-Arc.md; Mac, 2026-10-02: "Proper line of sight with billboard props";
+// his call: billboards block "Sight and missiles" - real cover, both ways).
+//
+// DFU's flats are billboards: a sprite with no collider, so a foe sees through a tree, a crate or a statue and an arrow
+// flies through them. With the Enhanced AI switch on, every flat that reads as solid stands a COVER PROXY - an
+// upright cylinder of its drawn footprint and height - in an index kept BESIDE the collider, never in it: walking, the
+// navmesh and every ground probe are unchanged. A foe's sight ray, its clear-shot test and every missile (the player's
+// and the foes', arrow and spell bolt) ask the index after the collider. With the switch off nothing reads it.
+//
+// The index rides its collider (`collider.cover`) and its sets are keyed like the collider's buckets, so a pixel, a
+// building or a dungeon that leaves takes its cover with it (Collider.removeBucket). A set's points are the flats'
+// own [x, y, z] base arrays, by reference, in the set's own frame; `t()` is the frame's translation (a streaming
+// pixel's), so a recentre moves the cover as it moves the meshes, and a felled tree sunk in its batch sinks its
+// cover with it.
+
+import { getPref } from '../systems/uiPrefs.js';
+
+/** A flat lower than this, or narrower, is clutter, not cover (grass, flowers, a bottle, a candle). Metres. */
+export const COVER_MIN_H = 1.2;
+export const COVER_MIN_W = 0.5;
+/** The proxy's radius as a share of the sprite's drawn width (a sprite's own edges are mostly air), and its height as
+ *  a share of the drawn height (a crown's ragged top). */
+export const COVER_RADIUS_FRAC = 0.35;
+export const COVER_HEIGHT_FRAC = 0.9;
+/** Archives that are never cover whatever their size: the editor's markers (199), the town animals (201, they walk
+ *  about in DFU's own reading), the lights (210 - a lamp post's pole is thin and its lamp is light) and treasure (216). */
+export const NOT_COVER_ARCHIVES = Object.freeze(new Set([199, 201, 210, 216]));
+/** The broad phase's cell, metres. */
+export const COVER_CELL = 4;
+
+/** Is this flat cover? `size` is its drawn { w, h } (rmbFlats billboardSize). */
+export function isCoverFlat(archive, record, size) {
+  if (NOT_COVER_ARCHIVES.has(archive)) return false;
+  const w = size?.w ?? 0, h = size?.h ?? 0;
+  return h >= COVER_MIN_H && w >= COVER_MIN_W;
+}
+
+/** The proxy of one flat: `base` its [x, y, z] (the billboard's BASE, bottom-anchored), by reference. */
+export function coverProxy(base, size) {
+  return { c: base, r: size.w * COVER_RADIUS_FRAC, h: size.h * COVER_HEIGHT_FRAC };
+}
+
+/** The first distance along a unit ray from `o` (in the cylinder's frame) at which it meets the upright cylinder
+ *  { c: base, r, h }, within `maxDist`; Infinity for none. A ray that STARTS inside a proxy is not blocked by it (a
+ *  foe in a thicket still sees out of it, an arrow loosed from beside a trunk still flies). */
+export function rayCylinder(o, d, cyl, maxDist) {
+  const cx = cyl.c[0], cy = cyl.c[1], cz = cyl.c[2], r = cyl.r, top = cy + cyl.h;
+  const ox = o[0] - cx, oz = o[2] - cz;
+  const inside = ox * ox + oz * oz <= r * r && o[1] >= cy && o[1] <= top;
+  if (inside) return Infinity;
+  let best = Infinity;
+  // the side
+  const a = d[0] * d[0] + d[2] * d[2];
+  if (a > 1e-12) {
+    const b = ox * d[0] + oz * d[2], c = ox * ox + oz * oz - r * r;
+    const disc = b * b - a * c;
+    if (disc >= 0) {
+      const s = (-b - Math.sqrt(disc)) / a;
+      if (s >= 0 && s <= maxDist) {
+        const y = o[1] + d[1] * s;
+        if (y >= cy && y <= top) best = s;
+      }
+    }
+  }
+  // the caps (a ray from above into a crown, from below into a ledge's bush)
+  if (Math.abs(d[1]) > 1e-12) {
+    for (const py of [top, cy]) {
+      const s = (py - o[1]) / d[1];
+      if (s < 0 || s > maxDist || s >= best) continue;
+      const x = ox + d[0] * s, z = oz + d[2] * s;
+      if (x * x + z * z <= r * r) best = s;
+    }
+  }
+  return best;
+}
+
+const ZERO3 = Object.freeze([0, 0, 0]);
+
+/** TACT1: cover is read with the Enhanced AI switch on - this module is the switch's one reader for it, so a host
+ *  stands its index without seeing the switch (enhancedAI4's AUDIT 55 holds who may). */
+export const coverSwitchOn = () => getPref('enhancedAI') === true;
+
+/**
+ * The cover index.
+ * @param {{ enabled?: () => boolean }} [opts] `enabled` - is cover read at all (by default the Enhanced AI switch)
+ */
+export function createCoverIndex({ enabled = coverSwitchOn } = {}) {
+  /** @type {Map<any, { items: any[], t: () => number[], grid: Map<string, any[]>, min: number[], max: number[] }>} */
+  const sets = new Map();
+  let stamp = 0;
+
+  /** Add proxies to the set `key` (appended to what it holds); `t` its frame's translation. */
+  function add(key, items, t = null) {
+    let set = sets.get(key);
+    if (!set) {
+      set = { items: [], t: t || (() => ZERO3), grid: new Map(), min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+      sets.set(key, set);
+    }
+    for (const it of items) {
+      if (!(it?.r > 0) || !(it.h > 0) || !it.c) continue;
+      it._mark = 0;
+      set.items.push(it);
+      const [x, y, z] = it.c;
+      set.min[0] = Math.min(set.min[0], x - it.r); set.max[0] = Math.max(set.max[0], x + it.r);
+      set.min[1] = Math.min(set.min[1], y - 64); set.max[1] = Math.max(set.max[1], y + it.h + 64);   // a felled tree sinks; slack, not a bound
+      set.min[2] = Math.min(set.min[2], z - it.r); set.max[2] = Math.max(set.max[2], z + it.r);
+      for (let gx = Math.floor((x - it.r) / COVER_CELL); gx <= Math.floor((x + it.r) / COVER_CELL); gx++) {
+        for (let gz = Math.floor((z - it.r) / COVER_CELL); gz <= Math.floor((z + it.r) / COVER_CELL); gz++) {
+          const k = gx + ',' + gz;
+          let cell = set.grid.get(k);
+          if (!cell) set.grid.set(k, cell = []);
+          cell.push(it);
+        }
+      }
+    }
+    return set.items.length;
+  }
+
+  function remove(key) { sets.delete(key); }
+
+  /** The nearest cover along the unit ray `dir` from `origin` within `maxDist`; Infinity for none. */
+  function hit(origin, dir, maxDist) {
+    if (!(maxDist > 0) || !sets.size) return Infinity;
+    let best = Infinity;
+    const lo = [0, 0, 0];
+    for (const set of sets.values()) {
+      const t = set.t();
+      lo[0] = origin[0] - t[0]; lo[1] = origin[1] - t[1]; lo[2] = origin[2] - t[2];
+      const reach = Math.min(maxDist, best);
+      const ex = lo[0] + dir[0] * reach, ez = lo[2] + dir[2] * reach;
+      if (Math.max(lo[0], ex) < set.min[0] || Math.min(lo[0], ex) > set.max[0]) continue;
+      if (Math.max(lo[2], ez) < set.min[2] || Math.min(lo[2], ez) > set.max[2]) continue;
+      stamp += 1;
+      const gx0 = Math.floor(Math.min(lo[0], ex) / COVER_CELL), gx1 = Math.floor(Math.max(lo[0], ex) / COVER_CELL);
+      const gz0 = Math.floor(Math.min(lo[2], ez) / COVER_CELL), gz1 = Math.floor(Math.max(lo[2], ez) / COVER_CELL);
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gz = gz0; gz <= gz1; gz++) {
+          const cell = set.grid.get(gx + ',' + gz);
+          if (!cell) continue;
+          for (const it of cell) {
+            if (it._mark === stamp) continue;
+            it._mark = stamp;
+            const s = rayCylinder(lo, dir, it, Math.min(maxDist, best));
+            if (s < best) best = s;
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  return {
+    add, remove, hit,
+    /** Is cover read at all (the Enhanced AI switch). */
+    on: () => !!enabled(),
+    /** How many proxies, over every set (tests, probes). */
+    size: () => { let n = 0; for (const s of sets.values()) n += s.items.length; return n; },
+    has: (key) => sets.has(key),
+  };
+}
+
+/**
+ * The one question every reader asks: how far along the unit ray `dir` from `origin` does the collider's `cover`
+ * stop it, within `maxDist` - Infinity when the collider has no cover, cover is off (the Enhanced AI switch), or
+ * nothing stands in the way.
+ */
+export function coverDistance(collider, origin, dir, maxDist) {
+  const cover = collider?.cover;
+  if (!cover || !cover.on()) return Infinity;
+  return cover.hit(origin, dir, maxDist);
+}
+
+/**
+ * Stand a pool of flat groups as cover in `collider.cover` under `key`: `groups` maps "archive_record" (or
+ * entries giving { archive, record }) to base [x, y, z] arrays, `sizeOf(archive, record)` answers the drawn { w, h }
+ * (null for unknown). Answers how many proxies went in.
+ */
+export function standCover(collider, key, groups, sizeOf, t = null) {
+  const cover = collider?.cover;
+  if (!cover) return 0;
+  const items = [];
+  for (const [k, centers] of groups) {
+    const [archive, record] = String(k).split('_').map(Number);
+    const size = sizeOf(archive, record);
+    if (!size || !isCoverFlat(archive, record, size)) continue;
+    for (const c of centers) items.push(coverProxy(c, size));
+  }
+  if (!items.length) return 0;
+  return cover.add(key, items, t);
+}

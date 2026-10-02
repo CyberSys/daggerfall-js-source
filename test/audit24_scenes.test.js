@@ -19,7 +19,7 @@ test('audit24 scenes: seenByGuard rides ANY raycast hit, not a clear line', () =
   const i = t.indexOf('const hit = collider.raycast(eye, dir, dist);');
   assert.ok(i > 0);
   const arm = t.slice(i, i + 1100);
-  assert.match(arm, /const clear = !Number\.isFinite\(hit\) \|\| hit >= dist - 1e-3;/);
+  assert.match(arm, /const clear = \(!Number\.isFinite\(hit\) \|\| hit >= dist - 1e-3\) && !\(coverDistance\(collider, eye, dir, dist\) < dist - 1e-3\);/);   // TACT1: and no cover between (the switch on)
   assert.match(arm, /if \(clear\) seen = true;/);
   // DFU's raycast always hits SOMETHING (the player, or the wall
   // between), so seenByGuard is unconditional once the NPC is a guard

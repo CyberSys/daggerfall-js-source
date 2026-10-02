@@ -113,7 +113,7 @@ test('ROAD-H tail: the flight reach is displacement.magnitude + ColliderRadius a
   assert.ok(Math.abs(a.arrows[0].pos[1] - (1 - 0.05 * step)) < 1e-12, 'the dip is flown, not renormalised away');
   for (const f of ['src/scenes/dungeonContext.js', 'src/scenes/hostMagic.js']) {
     const s = src(f);
-    assert.match(s, /const \{ unit: _unit, reach \} = missileReach\(m\.dir, step\);\s*\/\/[^\n]*\n\s+const hitWall = collider\.raycast\(m\.pos, _unit, reach\);\n\s+if \(Number\.isFinite\(hitWall\) && hitWall <= reach\) \{/,
+    assert.match(s, /const \{ unit: _unit, reach \} = missileReach\(m\.dir, step\);\s*\/\/[^\n]*\n\s+const hitWall = Math\.min\(collider\.raycast\(m\.pos, _unit, reach\), coverDistance\(collider, m\.pos, _unit, reach\)\);[^\n]*\n\s+if \(Number\.isFinite\(hitWall\) && hitWall <= reach\) \{/,
       `${f}: the missile flight casts for the scaled reach along the unit ray`);
     assert.doesNotMatch(s, /raycast\(m\.pos, m\.dir, step \+ MISSILE_COLLIDER_RADIUS\)/, `${f}: no flight casts the bare step`);
     // REVIEW: ...and the WALL POINT is measured along the vector the

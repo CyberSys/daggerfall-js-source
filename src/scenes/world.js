@@ -429,6 +429,7 @@ import { locationArrivalLanding, locationStartMarkers } from '../world/locationE
 import { preloadPrisonScreenArt, preloadCourtScreenArt } from '../ui/prisonScreen.js';   // PRIS00I0 - the serving-time screen   // ROAD-B B5: CORT01I0 - the courtroom the trial is pushed over
 import { TerrainGenClient } from '../world/terrainGenClient.js';   // EV7: the pixel kernel, off the main thread (samples/blend/tiles/grid/nature moved whole to terrainGen.js)
 import { getPref } from '../systems/uiPrefs.js';
+import { createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 import { landViewRead } from '../world/landView.js';   // LV1: the enhanced lane's own streamed radius; FT2: the read is the module's
 import { CityLightAnimator, SUN_RIG_COLOR, INDIRECT_LIGHT_COLOR, INDIRECT_LIGHT_RANGE, exteriorAmbient, indirectLightScale, isCityLightsOn, isNight, hourOf, daylightScale, parseTimeOfDay, sunDirection, sunScale, windowStyleForTime } from '../world/worldClock.js';
 import { dungeonLocationFor } from '../world/smallerDungeons.js';   // AUDIT 28 F-B2: the quest layer sees the sized dungeon
@@ -2320,6 +2321,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     return surfaceHeightAt(p.samples, lx, lz, p._stride ?? 1) + t[1];
   };
   const collider = new Collider(heightAt, surfaceAt);
+  collider.cover = createCoverIndex();   // TACT1: the streamed world's trees, rocks and props are cover, with the switch on
   // DW-B: ILIAC PUDDLE NO MORE 1.2.2 (jet082, vendor/iliac-puddle-no-more/)
   // - the sea carved out of the streamed ground (deepWatersHost.js says
   // how). Opened as the world mounts, its switch read once: the bake
@@ -4021,6 +4023,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const batches = [];
     made.batches = batches;   // BUILD-FAIL1
     const forestGroups = new Map();   // PROF4: the nature groups' batches, by group - where a felled tree is sunk
+    const coverItems = [];   // TACT1: the pixel's solid flats, pixel-local, the centres by reference (a felled tree sinks its own)
     for (const [k, centers] of groups) {
       await breather.breathe();   // PERF-EXT23: a flat group a breath - its texture is a cached promise, a microtask, and gave no frame back
       const [archive, record] = k.split('_').map(Number);
@@ -4042,6 +4045,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         unionBox(batch._box);
         batches.push(batch);
         if (archive === natureArchive) forestGroups.set(k, { batch, centers, size: sib.size });   // PROF4: a felled tree's batch
+        if (isCoverFlat(archive, record, sib.size)) for (const c of centers) coverItems.push(coverProxy(c, sib.size));
         continue;
       }
       uploadRecord(archive, record);
@@ -4053,6 +4057,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
       batches.push(batch);
       if (archive === natureArchive) forestGroups.set(k, { batch, centers, size });   // PROF4: a felled tree's batch
+      if (isCoverFlat(archive, record, size)) for (const c of centers) coverItems.push(coverProxy(c, size));
     }
     // WOD2: the scaled flats - billboardSize times the object's own scale.
     for (const { archive, record, scale, centers } of scaledGroups.values()) {
@@ -4066,12 +4071,16 @@ export async function bootWorld(canvas, renderer, params, status) {
       unionBox(batch._box);
       armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
       batches.push(batch);
+      if (isCoverFlat(archive, record, size)) for (const c of centers) coverItems.push(coverProxy(c, size));
     }
+    // TACT1: under the pixel's own bucket key - it leaves with the pixel (Collider.removeBucket) - and a rebuild stands it anew
+    collider.cover.remove(key);
+    if (coverItems.length) collider.cover.add(key, coverItems, ((o) => () => state.pixelTranslation(px, py, o))([0, 0, 0]));
 
     // AUDIT 26 (F019): the pixel's street StaticNPCs - identity inputs
     // + the billboard extent the activation ray needs, resolved the
     // way the interior host resolves its people's
-    // (interiorContext.js:441-462). FLATS.CFG is awaited because
+    // (interiorContext.js:444-465). FLATS.CFG is awaited because
     // SetLayoutData's exterior overload reads it for the gender
     // (StaticNPC.cs:185-194); loadFlats never throws and is warmed with
     // the scene, so this is a coalesced wait. The list rides the pixel,
@@ -8666,7 +8675,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // ?dungeon host RAN every CastWhenUsed / CastWhenStrikes / SoulBound
   // / affinity arm against no ctx at all. They are optional-chained, so
   // it WAS silent. WAVE D closed it: the body is scenes/hostEnchant.js
-  // and dungeonContext.js:2776 mounts the same one, gated on
+  // and dungeonContext.js:2778 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
   // that context through modes.dungeonCtx - so worldModes.js:6854
@@ -8766,9 +8775,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // encounter pool's remover for both. That was not a leak: removeFoe
     // (exteriorFoes.js:542-547) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
-    // got exactly what removeGuard (cityGuards.js:1628-1646) gives it -
+    // got exactly what removeGuard (cityGuards.js:1629-1647) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
-    // (cityGuards.js:1032) and spliced out at the end of it (:1226).
+    // (cityGuards.js:1033) and spliced out at the end of it (:1227).
     // Routing by POOL MEMBERSHIP is an OWNERSHIP fix: each pool owns the
     // teardown of its own records so the two can diverge safely, and
     // removeFoe's `questBehaviour?.notifyDestroyed()` (exteriorFoes.js
@@ -11280,7 +11289,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // so an F9 pressed inside a shop recorded the street's sheath and
     // hand. The mode host answers for the rig that is actually drawn
     // and null outside interior mode (the dungeon owns its own
-    // composer, dungeonContext.js:7809), so exterior mode and a
+    // composer, dungeonContext.js:7814), so exterior mode and a
     // pre-seam mode host compose exactly as before, per field.
     const wp = modes?.weaponPose?.() ?? null;
     const snap = snapshotPlayer(playerEntity, {
@@ -25215,11 +25224,11 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // AFTER the damage fork closes (:615), so a shaft that lost the
         // roll still enrages what it hit and wakes the area. ROAD-G G1
         // (review): the WATCH carries the pair now
-        // (cityGuards.js:778-783), so this seam ROUTES by pool exactly
+        // (cityGuards.js:779-784), so this seam ROUTES by pool exactly
         // as `dealDamage` above it does, instead of excluding the
         // guards - a zero-damage shaft into a pacified watchman has to
         // reach the same door the zero-damage SWING already reaches
-        // (cityGuards.js:1347). DFU makes no pool distinction:
+        // (cityGuards.js:1348). DFU makes no pool distinction:
         // AssignBowDamageToTarget's player arm (DaggerfallMissile.cs
         // :660-688) calls WeaponDamage, so :630 runs for the shaft as
         // for the swing.

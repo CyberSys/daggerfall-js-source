@@ -60,6 +60,7 @@ import { setPlayerDoor } from '../systems/playerDoor.js';   // SET2: this host p
 import { createHitEffects } from './hitEffects.js';   // AUDIT 26 F033: DaggerfallMissile's impact flash
 import { duelSpellOf } from '../combat/duelCombat.js';   // DUEL1: the harmful half of a spell, which alone may reach a duel opponent
 import { sparedByPlayer, isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: who the player's spells pass by, and whose blasts pass the player by
+import { coverDistance } from '../ai/cover.js';   // TACT1: billboards are cover
 
 /**
  * AUDIT SET M4: whether a burst from feet `a` reaches feet `b` through `collider` - chest to chest, a wall between is
@@ -1053,7 +1054,7 @@ export function createPlayerMagic({
       if (m.age > MISSILE_LIFESPAN_S) { retireMissile(m); continue; }
       const step = MISSILE_SPEED * dt;
       const { unit: _unit, reach } = missileReach(m.dir, step);   // ROAD-H tail: DaggerfallMissile.cs:333/:337-339's reach along the normalised direction
-      const hitWall = collider.raycast(m.pos, _unit, reach);
+      const hitWall = Math.min(collider.raycast(m.pos, _unit, reach), coverDistance(collider, m.pos, _unit, reach));   // TACT1: cover stops a bolt, and an area spell bursts on it
       if (Number.isFinite(hitWall) && hitWall <= reach) {
         const impact = [m.pos[0] + _unit[0] * hitWall, m.pos[1] + _unit[1] * hitWall, m.pos[2] + _unit[2] * hitWall];   // ROAD-H tail (review): the collider answers in the RAY's own units, and the ray is `_unit` - `m.dir` would scale the impact point by |dir| (`colliderPosition += direction.normalized * hitInfo.distance`, DaggerfallMissile.cs:347)
         if (m.spell.rangeType === 4 && !m.visual) {   // SPELLFX1: a peer's DRAWN missile lands nothing

@@ -253,6 +253,7 @@ const GATE_STRIKE_CAST = Object.freeze({ frost: SPELL_CAST_SOUND[1], poison: SPE
 import { lootPile } from '../player/lootStack.js';   // LOOT-STACK: the pile under the reticle, as the loot window's tabs
 import { rollLootRarity, pileSource, dungeonRarityTier, dungeonFamily, stampWonWeapons } from '../systems/lootRarity.js';   // LR1: the item ladder over every list this host mints (a foe's through hostCombat.spawnEnemyLoot, RF2)
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';   // HITFLASH1
+import { coverDistance, createCoverIndex, isCoverFlat, coverProxy } from '../ai/cover.js';   // TACT1: billboards are cover
 
 
 
@@ -381,6 +382,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // inactive ones included) - There's a Hole in the Bottom of the Ocean floods the abyss a metre over it
   let meshTopY = -Infinity;
   const collider = new Collider(() => -Infinity);
+  collider.cover = createCoverIndex();   // TACT1: the flats' cover, read with the switch on
   // DISC29-A: THE SURFACES A WALK-ON READS. An effect or relay model's triangles go into the shared 'dungeon' bucket
   // (the player stands on them there), so the walk-on pass could not ask whether THIS object was under the feet and
   // read the top of its box instead - a throne's box tops its backrest, a metre and a half over the seat. A Collision01
@@ -1926,7 +1928,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
   // owned, and destroy() hands it back (the _prevPassiveHost idiom this
   // file already uses for its other process-global seams). A bare null
   // would not do: on ?world and ?exterior the previous holder is the
-  // host's own townTalk sink (world.js:15106 / exterior.js:3766), set
+  // host's own townTalk sink (world.js:15115 / exterior.js:3770), set
   // once at boot and never again, so nulling on the way out of the
   // first dungeon would silently un-file every mid-screen label above
   // ground for the rest of the session - MC-1's own bug, re-opened.
@@ -3133,6 +3135,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     onSpawn: (b) => billboardBatches.push(b),
     onRetire: (b) => { const i = billboardBatches.indexOf(b); if (i >= 0) billboardBatches.splice(i, 1); },
   });
+  const coverItems = [];   // TACT1: the solid flats' proxies, stood once the batches are
   for (const [key, centers] of flatGroups) {
     const [bornArchive, bornRecord] = key.split('_').map(Number);
     // Flats keep their original archives (the table remaps walls);
@@ -3151,7 +3154,9 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     const batch = renderer.createBillboardBatch(archive, record, size, based);
     armFlatAnim(batch, t, archive, record, flatAnims, uploadRecordFrame);
     billboardBatches.push(batch);
+    if (isCoverFlat(archive, record, size)) for (const c of based) coverItems.push(coverProxy(c, size));
   }
+  collider.cover.add('tact1:flats', coverItems);
   // AUDIT 64 F13: the people's ACTIVATION EXTENT, off the same archive
   // the batch above read - `personAabb` wants a base and a swept
   // square, and an RDB flat's stored y is its CENTRE (the batch's own
@@ -3810,7 +3815,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (m.age > MISSILE_LIFESPAN_S) { retireMissile(m); continue; }
       const step = MISSILE_SPEED * dt;
       const { unit: _unit, reach } = missileReach(m.dir, step);   // ROAD-H tail: DaggerfallMissile.cs:333/:337-339's reach along the normalised direction
-      const hitWall = collider.raycast(m.pos, _unit, reach);
+      const hitWall = Math.min(collider.raycast(m.pos, _unit, reach), coverDistance(collider, m.pos, _unit, reach));   // TACT1: cover stops a bolt or a shaft, and an area spell bursts on it
       if (Number.isFinite(hitWall) && hitWall <= reach) {
         // AUDIT 23 (magic-2) - DaggerfallMissile.cs:399-402 DoCollision:
         // an AreaAtRange payload explodes AT THE IMPACT POINT whatever
@@ -3879,8 +3884,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
               // AUDIT 39 (#64) / THE FOUR HOSTS RULE - SHIPPED (wave D):
               // this host was the FOURTH BODY of the player-arrow law
               // and is now the fourth CALLER. combat/arrowFlight.js's
-              // playerArrowHitFoe is the one copy world.js:25207,
-              // exterior.js:5385 and worldModes.js:8830 already ran;
+              // playerArrowHitFoe is the one copy world.js:25216,
+              // exterior.js:5389 and worldModes.js:8830 already ran;
               // the flag said the divergence would bite and it already
               // had. This copy splashed at the ARROW TIP
               // (`[m.pos[0], m.pos[1], m.pos[2]]`) on the claim that

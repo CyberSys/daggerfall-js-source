@@ -64,6 +64,7 @@ export const GIVE_UP_TICKS = 200;   // EnemyMotor.GiveUpTimer refill (classic ti
 import { GRAVITY, FIXED_DT, MAX_FRAME_DT, CLASSIC_TO_UNITY_RATIO, FALL_DAMAGE_THRESHOLD } from '../player/motor.js';   // the shared fall rule + the P16 fixed-timestep law; CH3: the fall threshold single-sources with the player's
 import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap, which cannot loop
 import { MOBILE_TYPES } from './mobileTypes.js';
+import { coverDistance } from '../ai/cover.js';   // TACT1: billboards are cover (sight, the clear shot)
 
 // C15 knockback (EnemyMotor.KnockbackMovement): classic units through
 // the speed ratio. Stored speed clamps at 40; motion caps at 25; the
@@ -258,10 +259,16 @@ export function canSeeTarget(collider, feet, yaw, height, targetFeet, targetHeig
     const h = collider.raycastHit(eye, [ex / el, ey / el, ez / el], Math.min(radius, el));
     const seen = !Number.isFinite(h.dist) || h.dist >= el - 1e-3;
     if (!seen) blockerOut.key = h.key;
-    return seen;
+    return seen && !coveredSight(collider, eye, ex / el, ey / el, ez / el, el);
   }
   const hit = collider.raycast(eye, [ex / el, ey / el, ez / el], Math.min(radius, el));
-  return !Number.isFinite(hit) || hit >= el - 1e-3;
+  return (!Number.isFinite(hit) || hit >= el - 1e-3) && !coveredSight(collider, eye, ex / el, ey / el, ez / el, el);
+}
+
+/** TACT1: does cover (a tree, a crate, a statue - ai/cover.js) stand between the eye and a target `el` away along
+ *  the unit (ux, uy, uz)? Never with the Enhanced AI switch off. A cover hit is no door, so `blockerOut` is left. */
+function coveredSight(collider, eye, ux, uy, uz, el) {
+  return coverDistance(collider, eye, [ux, uy, uz], el) < el - 1e-3;
 }
 
 // EnemyMotor.cs:34 - the maximum distance to open a door.
@@ -976,7 +983,8 @@ export class EnemyAI {
     // :727 - the sweep runs from the shoot origin but over the distance
     // measured from the BODY, so it overshoots by originDistance.
     const hit = this.collider.sphereCast(origin, radius, [dx, dy, dz], dist);
-    return !Number.isFinite(hit.dist);
+    // TACT1: and no cover between - an archer behind a tree steps out rather than loose into the bark
+    return !Number.isFinite(hit.dist) && !(coverDistance(this.collider, origin, [dx, dy, dz], dist) < dist - originDistance);
   }
 
   /**

@@ -56,6 +56,7 @@ import { hasMagickaToCast } from '../characters/enemyCasting.js';   // AUDIT 24 
 import { setEnemyAlert } from '../systems/encounters.js';   // AUDIT 24 (wave 36): EnemySenses:531-535 / EnemyDeath:131-136
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../player/motor.js';   // AUDIT 24 (wave 36): ApplyFallDamage, for the watch too   // ROAD-B: PlayerController.radius, for the indoor arm's door clearance
 import { findLowestOuterInteriorDoor } from '../player/enterExit.js';   // ROAD-B: DaggerfallInterior.FindLowestOuterInteriorDoor
+import { coverDistance } from '../ai/cover.js';   // TACT1: a witness does not see through a tree
 import { SOUND } from '../systems/soundClips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
@@ -484,7 +485,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // wall or player - so a guard NPC in range and facing the
           // crime raises the watch even from behind a market stall.
           const hit = collider.raycast(eye, dir, dist);
-          const clear = !Number.isFinite(hit) || hit >= dist - 1e-3;
+          const clear = (!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist) < dist - 1e-3);   // TACT1: not through a tree or a stall's crates
           if (clear) seen = true;
           // ...and seenByGuard rides the RAYCAST ITSELF, not the clear
           // line. DFU's `Physics.Raycast(ray, out hit, 77.5f)` is aimed
@@ -596,7 +597,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
       const eye = [p.pos[0], p.pos[1] + 0.7, p.pos[2]];
       const dir = [toPlayer[0] / (dist || 1), (toPlayer[1] + 0.6) / (dist || 1), toPlayer[2] / (dist || 1)];
       const hit = collider.raycast(eye, dir, dist);
-      if (!Number.isFinite(hit) || hit >= dist - 1e-3) return p;
+      if ((!Number.isFinite(hit) || hit >= dist - 1e-3) && !(coverDistance(collider, eye, dir, dist) < dist - 1e-3)) return p;   // TACT1: cover hides him
     }
     return null;
   }
@@ -752,7 +753,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  and ALL THREE of this pool's arms reach the door: the melee swing
    *  and the spell through `damageGuard`'s `fromPlayer` gate below, and
    *  the player's ARROW through the hosts' `onAttackFromPlayer` seam,
-   *  which arrowFlight.js calls unconditionally (arrowFlight.js:318)
+   *  which arrowFlight.js calls unconditionally (arrowFlight.js:319)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
    *  encounter pool's is (exteriorFoes.js:2623). */

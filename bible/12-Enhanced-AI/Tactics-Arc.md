@@ -13,7 +13,7 @@ overdoing it"*. His calls, asked the same day:
 | Griefing | How is it done today? | **Guards blocking doors** - guards clump in a doorway so nobody can get in or out |
 | Blows | How many new telegraphed attacks? | **One or two, tier-based** - small wind-up attacks on tougher foes only, used sparingly, always readable and dodgeable |
 
-**Status: TACT3 BUILT 2026-10-02 (Mac: anti-grief first) - see its record at the foot; TACT1, TACT2, TACT4 designed, not built.**
+**Status: TACT3 and TACT1 BUILT 2026-10-02 (Mac: anti-grief first) - see their records at the foot; TACT2, TACT4 designed, not built.**
 
 ## Where it stands (measured on the code, 2026-10-02)
 
@@ -121,3 +121,24 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
 - Not built from the slice: attack tokens and ring slots (they need TACT2's ring); guards giving up a door they cannot
   pass (the doorway rule makes it moot for now).
 - Pins `test/tact3.test.js` (15); mutants `tools/mutants/tact3.json` (23), all dead.
+
+## TACT1 - BUILT 2026-10-02 (the Enhanced AI switch on, every host)
+
+- **The proxy** - `ai/cover.js`: a flat at least 1.2 m tall and 0.5 m wide is cover (not the editor's markers 199, the
+  animals 201, the lights 210 or treasure 216); its proxy an upright cylinder of 0.35 x its drawn width in radius and
+  0.9 x its drawn height, at its BASE. A ray that starts inside one is not stopped by it (a foe in a thicket sees out).
+- **The index** rides the collider (`collider.cover`, `createCoverIndex`), never in it: walking, the navmesh and every
+  ground probe are unchanged. Sets are keyed like buckets and leave with them (`Collider.removeBucket`); a set's points
+  are the batches' own base arrays by reference in its frame, so a recentre moves them and a felled tree sinks its own.
+  A 4 m grid per set is the broad phase.
+- **Stood by** the streamed world (each pixel's flats - classic, seasonal and scaled - under the pixel's bucket key in
+  its translation), the dungeon (its RDB flats at the base - an RDB y is the centre), the interior (its grouped flats;
+  a furnishable room's own pieces, which can be taken out, are not), and the single-location exterior host.
+- **Read by** `canSeeTarget` (both arms; a tree is never a door to open), the foe's clear shot
+  (`hasClearPathToShootProjectile` - an archer behind a trunk holds its shot), every missile (`ArrowFlight`, the
+  hosts' bolts in `hostMagic`, the dungeon's arrows and bolts - an area spell bursts on the cover), and the watch's two
+  witness rays (a crime behind a market stall's crates is unseen). Hearing is not cover (Mac's call: sight and
+  missiles).
+- **Off** - with the switch off `coverDistance` answers Infinity before the index is asked: DFU's sight to the bit.
+- The switch's Features note says it (+63 chars). Not looked at on a real install yet.
+- Pins `test/tact1.test.js` (9); mutants `tools/mutants/tact1.json` (23), all dead.
