@@ -943,7 +943,7 @@ passing), and found four faults the classic climb never had:
 
 What still stalls: tops past 50 degrees (N0000014's and N0000011's 53-degree ramps, N0000041's slopes; AUDIT
 CLIMB-FIELD's own limit) and a lip with no landing right behind its edge (Castle Kingwing's N0000034, a pillar;
-Castle Faallem's N0000026, a gap). None is a trap. Over 3,214 walls and 9,642 climbs: 7,946 topped before and 8,059
+Castle Faallem's N0000026, a gap). None is a trap. Over 3,214 walls and 9,642 climbs: 7,946 topped before and 8,062
 after; failures where the classic lane topped went from 81 to 33, all of them those.
 The grip at low skill and Fatigue is recorded there and not changed (Mac's "Free-climb on grip"). Pinned:
 `test/fb1002_climb.test.js` (7; its last on ARENA2); `tools/mutants/fb1002_climb.json` (15, all dead). PIN MOVED:

@@ -111,11 +111,11 @@ C'ircba, Thercrn's Hold, The Fortress of Verpe, The Abbey of Baleusulla and The 
 |---|---|---|
 | walls with a top in reach (25 dungeons) | 3,214 | 3,214 |
 | climbs (each wall square and 8 degrees either side) | 9,642 | 9,642 |
-| topped | 7,946 | 8,059 |
+| topped | 7,946 | 8,062 |
 | failed where the classic lane topped | 81 | 33 |
 | the reporter's dungeon: topped / failed where the classic topped (402 climbs) | 267 / 5 | 284 / 0 |
 
-The climbs that neither lane topped and that never took hold within 1 m of where they started (1,461 after) are
+The climbs that neither lane topped and that never took hold within 1 m of where they started (1,458 after) are
 approaches that slid along the wall, a top that was not what the probe guessed (a slope, a void behind a thin top), or
 a start in a void outside the level. The classic lane, with every roll passing, failed them too.
 
