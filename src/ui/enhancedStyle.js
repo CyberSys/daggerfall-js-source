@@ -2374,6 +2374,12 @@ ${badgeCss()}
 .px-timerswin .tm-row.live .tm-count { color: #9fe8b4; }
 .px-timerswin .tm-when { font-size: 11px; color: var(--dim); white-space: nowrap; }
 .px-timerswin .tm-empty { color: var(--dim); font-size: 13px; }
+/* AUDIT TIMERS1 UI-4: STONE'S LIGHT GROUND (AUDIT MERGE-PLUS D3's law) - the window takes the theme's panel, and Stone's
+   light grey left the dim words at 2.6:1 and the where line at 3.0; lifted past 4.5:1 over a hard black drop. */
+:root[data-plus-theme="stone"] .px-timerswin { --dim: #e2dccd; --brass: #ffd98a; text-shadow: 1px 1px 0 rgba(5,6,8,0.85); }
+:root[data-plus-theme="stone"] .px-timerswin .tm-where { color: #fbf8f0; }
+:root[data-plus-theme="stone"] .px-timerswin .tm-count { color: #ffe3a6; }
+:root[data-plus-theme="stone"] .px-timerswin .tm-row.live .tm-count { color: #c8ffd6; }
 @media (max-width: 560px) {
   .px-timersword { display: none; }
   .px-win.px-timerswin .px-body { padding: 16px 14px 18px; }
@@ -2408,6 +2414,18 @@ ${badgeCss()}
    foot stacks two rows only where width also runs out. */
 @media (max-height: 560px), (max-width: 480px) {
   .px-stage { justify-content: flex-start; padding: 7dvh 24px 132px; overflow-y: auto; }
+}
+/* AUDIT TIMERS1 UI-1: the timers window's stage is not the pause stage - two classes, so the rule above (one class,
+   later) cannot take its padding and pin the window to the left; centred, its own padding, its list the one scroll.
+   UI-2: and over the game on a short screen the pause window stands clear of the corner marks (the profile and the
+   hourglass, 56px tall) - it had its tabs under them, a tap on SYSTEM's top half opening the timers. */
+.px-stage.px-timersstage { display: grid; justify-content: center; align-content: center; justify-items: center; align-items: center;
+  padding: 24px 16px; overflow: hidden; }   /* the content's own centring too - the pause stage's short-screen flex-start packed the track left */
+@media (max-height: 560px) {
+  .px-stage.px-timersstage { padding: 10px 12px; }
+  .px-win.px-timerswin { max-height: calc(100dvh - 20px); }
+  .px-timersword { display: none; }
+  .px-over .px-stage:not(.px-acctstage):not(.px-timersstage) { padding-top: max(7dvh, 64px); }
 }
 
 /* ── PX8: THE SHELL WEARS THE PIXELS (Mac: "Settings next") ─────

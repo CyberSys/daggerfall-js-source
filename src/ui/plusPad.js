@@ -270,7 +270,9 @@ export function crossbarInForce() { try { return !!_xb?.inForce?.(); } catch { r
 // ── 3. THE MENUS ────────────────────────────────────────────────────
 
 const doc = () => globalThis.document ?? null;
-const visible = (n) => !!n && n.isConnected !== false && typeof n.getClientRects === 'function' && n.getClientRects().length > 0
+// AUDIT TIMERS1 UI-7: and not inside an [inert] subtree - a window over the pause face makes the face inert, and a bumper
+// turned the tabs under it
+const visible = (n) => !!n && n.isConnected !== false && !n.closest?.('[inert]') && typeof n.getClientRects === 'function' && n.getClientRects().length > 0
   && (globalThis.getComputedStyle?.(n)?.visibility ?? 'visible') !== 'hidden';
 
 /** The tab strips a bumper turns, first match wins: the pack's and the shop's category tabs, the pause window's

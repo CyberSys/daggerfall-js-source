@@ -7484,7 +7484,7 @@ export function createWorldModes(host) {
           // context, so the dungeon's own togglePause (dungeonContext.js)
           // had nothing to read and its Load pane never refused online.
           dungeonOnline: () => host.dungeonOnline?.() ?? false,
-          timers: () => host.timers?.() ?? null,   // TIMERS1: the dungeon's pause face reads the world host's source
+          timers: (o) => host.timers?.(o) ?? null,   // TIMERS1: the dungeon's pause face reads the world host's source
           // CASTLE1: the world host's load, for a save the dungeon's own
           // door finds was taken somewhere else (dungeonContext.js
           // quickLoad). Absent on a host with no such load, and the
@@ -8804,7 +8804,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14914's own wave-46 note); the interior
+          // a blow (world.js:14923's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount

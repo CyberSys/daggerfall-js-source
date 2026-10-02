@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:13014`,
+the other half went stale unnoticed. (The rest cite named `world.js:13023`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:13020` now.)
+deleted the second and the cite is `world.js:13029` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -18771,14 +18771,18 @@ modes host (a building's pause) and the dungeon's opts all carry the world host'
 or COMING (counting to its start), live first. It derives nothing: each row is its own law's answer -
 - the OBLIVION GATE (`net/gateLaw.js` `gateAt`/`gatePhase`/`gateTimes`): coming to its opening, live to its seal, then
   live to its collapse; the gate after it once this one is under way; where it stands from the omen's site;
-- the TOWN RAIDS (the mod's day, `raidState().raids`, in relay ms through `sharedWallMs`): coming to a raid's start,
-  live to its withdrawal; a cleansed or ended raid says nothing;
-- the GAME DAY (two real hours - new bounty hunts and raids) and the UTC DAY (00:00 - the daily caps);
-- the SEAT WEEK (`net/townSeatLaw.js` `seatWeekOf`/`seatWeekStartMs`/`seatPhaseOf`): the Reckoning (Friday 18:00 UTC)
-  and the Turning (Sunday 18:00 UTC - the "Sunday wars"), and a counted Season's end at its last Turning;
-- the WEEK'S BATTLES from the seats list the service sends (`seatBook.data.seats`, read at most once a minute while the
-  window asks): a siege, a tourney or a revolt coming to its start, live to its end (`battleLengthMs` when the service
-  has not placed one); the Royal Tourney live to the Turning.
+- the TOWN RAIDS (the mod's day, `raidState().raids`, in relay ms through `sharedWallMs`): the player's own region's
+  whole, coming to a raid's start, live to its withdrawal; every other region's as one row, the soonest and how many
+  more (AUDIT TIMERS1 D3); a cleansed or ended raid says nothing;
+- the RAID DAY (the event clock's two real hours - new bounty hunts and raids; not the calendar's day, which turns
+  every real hour since TIME1 - AUDIT TIMERS1 D4) and the UTC DAY (00:00 - the daily caps);
+- the SEAT WEEK (`net/townSeatLaw.js` `seatWeekOf`/`seatWeekStartMs`/`seatPhaseOf`), where the seats are open to the
+  account (AUDIT TIMERS1 D5): the Reckoning (Friday 18:00 UTC) and the Turning (Sunday 18:00 UTC - the "Sunday wars"),
+  and a counted Season's end at its last Turning;
+- the WEEK'S BATTLES from the seats list the service sends (`seatBook.data.seats`, asked at most once a minute and only
+  by the window's own read): a siege, a tourney or a revolt coming to its start, live to its end (`battleLengthMs` when
+  the service has not placed one), each side in the seat tab's words (`guildWords` - AUDIT TIMERS1 D1); the Royal
+  Tourney live to the Turning.
 
 **How it runs.** The window ticks once a second: the countdowns (`timerText`: "2d 04h", "1:05:09", "4:07") and the
 moment in the player's own clock (`localWhenText`, the relay's offset taken out) are rewritten in place; the list is
@@ -18786,8 +18790,10 @@ rebuilt only when a row starts, ends or arrives. A rebuild of the menu stops the
 timer's is (QT-LIVE1).
 
 **Seen in a browser** (Chromium 1280x800 and 390x844, the window and the hourglass mounted over the skin's own sheet
-with a fixture source): the hourglass stands 21px left of the profile mark on both; the window holds Now and Coming up,
-its rows scroll inside it. Not seen: the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.js`
+with a fixture source): the hourglass stands 10px left of the profile mark on both; the window holds Now and Coming up,
+its rows scroll inside it. AUDIT TIMERS1 (`01-Overview/Audit-Timers1.md`) then drove the REAL pause face
+(`mountEnhancedMenu` in pause mode) at four sizes, a rotation, the keyboard and a pad, and fixed what it found. Not seen:
+the live pause face online (no relay or ARENA2 here). Pins: `test/timers1.test.js`
 (9: the gate, the seat week, the battles, the raids and the two days, the order, the words, the window over a fake
 document - drawn, moved, a row gone, offline said - the hourglass and its placing, the wiring through all the hosts);
 `test/outsideTap.test.js` (the fourth scrim, the hourglass in the keep list). Patch notes: `PATCH-NOTES-Timers.md`.

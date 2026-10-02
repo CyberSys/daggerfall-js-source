@@ -12639,19 +12639,28 @@ export async function bootWorld(canvas, renderer, params, status) {
   // already holds: the day's gate site and the relay's word of its kill, the seats list (the week's battles, the
   // Season's zero), the day's raids in relay ms. Null offline - every row is a shared moment of the online world.
   let _timersSeatAsk = -Infinity;
-  const timersSource = () => {
-    if (!online) return null;
-    const now = battleNowMs();
-    if (seatBook?.open !== false && now - _timersSeatAsk > 60_000) { _timersSeatAsk = now; seatBook?.read?.()?.catch?.(() => {}); }   // the list keeps its own five minutes
-    const relayOf = (minute) => { const ms = sharedWallMs(minute); return ms == null ? NaN : ms + _sharedOffsetMs; };
-    return {
-      now,
-      gate: { place: gateOmen?.current?.()?.site?.place ?? null, fellAt: (day) => gateLink?.fellAt?.(day) ?? null },
-      seats: seatBook?.open === true ? (seatBook.data?.seats ?? null) : null,
-      zero: seatBook?.open === true ? seatBook.zero : null,
-      raids: raidingPartiesOn() ? raidState().raids.map((r) => ({ name: r.locationName, region: REGION_NAMES[r.regionIndex] ?? '',
-        type: raidKindName(r.type), startMs: relayOf(r.startMinute), endMs: relayOf(r.endMinute), done: !!r.cleansed })) : null,
-    };
+  const timersSource = ({ ask = false } = {}) => {
+    // AUDIT TIMERS1 D6: the pause door is armed before the boot's last awaits, and `online` (and the gate's two) are
+    // declared after them - a pause in that window read them before they stood. Not there yet is "no timers".
+    try {
+      // AUDIT TIMERS1 D8: and not before the relay's clock has been heard - until the welcome the offset is nought, and
+      // every row would count on this machine's clock (the gate's omen waits for the same word)
+      if (!online || !_sharedClockHeard) return null;
+      const now = battleNowMs();
+      // AUDIT TIMERS1 UI-9: the service is asked only by the window's own read (`ask`), never by the pause face's test
+      if (ask && seatBook?.open !== false && now - _timersSeatAsk > 60_000) { _timersSeatAsk = now; seatBook?.read?.()?.catch?.(() => {}); }   // the list keeps its own five minutes
+      const relayOf = (minute) => { const ms = sharedWallMs(minute); return ms == null ? NaN : ms + _sharedOffsetMs; };
+      return {
+        now,
+        gate: { place: gateOmen?.current?.()?.site?.place ?? null, fellAt: (day) => gateLink?.fellAt?.(day) ?? null },
+        seatsOpen: seatBook?.open === true,   // AUDIT TIMERS1 D5: the seat week's rows are for an account the seats are open to
+        seats: seatBook?.open === true ? (seatBook.data?.seats ?? null) : null,
+        zero: seatBook?.open === true ? seatBook.zero : null,
+        region: REGION_NAMES[_questRegionIndex()] ?? null,   // AUDIT TIMERS1 D3: the player's own region's raids are listed whole
+        raids: raidingPartiesOn() ? raidState().raids.map((r) => ({ name: r.locationName, region: REGION_NAMES[r.regionIndex] ?? '',
+          type: raidKindName(r.type), startMs: relayOf(r.startMinute), endMs: relayOf(r.endMinute), done: !!r.cleansed })) : null,
+      };
+    } catch { return null; }
   };
   const pauseDoorHooks = () => ({
     // PX25: the sheet's own doors, through this host's own arms. AUDIT 27h A4: each answers whether it opened one -

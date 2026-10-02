@@ -515,7 +515,7 @@ test('E1: the retired DEPARTURES are gone from both automap windows, and the Led
 //
 // THIS PORT OPENS ON THE PRESS in all four hosts (world.js:12607/:12612,
 // exterior.js:3182/:3190, ui/input.js:598/:604) and then routes that
-// same key's release into the window it just mounted (world.js:12719 ->
+// same key's release into the window it just mounted (world.js:12728 ->
 // townTalk.keyup). The bare `GetKeyUp` therefore is NOT safe here, and
 // the shape DFU uses for exactly this case - a window whose open edge
 // is the key DOWN - is DaggerfallAutomapWindow.cs:703-713's
@@ -549,7 +549,7 @@ test('E-FIX LIVE (townTalk): the R that OPENS the rest window does not close it 
     })));
     assert.equal(w.done, false, 'the window stands the instant the host mounts it');
 
-    // world.js:12706 delivers THAT SAME KEY'S release into the slot.
+    // world.js:12715 delivers THAT SAME KEY'S release into the slot.
     tt.keyup({ code: 'KeyR', key: 'r' });
     assert.equal(w.done, false,
       'the opening release closes nothing: its press was the HOST\'s, not this window\'s '

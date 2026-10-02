@@ -16,13 +16,15 @@ export const TIMER_KINDS = Object.freeze(['gate', 'raid', 'battle', 'seat', 'res
 /**
  * The hourglass, the button beside the profile mark.
  * @param {Document} doc
- * @param {{ onOpen: () => void }} o
+ * @param {{ onOpen: () => void, open?: boolean }} o
  */
-export function timersMark(doc, { onOpen }) {
+export function timersMark(doc, { onOpen, open = false }) {
   const b = doc.createElement('button');
   b.type = 'button';
   b.className = 'px-timersmark';
   b.setAttribute('aria-label', 'Timers: gates, raids, battles and resets');
+  b.setAttribute('aria-haspopup', 'dialog');   // AUDIT TIMERS1 UI-6
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
   b.title = 'Timers';
   const glass = doc.createElement('span');
   glass.className = 'px-hourglass';
@@ -45,6 +47,20 @@ export function placeBeside(mark, profile, host, gap = 10) {
   mark.style.top = `${Math.round(p.top - h.top + (p.height - (mark.offsetHeight || p.height)) / 2)}px`;
 }
 
+/** AUDIT TIMERS1 UI-3: placed ONCE, the hourglass stood on the profile's caption after a phone turned (the pause face
+ *  re-renders on no resize) and wherever the caption changed width - the web font landing, a sign-in. It is placed
+ *  again whenever either box or the window changes size; the answer is the disconnect, for the caller's teardown. */
+export function anchorBeside(mark, profile, host, gap = 10) {
+  const place = () => placeBeside(mark, profile, host, gap);
+  globalThis.requestAnimationFrame?.(place);
+  const RO = globalThis.ResizeObserver;
+  const ro = RO ? new RO(place) : null;
+  ro?.observe?.(profile); ro?.observe?.(host);
+  globalThis.addEventListener?.('resize', place);
+  globalThis.document?.fonts?.ready?.then?.(place).catch?.(() => {});
+  return () => { ro?.disconnect?.(); globalThis.removeEventListener?.('resize', place); };
+}
+
 /**
  * The window. `read()` answers the host's live source for eventTimerRows - { now, gate, seats, zero, raids } with
  * `now` the relay's clock - or null when there is none (offline). Returns { root, stop }: the caller stops the tick
@@ -60,10 +76,16 @@ export function timersWindow(doc, { read, onClose, every = 1000 }) {
     return n;
   };
   const win = el('div', 'px-win px-timerswin');
+  // AUDIT TIMERS1 UI-6: a dialog, said so - modal over the pause face, named by its title
+  win.setAttribute('role', 'dialog');
+  win.setAttribute('aria-modal', 'true');
+  win.setAttribute('aria-labelledby', 'tm-title');
   for (const c of ['tl', 'tr', 'bl', 'br']) win.append(el('span', `px-gem px-corner px-${c}`));
   const body = el('div', 'px-body');
   const head = el('div', 'tm-head');
-  head.append(el('h3', 'tm-title', 'Timers'));
+  const title = el('h3', 'tm-title', 'Timers');
+  title.id = 'tm-title';
+  head.append(title);
   const close = el('button', 'act tm-close', 'Close');
   /** @type {any} */ (close).type = 'button';
   close.addEventListener('click', () => onClose());
@@ -87,7 +109,9 @@ export function timersWindow(doc, { read, onClose, every = 1000 }) {
       shape = nextShape;
       cells = new Map();
       list.textContent = '';
-      if (!rows.length) list.append(el('p', 'tm-empty', 'Nothing is scheduled.'));
+      // AUDIT TIMERS1 UI-8: the rows are never empty while there is a clock (the days and the gate always stand), so an
+      // empty list is the source gone - the connection, not the calendar - and says so
+      if (!rows.length) list.append(el('p', 'tm-empty', 'The world\'s clock cannot be read right now.'));
       let section = null;
       for (const r of rows) {
         if (section !== r.live) {
@@ -117,7 +141,12 @@ export function timersWindow(doc, { read, onClose, every = 1000 }) {
       if (c.when.textContent !== when) c.when.textContent = when;
     }
   };
+  let tick = null;
+  // AUDIT TIMERS1 UI-10: a window taken out of the page without its stop stops itself on the next tick
+  const step = () => { if (win.isConnected === false && tick) { clearInterval(tick); tick = null; return; } draw(); };
   draw();
-  const tick = setInterval(draw, every);
-  return { root: win, stop: () => clearInterval(tick), draw };
+  tick = setInterval(step, every);
+  // AUDIT TIMERS1 UI-5: the focus goes INTO the window (it had stayed on the hourglass, under the scrim)
+  globalThis.requestAnimationFrame?.(() => close.focus?.());
+  return { root: win, stop: () => { if (tick) clearInterval(tick); tick = null; }, draw, close };
 }

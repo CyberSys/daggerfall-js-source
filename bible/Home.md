@@ -274,7 +274,7 @@ combat line numbers below are refreshed with it.
 - `src/scenes/seatBanners.js:30` - and dungeonContext.js stand no street; exterior.js (the bench) FLAGGED -
 - `src/systems/playerTorch.js:12` - arm is FLAGGED here rather than guessed - see the note below.
 - `src/systems/playerTorch.js:51` - FLAGGED (blocked on data this reference tree does not carry): the
-- `src/ui/enhancedMenu.js:4465` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
+- `src/ui/enhancedMenu.js:4473` - FLAGGED: the rest of the keyboard. The wizard walks to `done` with
 - `src/ui/pauseWindow.js:65` - FLAGGED: PauseOptionsDropdown (:83-84) - DFU's own quick-settings
 
 ## Audits

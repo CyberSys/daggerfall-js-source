@@ -29,17 +29,21 @@ test('TIMERS1: the gate\'s row is gateLaw\'s - coming to its opening, live to it
 });
 
 test('TIMERS1: the seat week is townSeatLaw\'s - the Reckoning and the Turning (Sunday 18:00 UTC), and a Season\'s end', () => {
-  const rows = eventTimerRows({ now: NOW, zero: 0 });
+  const rows = eventTimerRows({ now: NOW, zero: 0, seatsOpen: true });
   const turning = seatWeekStartMs(seatWeekOf(NOW) + 1);
   assert.equal(byId(rows, 'turning').at, turning);
   assert.equal(new Date(turning).getUTCDay(), 0, 'a Sunday');
   assert.equal(new Date(turning).getUTCHours(), 18, '18:00 UTC');
   assert.equal(byId(rows, 'reckoning').at, turning - SEAT_RECKONING_MS, 'the Muster counts to the Reckoning');
   assert.equal(byId(rows, 'reckoning').live, false);
-  const reck = eventTimerRows({ now: turning - 3600_000 });
+  const reck = eventTimerRows({ now: turning - 3600_000, seatsOpen: true });
   assert.deepEqual([byId(reck, 'reckoning').live, byId(reck, 'reckoning').at], [true, turning], 'in the Reckoning: live to the Turning');
   assert.ok(rows.some((r) => r.id.startsWith('season:') && /ends$/.test(r.title)), 'a counted Season names its end');
-  assert.ok(!eventTimerRows({ now: NOW }).some((r) => r.id.startsWith('season:')), 'no zero, no Season');
+  assert.ok(!eventTimerRows({ now: NOW, seatsOpen: true }).some((r) => r.id.startsWith('season:')), 'no zero, no Season');
+  // AUDIT TIMERS1 D5: an account the seats are not open to is not told of their week
+  const shut = eventTimerRows({ now: NOW, zero: 0 });
+  assert.ok(!shut.some((r) => r.kind === 'seat'), 'no Reckoning, no Turning, no Season for a closed account');
+  assert.doesNotMatch(byId(shut, 'daily').detail, /Watch/, '...nor the Watch\'s daily cap');
 });
 
 test('TIMERS1: the week\'s battles from the seats list - coming to the start, live to the end; the Royal Tourney to the Turning', () => {
@@ -52,6 +56,21 @@ test('TIMERS1: the week\'s battles from the seats list - coming to the start, li
     { key: 's', name: 'Sentinel', tier: 'crown', holder: { edict: 'royal-tourney' } },
   ];
   const rows = eventTimerRows({ now: NOW, seats });
+  // AUDIT TIMERS1 D1: the service's shape - each side the guild record, never a name; a revolt names the holder alone
+  const g = (name, tag) => ({ id: 1, name, tag, heraldry: {} });
+  const real = eventTimerRows({ now: NOW, seats: [
+    { key: 'a', name: 'Anticlere', tier: 'palace', battle: { kind: 'siege', guild: g('Silver Hand', 'SH'), against: g('the Ebon Oath', 'EO'), startsAt: start / 1000, state: 'scheduled' } },
+    { key: 'b', name: 'Ilessan', tier: 'palace', holder: { guild: g('Crows', 'CR') }, battle: { kind: 'revolt', guild: null, startsAt: start / 1000, state: 'scheduled' } },
+    { key: 'c', name: 'Kvatch', tier: 'palace', battle: { kind: 'tourney', guild: g('Red Hand', 'RH'), startsAt: start / 1000, state: 'scheduled' } },
+  ] });
+  assert.equal(byId(real, 'battle:a').where, 'Silver Hand <SH> against the Ebon Oath <EO>');
+  assert.equal(byId(real, 'battle:b').where, 'Against Crows <CR>');
+  assert.equal(byId(real, 'battle:c').where, 'Red Hand <RH>');
+  assert.ok(!real.some((r) => /object Object/.test(`${r.where} ${r.title}`)), 'no "[object Object]" anywhere');
+  // AUDIT TIMERS1 D2: a crown's battle over (still 'scheduled' until the Turning) does not hide its Royal Tourney
+  const crown = eventTimerRows({ now: NOW, seats: [{ key: 'r', name: 'Wayrest', tier: 'crown', holder: { edict: 'royal-tourney' },
+    battle: { kind: 'siege', startsAt: (NOW - 7200_000) / 1000, endsAt: (NOW - 4500_000) / 1000, state: 'scheduled' } }] });
+  assert.ok(byId(crown, 'royal:r'), 'the Royal Tourney still stands');
   const siege = byId(rows, 'battle:w');
   assert.deepEqual([siege.title, siege.where, siege.live, siege.at], ['Siege of Wayrest', 'The Red Hand against Crows', false, start]);
   const revolt = byId(rows, 'battle:v');
@@ -68,12 +87,19 @@ test('TIMERS1: the raids, the game day and the UTC day', () => {
     { name: 'Gone', startMs: NOW - 900_000, endMs: NOW - 60_000 },
     { name: 'Cleansed', startMs: NOW - 60_000, endMs: NOW + 60_000, done: true },
   ];
-  const rows = eventTimerRows({ now: NOW, raids });
+  const rows = eventTimerRows({ now: NOW, raids, region: 'Daggerfall' });
   const coming = rows.find((r) => r.title === 'Raid on Gothway Garden');
-  assert.deepEqual([coming.live, coming.at, coming.where, coming.detail], [false, NOW + 300_000, 'In Daggerfall', 'Orcs attack']);
-  const under = rows.find((r) => r.title === 'Raid on Ashfield');
-  assert.deepEqual([under.live, under.at], [true, NOW + 540_000]);
+  assert.deepEqual([coming.live, coming.at, coming.where, coming.detail], [false, NOW + 300_000, 'In Daggerfall', 'Orcs attack'], 'my own region\'s raid, whole');
+  // AUDIT TIMERS1 D3: every other region's raids are ONE row - the soonest to matter (one under way, to its end)
+  const else1 = byId(rows, 'raids:elsewhere');
+  assert.deepEqual([else1.title, else1.live, else1.at, else1.where, else1.detail], ['Raids elsewhere: Ashfield', true, NOW + 540_000, 'In Wayrest', null]);
   assert.ok(!rows.some((r) => /Gone|Cleansed/.test(r.title)), 'an ended or cleansed raid says nothing');
+  const many = Array.from({ length: 22 }, (_, i) => ({ name: `T${i}`, region: `R${i % 11}`, type: 'orcs', startMs: NOW + (i + 1) * 60_000, endMs: NOW + (i + 11) * 60_000 }));
+  const crowd = eventTimerRows({ now: NOW, raids: many, region: 'R3' });
+  assert.equal(crowd.filter((r) => r.kind === 'raid').length, 3, 'twenty-two raids: R3\'s two and one row for the rest');
+  assert.equal(byId(crowd, 'raids:elsewhere').detail, '19 more today across the Iliac Bay');
+  assert.equal(byId(eventTimerRows({ now: NOW, raids: many }), 'raids:elsewhere').title, 'Next raid: T0', 'with no region known, the next one');
+  assert.equal(byId(rows, 'gameday').title, 'New bounty hunts and raids', 'AUDIT TIMERS1 D4: the event clock\'s day, said as what turns - not the calendar\'s');
   const next = byId(rows, 'gameday').at;
   assert.equal(gameDayAt(next), gameDayAt(NOW) + 1, 'the next game day');
   assert.ok(gameDayAt(next - 1) === gameDayAt(NOW), '...at its first instant');
@@ -81,7 +107,7 @@ test('TIMERS1: the raids, the game day and the UTC day', () => {
 });
 
 test('TIMERS1: live rows first, soonest end first; then what is coming, soonest first; nothing without a clock', () => {
-  const rows = eventTimerRows({ now: NOW, raids: [{ name: 'A', startMs: NOW - 1, endMs: NOW + 5000 }] });
+  const rows = eventTimerRows({ now: NOW, seatsOpen: true, raids: [{ name: 'A', startMs: NOW - 1, endMs: NOW + 5000 }] });
   const firstComing = rows.findIndex((r) => !r.live);
   assert.ok(rows.slice(0, firstComing).every((r) => r.live) && rows.slice(firstComing).every((r) => !r.live));
   for (let i = firstComing + 1; i < rows.length; i++) assert.ok(rows[i].at >= rows[i - 1].at);
@@ -93,11 +119,14 @@ test('TIMERS1: the words - a countdown in d/h, h:mm:ss or m:ss, and the moment i
   assert.equal(timerText(0), '0:00');
   assert.equal(timerText(-5000), '0:00');
   assert.equal(timerText(247_000), '4:07');
+  assert.equal(timerText(246_500), '4:07', 'AUDIT TIMERS1 D7: rounded up, as the gate\'s banner rounds');
+  assert.equal(timerText(400), '0:01');
   assert.equal(timerText(3_909_000), '1:05:09');
   assert.equal(timerText(2 * 86400_000 + 4 * 3600_000 + 59_000), '2d 04h');
   const today = new Date(2026, 9, 2, 9, 0).getTime();
   assert.equal(localWhenText(new Date(2026, 9, 2, 18, 5).getTime(), today), '18:05');
   assert.equal(localWhenText(new Date(2026, 9, 4, 18, 0).getTime(), today), 'Sun 18:00');
+  assert.equal(localWhenText(new Date(2026, 9, 18, 18, 0).getTime(), today), 'Sun 18 Oct 18:00', 'AUDIT TIMERS1 D9: beyond the week, which Sunday');
 });
 
 // ── the window, over a document just real enough ──
@@ -135,7 +164,8 @@ test('TIMERS1: the window draws Now and Coming up, rewrites the countdowns in pl
   assert.equal(closed, 1);
   const empty = timersWindow(fakeDoc(), { read: () => null, onClose() {}, every: 1e9 });
   empty.stop();
-  assert.equal(all(empty.root, 'tm-empty')[0].textContent, 'Nothing is scheduled.', 'offline: nothing, said');
+  assert.equal(all(empty.root, 'tm-empty')[0].textContent, 'The world\'s clock cannot be read right now.', 'AUDIT TIMERS1 UI-8: no source is the connection, said so - never "nothing is scheduled"');
+  assert.deepEqual([view.root.attrs.role, view.root.attrs['aria-modal'], view.root.attrs['aria-labelledby']], ['dialog', 'true', 'tm-title'], 'AUDIT TIMERS1 UI-6: a dialog, named by its title');
 });
 
 test('TIMERS1: the hourglass - a button that opens, placed just left of the profile mark it is measured against', () => {
@@ -152,16 +182,51 @@ test('TIMERS1: the hourglass - a button that opens, placed just left of the prof
 
 test('TIMERS1 wiring: the pause face carries the hourglass where the host hands a source, and every host hands the world\'s', () => {
   const menu = read('src/ui/enhancedMenu.js');
-  assert.match(menu, /home\.append\(profileMark\(\)\);[\s\S]{0,600}?if \(hooks\.timers\?\.\(\)\) \{\s*\n\s*const mark = timersMark\(document,/, 'beside the profile mark, online only');
-  assert.match(menu, /const back = accountOpen \? \(\) => \{ accountOpen = false; render\(\); \}\n\s*: timersOpen \? \(\) => \{ timersOpen = false; render\(\); \}/, 'Escape closes the window before it resumes');
+  assert.match(menu, /home\.append\(profileMark\(\)\);[\s\S]{0,600}?if \(hooks\.timers\?\.\(\)\) \{\s*\n\s*mark = timersMark\(document, \{ open: timersOpen,/, 'beside the profile mark, online only');
+  assert.match(menu, /timersAnchor = anchorBeside\(mark, home\.querySelector\?\.\('\.px-profile'\), home\);/, 'AUDIT TIMERS1 UI-3: placed again on every resize');
+  assert.match(menu, /for \(const n of \[stage, home\.querySelector\?\.\('\.px-profile'\), mark\]\) n\?\.setAttribute\?\.\('inert', ''\);/, 'AUDIT TIMERS1 UI-5/UI-7: the pause face under the window is out of reach');
+  assert.match(menu, /read: \(\) => hooks\.timers\?\.\(\{ ask: true \}\) \?\? null/, 'AUDIT TIMERS1 UI-9: only the window read asks the service');
+  assert.match(read('src/ui/plusPad.js'), /const visible = \(n\) => !!n && n\.isConnected !== false && !n\.closest\?\.\('\[inert\]'\)/, 'a bumper turns no inert tabs');
+  assert.match(menu, /const back = accountOpen \? \(\) => \{ accountOpen = false; render\(\); \}\n\s*: timersOpen && timersView \? \(\) => \{ timersOpen = false; timersFocusBack = true; render\(\); \}/, 'Escape closes a DRAWN window before it resumes (AUDIT TIMERS1 UI-11)');
   assert.match(menu, /stopTimers\(\);   \/\/ TIMERS1: a rebuild/, 'a rebuild stops the old tick');
   assert.match(menu, /timersOpen = false;   \/\/ TIMERS1: and the timers window the same/, 'a visit\'s window');
   const world = read('src/scenes/world.js');
-  assert.match(world, /const timersSource = \(\) => \{\n\s*if \(!online\) return null;/, 'offline: no source, no hourglass');
+  assert.match(world, /const timersSource = \(\{ ask = false \} = \{\}\) => \{\n(\s*\/\/[^\n]*\n)*\s*try \{\n(\s*\/\/[^\n]*\n)*\s*if \(!online \|\| !_sharedClockHeard\) return null;/, 'offline, or before the relay\'s clock: no source, no hourglass');
+  assert.match(world, /\} catch \{ return null; \}\n  \};\n  const pauseDoorHooks/, 'AUDIT TIMERS1 D6: a pause before the boot declared what it reads is no timers, never a throw');
   assert.equal((world.match(/timers: timersSource,/g) ?? []).length, 2, 'the street\'s pause bag and the modes host');
   assert.match(read('src/scenes/worldModes.js'), /timers: host\.timers,/, 'a building\'s pause');
-  assert.match(read('src/scenes/worldModes.js'), /timers: \(\) => host\.timers\?\.\(\) \?\? null,/, 'the dungeon\'s opts');
-  assert.match(read('src/scenes/dungeonContext.js'), /timers: \(\) => opts\.timers\?\.\(\) \?\? null,/, 'the dungeon\'s pause');
+  assert.match(read('src/scenes/worldModes.js'), /timers: \(o\) => host\.timers\?\.\(o\) \?\? null,/, 'the dungeon\'s opts, the ask carried');
+  assert.match(read('src/scenes/dungeonContext.js'), /timers: \(o\) => opts\.timers\?\.\(o\) \?\? null,/, 'the dungeon\'s pause');
+  assert.match(world, /if \(ask && seatBook\?\.open !== false && now - _timersSeatAsk > 60_000\)/, 'the seats list asked only by the window');
   assert.match(ENHANCED_CSS, /\n\.px-timersmark \{ position: absolute;/);
   assert.match(ENHANCED_CSS, /\n\.px-win\.px-timerswin \{/);
+});
+
+// ── AUDIT TIMERS1, the UI lens: measured in Chromium over the real pause face, held here where it was fixed ──
+const lum = (hex) => {
+  const c = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+test('AUDIT TIMERS1 UI-1/UI-2/UI-4: the stage centres on every screen, the pause window clears the corner marks, Stone reads', () => {
+  assert.match(ENHANCED_CSS, /\n\.px-stage\.px-timersstage \{ display: grid; justify-content: center; align-content: center;/, 'two classes - the pause stage\'s short-screen padding and flex-start cannot take it');
+  assert.match(ENHANCED_CSS, /\.px-over \.px-stage:not\(\.px-acctstage\):not\(\.px-timersstage\) \{ padding-top: max\(7dvh, 64px\); \}/, 'a short screen\'s pause window under the 56px marks');
+  assert.match(ENHANCED_CSS, /@media \(max-height: 560px\) \{\n\s*\.px-stage\.px-timersstage \{ padding: 10px 12px; \}\n\s*\.px-win\.px-timerswin \{ max-height: calc\(100dvh - 20px\); \}\n\s*\.px-timersword \{ display: none; \}/);
+  const stone = '#51514c';   // Stone's panel, measured under the window
+  for (const [what, c] of [['dim', '#e2dccd'], ['brass', '#ffd98a'], ['where', '#fbf8f0'], ['count', '#ffe3a6'], ['live count', '#c8ffd6']]) {
+    assert.ok(contrast(c, stone) >= 4.5, `Stone ${what} ${c} at ${contrast(c, stone).toFixed(2)}:1`);
+    assert.ok(ENHANCED_CSS.includes(c), `${c} in the sheet`);
+  }
+  assert.match(ENHANCED_CSS, /:root\[data-plus-theme="stone"\] \.px-timerswin \{ --dim: #e2dccd; --brass: #ffd98a;/);
+});
+
+test('AUDIT TIMERS1 UI-10: a window taken out of the page stops its own tick', () => {
+  let reads = 0;
+  const view = timersWindow(fakeDoc(), { read: () => { reads++; return { now: NOW }; }, onClose() {}, every: 5 });
+  view.root.isConnected = false;   // removed from the page, its stop never called
+  return new Promise((done) => setTimeout(() => {
+    const was = reads;
+    setTimeout(() => { assert.equal(reads, was, 'no more reads once the tick saw it gone'); assert.equal(was, 1, 'only the first draw read'); view.stop(); done(); }, 40);
+  }, 40));
 });
