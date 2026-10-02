@@ -16,6 +16,8 @@ import { LV2_CSS } from './levelUpStyle.js';
 import { MOTION_CSS } from './windowMotion.js';
 import { CURSOR_CSS } from './plusCursor.js';   // PLUS7: the gauntlet pointer
 import { SIGIL_RUNE_TILE_URL } from './sigilRune.js';   // SIGIL-UI: the rune in a sigil weapon's tile corner (AUDIT MERGE-PLUS D5: a picture, its outline drawn in)
+import { PROF_ACT_CSS } from './profActStyle.js';   // PROF-RETICLE: the acts on the crosshair, dressed
+import { PROF_STATION_CSS } from './profStationStyle.js';   // PROF-STATIONS: the stations' acts, dressed
 
 export const PLUS_STYLE_ID = 'enhanced-plus-style';
 
@@ -1298,7 +1300,9 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
   .market-line { display: none; }
   .market-auction { grid-template-columns: minmax(0, 1fr); } .market-auction > * { grid-column: 1 / -1; }
   .market-row b { white-space: normal; overflow-wrap: anywhere; } }
-@media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }`;
+@media (prefers-reduced-motion: reduce) { .prof-glint { animation: none; } .prof-toast { transition: none; } }
+${PROF_ACT_CSS}
+${PROF_STATION_CSS}`;
 export const ITEM_FRAME_CSS = `
 /* ── RARITY-UI: THE TIER ON THE ICON'S FRAME ── */
 ${rarityVarsCss()}

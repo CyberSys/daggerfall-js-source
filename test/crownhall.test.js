@@ -129,7 +129,7 @@ test('CROWN-HALL the hosts by source: the throne room stood at the dungeon\'s mo
   assert.match(m, /if \(dungeonCtx !== ctx \|\| dungeonLoc !== loc\) return;/);
   assert.match(m, /const crownHallLive = \(\) => \(crownHall && crownHall\.loc === dungeonLoc && crownHere\(\) \? crownHall : null\);/);
   assert.match(m, /dungeonLoc = null;\n    pendingDungeonWagonOpen = false;[^\n]*\n    crownHall = null;/);
-  assert.match(m, /dungeonCtx\.destroy\(\); dungeonCtx = null; dungeonLoc = null;\n        pendingDungeonWagonOpen = false;[^\n]*\n        crownHall = null;/);
+  assert.match(m, /crownHall = null;[^\n]*\n        dungeonCtx\.destroy\(\); dungeonCtx = null; dungeonLoc = null;/);
   assert.match(m, /host\.drawModeMeshes\?\.\(\);[^\n]*\n      drawCrownHall\(\{ proj, view, eye: mwv\.eye \}\);/);
   assert.match(m, /for \(const p of h\.pieces\) renderer\.drawMesh\(p\.gpu, p\.matrix, null\);/);
   assert.match(m, /host\.drawDungeonBanners\?\.\(\{ \.\.\.frame, banners: h\.banners\.map\(\(b, i\) => \(\{ \.\.\.b, key: bannerKeyOf\(heraldry\), heraldry, phase: i \}\)\) \}\);/);

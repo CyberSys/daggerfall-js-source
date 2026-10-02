@@ -493,7 +493,7 @@ export const ACTION_GROUPS = Object.freeze([
     ['SocialInteract', 'Interact with player'],
   ]),
   g('Professions', [
-    ['ActChoice', 'At an herb patch: the herbs or the Basket; at a body: skin it or search it'],
+    ['ActChoice', 'At a profession node: the next of its acts on the list'],   // PROF-MENU: the node's list is the plaque's - the key steps its light
     ['Professions', 'Open your Professions and Stores (online)'],   // CLASSIC-PAGES: the pages on either skin   // PROF1 - Interact starts the act, attack plays the Basket's, Escape ends it; AUDIT 32 R1: PROF7's body (the knife's trace drawn with Interact held)
   ]),
   g('Game', [

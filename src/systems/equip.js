@@ -333,7 +333,7 @@ export function fillEquipTable(slots, items) {
  *  chargenSession.js:142 (?class= headless) and :235 (the wizard) -
  *  and the guard below (`entity.equip || items.length`) makes this a
  *  no-op for any character that went through either. What is left is
- *  residue at the two host calls (world.js:5178, exterior.js:1305):
+ *  residue at the two host calls (world.js:5188, exterior.js:1305):
  *  a chargenDone entity whose bag AND equip table are both empty
  *  still takes a free dagger here. Deleting the calls is a behaviour
  *  change, so it waits for a slice that owns one. */
@@ -484,6 +484,23 @@ let _wearScale = CONDITION_WEAR_SCALE;
  *  a scale of 1 draws no roll, so a scripted DFU roll sequence stays DFU's.
  *  No argument puts the port's scale back. */
 export function _wearScaleForTests(scale = CONDITION_WEAR_SCALE) { _wearScale = scale; }
+
+/** WEAR-TWICE (2026-10-02, the field, of the economy triage: "maybe we overdid it too much. Good changes all around but
+ *  I still want there to be some challenge"; asked which lever, "Faster wear"): THE PORT'S OWN WEAR IS TWICE DFU'S. A
+ *  blow's DamageEquipment amount - (10 x damage + 50) / 100, the 20% floor roll's 1 included - is doubled where DFU's
+ *  member wears gear (formulas.js damageEquipment: the overhaul's core and DFU's own) and on a duel's blade
+ *  (scenes/world.js). At DFU's own rate (WEAR-VANILLA) a steel longsword lost about 6.5% of itself to a hundred swings
+ *  and armour hardly wore, so wear put no pressure on an outing - the economy arc's friction ("the pressure to return
+ *  is capacity, supplies and wear, never price", 06-Systems/Economy-Arc.md). The mods' own wear modules, which a
+ *  player may turn on offline, keep their own amounts; repairs keep REPAIR-RATE's third. A whole number, so it draws
+ *  no roll. A departure (Ledger A, WEAR-TWICE). */
+export const DFU_WEAR_MULTIPLE = 2;
+let _dfuMultiple = DFU_WEAR_MULTIPLE;
+/** TEST SEAM: the files that pin DFU's DamageEquipment verbatim run it at 1, beside the scale's own seam above
+ *  (wear_vanilla.test.js pins the 2). No argument puts the port's back. */
+export function _dfuWearMultipleForTests(m = DFU_WEAR_MULTIPLE) { _dfuMultiple = m; }
+/** WEAR-TWICE: a blow's DFU amount as the port wears it - the multiple, then the scale (blowWear). */
+export const dfuBlowWear = (amount, rolls = Math.random) => (amount > 0 ? blowWear(amount * _dfuMultiple, rolls) : amount);
 
 /** A blow's wear on the port's scale. The amounts are small (a blade's is
  *  0-2 a hit), so under a fractional scale the fraction is ROLLED rather

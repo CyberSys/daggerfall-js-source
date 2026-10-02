@@ -236,6 +236,8 @@ export function mineKind({ book }) {
       return (specs('mining')[50] === 'prospector' && PROSPECTOR_MARKS[n.what]) || MINE_MARKS[n.what] || MINE_MARKS.vein;
     },
     tools: Object.freeze([FT.PickAxe]),   // TOOL-USE: the Pick-Axe's Use at a vein or a boulder is E there
+    /** PROF-MENU: the menu's title - the boulder, or the vein's ore. */
+    nodeName: (n) => (n.what === 'boulder' ? 'Boulder' : `${materialLabel(n.material).replace(/ Ore$/, '')} Vein`),
     plan(n, { entity, rank }) {
       const plan = minePlan({
         node: n, taken: book.taken(n.key, harvestOf(n)), counting: book.counting(n.key, harvestOf(n)), rank: rank('mining'),

@@ -65,8 +65,8 @@
   {
     "name": "AUDIT-PARTY-UI-2-the-map-always-offered",
     "file": "src/ui/socialPanel.js",
-    "old": "r.append(btn('Travel map', { enabled: !why, why, run: () => j.openMap?.() }));",
-    "new": "r.append(btn('Travel map', { run: () => j.openMap?.() }));",
+    "old": "r.append(btn('Travel map', { enabled: !why, why, run: () => { resumeParty = true; j.openMap?.(); } }));",
+    "new": "r.append(btn('Travel map', { run: () => { resumeParty = true; j.openMap?.(); } }));",
     "tests": [
       "test/soc3_socialpanel.test.js"
     ]

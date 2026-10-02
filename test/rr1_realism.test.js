@@ -36,12 +36,13 @@ import { createFactionRep, getReputation } from '../src/systems/factionRep.js';
 import { SKILLS } from '../src/systems/skills.js';
 import { WEAPONS, WEAPON_MATERIALS } from '../src/characters/weapons.js';
 import { mintCondition, setItemFields } from '../src/systems/itemTemplates.js';
-import { equipTableOf, EQUIP_SLOTS, _wearScaleForTests } from '../src/systems/equip.js';
+import { equipTableOf, EQUIP_SLOTS, _wearScaleForTests, _dfuWearMultipleForTests } from '../src/systems/equip.js';
 import { liveStat, FATIGUE_DRAIN_SCALE } from '../src/systems/statMods.js';
 import { carriedWeight } from '../src/systems/inventory.js';
 
 // BALANCE1: this file pins DFU's / the mod's own wear verbatim, so it runs the port's wear scale at 1 (test/balance1.test.js pins the scale)
 _wearScaleForTests(1);
+_dfuWearMultipleForTests(1);   // WEAR-TWICE: and DFU's amount unmultiplied (wear_vanilla.test.js pins the 2)
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const rd = (p) => readFileSync(join(ROOT, p), 'utf8');

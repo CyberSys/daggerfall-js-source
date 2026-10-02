@@ -42,8 +42,8 @@ Built on the updated source. Covers the Overworld UI, the enemy sprites, attacki
 - Near a roaming band (inside about 420 m) its lead monster's animated sprite fades in over the land, sized like your own sprite. It is fully visible inside about 240 m. Hiding Enemies hides these too.
 
 ## Enemy slowdown starts later
-- Fast travel still slows as enemies get close, but it starts much later. The game used to guarantee 5 real seconds before you reach an enemy's sight range; it now guarantees 2 (`THREAT_WARN_S` in `systems/travelThreat.js`, one number to tune).
-- A rider at ×40 now starts slowing about 1.3 km before a band's sight range instead of about 3.2 km. On foot at ×40 it's about 280 m instead of 700 m.
+- Fast travel still slows as enemies get close, but it starts much later. The game used to guarantee 5 real seconds before you reach an enemy's sight range; it now guarantees 0.6 (`THREAT_WARN_S` in `systems/travelThreat.js`, one number to tune).
+- A rider at ×40 now starts slowing about 380 m before a band's sight range instead of about 3.2 km. On foot at ×40 it's about 85 m instead of 700 m.
 - You still reach the enemy's sight range at walking pace.
 
 ## Nearby-dungeon messages show again during travel

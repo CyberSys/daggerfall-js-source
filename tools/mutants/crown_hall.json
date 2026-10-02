@@ -191,8 +191,8 @@
   {
     "name": "CROWN-HALL-teardown2",
     "file": "src/scenes/worldModes.js",
-    "old": "        crownHall = null;   // CROWN-HALL: nor its throne room's pieces\n",
-    "new": "",
+    "old": "        crownHall = null;   // CROWN-HALL: nor its throne room's pieces\n        dungeonCtx.destroy();",
+    "new": "        dungeonCtx.destroy();",
     "tests": [
       "test/crownhall.test.js"
     ]

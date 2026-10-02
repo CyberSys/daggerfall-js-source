@@ -254,6 +254,8 @@ export function fishKind({ book, host }) {
       translation = t;
       if (live && !live.act.state.done && tooTiredForTheWater(live.entity)) { live.act.cancel(); live = null; }   // FISH-TIRED
     },
+    /** PROF-MENU: the menu's title - the water the net is cast on. */
+    nodeName: () => 'Open Water',
     plan(n, { rank, entity }) {
       const plan = fishPlan({
         taken: book.taken(n.key, 'fish'), counting: book.counting(n.key, 'fish'), hauls: book.state.hauls ?? 0, cap: book.state.caps?.hauls ?? HAULS_PER_DAY,

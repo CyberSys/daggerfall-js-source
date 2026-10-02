@@ -994,7 +994,7 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
-| **PROF11** - BUILT 2026-10-01 (section 33) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
+| **PROF11** - BUILT 2026-10-01 (section 34) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
 | **PROF12** | Alchemy and Enchanting layers; Disenchanting | - |
 
 ## 16. What remains to measure
@@ -2634,7 +2634,32 @@ four (its last section). What the arc's laws now say, by section:
   alone (5's acts, as the Sickle's Use holds the steady hand). **HERB-XP** - Mac: "XP follows your rank": a herb is
   picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct46 (past main's PATREON-LINK, acct45).
 
-## 33. PROF11 - Masonry, as built (BUILT 2026-10-01)
+## 33. PROF-MENU, PROF-RETICLE, PROF-STATIONS - the acts on the loot list and on the crosshair (BUILT 2026-10-01)
+
+Mac: "They should use the same menu the loot menu uses and not an interaction button" (asked, "One loot-style list");
+then, of the illustrated panels PROF-SCENES built, "move away from the overcomplicated minigame visuals and instead use
+the mechanics on something that doesnt cover the screen" (asked, "Around the crosshair"; the stations, "keep them
+simple"). The record is `01-Overview/Field-Bugs-2026-10-01d.md`; every act's rules, timings and report are 5's and 8's,
+unmoved.
+
+- **The list (PROF-MENU).** A node under the look is the world plaque's list, the loot pile's own: its name, its
+  profession's word, its acts as verb rows - a refused act with its reason, the first pressable lit first
+  (`scenes/gatherHost.js` `hoverHit`/`hoverName`, worldHover's 'actions' frame). A row is pressed as a loot row - the
+  click, the activate key, a tap - and a hold-act so started is held by the press, as a tool's Use holds it. ActChoice
+  walks the rows. Without the plaque (classic, touch) a list window asks. 21's prompt stays the fallback's line.
+- **The act (PROF-RETICLE, replacing PROF-SCENES).** No box and no title: each act's mechanic on and about the reticle
+  (`ui/profReticle.js`, `ui/profActStyle.js`) through the frame's own lens (`ui/worldPlaque.js` `reticleAnchor`) -
+  the mine's points and the knife's line where they stand on the node, the glint's double reach and the trace's
+  tolerance at their true size; the chop's ring, the hold's arc, the Basket's glint, the float and the haul's bar about
+  the crosshair; the count's pips and one hint under it that fades after 2.5 s unchanged. Still forms under reduced
+  motion; every cue a sound (`systems/profSounds.js`).
+- **The stations (PROF-STATIONS).** The heat, the stitch's beat and the plane keep their bars and rules, dressed in the
+  plaque's frame and the kit's tones (`ui/profStationStyle.js`); no pictures.
+
+`test/profreticle.test.js` (10), `test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profreticle.json` (57),
+`profmenu.json`; `tools/profReticleProbe.mjs`.
+
+## 34. PROF11 - Masonry, as built (BUILT 2026-10-01)
 
 Mac: **"We need to do a comprehensive audit on everything and finish the not done"** (2026-10-01, with the Seats arc's
 audit - Masonry is 15's next slice and SEAT2b's need). What sections 3.2, 3.3, 4.5, 4.8, 9.3 and 9.4 left open for

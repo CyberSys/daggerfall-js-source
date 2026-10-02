@@ -118,9 +118,20 @@ multiplier - gear wore 1.3-2.5 times DFU's rate a swing (a level-20 player
 in Daedric lost 2.5 times DFU's armour to a Knight's swing); below it,
 armour 0.71-0.86 times and a blade 1.17-1.22 times (`calculateAttackDamage`
 over the same seeded fights, steel at level 10 and Daedric at level 20,
-against every mod off). With REPAIR-RATE's third, a Daedric longsword's
-repair is 1.65-3.20 gold a landed hit (`06-Systems/Economy-Arc.md`). The
-module on keeps the mod's own wear, before the reduction, as the mod has it.
+against every mod off). The module on keeps the mod's own wear, before the
+reduction, as the mod has it.
+
+**Twice DFU's amount (WEAR-TWICE, 2026-10-02, the field: "maybe we overdid
+it too much ... I still want there to be some challenge"; of four levers,
+"Faster wear").** DFU's member wears twice its amount - the 20% floor roll's
+1 included - on every path it serves (the overhaul's core and DFU's own),
+and a duel's blade the same (`systems/equip.js` `DFU_WEAR_MULTIPLE`,
+`dfuBlowWear`). At DFU's own amount a steel longsword lost about 6.5% of
+itself to a hundred swings and armour hardly wore; at twice it, 13%, and
+per swing armour wears 1.4-1.7 times DFU's and a blade 2.3-2.5 times (the
+same seeded fights). With REPAIR-RATE's third, a Daedric longsword's repair
+is 3.3-6.4 gold a landed hit (`06-Systems/Economy-Arc.md`). The mods' own
+wear modules, turned on offline, keep their own amounts.
 A soft weapon still wears by what it deals: an iron blade on a Ghost does
 nothing in DFU and wears nothing, and does a little under the soft-material
 requirements and wears that little.
