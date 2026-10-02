@@ -33,6 +33,7 @@ import { ARENA_TEXT } from '../systems/arenaText.js';
 import { arenaScoreFor } from '../systems/arenaScore.js';
 import { crowdSeats, pickSeats, RING_R } from '../world/arenaFloor.js';
 import { arenaHudModel } from '../ui/arenaHud.js';
+import { rollLeague, leagueAfterBout, laurelWorn, laurelBanner, LAUREL_FAVOUR } from '../systems/arenaLeague.js';   // ARENA3: the banners, the laurel, the Records page
 
 /** ARENA-FIX 10: A CRIT is the formula's own critical-strike roll (combat/formulas.js calculateAttackDamage's notes,
  *  told through `observeAttackResolution` and matched to the blow the damage door hears - `attackResolved` below).
@@ -70,7 +71,9 @@ export const THROW_MS = 900;
  *   drawHud?: (model: any, o?: any) => void,
  *   renderer?: any, getTexture?: (archive: number) => Promise<any>, uploadRecordFrame?: (a: number, r: number, f: number) => void,
  *   pay?: (gold: number) => void, heal?: () => void, crime?: () => void, ladderChanged?: (ladder: any, out: any) => void,
+ *   gameMinutes?: () => number,
  * }} deps
+ *   ARENA3: `gameMinutes` the game's clock (the season a ladder bout's points go to, the laurel, the Records page's day).
  */
 export function createArenaBouts(deps) {
   const now = deps.now ?? (() => performance.now());
@@ -148,6 +151,7 @@ export function createArenaBouts(deps) {
       practice, quiet: practice, ring: stage.radius ?? RING_R, lastBlow: new Map(), walking: new Set(),
       lastHealth: P?.health ?? 0, lastSheathed: null, verdictAt: NaN, doneAt: NaN, paid: false, said: false, crowdSeats: null,
       crowdBatches: [], throws: [], spawning: 0, title: false, startedAt: t, bark: '', barkAt: -Infinity, ringed: null,
+      teams: boutTeams(ladder, practice, fighters),
     };
     if (ladder) deps.setPlayerBout?.(cur.playerTag);
     // ARENA-FIX 8: THE ENTRANCE - each fighter stands at the mouth of its side's passage under the tiers (the floor's
@@ -185,7 +189,31 @@ export function createArenaBouts(deps) {
       ring: { centre: [c[0], c[2]], radius: C.ring }, now: t, tier: C.ladder ? C.next.tier : C.ex.tier, label: C.ladder ? C.next.label : '',
     });
     C.crowd = newCrowd({ fighters: C.roster.map((f) => ({ id: f.id, home: f.home, ai: f.ai })), beasts: C.ladder ? !!C.next.beasts : !!C.ex.beasts });
+    laurelFavour(C);
     if (!C.quiet) buildCrowd(C);
+  }
+
+  // ── THE BANNERS (ARENA3) ────────────────────────────────────────────────────────────────────────────────
+  /** Each fighter's banner on the versus bar: in a ladder bout mine (the banner I wear - none, no mark) and the house's
+   *  fighters none; an exhibition is the Red Banner's fighter against the Blue's (side 0 and side 1). Never the pit's. */
+  function boutTeams(ladder, practice, fighters) {
+    /** @type {Record<string, string>} */
+    const out = {};
+    if (practice) return out;
+    if (ladder) { const team = leagueNow()?.team; if (team) out[YOU] = team; return out; }
+    for (const f of fighters) out[f.id] = f.side === 0 ? 'red' : 'blue';
+    return out;
+  }
+  const leagueNow = () => { const gm = deps.gameMinutes?.(); return P && Number.isFinite(gm) ? rollLeague(P.arenaLeague, gm) : null; };
+  /** THE LAUREL: the crowd favours the fighters of the banner that won last season from the first bell - me, when I
+   *  wear it; an exhibition's fighter in its colours. */
+  function laurelFavour(C) {
+    const gm = deps.gameMinutes?.();
+    if (!P || !Number.isFinite(gm) || C.practice) return;
+    if (C.ladder) { if (laurelWorn(P.arenaLeague, gm)) C.crowd.favour[YOU] = Math.min(1, (C.crowd.favour[YOU] ?? 0) + LAUREL_FAVOUR); return; }
+    const won = laurelBanner(P.arenaLeague, gm);
+    if (!won) return;
+    for (const [id, team] of Object.entries(C.teams)) if (team === won && id in C.crowd.favour) C.crowd.favour[id] = Math.min(1, C.crowd.favour[id] + LAUREL_FAVOUR);
   }
 
   // ── THE BODIES' DOORS (the pools' bout hooks) ───────────────────────────────────────────────────────────
@@ -347,7 +375,7 @@ export function createArenaBouts(deps) {
     }
     if (Number.isFinite(C.doneAt) && t - C.doneAt >= CROWD_STAYS_MS && C.stage?.kind === 'city') { dismiss(); return; }
     const bark = t - C.barkAt < BARK_SHOWN_MS ? C.bark : '';
-    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: C.quiet }) : null, { hidden: !!o.hidden, touch: !!o.touch });
+    deps.drawHud?.(near > 0 ? arenaHudModel(C.b, C.crowd, t, { you: C.you, stamina: o.stamina ?? null, bark, quiet: C.quiet, teams: C.teams }) : null, { hidden: !!o.hidden, touch: !!o.touch });
     crowdFrame(C, t);
   }
   const nearOf = (d) => (d <= NEAR_M ? 1 : d >= FAR_M ? 0 : 1 - (d - NEAR_M) / (FAR_M - NEAR_M));
@@ -455,6 +483,15 @@ export function createArenaBouts(deps) {
       else if (out.title) lines.push(V.tier(P?.name || 'You', ARENA_TEXT.tiers[C.next.tier]));
       if (out.tierUp) lines.push(ARENA_TEXT.ladder.tierUp(ARENA_TEXT.tiers[out.ladder.tier]));
       else if (won && !C.next.champion) lines.push(out.ladder.won >= 3 ? ARENA_TEXT.ladder.champOpen(ARENA_TEXT.tiers[out.ladder.tier]) : ARENA_TEXT.ladder.boutWon(out.ladder.won));
+      // ARENA3: the bout kept for the Records page, its points given to the banner worn
+      const gm = deps.gameMinutes?.();
+      if (P && Number.isFinite(gm)) {
+        const opp = C.roster.filter((f) => f.ai).map((f) => f.name).join(', ');
+        const league = leagueAfterBout(P.arenaLeague, { gameMinutes: gm, tier: C.next.tier, label: C.next.label, opp, won, how: r.side === null ? 'draw' : won ? r.how : (boutFighter(C.b, YOU)?.out ?? r.how), purse, champion: C.next.champion, grand: C.next.grand });
+        P.arenaLeague = league;
+        const pts = league.bouts[0]?.points ?? 0;
+        if (pts > 0 && league.team) lines.push(ARENA_TEXT.ladder.points(pts, ARENA_TEXT.teams.name[league.team]));
+      }
       deps.ladderChanged?.(out.ladder, out);
       deps.notice?.(lines);
     } else if (r.side !== null) { C.bark = ARENA_TEXT.purse.won(EXHIBITION_PURSE); C.barkAt = t; }

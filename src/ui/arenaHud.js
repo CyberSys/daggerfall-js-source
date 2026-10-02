@@ -16,6 +16,10 @@
 // The banner's mark (`data-banner`) is a placeholder the teams fill (ARENA3): today the player's side wears 'you' and
 // the other 'them'. `arenaHudModel` is pure - the pins' door.
 //
+// ARENA3: THE BANNERS' MARKS - each fighter of a banner wears its pennant before the name (`data-team` red | blue, the
+// `.arena-team` mark, its colour the sheet's): mine in a ladder bout when I fight under one, and an exhibition's two
+// fighters, the Red Banner's against the Blue's (scenes/arenaBouts.js boutTeams). The house's fighters wear none.
+//
 // Not a DFU member. Ledger A (ARENA).
 
 import { ARENA_TEXT } from '../systems/arenaText.js';
@@ -36,9 +40,9 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
  * or one done). `you` my fighter's id when I fight (null when I watch), `stamina` my fatigue's share (0..1).
  * `bark` the crowd's last shout (systems/arenaCrowd.js crowdBark), shown under its meter while it rings.
  * `{ phase, left: Row[], right: Row[], timer, crowd: { frac, band, word } | null (`quiet`: no crowd), stamina, hint, bark }` - each
- * Row `{ id, name, frac, out, you, tag, banner }`. Pure.
+ * Row `{ id, name, frac, out, you, tag, banner, team }`. ARENA3: `teams` each fighter's banner by id ('red' | 'blue'). Pure.
  */
-export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, bark = '', quiet = false } = {}) {
+export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, bark = '', quiet = false, teams = null } = {}) {
   if (!bout || bout.phase === 'done' || !Array.isArray(bout.fighters)) return null;
   const mine = you != null ? bout.fighters.find((f) => f.id === String(you)) ?? null : null;
   const leftSide = mine ? mine.side : bout.fighters[0].side;
@@ -48,6 +52,7 @@ export function arenaHudModel(bout, crowd, now, { you = null, stamina = null, ba
     out: f.out ? ARENA_TEXT.hud.out[f.out] ?? '' : '', you: !!mine && f.id === mine.id,
     tag: f.id === darling ? ARENA_TEXT.hud.darling : f.id === villain ? ARENA_TEXT.hud.villain : '',
     banner: f.side === leftSide ? (mine ? 'you' : 'a') : (mine ? 'them' : 'b'),
+    team: teams?.[f.id] === 'red' || teams?.[f.id] === 'blue' ? teams[f.id] : '',
   });
   const left = bout.fighters.filter((f) => f.side === leftSide).slice(0, HUD_ROWS_MAX).map(row);
   const right = bout.fighters.filter((f) => f.side !== leftSide).slice(0, HUD_ROWS_MAX).map(row);
@@ -84,6 +89,10 @@ export const ARENA_HUD_CSS = `${PIXELIFY_FIVE_FACE}
 .arena-ftr[data-out]:not([data-out=""]) .arena-ftr-name { opacity: 0.6; }
 .arena-tag { flex: 0 0 auto; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; padding: 0 4px; border: 1px solid #7a5424; }
 .arena-tag:empty { display: none; }
+.arena-team { flex: 0 0 auto; display: none; width: 8px; height: 11px; align-self: center; box-shadow: 1px 1px 0 #050608;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%); }
+.arena-team[data-team="red"] { display: inline-block; background: linear-gradient(180deg, #f2a597 0 2px, #c23a2b 2px); }
+.arena-team[data-team="blue"] { display: inline-block; background: linear-gradient(180deg, #a9c8f2 0 2px, #3768b8 2px); }
 .arena-out { flex: 0 0 auto; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #d98074; }
 .arena-out:empty { display: none; }
 .arena-track { position: relative; height: 10px; margin-top: 2px; background: rgba(5,6,8,0.75); border: 1px solid #3a352a; }
@@ -137,13 +146,14 @@ function build(doc) {
       const r = part('div', 'arena-ftr');
       const head = part('div', 'arena-ftr-head');
       const name = part('span', 'arena-ftr-name'), tag = part('span', 'arena-tag'), out = part('span', 'arena-out');
-      head.append(name, tag, out);
+      const team = part('span', 'arena-team');   // ARENA3: the banner's pennant
+      head.append(team, name, tag, out);
       const track = part('div', 'arena-track'), fill = part('div', 'arena-fill');
       track.append(fill);
       r.append(head, track);
       r.style.display = 'none';
       side.append(r);
-      rows.push({ r, name, tag, out, fill });
+      rows.push({ r, name, tag, out, fill, team });
     }
     return { side, rows };
   };
@@ -173,7 +183,7 @@ function build(doc) {
 function writeRows(list, rows, was) {
   rows.forEach((p, i) => {
     const m = list[i] ?? null;
-    const key = m ? `${m.id}|${m.name}|${m.frac}|${m.out}|${m.you}|${m.tag}|${m.banner}` : '';
+    const key = m ? `${m.id}|${m.name}|${m.frac}|${m.out}|${m.you}|${m.tag}|${m.banner}|${m.team ?? ''}` : '';
     if (was[i] === key) return;
     was[i] = key;
     if (!m) { p.r.style.display = 'none'; return; }
@@ -181,6 +191,8 @@ function writeRows(list, rows, was) {
     p.r.dataset.you = m.you ? '1' : '0';
     p.r.dataset.out = m.out;
     p.r.dataset.banner = m.banner;
+    p.r.dataset.team = m.team ?? '';
+    p.team.dataset.team = m.team ?? '';
     if (p.name.textContent !== m.name) p.name.textContent = m.name;
     if (p.tag.textContent !== m.tag) p.tag.textContent = m.tag;
     p.tag.dataset.tag = m.tag ? (m.tag === ARENA_TEXT.hud.darling ? 'darling' : 'villain') : '';

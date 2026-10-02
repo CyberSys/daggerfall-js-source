@@ -39,6 +39,7 @@ import { drawArenaHud } from '../ui/arenaHud.js';   // ARENA2: the versus bar, t
 import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the bout team's player arm
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { heraldChoice } from '../systems/arenaHerald.js';   // ARENA2: the Herald's choice at the gate
+import { createArenaGate } from './arenaGate.js';   // ARENA3: the recruiters (and the bookmaker) at the gate
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
 import { moveArenaRecords } from '../systems/arenaMove.js';   // ARENA1: a deed whose house the arena took, moved once
@@ -7803,10 +7804,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     pay: (g) => addGold(playerEntity, g),
     heal: arenaHeal,
     crime: () => { setCrimeCommitted(playerEntity, CRIMES.Assault); _crimeResponse(); },   // the watch for a brawler, by the street's own law
+    gameMinutes: () => worldMinutes(),   // ARENA3: the season a ladder bout's points go to, the laurel, the Records page
   });
   // ARENA-FIX 9/10: every attack's resolution and every swing of mine, told to the bout (its misses, its crits)
   registerAttackResolutionListener('arena', (r) => arenaBouts.attackResolved(r));
   registerPlayerSwingListener('arena', (n) => arenaBouts.playerSwing(n));
+  // ARENA3: the banners' recruiters (and the book's bookmaker) at the gate - one home for both hosts (scenes/arenaGate.js)
+  const arenaGate = createArenaGate({ playerEntity, gameMinutes: () => worldMinutes(), showOverlay: (w) => townTalk.showOverlay(w), say: (l) => townTalk.say(l), openWindow: null });
   /** THE CITY'S FLOOR as a stage: the colosseum's sand where its block stands in a built pixel (null off it), its
    *  fighters through this host's own pool - `loose` (no cap), `transient` (no save holds them), `managed` (no cull),
    *  no champion, no loot - and the ground under a seat asked of the collider from above. */
@@ -8561,7 +8565,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2792 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6697
+  // that context through modes.dungeonCtx - so worldModes.js:6701
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -14003,7 +14007,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10297-10361 -
+  // worldModes answers it in BOTH modes (worldModes.js:10301-10365 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20446,6 +20450,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the instance, the duel's law while my bout stands, and where the way out of the instance lands (before the
     // Herald, facing the market)
     arenaHerald: () => arenaHerald(),
+    arenaRecruiter: (role) => arenaGate.recruiter(role),   // ARENA3: the Red and Blue Banners' recruiters
     // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter
     // of my tier on the pit's stage; refused while a bout of mine stands
     arenaPractice: () => {

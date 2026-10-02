@@ -11,6 +11,7 @@
 
 import { ARENA_TEXT } from './arenaText.js';
 import { exhibitionFor, nextExhibitionHour, nextLadderBout, ladderTitle } from './arenaLadder.js';
+import { rollLeague, leagueStandings, joinRefusal, laurelWorn, otherBanner } from './arenaLeague.js';   // ARENA3: the banners
 
 /** A fighter must have this share of their health to be let onto the sand. */
 export const FIGHT_HEALTH_MIN = 0.5;
@@ -45,3 +46,42 @@ export function heraldChoice({ gameMinutes, cityBout = null, ladder = null, heal
   options.push({ code: 'Escape', label: null, act: 'leave' });   // the key alone: Escape leaves him
   return { lines, options, exhibition: ex, next };
 }
+
+// ── THE RECRUITERS (ARENA3; systems/arenaLeague.js) ─────────────────────────────────────────────────────────────
+/**
+ * A BANNER'S RECRUITER at the gate: his pitch, the season's standing, the player's place, and what may be done - join
+ * (when the banner will take them), quit (when they wear it - asked again before it is done, `quitAsk`), the Arena
+ * window, leave. A refusal is a line, never a button that vanishes unsaid. `banner` 'red' | 'blue'. Pure.
+ * `window` whether the host opens the Arena window.
+ * @param {{ banner: 'red'|'blue', league: any, gameMinutes: number, window?: boolean }} o
+ */
+export function recruiterChoice({ banner, league, gameMinutes, window = true }) {
+  const R = ARENA_TEXT.recruiter, T = ARENA_TEXT.teams;
+  const me = T.name[banner];
+  const L = rollLeague(league, gameMinutes);
+  const st = leagueStandings(L, gameMinutes);
+  const lines = [...R.greet[banner], ''];
+  lines.push(`${cap(T.season(st.season))}, ${T.seasonDay(st.day)}.`);
+  lines.push(T.standing(st.red, st.blue));
+  const why = joinRefusal(L, banner, gameMinutes);
+  if (why === 'already') { lines.push(R.yours(me)); lines.push(T.given(st.given)); if (laurelWorn(L, gameMinutes)) lines.push(T.laurelYou); }
+  else if (why === 'other') lines.push(R.theirs(T.name[otherBanner(banner)]));
+  else if (why === 'season') lines.push(R.wait(T.name[otherBanner(banner)]));
+  else { lines.push(R.pitch); lines.push(R.rule); }
+  const options = [];
+  if (!why) options.push({ code: 'KeyJ', label: R.join(me), act: 'join' });
+  if (why === 'already') options.push({ code: 'KeyQ', label: R.quit(me), act: 'quit' });
+  if (window) options.push({ code: 'KeyA', label: R.window, act: 'window' });
+  options.push({ code: 'KeyL', label: R.leave, act: 'leave' });
+  options.push({ code: 'Escape', label: null, act: 'leave' });
+  return { lines, options };
+}
+/** The question before a banner is quit: yes strikes the name, no keeps it. */
+export function quitAsk(banner) {
+  const R = ARENA_TEXT.recruiter;
+  return {
+    lines: [R.askQuit(ARENA_TEXT.teams.name[banner])],
+    options: [{ code: 'KeyY', label: R.yes, act: 'quit' }, { code: 'KeyN', label: R.no, act: 'stay' }, { code: 'Escape', label: null, act: 'stay' }],
+  };
+}
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
