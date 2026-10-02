@@ -46,6 +46,7 @@ import { homeLookRecords } from '../world/homeLook.js';   // HOME-LOOK (AUDIT): 
 import { onPathTile } from '../player/exteriorSurface.js';   // FB1001 ROAD-LOT: PlayerMotor.OnPathTile - Daggerfall's own road tiles
 import { RMB_TILE_SIDE } from '../world/locationEntrance.js';   // FB1001 ROAD-LOT: RMBLayout.RMBTileSide, a ground tile's side
 import { TERRAIN_TILE_DIM } from '../world/terrainSurface.js';
+import { homeOutsideKept, homeYardWhere } from '../systems/onlineHomes.js';   // GUILD-YARD: a hall's keepers keep its outside
 
 /** AUDIT: how far from the eye a yard's pieces are drawn, metres (its flats stand in the billboard pass's own cull). */
 export const YARD_DRAW_M = 300;
@@ -298,7 +299,7 @@ export function createHomeYards(deps) {
       for (const [bk, frame] of p.homeFrames) {
         const home = deps.homes?.homeAt?.(p.homeTown, bk) ?? null;
         const pieces = town?.byKey.get(bk) ?? null;
-        if (!home || (!pieces?.length && !home.own)) continue;   // a yard stands for a home with pieces, or for its owner
+        if (!home || (!pieces?.length && !homeOutsideKept(home))) continue;   // a yard stands for a home with pieces, or for its owner (GUILD-YARD: a hall's keeper)
         const key = `${pk}:${bk}`;
         live.add(key);
         const y = yards.get(key) ?? makeYard(key, p, bk, frame);
@@ -323,7 +324,8 @@ export function createHomeYards(deps) {
     const feet = deps.feet?.();
     if (!feet || !deps.outside?.()) return null;
     for (const y of yards.values()) {
-      if (!deps.homes?.homeAt?.(y.mapId, y.bk)?.own) continue;
+      const home = deps.homes?.homeAt?.(y.mapId, y.bk) ?? null;
+      if (!homeOutsideKept(home)) continue;   // GUILD-YARD: its owner's, or a keeper's of the guild whose hall it is
       const o = originOf(y);
       if (yardHolds(y.lot, o, feet, YARD_NEAR)) {
         const others = [];
@@ -332,7 +334,7 @@ export function createHomeYards(deps) {
           if (bk === y.bk) continue;
           others.push([f.box[0] - y.frame.at[0], f.box[2] - y.frame.at[2], f.box[3] - y.frame.at[0], f.box[5] - y.frame.at[2]]);
         }
-        return { yard: y, others, roads: yardRoadsOf(p, y.frame.at, y.lot) };   // FB1001 ROAD-LOT: the road under the lot
+        return { yard: y, others, roads: yardRoadsOf(p, y.frame.at, y.lot), hall: !!home.hall };   // FB1001 ROAD-LOT: the road under the lot; GUILD-YARD: a hall's
       }
     }
     return null;
@@ -369,7 +371,8 @@ export function createHomeYards(deps) {
   };
   const tool = createDecorTool({
     doc: deps.doc ?? null, win: deps.win ?? null, canvas: deps.canvas ?? null, touch: !!deps.touch, renderer: deps.renderer, pool, names: new Map(),
-    room: () => (cur ? { kind: 'home', yard: true, where: 'Your yard', mapId: cur.yard.mapId, buildingKey: cur.yard.bk } : null),
+    // GUILD-YARD: a hall's yard is `hall` - a piece's half goes to the guild's treasury, never the purse (decorTool.js)
+    room: () => (cur ? { kind: 'home', yard: true, ...(cur.hall ? { hall: true } : {}), where: homeYardWhere(cur), mapId: cur.yard.mapId, buildingKey: cur.yard.bk } : null),
     scanDeps: () => deps.scanDeps(),
     base: () => null,
     getGpuMesh: (id) => deps.meshes.getGpuMesh(id), cpuModels: deps.meshes.cpuModels, getTexture: deps.getTexture, uploadRecord: deps.uploadRecord, iconUrl: deps.iconUrl,

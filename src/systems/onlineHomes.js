@@ -132,6 +132,12 @@ export const homeDoorTitle = (home) => (home.hall ? (home.member ? "Your guild's
  * "The <surname> Residence" and never for sale - reads apart from the rest.
  */
 export const homeDoorName = (name, hasVerbs) => name || (hasVerbs ? 'Residence' : '');
+/** GUILD-YARD (Seats-Arc 8.2): WHOSE OUTSIDE THE PLAYING CHARACTER KEEPS - its own home's, or a guild's hall it is a
+ *  keeper of (its Officers and its guildmaster, the service's `keeper` - net/hallLaw.js HALL_POWERS.decorate): the yard
+ *  it furnishes and the outside it paints. A plain member keeps neither; the service holds it either way (decor.js OWNS). */
+export const homeOutsideKept = (home) => !!home && (home.own === true || (!!home.hall && home.keeper === true));
+/** GUILD-YARD: the decorator's name for the yard the player stands on. */
+export const homeYardWhere = (home) => (home?.hall ? "Your guild's yard" : 'Your yard');
 /** What a player reads at a home's door they may not open. */
 export const homeLockedLine = (home) => (home.hall ? `This is the hall of ${home.hall.name}. Its doors open to its members.` : `This is ${home.owner}'s home. The door is locked.`);
 /** What a visitor reads at a home's cupboard. */

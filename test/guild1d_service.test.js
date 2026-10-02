@@ -152,7 +152,7 @@ test('GUILD1d who may walk in: an Officer opens the hall to anyone or keeps it t
   assert.equal(homeMayEnter(bySven), false);
 });
 
-test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and a Recruit may not; its pieces are the catalogue\'s alone and stand no yard; half of a piece taken out or shrunk goes into the guild\'s treasury, never to the keeper\'s purse (mutants: OWNS\'s keepers; the item and yard refusals; the half to the record; the ledger\'s kind)', async (t) => {
+test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and a Recruit may not; its pieces are the catalogue\'s alone (GUILD-YARD: its yard stands); half of a piece taken out or shrunk goes into the guild\'s treasury, never to the keeper\'s purse (mutants: OWNS\'s keepers; the item and yard refusals; the half to the record; the ledger\'s kind)', async (t) => {
   t.mock.method(Date, 'now', () => T0 * 1000);
   const { svc, gm, officer, recruit, view, raw } = await stood();
   assert.equal((await svc.call('/v1/guilds/hall/buy', { character: gm.character, ...HALL }, gm.secret)).status, 200);
@@ -164,7 +164,7 @@ test('GUILD1d a hall\'s DECOR: its Officers furnish it off their own records and
   assert.equal(p.status, 200, JSON.stringify(p.body));
   assert.equal(goldOf(officer), had - 120, 'the Officer\'s own record paid for it');
   assert.equal((await place(officer, { piece: piece({ id: 'own1', model: null, flat: [204, 1], paid: 0, item: { t: 1 } }) })).body.error, 'hall-item', 'a keeper\'s own things stand in no hall');
-  assert.equal((await place(officer, { piece: piece({ id: 'yard1' }), yard: true })).body.error, 'hall-yard');
+  assert.equal((await place(gm, { piece: piece({ id: 'yard1' }), yard: true })).status, 200, 'GUILD-YARD: its yard is its keepers\' as its rooms are (test/guild_yard.test.js)');
   const t0 = (await view()).treasury;
   const at = realmAt(svc.env, officer.character);
   const gone = await svc.call('/v1/homes/decor/remove', { mapId: 7, buildingKey: 300, character: gm.character, id: 'bench1', realm: gm.at() }, gm.secret);
