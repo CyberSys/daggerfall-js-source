@@ -21,11 +21,12 @@ test('AUDIT 31 S3, L9: a won auction waits seven days past its end for its selle
   assert.deepEqual([auctionable('longsword:mithril', MASTERWORK), auctionable('kit:iron', MASTERWORK), auctionable('table-small:oak', MASTERWORK)], [true, false, true]);
 });
 
-test('AUDIT 31 L2: a listable piece of a material nothing yields yet - every Daedric and Warforged piece, 53 - is never commissioned; every other listable piece is', () => {
+test('AUDIT 31 L2: a listable piece of a material nothing yields yet - every Daedric piece, 27 - is never commissioned; every other listable piece is', () => {
   const listable = RECIPES.filter((r) => pieceListable(r.id));
   const unmade = listable.filter((r) => commissionUnyielded(r.id));
-  assert.equal(unmade.length, 53 + 76);   // PROF7 moved it: the 76 garments of Standard-bearer's Silk, a siege's Spoils
-  assert.deepEqual([...new Set(unmade.map((r) => r.id.split(':')[1]))].sort(), ['daedric', 'standard', 'warforged']);
+  assert.equal(unmade.length, 27);   // PIN MOVED (AUDIT-SEATS): the sieges' Spoils yield the Warforged ingot (26 pieces) and Standard-bearer's Silk (76 garments) now
+  assert.deepEqual([...new Set(unmade.map((r) => r.id.split(':')[1]))].sort(), ['daedric']);
+  assert.equal(listable.filter((r) => /:(warforged|standard)$/.test(r.id) && !commissionUnyielded(r.id)).length, 26 + 76, 'the Spoils\' pieces are commissioned');
   for (const r of unmade) assert.equal(commissionable(r.id), false, r.id);
   for (const r of listable.filter((x) => !commissionUnyielded(x.id))) assert.equal(commissionable(r.id), true, r.id);
   assert.ok(unmade.every((r) => r.inputs.some((i) => UNYIELDED.includes(i.key))));
@@ -51,5 +52,5 @@ test('AUDIT 31 L8: the seat week\'s first Sunday 18:00 UTC is the online epoch\'
 });
 
 test('AUDIT 31 L5: the Tithe is nought until SEAT1 - a sale and an auction\'s close write no Tithe line yet, so a Tithe above nought would leave Marks in no account (Professions-Arc 18, OPEN)', () => {
-  assert.equal(MARKET_TITHE_PCT, 0, 'SEAT1 writes the Tithe\'s line (a buy\'s, an auction\'s close, a writ\'s, a commission\'s) before it raises this');
+  assert.equal(MARKET_TITHE_PCT, 0, 'the default where no seat holds the bailiwick - SEAT1d takes a buy\'s and an auction\'s close\'s rate from its seat, beside its own line (test/seat1d_service.test.js); a writ and a commission pay none (Seats-Arc 7.2: "a writ has no fee")');
 });

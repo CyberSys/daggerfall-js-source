@@ -37,6 +37,16 @@ export const WOD_LIGHTS_ARCHIVE = 210;
 export const WOD_ANIMALS_ARCHIVE = 201;
 export const WOD_TREASURE_ARCHIVE = 216;
 export const WOD_EDITOR_ARCHIVE = 199;   // FlatTypes.Editor - DaggerfallBillboard.Start disables the renderer
+/** WOD-BUSH: the shrub model the camps ring their sites with (45 of its 202 placements, every bandit camp among them). */
+export const WOD_BUSH_MODEL = 60610;
+/** ROCK-SUNK (2026-10-02, the field: "Insane glitched geometry over at Hadus"): the instance names whose layouts are
+ *  built of rock. The other 157 placements of 60610 are rock layouts' (150 in the fields 'Rocks' stands, 7 in the cave
+ *  no instance names) - boulders scaled 5.6 to 95 and set into the outcrops on purpose, 63 of them more than 50 m deep,
+ *  which WOD-BUSH stood on their lowest corner: 70 raised more than 100 m, as shards up to 377 m tall. Mining's rock
+ *  pieces are these sites' too. */
+export const WOD_ROCK_SITES = Object.freeze(['Rocks', 'Mountains']);
+/** WOD-BUSH, ROCK-SUNK: is this piece the camps' shrub (stood on the drawn ground), never a rock field's boulder? */
+export const isWodShrub = (modelId, siteName) => modelId === WOD_BUSH_MODEL && !WOD_ROCK_SITES.includes(siteName);
 
 /** LocationEnemySpawner.SpawnType (LocationEnemySpawner.cs:28-35). */
 export const WOD_SPAWN_TYPE = Object.freeze({ Quest: 0, BillboardPerson: 1, Enemy: 2, Loot: 3, Good: 4 });

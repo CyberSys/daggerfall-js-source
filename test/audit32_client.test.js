@@ -54,6 +54,7 @@ function stand(book, { nowMs, openLoot = null, eyeH = 1.6, dungeon = false } = {
   const feet = [0, 0, 0];
   const view = { yaw: 0, pitch: 0 };
   let input = { held: false, attack: false, choice: false };
+  let lit = null;   // PROF-MENU: the row the plaque has lit over the body
   const entity = { items: [knifeOf()] };
   const eyePos = () => [feet[0], feet[1] + eyeH, feet[2]];
   const host = createGatherHost({
@@ -63,7 +64,7 @@ function stand(book, { nowMs, openLoot = null, eyeH = 1.6, dungeon = false } = {
     pixelTranslation: (x, y, out) => { out[0] = 0; out[1] = 0; out[2] = 0; return out; }, pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs,
     eye: () => ({ pos: eyePos(), dir: [Math.sin((view.yaw * Math.PI) / 180) * Math.cos((view.pitch * Math.PI) / 180), Math.sin((view.pitch * Math.PI) / 180), Math.cos((view.yaw * Math.PI) / 180) * Math.cos((view.pitch * Math.PI) / 180)] }),
     view: () => view, feet: () => feet, entity: () => entity, keyLabel: (a) => (a === 'ActChoice' ? 'R' : 'E'), input: () => input,
-    active: () => !dungeon, activeDungeon: () => dungeon,
+    active: () => !dungeon, activeDungeon: () => dungeon, lit: () => lit,
   });
   const kill = (mobileType, at, extra = {}) => {
     const f = { entity: { mobileType, name: 'foe' }, dead: false, corpse: false, ai: { feet: [...at] }, ...extra };
@@ -81,6 +82,9 @@ function stand(book, { nowMs, openLoot = null, eyeH = 1.6, dungeon = false } = {
   return {
     host, said, feet, view, foes, stamps, kill, lookAt, entity,
     set input(v) { input = { held: false, attack: false, choice: false, ...v }; },
+    set lit(v) { lit = v; },
+    /** PROF-MENU: the body's list as the plaque would draw it */
+    menu() { const t = host.target; return t ? host.hoverName(`prof:${t.node.key}`) : null; },
     done() { registerPlayerKillListener('a32', null); host.dispose(); },
   };
 }
@@ -213,7 +217,9 @@ test('AUDIT 32 H4: at sea the knife never works - no ready node, and E goes on t
     const fish = h.kill(MOBILE_TYPES.Slaughterfish, [0, 0, 2.2]);
     h.lookAt(fish);
     h.host.tick(0.016);
-    assert.deepEqual([h.said.prompt.rest, h.host.press(), h.host.acting()], ['not out here', false, false]);
+    // PROF-MENU: the knife's row refused with its reason, the search the one row to press - handed on to the ray's loot
+    assert.deepEqual(h.menu().actions, [{ id: 'hide', label: 'Skin the Slaughterfish', disabled: true, why: 'not out here' }, { id: 'search', label: 'Search the Slaughterfish' }]);
+    assert.deepEqual([h.host.press(), h.host.acting()], [false, false]);
   } finally { h.done(); setForagingHost(null); }
 });
 
@@ -230,7 +236,9 @@ test('AUDIT 32 H7: a body is reached as DFU reaches its corpse (3.75 from the ey
       h.lookAt(b);
       h.host.tick(0.016);
       assert.equal(h.host.target?.node.kind, 'body', `eye ${eyeH}, body at ${y}, ${dz} m`);
-      assert.equal(h.said.prompt.rest, want);
+      // PROF-MENU: a ready knife's word the list's sub-line; a refused one its reason on the knife's row
+      if (want === 'step back') assert.equal(h.menu().actions[0].why, want);
+      else assert.equal(h.menu().subs[0], want);
       if (want === 'step back') assert.equal(h.host.press(), false, 'stood over: E goes on to the loot');
     } finally { h.done(); }
   }
@@ -248,7 +256,7 @@ test('AUDIT 32 H7: a body is reached as DFU reaches its corpse (3.75 from the ey
 
 // ─── H8: THE SEARCH ──────────────────────────────────────────────────
 
-test('AUDIT 32 H8: the choice key\'s search opens the body\'s own loot by its key - never the ray\'s; a body with nothing to search offers none', async () => {
+test('AUDIT 32 H8 (PROF-MENU): the list\'s search opens the body\'s own loot by its key - never the ray\'s; a body with nothing to search offers none', async () => {
   setForagingHost({ world: () => WILDS });
   const book = await ready(doorOf());
   const opened = [];
@@ -257,20 +265,14 @@ test('AUDIT 32 H8: the choice key\'s search opens the body\'s own loot by its ke
     const b = h.kill(MOBILE_TYPES.GrizzlyBear, [0, 0, 2.2], { lootKey: 'foeCorpse:7' });
     h.lookAt(b);
     h.host.tick(0.016);
-    assert.equal(h.said.prompt.alt, '[R] search the body');
-    h.input = { choice: true };
-    h.host.tick(0.016);
-    h.input = {};
-    assert.equal(h.said.prompt.verb, 'Search the Grizzly Bear');
-    assert.deepEqual([h.host.press(), opened], [true, ['foeCorpse:7']], 'opened by its key');
+    assert.deepEqual(h.menu().actions.map((a) => a.label), ['Skin the Grizzly Bear', 'Search the Grizzly Bear']);
+    h.lit = 'search';   // the plaque's light on the search
+    assert.deepEqual([h.host.press(), opened, h.host.acting()], [true, ['foeCorpse:7'], false], 'opened by its key');
     // emptied (its key gone): the search is let go, and none is offered
     b.lootKey = null;
     h.host.tick(0.016);
-    assert.deepEqual([h.said.prompt.verb, h.said.prompt.alt], ['Skin the Grizzly Bear', '']);
-    h.input = { choice: true };
-    h.host.tick(0.016);
-    h.input = {};
-    assert.equal(h.said.prompt.verb, 'Skin the Grizzly Bear', 'no search of nothing');
+    assert.deepEqual(h.menu().actions.map((a) => a.label), ['Skin the Grizzly Bear'], 'no search of nothing');
+    assert.deepEqual([h.said.prompt.verb, h.said.prompt.rest], ['Skin the Grizzly Bear', 'Hunting 100'], 'no plaque: the one act its prompt');
   } finally { h.done(); setForagingHost(null); }
 });
 
@@ -298,15 +300,15 @@ test('AUDIT 32 wiring: a flyer\'s body where its corpse lies (H3); no click thro
   const w = src('src/scenes/world.js');
   assert.match(w, /bodiesOf\(modes\?\.dungeonCtx\?\.foes, bodyStamps, \(f\) => modes\?\.dungeonCtx\?\.corpseAt\?\.\(f\), \(f\) => modes\?\.dungeonCtx\?\.corpseKeyOf\?\.\(f\)\)/);
   // PIN MOVED (AUDIT 2026-10-01 part four, CLICK-LIFT): and the click an act took, to its release - test/fb1001_audit.test.js
-  assert.match(w, /if \(\(\(_act\.activate && !gatherHost\?\.acting\(\) && !_actClick\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/, 'H5: the street');   // PIN MOVED (the merge with AUDIT NAV2 F31): the gate holds fire too
-  assert.match(src('src/scenes/worldModes.js'), /if \(interact && !pressCast && host\.profPress\?\.\(\)\) return true;\n(?:\s*\/\/[^\n]*\n)*\s*if \(!interact && \(actClick \|\| host\.profActing\?\.\(\)\)\) return true;/, 'H5: the dungeon');
+  assert.match(w, /if \(\(\(_act\.activate && !gatherHost\?\.acting\(\) && !_actClick(?: && !nodeClicked)?\) \|\| \(useEdge && !nodeTook\)\) && !modes\.transitioning(?: && !_holdFire)?\) \{/, 'H5: the street');   // PROF-MENU: and a click a node's lit row took   // PIN MOVED (the merge with AUDIT NAV2 F31): the gate holds fire too
+  assert.match(src('src/scenes/worldModes.js'), /if \(interact && !pressCast && host\.profPress\?\.\(\)\) return true;\n(?:\s*\/\/[^\n]*\n|\s*if \(!interact && !pressCast && !actClick && !host\.profActing\?\.\(\) && host\.profClick\?\.\(\)\) return true;\n)*\s*if \(!interact && \(actClick \|\| host\.profActing\?\.\(\)\)\) return true;/, 'H5: the dungeon');   // PROF-MENU: a node's lit row's click between
   assert.match(w, /enemiesNear: exterior \? \(duelEnemyNear\(\) \|\| areEnemiesNearby\(exteriorFoePool\(\), \{ resting: true \}\)\) : areEnemiesNearby\(modes\?\.insideFoes\?\.\(\) \?\? \[\], \{ resting: true \}\),/, 'H6');
   assert.match(w, /active: \(\) => walkMode && modeNow\(\) === 'exterior' && !townTalk\.overlayActive && !modes\?\.deathUp\?\.\(\) && !modes\?\.transitioning && !travelView\?\.active,/, 'H10');
   assert.match(w, /profDungeonEntered: \(ctx\) => \{\n\s*if \(!gatherHost\) return;\n\s*const id = ctx\?\.profIdentity\?\.\(\);\n\s*gatherHost\.enterDungeon\(\{\n\s*id: id\?\.id \?\? null, climate: id\?\.climate \?\? null, region: id\?\.region \?\? null,/, 'H2: every dungeon told');
   assert.match(w, /const openHuntLoot = \(key\) => \(key\.startsWith\('foeCorpse:'\) \? openBodyLoot\(key\) : modes\?\.dungeonCtx\?\.takeLoot\(key, getInteractionMode\(\)\)\);/, 'H8');
   assert.match(w, /busy: 'Your last work is still on the workbench\.' \}/, 'B4');
   assert.match(w, /busy: accountRefusalText\('prof-busy'\) \}\);/);
-  assert.match(src('src/systems/inputActions.js'), /\['ActChoice', 'At an herb patch: the herbs or the Basket; at a body: skin it or search it'\]/, 'R1');
+  assert.match(src('src/systems/inputActions.js'), /\['ActChoice', 'At a profession node: the next of its acts on the list'\]/, 'R1');   // PROF-MENU: the key steps the node's list
   const idx = src('server-account/src/index.js');
   assert.match(idx, /POST \/v1\/prof\/harvest \{ character, node, kind, climate, region, act, at, rid, foe\? \}/, 'S6');
   assert.match(idx, /POST \/v1\/prof\/craft \{ character, recipe, clean, name\?, heartwood\?, dye\?, rid \}/);

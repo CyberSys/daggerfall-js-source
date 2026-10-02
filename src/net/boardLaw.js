@@ -121,5 +121,21 @@ export function noteReplySubject(subject) {
   return re.length <= LETTER_SUBJECT_MAX ? re : s;
 }
 
+/**
+ * GUILD1e (2026-09-30, Mac: "Finish the seats"; Seats-Arc 8.2: "the hall carries ... a private guild board (the board's
+ * Guilds tab, members only)"; PROF0 10.1's Guilds tab: "a guild's own notes, members only"). A GUILD'S NOTES are the
+ * guild's, not a town's: read on the Guilds tab of any Notice Board and at the board standing in the guild's hall, by
+ * its members alone. A note is a letter pinned up, as a town's is (noteWords, no button - a guild's members answer one
+ * another in its chat); each member's live notes are bounded apart from the town boards' (a guild's word never takes
+ * the place of a town's), and the board shows its newest.
+ */
+export const GUILD_NOTES_LIVE_MAX = 3;
+export const GUILD_NOTES_SHOWN = 30;
+/**
+ * A guild note's words and days, checked - noteWords' law, with no button.
+ * @param {{ subject?: unknown, body?: unknown, days?: unknown }} [note]
+ */
+export const guildNoteWords = ({ subject, body, days } = {}) => noteWords({ subject, body, days, button: null });
+
 /** What the Notices tab pins under the rumour in a town that has a bounty board (PROF0 10.1, DECIDED). */
 export const BOUNTY_BOARD_LINE = "The town's bounties are posted on its Bounty Board.";

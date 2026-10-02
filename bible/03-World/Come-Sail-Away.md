@@ -1231,7 +1231,9 @@ THE TWO LOOPS (BoatSFXSlow and BoatSFXFast: plain AudioSources at the
 boat's root, looping, fully spatial, their minDistance the hull
 collider's depth over four and their maxDistance twice that, Unity's
 logarithmic rolloff): each is a looping positional source the host starts
-from the clip's start at every Play (the runtime counts them), its volume
+from the clip's start at every Play from silence (the runtime counts them; HELM-HUSH, FIELD BUGS 2026-10-02 - a
+Play on a source already playing goes on where it is, a Ledger A departure: every crossfade played the loop it fades
+out, and taking the helm under way cut the boat's sound back to its first sample), its volume
 the AudioSource's as CSA-F's fades set it, its rolloff Unity's own worked
 out each frame over the ears' distance - full inside minDistance,
 minDistance over the distance past it, and no quieter past maxDistance,

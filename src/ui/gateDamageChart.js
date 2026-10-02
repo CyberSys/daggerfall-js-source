@@ -21,6 +21,7 @@
 // screen it takes the share's place. The ranking is the damage's still.
 //
 // Not a DFU member. Ledger A (WB).
+import { injectEnhancedFonts } from './enhancedStyle.js';   // WB13c: the classic face, loaded by the gate's own screens
 
 /** The chart stands from this long after the fall was first seen on this screen (his body's fall and the spoils' burst
  *  first), for DAMAGE_CHART_MS, fading out over its last DAMAGE_CHART_FADE_MS. */
@@ -29,6 +30,11 @@ export const DAMAGE_CHART_MS = 60_000;
 export const DAMAGE_CHART_FADE_MS = 1000;
 /** The rows shown before the rest are counted (my own row is shown under them when I am further down). */
 export const DAMAGE_CHART_ROWS = 10;
+/** WB13c: the rows come in one after another, CHART_ROW_STEP_MS apart, each bar growing over CHART_FILL_MS; the chart
+ *  is ENTERING for CHART_IN_MS (a class, gone after - so the HUD shown again never plays it twice). */
+export const CHART_ROW_STEP_MS = 40;
+export const CHART_FILL_MS = 600;
+export const CHART_IN_MS = (DAMAGE_CHART_ROWS + 3) * CHART_ROW_STEP_MS + CHART_FILL_MS;
 
 /** The words. */
 export const DAMAGE_CHART_TEXT = Object.freeze({
@@ -58,7 +64,8 @@ const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.t
  * when this screen first saw the fall and `now`, on one clock. Each row: its rank, name, level, damage (and the bar's
  * share of the most anyone dealt), share of the whole, blows, best, crystals, falls, and whether it is mine. WB11c: under
  * the Legion-Lord (a row carries `a`), `hosted` and each row's share of his host, a column after the falls. GATE-HEAL:
- * where anyone healed another (a row carries `hl`), `healed` and what each row healed in others, the last column. Pure.
+ * where anyone healed another (a row carries `hl`), `healed` and what each row healed in others, the last column.
+ * WB13c: `entering` its first CHART_IN_MS. Pure.
  * @param {any} fell @param {{ boss?: string, me?: string|null, since?: number, now?: number }} [o]
  */
 export function damageChartModel(fell, { boss = 'The Warden', me = null, since = 0, now = 0 } = {}) {
@@ -84,7 +91,7 @@ export function damageChartModel(fell, { boss = 'The Warden', me = null, since =
   const more = n - rows.length - (mine ? 1 : 0);
   return {
     key: `${dm.length}:${dm.map((r) => `${r.n}|${r.l}|${r.d}|${r.x}|${r.h}|${r.b}|${r.f}|${r.a ?? ''}|${r.hl ?? ''}`).join(';')}:${at}:${n}`,
-    alpha: Math.round(alpha * 100) / 100,
+    alpha: Math.round(alpha * 100) / 100, entering: shown < CHART_IN_MS,
     title: DAMAGE_CHART_TEXT.title, sub: DAMAGE_CHART_TEXT.sub(boss, n), hosted, healed,
     head: healed ? [...DAMAGE_CHART_TEXT.head, hosted ? DAMAGE_CHART_TEXT.host : '', DAMAGE_CHART_TEXT.heal] : hosted ? [...DAMAGE_CHART_TEXT.head, DAMAGE_CHART_TEXT.host] : DAMAGE_CHART_TEXT.head,
     rows, mine, more: more > 0 ? DAMAGE_CHART_TEXT.more(more) : '',
@@ -98,7 +105,7 @@ export const DAMAGE_CHART_CSS = `
 .wb-dmg-chart { position: fixed; right: 18px; bottom: max(96px, 14vh); z-index: 31; pointer-events: none; box-sizing: border-box;
   width: 540px; max-width: calc(100vw - 32px); padding: 10px 14px 9px; font: 600 13px 'Cormorant', Georgia, serif; letter-spacing: 0.03em;
   color: #f3d9c4; background: linear-gradient(180deg, rgba(34,6,3,0.93), rgba(14,3,2,0.9)); border: 1px solid rgba(255,120,60,0.6);
-  box-shadow: 0 0 22px rgba(0,0,0,0.85), inset 0 0 18px rgba(120,20,6,0.45); text-shadow: 0 0 3px #000; font-variant-numeric: tabular-nums; }
+  box-shadow: 0 0 22px rgba(0,0,0,0.85), inset 0 0 18px rgba(120,20,6,0.45); text-shadow: 0 0 3px #000; font-variant-numeric: lining-nums tabular-nums; }
 .wb-dmg-title { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: #ff8a4a; text-align: center; }
 .wb-dmg-sub { font-size: 15px; text-align: center; margin: 1px 0 7px; color: #ffe2c8; }
 .wb-dmg-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 60px 46px 46px 44px 62px 42px; column-gap: 6px; align-items: center;
@@ -129,7 +136,35 @@ export const DAMAGE_CHART_CSS = `
 .wb-dmg-chart.wb-dmg-hosted.wb-dmg-healed { width: 646px; }
 .wb-dmg-hosted.wb-dmg-healed .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 46px 44px 62px 42px 46px 56px; }
 .wb-dmg-healed .wb-dmg-row > .wb-dmg-heal { display: block; }
-@media (max-width: 640px) {
+/* WB13c: THE ENTRANCE - row after row, each bar growing from nothing */
+.wb-dmg-in .wb-dmg-row:not(.wb-dmg-head), .wb-dmg-in .wb-dmg-more { animation: wb-dmg-row-in 220ms ease-out both; }
+.wb-dmg-in .wb-dmg-fill { transform-origin: left center; animation: wb-dmg-fill-in ${CHART_FILL_MS}ms cubic-bezier(.2,.7,.3,1) both; }
+${Array.from({ length: DAMAGE_CHART_ROWS + 3 }, (_, i) => `.wb-dmg-in > :nth-child(${i + 4}), .wb-dmg-in > :nth-child(${i + 4}) .wb-dmg-fill { animation-delay: ${i * CHART_ROW_STEP_MS}ms; }`).join('\n')}
+@keyframes wb-dmg-row-in { from { opacity: 0; transform: translateX(10px); } }
+@keyframes wb-dmg-fill-in { from { transform: scaleX(0); } }
+/* WB13c: beside the party's frames where the screen holds both, never over them */
+@media (min-width: 900px) {
+  body:has(.dfparty:not([style*="display: none"])) .wb-dmg-chart { right: 220px; }
+}
+/* WB13c: on a phone held upright the party's frames hold the foot on the right - with them up, the chart stands where
+   his bar was */
+@media (max-width: 560px) {
+  body:has(.dfparty:not([style*="display: none"])) .wb-dmg-chart { top: 72px; bottom: auto; }
+}
+/* WB13c: Blows and Best fold away under 1000px (ten columns at 9px in the Plus face) */
+@media (max-width: 1000px) {
+  .wb-dmg-chart { width: 440px; }
+  .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 62px 42px; }
+  .wb-dmg-row > .wb-dmg-blows, .wb-dmg-row > .wb-dmg-best { display: none; }
+  .wb-dmg-chart.wb-dmg-hosted { width: 490px; }
+  .wb-dmg-hosted .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 62px 42px 46px; }
+  .wb-dmg-chart.wb-dmg-healed { width: 496px; }
+  .wb-dmg-healed .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 62px 42px 56px; }
+  .wb-dmg-chart.wb-dmg-hosted.wb-dmg-healed { width: 546px; }
+  .wb-dmg-hosted.wb-dmg-healed .wb-dmg-row { grid-template-columns: 20px minmax(0, 1fr) 60px 46px 62px 42px 46px 56px; }
+}
+/* WB13c: a phone held sideways is narrow too - 844 wide, it had the desk's grid */
+@media (max-width: 640px), (max-height: 480px) {
   .wb-dmg-chart { width: 340px; }
   .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 44px 40px; }
   .wb-dmg-row > .wb-dmg-blows, .wb-dmg-row > .wb-dmg-best, .wb-dmg-row > .wb-dmg-cx { display: none; }
@@ -142,11 +177,18 @@ export const DAMAGE_CHART_CSS = `
   .wb-dmg-hosted .wb-dmg-row > .wb-dmg-host { display: block; }
   /* GATE-HEAL: what each healed keeps its column on a narrow screen too, in the share's place - as wide as the damage's
      (six figures in the Plus skin's pixel face) */
-  .wb-dmg-chart.wb-dmg-healed { width: 340px; }
+  .wb-dmg-chart.wb-dmg-healed, .wb-dmg-chart.wb-dmg-hosted.wb-dmg-healed { width: 340px; }
   .wb-dmg-healed .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 40px 58px; }
   .wb-dmg-hosted.wb-dmg-healed .wb-dmg-row { grid-template-columns: 18px minmax(0, 1fr) 58px 50px 58px; }
   .wb-dmg-healed .wb-dmg-row > .wb-dmg-share { display: none; }
   .wb-dmg-healed .wb-dmg-row > .wb-dmg-heal { display: block; }
+}
+/* WB13c: a phone held sideways: on the left under the menu's button - his bar gone by now, clear of the crosshair and
+   the party - never off the screen; the rows closer */
+@media (max-height: 480px) {
+  .wb-dmg-chart { left: 8px; right: auto; top: 72px; bottom: auto; max-height: calc(100vh - 80px); overflow: hidden; padding: 6px 10px 5px; }
+  .wb-dmg-sub { margin: 0 0 4px; }
+  .wb-dmg-row { min-height: 17px; padding: 0 4px; }
 }
 `;
 
@@ -181,6 +223,7 @@ function build(doc) {
     st.id = DAMAGE_CHART_STYLE_ID;
     st.textContent = DAMAGE_CHART_CSS;
     (doc.head ?? doc.body)?.append(st);
+    if (doc.head) injectEnhancedFonts(doc);   // WB13c: Cormorant on the classic skin too (it came only if another window had asked)
   }
   root = div(doc, 'wb-dmg-chart');
   root.setAttribute?.('aria-hidden', 'true');   // a readout over the game: the chat says the kill
@@ -225,10 +268,12 @@ export function drawGateDamageChart(model, { hidden = false, doc = globalThis.do
   const vis = want ? 'on' : 'off';
   if (vis !== shown.vis) { shown.vis = vis; root.style.display = want ? '' : 'none'; }
   if (!want || !model) return;
+  // WB11c: the host's column shown or not; GATE-HEAL: the healed; WB13c: entering
+  const cls = `wb-dmg-chart${model.hosted ? ' wb-dmg-hosted' : ''}${model.healed ? ' wb-dmg-healed' : ''}${model.entering ? ' wb-dmg-in' : ''}`;
+  if (root.className !== cls) root.className = cls;
   if (model.key !== shown.key) {
     shown.key = model.key;
     parts.title.textContent = model.title;
-    root.className = `wb-dmg-chart${model.hosted ? ' wb-dmg-hosted' : ''}${model.healed ? ' wb-dmg-healed' : ''}`;   // WB11c: the host's column shown or not; GATE-HEAL: the healed
     parts.head.cells.forEach((c, i) => { c.textContent = model.head[i] ?? ''; });
     parts.rows.forEach((r, i) => writeRow(r, model.rows[i] ?? null));
     parts.gap.style.display = model.mine ? '' : 'none';

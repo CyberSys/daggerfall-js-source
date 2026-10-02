@@ -118,7 +118,7 @@ test('audit26 F129: alchemists stock potion recipes at 25%', () => {
   // the group loop); a 0.0 draw passes it.
   const hi = stockShopShelf({ buildingType: 0, quality: 5 }, mkPlayer(0), { rolls: () => 0.999 });
   const low = stockShopShelf({ buildingType: 0, quality: 5 }, mkPlayer(0), { rolls: () => 0.0 });
-  const recipes = (l) => l.filter((it) => it.potionRecipeKey != null).length;
+  const recipes = (l) => l.filter((it) => it.potionRecipeKey != null && it.group === 'MiscItems').length;   // POTION-COMMON: the shelf's Potions of Healing carry a key too - a recipe is the MiscItems sheet
   assert.equal(recipes(low), 1, 'a passing 25% roll stocks exactly one recipe (DaggerfallLoot.cs:163-166)');
   assert.equal(recipes(hi), 0, 'a failing roll stocks none');
 });

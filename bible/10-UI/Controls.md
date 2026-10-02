@@ -311,7 +311,7 @@ Generated from `ACTION_GROUPS` and the two default tables; the enhanced pane dra
 
 | Action | Key | Pad | What it does |
 |---|---|---|---|
-| `ActChoice` | UP |  | At an herb patch: the herbs or the Basket; at a body: skin it or search it |
+| `ActChoice` | UP |  | At a profession node: the next of its acts on the list |
 | `Professions` | DOWN |  | Open your Professions and Stores (online) |
 
 ### Game

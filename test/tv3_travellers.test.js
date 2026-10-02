@@ -507,7 +507,7 @@ test('OVERWORLD NAMES wire, book and host: a traveller frame keeps the Renown an
   const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
   assert.match(w, /for \(const d of online\?\.drawable\?\.\(\) \?\? \[\]\) \{\n\s*if \(!d\?\.shown \|\| _hiddenPeers\.has\(d\.id\) \|\| _veils\.has\(d\.id\)\) continue;/, 'the concealed and the veiled are never marked');
   assert.match(w, /marks\.push\(\{ key: `peer:\$\{d\.id\}`, at: \[f\[0\], f\[1\] \+ h, f\[2\]\], label: d\.name \?\? '', kind: `\$\{party \? 'party' : 'traveller'\}\$\{isShipMark\(t\?\.p\) \? ' ship' : ''\}\$\{t\?\.p\.tv \? ' journey' : ''\}`, edge: party \|\| !!t, badge: tvBadgeOf\(d\) \}\);/);   // OWS1: at sea, a ship
-  assert.match(w, /const tvBadgeOf = \(p\) => \(\{ title: p\.title \?\? null, glyphs: Array\.isArray\(p\.glyphs\) \? p\.glyphs : \[\], lv: p\.lv \?\? null, gt: p\.gt \?\? null \}\);/);
+  assert.match(w, /const tvBadgeOf = \(p\) => \(\{ title: p\.title \?\? null, glyphs: Array\.isArray\(p\.glyphs\) \? p\.glyphs : \[\], lv: p\.lv \?\? null, gt: p\.gt \?\? null, rb: p\.rb \?\? null \}\);/);   // AUDIT-SEATS (PIN MOVED): and a Season's banner ribbon
   assert.match(w, /const namesOff = covered \|\| !!travelView\?\.active;/);
   assert.match(w, /remotePlayers\.nameFrame\(\{\n\s*proj, view, eye, toScene: onlineToScene, covered: namesOff,/);
 });

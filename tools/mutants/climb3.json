@@ -347,8 +347,8 @@
   {
     "name": "CLIMB3-sill-pressed-into",
     "file": "src/player/motor.js",
-    "old": "hug = out == null ? (this._wall?.past != null ? 0 : -this.speed * dt) : out;",
-    "new": "hug = out == null ? -this.speed * dt : out;",
+    "old": "hug = out == null ? (this._wall?.past != null ? 0 : -press) : out;",
+    "new": "hug = out == null ? -press : out;",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",
@@ -362,8 +362,8 @@
   {
     "name": "CLIMB3-sill-pass-held-short",
     "file": "src/player/motor.js",
-    "old": "w.seek || w.past != null ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
-    "new": "w.seek ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
+    "old": "w.seek || w.past != null || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
+    "new": "w.seek || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)\n      && bandsClear",
     "tests": [
       "test/climb3.test.js",
       "test/climbdown.test.js",

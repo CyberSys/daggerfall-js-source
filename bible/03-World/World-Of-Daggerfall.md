@@ -191,6 +191,17 @@ flat, by its ARCHIVE STRING:
   Unity reverses the culling of a transform with a negative
   determinant, so the batch reverses that model's winding (WOD5).
   Before that fix the port drew the wall inside out.
+  The shrub (model 60610 in the camps, the nature spot and two ruins:
+  45 placements ringing the sites, every bandit camp among them) is the
+  one model NOT stood at the mod's height: its mesh foot goes to the
+  lowest drawn ground under the middle of its footprint (WOD-BUSH, a
+  Ledger A departure). The mod levels only the prefab's rect, the
+  shrubs stand in the eased band past it at heights read off the
+  author's own ground, and on falling ground they hung in the air, in
+  DFU as here. The rock fields' 157 placements of the same model are
+  boulders set into the outcrops and keep the mod's height (ROCK-SUNK,
+  `isWodShrub`): standing them raised shards up to 377 m tall round
+  every rock field (`01-Overview/Field-Bugs-2026-10-02.md`).
 - **a flat** is a billboard, base-anchored where `AlignToBase` and the
   scale fix (`LocationLoader.cs:243-248`) leave it; the four records the
   layouts scale are batches at their own size.
@@ -763,6 +774,11 @@ The gate does not move; the rock yields, ROADS-CLEAR's shape
   each standing a piece that reaches the new one (`sweepGateClear`, the late
   sweep's shape), and a pixel building across the turn is asked as it
   publishes.
+
+The faithful's circle (WB12d, `11-Multiplayer/World-Bosses.md` 19 D) is a second
+clearing of the gate's day, RITE_CLEAR_M (20 m) about the circle the day's law
+places (`riteLocalOf`): the same refusals, so no boulder stands through the altar,
+the braziers or the faithful's tents (AUDIT WB12d G12).
 
 Online alone: the gate is online's, and online this mod is the room's, forced
 on (`systems/onlineLane.js`) - so every client that sees a gate stands the same

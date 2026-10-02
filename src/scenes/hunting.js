@@ -12,11 +12,14 @@
 //                       hasBow, skills: { archery, stealth,
 //                       criticalStrike, climbing } }
 //   showOverlay(w) - the slot; overlayActive() - the slot's latch
-//   advanceMinutes(n) - the host's ticker (offline the clock moves;
-//                       online it stands, WORLD5)
+//   advanceMinutes(n, { quiet }) - the host's ticker (offline the clock
+//                       moves; online it stands, WORLD5); `quiet`, no
+//                       encounter roll on the replay (a box taken away)
 //   spawnBeast({ mobileType, count }) - the host's placement door
 //   inflictPoison / inflictDisease - the formulas (the law is pure)
 //   tally(skillId) - the host's tallySkill
+//   enemiesNear() - HUNT-FOES: a foe come near closes the ask or the
+//                   search as a No, and the hunter has their hands back
 import { survivalOn, survivalRules } from '../systems/survival/switch.js';
 import { survivalOf } from '../systems/survival/needs.js';
 import {
@@ -26,9 +29,13 @@ import { HuntWindow } from '../ui/huntWindow.js';
 
 const range = ([min, max], rolls) => min + Math.floor(rolls() * (max - min + 1));
 
+/** HUNT-FOES (FIELD BUGS 2026-10-02): a foe still loading this near the hunter (the encounter's own stand is 10-20 m
+ *  off) counts as near - the host's reader, `huntFoesNear`. */
+export const HUNT_PENDING_NEAR_M = 30;
+
 export function createHunting({
   entity, env, showOverlay = null, overlayActive = () => false, advanceMinutes = null, spawnBeast = null,
-  inflictPoison = null, inflictDisease = null, tally = null, rolls = Math.random,
+  inflictPoison = null, inflictDisease = null, tally = null, rolls = Math.random, enemiesNear = null,
 } = {}) {
   let _lastMinute = null;
   let _win = null;
@@ -53,6 +60,10 @@ export function createHunting({
       prompt: huntPrompt(ev, { winter: !!e.winter }),
       busy: HUNT_BUSY[ev.kind],
       seconds: huntRealSeconds(minutes),
+      // HUNT-FOES (FIELD BUGS 2026-10-02, "enemies can attack you while the result loads"): the window holds the
+      // hunter's motor and WINFOE1 runs the foes under it - a foe come near (the rest's own test) ends the ask or the
+      // search as a No: nothing searched, nothing charged, the hands back to fight
+      interruptWhen: enemiesNear ? () => !!enemiesNear() : null,
       onSearched: () => {
         const now = env?.() ?? e;
         const minute = Math.floor(now.minute ?? 0);
@@ -62,11 +73,15 @@ export function createHunting({
           now: minute, currentDay: Math.trunc(minute / 1440), rolls, inflictPoison, inflictDisease,
         });
         for (const id of outcome.skills ?? []) tally?.(id);
-        advanceMinutes?.(minutes);
         return rows;
       },
       onClosed: (searched) => {
         _win = null;
+        // HUNT-FOES: the search's minutes pass as the box closes, not under it - offline the host spends them through
+        // the encounter tick, whose wanderer was stood 10-20 m off, facing a hunter the result page still held. AUDIT:
+        // a box taken from under a given result (a death screen, a load) spends them `quiet` - the clock alone, no
+        // encounter rolled over a corpse or the game being replaced
+        if (outcome) advanceMinutes?.(minutes, { quiet: !searched });
         if (searched && outcome?.beast) spawnBeast?.(outcome.beast);   // AUDIT SURV C: only after a search - a window dropped from under (a death) stands nothing
       },
     });

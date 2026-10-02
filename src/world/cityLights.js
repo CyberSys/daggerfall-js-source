@@ -73,16 +73,20 @@ export const lanternSlot = (px, py) => (Math.imul(px | 0, 73856093) ^ Math.imul(
  *  @param {Array<{ x: number, y: number, z: number }>} pool
  *  @param {Float32Array} ranges
  *  @param {ArrayLike<number>} animRanges the animator's live ranges
+ *  @param {((p: any) => (ArrayLike<ArrayLike<number>>|null)) | null} [extra] FESTIVAL-STAGE: a pixel's lanterns hung for
+ *    the day (scenes/seatFestival.js, a Festival town's), pixel-local as its own - after them, on the slots that follow
  *  @returns {{ n: number, ranges: Float32Array }} */
-export function fillLanternPool(pixels, translate, pool, ranges, animRanges) {
+export function fillLanternPool(pixels, translate, pool, ranges, animRanges, extra = null) {
   let n = 0;
   for (const p of pixels) {
-    if (!p.lights.length) continue;
+    const more = extra ? extra(p) : null;
+    const m = more ? more.length : 0;
+    if (!p.lights.length && !m) continue;
     const t = translate(p);
-    ranges = rangesFor(ranges, n + p.lights.length);
+    ranges = rangesFor(ranges, n + p.lights.length + m);
     const slot0 = lanternSlot(p.px, p.py);
-    for (let j = 0; j < p.lights.length; j++) {
-      const l = p.lights[j];
+    for (let j = 0; j < p.lights.length + m; j++) {
+      const l = j < p.lights.length ? p.lights[j] : more[j - p.lights.length];
       const e = pool[n] ?? (pool[n] = { x: 0, y: 0, z: 0 });
       e.x = l[0] + t[0]; e.y = l[1] + t[1]; e.z = l[2] + t[2];
       ranges[n] = animRanges[(slot0 + j) % animRanges.length];

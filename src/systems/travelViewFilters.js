@@ -10,12 +10,13 @@
 //   dungeons   - the unfound lairs and the found dungeons far off ('lair', 'far dungeon')
 //   enemies    - the roaming bands, the camps and packs, the raiders' sails ('band', 'camp', 'raider ...')
 //   travellers - the other players ('traveller ...')
+//   gathering  - GATHER-OW: each profession's group of nodes on the land near me ('gather <profession>')
 // NEVER HIDDEN, whatever the switches say: the journey's end ('dest', 'target'), anything giving chase (a threat is
 // never filtered off the screen), and my party.
 // ═══════════════════════════════════════════════════════════════════
 import { appStorage } from './appStorage.js';
 
-export const TV_FILTER_GROUPS = Object.freeze(['towns', 'distant', 'dungeons', 'enemies', 'travellers']);
+export const TV_FILTER_GROUPS = Object.freeze(['towns', 'distant', 'dungeons', 'enemies', 'travellers', 'gathering']);
 export const TV_FILTER_STORE_KEY = 'dfjs.overworld.filters';
 
 /** The switches' words. */
@@ -26,6 +27,7 @@ export const TV_FILTER_TEXT = Object.freeze({
   dungeons: 'Dungeons',
   enemies: 'Enemies',
   travellers: 'Travellers',
+  gathering: 'Gathering',
   tip: (label, on) => `${on ? 'Hide' : 'Show'} ${label.toLowerCase()} on the overworld`,
 });
 
@@ -42,6 +44,7 @@ export function markGroup(kind = '') {
   if (k === 'lair') return 'dungeons';
   if (k === 'band' || k === 'camp' || k === 'raider') return 'enemies';
   if (k === 'traveller') return 'travellers';
+  if (k === 'gather') return 'gathering';   // GATHER-OW
   return null;   // dest, target, party - always drawn
 }
 

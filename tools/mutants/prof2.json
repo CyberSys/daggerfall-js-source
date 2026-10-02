@@ -273,7 +273,7 @@
   {
     "name": "PROF2-31-boulders-anywhere",
     "file": "src/scenes/mineHost.js",
-    "old": "    if (!rock) continue;   // a boulder is a rock field's piece: none left, none stands\n",
+    "old": "    if (!claimed) continue;\n",
     "new": "",
     "tests": [
       "test/prof2_client.test.js"
@@ -282,8 +282,8 @@
   {
     "name": "PROF2-32-a-piece-holds-two",
     "file": "src/scenes/mineHost.js",
-    "old": "    return free.splice(bi, 1)[0];",
-    "new": "    return free[bi];",
+    "old": "export const NODE_SPACING_M = 6;",
+    "new": "export const NODE_SPACING_M = 0;",
     "tests": [
       "test/prof2_client.test.js"
     ]
@@ -345,8 +345,8 @@
   {
     "name": "PROF2-39-a-forge-for-nothing",
     "file": "src/net/decorLaw.js",
-    "old": "enchant: 200_000, forge: 50_000, workbench: 50_000, loom: 50_000 });",
-    "new": "enchant: 200_000, forge: 0, workbench: 50_000, loom: 50_000 });",
+    "old": "enchant: 200_000, forge: 50_000, workbench: 50_000, loom: 50_000, mason: 50_000 });",
+    "new": "enchant: 200_000, forge: 0, workbench: 50_000, loom: 50_000, mason: 50_000 });",
     "tests": [
       "test/prof2_client.test.js",
       "test/homestations.test.js"

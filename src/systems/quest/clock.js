@@ -18,6 +18,7 @@ import { calculateTravelTime } from '../travel.js';
 import { worldCoordToMapPixel } from '../../formats/mapsFile.js';
 import { Symbol as QuestSymbol } from './symbol.js';
 import { parseInt as questParseInt } from './parseUtils.js';
+import { raisedSince } from './questStamps.js';
 
 const DECL = /(Clock|clock) (?<symbol>[a-zA-Z0-9_.-]+)/;
 // C# optionsMatchStr: the time-value groups are EMPTY named groups
@@ -33,6 +34,12 @@ const TIME_VALUE = [
 ];
 
 const getTimeInSeconds = (days, hours, minutes) => days * 86400 + hours * 3600 + minutes * 60;
+
+/** TIME3: the quest clock's WHOLE seconds - DFU's sample is WorldTime.Now.ToSeconds(), whole seconds of a clock that
+ *  keeps its fraction, so the gap between two samples loses nothing. The port sampled the fractional reading and cut
+ *  the GAP to whole seconds instead, dropping the fraction at every tick: ten ticks a real second at TimeScale 12 left
+ *  a fifth to a third of every countdown played uncharged (test/time3_quests.test.js). */
+const wholeSeconds = (caller) => Math.floor(caller?.nowSeconds?.() ?? 0);
 
 /** Clock.cs GetTravelTimeInSeconds (:422-460), Q3-i: the flag&16 /
  *  _2place_ travel arm over the world seam. A single place routes the
@@ -120,6 +127,7 @@ export class Clock extends QuestResource {
     this.clockEnabled = false;
     this.clockFinished = false;
     this._lastWorldTimeSample = 0;
+    this._lastRaisedSample = null;   // TIME3: the session's raised seconds at that sample - transient: a restore is a resume
     this.travelTimePending = false;   // Q1: the flag&16 / flag&1-hack arms pend Place resolution (Q3)
     if (line !== null) this.setResource(line);
   }
@@ -174,7 +182,7 @@ export class Clock extends QuestResource {
 
   /** Q2 - Clock.cs Tick: whole world-seconds since the last sample
    *  come off the remainder; at zero the SAME-NAMED task starts and
-   *  the clock finishes. The world clock is the quest's nowSeconds
+   *  the clock finishes. The world clock is the quest's nowSeconds (TIME3: online the character's own)
    *  seam (classic game seconds, machine-injected). */
   /** ExpandMacro (Clock.cs): =symbol_ answers days remaining (the
    *  ShowQuestJournalClocksAsCountdown setting picks remaining vs
@@ -189,12 +197,18 @@ export class Clock extends QuestResource {
 
   /** The seconds the NEXT tick charges as of the caller's now: the gap since the last sample, and online (a finite
    *  played step) never negative and never more than one step. ONE arithmetic - tick subtracts it, and
-   *  liveRemainingSeconds reads it - so a reader can never disagree with the charge. */
+   *  liveRemainingSeconds reads it - so a reader can never disagree with the charge.
+   *  TIME3: online the quest's clock is the character's own (LIVED1), and the gap has two parts: the time RAISED since
+   *  the sample (a rest, a loiter, a journey, a sentence - the session's count, raisedSeconds) is charged whole, as DFU
+   *  charges a RaiseTime, and the time lived with the world is charged one played step at most (WORLD7: the rest is
+   *  time away, forgiven). Never more than the clock moved, never less than nothing. A sample with no count beside it,
+   *  or one from another session, charges the lived step alone - a resume. */
   chargeSeconds(caller) {
-    const now = caller.nowSeconds?.() ?? 0;
+    const now = wholeSeconds(caller);
     const step = caller.questClockStepMax?.() ?? Infinity;
     const raw = now - this._lastWorldTimeSample;
-    const difference = Number.isFinite(step) ? Math.min(Math.max(raw, 0), step) : raw;
+    const raised = Number.isFinite(step) ? Math.min(raisedSince(caller.raisedSeconds?.(), this._lastRaisedSample), Math.max(raw, 0)) : 0;
+    const difference = Number.isFinite(step) ? Math.min(Math.max(raw - raised, 0), step) + raised : raw;
     return Math.trunc(difference);
   }
 
@@ -210,7 +224,7 @@ export class Clock extends QuestResource {
 
   tick(caller) {
     if (!this.clockEnabled || this.clockFinished) return;
-    const now = caller.nowSeconds?.() ?? 0;
+    const now = wholeSeconds(caller);
     // WORLD7: online a clock charges PLAYED time - the frame's world time, never more than one played step (the
     // hosts' word through the quest: PLAYED_STEP_MAX_SECONDS under the shared clock, no bound offline). A gap past the
     // step is time away and is forgiven, the sample moved. WORLD5 stood every clock down instead (Mac, WORLD1: "time
@@ -230,6 +244,7 @@ export class Clock extends QuestResource {
       this.remainingTimeInSeconds = 0;
     }
     this._lastWorldTimeSample = now;
+    this._lastRaisedSample = caller.raisedSeconds?.() ?? null;   // TIME3
   }
 
   /** StartTimer, with the "_2place_" arm: a clock named _2X_ over a
@@ -262,7 +277,8 @@ export class Clock extends QuestResource {
     }
     if (!this.clockFinished) {
       this.clockEnabled = true;
-      this._lastWorldTimeSample = this.parentQuest.nowSeconds?.() ?? 0;
+      this._lastWorldTimeSample = wholeSeconds(this.parentQuest);
+      this._lastRaisedSample = this.parentQuest.raisedSeconds?.() ?? null;   // TIME3
     }
   }
 
@@ -296,7 +312,8 @@ export class Clock extends QuestResource {
    *  clears. */
   restoreSaveData(dataIn) {
     if (dataIn == null) return;
-    this._lastWorldTimeSample = Number.isFinite(dataIn.lastWorldTimeSample) ? dataIn.lastWorldTimeSample : (this.parentQuest?.nowSeconds?.() ?? 0);   // AUDIT WORLD7/8 A11: a save from before the field stamped NaN into the remainder
+    this._lastWorldTimeSample = Number.isFinite(dataIn.lastWorldTimeSample) ? dataIn.lastWorldTimeSample : wholeSeconds(this.parentQuest);   // AUDIT WORLD7/8 A11: a save from before the field stamped NaN into the remainder
+    this._lastRaisedSample = this.parentQuest?.raisedSeconds?.() ?? null;   // TIME3: a restore (a load, a party member's copy) is a resume - no raise counted ACROSS it (AUDIT TIME: the count now, so a raise after it, before the first tick, is charged whole)
     this.startingTimeInSeconds = dataIn.startingTimeInSeconds;
     this.remainingTimeInSeconds = dataIn.remainingTimeInSeconds;
     this.flag = dataIn.flag;

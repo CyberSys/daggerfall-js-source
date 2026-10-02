@@ -75,7 +75,7 @@ test('PERF-ON2 / PERF-CROWD: the host culls the peers AND the live crowd, by the
   assert.match(bounds, /const s = b\.bounds;\n\s*if \(!s\) return null;/, 'a batch with no bounds has no sphere');
   assert.match(bounds, /return !c \|\| sphereInPlanes\(planes, c\[0\], c\[1\], c\[2\], c\[3\]\);/, '...and is always drawn');
   const r = read('src/render/renderer.js');
-  assert.match(r, /\+ uUp \* \(\(aCorner\.y \+ 0\.5\) \* uSize\.y\)/, 'the VS stands the quad from the placement point UP - which is why the lift exists');
+  assert.match(r, /\+ uUp \* \(\((?:aCorner|cn)\.y \+ 0\.5\) \* uSize\.y\)/, 'the VS stands the quad from the placement point UP - which is why the lift exists');
   assert.match(r, /bounds\[3\] \+= quadHalfDiagonal\(size\);/, 'and the stored radius already covers hypot(w, h) / 2, which is what the lifted centre needs');
   assert.match(bounds, /export function quadHalfDiagonal\(size\) \{\n\s*return Math\.hypot\(size\.w, size\.h\) \* 0\.5;/, '...from the half-diagonal\'s one home (the review)');
 });

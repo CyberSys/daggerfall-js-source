@@ -2,34 +2,34 @@
   {
     "name": "VEIN-NEED-press-keeps-nothing",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
-    "new": "      if (!plan || !plan.ready) { return false; }",
+    "old": "    if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
+    "new": "    if (!plan || !plan.ready) { return false; }",
     "tests": ["test/fb0929h_veinneed.test.js"],
     "note": "The report as it was: a press a node passed on keeps nothing, so nothing is said when the press opened nothing."
   },
   {
     "name": "VEIN-NEED-press-takes-it-again",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
-    "new": "      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); hud.toast(passedOn); return true; }",
+    "old": "    if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }",
+    "new": "    if (!plan || !plan.ready) { passedOn = needLine(plan, rank); hud.toast(passedOn); return true; }",
     "tests": ["test/fb0929h_veinneed.test.js"],
     "note": "PROF1's old press: the node takes E and says its need - the door, the chest and the foe behind it lose the press (AUDIT 29 C1)."
   },
   {
     "name": "VEIN-NEED-a-new-press-remembers-the-old",
     "file": "src/scenes/gatherHost.js",
-    "old": "    press() {\n      passedOn = '';\n",
-    "new": "    press() {\n",
+    "old": "    press({ click = false } = {}) {\n      passedOn = '';\n",
+    "new": "    press({ click = false } = {}) {\n",
     "tests": ["test/fb0929h_veinneed.test.js"],
     "note": "A press with no node under the look hands back the need of a node an earlier press passed on."
   },
   {
     "name": "VEIN-NEED-said-twice",
     "file": "src/scenes/gatherHost.js",
-    "old": "      const line = passedOn;\n      passedOn = '';\n",
-    "new": "      const line = passedOn;\n",
+    "old": "      passedOn = '';\n      passedCast = null;\n      if (cast) {",
+    "new": "      passedCast = null;\n      if (cast) {",
     "tests": ["test/fb0929h_veinneed.test.js"],
-    "note": "One press, a line every time the host asks."
+    "note": "One press, a line every time the host asks. CAST-E (re-aimed by content): the line's reset beside the cast's."
   },
   {
     "name": "VEIN-NEED-the-rank-unsaid",

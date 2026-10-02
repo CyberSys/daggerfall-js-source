@@ -1,10 +1,10 @@
-# FIELD BUGS 2026-10-01 - the runaway pet's tiger; and seven lines: the yard, the market, the paint, the rent, the road, the potions, the climb past 100; and eleven: the rain in a puddle, the sprinkle, the square clouds, the sea from under it, the slow frames, the Overworld; and seven more: mining, the regeneration spell, the King's Mark, the cloak's drape, the identified trade, the shrine
+# FIELD BUGS 2026-10-01 - the runaway pet's tiger; and seven lines: the yard, the market, the paint, the rent, the road, the potions, the climb past 100; and eleven: the rain in a puddle, the sprinkle, the square clouds, the sea from under it, the slow frames, the Overworld; and seven more: mining, the regeneration spell, the King's Mark, the cloak's drape, the identified trade, the shrine; and eight more: the cast when used, the friend list, the mountain, the slow fall, the 3D map, the gate's health, the cursor
 
-*The same date, four times (the merges of PR #498 and PR #499 with main, 2026-10-01, and part four's branch after
-them): KEPT-KILL was written on main (PR #497) while part two - a list of seven - was written on PR #498's branch, and
+*The same date, five times (the merges of PR #498 and PR #499 with main, 2026-10-01, and part four's and part five's
+branches after them): KEPT-KILL was written on main (PR #497) while part two - a list of seven - was written on PR #498's branch, and
 part three - two lists, eleven lines - on PR #499's, each under the same name; part four - seven screenshots and a line
-- on `claude/mining-life-skill-broken-s7ustd`. The merges keep all of them here, so every cite of this page stands; part
-two's numbers (1-7), part three's (1-11) and part four's (1-7), their tags and their pins' `fb1001_` are each their
+- on `claude/mining-life-skill-broken-s7ustd`; part five - eight threads - on `claude/new-session-4qdvn6`. The merges keep all of them here, so every cite of this page stands; part
+two's numbers (1-7), part three's (1-11), part four's (1-7) and part five's (1-8), their tags and their pins' `fb1001_` are each their
 own.*
 
 One #bug-reports thread, and Mac's ask on it: *"Report on other player's quest enemies being dead"*, then *"If someone
@@ -30,12 +30,12 @@ Houseguest", is the other tiger in the pack: a house, and a kill.)
 `scenes/world.js` questShareSeam):
 
 - The quest's own mount stands it on its player's machine alone (`systems/quest/sceneMount.js:118` - only while
-  `killCount < spawnCount`), past the layout's run (`dungeonContext.js:1443` spawnQuestFoe). The room's stream carries
+  `killCount < spawnCount`), past the layout's run (`dungeonContext.js:1458` spawnQuestFoe). The room's stream carries
   the layout alone (`foesFrame`), and a peer's blow past the run is refused (`applyHit`, `i >= _layoutFoes`).
 - Shared with the party (QUEST-PARTY), it rides the room's own lane to the party alone, stood as a puppet for a LINKED
   copy only (DISC28-J's `accepts`), struck only by the party, hunting only the party (`isPrivateQuestFoe`,
   `questShareTag`, `peerMayHit`). Every member's linked copy counts the injury and the kill it sees; the resync's max
-  merge (`machine.js:1290`) keeps the copies equal.
+  merge (`machine.js:1356`) keeps the copies equal.
 - It is never the room's: the hourly respawn (`RESPAWN_MS`) and the relay's memory of the dead (`sharedWorld`'s
   `slice(0, _layoutFoes)`) cover the layout's run alone. Once its copy counts it killed it is never stood again; alive,
   it stands at full health each time its player comes in.
@@ -1050,3 +1050,335 @@ Pins: `test/fb1001_touchhold.test.js` (7), `test/fb1001_herbxp.test.js` (3); mut
 cell, from the registry), and the nine account-version pins (acct46, past PATREON-LINK's acct45 at the merge). Mutant record re-aimed by content, dead:
 `fb0930b_toolsaid.json` TOOL-SAID-the-world-never-says-the-professions-are-open. `actKeyWord`'s pad line is worded its
 own so `navaudit_presentation.json` NAVP-pad-keys-named-as-keys names one site still (MUT-AIM).
+
+## ROCK-FOOT and SETTLE-SAID: the boulders (Mac: "People are trying to mine boulders on the outside, but it's not letting people mine"; "it gives a notification but you cant mine")
+
+**Reproduced first** (the real `standMineNodes` over every shipped `WOD_Rocks_*` and `WOD_Mountain_*` layout's own
+transforms, a cube standing in for each model at sizes and origins that bracket a real rock's - the meshes are ARENA2's,
+not in CI): under one boulder in ten of the law's stood, and one in sixteen to thirty at a rock that shows. A piece was
+carried as its WHOLE mesh's box (`scenes/world.js` pixelRocks) - the fields are a few models scaled by tens to hundreds,
+turned and sunk, so a box ran 90 m to over a kilometre where the rock showed a few metres. A boulder's one foot stood on
+that box's edge facing its point, and AUDIT 29 C11 stood nothing when the foot fell inside a neighbour's box - most of
+the time in a field whose pieces overlap - with the piece spent and no other piece or side asked; and the veins had
+claimed the field's clear pieces first. Where a boulder stood, its stones lay out on open ground, so a look at the rock,
+E or the Pick-Axe found no node - the Use said "Mining is done at an ore vein or a boulder ... walk up to one until the
+prompt shows". And on a settlement's ground (a town, a farm, a temple, a tavern, a wealthy home - its footprint and a
+city block round it) the prompt of a vein, a boulder, a patch or a tree said it was ready, and E or the tool's Use said
+"You cannot mine in a settlement!" (the act's own check, FORAGE0 14.3), every time; Hunting's and Fishing's plans ask it.
+
+**The fix.** ROCK-FOOT: a piece is carried as it stands out of the ground (`world/terrainNature.js` rockFootprint - its
+mesh above the terrain, each vertex above it and each edge where it crosses it; none for a piece wholly under it); a
+node takes the nearest piece with a foot clear of every piece, the side facing its point first, then its others nearest
+that way (`scenes/mineHost.js` claim, footTargets); the boulders claim before the veins (a vein has the stone beside the
+field to fall back on, a boulder has nothing). Over the same layouts: three boulders in four stand, every one at a rock
+that shows, none inside a piece; the veins stand as often or more, and at a rock twice as often. The herbs' and trees'
+NODE-CLEAR read the same, truer, pieces. SETTLE-SAID: the ground's nodes ask the settlement's check in the plan
+(`net/professionLaw.js` GROUND_WHERE, each kind's `where`, `scenes/gatherHost.js` planFor) - the prompt says "not in a
+settlement", E goes on to the door or says it, the tool's Use says it; a dungeon's vein asks none. Node places are the
+client's alone (the service checks a node's key and slot, never where it stands): no service change.
+
+Pins: `test/fb1001_rockfoot.test.js` (4), `test/fb1001_settlesaid.test.js` (2); `tools/mutants/fb1001_boulders.json`
+(12, all dead). PIN MOVED, each by content: `prof2_client` (the rock pieces' line; PROF2 stand and DONE WHEN with the
+boulders' own pieces, claimed first), `fb1001_mining` VEIN-CLEAR (the field's one piece the boulder's). Mutant records
+re-aimed by content, dead: `audit29.json` AUDIT29-C11-a-foot-inside-a-neighbour, `prof2.json` PROF2-31, PROF2-32.
+FOUND, not changed: a boulder on a settlement's ground still stands (glowing, on the compass) where it can never be
+worked - its prompt now says why; standing none there needs the location's rect and type on the pixel. A pixel's
+boulders are 1 a day in the woods, 2 in the mountain woods, 3 in the mountains and deserts, none in swamps and
+rainforest (PROF0 6) - design, unchanged.
+
+## The rest of the life skills' audit (Mac: "Fix the rest")
+
+**BOULDERS and ROCK-SHARE.** With ROCK-FOOT a field's boulders stood, but a field holds few pieces with an open side,
+and one node a piece: on the shipped layouts (the stand-in meshes) raising the day's boulders alone stood two to two and
+a half a field a day whatever was asked, and took the veins' rocks - the veins at a rock fell from about 57% to 20% in the
+woods, 2 to 9% in the mountains. A piece now holds a node on each of its sides, every node at the field NODE_SPACING_M
+(6 m) from the next (`scenes/mineHost.js` claim), and the day's boulders are raised (`src/net/nodeLaw.js` NODE_COUNTS -
+the service's slot bound, so **acct47**): the Woodlands, the Haunted Woodlands and the Subtropical 3 (were 1), the
+Mountain Woods 4 (2), the Mountain and both Deserts 5 (3). The Swamp and the Rainforest keep none: their Court writs would
+start asking Rough Stone (PROF2's pin, "no boulders in a Swamp"). Measured over the same layouts: 93 to 98% of the day's
+boulders stand, and 93 to 98% of the veins at a rock. Deploy the account service (acct47) with or before the client: an
+older service refuses a boulder past its old count (`bad-node`).
+
+**SETTLE-STAND.** SETTLE-SAID made a ground node on a settlement's ground say so; it still stood there, glowing and on the
+compass, where no act could work it. The streaming world hands the gathering host the acts' own test (`settled`: the
+place's pixel's location, `isPlayerInTown` with its rect widened by a city block - Foraging's 'town', as `_musicLoc` and
+`_musicInLocationRect` answer it for the player), and the host stands no vein, boulder, herb patch or tree there
+(`scenes/gatherHost.js` stand: a kind with a `where`). SETTLE-SAID stays for the band's edge, where the player stands and
+the node does not.
+
+**CAST-LOOK.** Fishing's cast stood 0.6 m under the eye 3 m ahead whatever the look - inside the host's 12-degree cone only
+from some 23 degrees down to under one up (the audit drove the real host: a target at 0.5 degrees, none at 1). Looking out
+over the water there was no prompt, E went on to the door behind, and the net's Use told an angler in the water to
+"stand in it". The cast now stands where the look crosses 3 m ahead (`scenes/fishHost.js` castAt, held within
+CAST_RISE_M), and it yields: of the nodes in the cone, a node of the ground (an herb on the bank) is the target before it
+(`yields`, `scenes/gatherHost.js` findTarget).
+
+Pins: `test/fb1001_lifeskills.test.js` (4), `test/fb1001_rockfoot.test.js` ROCK-SHARE; `tools/mutants/fb1001_boulders.json`
+24, all dead. PIN MOVED, each by content: `prof1_law` (the counts), `prof2_law` and `prof2_service` (the Mountain's five; a
+sixth slot `bad-node`), `prof2_client` PROF2 stand (the nodes at a field 6 m apart), `fb1001_mining` VEIN-CLEAR (a stone a
+metre across over each vein's own tile, the boulders' - the veins fall back), `prof8_client` (the cast at the eye's
+height for a level look), and the nine account-version pins (acct47). Mutant records re-aimed by content, dead:
+`audit29.json` AUDIT29-C11 (its pins with the rock-foot suite), `prof2.json` PROF2-32 (the spacing at nothing).
+FOUND, not changed (the audit's "plausible"): a specialisation that changes what stands, taken mid-session, waits for
+the next state read (SEASONAL-EYE handles Herbalism 100's own); fishing from a deck may find the hull in the cast's ray.
+
+## AUDIT of the life skills' fixes (Mac: "audit this")
+
+**CAST-E (found, fixed).** The world's E reaches the gathering host before the door, the crew, the chest or the foe under
+the look (`scenes/world.js` nodeTook, PROF1's order), and CAST-LOOK made the cast the target at almost any look in the
+net's water - a sea's deck and a pier among it (the Ocean's climate is the net's water). With a net in the pack, E at a
+door or a crewman looked at level or up cast the net instead; a level look did so before CAST-LOOK too (the old point's
+cone held 0 degrees), so NAVAL-E guarded only boarding. Now the cast passes the press on as a node with a need does
+(VEIN-NEED's hand-back): `press` is false, the ladder tries what is under the look, and the host's `sayNeed` - called at
+the ladder's foot when nothing opened - casts it. A press the ladder took is never cast by a later hand-back
+(CAST_HANDBACK_MS). The net's Use casts at once, as before. Pins: `test/fb1001_lifeskills.test.js` CAST-LOOK and CAST-E;
+`fb0930b_fishtired`'s angler presses as the world does (the press, then the hand-back) - PIN MOVED; mutants
+`fb1001_boulders.json` CAST-E 3, dead; `fb0929h_veinneed.json` VEIN-NEED-said-twice re-aimed by content, dead.
+
+MERGE of main's PROF-MENU (a node's acts the loot plaque's list): CAST-E rides the menu - `hoverHit` yields the cast to
+the ray's winner in reach (the door's, the crew's or a chest's plaque kept), E unlit passes on as before, and a cast the
+plaque lit over nothing is cast by E or the click at once; SETTLE-SAID's ground check moved into `learned`, so every
+row of the list says it. Pin: `fb1001_lifeskills` CAST-E under PROF-MENU; CAST-E 5, dead.
+
+**Checked and sound.** The client keeps no service-version gate (acct47 is the deploy marker alone); the raised counts
+reach only the boulder law, the service's slot bound and two "any boulders" tests (`climateHolds`, the writs' Rough
+Stone) whose answers are unchanged; a slot's law point is its own hash, so slot 0 stands where it stood. The settlement
+test reads the location index filled at boot, before any pixel builds. `rockFootprint` reads the build's own `samples`
+(the entry's), costs some 0.15 ms a piece for a thousand-vertex mesh, warm, and the build yields between pieces.
+
+**FOOT-IN (found by the audit's independent pass, fixed).** Nothing kept a rock's foot on its own pixel: a field's pieces
+reach past the edge, and a vein or a boulder stood on the next pixel's ground - lit and on the compass (the marks walk
+256 m of pixels) but never the target, since the host asks only the pixels whose ground is in reach (`nearPixels`, 4.2
+m), and its height read off the edge's samples. Over the real sites as the loader places them (cube stand-ins, a
+seventh of the rock-field pixels): before the branch 20% of the few boulders that stood were off their pixel by more
+than the reach; after ROCK-FOOT and ROCK-SHARE 15% of the boulders and 19% of the veins. A foot now stands FOOT_INSET_M
+(0.5 m) inside its pixel (`scenes/mineHost.js` onPixel): none off it, 96% of the law's boulders standing, and the veins
+with no foot on the pixel on its own stone instead (93% stand - the rest stood where no look reached them). Pins:
+`test/fb1001_rockfoot.test.js` FOOT-IN (the host finds an edge boulder from the next pixel) and the shipped-fields test
+now over the real sites, every node on its pixel; mutants `fb1001_boulders.json` FOOT-IN 2, dead; `audit29.json` C11
+re-aimed by content, dead.
+
+**Noted, not changed.** A rock piece over the pixel's edge is measured against the edge's heights for its vertices past
+it (`groundAt` clamps) - its footprint there is approximate. A location a mod adds is a settlement on the client that
+has the mod, and its own act refuses there alike. The cast yields to any node in the cone, a node the player cannot work
+among them (E then says what that node needs) - as before when that node was nearer the look; looking away casts.
+
+## Part five - the cast when used, the friend list, the mountain, the slow fall, the 3D map, the gate's health, the cursor
+
+Eight #bug-reports threads through Mac, as screenshots. Every report root-caused on the real modules before anything
+changed (Mac's rule of 2026-09-30), one search lane a report; each fix pinned red on the code before it and
+mutation-checked. Three calls were Mac's, asked with the root causes in hand: the 3D map's drag (*"Unlock on intent"*),
+the friend list (*"Build it"*) and the mountain (*"Retexture them to be as detailed as possible"*). One report was
+already fixed on main.
+
+| | Report | Reporter | What it was | Done |
+|---|---|---|---|---|
+| 1 | "Big Regen Spell doesnt do anything" - GOD MODE: Area at Range, Magic Based, Regenerate and Fortify Attribute (Strength) | Opaldes | part four's #3, the same screenshot: fixed there (AREA-SELF, AREA-CASTER - PR #509, on main) | answered |
+| 2 | "'Cast when used' items don't work in dungeons" - "I enchanted a bracer to cast Ice Storm when used, it works fine in the overworld, but as soon as I enter a dungeon, the spell doesn't activate"; "only a fireball enchantment on the scarab"; "they work in other interiors like shops and guilds" | Skibbster; kurkku | the session's one enchant ctx readied an item's spell on the host's engine, which fires above ground and indoors only; underground the dungeon context builds and drives its own. The click swung the weapon, the item still wore, and the spell sat stranded until the first click back outside | fixed (CAST-USE) |
+| 3 | "My friend list is different between devices. On my laptop and desktop." | Shanewerewolf5 | the hub keyed every social record by the BROWSER PROFILE's id (`net/social.js` accountId, minted once per app storage), never the signed-in player: a laptop and a desktop were two hub accounts with two lists, and two players on one browser one account with one list - the merge ACC1b said belonged at the hub, recorded as not built | asked, built (FRIENDS-SYNC) |
+| 4 | "MASSIVE buggy mountain at 823, 399" | maya | no terrain fault (every height at and round the pixel bounded, 844-901): World of Daggerfall's `WOD_Mountain_01r1` at (824,399), a massif of ARCH3D pebbles scaled 400 to 5,800 times - a 1,434 m spire whose own UVs rode the scale, one 64x64 repeat over 600 m to 1 km of face; every one of the 2,488 WoD mountains the same (1.4 to 2.5 km), and DFU with the mod draws them so | asked, built (WOD-ROCK) |
+| 5 | "When the Slowfall effect is active, falls drift to the side and catch on the wall, getting the player stuck before they touch the ground"; "then your speed weirdly accumulates and you pummel to ground HARD" | DoubleDutchess; Skeptikali | three things around the spell never heard of it: the classic climb's slip integrated plain gravity and billed the whole slip; the classic airborne grasp fired all the way down a fall five times as long; the frozen liftoff momentum kept pressing into whatever face the glide reached, and past the slope limit the collider's push-out lifted the body more than the spell lowered it | fixed (SLOW-SLIP, SLOW-GRASP, SLOW-PRESS) |
+| 6 | "Holding the right-mouse button to rotate the 3D map only works on one axis (X or Y) at a time. The rotation should work for both vertical and horizontal simultaneously." | lumin | TURN-STEADY (Mac: "its a bit hard to control") let a drag's first 8 px pick turn-only, tilt-only or both for the WHOLE drag | asked, built (ORBIT-FREE) |
+| 7 | "I left the Oblivion Gate with 6% health and logging in chunks my heath back down to 6% from full"; "IIRC I saved right after leaving the oblivion gate w/ 6% health" | Leafen | did not reproduce: nothing the Gate keeps holds a vital, and no wire, ledger or effect writes the player's own health back; an exact old health returns only through the save a login loads - see GATE-HP below for what can leave a heal out of it, and the questions | asked (Leafen, through Mac) |
+| 8 | "Menu scrollbars change the custom cursor back to the default cursor when hovered over" - "This also happens when you move your cursor far enough to the right of the screen." | Skibbster | two Chromium laws: a native scrollbar always shows the platform arrow, and `scrollbar-color` (inherited) made every menu's scrollbar native; a custom cursor over 32 DIP a side is dropped for the arrow wherever it would not lie wholly in the viewport, and the gauntlet was 31x34 | fixed (CURSOR-EDGE) |
+
+## CAST-USE: an item's spell is readied on the engine that fires it (2)
+
+**Reproduced first** (two real `createPlayerMagic` engines over one player - the host's and the dungeon context's -
+the real `createEnchantCtx` mounted as `scenes/world.js` mounts it, the real `useItem`, the click sent to each mode's
+engine): Ice Storm, Fireball and Ice Bolt, Area at Range, Area Around Caster and Single Target at Range alike, fired in
+the street and in a shop and were never armed in a dungeon; the item lost its 10 condition all the same, and the first
+street click after the dungeon fired the stranded ready. A CasterOnly Heal landed everywhere (the player is one entity)
+but was said on the street's channel.
+
+**Why.** Every Use path runs `useItem` (for a bracer or a scarab, the pack's Use and the U picker - the quick slots take
+potions alone, and the hotbar puts a jewel ON), whose Cast When Used payload goes through the session's ONE enchant ctx (`systems/enchantments.js` setDefaultEnchantCtx): a non-CasterOnly
+spell is `setReadySpell`, which the ctx turned into the host's `magic.readySpell(record, { free: true })`. The host's
+engine fires only above ground (its frame's `firePending` is gated to exterior mode) and indoors (worldModes takes it
+for the interior arm); the hosted dungeon mounts no ctx of its own (`enchantCtx: false`) and drives the engine it builds
+(`dungeonContext.js` playerAttackInput, its frame's `firePending`).
+
+**The fix** (`scenes/shared.js` liveCastEngine; `scenes/hostEnchant.js`; `scenes/dungeonContext.js` castEngine): the ctx
+takes a GETTER and asks it at every call - underground the dungeon context's engine, above ground and indoors the
+host's; a context left from a descent never answers outside one. Cast When Strikes and reflection ride the same
+getter, and so do an item's self-cast utilities (Dispel, Identify, Create Item, Recall) - underground through the
+dungeon's own foe pool and windows now, not the street's. `scenes/world.js` and `scenes/exterior.js` mount it alike.
+`test/fb1001_castuse.test.js` (Area at Range and Single Target at Range; Area Around Caster reproduced, not pinned).
+
+## SLOW-SLIP, SLOW-GRASP, SLOW-PRESS: Slowfall is heard by everything a fall does (5)
+
+**Reproduced first** (a real `PlayerMotor` over a real `Collider`, the classic climb's dice scripted). A slip off a
+classic climb under the spell fell at 19-27 m/s and billed the whole slip - 10 m of wall, 25 HP; 20 m, 72 HP: the slip
+arm (`player/motor.js`) integrated plain gravity and anchored its fall once, at the let-go, the one place gravity ran
+without the spell's arm. A slow fall pressed into a wall with Forward held was grasped at 18.4 m on the way down: the
+airborne grasp's 0.77 s timer is 1.6 m of a slow fall, its roll re-tried every 1.6 m (`player/climbing.js`). And,
+without the Jump spell, no air control steers a fall: the liftoff momentum is replayed every step, so a glide five times as long carried 4.8 times
+as far - into a wall it pressed all the way down, and into a face steeper than the slope limit (72 and 75 degrees) the
+collider's push-out lifted the capsule more than the spell's 0.035 m a step lowered it: it hung at 12.7 m for 20 s, or
+crept up the face, and fell the whole height when the spell ran out.
+
+**The fix.** SLOW-SLIP: the slip takes the spell's arm - 2.1 m/s, its fall re-anchored every tick. SLOW-GRASP: a slow
+fall is not grasped onto a wall (a departure - Port-Ledger); a climb under way is untouched, and Forward at the wall's
+foot climbs as ever. SLOW-PRESS: once a slow fall's press into a face has held it up a step's height, it is spent - the frozen
+momentum keeps what the collider let it do, and the Jump spell's air control is refused that way until the body
+leaves the face; a lip in the step band is still stepped onto (the audit's SP1, SP2). Enhanced Climbing's own grab (Jump + Forward) is a deliberate act and is
+left. `test/fb1001_slowfall.test.js`.
+
+## ORBIT-FREE: a drag turns and tilts once it means to (6; asked)
+
+**Reproduced first** (the real `HeldMapWindow`'s stage listeners): a right-drag of 30 px across, then 40 down, then 20
+on the diagonal handed the 3D sheet `[10,0] [20,0] [0,0] [0,0] [20,0]` - all 60 px down dropped. TURN-STEADY's lock
+(`ui/heldMap.js`), from Mac's "its a bit hard to control", let the first 8 px choose for the whole drag; Shift + left (a
+trackpad's) the same. DFU's automap turns and orbits from one drag (`ui/automapCamera.js` dragRotate - the classic
+automap port is unaffected), and the held sheet's own `orbitBy` already takes both.
+
+**Asked** - the report against Mac's own call. Mac: *"Unlock on intent"*. **Built**: the lock still settles in the first
+8 px; a locked drag then keeps what it holds back the other way, less its drift (each move forgives half its own travel
+along the lock - the slope the lock's own 2:1 calls drift); past 24 px of it the drag turns AND tilts every move to its
+release, the held-back travel spent first. A sideways sweep that drifts or wobbles still never tilts.
+`test/fb1001_orbitfree.test.js`. The pad (right stick: turn and zoom) and two fingers (twist) never tilt; not asked.
+
+## CURSOR-EDGE: the gauntlet everywhere (8)
+
+**Measured** in Chromium 141 under Xvfb, the X server's own cursor read back through XFixes while a real pointer moved:
+over the Settings list's scrollbar the platform arrow; within 31 px of the right edge and 34 px of the foot the arrow.
+`ui/enhancedStyle.js` dressed the menus' scrollbars with `::-webkit-scrollbar` AND set `scrollbar-width` and
+`scrollbar-color` on `.shell, .px-win`; since Chromium 121 either standard property draws the native bar and turns the
+dress off, and `scrollbar-color` inherits - every scroller in every menu was a 15 px native bar, and Blink shows its
+own arrow over a native scrollbar whatever `cursor` the scroller wears. A custom scrollbar's parts take the scroller's
+cursor. And Blink drops a cursor image over 32 DIP a side for the next in its list wherever it would not lie wholly
+inside the viewport: the gauntlet (`ui/plusCursor.js`) was 31x34, the classic CURSOR.IMG at 2x 64 px wide.
+
+**The fix.** One unscoped `::-webkit-scrollbar` dress; the standard pair only under `@supports not
+selector(::-webkit-scrollbar)` (Firefox), the pack card's thin bar the same; the gauntlet 31x32 (two near-twin rows of
+the hand dropped, 2x the exact double), the pad's drawn box with it (`ui/gamepadInput.js`); the classic arrow cropped
+to what it draws and scaled only as far as 32 DIP allows (`ui/cursor.js`). Menus' scrollbars in Chromium are now the
+10 px stone slider the skin always meant. `test/fb1001_cursoredge.test.js`.
+
+## FRIENDS-SYNC: a friend is a player, on every device (3; asked)
+
+**Reproduced first** (the real Room over `test/fakeRoom.mjs`): one player - one token subject - friended Bob from a
+laptop's profile; from a desktop's the picture came back `acct: 'aDesktop001'`, `friends: []`, and the hub held three
+records. A second player signed in on the laptop's profile saw the first's Bob. The client keeps no copy of the list
+(no stale cache): the hub's `acct:<id>` and `asecret:<id>` were keyed by the hello's `acct`, the profile's id
+(`scenes/world.js` hands the hub's link `accountId()`), while the verified subject sat on the same socket's attachment
+(`sub`) and ONE-SEAT already seated by it. `06-Systems/Accounts-And-Cloud-Saves-Arc.md` had named the fix ("THE MERGE
+BELONGS AT THE HUB") and recorded it as a later slice.
+
+**Asked** - a relay deploy and a migration of the hub's own storage. Mac: *"Build it"*. **Built** (`server/src/index.js`
+`_helloAccount`, `_mergeLegacy`): the hub's account IS the token's subject. The profile pair is a legacy credential: on
+a device's first hello after the deploy, proved by its secret, the profile's record is merged into the player's - a
+UNION of friends and requests, the bounds kept, a request already a friend dropped - every friend's and requester's
+record renamed from the profile's id to the player's (a friend of both is one friend), and the profile's record and
+secret retired; the friends online are sent their picture again. A party seat under the old id is not carried; it
+lapses as any seat whose tabs went (PARTY_OFFLINE_MS). The client accepts its picture under the signed-in player's id
+or the profile's, from a relay before this (`net/social.js` AUDIT SOC B19), and a follower's cancel of a shared rest
+reads the id the hub seats me by (`social.acct`), not the profile's. **world142**; the hub hello gains `ps` (the
+audit's F5) and no other frame changes shape; no account service change. Ship the client with the relay: a page loaded before it refuses the new picture until it reloads (the
+relay-version notice tells it to).
+
+The older hub pins modelled one account as several tabs of several subjects; under ONE-SEAT one subject holds one hub
+tab, and a second is a claim that closes the first. Rewritten, each saying so: `soc1_hub` (the thief its own account;
+a second tab a claim; two-device presence and the party pose by claims; a new pin - the picture is the claiming
+socket's alone, a closed tab the runtime still lists never tried), `auditsoc` A10/B9 (ACCOUNT_TABS_MAX over a burst of
+claims), `chatchan` (the party line by claims; the room's party budget over three full parties), and the source pins
+in `auditsoc` B5/B18/B10 and `soc3_socialpanel`. The harness signs a social hello's token for its account
+(`fakeRoom.mjs`), and its issued-at walk restarts from the clock past MAX_TTL_S. Mutant records re-aimed by content:
+`auditsoc.json` A7-replaced-socket-never-leaves, `soc1.json` S11-state-to-every-tab, and `soc1.json`
+S38-version-not-bumped (it still said world140 - missed at world141's bump - now world142); 158 dead, 2 equivalent as
+recorded. `test/fb1001_friendsync.test.js`.
+
+**Main's red, ported.** `test/herald.test.js` still pinned world140 (CLIMB5's bump missed it), and five relay pins did
+not parse (the bump's message carried an unescaped quote); 22 line cites into world.js, exterior.js, worldModes.js,
+dungeon.js and dungeonContext.js stood where #504's merge moved the code from - struck Ledger rows, the Settings
+spec's viewport row and chargenSession's overlayHover cite (citedrift CD4, CD8) - re-aimed by content.
+
+## WOD-ROCK: a stretched World of Daggerfall piece keeps its pebble's texel density (4; asked)
+
+**Measured first** (the real terrain pipeline and the real WoD loader over the game's own data): WOODS reads 55 at
+every pixel from 820 to 827 by 396 to 402 - a flat plateau in the Dragontail Mountains - and every streamed height in
+821-826 by 397-402 stands between 844 and 901, none non-finite. The spike is the mod's: `WOD_Mountain_01r1` at
+(824,399), its object 7 model 60716 (a 1.9 m pebble) at 398 x 1101 x 398 topping out 1,434 m over the site, object 3
+1,196 m. Its triangles' edges reach 820 m; the model's own UVs ride the scale, so one repeat of texture 141.2 covers 600
+m to 1 km. Not an outlier: all nine `WOD_Mountain_*` layouts stand a spire 1.4 to 2.5 km (2,488 sites; 2,391 keep it
+past the roads clearance), and some 6,500 `Rocks_Large_03` stand 424 m pinnacles alike. DFU with the mod draws them the
+same - `LocationHelper.cs:1176` makes the classic mesh and nothing touches its material or UVs - so this was the port
+drawing the mod faithfully.
+
+**Asked** - retexture, cap their height, remove them, or leave them. Mac: *"Retexture them to be as detailed as
+possible"*. **Built** (`world/wodRockUv.js` wodRockUvs; `scenes/world.js`, the WoD loop): a piece stretched 4x or more on
+any axis is drawn with new UVs, plane by plane - each plane of the model unfolded isometrically through its own
+unscaled UV map, so every face of the scaled piece carries the texture at its pebble's own texel density and
+its rows along the edge they ran along (the spire's face: 74 texels a metre, where it carried 0.07), tiled REPEAT, each plane shifted by whole
+repeats to start near zero, a vertex two planes share copied for the second. Positions, indices, the collider and the
+mining boxes are the model's own; a camp, a house or the shrine statue (2.65 at most) is the same object, batched byte
+for byte as before. A departure (Port-Ledger). `test/fb1001_wodrock.test.js`; `tools/mutants/fb1001_wodrock.json` (17,
+all dead).
+
+## GATE-HP: the report did not reproduce (7)
+
+**Traced** on the real modules, every candidate: the Gate keeps no snapshot of a vital (its only device keys are
+`wb5.gateClaims` and `wb5.spoils`, and no gate module lays an effect on the player); a court blow lands only while the
+court's `feet()` stands (null outside it); GATE-HEAL (#507) adds to a figure owed the relay, after the heal has landed;
+the relay's damage chart and heal bucket are figures, and no frame writes the local player's health (the duel
+opponent's alone); the account service lands a checkpoint only under the tab's lease at the next sequence and restores
+no older copy, and RESCUE-SAVE's device copy loses to any newer record (`test/rescuesave.test.js`); the renown layer
+keeps health's fraction both ways. An EXACT old health returns only through `restorePlayer` (`systems/save.js`) from the
+save the login loads, so if the 6% is the gate's, that save never held the heal. What can leave a heal out of it, none
+confirmed as Leafen's: a page closed rather than Exited, then a login elsewhere (the final checkpoint usually lands
+after the lease is let go - `test/rescuesave.test.js` pins that the device keeps it); a tab that lost its seat
+(ONE-SEAT) plays on and saves nothing; a save past 512K characters on a full device's hidden page; a composer that
+throws on every checkpoint (`[online] checkpoint failed` on the console). And "in chunks from full" argues against a
+stale save - the HUD's first frame is drawn after the boot's load, so a load at 6% shows 6% at once. The two floors near
+6% - the lycanthrope's urge (`NEED_TO_KILL_HEALTH_LIMIT_MINIMUM`, 4) and the survival harms' last points (`HEALTH_FLOOR`,
+5) - were walked through a login and did not take a full bar down.
+
+**Asked**, for Leafen through Mac: one device or several (a browser, the desktop app, a guest)? Was "Online in another
+tab or device" or "Your last save had not reached the realm" said? At the login, does the bar start at 6%, or at 100%
+and fall? A werewolf or wereboar? Any `[online] checkpoint failed` on the console? No code changed.
+
+## The audit of part five (Mac: "audit this")
+
+Lanes over part five's diff, one a fix each (CAST-USE; FRIENDS-SYNC; SLOW-SLIP, SLOW-GRASP, SLOW-PRESS; ORBIT-FREE
+with CURSOR-EDGE; WOD-ROCK as it landed) and one the record's, each reproducing on the real modules. Every finding
+pinned red on the branch before its fix (a gap pin's mutants are its claim) and mutation-checked.
+
+| Tag | Lane | What it was | Done |
+|---|---|---|---|
+| F1 | FRIENDS-SYNC | under the live law a hub `acct` is any id, and a player's id is public (every roster carries `sub`): a profile hello naming a player's id planted `acct:<player>` and its secret, and after world142 the player's first hello INHERITED the planted record (the planter's alt befriended, hearing the player's presence and peers), and the planter's later hello merged it away from them | a profile secret at the player's own id is a forgery: the record is retired whole, every record it names forgetting it (`server/src/index.js` `_retireForged`) |
+| F2 | FRIENDS-SYNC | the union was cut at FRIENDS_MAX (and PENDING_MAX) but every record it named was renamed onto the player: a cut friend kept the player, saw their presence, and could not be removed by them | what the player's record kept of a friend is what the friend's keeps of the player (`_mergeLegacy`) |
+| F5 | FRIENDS-SYNC | a client built before world142 expects its picture under the profile's id (AUDIT SOC B19) and refused every one the hub sent: no friends, no party, no word why - and SRV-N's notice baselines on the first version a page hears | the hub hello carries `ps` (1 or nothing; `net/online.js`, `net/wire.js` parseClient); a hello without it is told "update the game to see your friends and party" in the words its chat prints |
+| F3 | FRIENDS-SYNC | the reconnect-replace leave's new compare was right and unpinned - `b.acct !== m.acct` survived every suite (every reconnect a logout, a party of one deleted) | pinned |
+| F4 | FRIENDS-SYNC | the A10/B9 rewrite pinned the bound with `<=`: three bound mutants that died before lived | pinned exactly again (`test/auditsoc.test.js`) |
+| F6 | FRIENDS-SYNC | the merge's bounds - 129 records over the 128-record write, a friend's request, my own other device, an online friend's picture - unpinned | pinned |
+| SP1 | SLOW-PRESS | under the Jump spell the airborne branch re-reads the input every step, so Forward held re-pressed a slow fall into a face past the slope limit after SLOW-PRESS had spent it: 72 degrees at a walk 19.9 s to come down 12 m, 74 at a run crept UP the face and stayed | the way the face refused is kept while it holds the body, and the air control refused it (`player/motor.js`) |
+| SP2 | SLOW-PRESS | a regression of part five's own: SLOW-PRESS spent the press on the step the body first touched a wall, and the collider's step-up needs that push the step after - a slow glide a step under a lower roof's lip fell into the street (148 of 230 arrivals at 1 m/s on the roof, 216 before) | spent only once the face has held the body over the spell's line further than a step's rise (STEP_OFFSET) |
+| SP3 | SLOW-PRESS, SLOW-SLIP | unpinned: the glide's along-face half (zeroing it passed every suite), a slip under the spell still the classic slip with its regain roll, and steering back once off a face | pinned |
+| CU1 | CAST-USE | the same two engines at the transition: a ready held when the mode flipped stayed on the other one - a touch ready taken down the stairs (the dungeon door lets one through) fired at the first click back outside, and one held at the way out died with the dungeon's engine, the item's condition spent and no spell cast (a spellbook ready the same, before part five) | the ready, its freeness and its price, handed to the engine that fires where the player stands - down at the flip (`worldModes.js`), out in the dungeon context's teardown (the door, a Recall, a load) - `hostMagic.js` handReadyTo, takeReady |
+| CU2 | CAST-USE | the dungeon's ready line priced a free ready at the spell's full cost ("Ice Storm (150)" at 50 magicka, the click spending 0) - common now item readies land there | the line prints the ready's stored price (`readiedCost`) |
+| CU3 | CAST-USE | Cast When Strikes and reflection underground ride the live engine - true, and unpinned (either door on the mount-time engine passed every suite) | pinned |
+| UI1 | CURSOR-EDGE | the classic skin never lays ENHANCED_CSS, and the chat (it mounts on either skin), the social panel, the profile and the decorator kept native scrollbars - the OS arrow over them on the classic skin (as before part five; the fix's word "every scrollbar on the page" was the enhanced skin's) | the document cursor brings the dress itself (`ui/cursor.js` CURSOR_SCROLLBAR_CSS) |
+| UI2 | CURSOR-EDGE | the unscoped dress turned a touch screen's invisible overlay scrollbar into a standing 10 px bar (the front page 915 px wide to 905), with no cursor there to keep | for a pointer device only (`@media (any-pointer: fine)`) |
+| UI3 | CURSOR-EDGE | the classic arrow's sizing was pinned by its source text alone - a fixed 2x, the whole image drawn, the full size and a moved hotspot all passed | pinned on the real canvas path |
+| UI4 | ORBIT-FREE | sound (resets, chords, the pitch clamp, the pad and touch unchanged; the jump as it frees is 8.3 degrees of tilt at least, under one R/F key step, by design); a leftward drift, the freeing move's own along-lock travel and a fresh drag's clean start were unpinned | pinned |
+| WR1 | WOD-ROCK | the unfolding's frame was laid along the reference triangle's first edge - often a quad's diagonal - and an in-plane stretch keeps only that direction's angle: on the re-mapped non-rock pieces the textures with a grain turned - a palisade's planks (43001) 54 degrees off the wall, a fort piece's 32, a dock's stone blocks 14 (the rock, the same either way, hid it) | the frame along the texture's own rows (dP/du); every textured face of the 847 within 0.13 degrees |
+| WR2 | WOD-ROCK | one outcrop mixes pebbles under and over the 4x threshold (60610 at 3.01 beside 4.69; 60718 at 3.5 beside 60714 at 1.9): touching faces two to three and a half times each other's density | a rock pebble is unfolded from any real stretch, by the model id the host hands in (`WOD_ROCK_MODELS`) |
+| ROCK-CAP | WOD-ROCK (asked) | at the pebble's density the rock read as rock within some 10 m, a lattice at 30 to 100 m, flat from 300 m - a spire is seen from hundreds of metres. Mac: *"Cap at ~8 m a repeat"* | a rock face no finer than a repeat per 8 m (`WOD_ROCK_MAX_REPEATS_PER_M`) |
+| R | the record | part five's own page and rows: the FRIENDS-SYNC section said no frame changed shape (F5 added the hello's `ps`), 157 dead where 158 died, ORBIT-FREE's repro 20 px across where it was 30, the H1, the preface and Active-Arcs silent on part five, the Ledger row naming one of its two pins, a Testing row overstating its source pins, CAST-USE's audit tags F where the page said CU; and main's struck Ledger row 821, re-aimed by half (its `world.js:2753-2758` now `8855-8867`) | corrected; the cast-use tags CU1-CU3 in the source, the pins and the mutant names |
+
+The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
+Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2.json` C2-one-half-sent. Pin moved:
+`soc2_session` (the hello's `ps`); the harness's hello with an account says `ps` unless a pin asks for an old build.
+`test/fb1001_friendsaudit.test.js`; `tools/mutants/fb1001_friendsaudit.json` (15, all dead). `test/fb1001_slowaudit.test.js` (SP1 and SP2 red on the branch before);
+`tools/mutants/fb1001_slowaudit.json` (6, all dead), `fb1001_slowfall.json` judged dead again. `test/fb1001_castaudit.test.js`
+(CU1 and CU2 red on the branch before); `tools/mutants/fb1001_castaudit.json` (8, all dead). `test/fb1001_uiaudit.test.js` (UI1 and UI2
+red on the branch before); `tools/mutants/fb1001_uiaudit.json` (9, all dead). `test/fb1001_wodaudit.test.js` (WR1 and WR2 red
+on the branch before); `tools/mutants/fb1001_wodaudit.json` (5, all dead), `fb1001_wodrock.json` judged again. Measured and asked:
+at the pebble's density the rock read as rock within some 10 m, a regular lattice at 30 to 100 m and its mean colour
+from 300 m (no anisotropy on model textures) - and the spire is seen from hundreds of metres. Mac: *"Cap at ~8 m a
+repeat"* - ROCK-CAP: a rock pebble's face tiles no finer than one repeat per 8 m in its finest direction (8 texels a
+metre), its grain's proportions kept; a pebble already coarser keeps its own, and a plank, a block or a palisade its
+model's (`WOD_ROCK_MAX_REPEATS_PER_M`). Seen and left (before part five, not asked): the
+Enhanced Plus gauntlet's pressed frame draws its fingertip about 14 px right of its hotspot (`ui/plusCursor.js`). Seen and left (no diff, every
+fall's): a peer's body has no in-air pose - the others see a slow faller walk or stand mid-air (a pose field, a relay). Seen and left (main's
+own): `auditworld34` A1 fails one run in two or three on main as on the branch (its 25 ms windows).

@@ -25,6 +25,7 @@
 import { gameDayAt, isGateDay, gateAt, gateTimes, gateBossOf, gateModsOf, GATE_EVERY_DAYS, GATE_COLLAPSE_MS } from './gateLaw.js';
 import { GATE_TOP_MAX, NAME_MAX } from './wire.js';
 import { readGateMods } from './gateMods.js';   // WB8c: tonight's marks in the omen's post
+import { RITE_OMEN_LINE } from './gateRite.js';
 
 /** How soon a post Discord did not take is posted again, ms. */
 export const HERALD_RETRY_MS = 30_000;
@@ -67,10 +68,11 @@ export function omenPost({ day, place = null, role = null }) {
   const t = gateTimes(day), boss = gateBossOf(day), { aspect, trials } = readGateMods(gateModsOf(day));
   const ping = role ? `<@&${role}> ` : '';
   const where = place ? `near ${place}` : 'over the wilds';
-  const map = place ? '' : ' - it is marked on your map';
-  const marks = ` Tonight he comes **${aspect.epithet}**${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
+  const map = place ? '' : ' It is marked on your map.';
+  // WB13b: two sentences for the two times, and the marks in the chat's own sentence (net/gateLaw.js marksLine)
+  const marks = ` ${boss.name} comes **${aspect.epithet}** tonight${trials.length ? `, ${listOf(trials.map((x) => x.name))}` : ''}.`;
   return {
-    content: `${ping}**The sky burns ${where}.** An Oblivion Gate opens ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}) and seals at ${stamp(t.sealAt, 't')}${map}. ${boss.name}, ${boss.title}, holds it.${marks}`,
+    content: `${ping}**The sky burns ${where}.** Dagon's faithful open a breach ${stamp(t.openAt, 'R')} (${stamp(t.openAt, 't')}). The Covenant seals it at ${stamp(t.sealAt, 't')}.${map} ${RITE_OMEN_LINE}${marks}`,   // WB12d: the rite - AUDIT WB12d (D3): the chat's own sentences, right after the breach they say is near
     allowed_mentions: role ? { roles: [role] } : { parse: [] },
   };
 }
@@ -83,9 +85,25 @@ export function fellPost({ day, place = null, top = [], n = 0 }) {
   const boss = gateBossOf(day);
   const names = (Array.isArray(top) ? top : []).slice(0, GATE_TOP_MAX).map(heraldName).filter(Boolean);
   const others = Number.isSafeInteger(n) ? Math.max(0, n - names.length) : 0;
-  const by = names.length ? ` - struck down by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';
+  const by = names.length ? `, struck down by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';   // WB13b: the chat's kill line's sentence
   return {
-    content: `**${boss.name} has fallen** at the Oblivion Gate ${place ? `near ${place}` : 'in the wilds'}${by}. The gate collapses.`,
+    content: `**${boss.name} has fallen** at Dagon's Breach ${place ? `near ${place}` : 'in the wilds'}${by}. The breach collapses.`,
+    allowed_mentions: { parse: [] },
+  };
+}
+
+/**
+ * WB12d: THE RITE'S POST - the faithful's rite broken before the breach opened, where, and by whom. Pings nobody.
+ * AUDIT WB12d (D4): the kill's own sentence (fellPost) - the event, the place, the first few who broke it and how many
+ * more (`n`, the hub's count of them).
+ * @param {{day?: number, place?: string|null, by?: ReadonlyArray<string>, n?: number}} o
+ */
+export function ritePost({ place = null, by = [], n = 0 }) {
+  const names = (Array.isArray(by) ? by : []).slice(0, GATE_TOP_MAX).map(heraldName).filter(Boolean);
+  const others = Number.isSafeInteger(n) ? Math.max(0, n - names.length) : 0;
+  const who = names.length ? `, by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';
+  return {
+    content: `**The faithful's rite is broken** ${place ? `near ${place}` : 'in the wilds'}${who}.`,
     allowed_mentions: { parse: [] },
   };
 }

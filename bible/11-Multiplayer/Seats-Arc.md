@@ -1,6 +1,11 @@
 # THE SEATS ARC - guilds hold the Iliac Bay (SEAT0, the design record)
 
-**Status: DESIGN RECORD, every question decided. Nothing of SEAT's own is built** - the two slices it stands on are:
+**Status: DESIGN RECORD, every question decided; being built (2026-09-30, Mac: "Finish the seats"; "Or we could go ahead
+and do sieges") - GUILD1d, GUILD1e, SEAT1a-SEAT1d, PVP-REF, SEAT2a, CROWN1, CROWN2 and SEASON1 SHIPPED, AUDIT-SEATS
+(2026-10-01) over all of them, SEAT2b (parts one and two, whole) and PROF11 built beside it, SEAT-HALL and CROWN-HALL
+built after it (2026-10-02) (section 13; AUDIT-SEATS corrected this line, which named three; the audit of the arc
+corrected it again, which said part two was being built)** -
+the two slices it stands on are:
 MARKS1 (PROF0's currency) and NOTICE1 (PROF0's board) SHIPPED on the professions branch (AUDIT 28 corrected this line,
 which said nothing was). Opened 2026-09-28. This page is the whole
 design of guild town control - SEAT1 (holding a seat) and SEAT2 (sieges) of THE HOLDINGS ARC
@@ -34,13 +39,13 @@ design of guild town control - SEAT1 (holding a seat) and SEAT2 (sieges) of THE 
 | **FACT** | What the tree does today, read off the file named. |
 | **MEASURED** | A number the design fixes now but a named measurement may move, with the rule that moves it. |
 
-Every number lives in ONE pure law module, src/net/townSeatLaw.js (to be written), whose table is Appendix B -
+Every number lives in ONE pure law module, src/net/townSeatLaw.js, whose table is Appendix B -
 so balance is an edit to one file, pinned by its own tests, never a hunt.
 
 ## 1. The laws this arc keeps
 
 1. **ONLINE ONLY.** Offline Daggerfall stays Daggerfall Unity, 1:1 (`01-Overview/Port-Doctrine.md`). A seat is a
-   Ledger A departure (`01-Overview/Port-Ledger.md` section A, its row added when SEAT1c ships), online's alone, as
+   Ledger A departure (`01-Overview/Port-Ledger.md` section A, its row added with SEAT1a - AUDIT-SEATS: it said SEAT1c), online's alone, as
    the hubs, homes and guilds are.
 2. **THE COURT IS THE GAME'S.** A palace's ruler, court faction, quests and opening hours stay what DFU makes them
    (FACT: `npcSession` routes a palace NPC to the region's court; `buildingLocks.js` keeps type 16 open
@@ -63,7 +68,7 @@ so balance is an edit to one file, pinned by its own tests, never a hunt.
    drawn art; banners, boards and map marks are drawn at runtime; the servers never hold game data (3.2).
 6. **THE WORD "SEAT" IS TAKEN IN THE CODE** - ONE-SEAT (`src/net/oneSeat.js`; its `SEAT_ELSEWHERE` in `src/net/wire.js`), SEAT-HEAL, the
    party's kept seat. The player reads "seat"; the code says **`townSeat`**: `townSeatLaw.js`, D1 tables
-   `town_seat*`, relay frames `{t:'tseat'}`, room keys `siege:`.
+   `town_seat*`, relay frames `{t:'siege'}` (AUDIT-SEATS G22 DECIDED: this said `{t:'tseat'}`), room keys `siege:`.
 
 ## 2. What already stands (FACT)
 
@@ -98,7 +103,7 @@ table; the Marks currency (PROF0).
   dungeon beside it; the city is fought over, the castle is the holder's hall.
 - **Palace seats** - DECIDED (Mac): **every location with a Palace**, hub or not.
 - **No palace, no seat** - DECIDED (Mac). A hub without a palace is still a hub (HUB1's ring), not a seat.
-- **The derivation** - DECIDED, src/systems/townSeats.js (to be written), run in the same boot pass as
+- **The derivation** - DECIDED, src/systems/townSeats.js, run in the same boot pass as
   `pickRegionHubs`, over the same rows:
 
 ```
@@ -110,11 +115,15 @@ seat = { key: unsigned mapId, name: l.name, region: r, kingdom: KINGDOM_OF[r], t
          pixel: (l.mapPixelX, l.mapPixelY), isHub: hubs.byMapId.has(mapId) }
 ```
 
-- **How many** - MEASURED by **SEAT-COUNT**, tools/seatCount.mjs (to be written): it walks MAPS.BSA from
+- **How many** - MEASURED by **SEAT-COUNT**, tools/seatCount.mjs: it walks MAPS.BSA from
   `ARENA2_PATH` exactly as the boot pass does and prints every seat (region, kingdom, name, tier, hub or not, whether
   its blocks place a bulletin board, the pixel) and the totals. It writes nothing to the tree; Mac runs it. The
   economy is built so the count does not break it: every cost is per seat, and the influence a guild can earn is
   capped per account, not per seat, so twenty seats or two hundred leave the balance where it is.
+
+BUILT (SEAT1a, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1a): src/systems/townSeats.js `deriveTownSeats`, run in the
+boot pass over the rows `pickRegionHubs` reads; tools/seatCount.mjs is SEAT-COUNT (it tallies each seat's boards as
+BOARD-COUNT does).
 
 ### 3.2 How the servers know a seat without game data
 
@@ -158,6 +167,13 @@ A disputed row keeps its confirmed worth until a moderator settles it - so no lo
 board or gate day; an unconfirmed row is worth the least its kind allows (PROF0 6). Three colluding accounts can forge one row - which is why each kind's reward is bounded and every
 confirmation is on the audit list.
 
+BUILT (SEAT1a): the kind `seat` of the one witness table and law (`world_witness`, nodeLaw.js witnessedFact - as the
+professions' pixels, dungeons and hubs), keyed by the map id, its report the seat's canonical bytes
+(townSeatLaw.js seatReportText); the ignored accounts, the audit and the strike as written above
+(`server-account/src/townSeats.js`). As built: a witness's FIRST answer on a seat stands (the table's INSERT OR IGNORE,
+as every kind's); a struck key is never witnessed again (the strike's history row says so); "the audit" reads "a seat
+whose confirmation still rests on exactly three witnesses, whom nobody else has joined".
+
 ### 3.3 The Charter, the words, the map
 
 - **The Charter**: "the Charter of <Town>" for a palace seat, "the Crown Charter of <Kingdom>" for a crown seat.
@@ -180,6 +196,12 @@ confirmation is on the audit list.
 
 The ring is drawn in HUB1's order (under the glyph, before any halo) and names are kept clear of it (`markReach`).
 
+BUILT (SEAT1a): the unheld words (townSeatLaw.js charterName, seatArrivalLine - an unheld crown "Wayrest, capital of the
+Kingdom of Wayrest. Its Crown Charter is unheld.", the record naming only a held one) said in HUB1's place at a seat
+town's gate (a hub that is no seat keeps HUB1's line); the unheld ring, a crown's crown, a March's and a Free Land's
+second ring on the held map (ui/inkMap.js paintSeatRing, under the glyph, round a hub's circle), and the Charter in the
+map's box. The held, Contested and siege-week marks come with their slices.
+
 ### 3.4 Banners and heraldry in the town
 
 DECIDED (Mac, the Holdings plan: "the holder's banners and colours in the city").
@@ -195,6 +217,13 @@ DECIDED (Mac, the Holdings plan: "the holder's banners and colours in the city")
   integral (the same wind the clouds and the grass read). An unheld seat's anchors carry the kingdom's plain banner
   (the crown's metal, no device); a free land's carry nothing.
 - **Nothing offline**: offline the town is DFU's, with no banner.
+
+BUILT (SEAT1a; scenes/seatBanners.js): anchors 1-3 as written - a banner at each city gate (on its town side, beside a
+post), the palace door's two (GUILD1d's measure of a building's first door record), a pennant over each rumour board -
+at most 8, measured where the pixel is built; the kingdom's plain banner (townSeatLaw.js seatPlainBanner; a March's its
+two claimants' metals, field and border), drawn by GUILD1d's cloth pass. BUILT since (CASTLE-GATE, 2026-10-02; Online-Arc CASTLE-GATE): anchor 4, the crown
+seats' two at the castle's entrance in the city - the lowest of the pixel's dungeon-entrance doors
+(`systems/siegeField.js` castleEntranceOf), hung after the palace's two.
 
 ## 4. Influence - the currency of a claim
 
@@ -222,6 +251,10 @@ A region may hold several seats, so a guild's work in a region needs a target.
 | **Renown in the region** | Client-reported, bounded | **1 per 20 Renown XP**, capped **400 an account a week** | The Renown report grows `region` (0-61); the service keeps a per-account, per-region, per-week sum beside the tracks |
 | **Tribute** | Service-witnessed (Marks) | **1 per 10 Marks**, capped at **20%** of the guild's week at that seat | Marks from the guild's Marks treasury, spent on the pledge by the Guildmaster, and **burnt** - a sink: the town's favour is bought, and nobody pockets it |
 
+- **BUILT** (SEAT1b, 2026-09-30, `06-Systems/Online-Arc.md` SEAT1b): the pledge, the Watch, gate kills, homes, Renown in
+  the region and Tribute, with every cap below, per-account war and the new member's wait, and the standings on the
+  board's Seat tab. The Writs (the stockpile's deliveries) ride SEAT2b, with the Siege Camp they fill and the fortifications
+  they build (AUDIT-SEATS: it said SEAT1c, which built neither).
 - **Per-account caps**: one ACCOUNT contributes at most **2,000 influence a seat a week** from all sources, whatever
   number of its characters play (the Watch and Renown caps above are per account too). A cap per character would be
   multiplied by an account's characters in one guild - fifty characters at Renown's 400 is 20,000 influence a week.
@@ -268,6 +301,11 @@ and the seats' slices will read it rather than draw it again.
 - **The Free Lands**: no crown reaches them; instead every guild earns **+10%** there from the Watch (a free town
   welcomes whoever lives in it), and no Conscription (7.6) or vassalage (7.8) touches them.
 
+BUILT (CROWN1 part one, 2026-10-01; `06-Systems/Online-Arc.md` CROWN1): `townSeatLaw.js` `seatReach` and `withReach`,
+read by every standing (`seatInfluence.js` `gatherStandings`) and so by the Turning, a claim and a holder's defence -
+after the accounts' caps and Tribute's room, rounded down (4.4's 8,393 to the unit); the Free Lands' tenth on each
+account's Watch before its 2,000.
+
 ### 4.4 A worked example
 
 The Silver Hand (24 members) pledges Anticlere (a march) and holds the Crown of Daggerfall. In one week, 14 members
@@ -294,6 +332,12 @@ weeks: the first Turning fell on Sunday 2026-09-20 at 18:00 UTC.
 | **Siege days** | the seven days after a Turning that named a challenger | The siege, in the holder's window (6.3) |
 
 ### 5.2 What the Turning decides
+
+BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): steps 1-4, 6, 7 (the Legacy) and 9 below, in
+`townSeatLaw.js` turningPlan and `server-account/src/seatTurning.js`; BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): step
+5 (the upkeep, Neglect and its lapse - reckoned before step 4, so a Charter that lapses is no siege's), Overreach's cut
+in step 3, Unrest's quarter in step 4, and the coming week's Edict made law with every row of Standing; reach is
+CROWN1's (BUILT, part one: in step 1's totals), the schedule (step 8) SEAT2a's, and the Siege Camps (step 7) SEAT2b's.
 
 The Turning is never a job that runs. The account service settles week N **the first time anything asks about any
 seat after N's boundary** (`settleWeek(N)`, one D1 transaction, idempotent on `town_seat_weeks.week` - a second
@@ -350,17 +394,34 @@ referees up to 256 fighters against one foe.
   bows 60 m) plus `POSE_SLACK`; the
   striker is under **4 blows a second** (the gate's `GATE_HIT_HZ_MAX` shape); and the damage is within the weapon
   kind's bucket - DFU's own damage range for that weapon at that material, doubled for a critical, never more
-  (the table lives in src/net/siegeRef.js (to be written), generated from `WEAPON_MATERIALS` and the weapon templates). Excess is
+  (the table lives in src/net/siegeRef.js - PVP-REF: copied from `WEAPON_MATERIALS` and the weapon templates, and
+  pinned equal to them, since the relay bundles what it imports). Excess is
   clipped, as the gate clips it.
 - **Spells** - at most **3 damaging casts in 5 seconds**, each clamped to **60** damage; Teleport, Recall and
   Levitate do nothing in a siege room; healing a side-mate is allowed (ALLY-CAST's frame), clamped to **40** a cast.
 - **Speed** - the relay refuses a pose further from the last than **12.5 m/s** plus 0.5 m, and pulls the fighter
   back to the last good pose. MEASURED: 12.5 is the starting ceiling; PVP-REF measures the fastest legal run the
   motor allows with every Speed buff and sets the ceiling 25% above it. Horses are dismounted on entry.
+  MEASURED (PVP-REF, 2026-10-01): the motor's fastest legal run - live Speed at its cap 100, Running at the softcap's
+  top (140) with the lycanthrope's +30 and an Enhances Skill item's +15 - is 14.4 m/s, so the ceiling is **18 m/s**
+  and 0.5 m (the starting 12.5 pulled back every mastered runner, 13.0 m/s). DECIDED there: judged across the ground
+  alone - a fall is gravity's.
 - **Measurement gate** - MEASURED: PVP-REF's slice must run **a full room** - 40 fighters, 60 spectators and 6
   relay-run guards (a crown siege at its largest; a revolt's 13 rebels stand in the guards' place) - with headless
   clients, the SLAM probes' way, at or under 60% of every room budget (`FOES_ROOM_BYTES_PER_S`, `HIT_ROOM_BYTES_PER_S`, the pose fan).
   If it cannot, siege sizes drop to 8 against 8 and 16 against 16 until it can.
+  MEASURED (PVP-REF, 2026-10-01, `test/pvpref_measure.test.js` - the real Room on the fake object, 106 headless
+  sockets all moving at 4 Hz, every fighter striking at four a second and casting at the window's): the pose fan 36% of
+  its design point (21,293 sends a second against SLAM6's 59,000), the siege's fanned frames 26% of
+  `FOES_ROOM_BYTES_PER_S`, the busiest socket's 4% of `HIT_ROOM_BYTES_PER_S`. **The sizes stand.**
+
+BUILT (PVP-REF, 2026-10-01; `06-Systems/Online-Arc.md` PVP-REF): `src/net/siegeRef.js` (the law, its DFU tables
+pinned equal to `characters/weapons.js` and `combat/formulas.js`), the relay's siege room (`world146` - the
+developers alone until SEAT2a). The bucket's bonuses DECIDED there: Strength 100's stock modifier, the heaviest swing,
+an expert's proficiency and a racial bonus at level 30 (a fighter's character level is not on the wire) - a Daedric
+Dai-Katana 124, an Iron Dagger 80, a fist 112. A heal is bounded on a window of its own, three a 5 s (DECIDED there:
+this section named no rate, and an unbounded heal at the frame gate's eight a second is a fighter nobody can fell);
+a spell's reach 60 m.
 
 
 ### 6.2 The battlefield
@@ -387,6 +448,27 @@ referees up to 256 fighters against one foe.
 - **Respawns**: in waves, every **20 seconds** (palace) or **30** (crown), at the side's camp, with **3 seconds** of
   protection.
 
+BUILT (SEAT2a part two, 2026-10-01; `06-Systems/Online-Arc.md` SEAT2a part two): the relay's battle (`world147`) - the
+room admits by the service's pass (`net/identityToken.js`'s `siege` order, the field it signs), from ten minutes before
+the start (DECIDED there: the door opens as the signing closes); the banners, the Throne, the clock and the waves at the
+camp as written (`net/siegeRef.js` battleStep, a beat a second). DECIDED there: until SEAT2b raises the Gatehouse, a
+crown's Throne opens on its 3 of 4 banners alone.
+
+BUILT (SEAT2b part two (b), 2026-10-01, `world150`, migration 0063; `06-Systems/Online-Arc.md` SEAT2b part two (b)): the
+Gatehouse, the Rams and the Walls in the battle - the works frozen at the battle's first pass and carried on every pass
+(`sx`); the Gatehouse at the Throne's point (DECIDED: the castle's entrance is the Throne's), struck by attackers' melee
+blows at a tenth and by a crewed Ram's 500 every ten seconds; the Throne barred until the breach (the crown's 3 of 4 AND
+the breach as written; a palace with a gate of its own the same); the Rams one at a time at the gate (DECIDED: brought
+to it), the next at the attackers' wave; a defender's wave the Walls' quicker. The DECIDED above (the banners alone)
+moved.
+
+BUILT (CASTLE-GATE, 2026-10-02; Online-Arc CASTLE-GATE): a crown's field at its castle's entrance. The city's host
+(`scenes/world.js`, the pixel's build) gathers the dungeon-entrance doors the town's blocks stand, each with its model's
+box, and at a crown hands the lowest (`systems/siegeField.js` castleEntranceOf - DFU lands a player leaving the castle
+at its lowest, `player/enterExit.js` dungeonEntranceLanding) to siegeFieldOf's `castle` (AUDIT-SEATS G21): a crown's
+Throne, its Gatehouse, its defenders' camp and its Palace square - and the Royal Tourney's ring (7.6) - stand before it.
+A crown city whose blocks stand no such door keeps the palace door's field.
+
 ### 6.3 Scheduling
 
 - **The holder's window** - DECIDED (Mac: "Yes"): the holder sets a standing window on the board - a day from
@@ -408,6 +490,12 @@ referees up to 256 fighters against one foe.
   "The Silver Hand <SH> has won the Right of Siege at Anticlere. The Ebon Oath <EO> holds its Charter. Battle is
   joined Wednesday at 20:00 UTC."
 
+BUILT (SEAT2a part one, 2026-10-01; `06-Systems/Online-Arc.md` SEAT2a): the window, the schedule and the move - DECIDED
+there: a palace siege and a Tourney hold their two-hour window of their guilds' week, a crown siege the hour its slot
+keeps; a battle no start can hold is void. The announcements in the server's voice are the relay half's. BUILT
+(AUDIT-SEATS G1) on the client instead - `src/net/siegeHerald.js`: each battle in red at the Turning, 24 h, 1 h and 5
+min before, off the seats' list (no relay keeps the week's clock).
+
 ### 6.4 Sides and sizes
 
 - DECIDED: **palace 10 against 10; crown 20 against 20** (subject to 6.1's measurement).
@@ -419,6 +507,9 @@ referees up to 256 fighters against one foe.
   not be in either guild, may serve only one side a week (4.2), and may not have fought for the other side's guild
   in the last 4 weeks.
 
+BUILT (SEAT2a part one, 2026-10-01): the rosters and the Sellswords as written - DECIDED there: a Sellsword's fee 0 to
+5,000 Drakes, escrowed at the hire and home at a withdrawal; the 5-minute substitute (16) is the relay half's.
+
 ### 6.5 No-shows
 
 - **Defenders absent** - the attackers still raise the banners and hold the Throne for its full time.
@@ -427,6 +518,11 @@ referees up to 256 fighters against one foe.
   may not challenge this seat at the next Turning. A forfeit against the same challenger grants Standing only once a
   Season.
 - **Both absent** - the holder keeps the seat.
+
+BUILT (SEAT2a part two): a siege's result `forfeit` or `absent` at its ten-minute mark. DECIDED there: the no-shows are a
+siege's - a Tourney's absent contender simply holds no banners at its end. BUILT (SEAT2a part three): the forfeit's
+Standing and x1.2, the challenger's influence cleared and the seat barred to it at the next Turning
+(`server-account/src/seatSiege.js`). DECIDED there: "once a Season" is any 8 weeks until SEASON1 counts Seasons.
 
 ### 6.6 Spectators
 
@@ -454,6 +550,20 @@ Ed25519 shape), claimed at the account service: **50 Marks and 2,000 Renown XP**
 1,000 Renown XP** on the losing side, and one roll on the **Spoils of War** table (PROF0 4.7: a rare material only war
 yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
 
+BUILT (SEAT2a part two): the `s1` receipt (`net/siegeReceipt.js`) - DECIDED there: one a fighter, each carrying the
+battle's result, whether a banner was raised and the fighter's own Honours (stood half the battle in the room, or felled
+a foe), so the result reaches the service in whichever fighter's client carries it first (the relay cannot post - 17's
+"keeps and posts" is the gate's carried shape); the room keeps them a receipt's week for a fighter who returns. Claimed
+in part three.
+
+BUILT (SEAT2a part three, `acct50`; `06-Systems/Online-Arc.md` SEAT2a part three): the result written by the first
+receipt to reach the service, once a battle, and the table above applied (the fortifications' tier down is SEAT2b's);
+Honours once a battle an account. DECIDED there: the Spoils' roll is the fighter's own, between the Warforged Steel Ingot
+and the Standard-bearer's Silk - the Siege-cracked Gem had no template yet (AUDIT-SEATS gave it 678, the Diamond's
+picture, and the roll is a third each now); the battlefield's points are the
+fighters' own derivation from the town, settled when an attacker's and a defender's agree (else, once joined, the most
+sent) - the service derives none of it.
+
 ## 7. Holding a seat
 
 ### 7.1 What a seat costs
@@ -473,6 +583,9 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
   at x (1 - **0.05** x extra) - added, not compounded. So a lone crown or a lone palace pays no Overreach; a crown and
   a palace, extra 1 (+25% upkeep, -5% defence); two crowns, extra 3. An empire
   is possible, and it pays for itself only if it is loved (Standing) and built (fortifications).
+
+BUILT (SEAT1d, 2026-10-01; `06-Systems/Online-Arc.md` SEAT1d): the upkeep, the crown's scale (over the registered
+accounts whose last play beat fell in the week) and Overreach, paid at the Turning.
 
 ### 7.2 What a seat pays
 
@@ -507,6 +620,26 @@ yields - Warforged Steel ingot, a Standard-bearer's silk, a Siege-cracked gem).
 - **The Charter Room's rule**: the decor tool refuses a piece within **2 m** of any NPC or quest marker the palace's
   layout places, so no decoration can stand on a questor's spot.
 
+BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): the Tithe, set once a week by the Guildmaster or an Officer, taken from
+a sale's proceeds (a listing's and an auction's) and a courier's share at the bailiwick of the board each was posted or
+bought at (the board's town pixel, the client's word), to the holder's treasury or burnt; the members' discount and
+Market Day on the buyer's own client, for buying and repairing at the seat town's shops. The Charter Room and the
+hall's rule are the holder's hall's (GUILD1d's halls; the palace interior as the holder's hall is SEAT2a's, with the
+Throne).
+
+BUILT (SEAT-HALL, 2026-10-02; Online-Arc SEAT-HALL): the palace interior as the holder's guild hall - its cupboards the
+guild Stores chest and its beds the members', the hall's board where a keeper stands it, the court as DFU stands it; the
+Charter Room in the palace's largest room, furnished by the holder's Officers from DECOR's catalogue off their own
+records, at most 100 pieces over the seat, the 2 m rule in the decorator's bar, its pieces cleared whenever the seat
+changes hands or lapses. The crown's throne room is CROWN-HALL's, below.
+
+BUILT (CROWN-HALL, 2026-10-02; Online-Arc CROWN-HALL): the crown's castle as its holder's hall - the throne room found by
+its ruler (the region's Province faction's first child, an Individual, standing among the castle's people), the
+holder's two banners on the wall behind the throne, Daggerfall's board and chest a few paces into the room, one each
+side of the aisle: the board the guild's notes and the chest its Stores, to the holder's members; no decor. DECIDED:
+placed by the dungeon's own collider about the ruler, so no castle's layout is written down; a castle where the ruler
+stands nowhere, or no floor is found under them, stands none of it.
+
 ### 7.3 Standing - the town's favour
 
 Every held seat has a **Standing** from 0 to 100; a new Charter starts at **50**.
@@ -525,6 +658,12 @@ Every held seat has a **Standing** from 0 to 100; a new Charter starts at **50**
 **80+** the members' discount rises 5%; below **20** the seat is in **Unrest** (challengers earn +25% influence
 there, and the arrival line says so); at **0** it revolts (7.7).
 
+BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): every row the Turning can reckon now - the Tithe's two, held
+unchallenged, the gates (the week's gate days whose region three claims agree on), the Watch, the holder's own writs
+filled in the region, Neglect, upkeep late, the Edicts' - held to 0-100; Unrest's quarter on the board and at the
+Turning, and in the arrival line; the discount's rise at 80. The siege's rows and the revolt's are SEAT2a's and SEAT2b's
+(their numbers are in the law).
+
 ### 7.4 Titles and glyphs from a seat
 
 DERIVED, as every title is (`titles.js`): held while the Charter is, gone from the next token when it is not.
@@ -542,6 +681,12 @@ ids** - `warden`, `protector`, `crowned`, `keeper` and the Royal Tourney's `cham
 Season number, both integers), from which the client words the title ("Warden of Anticlere"). FACT, the SHADOW-FANG
 order: the five ids and the claim reach the relay (a new `RELAY_VERSION` and LAW row) before the account service
 mints them - once, never per town or per Season.
+
+BUILT (SEAT1c, 2026-09-30; `06-Systems/Online-Arc.md` SEAT1c): the five ids and `ts` in the token at `world145`; the
+Warden's and the Protector's minted now, the tower and the crowns on every member; the Season's titles (SEASON1) and
+the champion's (CROWN1) are minted too, both slices shipped (AUDIT-SEATS: this said they waited). The tower wears the Warden's bronze - the token carries no guild
+colours. BUILT (CROWN1 part two): the champion's - the account's own, kept for good in `town_seat_titles` (SEASON1's
+Crowned and Keeper will join it there), worn whatever character the account brings.
 
 ### 7.5 Fortifications - a seat's memory
 
@@ -566,6 +711,29 @@ after its last delivery. Costs (PROF0 section 4 names every material):
 | **Apothecary** | 100 Cut Stone, 100 Oak Planks, 1,000 Marks | 200 Cut Stone, 20 Pearls, 2,500 Marks | - | members in Alchemy, Cooking, Jewelcrafting here: +1 step |
 | **Harbour** (coastal seats only) | 400 Oak Planks, 200 Cut Stone, 2,000 Marks | 800 Teak Planks, 400 Cut Stone, 5,000 Marks | - | ships (the Sea update) dock at the seat; the town is a Travel Options port for members |
 
+BUILT (SEAT2b part one, 2026-10-01, `acct60`, migration 0061; `06-Systems/Online-Arc.md` SEAT2b): the table whole
+(`src/net/fortLaw.js` FORT_WORKS); a project begun at the board by the holder's Guildmaster or an Officer (its Marks
+burnt from the treasury), supplied from the stockpile in the table's order and standing its days after its last need is
+met; a Builder's stone nine tenths; the drops (a capture - the Walls kept where a Fortifier stood on the defending
+roster, once a Season a seat; a Season's end; a project falling with the Charter, its units back to the stockpile);
+seat writs to the stockpile; the Market Hall's Tithe point and its town's listings. DECIDED: a Harbour is raised where the
+funding client names its town a port (DFU's own flag); one project a work at a time. NOT YET (part two): the Shrine, the
+Watchtowers, the Forge, the Workshop, the Apothecary and the Harbour's effects; the Walls', the Gatehouse's and the
+Barracks' in battle (the relay's).
+
+BUILT (SEAT2b part two (a), 2026-10-01, `acct61`, migration 0062; `06-Systems/Online-Arc.md` SEAT2b part two (a)): the
+works at peace - a Siegewright's project a day sooner (DECIDED: the "siege works" of Professions-Arc 3.3 are these
+projects); the Shrine's Standing and its 50 a tier for each gate felled in the region, counted in the holder's defence;
+the Watchtowers' word to the holder's members; the Forge's and the Workshop's steps for the holder's members crafting in
+its town (the Apothecary's wait on Alchemy's, Cooking's and Jewelcrafting's stations); the Harbour a Travel Options port
+for the holder's members, raised at a coastal town (DECIDED: the sea beside it, or a harbour already drawn there); the
+Ram Kit made into the Stores and carried to a Siege Camp by its writs. NOT YET: the works in battle (part two (b)) and
+the Barracks' guards and the revolt (part two (c)). BUILT since (SEAT2b part two (b), `world150`): the Walls' wave, the
+Gatehouse and its Rams in battle (6.2's note). BUILT since (SEAT2b part two (c), `world150`, migration 0064): the Barracks'
+guards - at the Throne and the banners, counted there as defenders, marking the nearest attacker within 12 m and following
+none past 24 m from their posts, rising at the defenders' camp with their wave (DECIDED there: a guard of Renown 30
+striking 20 a blow on a one-beat wind-up) - and the revolt (7.7's note). With it SEAT2b is whole.
+
 ### 7.6 Edicts
 
 At each Turning the holder proclaims **one Edict** for the coming week (Guildmaster or Officer, on the board). No
@@ -582,12 +750,59 @@ Edict may be proclaimed two weeks running except Market Day.
 | **Royal Tourney** | crown | a duel ladder all week in the crown's **city**, at the castle's entrance square (every seat act happens in its city, 15.1): DUEL1's ring, but every blow **refereed by PVP-REF** in a `siege:`-shaped room - a defender-resolved duel cannot award a title - the relay keeping the ladder; the week's winner earns "Champion of <Kingdom>, Season N" for good (a fifth generic title id, `champion`) | 5,000 Marks prize pool, from the treasury to the winner |
 | **Conscription** | crown | the kingdom's palace seats held by other guilds pay this crown 2% of their Tithe for the week (never a vassal's, 7.8; never a free land's); a **march's** seats pay 1% to each claiming crown that proclaims it | Standing -5 at every seat that pays |
 
+BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): the six of any tier - proclaimed in the week before the one they rule
+(so a new Charter's first week rules none), made law and paid for at the Turning or let fall unpaid. Market Day and
+Curfew on the player's own client; Open Gates in the town's homes as the service reads them; the Festival's buff a
+game day from the arrival; the Levy at the harvest (its tenth kept by the harvest's own roll); the Bounty's escrow, its
+claims (a camp is a World of Daggerfall site) and its doubled loot. The Royal Tourney and Conscription are CROWN1's.
+BUILT (FESTIVAL-STAGE, 2026-10-02; Online-Arc STANDING-TREND and FESTIVAL-STAGE): the Festival's music, banners and
+lanterns, staged by each client while a Festival rules at the town - the holder's Edict as the seats' list dresses it,
+nothing on the relay or the service (`scenes/seatFestival.js`; the buff stays `systems/seatEdicts.js`'s). DECIDED: the
+music is DFU's own tavern playlist (SongManager's TavernSongs - song_square_2, song_tavern, song_folk1-3; FM
+song_fm_sqr_2), the day's song as a tavern picks it, heard in the town's streets by day and night (a building keeps its
+own); the banners are the holder's on the seat banners' cloth, two beside each tavern's door and a pennant over each
+board BOUNTY1 took, at most 6 more; the lanterns are lights in the street's own lantern pool, one before every banner
+the town flies, lit dusk to dawn with its lamps - a glow, no lantern sprite drawn.
+
+BUILT (CROWN1 part one, 2026-10-01; Online-Arc CROWN1): Conscription, a crown's alone (`edictForTier`; a palace's
+proclamation refused, `edict-tier`), made law at no cost and paid at the Turning that ends the week it ruled - after
+the upkeep and the Edicts, out of what the paying treasury holds, to the crown's treasury (burnt where it is full).
+DECIDED: the ledger names the guild a Tithe reached, not the seat, so a guild's week of Tithe is shared evenly over its
+Charters and each conscripted seat pays its share at its rate; a seat that pays nothing (its guild took no Tithe) loses
+no Standing. The Royal Tourney is part two (migration `0054` admits its id already).
+
+BUILT (CROWN1 part two, the relay, `world148`; Online-Arc CROWN1 part two): the Royal Tourney's room
+`royal:<crown>:<week>` by the service's pass, one bout at a time in DUEL1's ring (its numbers pinned equal) - a
+challenge, its accept, the marks, the countdown, the bout's two alone, the ring held by the step, a fall's end, a draw,
+a walkover - every blow the referee's; the room's ladder (the same two three times a UTC day) and the winner's signed
+`t1` receipt.
+
+BUILT (CROWN1 part two, the service, `acct52`; Online-Arc CROWN1 part two): the Edict's 5,000 escrowed as it is made law;
+the pass over the ring two contenders' games agree; each bout counted once off its winner's receipt (the same two
+three times a UTC day, by the bout's own day); the ladder on the Seat tab; the champion named at the Turning that ends
+its week - the prize to its account, "Champion of <Kingdom>, Season N" kept for good - or, no bout won, the prize home.
+DECIDED: the ladder's ties go to fewer losses, then to whoever reached its wins first.
+
+BUILT (CROWN1 part two, the client; Online-Arc CROWN1 part two): the Seat tab's doors (to contend, to watch); the ring at
+the crown's Palace square, derived from the city (before the castle's entrance - CASTLE-GATE, 6.2); the
+room joined by its pass; a challenge and its accept on the profile card's own Challenge button; the bout's one foe for
+the melee arm, the motor and the relay holding the ring; the HUD (the ring, the ladder, the challenges, a bout's end);
+the receipts carried. With it CROWN1 is whole.
+
 ### 7.7 Revolt
 
 A seat at Standing 0 revolts at its next siege window: a relay-run uprising (the gate's brain, with the adds the
 gate record named for "later", `World-Bosses.md`) - a **Rebel Captain** (vitality as a siege fighter of Renown 50)
 and **12 rebels** at the palace door. The holder's side must fell the Captain inside the window's two hours. Fail,
 and the Charter lapses and the seat is unheld; succeed, and Standing returns to **20**.
+
+BUILT (SEAT2b part two (c), 2026-10-01, `world150`, `acct61`, migration 0064; `06-Systems/Online-Arc.md` SEAT2b part two
+(c)): the Turning that leaves a held seat at Standing 0 places its revolt the next week at the holder's window (a
+crown's at its Saturday slot; DECIDED: where a Right of Siege is granted there the siege takes the window), two hours
+long; the holder's members sign to defend it, its field their first one's. The relay raises the Captain (Renown 50, 400)
+at the palace door - the Throne's point - and his twelve rebels on a ring 4 m about it (DECIDED: Renown 20, striking 14;
+the Captain 28; a felled rebel never rises). The Captain felled: Standing to 20 (never lowered), the Chronicle's line
+above. The window out, or no result by the next Turning: the Charter lapses. DECIDED: a revolt earns no Honours.
 
 ### 7.8 Vassals and Pacts (crown politics)
 
@@ -597,6 +812,18 @@ and the Charter lapses and the seat is unheld; succeed, and Standing returns to 
   other's seats. Either side may break fealty at a Turning; the breaker loses **10 Standing** at every seat it holds.
 - **Pacts** - two guilds may sign a **Pact of non-aggression** for the rest of a Season: neither may pledge against a
   seat the other holds. Breaking it early is allowed and announced to the whole server in red.
+
+BUILT (CROWN2, 2026-10-01, `acct53`; `06-Systems/Online-Arc.md` CROWN2): fealty offered by either side's Guildmaster or
+Officer and sworn when the other side's accepts (`fealtyKingdom`: a palace of the crown's kingdom, or a March it claims,
+to that crown's holder - never a Free Land's, never a crown holder as vassal); the vassal's tribute (5% of its week's
+Tithe, after its upkeep, Edicts and Conscription, out of what its treasury holds), the liege's half-reach on the
+vassal's own influence in its defence (added after the multipliers), Conscription sparing a vassal (7.6); neither may
+pledge against the other's seats, nor swear while one is pledged against the other. A break is asked any day and taken
+at the next Turning (the breaker's Standing -10 at every seat it holds); a pair that no longer fits lapses there at no
+cost. Pacts for the rest of the Season, signed when the other side offers back; broken early at once, a red line on
+the seats' list for a day that every client says in chat once. Both on the Seat tab, with an Officer's levers.
+DECIDED: until SEASON1 counts Seasons, a Season is each 8-week block of seat weeks (`pactUntil`); a fealty that is
+breaking lends no reach and still pays its last week's tribute; a liege holding two crowns takes the first that fits.
 
 ### 7.9 The seat on the Notice Board
 
@@ -613,6 +840,15 @@ BOUNTY1 took one board in two for its hunts; AUDIT 28), carries:
 
 A seat is run from its town's board, in person. That is the point of a physical board: the war has a place.
 
+BUILT (STANDING-TREND, 2026-10-02; Online-Arc STANDING-TREND and FESTIVAL-STAGE): Standing's trend - the holder's line
+says which way it moved ("Standing 55, up 7 since the last Turning.", `townSeatLaw.js` seatHolderLine on
+`ui/seatTab.js`). Each Turning writes every held seat's Standing as it found it and as it left it, a Chronicle row of
+kind `standing` the Chronicle and the Hall of Records never show (`seatTurning.js` settleWeek, `seatInfluence.js`
+chronicleOf); the standings read names the holder's `was` off the last Turning's (standingWas) - no migration, the
+service still `acct61`. DECIDED: the trend is the Standing now less what it was as the last Turning began, so a siege
+held or a revolt put down since moves it too; "up N", "down N" or "steady"; none where the last Turning reckoned no
+Standing for this holder (a Charter it claimed, a seat taken since).
+
 ## 8. What a guild grows
 
 ### 8.1 Heraldry
@@ -628,6 +864,28 @@ A seat is run from its town's board, in person. That is the point of a physical 
 - Chosen by the Guildmaster on the Guild tab; changing either costs **500 Marks** and is refused in a siege week.
 - It is drawn on banners (3.4), the map ring, the frame of the guild tag, the siege HUD, the board and the Chronicle.
 
+BUILT (GUILD1d, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1d): the palette and devices are `src/net/heraldryLaw.js`
+(the service keeps `{ field, border, device }` - the field the first colour, never Ash; the border the second), the
+drawing `src/ui/heraldryArt.js` (each device a few SVG path parts, the port's own art), set at `/v1/guilds/heraldry`.
+Two readings the record left open, decided as built: the FIRST choice is free (every guild founded before GUILD1d had
+none) and each change after it is the 500 - in Drakes, the Marks' name since DRAKES - burnt from the guild's Drake
+treasury; "refused in a siege week" waits on SEAT2 (no siege stands) - BUILT (AUDIT-SEATS S10,
+`server-account/src/halls.js` `heraldry-siege`): a change refused while the guild is a side of a battle this seat week
+(a siege or a Tourney; the free first choice stands). Drawn so far on the Guild tab and on the hall's
+two banners (3.4's anchor 2 at the hall's door - `render/bannerPass.js`, `scenes/hallBanners.js`); the map ring, the
+tag's frame, the siege HUD, the board and the Chronicle come with SEAT1a-SEASON1 - of these, the board's Seat tab
+(`ui/seatTab.js`) and the map ring draw it. BUILT (HERALDRY-SHOWN, 2026-10-02; Online-Arc HERALDRY-SHOWN): heraldry on
+the guild tag's frame, on the siege HUD (`ui/siegeHud.js`) and in the Chronicle - one swatch, a small shield of the field,
+the border and the device (`ui/heraldrySwatch.js` over `ui/heraldryArt.js` shieldSvg): a peer's `<TAG>` framed in its
+border colour with its shield; each side's shield at its end of the HUD's bar; each Seat tab Chronicle line under the
+shield of the guild it is about, and the Hall of Records' book closed by a Roll of Arms in words. DECIDED: no wire
+carries a guild's heraldry to these faces (a peer's token names its tag alone), so each reads it by the guild's tag
+(unique) off what the client already holds - the reader's own guild, the seats' list's holders and battles, a seat's
+standings (`net/heraldryIndex.js` heraldryByTag) - and a guild the client knows no heraldry of wears the plain tag, no
+shield, no Roll line; no relay or service change. DECIDED: a Chronicle line shows the guild's heraldry as it is now, not
+as it was that day (a row keeps the name and tag alone). DECIDED: the book reader draws text alone, so the Hall of
+Records names the arms in words.
+
 ### 8.2 The guild hall (GUILD1d)
 
 FACT: planned as "a guild-owned home" and not built; `HOME_ENTRIES` has no `guild` entry. DECIDED:
@@ -638,6 +896,21 @@ FACT: planned as "a guild-owned home" and not built; `HOME_ENTRIES` has no `guil
 - the hall carries the guild Stores chest and a private guild board (the board's Guilds tab, members only);
 - decor in the hall by Officers; `DECOR_CAP` as any home;
 - a guild holding a seat keeps its own hall and gains the palace (or castle) as well.
+
+BUILT (GUILD1d, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1d), as the record says, with what the build decided:
+the homes table gains `guild_id` (one hall a guild - a partial unique index), and a hall's row carries the guild's own
+mark where a home names its character (`guild:<id>`), so no character's path reaches it; the price x 1.5 is paid from
+the part of the treasury realm records paid in (`realm_gold`), and the sale pays the deed share of it and half of its
+pieces' cost back there; a hall's entries are `guild` (the default) and `public` (a party is not a guild's), and
+`guild` joined private/party/public for every home; decor by Officers - off their own records, a piece's half back to
+the treasury, the catalogue's pieces alone; the guild Stores chest is every cupboard of the hall (the Guild tab's guild
+Stores to a member). NOT YET: a hall's outside and yard (HOME-LOOK and HOME-YARD name a character); a seat's palace as
+a second hall (7.2) - BUILT by SEAT-HALL (2026-10-02, 7.2's BUILT), its own table and not a home's row.
+
+BUILT (GUILD1e, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1e): the private guild board - a guild's own notes, its
+members' alone, read and pinned on the Guilds tab of every Notice Board and at the board in its hall: Daggerfall's own
+board model, which the decorator offers in a hall alone. Any member pins; the Officers and the guildmaster take down
+anyone's note. The Guilds tab also hangs the town's recruitment notes as their guilds' posters, each with its banner.
 
 ## 9. Seasons, the Chronicle, the Tides
 
@@ -656,6 +929,28 @@ FACT: planned as "a guild-owned home" and not built; `HOME_ENTRIES` has no `guil
   - the Charters stand - holding across Seasons is a story the server should be able to tell;
   - the Season's **Chronicle** is written (9.2).
 
+BUILT (SEASON1 part one, 2026-10-01, `acct54`; `06-Systems/Online-Arc.md` SEASON1): the calendar (`townSeatLaw.js`
+`seasonOf`) from the week the account service's `SEASON_ZERO_WEEK` names - DECIDED: Season 0 begins at a week set when
+the seats open to everyone, not at SEAT1c's shipping, and with none set no Season is counted (every Season-bound rule
+keeps its 8-week stand-in); the names (`seatSeasonName` - "Season 0", then the months, then "the Season of Morning Star
+II"); the soft reset at the Turning that closes a Season's last week - its titles kept for good (`town_seat_titles`) by
+the guild's guildmaster at that Turning (DECIDED: a Charter lapsing at that Turning, or a guild with no guildmaster,
+earns none; "held all 8 weeks" is held from the Season's first week), Legacy cleared, Standing halfway back toward 50
+(rounded toward it), the Charters standing, and the Chronicle's line at every seat held; a Pact to its Season's end and
+the once-a-Season rules (Honours, a forfeit's Standing) over the Season itself; the Season on every seat title's claim
+(`ts`) and on the Seat tab. BUILT (SEASON1 part two, the banner ribbon, `acct58`, `world149`, migration 0058): the
+banner ribbon - each guild a keeper's title names written at the Turning that ends the Season (`town_seat_ribbons`, its
+Turning's time), and through the next Season the named character of every member at that Turning wears the guild's
+field and border as two colour indexes on the token (`rb`; `server-account/src/seatRibbons.js` `ribbonOf`), which the
+relay stamps on every row naming its wearer and both name faces draw as a thin band under the name (`ui/nameLayer.js`,
+`net/remotePlayers.js`). DECIDED: a member who joined after that Turning wears none, and one who leaves the guild loses
+it at the next token; the colours are the guild's as they are now (a banner changed is a ribbon changed), Argent
+bordered Ash for a guild with no heraldry; AUDIT-SEATS: the Overworld travel view's badge draws it too (a band under
+the row, `ui/travelViewHud.js` TRAVEL_VIEW_RIBBON), and a guild taken off a socket takes its ribbon (the relay's
+`_unguild`, the client's guild frame). The Chronicle as a book is part three's (9.2). The fortifications'
+wear - BUILT (SEAT2b part one; `server-account/src/seatForts.js` fortsSeasonStatements, every work a tier down at the
+Turning that ends a Season, in `seatTurning.js`; Season 0's wipe takes them instead).
+
 ### 9.2 The Chronicle and the Hall of Records
 
 Every claim, siege, Tourney, revolt, Edict, fealty and change of hands is a `town_seat_history` row. A **Hall of
@@ -669,6 +964,20 @@ from templates in the law module:
 - "Under the Silver Hand, Anticlere proclaimed a Festival."
 
 The book is read through the enhanced book window the port already has (`src/ui/enhancedBook.js`).
+
+BUILT (SEASON1 part three, 2026-10-01, `acct59`; `06-Systems/Online-Arc.md` SEASON1 part three): the Chronicle in its
+Season's words (`townSeatLaw.js` `chronicleWhen` - "In the third week of the Season of Morning Star", the week's number
+with none counted), on the Seat tab and in the book; the Hall of Records (`/v1/seats/records` - a seat's newest 400 rows,
+oldest first, beside the week Season 0 began; `townSeatLaw.js` `hallOfRecordsChapters`, one chapter a Season;
+`ui/hallOfRecords.js`, through the reader's one door, so both skins read it). DECIDED: the book is a seat's palace's
+shelves - its shelf-set models, geometry in DFU's palace (no shop, no bookshelf), read as "Hall of Records" while the
+seats are open to the reader; offline they are DFU's. AUDIT-SEATS: the three castles too - a castle block's shelf-set
+models (`scenes/dungeonContext.js` castleShelves) pressed in the dungeon's own window slot while the seats are open -
+and every seat's book from its board's Seat tab ("Read the Hall of Records"), so a palace with no shelf-set model has a
+book after all. The templates are the Chronicle's own lines (9.2's four examples are close kin, not verbatim);
+AUDIT-SEATS: a taken siege's row keeps its length now (`minutes`, the battle's start to the end its receipts were
+signed at), so "stormed the gates of Anticlere and took its Charter from the Ebon Oath after thirty-one minutes" is
+verbatim; Conscription's and fealty's rows name what was PAID, not what was due.
 
 ### 9.3 Tides - the world moves under the war
 
@@ -687,6 +996,31 @@ for the Free Lands, a pure function of the week and a salt, as the gate's site i
 | Bandit Summer | 5 | couriers into the kingdom take twice as long (PROF0 10.4) |
 | Storm Season | 5 | fishing yields +50%, sea travel slowed |
 | Tax Revolt | 5 | Tithe above 5% costs Standing -3 extra |
+
+BUILT (SEASON1 part two, the roll and the seat's own effects, 2026-10-01, `acct55`; `06-Systems/Online-Arc.md` SEASON1
+part two): the roll (`src/net/tideLaw.js` - `gateHash` over the Tides' own salt, the week and the land, walked down the
+weights; the lands in the order daggerfall, wayrest, sentinel, the Marches, the Free Lands; the sea and any region no
+crown holds always Calm); a Plague's halved Watch and doubled Festival, a Daedric Incursion's doubled gate kills (the
+week's gate influence doubled after its 900 cap), a Royal Wedding's halved Festival and +3 Standing, a Tax Revolt's -3
+above a 5% Tithe - each read at the seat's own land, the week's Tide for influence and Standing and the coming week's for
+a Festival's price; both Tides on the Seat tab. DECIDED: a Tide rolls only while a Season is counted (`SEASON_ZERO_WEEK`)
+- before, every land is Calm. BUILT (SEASON1 part two, the economy's, `acct56`): a Harvest's quarter more on the land's
+gathering (herbs, the basket, wood, ore, stone - DECIDED: not the net), a Blight's quarter less on herbs and wood, a
+Storm Season's half again on the net - each on confirmed ground alone, after the March's, as the March is (DECIDED: a
+region named falsely earns no Harvest and dodges no Blight); a Bandit Summer's courier twice as long into its land,
+fixed when it is sent. BUILT (SEASON1 part two, the client's, `acct57`, migration 0057): an Orc Raid's camps doubled - each
+hostile foe of a World of Daggerfall camp in the land stands a second beside it, on this client; each camp cleared there
+claimed (`/v1/seats/orc-camp`, source `raid`) for 50 influence at the war-guild's pledged seat in the region - five
+camps an account a UTC day (the day counted across the Turning), 250 an account a week, a camp once a day, all asked in
+the write. DECIDED: bounded, not witnessed, as the Bounty's camps are - a modified client can claim camps it never
+fought, and no more than five a day and 250 a week. A Storm Season's sea: each ocean pixel of a voyage bound into the
+land half again slower, on every reckoning this client makes (the travel window, the maps, the quest clock, the fare),
+online alone. The client reads every land's Tide itself, off the week and the Season 0 week the seats' list names
+(`zero`). BUILT (AUDIT-SEATS): a Daedric Incursion's Marks - paid at the Turning that settles the week, once three
+claims agree on the gate day's region (a kill's region is the client's word until they do): each claim that named it,
+whose gate Marks were struck, minted the same again, once, where the purse has room
+(`server-account/src/seatIncursion.js`, the ledger's `gate-incursion`). DECIDED: the
+sea (region 31) is no land, so a haul at sea meets no Storm Season.
 
 ### 9.4 Why a guild comes back
 
@@ -735,7 +1069,11 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
 
 ## 12. The server's shape
 
-- **Account service (D1)**, migrations after 0017 (0016 is MARKS1's, 0017 NOTICE1's - AUDIT 28):
+- **Account service (D1)** - AS DRAWN; AUDIT-SEATS: AS BUILT, migrations `0046`-`0065` (the audit of the arc: this
+  said `0058`; MARKS1's is `0025_marks`, the board's `0026_board` - the 0016/0017 this line once named are the raids' `0016_raid_cleanses`/`0017_raid_spoils`):
+  the holds are `town_seat_holds` and `town_seat_windows`, the sieges `town_seat_battles`/`town_seat_rosters`/
+  `town_seat_results`, a guild's colours and device one `guilds.heraldry` JSON column (`0046`), the Chronicle read at
+  `/v1/seats/records`, and a battle's frames `{t:'siege'}` - the drawn names follow:
   - `town_seats` (key PK, name, region, tier, pixel_x, pixel_y, confirmed_at, holder_guild, held_since, standing,
     tithe, edict, window_day, window_hour, legacy JSON)
   - `world_witness` (kind, key, account, report_hash, at) and `world_facts` (kind, key, data JSON, state -
@@ -749,14 +1087,21 @@ Season with titles at the end; a Chronicle that remembers; and the Professions e
   - `guild_fealty` (vassal, liege, since); `guild_pacts` (a, b, season)
   - `guilds` gains `colour1`, `colour2`, `device`; the Marks treasury is PROF0's
   - the Renown report gains `region`; `renown_region_week` (player, char_id, region, week, xp)
+  - BUILT (SEAT1b, migration 0049): `town_seat_pledges`, `town_seat_binds` (the account's war-guild a week),
+    `town_seat_influence` (week, key, guild_id, account, char_id, source, amount, region, day, ref - one row an event,
+    `UNIQUE (source, ref)`), `town_seat_renown` (the name this page drew as `renown_region_week`), `gate_kills.region`
 - **Endpoints** (`/v1/seats/...`): `witness`, `list`, `standings`, `pledge`, `tribute`, `window`, `edict`,
   `tithe`, `fealty`, `pact`, `siege/sign`, `siege/claim` (a receipt), `fort/fund`, `history`.
 - **Relay**: `siege:<key>:<week>` rooms stepped by Durable Object alarms (the gate's brain); PVP-REF's referee; the
-  Watch counter in cell rooms (reporting presence minutes to the service in signed batches); `s1.` siege receipts;
-  the Rebel Captain's brain; `{t:'tseat'}` frames for banner state, the Throne, the Gatehouse, the Ram.
-- **Law modules, pure, shared by client, relay and service**: src/net/townSeatLaw.js (to be written) (Appendix B, the week, the
-  phases, the windows, the Chronicle's templates, `KINGDOM_OF`), src/net/siegeRef.js (to be written) (6.1's buckets),
-  src/systems/townSeats.js (to be written) (the client's derivation).
+  Watch counter in cell rooms (reporting presence minutes to the service in signed batches - BUILT otherwise, SEAT1b:
+  the relay has no door to the account service, so each two-minute tick is a `k1` receipt the account's own client
+  carries, as a gate's and a raid's are; `src/net/watchReceipt.js`); `s1.` siege receipts;
+  the Rebel Captain's brain; `{t:'siege'}` frames (AUDIT-SEATS G22; this said `{t:'tseat'}`) for banner state, the
+  Throne, the Gatehouse, the Ram.
+- **Law modules, pure, shared by client, relay and service**: src/net/townSeatLaw.js (Appendix B, the week, the
+  phases, the windows, the Chronicle's templates, `KINGDOM_OF`), src/net/siegeRef.js (PVP-REF) (6.1's buckets),
+  src/systems/townSeats.js (the client's derivation); SEAT2b: src/net/fortLaw.js (7.5's works, the drops, the Gatehouse,
+  the Ram, the Siege Camp, the revolt).
 - **Versions**: each relay change a new `RELAY_VERSION` with its LAW row; every token vocabulary change relay-first.
 
 ## 13. The slices, in order
@@ -767,25 +1112,34 @@ bible updated in the same change, mutants recorded.
 | Slice | What | Done when |
 |---|---|---|
 | **SEAT0** | This record | - |
-| **SEAT-COUNT** | The count tool (3.1) | Mac has run it; the count is recorded here |
+| **SEAT-COUNT** | The count tool (3.1) - **BUILT** 2026-09-30 (`tools/seatCount.mjs`, with SEAT1a) | Mac has run it; the count is recorded here |
 | **MARKS1** | PROF0's currency - **SHIPPED** (PROF0 10.5, `06-Systems/Online-Arc.md`) | PROF0 15 |
 | **NOTICE1** | PROF0's board - **SHIPPED** (PROF0 10.7) | PROF0 15 |
-| **GUILD1d** | Guild halls, the guild entry, heraldry (8) | A guild buys a hall, members enter, the banner draws on a test layout |
-| **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
-| **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board | Each source's cap pinned; per-account war and the 7-day wait pinned |
-| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
-| **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
-| **PVP-REF** | The refereed blow and step; the 40-fighter measurement | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded |
-| **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours | A headless 10v10 siege runs to both endings |
-| **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
-| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription | - |
-| **CROWN2** | Fealty and Pacts | - |
-| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides | - |
+| **GUILD1d** | Guild halls, the guild entry, heraldry (8) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1d; the hall's board is GUILD1e) | A guild buys a hall, members enter, the banner draws on a test layout |
+| **GUILD1e** | The hall's private guild board (8.2: the board's Guilds tab, members only) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` GUILD1e) | A member posts a note only its guild reads, at a board in its hall |
+| **SEAT1a** | The derivation; the registry; the map rings; arrival lines; banners (unheld: the kingdom's) - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1a; behind SEATS_OPEN at `dev`) | Pins over a fixture MAPS set: every Palace record is a seat, capitals are crowns, mod rows never count; three witnesses confirm |
+| **SEAT1b** | Influence: pledges, the Watch, gate kills, homes, Renown's region, Tribute; the standings on the board - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1b; the stockpile's deliveries ride SEAT2b - this said SEAT1c) | Each source's cap pinned; per-account war and the 7-day wait pinned |
+| **SEAT1c** | The Turning; claims; Contested; the Charter; titles and glyphs (relay first); the Seat tab - **SHIPPED** 2026-09-30 (`06-Systems/Online-Arc.md` SEAT1c; the titles' vocabulary at `world145`, the Season's and the champion's minted by SEASON1 and CROWN1) | `settleWeek` idempotent under two racing readers; a held seat's banners in the guild's colours |
+| **SEAT1d** | Upkeep, Overreach, Tithe, discounts, Standing, Edicts, Neglect; the economy model as a tool reading townSeatLaw.js and professionLaw.js (PROF0 Appendix C) - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT1d; `tools/seatEconomy.mjs`, its re-run in Appendix C) | Every Standing row pinned; the Tithe routes only Marks; the model re-runs Appendix C's table. The Tithe needs PROF5 (the market) |
+| **PVP-REF** | The refereed blow and step; the 40-fighter measurement - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` PVP-REF; relay `world146`, the developers alone until SEAT2a; the step's ceiling MEASURED to 18 m/s) | 6.1's buckets pinned against DFU's damage ranges; the measurement recorded (every budget under 60% - the sizes stand) |
+| **SEAT2a** | Siege rooms, banners, the Throne, windows, forfeits, spectators, the Tourney, Honours - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2a: the window, the schedule, the sides and their Sellswords; `acct49`); **PART TWO SHIPPED** 2026-10-01 (the relay's battle - the pass, the sides, the banners and the Throne, the no-shows, the `s1` receipts; `world147`); **PART THREE SHIPPED** 2026-10-01 (the service - the pass and the field, the result and all it gives, Honours, the deploy blackout; `acct50`); **PART FOUR SHIPPED** 2026-10-01 (the client - the field from the town, the room and its pass, the HUD and the card, blows, the camp, the receipts carried) - **SEAT2a SHIPPED** | A headless 10v10 siege runs to both endings |
+| **SEAT2b** | Fortifications, the Barracks' guards, the Gatehouse, the Ram, revolts - **PART ONE BUILT** 2026-10-01 (`06-Systems/Online-Arc.md` SEAT2b: the works, projects and the stockpile, seat writs and the Siege Camp, the drops, the Market Hall; PROF3, PROF4, PROF8 and PROF11 shipped or built beside it; the law `src/net/fortLaw.js`). Part two BUILT 2026-10-01 - (a) the works at peace, (b) the Walls' wave, the Gatehouse and the Rams, (c) the Barracks' guards and revolts (Online-Arc SEAT2b part two (a)-(c)). **SEAT2b is whole** (a crown's Gatehouse at the palace door - NOT YET at the castle's entrance, below the table). | Needs PROF11 (Masonry), PROF4 (Carpentry), PROF3 (Smithing's ingots for the Ram) and PROF8 (the Pearls tier-2 Shrine and Apothecary ask) |
+| **CROWN1** | The crown tier: reach, the Marches, the Free Lands, crown glyphs, the Saturday slots, Royal Tourney, Conscription - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN1: reach, the Marches' share, the Free Lands' Watch, Conscription; `acct51`; the crown glyphs were SEAT1c's, the Saturday slots SEAT2a's); **PART TWO (the Royal Tourney) SHIPPED** - the relay (`world148`), the service (`acct52`) and the client; CROWN1 is whole. Built before SEAT2b, which waits on PROF11 (Masonry) and which CROWN1 does not read | 4.4's worked example pinned to the unit; every Conscription share pinned |
+| **CROWN2** | Fealty and Pacts - **SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` CROWN2; `acct53`, migration `0056`) | The tribute, the half-reach and the break's Standing pinned at the Turning; the pledges barred; a Pact broken early in red |
+| **SEASON1** | Seasons, the Chronicle, the Hall of Records, Tides - **PART ONE SHIPPED** 2026-10-01 (`06-Systems/Online-Arc.md` SEASON1: the calendar from `SEASON_ZERO_WEEK`, the names, a Season's end - its titles, the soft reset, the Chronicle's line - Season 0's wipe, the Season on the rules and the titles; `acct54`); **PART TWO SHIPPED** - the roll and the seat's own effects, on the Seat tab (`acct55`); the economy's Tides (`acct56`); the Orc Raids and the stormy sea (`acct57`); the banner ribbon (`acct58`, `world149`); **PART THREE SHIPPED** - the Hall of Records (`acct59`); the castles' copies and the board's book with AUDIT-SEATS | A Season's end set against a twin counting none; Season 0's wipe |
+| **AUDIT-SEATS** | The arc audited whole, GUILD1d to SEASON1, its open items finished - **BUILT** 2026-10-01 (`06-Systems/Online-Arc.md` AUDIT-SEATS; `acct60` with PROF11 and SEAT2b part one, `world149` re-recorded) | Every finding verified, fixed, pinned and mutated |
+| **SEAT-HALL** | The palace as the holder's guild hall: the Charter Room (7.2) - **BUILT** 2026-10-02 (`06-Systems/Online-Arc.md` SEAT-HALL; migration `0065_seat_hall.sql`, `acct61` with SEAT2b part two) | A holder's Officer places a piece in the Charter Room; the seat changing hands clears it |
+| **CROWN-HALL** | The crown's castle as its holder's hall: the throne room (7.2) - **BUILT** 2026-10-02 (`06-Systems/Online-Arc.md` CROWN-HALL; client alone) | The holder's banners, roster board and Stores chest in the throne room, no decor |
+
+BUILT since (CASTLE-GATE, 2026-10-02): a crown's field at its castle's entrance (6.2) - its Throne, Gatehouse, camp,
+Palace square and the Royal Tourney's ring stand before the castle's door.
 
 ## 14. What remains to measure
 
 1. **The seat count** (3.1) - SEAT-COUNT, run by Mac.
-2. **Forty fighters in a room** (6.1) - PVP-REF's measurement; its failure drops the sizes to 8/16.
+2. **Forty fighters in a room** (6.1) - PVP-REF's measurement; its failure drops the sizes to 8/16. MEASURED
+   (PVP-REF, 2026-10-01): every budget under 60% (6.1's record) - the sizes stand. A deployed isolate's CPU is not
+   measured by it; a live siege's own numbers are the next word.
 3. **The economy after Season 1** - the Marks report (PROF0 10.5): if claims are never made, thresholds fall by a
    quarter; if every seat changes hands every week, defence's Standing term doubles. Recorded here when done.
 
@@ -811,10 +1165,10 @@ Every law in Home.md's Process section, and what it demands of this arc:
 |---|---|
 | **THE MODAL CONTRACT** | The board's window and the siege's result card gate a host frame: each returns the same type from every exit, asserted in a test, not a comment |
 | **THE SLOT IS EMPTIED BEFORE THE OCCUPANT IS TOLD** | The board's window lives in the host's overlay slot: the slot is nulled before the window is disposed, and its close dispatches its callback once however many doors call it |
-| **ONE DFU MEMBER, ONE EXPORT** | Nothing DFU owns is re-typed: `REGION_NAMES`, `BUILDING_TYPES.Palace`, `BULLETIN_BOARD_MODEL_ID`, `DEFAULT_WEAPON_REACH`, `WEAPON_MATERIALS` are imported; the kingdom map is the one new table, and it lives in townSeatLaw.js alone |
+| **ONE DFU MEMBER, ONE EXPORT** | Nothing DFU owns is re-typed: `REGION_NAMES`, `BUILDING_TYPES.Palace`, `BULLETIN_BOARD_MODEL_ID`, `DEFAULT_WEAPON_REACH`, `WEAPON_MATERIALS` are imported; the kingdom map is the one new table, and it lives in townSeatLaw.js alone. PVP-REF, recorded: the relay's referee (`siegeRef.js`) is a leaf the relay bundles, so it COPIES DFU's damage tables and the reach, pinned equal to their homes by test (`test/pvpref_law.test.js` - the gate's way, `test/wb4b_gate_blows.test.js`) |
 | **A PIN MUST FAIL** | Every number in Appendix B is pinned by `deepEqual` against the law module's table, and each slice's mutants (`tools/mutants/seat*.json`) prove a one-character change of any rule reddens a test |
 | **TEST THE SHAPE THE PRODUCER MINTS** | Seats in tests come from the derivation run over a fixture MAPS set, never hand-built rows; receipts come from the relay's own signer; a settled week from `settleWeek` itself |
-| **ASYNC NEVER DROPS** | Every service call (pledge, tribute, window, edict, sign) carries a request id; a second press while one is in flight coalesces; a lost answer is re-asked with the same id (Renown's `last_rid` pattern) |
+| **ASYNC NEVER DROPS** | Every service call (pledge, tribute, window, edict, sign) carries a request id; a second press while one is in flight coalesces; a lost answer is re-asked with the same id (Renown's `last_rid` pattern). DECIDED (the audit of the arc, recording the departure): only two seat calls carry a request id - Tribute and a work's funding (`net/accountClient.js` accountSeats `tribute`, `fortFund`); the set-state acts carry none, because a re-asked one is idempotent or refused as a repeat: a pledge, a window and an Edict are upserts (`seatInfluence.js` pledgeSeat, `seatBattles.js` setWindow, `seatHolding.js` proclaimEdict - the same row written again, another of the hour's rate spent; a taking-down asked twice answers `seat-no-pledge`/`seat-no-edict`); a signing answers `sign-twice` and a hire `hire-twice` (`seatBattles.js` signBattle, hireSellsword). The second press is the Seat tab's one-at-a-time door (`ui.run`). NOT YET: a lost answer to a set-state act re-asked by itself - the player presses again |
 | **EVERY ALLOCATION HAS AN OWNER** | Banner quads are owned by the town's layout and freed with it; the siege HUD's elements by the siege room's session; the relay's siege state by its room, dropped when the window closes - all but its unposted result and Honours receipts, which it keeps with their ids until the service accepts them (17) |
 | **THE ONE CONSTRUCTION SEAM** | One constructor builds the board's window for every host; a test sweeps the source so no host `new`s it |
 | **THE NATIVE-WINDOW RULE** | It governs DFU's native windows: the offline bulletin board's parchment stays native, its ROAD A9 cites intact. The Seat tab and the siege HUD are the port's own Enhanced Plus windows and cite `src/ui/enhancedStyle.js`, not DFU rects |
@@ -879,6 +1233,10 @@ Every law in Home.md's Process section, and what it demands of this arc:
   FACT: the account deploy waits on the relay (AUDIT B1) for 60 polls 20 seconds apart - 20 minutes - and then gives
   up without deploying (`.github/workflows/account-deploy.yml`), so SEAT2a lengthens that wait to outlast the
   blackout; otherwise a seat change's account deploy would silently not ship.
+  BUILT (SEAT2a part three): `/v1/seats/sieges/live` (public, a GET); the relay workflow's blackout step, five minutes
+  a poll (DECIDED there: an unanswered question is not a siege - the deploy goes on; GitHub's six-hour job ceiling is
+  the wait's real bound, and a blackout past it fails the run for the next push to ask again); the account deploy's wait
+  on the relay five and a half hours.
 - **The account service is down during a siege.** The relay needs the service only at the start (the rosters, cached)
   and at the end (the result). A siege runs to its end alone; its result and Honours are signed receipts the relay
   keeps and posts, with their ids, until the service accepts them.
@@ -897,11 +1255,31 @@ Every law in Home.md's Process section, and what it demands of this arc:
   glyph see seats, so each slice is played on the live servers before anyone else sees it.
 - **Season 0.** The first Season is a four-week open beta. At its end seats, influence, fortifications and history
   are wiped; Marks, the Stores and profession tracks are kept (players' effort is never wiped). Season 1 begins at
-  the next Turning (9.1).
+  the next Turning (9.1). BUILT (SEASON1 part one): Season 0's last Turning settles its own week (its upkeep, Tithe
+  shares, a Royal Tourney's prize), sets nothing up for the next (no claim, Right, battle, Edict or Legacy - the Edicts
+  proclaimed for it void) and wipes the Charters, influence, pledges, binds, Legacy, Rights, the sieges' memory,
+  windows, stockpiles and Levies, history, fealty and Pacts (`seatTurning.js` `SEASON_ZERO_WIPED`). DECIDED: what money is
+  still owed out of (a battle's contracts, an Edict's escrow, a Royal Tourney's prize), the titles and Honours earned,
+  and the red lines stay; the beta crowns no one.
 - **Patch notes** for every slice, in the house style (`PATCH-NOTES-*.md`, Discord-sized, player-facing).
 - **Moderation.** Guild names and tags pass the name filter they already pass; heraldry is a fixed palette and fixed
   devices, so nothing offensive can be drawn on a banner. Moderators (MOD1) may **void a siege** (`/siege void`) - a
-  history row, the holder keeping the seat - when a fight was won by an exploit found after it.
+  history row, the holder keeping the seat - when a fight was won by an exploit found after it. BUILT (VOID,
+  2026-10-02; Online-Arc SIEGE-VOID): `/siege void <seat key>` (`net/townSeatBook.js` parseSiegeCommand, never guarded on
+  the client) asks `POST /v1/seats/siege/void` (`server-account/src/seatSiege.js` voidSiege) - a moderator's or a
+  developer's (titles.js canModerate; anyone else `not-moderator`); it voids the seat's battle of this week (a siege, a
+  Tourney or a revolt) and writes a Chronicle row ("the siege of X was voided by the Moderators"); no red line; no pass
+  opens to it and a receipt claimed after is refused; a battle already void answers `repeat`, a seat with none this week
+  `battle-none`. DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
+  the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED: after a capture (or a revolt that
+  stood) the Charter goes back to the guild that held it as the result kept it (migration 0067's
+  `town_seat_results.prior`: its Standing, the week it took the seat, its truce, Tithe and arrears - none kept, Standing
+  50 from this week), its Legacy back, the works' capture drop undone and a Fortifier's save unspent; the capturer's own
+  projects fall and its Edict for next week is void. DECIDED: after a hold (a forfeit, a revolt put down) the holder's
+  Standing goes back where it stood and its defence fifth is struck - and the challenger's bar is lifted, its influence
+  and Legacy back. DECIDED: after a Tourney the winner's Charter is gone and its fee stays burnt. DECIDED: Honours, Marks,
+  Renown and Spoils already claimed stand (never clawed back), the Sellswords paid at the result stay paid, and the
+  palace's decor a capture cleared is not given back; a voided forfeit is not the pair's forfeit of the Season.
 - **Rate limits.** Every seat endpoint is bounded per account per hour (the guild's `GUILD_OPS_MAX` shape): pledges
   30, windows 5, edicts 5, witness reports 24.
 - **Data kept.** Influence rows are summed into weekly totals at the Turning and pruned after 4 weeks; the history is
@@ -966,6 +1344,11 @@ note:
 +--------------------------------------------------------------+
 ```
 
+BUILT (SEAT2a part four, 2026-10-01; `06-Systems/Online-Arc.md` SEAT2a part four): the bar, the sides, the vitality and
+the wave, the spectator's count and the result card as drawn above (`ui/siegeHud.js`, its words `net/siegeLink.js`).
+DECIDED there: `~` marks a banner being raised from the other side (the field's frame says who raises it, not who
+contests it); the card's Claim carries the fighter's receipt (`net/siegeClaims.js`).
+
 ## Appendix A - a week in Anticlere
 
 - **Sunday 18:00, the Turning.** Anticlere (a march) is held by the Ebon Oath (Standing 58, tier 1 Walls). The
@@ -1014,7 +1397,7 @@ note:
 | Sides (palace / crown), sellswords | 10 / 20; 2 / 4 |
 | Siege vitality | 300 + 2 x Renown level (302-400) |
 | Blows a second / casts per 5 s / cast damage / heal | 4 / 3 / 60 / 40 |
-| Speed limit | 12.5 m/s + 0.5 m |
+| Speed limit | 18 m/s + 0.5 m (PVP-REF MEASURED it; 12.5 was the first record - AUDIT-SEATS); spells reach 60 m, heals 3 a 5 s |
 | Banner radius / raise time / Throne (palace / crown) | 8 m / 20 s / 120 s / 180 s |
 | Banners to open the Throne (palace / crown) | 2 of 3 / 3 of 4 + Gatehouse |
 | Gatehouse / Ram vitality; Ram damage | 20,000 / 3,000; 500 every 10 s, 2 crew within 3 m |
@@ -1047,3 +1430,10 @@ The model lives with Marks, in `06-Systems/Professions-Arc.md` Appendix C. What 
 | Palace upkeep | 1,000 | **2,500** | at 1,000 it was 6% of a 12-member guild's writ income - a seat that cost nothing; now a quarter |
 | Crown upkeep | 10,000 | **15,000 x the server's scale** | more than half a 30-member guild's income, scaled so a small server's crown is not starved |
 | Whole server, Marks minted / burnt | 2.3 | **1.00** (0.83 at 50 accounts, 0.81 at 300, Court writs scaling with the server) | the Bank's exchange is the voluntary valve at the edges |
+
+RE-RUN (SEAT1d, 2026-10-01): the model is a tool now (`tools/seatEconomy.mjs`, 400 runs a size, seed 1 - Professions-Arc
+Appendix C has its table). Built from the record's stated players and reading the law, it finds each size's week about
+15% under the first table's (an eight-member guild's median 6,036 against 7,249; its writ income 6,570 against 7,057): a
+palace stays within a regular eight-member guild's median week, but a crown's 30,000 is a forty-member guild's median
+(a thirty-member guild's p90 is 26,244, not 30,201). OPEN for Mac: whether the crown's line falls to the re-run's p90 of
+a thirty-member guild, or stays for the weekly report's own players (MEASURED, below) to decide.

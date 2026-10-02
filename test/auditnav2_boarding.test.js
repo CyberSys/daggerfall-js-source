@@ -202,6 +202,6 @@ test('AUDIT NAV2 F49: a hand that falls stays fallen - his CREW_PER_HAND off my 
 
 test('AUDIT NAV2 F12: a boarding\'s bodies go with their boarder - no foe handover (at a door, a room left, a foe walked away from) names an heir for a body on a deck: an heir stood her men as plain foes on a deck with no leash and no boarding, beside the ship her crew had just been held off (mutant: any one heirOf without the deck test)', () => {
   const heirs = [...WORLD.matchAll(/const heirOf = \(f\) => \{[^]*?return id;/g)].map((m) => m[0]);
-  assert.equal(heirs.length, 3, 'the world\'s three foe handovers');
+  assert.equal(heirs.length, 4, 'the world\'s four foe handovers (AUDIT WB12d C2: a site\'s foes at a teleport and the page\'s going)');
   for (const h of heirs) assert.match(h, /f\.deckBoat != null/, h.slice(0, 120));
 });

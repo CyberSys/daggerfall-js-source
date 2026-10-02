@@ -158,8 +158,8 @@
   {
     "name": "QUICK-LOOT-the-bulk-take-walks-the-list-it-is-splicing",
     "file": "src/systems/quickLoot.js",
-    "old": "    for (const it of [...items]) {\n      const got = takeThrough(playerEntity, items, it, getQuest);",
-    "new": "    for (const it of items) {\n      const got = takeThrough(playerEntity, items, it, getQuest);",
+    "old": "    for (const it of [...items]) {\n      const got = takeThrough(playerEntity, items, it, getQuest, moved);",
+    "new": "    for (const it of items) {\n      const got = takeThrough(playerEntity, items, it, getQuest, moved);",
     "tests": [
       "test/quickloot.test.js"
     ]

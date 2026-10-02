@@ -64,7 +64,7 @@ test('PROF7 law: the leathers (665 Cured tier 2, 666 Hardened tier 5) and the cl
   assert.deepEqual(CLOTHS.map((m) => [m.key, m.templateIndex, m.tier]), [['cloth:linen', 668, 1], ['cloth:wool', 669, 2], ['cloth:silk', 670, 4], ['cloth:standard', 671, 5]]);
   assert.deepEqual([LINEN, WOOL, SILK, STANDARD_SILK], CLOTHS);
   assert.deepEqual(HIDE_TEMPLATES.map((m) => m.templateIndex), [655, 656, 657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 668, 669, 670, 671]);
-  assert.deepEqual([...NO_PACK_FORM], []);
+  assert.deepEqual([...NO_PACK_FORM], ['work:ram']);   // SEAT2b part two (PIN MOVED): a siege work's road is the writ's - every hide, leather and cloth withdraws
   for (const m of [...HIDE_TEMPLATES, ...PARTS]) {
     assert.equal(minedMaterial(m.key)?.templateIndex, m.templateIndex, m.key);
     assert.equal(withdrawable(m.key), true, m.key);
@@ -72,9 +72,9 @@ test('PROF7 law: the leathers (665 Cured tier 2, 666 Hardened tier 5) and the cl
     assert.ok(MINED_KEYS.includes(m.key), m.key);
   }
   assert.equal(professionOfFamily('hides'), null, 'no Court writ asks a hide - bounded, not witnessed (PROF0 11)');
-  assert.deepEqual([...UNYIELDED], ['ingot:daedric', 'ingot:warforged', 'cloth:standard']);
+  assert.deepEqual([...UNYIELDED], ['ingot:daedric']);   // PIN MOVED (AUDIT-SEATS): the sieges' Spoils yield the silk
   const cat = new Set(marketCatalogue().map((c) => c.key));
-  assert.deepEqual([cat.has('hide:bear'), cat.has('leather:hardened'), cat.has('part:dragonscale'), cat.has('food:meat'), cat.has('cloth:standard')], [true, true, true, true, false]);
+  assert.deepEqual([cat.has('hide:bear'), cat.has('leather:hardened'), cat.has('part:dragonscale'), cat.has('food:meat'), cat.has('cloth:standard')], [true, true, true, true, true]);
   assert.deepEqual(FOOD_KEYS.slice(-2), ['food:meat', 'food:fish']);
   assert.deepEqual(materialOf('food:meat', herbTier), { key: 'food:meat', family: 'food', tier: 1, value: 1 });
 });
@@ -223,7 +223,7 @@ test('PROF7 law: Outfitting\'s recipes (9.3) - the leather armour in Cured and H
   assert.deepEqual([net.templateIndex, FISHING_NET_TEMPLATE, net.rank, ins('fishingnet:linen'), net.kind, net.profession], [1603, 1603, 0, '2 cloth:linen', 'tool', 'outfitting']);
   assert.equal(OUTFITTING_RECIPES.length, 14 + 76 * 4 + 4 + 3 + 8 + 1);
   assert.ok(OUTFITTING_RECIPES.every((r) => r.profession === 'outfitting' && r.metal === null));
-  assert.equal(RECIPES.length, SMITH_RECIPES.length + CARPENTRY_RECIPES.length + OUTFITTING_RECIPES.length);
+  assert.equal(RECIPES.length, SMITH_RECIPES.length + CARPENTRY_RECIPES.length + OUTFITTING_RECIPES.length + 4);   // PIN MOVED (PROF11): the Sculptor's four stone pieces
   assert.equal(new Set(RECIPES.map((r) => r.id)).size, RECIPES.length, 'every id its own');
   const knife = recipeById('knife:iron');
   assert.deepEqual([knife.templateIndex, knife.rank, knife.profession, ins('knife:iron')], [603, 0, 'smithing', '1 ingot:iron + 1 plank:pine']);
@@ -286,9 +286,9 @@ test('PROF7 law: Trophy Hunter, Couturier and Saddler are named and never chosen
   const later = (p, r, id) => SPECIALISATIONS[p][r].find((s) => s.id === id)?.later ?? null;
   assert.deepEqual([later('hunting', 100, 'trophy-hunter'), later('outfitting', 100, 'couturier'), later('outfitting', 100, 'saddler')], ['trophy', 'two-colour', 'wagon']);
   assert.deepEqual([specOk('hunting', 100, 'trophy-hunter'), specOk('hunting', 100, 'butcher'), specOk('hunting', 50, 'tanner'), specOk('outfitting', 50, 'tailor'), specOk('outfitting', 100, 'couturier')], [false, true, true, true, false]);
-  assert.deepEqual(CRAFTED_FAMILIES.slice(-3).map(([f]) => f), ['leather', 'clothing', 'furnishings']);
+  assert.deepEqual(CRAFTED_FAMILIES.slice(-4, -1).map(([f]) => f), ['leather', 'clothing', 'furnishings']);   // PIN MOVED (PROF11): the mason's stonework lists after the loom's three
   assert.deepEqual(['leather-helm:cured', 'garment-141:linen', 'rug-237:wool', 'skins-244:bear', 'fishingnet:linen', 'knife:iron', 'arrows:harpy'].map(pieceListable), [true, true, true, true, true, true, false]);
-  assert.deepEqual([DECOR_STATIONS.at(-1), DECOR_STATION_FEES.loom, DECOR_STATION_NAMES.loom], ['loom', 50_000, 'Loom']);
+  assert.deepEqual([DECOR_STATIONS.at(-2), DECOR_STATION_FEES.loom, DECOR_STATION_NAMES.loom], ['loom', 50_000, 'Loom']);   // PIN MOVED (PROF11): the mason's bench a seventh after it
   // a day's rot: a plain Raw Meat rolls every day; a Butcher's every other, aged half its days
   const rolls = () => 0.99;   // the highest roll: whatever may spoil, spoils
   const plain = { templateIndex: CC.RawMeat }, slow = { templateIndex: CC.RawMeat, slowRot: true };

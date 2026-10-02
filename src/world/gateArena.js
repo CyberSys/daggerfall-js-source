@@ -77,11 +77,11 @@ export const COURT_TEXT = Object.freeze({
   wayHome: 'The way back to Tamriel',
   noRest: 'You cannot rest in the Deadlands.',
   noSave: 'You cannot save in the Deadlands.',
-  noMap: 'The Deadlands are not yours to map.',
-  noMark: 'The Deadlands will not hold your mark.',
+  noMap: 'You cannot map the Deadlands.',   // WB13b: the refusals one shape
+  noMark: 'You cannot set a Mark in the Deadlands.',
   castOut: 'You are cast out of the Burning Court.',
-  collapse: 'The Burning Court comes apart around you.',
-  lost: 'The Burning Court slips away from you - the way through is lost.',   // AUDIT WB B5: the relay's link gone for good
+  collapse: 'The Burning Court collapses.',
+  lost: 'The way to the Burning Court is lost.',   // AUDIT WB B5: the relay's link gone for good
   portal: 'The way home tears open where he fell.',   // WBX2: said as the portal rises
 });
 /** A brazier's fire: its colour and reach. */

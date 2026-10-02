@@ -298,7 +298,7 @@ import {
   PARKOUR_AIR_REACH, PARKOUR_AIR_LOW, PARKOUR_OVER_DROP, PARKOUR_QUIET_STEPS,
   // CLIMB2: the hang, the shimmy, the grip and the free climb
   senseGrip, senseEaveAhead, senseEaveLedge, catchClear, planCatch, planCorner, moveClear, wallContact, carryHold, gripSeconds, shimmySpeed, freeClimbSpeed, freeStartSeconds,
-  bandsClear, capsuleFits, PARKOUR_LEAN,
+  bandsClear, capsuleFits, PARKOUR_LEAN, PARKOUR_SIDESTEP_MAX, PARKOUR_SIDESTEP_PROBE, PARKOUR_SIDESTEP_RISE, PARKOUR_SIDESTEP_CLEAR, PARKOUR_HUG_PRESS, PARKOUR_STEP_SCAN, PARKOUR_CORNER_LOOK, PARKOUR_TURN_HOLDS,
   PARKOUR_HANG_DROP, PARKOUR_HANG_GAP, PARKOUR_HANG_LOW, PARKOUR_HAND_SPAN, PARKOUR_GRIP_MIN, PARKOUR_GRIP_LOW,
   PARKOUR_GRIP_LOW_TEXT, PARKOUR_GRIP_REST, PARKOUR_GRIP_REGEN_S,
   PARKOUR_CORNER_PROBE, PARKOUR_FACE_FOLLOW, PARKOUR_ARM_GRACE_S, PARKOUR_CORNER_OFF, PARKOUR_CORNER_IN, PARKOUR_CORNER_CLEAR, PARKOUR_WALL_REACH, PARKOUR_CONTACT,
@@ -1567,6 +1567,7 @@ export class PlayerMotor {
       back: input.forward < 0,
       anyMove: input.forward !== 0 || input.strafe !== 0,
       falling: this.falling,
+      slowFalling: this.slowFalling,   // SLOW-GRASP: no airborne grasp begins on a slow fall (climbing.js)
       grounded: this.grounded,
       levitating: this.levitating,
       riding: isRiding(this.transportMode),   // TR1: ClimbingMotor :398 - no climbing from a saddle
@@ -1609,7 +1610,11 @@ export class PlayerMotor {
       // billed here - the machine sees slippedToGround next step,
       // stops, and the normal grounded bookkeeping bills the drop.
       if (!this.falling) { this.falling = true; this.fallStart = this.pos[1]; this.velY = 0; }
-      this.velY -= GRAVITY * dt;
+      // SLOW-SLIP (FIELD BUGS 2026-10-01): ApplyGravity's slowfall arm rides the slip too - the flat 2.1 m/s with the
+      // fall re-anchored each tick, as the walk arm's below. The slip integrated plain gravity and anchored its fall
+      // once, at the let-go: a slip under the spell hit the floor at ~20 m/s and billed the whole slip.
+      if (this.slowFalling) { this.fallStart = this.pos[1]; this.velY = -SLOWFALL_VELOCITY; }
+      else this.velY -= GRAVITY * dt;
       const r = this.collider.move(this.pos, 0, this.velY * dt, 0, this.height);
       this.grounded = r.grounded;
       if (r.grounded) this.velY = 0;
@@ -1711,6 +1716,7 @@ export class PlayerMotor {
   _parkourStep(dt, input, yaw) {
     const pk = this.parkour;
     this._pkOn = false;
+    this._pkLookNow = [Math.sin(yaw), 0, Math.cos(yaw)];   // CORNER-TOP (AUDIT): the look a hold is taken with (_wallBegin)
     if (!pk) return false;
     // THE TAP CATCH (PARKOUR_ARM_GRACE_S): a fresh press arms the air catch for the jump it makes - the body down
     // again (or never off the ground), a move or a let-go ends it (the water asks no catch: mode, below)
@@ -1859,7 +1865,11 @@ export class PlayerMotor {
       return;
     }
     const c = wallContact(this.collider, this.pos, [-r.normal[0], 0, -r.normal[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH);
-    if (c) this._wallBegin('climb', c.normal, null, c.key);
+    if (!c) return;
+    this._wallBegin('climb', c.normal, null, c.key);
+    // AUDIT FIELD BUGS 2026-10-02: the wall was found at the grab's reach - it is reached for as it was found (a save in a
+    // STEP-BACK pass loaded 0.2 m off the face, and the next step's contact let go: a 5.8 m fall)
+    this._wall.seek = true;
   }
 
   /** The ledge sensor's opts for this body: the band, and the stair check. */
@@ -1984,7 +1994,7 @@ export class PlayerMotor {
    *  shield, the motion bag) with none of the classic machine's rolls. */
   _wallBegin(mode, normal, lipY, key) {
     this._pkUnsink();
-    this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false };
+    this._wall = { mode, normal: [normal[0], 0, normal[2]], lipY, key: key ?? null, carrier: null, warned: false, upRefused: false, look: this._pkLookNow ?? null };
     this._pkSide = null;   // AUDIT CLIMB2 A3: a new wall asks the look afresh (a corner is no new wall: C7)
     if (key != null) this._wall.carrier = this.collider.bucketPose?.(key) ?? null;
     this._wallTally = 0;
@@ -2366,8 +2376,12 @@ export class PlayerMotor {
    *  floor under the body, not going up, ends the climb standing (A1). */
   _freeClimbStep(dt, side, vert, skill, inputs) {
     const w = this._wall;
-    const c = wallContact(this.collider, this.pos, [-w.normal[0], 0, -w.normal[2]], this.height, CAPSULE_RADIUS,
-      w.seek || w.past != null ? PARKOUR_WALL_REACH : PARKOUR_CONTACT);
+    // AUDIT FIELD BUGS 2026-10-02: climbing down, the hands reach for the wall under them as far as the grab does (as
+    // Back from a hang does, w.seek) - down past a step-back only the lowest ray was still on the wall, and over a
+    // recess in it nothing was: the climb froze, or the hands let go 5.4 m up (N0000033)
+    w.down = vert < 0;
+    const reach = w.seek || w.past != null || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT;
+    const c = wallContact(this.collider, this.pos, [-w.normal[0], 0, -w.normal[2]], this.height, CAPSULE_RADIUS, reach);
     if (!c) { this._wallEnd(); return false; }
     if (w.seek && c.dist <= CAPSULE_RADIUS + PARKOUR_CONTACT) w.seek = false;
     // AUDIT CLIMB2 A1: not going up with the floor this near under the feet is standing, not a hold - ClimbingMotor's
@@ -2378,7 +2392,13 @@ export class PlayerMotor {
       return false;
     }
     const into = [-w.normal[0], 0, -w.normal[2]];
-    w.normal = c.normal;
+    // AUDIT FIELD BUGS 2026-10-02: the hold turns onto a face its contact met only where the body holds along that face
+    // too - one ray on a corner's other face under a leaning top turned it, the next step's contact along it met
+    // nothing, and the hands let go 11 m up (the Pit of Sahoth's N0000008; the old deep press had pushed the body on up)
+    const turnsTo = c.normal[0] * w.normal[0] + c.normal[2] * w.normal[2] < PARKOUR_TURN_HOLDS
+      && !wallContact(this.collider, this.pos, [-c.normal[0], 0, -c.normal[2]], this.height, CAPSULE_RADIUS, reach) ? null : c.normal;
+    w.normal = turnsTo ?? w.normal;
+    w.gap = c.dist - CAPSULE_RADIUS;   // HUG-TOUCH: how far the face stands off the body (_fcMove's press)
     if (c.key !== w.key) { w.key = c.key; w.carrier = c.key != null ? (this.collider.bucketPose?.(c.key) ?? null) : null; }
     // CLIMB3: a fresh Jump on the free climb leaps - Back off the wall, Left or Right along it, else up it (Mac's
     // "Parkour leap"; until now Jump on a free climb did nothing). AUDIT CLIMB-FIELD J1 (Mac: "You cant jump from a
@@ -2392,6 +2412,14 @@ export class PlayerMotor {
     }
     if (vert > 0) {
       if (this._fcTopOut(dt, skill, inputs, into, false)) return true;
+      // CORNER-TOP (FIELD BUGS 2026-10-02, the audit): in a corner the hands can hold the side wall, which runs on past
+      // the lip of the wall the look is turned to - and the climb went on up it under that top: the turned-to wall's
+      // top in reach is climbed onto as the held one's is
+      // AUDIT: the side is the look's when the hands took this wall (`w.look`), and kept - a view turned during the climb
+      // toward a crate, a garden wall or a fence beside it mantled the climber sideways onto it, or over into the next yard
+      w.corner ??= this._fcCornerSide(into, w.look);
+      const turned = this._fcCornerWall(into, w.corner);
+      if (turned && this._fcTopOut(dt, skill, inputs, turned, false)) return true;
       const face = [this.pos[0] + into[0] * c.dist, 0, this.pos[2] + into[2] * c.dist];
       const g0 = senseGrip(this.collider, face, c.normal, this.pos[1] + PARKOUR_HANG_DROP, this._pkGeo());
       const g = g0 && w.past != null && g0.lipY <= w.past + PARKOUR_LIP_FOLLOW ? null : g0;   // CLIMB3: not the sill climbed past
@@ -2429,9 +2457,102 @@ export class PlayerMotor {
     const held = () => this._fcHeld(n, w);
     for (const out of PARKOUR_LEAN) if (!held()) this._fcMove(was, side, vert, v, n, dt, out);
     if (!held() && side && vert) this._fcMove(was, 0, vert, v, n, dt);
+    // STEP-BACK (FIELD BUGS 2026-10-02): going up (straight or across), a face that steps back from the hands (a piece set 20 cm behind
+    // the one under it, its top too shallow to stand on) is climbed on to as CLIMB3 climbs past a sill - the step's top
+    // passed (w.past: straight up in front of it, unpressed, so no press lifts the body onto its edge and leaves it
+    // perched there), then the grab's own reach to the face over it (w.seek) - where the climb stopped under the step
+    if (!held() && vert > 0 && !w.seek && w.past == null) {
+      this._fcMove(was, 0, vert, v, n, dt);
+      const s = this.pos[1] - was[1] > 1e-4 && bandsClear(this.collider, this.pos, this.height)
+        ? wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, PARKOUR_WALL_REACH) : null;
+      if (s && s.normal[0] * n[0] + s.normal[2] * n[2] >= PARKOUR_FACE_FOLLOW) {
+        w.past = this._fcFaceTop(was, into);
+        w.seek = true;
+        this._fcMove(was, 0, vert, v, n, dt);
+      }
+    }
     if (!held()) { this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2]; }
     w.stuck = vert > 0 && this.pos[1] - was[1] < 1e-4;
+    if (vert <= 0 || side || (w.sidestep && this.pos[1] - w.sidestep.y0 >= PARKOUR_SIDESTEP_CLEAR)) w.sidestep = null;
+    if (!side && vert > 0 && (w.stuck || (w.sidestep && w.sidestep.gone < w.sidestep.want))) this._fcSidestep(v, n, dt, held);
     return true;
+  }
+
+  /** SEAM-STEP (FIELD BUGS 2026-10-02, "A two blocks wall is too high for my character to climb up"): Daggerfall's
+   *  dungeon walls are stacked in 3.2 m units, and where the unit above stands a hand's width over to one side - its
+   *  corner, a jamb, a pier - the climber's head met its underside 1.4 m up the first unit and the climb went no
+   *  higher (the across move's clamp undid the resolve's push out from under it, which carried the classic climb on).
+   *  Stuck going straight up, the hands move along the wall to the nearest place the body rises again - the wall still
+   *  at them, within PARKOUR_SIDESTEP_MAX - along and up at the climb's diagonal pace until they are there, and the
+   *  climb goes on up from it. None that near, it stays stuck as under any top it cannot take. The way is kept until
+   *  the climb has risen PARKOUR_SIDESTEP_CLEAR past where it stuck: one obstruction moves the hands that far at most. */
+  _fcSidestep(v, n, dt, held) {
+    const w = this._wall;
+    const t = [-n[2], 0, n[0]];   // the across move's own +1 (_fcMove: -nz * side, nx * side)
+    const from = [this.pos[0], this.pos[1], this.pos[2]];
+    const into = [-n[0], 0, -n[2]];
+    const rises = (s) => {
+      const q = [from[0] + t[0] * s, from[1] + PARKOUR_SIDESTEP_RISE, from[2] + t[2] * s];
+      return capsuleFits(this.collider, q, this.height) && !!wallContact(this.collider, q, into, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT);
+    };
+    /** the nearest place within `room` that rises, each of `dirs` asked at every probe: { s, k } or null */
+    const search = (dirs, room) => {
+      for (let k = 1; k * PARKOUR_SIDESTEP_PROBE <= room + 1e-9; k++) for (const s of dirs) if (rises(s * k * PARKOUR_SIDESTEP_PROBE)) return { s, k };
+      return null;
+    };
+    if (w.sidestep == null) {
+      const f = search([1, -1], PARKOUR_SIDESTEP_MAX);
+      // AUDIT: a search that found nothing is kept as one (no way), and not asked again every step while the climber
+      // stays stuck under the same top - until the climb moves (Back, Left or Right, or a rise clears it)
+      w.sidestep = f ? { dir: f.s, want: f.k * PARKOUR_SIDESTEP_PROBE, gone: 0, y0: from[1] } : { dir: 0, want: 0, gone: 0, y0: from[1] };
+      if (!f) return false;
+    }
+    const st = w.sidestep;
+    if (st.gone >= st.want) {
+      // AUDIT: there and still stuck (the search's fit admits the touch of an edge the resolve then refuses - a jamb
+      // over the body's middle): on the same way, the next place that rises, within what is left of the reach
+      if (!st.dir || st.gone >= PARKOUR_SIDESTEP_MAX) return false;
+      const f = search([st.dir], PARKOUR_SIDESTEP_MAX - st.gone);
+      if (!f) { st.want = st.gone = PARKOUR_SIDESTEP_MAX; return false; }
+      st.want = st.gone + f.k * PARKOUR_SIDESTEP_PROBE;
+    }
+    const d = v * DIAGONAL_FACTOR;   // along and up in the one step, at the climb's diagonal pace
+    this._fcMove(from, st.dir, 0, Math.min(d, (st.want - st.gone) / dt), n, dt);
+    const gone = Math.abs(t[0] * (this.pos[0] - from[0]) + t[2] * (this.pos[2] - from[2]));
+    if (gone < 1e-4 || !held()) { this.pos[0] = from[0]; this.pos[1] = from[1]; this.pos[2] = from[2]; st.gone = st.want = PARKOUR_SIDESTEP_MAX; return false; }
+    st.gone += gone;
+    if (w.stuck) {
+      const along = [this.pos[0], this.pos[1], this.pos[2]];
+      this._fcMove(along, 0, 1, d, n, dt);
+      if (!held()) { this.pos[0] = along[0]; this.pos[1] = along[1]; this.pos[2] = along[2]; }
+    }
+    return true;
+  }
+
+  /** CORNER-TOP: which way along the held wall (+1, -1) the look is turned by PARKOUR_CORNER_LOOK or more, else 0. */
+  _fcCornerSide(into, look) {
+    if (!look) return 0;
+    const a = look[0] * -into[2] + look[2] * into[0];
+    return Math.abs(a) < PARKOUR_CORNER_LOOK ? 0 : Math.sign(a);
+  }
+
+  /** CORNER-TOP: the way into the corner's other wall - along the held wall, on the `side` the look was turned to as the
+   *  hands took it - when a face stands there within the climber's contact; else null. How square that
+   *  face must stand is the ledge sensor's own law (its facing test, 50 degrees), asked by the top-out along it. */
+  _fcCornerWall(into, side) {
+    if (!side) return null;
+    const dir = [-into[2] * side, 0, into[0] * side];
+    return wallContact(this.collider, this.pos, dir, this.height, CAPSULE_RADIUS, PARKOUR_CONTACT) ? dir : null;
+  }
+
+  /** STEP-BACK: the top of the face the hands held, from the feet `at` up - the first level ray along `into` that no
+   *  longer meets it within the climber's contact. */
+  _fcFaceTop(at, into) {
+    const reach = CAPSULE_RADIUS + PARKOUR_CONTACT;
+    for (let h = 0; h <= this.height; h += PARKOUR_STEP_SCAN) {
+      if (!Number.isFinite(this.collider.raycast([at[0], at[1] + h, at[2]], into, reach))) return at[1] + h;
+    }
+    return at[1] + this.height;
   }
 
   /** AUDIT CLIMB2 H5: THE TOP-OUT. A lip coming within the hands' reach is climbed onto or over - CLIMB1's top-out of
@@ -2461,7 +2582,12 @@ export class PlayerMotor {
   _fcMove(was, side, vert, v, n, dt, out = null) {
     // CLIMB3: past a sill it held, the body rises straight up in front of it - pressed in, it was shoved down and back off
     // the sill's underside - until the feet are over it and the press takes it on to the wall above
-    const nx = n[0], nz = n[2], hug = out == null ? (this._wall?.past != null ? 0 : -this.speed * dt) : out;
+    // HUG-TOUCH (FIELD BUGS 2026-10-02): pressed to the face and a centimetre in, never the classic hug's whole step
+    // (Speed x dt, 7 cm a step) - the resolve's push back out of a press that deep leans along the face wherever the
+    // body meets a seam between two of its triangles, and Daggerfall's walls are a few great triangles split on the
+    // diagonal: up such a seam the push took 1.3 cm a step off the climb, and at Climbing 0 a climber never left the floor
+    const press = Math.min(this.speed * dt, Math.max(0, this._wall?.gap ?? Infinity) + PARKOUR_HUG_PRESS);
+    const nx = n[0], nz = n[2], hug = out == null ? (this._wall?.past != null ? 0 : -press) : out;
     this.pos[0] = was[0]; this.pos[1] = was[1]; this.pos[2] = was[2];
     this.collider.move(this.pos,
       -nz * side * v * dt + nx * hug, vert * v * dt, nx * side * v * dt + nz * hug,
@@ -2478,7 +2604,7 @@ export class PlayerMotor {
 
   /** CLIMB2: is the free climber where the move put it still on the wall, and clear of everything (bandsClear)? */
   _fcHeld(n, w) {
-    return !!wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, w.seek || w.past != null ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)
+    return !!wallContact(this.collider, this.pos, [-n[0], 0, -n[2]], this.height, CAPSULE_RADIUS, w.seek || w.past != null || w.down ? PARKOUR_WALL_REACH : PARKOUR_CONTACT)
       && bandsClear(this.collider, this.pos, this.height);
   }
 
@@ -2494,7 +2620,10 @@ export class PlayerMotor {
    *  own clock, so it is down before the body passes under anything. */
   _parkourBegin(move) {
     // CLIMB4: the move begins - and the speed the body came to it at (a catch's impact: the feel's dip, the sound's weight)
-    this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));
+    // AUDIT CLIMB-HANDS (found on the way): and on the move itself - the hands' landing and ClimbPose's pendulum read
+    // `m.speed`, and the speed was said on the event alone (every catch swung at a standstill's)
+    move.speed = Math.hypot(this.velY, this._airVelX, this._airVelZ);
+    this._pkMoveEvent(move, move.speed);
     this._pkUnsink();
     this._pkArm = null;   // the tap catch: the press is spent on the move
     this._pkLeap = null;  // CLIMB3: a leap's flight ends in what it caught
@@ -2973,6 +3102,10 @@ export class PlayerMotor {
       // rather than frozen, which the hosts' zeroed bag already gives.
       vx = (sin * input.forward + cos * input.strafe) * factor * speed;
       vz = (cos * input.forward - sin * input.strafe) * factor * speed;
+      // SLOW-PRESS (AUDIT part five SP1): the Jump spell's air control re-asks the input every step - a press a face spent
+      // stays spent (it re-pressed a slow fall into a face past the slope limit: 72 deg took 19.9 s, 74 deg at a run crept up)
+      const n = this.slowFalling ? this._slowPress : null;
+      if (n) { const d = vx * n[0] + vz * n[1]; if (d > 0) { vx -= d * n[0]; vz -= d * n[1]; } }
     } else {
       vx = this._airVelX;
       vz = this._airVelZ;
@@ -3089,7 +3222,27 @@ export class PlayerMotor {
     // Snap is withheld while `jumping` (AcrobatMotor's Jumping: set at
     // takeoff, cleared on the next grounded frame) so the ballistic
     // descent integrates instead of teleporting onto the floor probe.
+    const x0 = this.pos[0], y0 = this.pos[1], z0 = this.pos[2];
     const r = this.collider.move(this.pos, vx * dt, dy, vz * dt, this.height, !this.jumping);
+    // SLOW-PRESS (FIELD BUGS 2026-10-01): on a slow fall the frozen liftoff momentum keeps only what the collider let it
+    // do - the press into a face that HOLDS the body up is spent. Kept, it pinned the body to whatever wall the (five
+    // times longer) glide reached, and on a face past the slope limit its push-out lifted the capsule more than the
+    // spell's 0.035 m a step lowered it: the body hung there, or crept up it, until the spell ran out.
+    if (this.slowFalling && this.falling && !r.grounded) {
+      // AUDIT part five SP2: spent only once it has held the body over the spell's line further than a step's rise - a
+      // lip in the step band is the step-up's to take (it needs the press the step after the touch; spent on the touch,
+      // a glide a step under a lower roof's lip fell into the street); a face past the slope limit is slid down. SP1:
+      // the way the face refused is kept, and the Jump spell's air control (above) is refused it until the body leaves
+      const lift = this.pos[1] - (y0 + dy);
+      if (lift > 1e-6) this._slowHeld = (this._slowHeld ?? 0) + lift;
+      else { this._slowHeld = 0; this._slowPress = null; }   // nothing holds it up: off the face, steering is free
+      if (this._slowHeld > STEP_OFFSET) {
+        const ax = (this.pos[0] - x0) / dt, az = (this.pos[2] - z0) / dt;
+        const lx = vx - ax, lz = vz - az, l = Math.hypot(lx, lz);
+        if (l > 1e-3) this._slowPress = [lx / l, lz / l];   // the way the face refused - the air control's too
+        if (ax * ax + az * az < vx * vx + vz * vz - 1e-6) { this._airVelX = ax; this._airVelZ = az; }
+      }
+    } else { this._slowHeld = 0; this._slowPress = null; }
     this.groundKey = r.grounded ? (r.groundKey ?? null) : null;   // platform riding: what holds us up
     this.grounded = r.grounded;
     if (r.grounded && this.velY < 0) this.velY = 0;

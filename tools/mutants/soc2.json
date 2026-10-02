@@ -11,11 +11,12 @@
   {
     "name": "C2-one-half-sent",
     "file": "src/net/online.js",
-    "old": "if (this.acct && this.asecret) { frame.acct = this.acct; frame.asecret = this.asecret; }",
-    "new": "if (this.acct) { frame.acct = this.acct; frame.asecret = this.asecret; }",
+    "old": "if (this.acct && this.asecret) { frame.acct = this.acct; frame.asecret = this.asecret; frame.ps = 1; }",
+    "new": "if (this.acct) { frame.acct = this.acct; frame.asecret = this.asecret; frame.ps = 1; }",
     "tests": [
       "test/soc2_session.test.js"
-    ]
+    ],
+    "note": "AUDIT 2026-10-01 part five (re-aimed by content): FRIENDS-SYNC F5 put a line between them / a field on the line."
   },
   {
     "name": "C3-account-defaulted",

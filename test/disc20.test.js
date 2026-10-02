@@ -8,7 +8,7 @@ import { modSetting, setModSetting, _resetModSettings, SWITCH_RESETS, KEY_MIGRAT
 import { diverseWeaponsPresetOn } from '../src/combat/diverseWeapons.js';
 import {
   LAB_GRASS_HEAD, LAB_GRASS_FS, GAME_GRASS_FS, GAME_GRASS_VS, GRASSPX_FS_EDITS, GRASSFOG_FS_EDITS, GRASSFOG_VS_EDITS,
-  FOG_FACTOR_GLSL, applyGrassEdits,
+  FOG_FACTOR_GLSL, applyGrassEdits, GRASSLIT_FS_EDITS, GRASS_TONES,
 } from '../src/render/labGrass.js';
 import { glslFunctions } from './glsl.mjs';
 import { FOG_GLSL } from '../src/render/fogGlsl.js';   // AUDIT 68: fogFactorAt's one home
@@ -29,6 +29,8 @@ function bladeColour(fs, { d, fog = { mode: 0, density: 0, range: [0, 1] }, pixe
     uDwFog: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]],   // DW-C: the carved sea's distance fog, off
     gl_FragCoord: [3, 5, 0.5, 1], o: [0, 0, 0, 0],
     texture: () => [3 / 4, 0.9, 0.5, 1],
+    // GRASS-LIT: the classic lane, the root in full sun, near the eye, the shipped tones
+    uLane: 0, uELExposure: 1, vSun: 1, vNear: [0, 0, 0], vFar: 0, uGrassTone: GRASS_TONES.map((t) => [...t]),
   };
   const f = glslFunctions(LAB_GRASS_HEAD + fs, binds);
   f.main();
@@ -37,7 +39,7 @@ function bladeColour(fs, { d, fog = { mode: 0, density: 0, range: [0, 1] }, pixe
 const near = (a, b, e) => a.every((v, i) => Math.abs(v - b[i]) <= e);
 
 test('DISC20-A: a blade fogs as the ground under it does - heavy fog swallows it at 100 m, rain thins it, a clear day barely touches it; smooth and pixel alike, and with no fog the picture is the unfogged stage\'s own (mutants: the blend dropped; the blend before the pixel ramp; the world point not handed down)', () => {
-  const unfogged = applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS);   // the stage as it compiled before DISC20
+  const unfogged = applyGrassEdits(applyGrassEdits(LAB_GRASS_FS, GRASSPX_FS_EDITS), GRASSLIT_FS_EDITS);   // the stage under every list but the fog's (GRASS-LIT's lands on the lab's and the pixel style's lines alone)
   for (const pixel of [0, 1]) {
     const clear = bladeColour(unfogged, { d: 100, pixel });
     assert.deepEqual(bladeColour(GAME_GRASS_FS, { d: 100, pixel }), clear, `${pixel ? 'pixel' : 'smooth'}: no fog, the same picture`);
@@ -106,7 +108,7 @@ test('DISC20-E: Diverse Weapons\' Weapon Widget Preset ships off, and a value sa
     assert.equal(modSetting(V, P), false);
     assert.deepEqual(Object.keys(JSON.parse(store.get(K))), ['pcaao']);
     // the one entry, beside the value migrations
-    assert.deepEqual(SWITCH_RESETS.map((r) => `${r.vendor}/${r.key}`), [`${V}/${P}`]);
+    assert.deepEqual(SWITCH_RESETS.map((r) => `${r.vendor}/${r.key}`), [`${V}/${P}`, 'pcaao/equipmentDamageEnhanced', 'pcaao/fadingEnchantedItems', 'roleplay-realism/equipDamage'], 'DISC20\'s, then WEAR-VANILLA\'s three (wear_vanilla.test.js)');
     assert.equal(KEY_MIGRATIONS.length, 3, 'the value migrations are untouched');
   } finally {
     _resetModSettings();
@@ -516,7 +518,7 @@ test('DISC20-C: the world host asks the pool to re-stand over every pixel it bui
   assert.ok(decl > 0 && decl < first && first < pool && pool < bind, 'declared before the first build, bound after the pool');
   const set = s.indexOf('built.set(key, {');
   const call = s.indexOf('hccGroundMoved(t[0], t[2], t[0] + TERRAIN_SIZE, t[2] + TERRAIN_SIZE);');
-  assert.ok(set > 0 && call > set && call - set < 7500, 'after the pixel is published, over its own bounds (THE MERGE: the entry grew by GATE-CLEAR\'s fields and the batch\'s; PROF4 by its forest)');
+  assert.ok(set > 0 && call > set && call - set < 8000, 'after the pixel is published, over its own bounds (THE MERGE: the entry grew by GATE-CLEAR\'s fields and the batch\'s; PROF4 by its forest; GRASS-LIT2 by the near grid\'s normals)');
   assert.match(s.slice(call - 200, call), /if \(hccGroundMoved\) \{\s+const t = state\.pixelTranslation\(px, py\);\s+$/);
 });
 

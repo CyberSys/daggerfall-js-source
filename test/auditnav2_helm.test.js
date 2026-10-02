@@ -301,7 +301,8 @@ test('AUDIT NAV2 F31 the frame\'s gate, lifted from the world: while the guns ar
   const start = WORLD.indexOf('        // GUN-HOLD: Activate while the guns are laid holds fire');
   // PIN MOVED (the merge with AUDIT 32 H5: a click mid-act is the act's; AUDIT 2026-10-01 part four CLICK-LIFT: and the
   // click an act took, to its release - `_activateDown` the gate's press, handed in)
-  const ifLine = '        if (((_act.activate && !gatherHost?.acting() && !_actClick) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
+  // PIN MOVED (PROF-MENU: a click a profession node's list took is the list's - `nodeClicked`)
+  const ifLine = '        if (((_act.activate && !gatherHost?.acting() && !_actClick && !nodeClicked) || (useEdge && !nodeTook)) && !modes.transitioning && !_holdFire) {';
   const end = WORLD.indexOf(ifLine, start);
   assert.ok(start > 0 && end > start, 'the gate is where it was');
   const cond = ifLine.trim().slice('if ('.length, -') {'.length);

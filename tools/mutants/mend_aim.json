@@ -23,7 +23,7 @@
   {
     "name": "MEND-AIM-never-asks",
     "file": "src/systems/smithItems.js",
-    "old": "    if (targets.length > 1) return { kind: 'chooseTarget'",
+    "old": "    if (targets.length > 1 || (targets.length === 1 && kitHeldBack(item, pack).length > 0)) return { kind: 'chooseTarget'",
     "new": "    if (targets.length > 99) return { kind: 'chooseTarget'",
     "tests": ["test/mend_aim.test.js"]
   },

@@ -42,7 +42,7 @@ import { rand } from '../formats/dfRandom.js';   // F209: StockHouseContainer's 
 import { randomMaterial, randomArmorMaterial, createWeapon } from '../combat/enemyEquipment.js';
 import { groupTemplates, GROUP_TEMPLATE_INDICES, itemBaseValue, ITEM_TEMPLATES, mintCondition, rollPaintingMessage, setItemFields, templateByIndex, TRANSPORT_HORSE, TRANSPORT_SMALL_CART } from './itemTemplates.js';   // MAC-N1: SetItem's name + value, the one export
 import { customItemsForGroup } from './itemTemplates.js';   // AUDIT-RR F3: GetCustomItemsForGroup - the shelf's second loop (DaggerfallLoot.cs:255-287); FORAGE1: every mod's, from its one home
-import { createRandomBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
+import { createRandomBook, createShelfBook } from './books.js';   // B1; A2: CreateRandomBook whole, priced off the book FILE
 import { isLeather, isPlate } from './armorMaterials.js';
 import { CLOTHING_DYES } from '../characters/dyes.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
@@ -142,6 +142,7 @@ export const MAGIC_ITEMS_ENUM_TEMPLATE = 0;
 import { BOOK_TEMPLATE, createRegularMagicItem, createRandomPotion, randomlyAddPotionRecipe, getMagicItemTemplates, createRandomWeapon, createRandomArmor, createRandomClothing } from './loot.js';   // G4: the guild shelves' two minters (AUDIT 26 F129/F130: + the recipe arm and the registry)
 import { SPELLBOOK_TEMPLATE_INDEX } from './spellMaker.js';   // G4: one home for MiscItems 132
 import { provisionsStock } from './survival/items.js';   // SURV2: the general store's provisions shelf
+import { healingShelfCount, mintHealingPotion } from './healingSupply.js';   // POTION-COMMON: the shelf's Potions of Healing
 import { survivalOn } from './survival/switch.js';   // SURV2: the one switch
 import { conditionBasedPricesOn, conditionCostBase } from './rriRealism.js';   // RRI2: the CalculateCost override's condition arm
 
@@ -215,7 +216,7 @@ export const stockSearched = (container, today) => Number.isFinite(container?.op
  *  the DEFAULT is a point-of-use store read - a parameter with a
  *  `false` default would have been a switch every caller can forget -
  *  and an explicit argument still overrides it (the tests do). */
-export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { rolls = Math.random, torchesFromItems = getBool('Enhancements', 'PlayerTorchFromItems') } = {}) {
+export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { rolls = Math.random, torchesFromItems = getBool('Enhancements', 'PlayerTorchFromItems'), shelfIndex = 0 } = {}) {
   const items = [];
   // DaggerfallUnityItem.ItemName is the TEMPLATE's name for every
   // plain item; AUDIT 18: the shelf minted rows with none, so the
@@ -296,7 +297,8 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
         // the 4 Books enum names - then `value = bookFile.Price`. A2:
         // that last term is what made the bookseller sell every title
         // at the template's flat 2500 instead of its own 300..800.
-        add(createRandomBook(rolls));
+        // WB12c: the shelf's draw - the port's own books among the classic ones
+        add(createShelfBook(rolls));
       }
       continue;
     }
@@ -379,6 +381,11 @@ export function stockShopShelf({ buildingType, quality }, playerEntity = {}, { r
       }
     }
   }
+  // POTION-COMMON (2026-10-01, the field: "make health potions more common"): an alchemist's and a general store's day of
+  // Potions of Healing (healingSupply.js) - at the shelf's end and from no roll, so DFU's own draws above are the same.
+  // AUDIT ECON P1: on the shop's FIRST shelf alone, the one its counter sells from (worldModes.js openMerchantSell) -
+  // every shelf model is its own container, stocked whole, so a shop of five shelves stocked five days' worth
+  if (shelfIndex === 0) for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());
   return items;
 }
 

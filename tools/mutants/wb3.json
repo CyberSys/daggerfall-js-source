@@ -111,8 +111,8 @@
   {
     "name": "WB3-no-opening",
     "file": "src/net/gateBrain.js",
-    "old": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now + OPENING_MS, seq: 0,",
-    "new": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now, seq: 0,",
+    "old": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, runA: 0, freeAt: 0, nextAt: now + OPENING_MS, seq: 0,",
+    "new": "    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, runA: 0, freeAt: 0, nextAt: now, seq: 0,",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]
@@ -489,8 +489,8 @@
   {
     "name": "WB3-no-receipt-without-a-key",
     "file": "server/src/index.js",
-    "old": "      try { f.rc[sub] = await mintReceipt(",
-    "new": "      if (!key) continue;\n      try { f.rc[sub] = await mintReceipt(",
+    "old": "      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub)",
+    "new": "      if (!key) continue;\n      try { f.rc[sub] = await mintReceipt({ d: f.day, b: f.boss, s: sub, c: rand32(), x: earnedBy(f, sub)",
     "tests": [
       "test/wb3_gate_room.test.js"
     ]

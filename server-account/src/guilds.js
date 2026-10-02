@@ -75,6 +75,7 @@ import { renownTrackOf } from './renownTracks.js';
 import { HANDLE_RE } from '../../src/net/handleShape.js';
 import { MARKS_LEDGER_SHOWN } from '../../src/net/marksLaw.js';   // MARKS1: the guild's Marks lines shown
 import { marksOpenFor, guildMarksSweep } from './marks.js';   // AUDIT 28 M5: the Marks shown only where they are the viewer's; M3: a guild that goes sweeps them
+import { hallViewOf, heraldryOfRow } from './halls.js';   // GUILD1d: the guild's hall and heraldry, in its view
 import {
   GUILD_FOUND_GOLD, GUILD_FOUND_RENOWN, GUILD_MEMBERS_MAX, GUILD_RANK_NAMES, GUILD_RANK_MASTER, GUILD_RANK_OFFICER, GUILD_RANK_RECRUIT,
   GUILD_TREASURY_MAX, GUILD_LEDGER_SHOWN, GUILD_OPS_MAX, GUILD_OPS_WINDOW_S, GUILD_INVITE_TTL_S, GUILD_ID_RE, GUILD_MEMBER_RE,
@@ -147,6 +148,8 @@ async function viewOf(db, guildId, me, nowS, marksOpen = false) {
   try { ranks = guildRankNamesOf(JSON.parse(g.ranks)) ?? GUILD_RANK_NAMES; } catch { /* the defaults */ }
   return {
     id: g.id, name: g.name, tag: g.tag, ranks: [...ranks], treasury: g.treasury, foundedAt: g.founded_at, rank: me.rank,
+    // GUILD1d (Seats-Arc 8): the hall (null for none) and the heraldry (null until chosen), every member's to read
+    hall: await hallViewOf(db, guildId), heraldry: heraldryOfRow(g.heraldry),
     members: (members?.results ?? []).map((m) => ({
       member: `m${m.rid}`, name: m.name, rank: m.rank, joinedAt: m.joined_at, you: m.player === me.player && m.char_id === me.char_id,
     })),
@@ -154,7 +157,8 @@ async function viewOf(db, guildId, me, nowS, marksOpen = false) {
     ledger: (ledger?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind, amount: l.amount, balance: l.balance })),
     ...(marksOpen ? {
       marks: Number(marks?.balance ?? 0),
-      marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : 'deposit', amount: l.amount })),
+      // AUDIT GUILD1d R5: a heraldry changed is its own line (the treasury paid it), never a deposit
+      marksLedger: (marksLines?.results ?? []).map((l) => ({ at: l.at, who: l.who, kind: l.kind === 'guild-withdraw' ? 'withdraw' : l.kind === 'heraldry' ? 'heraldry' : 'deposit', amount: l.amount })),
     } : {}),
   };
 }
@@ -294,6 +298,10 @@ export async function answerInvite({ db, nowS, env }, player, { character, guild
   return { ok: true, guild: view, badge: view ? badgeOfRow(me, view.tag) : {} };   // GUILD1c: the joiner wears the tag now
 }
 
+/** SEAT1c: a battle the last Turning named (a Right of Siege or a Tourney, in `town_seat_rights`) is still to come - in
+ *  the week after the last one settled. No clock: the next settle moves it into the past. */
+const SEAT_BATTLE_PENDING = 'week > COALESCE((SELECT MAX(week) FROM town_seat_weeks), -1)';
+
 /**
  * PROF6: whether a guild still keeps something of the professions' - goods in its guild Stores, or a writ standing (or a
  * closed one's escrow not yet home) - in SQL, the guild's id at `p`. A guild that keeps one does not go (Professions-Arc
@@ -301,7 +309,10 @@ export async function answerInvite({ db, nowS, env }, player, { character, guild
  * going leaves the Marks where they were.
  */
 export const guildKeepsSql = (p) => `(EXISTS (SELECT 1 FROM guild_prof_stores WHERE guild_id = ${p} AND qty > 0)
-  OR EXISTS (SELECT 1 FROM guild_writs WHERE guild_id = ${p} AND (state = 'open' OR (returned = 0 AND escrow > 0))))`;
+  OR EXISTS (SELECT 1 FROM guild_writs WHERE guild_id = ${p} AND (state = 'open' OR (returned = 0 AND escrow > 0)))
+  OR EXISTS (SELECT 1 FROM homes WHERE guild_id = ${p})   -- GUILD1d: and its hall - sold first, its deed share into the treasury
+  OR EXISTS (SELECT 1 FROM town_seat_holds WHERE guild_id = ${p})   -- SEAT1c: a Charter it holds - relinquished first (SEAT0 16)
+  OR EXISTS (SELECT 1 FROM town_seat_rights WHERE (guild_id = ${p} OR against = ${p}) AND ${SEAT_BATTLE_PENDING}))`;   // SEAT1c: a battle it is named in, still to come
 
 /** The guild going: its Marks swept to the guildmaster (marks.js guildMarksSweep) and the row deleted, IN ONE BATCH -
  *  the delete only once the guild's gold treasury is empty and its Marks treasury has been emptied into the
@@ -316,8 +327,8 @@ async function endGuild(db, guildId, player, nowS, { alone = false } = {}) {
   ]);
   return gone;
 }
-/** Why a guild did not go: its members, its gold, its guild Stores or writs (PROF6), or Marks its guildmaster's balance has
- *  no room for. */
+/** Why a guild did not go: its members, its gold, its guild Stores or writs (PROF6), its hall (GUILD1d), or Marks its
+ *  guildmaster's balance has no room for. */
 async function whyNotGone(db, guildId, { alone = false } = {}) {
   if (alone) {
     const n = await db.prepare('SELECT COUNT(*) AS n FROM guild_members WHERE guild_id = ?').bind(guildId).first();
@@ -330,6 +341,9 @@ async function whyNotGone(db, guildId, { alone = false } = {}) {
   if (g && await db.prepare(`SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND state = 'open'`).bind(guildId).first()) return 'guild-writs';
   // AUDIT 31 A15: a closed writ's pay still on its way home - the treasury full, not a writ standing
   if (g && await db.prepare('SELECT 1 FROM guild_writs WHERE guild_id = ?1 AND returned = 0 AND escrow > 0').bind(guildId).first()) return 'guild-writ-escrow';
+  if (g && await db.prepare('SELECT 1 FROM homes WHERE guild_id = ?1').bind(guildId).first()) return 'guild-hall';   // GUILD1d: its hall, sold first
+  if (g && await db.prepare('SELECT 1 FROM town_seat_holds WHERE guild_id = ?1').bind(guildId).first()) return 'guild-seat';   // SEAT1c: a Charter, relinquished first
+  if (g && await db.prepare(`SELECT 1 FROM town_seat_rights WHERE (guild_id = ?1 OR against = ?1) AND ${SEAT_BATTLE_PENDING}`).bind(guildId).first()) return 'guild-battle';   // SEAT1c: a battle the Turning named it in
   return g ? 'marks-full' : 'no-guild';
 }
 

@@ -74,13 +74,14 @@ test('GATE-UX 2 under his health no phase is said - the foot says the court\'s f
   drawGateBossBar(m, { doc });
   const root = doc.body.children[0];
   const foot = root.children.find((c) => c.className === 'wb-boss-foot');
-  assert.equal(foot.textContent, BOSS_BAR_TEXT.fighters(3), 'the fighters alone');
-  for (const n of PHASE_NAMES) assert.equal(foot.textContent.includes(n), false, `"${n}" not said under his health`);
+  const said = () => foot.children.filter((c) => c.style.display !== 'none').map((c) => c.textContent);   // WB13c: a chip each
+  assert.deepEqual(said(), [BOSS_BAR_TEXT.fighters(3)], 'the fighters alone');
+  for (const n of PHASE_NAMES) assert.equal(foot.children.some((c) => c.textContent.includes(n)), false, `"${n}" not said under his health`);
   const late = bossBarModel({ ...s, phase: 3, rk: T0 + 42_000, wrathAt: T0 + 61_000 }, T0, BOSS);
   drawGateBossBar(late, { doc });
-  assert.equal(foot.textContent, [BOSS_BAR_TEXT.fighters(3), BOSS_BAR_TEXT.reckonIn('0:42'), BOSS_BAR_TEXT.wrathIn('1:01')].join('  -  '), 'the countdowns kept');
+  assert.deepEqual(said(), [BOSS_BAR_TEXT.fighters(3), BOSS_BAR_TEXT.reckonIn('0:42'), BOSS_BAR_TEXT.wrathIn('1:01')], 'the countdowns kept');
   destroyGateBossBar();
-  assert.match(read('src/scenes/gateCourt.js'), /const line = courtPhaseText\(s\.phase, P\.aspect\); if \(line\) say\(line\);/, 'the turn is said as it comes');
+  assert.match(read('src/scenes/gateCourt.js'), /const c = courtPhaseCard\(s\.phase\); if \(c\) beat = \{ kind: 'phase', at: t, until: t \+ TITLE_HOLD_MS, \.\.\.c \};/, 'the turn shown as it comes (WB13e: its card)');
   assert.equal(BOSS_BAR_TOP, '58px');
   assert.match(BOSS_BAR_CSS, /\.wb-boss-foot \{/);
 });
@@ -161,7 +162,7 @@ test('GATE-UX 4 the chart at the kill: every fighter with a part, most dealt fir
   const relay = read('server/src/index.js');
   assert.match(relay, /this\._gateFan\(\[\{ k: 'fell', at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, \.\.\.\(f\.fell\.dm \? \{ dm: f\.fell\.dm \} : \{\}\) \}\]\);/);
   assert.match(relay, /_gateTellHub\(\{ d: f\.day, at: f\.fell\.at, top: f\.fell\.top, n: f\.fell\.n, rc:/, 'the hub\'s word carries no chart');
-  assert.equal(RELAY_VERSION, 'world141');   // CLIMB5 and CLIMB6 moved it on last (world141: the pose's climb - `cl`, `cw` and a move's `ck`, `cy`, `cd`); before it WB11 moved it on (world140: the Legion-Lord's host, and the chart row's `a`; GATE-HEAL's `heal` and a chart row's `hl` with it - main's HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`); GATE-UX's chart rides from world136
+  assert.equal(RELAY_VERSION, 'world151');   // WB12 moved it on last (world151: Dagon's Breach - its words in the omen's lines and the herald's posts, the faithful's rite - main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took world141-world150 first); before it SEAT2b part two (b) moved it on (world150: the works in battle); SEASON1 part two, the banner ribbon moved it on (world149: the banner ribbon - the Seats arc's six relays renumbered past main's HERALD, LOOT7, WB11 and CLIMB5 (world138-world141) at the merge); CROWN1 part two moved it on (world148: the Royal Tourney); SEAT2a moved it on (world147: the siege battle); PVP-REF moved it on (world146: the refereed siege room), SEAT1c (world145) and SEAT1b (world144) before it - the Seats arc's, past main's; ELITE FOES moved it on (world143: the foe record carries an elite foe, z, so a puppet stands as one); before it FRIENDS-SYNC moved it on (world142: the hub account is the signed-in player - the token subject - and a browser profile list is merged into it once); before it CLIMB5 and CLIMB6 moved it on (world141: the pose's climb - `cl`, `cw` and a move's `ck`, `cy`, `cd`); before it WB11 moved it on (world140: the Legion-Lord's host, and the chart row's `a`; GATE-HEAL's `heal` and a chart row's `hl` with it - main's HERALD and LOOT7 took world138 and world139 first); before it LOOT7 moved it on (world139: the street foe record field `cp`, a champion trait - HERALD took world138 first); before it HERALD moved it on (world138: `herald` joins the titles and glyphs a token carries, the Patreon tier between Disciple and Hierophant); before it KEPT-KILL moved it on (world137: the party pose field `qk`); GATE-UX's chart rides from world136
 });
 
 test('GATE-UX 4 the chart on the wire: each row a name and its whole numbers, most dealt first, at most GATE_CHART_MAX; names cleaned; anything malformed is no chart - and never costs the kill its word (mutants: a junk chart taken; the fall dropped with a bad chart)', () => {

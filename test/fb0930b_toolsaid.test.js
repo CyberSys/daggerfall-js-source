@@ -41,6 +41,8 @@ import { fishKind } from '../src/scenes/fishHost.js';
 import { trees, veins, dungeonVeins, utcDayOfMs } from '../src/net/nodeLaw.js';
 import { CHOP_ACT, FISH_ACT, HERB_ACT } from '../src/net/professionLaw.js';
 import { templateByIndex } from '../src/systems/itemTemplates.js';
+import { resolveHover } from '../src/systems/worldHover.js';
+import { foldQuickLoot, plaqueStep, plaqueActionFor } from '../src/systems/quickLoot.js';
 import { HEIGHTMAP_DIMENSION, TERRAIN_SIZE } from '../src/world/terrainSampler.js';
 
 const heard = [];
@@ -86,7 +88,7 @@ function pixelEntry() {
 async function stage({ online = true, open = true, world = {}, rank = 100, under = false } = {}) {
   _resetModSettings(); heard.length = 0; qs.clearHotbar();
   globalThis.location = { search: online ? '?online=1' : '' };
-  const S = { started: [], asked: [], said: [], taken: new Set(), counting: new Set(), rank, window: false, meter: null, prompt: null, used: 0 };
+  const S = { started: [], asked: [], said: [], taken: new Set(), counting: new Set(), rank, window: false, meter: null, prompt: null, used: 0, steps: [] };
   S.world = { ...WILD, ...(under ? { inside: true, insideDungeon: true } : {}), ...world };
   S.e = player();
   S.tools = Object.fromEntries([...PROFESSION_TOOLS, FT.Spade].map((t) => [t, createForagingItem(t)]));
@@ -115,7 +117,7 @@ async function stage({ online = true, open = true, world = {}, rank = 100, under
         storm: () => false, climateAt: () => WOODS, trophy: () => false, day: () => DAY,
       } })],
     hud: {
-      setPrompt: (p) => { S.prompt = p; }, setMeter: (a, label) => { S.meter = a ? { kind: a.state.kind, label, act: a } : null; },
+      setPrompt: (p) => { S.prompt = p; }, setMeter: (a, label, o) => { S.meter = a ? { kind: a.state.kind, label, act: a, byUse: o?.byUse === true } : null; },
       toast: (t) => S.said.push(t), banner: () => {}, setChip: () => {}, frame: () => {}, dispose: () => {},
     },
     renderer, getTexture: async () => ({ recordCount: 999 }), uploadRecord: () => {}, billboardSize: () => ({ w: 0.3, h: 0.3 }), flatBatchAabb: () => [0, 0, 0, 0, 0, 0],
@@ -124,6 +126,8 @@ async function stage({ online = true, open = true, world = {}, rank = 100, under
     eye, view: () => view, feet: () => feet, entity: () => S.e,
     keyLabel: (a) => ({ Interact: 'E', ActChoice: 'Up' })[a] ?? '?', input: () => S.input,
     active: () => !under && !S.window, activeDungeon: () => under && !S.window,
+    // PROF-MENU: the plaque's seams, each off unless a pin sets it
+    plaque: () => !!S.plaque, lit: () => S.lit ?? null, choose: (rows, pick) => (S.choose ? S.choose(rows, pick) : false), step: (n) => { S.steps.push(n); return true; },
   });
   setForagingHost({
     world: () => S.world, monthValue: () => 5, entity: () => null, startQuest: (n) => { S.started.push(n); return true; },
@@ -209,22 +213,20 @@ test('TOOL-USE: the report, answered - the hotbar\'s Wood-Axe at a tree starts t
   } finally { key.done(); }
 });
 
-test('TOOL-USE: at an herb patch the Sickle picks the herbs and the Basket searches for food, whatever the choice key picked - which stays as it was; the Sickle\'s Use holds the steady hand; a tool\'s own harvest taken says so, never the other\'s act', async () => {
+test('TOOL-USE: at an herb patch the Sickle picks the herbs and the Basket searches for food (PROF-MENU: both the patch\'s list, its prompt the choice where no plaque stands); the Sickle\'s Use holds the steady hand; a tool\'s own harvest taken says so, never the other\'s act', async () => {
   const s = await stage();
   try {
     const patch = s.retier(s.nodes('herb')[0], 2);   // a Sickle's patch: the steady hand
     const name = templateByIndex(patch.herb).name;
     s.face(patch);
-    assert.deepEqual([s.prompt?.verb, s.prompt?.alt], [`Pick ${name}`, '[Up] the Basket']);
-    s.input = { held: false, attack: false, choice: true }; s.host.tick(0.016); s.input = { held: false, attack: false, choice: false };
-    assert.equal(s.prompt?.verb, 'Search with the Basket', 'the choice key picked the Basket');
-    // the Sickle: the herbs, the choice unmoved
+    assert.deepEqual([s.prompt?.verb, s.prompt?.rest], ['Choose', `Pick ${name} / Search with the Basket`], 'PROF-MENU: no plaque - the prompt says the choice E opens');
+    // the Sickle: the herbs
     assert.equal(s.hotbar(FT.Sickle).kind, 'used');
     s.host.tick(0.016);
     assert.deepEqual([s.meter?.kind, s.host.handTool()], ['steady', SICKLE_HAND], 'the steady hand, DFU\'s Tanto in it');
     s.host.cancel();
     s.host.tick(0.016);
-    assert.equal(s.prompt?.verb, 'Search with the Basket', 'the choice as the player left it');
+    assert.equal(s.prompt?.verb, 'Choose', 'the choice as it stood');
     s.hotbar(FT.Sickle);
     s.play(() => ({ held: false, attack: false, choice: false }), 0.1, HERB_ACT.steadyS + 1);   // E never held: the Use holds it
     assert.deepEqual(s.asked.map((h) => [h.node, h.kind, h.act?.clean]), [[patch.key, 'herbs', true]], 'the herbs, kept still: unbruised');
@@ -232,13 +234,13 @@ test('TOOL-USE: at an herb patch the Sickle picks the herbs and the Basket searc
     // the Basket at a fresh patch, the choice on the herbs: the food, the choice unmoved
     const other = s.nodes('herb')[1];
     s.face(other);
-    assert.equal(s.prompt?.verb, `Pick ${templateByIndex(other.herb).name}`);
+    assert.equal(s.prompt?.rest, `Pick ${templateByIndex(other.herb).name} / Search with the Basket`);
     assert.equal(s.hotbar(FT.Basket).kind, 'used');
     s.host.tick(0.016);
     assert.deepEqual([s.meter?.kind, s.meter?.label], ['basket', 'tap the glint']);
     s.host.cancel();
     s.host.tick(0.016);
-    assert.equal(s.prompt?.verb, `Pick ${templateByIndex(other.herb).name}`, 'the choice still the herbs');
+    assert.equal(s.prompt?.rest, `Pick ${templateByIndex(other.herb).name} / Search with the Basket`, 'the choice still both');
     s.hotbar(FT.Basket);
     s.play(() => ({ held: false, attack: false, choice: false }));
     assert.deepEqual(s.asked.slice(1).map((h) => [h.node, h.kind]), [[other.key, 'food']]);
@@ -341,10 +343,10 @@ test('TOOL-USE: no node of its own kind in reach - each of the five says where i
       assert.doesNotMatch(lineOf(t), /XP from this/, 'nothing was gathered to earn it');
     }
     s.untouched('the clearing');
-    assert.match(lineOf(FT.WoodAxe), /^Logging is done at a tree in the wilderness: walk up to one until the prompt shows, then press E \(or use the Wood-Axe\)\./);
+    assert.match(lineOf(FT.WoodAxe), /^Logging is done at a tree in the wilderness: walk up to one until its acts show, then press E \(or use the Wood-Axe\)\./);   // PROF-MENU: its acts - the plaque's list, or the prompt
     assert.match(lineOf(FT.PickAxe), /ore vein or a boulder .* press E \(or use the Pick-Axe\)\.$/);
     assert.match(lineOf(FT.Sickle), /herb patch .* press E \(or use the Sickle\)\.$/);
-    assert.match(lineOf(FT.Basket), /herb patch in the wilderness for food: .* then use the Basket \(or press Up for the Basket, then E\)\.$/);
+    assert.match(lineOf(FT.Basket), /herb patch in the wilderness for food: .* then use the Basket \(or choose Search with the Basket on the list and press E\)\.$/);   // PROF-MENU: the list, not the act choice key
     assert.match(lineOf(FT.FishingNet), /^Fishing is done in water: .* press E \(or use the Fishing-Net\)\.$/);   // PIN MOVED (ANY-HOUR): "in water by daylight" - at any hour now
     // the Wood-Axe at a patch: the patch is Herbalism's
     heard.length = 0;
@@ -463,4 +465,137 @@ test('TOOL-USE: the Professions page says a tool\'s Use at the node is the key\'
   const src = readFileSync(new URL('../src/ui/profPages.js', import.meta.url), 'utf8');
   assert.match(src, /if \(GATHER_HOW\[_sel\]\) pane\.append\(el\('p', 'px-note', GATHER_HOW\[_sel\]\)\);/);
   assert.match(src, /: STORES_EMPTY_LINE\)\);/);
+});
+
+// ─── PROF-MENU (2026-10-01, Mac: "They should use the same menu the loot menu uses and not an interaction button") ───
+/** The plaque's frame for the host's node, as the hosts resolve it (worldHover resolveHover over the host's own namer). */
+const plaqueOf = (s, ray = null) => resolveHover(s.host.hoverHit(ray), { name: (k) => s.host.hoverName(k) });
+
+test('PROF-MENU: a patch IS the loot plaque\'s list - named, its herbs and its Basket the rows, the first lit, no prompt beside it; the lit row is what E presses, and a click presses it too, held by the press as a tool\'s Use holds it; a click with no lit row of the node\'s is not the node\'s (mutants: the prompt kept, the lit row unread, the click unheld)', async () => {
+  const s = await stage();
+  try {
+    const patch = s.retier(s.nodes('herb')[0], 2);   // a Sickle's patch: the steady hand
+    const name = templateByIndex(patch.herb).name;
+    s.plaque = true;
+    s.face(patch);
+    assert.equal(s.prompt, null, 'the plaque names it - no prompt');
+    const f = plaqueOf(s);
+    assert.deepEqual([f.kind, f.key, f.title, f.subs, f.rows.map((r) => [r.id, r.name, r.disabled]), f.startRow ?? 0],
+      ['actions', `prof:${patch.key}`, name, ['Herbalism 100'], [['herbs', `Pick ${name}`, false], ['food', 'Search with the Basket', false]], 0]);
+    s.lit = 'food';
+    assert.equal(s.host.press(), true);
+    s.host.tick(0.016);
+    assert.equal(s.meter?.kind, 'basket', 'the lit row: the Basket');
+    s.host.cancel();
+    s.lit = null;
+    assert.deepEqual([s.host.press({ click: true }), s.host.acting()], [false, false], 'a click with nothing of the node\'s lit is the ladder\'s');
+    s.lit = 'herbs';
+    assert.equal(s.host.press({ click: true }), true);
+    s.host.tick(0.016);
+    assert.deepEqual([s.meter?.kind, s.meter?.byUse, s.meter?.label], ['steady', true, ''], 'the click\'s steady hand: held by the press, no key named');
+    s.play(() => ({ held: false, attack: false, choice: false }), 0.1, HERB_ACT.steadyS + 1);
+    assert.deepEqual(s.asked.map((h) => [h.node, h.kind, h.act?.clean]), [[patch.key, 'herbs', true]], 'no key held, kept still: unbruised');
+  } finally { s.done(); }
+});
+
+test('PROF-MENU: a refused row says why - the herbs gathered, the Basket lit first; a row whose label says it carries no "(not now)"; a node with nothing to press yields the plaque to the ray\'s own winner in reach, and lists its refusals where none stands (mutants: refusals hidden, the start not the first pressable, the yield lost)', async () => {
+  const s = await stage();
+  try {
+    const patch = s.nodes('herb')[0];
+    const name = templateByIndex(patch.herb).name;
+    s.plaque = true;
+    s.taken.add(`${patch.key}|herbs`);
+    s.face(patch);
+    let f = plaqueOf(s);
+    assert.deepEqual([f.rows.map((r) => [r.name, r.disabled]), f.startRow], [[[`Pick ${name} (gathered today)`, true], ['Search with the Basket', false]], 1]);
+    // a row whose label already says it: drawn bare
+    assert.equal(resolveHover({ key: 'k', distance: 1, reach: 2 }, { name: () => ({ title: 'T', actions: [{ id: 'herbs', label: `${name} - gathered today`, disabled: true, why: '' }] }) }).rows[0].name, `${name} - gathered today`);
+    // a row refused for want of a tool: nothing to press, and a door in reach takes the plaque
+    s.taken.clear();
+    s.e.items = s.e.items.filter((i) => i !== s.tools[FT.Basket] && i !== s.tools[FT.Sickle]);
+    const rare = s.retier(s.nodes('herb')[1], 2);
+    s.face(rare);
+    f = plaqueOf(s);
+    assert.deepEqual(f.rows.map((r) => [r.name, r.disabled]), [[`Pick ${templateByIndex(rare.herb).name} (needs a Sickle)`, true], ['Search with the Basket (needs a Basket)', true]]);
+    assert.equal(s.host.hoverHit({ key: 'door', distance: 1.2, reach: 3 }), null, 'a door in reach: the plaque the door\'s, as the press is');
+    assert.ok(s.host.hoverHit({ key: 'door', distance: 9, reach: 3 }), 'a door out of reach: the node\'s refusals stand');
+  } finally { s.done(); }
+});
+
+test('PROF-MENU: where no plaque stands the prompt says the choice and E opens it as a list - a pick from it starts that act, held by the press; a list that cannot open leaves E the first act, as before (mutants: the list never opened, the pick not the row, the fallback lost)', async () => {
+  const s = await stage();
+  try {
+    const patch = s.retier(s.nodes('herb')[0], 2);
+    const name = templateByIndex(patch.herb).name;
+    s.face(patch);
+    assert.deepEqual([s.prompt?.key, s.prompt?.verb, s.prompt?.rest], ['E', 'Choose', `Pick ${name} / Search with the Basket`]);
+    let list = null;
+    s.choose = (rows, pick) => { list = { rows, pick }; return true; };
+    assert.deepEqual([s.host.press(), s.host.acting(), list?.rows], [true, false, [`Pick ${name}`, 'Search with the Basket']]);
+    list.pick(1);
+    s.host.tick(0.016);
+    assert.deepEqual([s.meter?.kind, s.meter?.byUse], ['basket', false], 'the list\'s pick: the Basket');
+    s.host.cancel();
+    list.pick(0);
+    s.host.tick(0.016);
+    assert.deepEqual([s.meter?.kind, s.meter?.byUse], ['steady', true], 'the herbs, held by the pick');
+    s.host.cancel();
+    s.choose = () => false;   // the list's art not in
+    assert.equal(s.host.press(), true);
+    s.input = { held: true, attack: false, choice: false };   // E's steady hand, E held
+    s.host.tick(0.016);
+    s.input = { held: false, attack: false, choice: false };
+    assert.deepEqual([s.meter?.kind, s.meter?.byUse], ['steady', false], 'E the first act, E\'s own hold');
+  } finally { s.done(); }
+});
+
+test('PROF-MENU: the act choice key steps the plaque\'s light down the node\'s list, the last back to the first; with no plaque, or one row, it steps nothing (mutants: no step, no wrap)', async () => {
+  const s = await stage();
+  try {
+    const patch = s.retier(s.nodes('herb')[0], 2);
+    s.plaque = true;
+    s.face(patch);
+    s.lit = 'herbs';
+    s.input = { held: false, attack: false, choice: true }; s.host.tick(0.016);
+    s.lit = 'food';
+    s.host.tick(0.016);
+    s.input = { held: false, attack: false, choice: false };
+    assert.deepEqual(s.steps, [1, -1]);
+    s.plaque = false;
+    s.input = { held: false, attack: false, choice: true }; s.host.tick(0.016); s.input = { held: false, attack: false, choice: false };
+    assert.deepEqual(s.steps, [1, -1], 'no plaque: nothing to step');
+    s.plaque = true;
+    s.face(s.nodes('tree')[0]);
+    s.input = { held: false, attack: false, choice: true }; s.host.tick(0.016); s.input = { held: false, attack: false, choice: false };
+    assert.deepEqual(s.steps, [1, -1], 'a tree\'s one row: nothing to step');
+  } finally { s.done(); }
+  // the quick loot's own step: a list of verbs nudged on the next fold, never nothing
+  const frame = { key: 'prof:x', kind: 'actions', title: 'x', subs: [], rows: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], rest: 0, empty: false };
+  foldQuickLoot(frame);
+  assert.equal(plaqueActionFor('prof:x'), 'a');
+  assert.equal(plaqueStep(1), true);
+  foldQuickLoot(frame);
+  assert.equal(plaqueActionFor('prof:x'), 'b');
+  foldQuickLoot(null);
+  assert.equal(plaqueStep(1), false, 'no list: nothing stepped');
+});
+
+test('PROF-MENU host by source: the street\'s plaque races the node over its own winner and names it first, its click presses a lit row (never mid-act), the list opens where no plaque stands; the dungeon\'s the same through its host; an absent reason still says "not now" (mutants: each wire cut)', () => {
+  const w = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
+  assert.match(w, /plaque: \(\) => worldPlaqueOn\(\),\n\s*lit: \(key\) => plaqueActionFor\(key\),\n\s*choose: \(rows, pick\) => profChoose\(rows, pick\),\n\s*step: \(n\) => plaqueStep\(n\),/);
+  assert.match(w, /const _hoverNamers = \[\n\s*\(key\) => gatherHost\?\.hoverName\?\.\(key\) \?\? null,/);
+  assert.match(w, /pick: \(\) => profHoverOver\(modes\.exteriorHoverPick\(cam\.pos, _hd, \{/);
+  assert.match(w, /const profHoverOver = \(ray\) => gatherHost\?\.hoverHit\?\.\(ray\) \?\? ray;/);
+  assert.match(w, /const nodeClicked = !useEdge && _act\.activate && !_holdFire && !modes\.transitioning && !gatherHost\?\.acting\(\) && !naval\?\.takesActivate\?\.\(\) && profClickPress\(\);/);
+  assert.match(w, /return typeof lit\?\.key === 'string' && lit\.key\.startsWith\('prof:'\) && lit\.id != null && \(gatherHost\?\.press\(\{ click: true \}\) \?\? false\);/);
+  assert.match(w, /const win = new ListPickerWindow\(\{ backdrop: 'none', items: rows, onPick: \(i\) => \{ close\(\); pick\(i\); \}, onCancel: close \}\);/, 'the list closed before the act starts');
+  assert.match(w, /profClick: \(\) => profClickPress\(\),/);
+  assert.match(w, /profHoverPick: \(ray\) => gatherHost\?\.hoverHit\?\.\(ray\) \?\? null,/);
+  const m = readFileSync(new URL('../src/scenes/worldModes.js', import.meta.url), 'utf8');
+  assert.match(m, /if \(!interact && !pressCast && !actClick && !host\.profActing\?\.\(\) && host\.profClick\?\.\(\)\) return true;/);
+  assert.match(m, /profHoverPick: \(ray\) => host\.profHoverPick\?\.\(ray\) \?\? null,/);
+  const d = readFileSync(new URL('../src/scenes/dungeonContext.js', import.meta.url), 'utf8');
+  assert.match(d, /return opts\.profHoverPick\?\.\(ray\) \?\? ray;/);
+  assert.match(d, /hoverName\(key, hit\) \{ return opts\.profHoverName\?\.\(key\) \?\? _namer\(key, hit\); \}/);
+  assert.equal(resolveHover({ key: 'k', distance: 1, reach: 2 }, { name: () => ({ title: 'T', actions: [{ id: 'a', label: 'A', disabled: true, why: null }] }) }).rows[0].name, 'A (not now)');
 });

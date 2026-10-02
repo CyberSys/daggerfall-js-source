@@ -72,9 +72,9 @@ const anchorOfRow = (text) => { try { return rentAnchorOf(JSON.parse(text)); } c
 export async function roomsOf({ db, nowS }, player, { mapId, buildingKey, character = null } = {}) {
   if (!homeMapIdOk(mapId) || !homeBuildingKeyOk(buildingKey)) return { error: 'bad-home' };
   const me = typeof character === 'string' && CHAR_ID_RE.test(character) ? character : null;
-  const home = await db.prepare('SELECT player, char_id, owner_name, rent_due FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first();
+  const home = await db.prepare('SELECT player, char_id, owner_name, rent_due, guild_id FROM homes WHERE map_id = ? AND building_key = ?').bind(mapId, buildingKey).first();   // AUDIT GUILD1d S6: and whether it is a guild's hall
   if (!home) return { error: 'no-home' };
-  const mine = home.player === player.id;
+  const mine = home.player === player.id && home.guild_id == null;   // AUDIT GUILD1d S6: a hall is no account's, the one that bought it included
   const { results = [] } = await db.prepare(`SELECT room, anchor, price, listed, tenant, tenant_char, tenant_name, until FROM home_rooms
     WHERE map_id = ? AND building_key = ? ORDER BY room LIMIT ?`).bind(mapId, buildingKey, RENT_ROOMS_MAX).all();
   const rooms = [];

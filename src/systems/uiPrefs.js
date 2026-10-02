@@ -35,6 +35,17 @@ export const PREF_DEFAULTS = Object.freeze({
   // to scale - so it belongs in the port's own prefs, beside the other
   // things only this port has.
   hudScale: 1,
+  // HUD-MOVE (2026-10-01, Mac: "make chat, hp mana stamina bar segment and all the element moveable and add a reset UI
+  // and lock UI in the settings (lock should be on by default)"): the Enhanced Plus HUD's own layout. `hudLocked` is the
+  // lock (on: nothing moves, the HUD is pointer-transparent as ever); `hudLayout` is { id: { x, y } }, each piece's
+  // nudge in screen pixels from where the sheet stands it (ui/hudLayout.js). null is every piece where the sheet puts it.
+  hudLocked: true,
+  hudLayout: null,
+  // HUD-MOVE (Mac: "an option to move the magicka, health and fatigue bar separately"): off, the three bars move as
+  // one piece; on, each moves on its own.
+  hudBarsSplit: false,
+  // HUD-SNAP: while moving a piece, its edges and centre catch on the other pieces' and the screen's
+  hudSnap: true,
   // FOEBAR1 (2026-09-17, Mac, from a friend's pictures): the target bar's
   // face - 'bar' is the plain track under the compass, 'blade' the
   // twin-bladed picture whose fill recedes toward its hub. The port's own,

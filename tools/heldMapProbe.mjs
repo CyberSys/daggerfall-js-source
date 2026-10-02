@@ -556,14 +556,14 @@ try {
   await page.mouse.move(ringGround.x, ringGround.y);
   await page.waitForTimeout(60);
   const onRing = await tipOf();
-  check('the gate\'s ring answers anywhere inside it with the gate\'s card', onRing.display === 'block' && onRing.text[0] === 'Oblivion Gate'
+  check('the gate\'s ring answers anywhere inside it with the gate\'s card', onRing.display === 'block' && onRing.text[0] === 'Dagon\'s Breach'
     && onRing.text[1] === 'Near Lowmarsh, Daggerfall' && /^Open - seals in \d+:\d\d$/.test(onRing.text[2]) && onRing.text[3] === 'Valkynaz Ruhn, Warden of the Burning Gate', JSON.stringify(onRing.text));
   // GATE-COLLAPSE, on a still pointer: the gate seals under it and the card and the label follow the poll
   await page.evaluate(() => { const e = globalThis.__event; e.clock.now = e.t.sealAt + 2000; e.omen.frame(); });
   await page.waitForTimeout(400);
   const sealed = await tipOf();
   check('...and follows the clock under a still pointer: sealed, it says when it collapses', sealed.text[2] === 'Sealed - collapses in 9:58'
-    && sealed.label === 'Oblivion Gate - sealed, collapses in 9:58', JSON.stringify({ line: sealed.text[2], label: sealed.label }));
+    && sealed.label === 'Dagon\'s Breach - sealed, collapses in 9:58', JSON.stringify({ line: sealed.text[2], label: sealed.label }));
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/held-map-gate-card.png` });
   const noEvent = await screenOf(page, 80.5, 12.5);
   await page.mouse.move(noEvent.x, noEvent.y);

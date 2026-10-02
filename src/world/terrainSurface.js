@@ -150,6 +150,39 @@ export function surfaceHeightAt(heightmapData, lx, lz, stride = 1) {
   return h * worldHeight;
 }
 
+/**
+ * GRASS-LIT2 (2026-10-02): THE GROUND'S NORMAL WHERE A BLADE STANDS - the
+ * drawn surface's own, as the terrain's fragment stage receives it: the
+ * stride-1 grid's vertex normals (buildTerrainGrid's central differences,
+ * ghost rows and all) interpolated over the triangle under (lx, lz), cut on
+ * surfaceHeightAt's diagonal, then normalised as TERRAIN_FS normalises
+ * vNormal. Written into `out` - the placer asks it once a blade.
+ * @param {Float32Array} normals the pixel's stride-1 grid normals, vertex (xi, zi) at (zi * 129 + xi) * 3
+ * @param {number} lx pixel-local x, 0..TERRAIN_SIZE
+ * @param {number} lz pixel-local z, 0..TERRAIN_SIZE
+ * @param {number[]|Float32Array} [out]
+ * @returns {number[]|Float32Array} the unit normal [x, y, z]
+ */
+export function surfaceNormalAt(normals, lx, lz, out = [0, 0, 0]) {
+  const g = HEIGHTMAP_DIMENSION;
+  const quad = TERRAIN_SIZE / (g - 1);
+  const last = g - 2;
+  const qx = Math.max(0, Math.min(last, Math.floor(lx / quad)));
+  const qz = Math.max(0, Math.min(last, Math.floor(lz / quad)));
+  const ax = lx / quad - qx, az = lz / quad - qz;
+  const i00 = (qz * g + qx) * 3, i10 = i00 + 3, i01 = i00 + g * 3, i11 = i01 + 3;
+  let l2 = 0;
+  for (let c = 0; c < 3; c++) {
+    const n00 = normals[i00 + c], n10 = normals[i10 + c], n01 = normals[i01 + c], n11 = normals[i11 + c];
+    // the diagonal runs (x,z)-(x+1,z+1): az >= ax is the i0,i2,i3 half (surfaceHeightAt's)
+    const v = az >= ax ? n00 + az * (n01 - n00) + ax * (n11 - n01) : n00 + ax * (n10 - n00) + az * (n11 - n10);
+    out[c] = v; l2 += v * v;
+  }
+  const l = Math.sqrt(l2) || 1;
+  out[0] /= l; out[1] /= l; out[2] /= l;
+  return out;
+}
+
 /** Unity's heightmap: kMaxHeight steps to a terrain's full height (terrainSampleHeightAt, below). */
 export const UNITY_HEIGHTMAP_MAX_HEIGHT = 32766;
 /** A normalized height as Unity's heightmap holds it: its step, 0 to kMaxHeight. */
@@ -237,6 +270,35 @@ export function terrainSampleHeightAt(heightmapData, lx, lz, stride = 1) {
  */
 export function groundOffPlane(heightmapData, avg, lx, lz) {
   return surfaceHeightAt(heightmapData, lx, lz) - Math.fround(avg) * (MAX_TERRAIN_HEIGHT * STREAMING_TERRAIN_SCALE);
+}
+
+/** WOD-BUSH: the share of a box's footprint, each side, left out of the ground read - a bush's foot is its middle. */
+export const GROUND_UNDER_INSET = 0.25;
+
+/**
+ * WOD-BUSH (2026-10-01, Mac: "World of daggerfall bush props float above the
+ * ground in bandit camps"): THE LOWEST DRAWN GROUND UNDER A BOX - over the
+ * middle of its footprint (GROUND_UNDER_INSET off each side), read at its
+ * corners, its centre lines and every sample line that crosses it, so no
+ * quad under it is skipped. The footprint is held to the pixel: the ground
+ * past its edge is the neighbour's, which this pixel does not hold.
+ * @param {Float32Array} heightmapData the pixel's blended samples
+ * @param {ArrayLike<number>} box [minX, minY, minZ, maxX, maxY, maxZ], pixel-local
+ * @returns {number} world height
+ */
+export function lowestGroundUnder(heightmapData, box) {
+  const cell = TERRAIN_SIZE / (HEIGHTMAP_DIMENSION - 1);
+  const clamp = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v));
+  const span = (lo, hi) => {
+    const a = clamp(lo + (hi - lo) * GROUND_UNDER_INSET), b = clamp(hi - (hi - lo) * GROUND_UNDER_INSET);
+    const out = [a, (a + b) / 2, b];
+    for (let g = Math.ceil(a / cell) * cell; g < b; g += cell) out.push(g);
+    return out;
+  };
+  const xs = span(box[0], box[3]), zs = span(box[2], box[5]);
+  let low = Infinity;
+  for (const x of xs) for (const z of zs) low = Math.min(low, surfaceHeightAt(heightmapData, x, z));
+  return low;
 }
 
 /**

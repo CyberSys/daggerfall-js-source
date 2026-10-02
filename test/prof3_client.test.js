@@ -124,7 +124,7 @@ test('PROF3 piece: the quality laid on DFU\'s item - Crude\'s condition down, Fi
   void lootRarityOn;
 });
 
-test('PROF3 kit: the Repair Kit - its metal\'s name and dye, no quality; used, it mends the most-worn piece of its metal by a quarter (never past whole) and is spent; Steel\'s mends the chain; nothing to mend keeps it', () => {
+test('PROF3 kit: the Repair Kit - its metal\'s name and dye, no quality; used, it mends the most-worn piece of its metal by a quarter (never past three quarters - KIT-CEILING) and is spent; Steel\'s mends the chain; nothing to mend keeps it', () => {
   installSmithing();
   const kit = mintPiece({ recipe: 'kit:mithril', quality: -1, seed: 1, maker: 'Ann' }, PROV);
   assert.deepEqual([kit.templateIndex, kit.name, kit.kitMetal, kit.quality], [REPAIR_KIT_TEMPLATE, 'Mithril Repair Kit', 5, undefined]);
@@ -139,15 +139,15 @@ test('PROF3 kit: the Repair Kit - its metal\'s name and dye, no quality; used, i
   assert.equal(worn.currentCondition, Math.floor(worn.maxCondition * 0.1) + Math.ceil(worn.maxCondition * 0.25));
   assert.equal(items.includes(kit), false, 'spent');
   const kit2 = mintPiece({ recipe: 'kit:mithril', quality: -1, seed: 1 }, PROV);
-  worn.currentCondition = worn.maxCondition - 1;
+  worn.currentCondition = Math.floor(worn.maxCondition * 0.75) - Math.floor(worn.maxCondition / 100) - 1;   // AUDIT ECON R2: more than a hundredth under it
   sword.currentCondition = sword.maxCondition;
   const list = [sword, worn, kit2];
   useRepairKit(kit2, list);
-  assert.equal(worn.currentCondition, worn.maxCondition, 'never past whole');
+  assert.equal(worn.currentCondition, Math.floor(worn.maxCondition * 0.75), 'never past three quarters (KIT-CEILING)');
   const steel = mintPiece({ recipe: 'kit:steel', quality: -1, seed: 1 }, PROV);
   assert.deepEqual([kitMends(1, armorOfMaterial(102, 0x0100)), kitMends(1, armorOfMaterial(102, 0x0201)), kitMends(5, armorOfMaterial(102, 0x0100)), kitMends(5, armorOfMaterial(102, 0x0000))], [true, true, false, false]);
   const none = [steel, iron];
-  assert.deepEqual(repairKitUse(steel, none), { kind: 'repairKit', text: 'Nothing of Steel here wants mending.' });
+  assert.deepEqual(repairKitUse(steel, none), { kind: 'repairKit', text: 'Nothing of Steel here wants mending.', refused: true });   // AUDIT ECON R3: a refusal
   assert.equal(none.includes(steel), true, 'kept');
   assert.equal(itemUseHandler(REPAIR_KIT_TEMPLATE), repairKitUse, 'on the item-use door');
 });
@@ -221,7 +221,7 @@ test('PROF3 anvil page: at a smith\'s forge - the families and metals, a recipe\
   assert.match(text(), /Cured Leather|leather:cured/);
   assert.match(text(), /margin 0: Crude 20 \| Standard 60 \| Fine 20/);
   assert.equal(buttons().find((b) => b.textContent === 'Craft').disabled, true);
-  await press('Buy 1 from the smith - 4 Drakes');
+  await press('Buy 1 from the smith - 4 silver');
   assert.deepEqual(bought, [['leather:cured', 1]]);
   assert.equal(buttons().find((b) => b.textContent === 'Craft').disabled, false);
   press('Craft');

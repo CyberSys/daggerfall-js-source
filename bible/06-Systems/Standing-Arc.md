@@ -123,6 +123,12 @@ review 28 days on, the popup's box saying so. A review that finds a member alrea
 (Roleplay Realism's death squad for the Thieves Guild and the Dark Brotherhood still follows). A fall straight to -22 is
 warned first. A standing back at zero or above ends the probation.
 
+## QFAIL-FREE - a missed quest costs nothing online
+
+`quest/quest.js endQuest` (2026-10-02, Mac: "Soften failure cost"): online a quest that ends unfinished no longer charges
+DFU's -2 through the faction tree. TIME3's countdowns run on your own clock, so travel and rests time quests out, and
+that -2 was what players read as standing decaying. A success still pays +5; offline DFU's -2 stands.
+
 ## What stays punishing
 
 A crime is still charged the moment the watch catches you, and stays charged if you get away - or die: an online death
