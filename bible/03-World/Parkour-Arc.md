@@ -922,6 +922,41 @@ reach, and the pin read nothing). **Mutants**: `tools/mutants/climbfield.json` (
 records realigned (G4-reach-unproven is no longer equivalent: an eave's reach is 0.4 m, and a bracket beside it kills
 it), CLIMBFIELD-R1-top-45 and -depth-a-rung added.
 
+## CLIMB-HANDS (2026-10-02): THE CLASSIC LANE'S HANDS ON THE WALL - SHIPPED
+
+Mac: *"Here are two textures for the first person view (not morrowind)"* - the raised fist *"needs to be mirrored, thumbs
+inside so we can utilize 2 arms. These are to be used for hanging on a ledge, climbing, etc"*, the reaching arm *"for when
+you're climbing and look around for a place to jump to"*. Asked when, which side and whether they move: *"whenever you look
+away from the wall your climbing or ledge you are hanging from"*, *"mirrored"*, *"Definitely animate the arms for when you
+are climbing, or shifting left to right climbing/on a ledge"*.
+
+CLIMB4 lowered the classic sprite off the screen for the climb and left it empty; CLIMB6 posed the Morrowind arms. This is
+the sprite lane's half, in `combat/climbHands.js` (the law `ClimbHands`, pure; the draw `createClimbHands`), stepped and drawn
+by `combat/weaponRig.js`.
+
+- **The art**: Mac's two paintings, `public/art/climb-grip.png` (105x152) and `public/art/climb-reach.png` (183x114), on
+  `test/doctrine.test.js`'s allow-list as ours. The fist's thumb is on the painting's right with the back of the hand to the
+  eye, so it is a LEFT hand: drawn as it is on the left and mirrored on the right, both thumbs inside (a first cut mirrored the
+  left and put both thumbs outside; a rendered preview caught it). The reaching arm reaches right as painted, mirrored left.
+- **When**: the motor's hold (a hang or the free climb) and every move in flight. DFU's own climb keeps WeaponManager's empty
+  screen (`climbRigInput` now says `classic`), and a leap's free flight draws none. On the classic lane only (not under the
+  Morrowind arms), under the spell hands' vetoes and the held map's, above every sheathe gate: the hands hold the stone
+  whatever is drawn. The weapon still lowers away under them (CLIMB4).
+- **The layout**: on DFU's 320x200 design surface, scaled like FPSWeapon. Two fists `GRIP_H` 150 tall, `GRIP_APART` 52 off
+  the middle, each sleeve `BOTTOM_SLACK` 34 under the bottom edge. No lift goes past that slack, so the cut sleeve never shows.
+- **The animation**: the hands come up quickly onto the wall and drop away a little slower. A hang sways on the arms. The
+  shimmy lifts the hand the body goes toward and reaches that way, then the other closes up after it, a grip every
+  `PARKOUR_HAND_SPAN`, the parkour law's span; a stop finishes onto the nearer grip. The free climb goes hand over hand, a
+  reach every `FEEL.REACH` (up, down or across), one hand at a time. A catch, a reach and a leap's end bring the hands up onto
+  the hold and the weight lands on them; a mantle and a vault press down and let go over the top; a lower brings them up over
+  the edge; a corner carries them round; a wall run reaches high. A grip under `PARKOUR_GRIP_LOW` trembles, harder the lower.
+  Looking more than 50 degrees down, the hands go out of view.
+- **Looking away**: turned off the wall's face (from `LOOK_FROM_DEG` 40 to whole at `LOOK_FULL_DEG` 75, read off the wall's
+  normal), the hand on that side lets go and the reaching arm comes up there, feeling a little for a hold; the other hand keeps
+  its hold, carried toward its own edge. A move in flight keeps the hold's hands.
+- **Pinned**: `test/climbhands.test.js` (8).
+- **Not yet seen in game**: the layouts were checked in a rendered preview of the law's boxes, not yet on a real install.
+
 ## Still open
 
 - **Real geometry**: `test/climbreal.test.js`'s real half ran with the freeware ARENA2 (`tools/fetch-data.sh`) during

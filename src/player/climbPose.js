@@ -737,6 +737,7 @@ export function climbRigInput(player, viewYaw) {
     track: typeof player.climbTrackPos === 'function' ? player.climbTrackPos() : null,   // the body's own way (not a carry's)
     floorGap: floorGapAt(player.collider, feet),
     mode: onWall ? (player.hanging ? 'hang' : 'climb') : (classic ? 'climb' : null),
+    classic,   // CLIMB-HANDS: DFU's own climb - the sprite lane keeps WeaponManager's empty screen for it (combat/climbHands.js)
     normal, lipY: player.climbHold?.lipY ?? null,
     move,   // the motor's own object, read only - its identity is the move's
     grip: Number.isFinite(player.grip) ? player.grip : 1,

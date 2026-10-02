@@ -46,6 +46,7 @@ import { installThunderlockSounds, SFX as TL_SFX } from '../systems/thunderlock.
 // same rig because this is the one surface every FPS-weapon host
 // already mounts - so wiring it here wires all four at once.
 import { fpsSpellCasting, loadSpellCastArt, drawSpellCastHands, magicAnimFilename } from './fpsSpellCasting.js';
+import { createClimbHands } from './climbHands.js';   // CLIMB-HANDS: the classic lane's hands on the wall
 // MW-D8: the classic sprite is still the DEFAULT and still the fallback,
 // and runs untouched otherwise. The Morrowind arm below is an opt-in
 // layer that either draws whole or does not draw at all - there is no
@@ -483,6 +484,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
   // is the mod without its textures - there is no classic shield art to
   // fall back to.
   const shield = createShieldWidget({ textures: shieldWidgetTextures, audio });
+  const climbHands = createClimbHands({ renderer });   // CLIMB-HANDS: Mac's two paintings on the wall, the sprite lane's (combat/climbHands.js)
   let _shieldTime = 0;   // SW1: Unity's Time.time, for the bob's phase
   // SW1: the sprite, uploaded once per index and kept. The door answers
   // a promise, so the first frame that wants a sprite asks for it and
@@ -1499,6 +1501,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
       const camNow = camera?.() ?? null;
       const climbing = _climbing = !!camNow?.climbing;
       _climbLower = climbLowerStep(_climbLower, climbing, dt);
+      climbHands.update(dt, camNow?.climb ?? null, camNow ?? {});   // CLIMB-HANDS: the hold, the shimmy, the free climb, the moves and the look off the wall
       const canAttack = !playerWeapon.sheathed && (entity?.equipCountdown ?? 0) <= 0 && !spellArmed() && !fpsSpellCasting.isPlayingAnim && !climbing && !actTool();   // AUDIT 29 D2: no swing behind a gathering act's tool
       const strike = !paralyzed && c && canAttack
         ? playerWeapon.gesture(_dx, _dy, _held, dt, Math.max(c.clientWidth, c.clientHeight), { cancelHeld: activateHeld() })   // AUDIT 28 W12
@@ -1762,6 +1765,7 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
     },
     widget,   // WW1: the clone, for the pins
     shield,   // SW1: the shield's component, for the pins
+    climbHands,   // CLIMB-HANDS: the classic lane's hands on the wall, for the pins
     handheld,   // HT1: Handheld Torches' component, for the pins and the pool
     /** AUDIT 66 F8: the host's teardown - every long-lived thing this
      *  rig owns is freed here, as the hosts free their pools. */
@@ -1825,6 +1829,11 @@ export function createWeaponRig({ renderer, canvas, fetchBytes, palette, audio, 
         if (toolArt) drawFpsWeapon(renderer, c, toolArt, tool.state ?? 'Idle', tool.frame ?? 0, { tint: fpTint });
         return;
       }
+      // CLIMB-HANDS (Mac, 2026-10-02: the two paintings "for the first person view (not morrowind)"): THE HANDS ON THE
+      // WALL. The classic sprite is lowered out of the screen for the climb (CLIMB4, below); the sprite lane's two fists
+      // (or a fist and the reaching arm, looked off the wall) come up in its place. Above every sheathe gate - the hands
+      // hold the stone whatever is drawn - and under the same vetoes the spell's hands take, and the held map's.
+      if (c && !paralyzed && !fpArm.active() && !eotbHidesWeapon() && !sheetWindowUp()) climbHands.draw(c, { tint: fpTint });
       // TORCH-VIS (2026-09-18, Mac: "if you only have the torch equipped and no weapon, it doesn't show you
       // holding it in first person (morrowind)"): THE TORCH IS NOT THE WEAPON'S TO HIDE, and a SHEATHED STANCE IS
       // NOT A STOWED LIGHT. `shown()` is the WEAPON's visibility - this file says so itself a few lines up, where
