@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8576` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8591` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -7151,7 +7151,7 @@ answers that exact string in the object's sleep, no event, no wake. Only a
 CHANNEL session (chat, `presence: false`) used it. A presence session's
 liveness rode the pose.
 
-**Now (`src/net/wire.js:1113`, `src/net/online.js:2374`):**
+**Now (`src/net/wire.js:1114`, `src/net/online.js:2403`):**
 
 - `HEARTBEAT_MS` 5000 -> 20000. The pose goes when it MOVED (at POSE_HZ, as
   before) or every 20 s standing, as the peers' proof of life and the silence
@@ -11902,7 +11902,7 @@ Modelled end to end on the developer's `/seat strike <key>`.
   winner's Charter gone (the fee stays burnt). Honours, Marks, Renown and Spoils already claimed stand - never clawed
   back; the Sellswords paid at the result stay paid; the palace's decor a capture cleared is not given back. A forfeit
   the Moderators voided is not the pair's forfeit of the Season.
-- **Migration 0066** (`0066_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
+- **Migration 0066** (`0067_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
   result's own INSERT (the seat's Charter row, its Legacy rows from that week on, and at a capture the works' tiers
   after the due projects rose), so the void gives back exactly that.
 

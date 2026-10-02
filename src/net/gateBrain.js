@@ -241,14 +241,16 @@ export const POOLS = Object.freeze({
 // hold it under every set of marks), none of them faster.
 export const ATTACKS = Object.freeze({
   cleave: Object.freeze({ id: 0, key: 'cleave', name: 'Cleave', windup: 1400, active: 200, recover: 900, shape: 'cone', r: 9, arc: 110, pct: 0.45, base: 12, el: null, aim: 'target', phase: 1, range: 7, w: 3, minGap: 0 }),   // AUDIT WBX R3: range 7 - a fighter at the court's edge stood 6.2 m past his body, out of the cleave's 6 and inside the charge's 8, and he struck nothing all phase
-  slam: Object.freeze({ id: 1, key: 'slam', name: 'Ground Slam', windup: 1600, active: 200, recover: 1100, shape: 'disc', r: 7, pct: 0.52, base: 14, el: null, aim: 'self', phase: 1, range: 4, w: 2, minGap: 0 }),
+  slam: Object.freeze({ id: 1, key: 'slam', name: 'Ground Slam', windup: 1600, active: 200, recover: 1700, shape: 'disc', r: 7, pct: 0.52, base: 14, el: null, aim: 'self', phase: 1, range: 4, w: 2, minGap: 0 }),
   charge: Object.freeze({ id: 2, key: 'charge', name: 'Charge', windup: 1200, active: 900, recover: 1200, shape: 'lane', w: 2, width: 3.5, len: 22, pct: 0.40, base: 12, el: null, aim: 'target', phase: 1, range: 40, minGap: 8 }),
   hellfire: Object.freeze({ id: 3, key: 'hellfire', name: 'Hellfire', windup: 2000, active: 300, recover: 900, shape: 'disc', r: 3.5, max: 5, pct: 0.40, base: 9, el: 'fire', aim: 'players', phase: 2, range: 40, w: 2, minGap: 0, pool: POOLS.hellfire }),
-  nova: Object.freeze({ id: 4, key: 'nova', name: 'Flame Nova', windup: 2200, active: 300, recover: 1300, shape: 'ring', r0: 4, r1: 30, pct: 0.58, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 1, minGap: 0 }),
+  // WB13a (2026-10-01, Mac: "hone in telegraphs"): its ring to 16 m - it ran to 30 on a floor of 24, so with him at the
+  // heart (every phase turn puts him there) 26% of the floor in phase two and 47% in phase three could not get out
+  nova: Object.freeze({ id: 4, key: 'nova', name: 'Flame Nova', windup: 2200, active: 300, recover: 1900, shape: 'ring', r0: 4, r1: 16, pct: 0.58, base: 14, el: 'fire', aim: 'self', phase: 2, range: 40, w: 1, minGap: 0 }),
   wrath: Object.freeze({ id: 5, key: 'wrath', name: "Dagon's Wrath", windup: 6000, active: 500, recover: 0, shape: 'all', pct: 9.99, base: 0, el: 'fire', aim: 'self', phase: 99, range: 999, w: 0, minGap: 0 }),
   // WBX5: the Burning Court's reach - he leaps at whoever stands far off, and lands on them (and at every phase's turn,
   // into the court's heart); and a meteor falls where a fighter stands and leaves the ground burning
-  leap: Object.freeze({ id: 6, key: 'leap', name: 'Crushing Leap', windup: 1500, active: 300, recover: 900, shape: 'disc', r: 6, pct: 0.45, base: 12, el: null, aim: 'point', phase: 2, range: 40, w: 2, minGap: 10 }),
+  leap: Object.freeze({ id: 6, key: 'leap', name: 'Crushing Leap', windup: 1500, active: 300, recover: 1500, shape: 'disc', r: 6, pct: 0.45, base: 12, el: null, aim: 'point', phase: 2, range: 40, w: 2, minGap: 10 }),
   meteor: Object.freeze({ id: 7, key: 'meteor', name: 'Meteor of Oblivion', windup: 2800, active: 300, recover: 700, shape: 'disc', r: 6.5, pct: 0.64, base: 16, el: 'fire', aim: 'point', phase: 2, range: 40, w: 1, minGap: 0, pool: POOLS.meteor }),
   // WBX5: Dagon's Champion's own - four lanes of fire from his feet; at the turn into his phase, the four between them
   // follow at once (PHASE_TURN)
@@ -451,7 +453,7 @@ export function newFight(day, now, wrathAt, boss, md = null) {
     /** AUDIT PRE-MERGE 0929 W1-1: the feedings a Soul-Hungry Warden has had this fight (at most GATE_FEEDS_MAX) - a
      *  fight checkpointed before it counts from none */
     feeds: 0,
-    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, nextAt: now + OPENING_MS, seq: 0,
+    pos: [0, 0], yaw: 0, move: null, atk: null, lastA: -1, runA: 0, freeAt: 0, nextAt: now + OPENING_MS, seq: 0,   // WB13f: how many times running the last was used, and when it ended
     target: null, targetAt: 0,
     /** WB9b: the court he fights in (COURTS), and the moment each crossing's word was said - walkway k is laid from xa[k]
      *  (walkFormed); `waitUntil` the longest his ward waits in a new court for a challenger */
@@ -725,13 +727,20 @@ export function pickTarget(f, bodies, rng) {
   return live[Math.floor(rng() * live.length) % live.length];
 }
 
+/** WB13f (2026-10-01, Mac: "AAA grade polish"): no attack more than REPEAT_MAX times running - with the fighters spread,
+ *  phase one was the Charge in 36 of 50 attacks, 28 of them back to back; past it he walks in instead. A walk-in of
+ *  REPEAT_WALK_MS breaks the run: one who keeps away from him is charged again (in phase one the Charge alone reaches
+ *  past 7 m - a cap with no end would leave a fighter at range untouched). */
+export const REPEAT_MAX = 2;
+export const REPEAT_WALK_MS = 6000;
 /** The attacks this phase allows against a target `gap` metres past his body, with `near` living players inside his
  *  slam - the last one he used left out when anything else is open. WB8b: each attack's phase is its profile's (Dagon's
- *  Favoured brings the Burning Court's arsenal early). */
-export function attacksFor(phase, gap, near, lastA = -1, P = BASE_PROFILE) {
+ *  Favoured brings the Burning Court's arsenal early). WB13f: and never a REPEAT_MAX+1th time running (`run` - how many
+ *  times running the last was used): nothing, and he walks at his target. */
+export function attacksFor(phase, gap, near, lastA = -1, P = BASE_PROFILE, run = 1) {
   const out = CHOSEN.filter((a) => P.atk[a.key].phase <= phase && gap <= a.range && (a.minGap <= 0 || gap >= a.minGap) && !(a === ATTACKS.slam && near < 1));   // a body inside his (a negative gap) is still in reach
   const fresh = out.filter((a) => a.id !== lastA);
-  return fresh.length ? fresh : out;
+  return fresh.length ? fresh : run >= REPEAT_MAX ? [] : out;
 }
 
 /** One of `can` by weight. */
@@ -846,7 +855,9 @@ export function stepBrain(f, now, bodies, rng) {
     if (A === ATTACKS.reckon && now >= f.atk.at && f.cx) f.cx = null;   // WB9c: the Reckoning landed - the crystals are spent in it
     if (now < f.atk.until) { hpFrame(f, now, out); cxFrame(f, now, out); stateFrame(f, now, out); return out; }
     const was = f.atk;
+    f.runA = f.atk.a === f.lastA ? (f.runA ?? 0) + 1 : 1;   // WB13f
     f.lastA = f.atk.a;
+    f.freeAt = now;
     f.atk = null;
     f.target = null;
     f.nextAt = now + BREATH_MS;
@@ -917,7 +928,8 @@ export function stepBrain(f, now, bodies, rng) {
     if (target) {
       const gap = dist(target.x, target.z, f.pos[0], f.pos[1]) - P.bossR;
       const near = here.filter((b) => dist(b.x, b.z, f.pos[0], f.pos[1]) <= P.atk.slam.r).length;   // WB8b: Colossal's slam reaches further
-      const can = attacksFor(f.phase, gap, near, f.lastA, P);
+      if (now - (f.freeAt ?? 0) >= REPEAT_WALK_MS) f.runA = 0;   // WB13f: a walk-in that long breaks the run
+      const can = attacksFor(f.phase, gap, near, f.lastA, P, f.runA);   // WB13f: never thrice running - he walks in
       if (can.length) { f.move = null; begin(f, chooseAttack(can, rng), now, target, here, rng, out); }
       else walkToward(f, target, now, out);
     } else if (f.move) {
@@ -1489,5 +1501,6 @@ export function stateOf(f) {
     cx: f.cx ? { i: f.cx.i, m: f.cx.m, c: f.cx.c.map((q) => [q.x, q.z, Math.ceil(q.h)]) } : null,
     su: f.stunUntil > 0 ? f.stunUntil : 0, rk: f.rk > 0 ? f.rk : 0,
     ...(f.lg ? { lg: hostStateOf(f.lg) } : {}),   // WB11b: his host standing - said only under the Legion-Lord
+    ...(Number.isSafeInteger(f.startedAt) ? { op: f.startedAt + OPENING_MS } : {}),   // WB13e: the opening's end - his wake, on every screen
   };
 }

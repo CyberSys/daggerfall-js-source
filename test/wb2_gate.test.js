@@ -294,11 +294,11 @@ test('WB2 the door: sealed says when, open without a relay says not yet, open wi
   assert.equal(r.entered.length, 1);
   // the plaque names it, its countdown under it - SET7: a record the hover's ladder reads (composeNamer takes the first
   // answer with a title), where a bare string named nothing at all
-  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Oblivion Gate', subs: [`Seals in ${countdownText(r.t.sealAt - r.clock.now)}`] });
-  assert.deepEqual(composeNamer([(k) => r.pool.hoverName(k)])('gate:721')?.title, 'Oblivion Gate', 'and the ladder takes it');
+  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Dagon\'s Breach', subs: [`Seals in ${countdownText(r.t.sealAt - r.clock.now)}`] });
+  assert.deepEqual(composeNamer([(k) => r.pool.hoverName(k)])('gate:721')?.title, 'Dagon\'s Breach', 'and the ladder takes it');
   r.clock.now = r.t.sealAt + 1000;
   r.pool.frame(0.016);
-  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Oblivion Gate', subs: ['Sealed', `Collapses in ${countdownText(r.t.wrathAt - r.clock.now)}`] },
+  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Dagon\'s Breach', subs: ['Sealed', `Collapses in ${countdownText(r.t.wrathAt - r.clock.now)}`] },
     'GATE-COLLAPSE: sealed for the night, and when it goes');
   r.clock.now += GATE_SAY_MS;
   assert.equal(r.pool.activate('gate:721'), false);
@@ -306,7 +306,7 @@ test('WB2 the door: sealed says when, open without a relay says not yet, open wi
   assert.equal(GATE_TEXT.collapsesIn('6:12'), 'The gate has sealed. It collapses in 6:12.');
   r.clock.now = r.t.wrathAt + 1000;
   r.pool.frame(0.016);
-  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Oblivion Gate', subs: [] }, 'collapsing: nothing left to count');
+  assert.deepEqual(r.pool.hoverName('gate:721'), { title: 'Dagon\'s Breach', subs: [] }, 'collapsing: nothing left to count');
   assert.equal(r.pool.hoverName(7), null, 'a door\'s bare number is not the gate\'s (AUDIT-WH C1)');
 });
 
@@ -325,11 +325,11 @@ test('WB2 the walk through: a step across the fire inside its opening enters; be
   const at2 = (lx, lz) => { const c = Math.cos(p2.yaw), s = Math.sin(p2.yaw); return [p2.origin[0] + c * lx + s * lz, p2.origin[1] + 1, p2.origin[2] - s * lx + c * lz]; };
   for (const [lx, lz] of [[7, 1], [7, -1]]) { feet = at2(lx, lz); w2.pool.frame(0.016); }
   assert.equal(w2.entered.length, 0, 'past the horns, not through the fire');
-  assert.ok(w2.banners.at(-1)?.startsWith('Oblivion Gate - seals in'), 'near it, the countdown stands over the screen');
+  assert.ok(w2.banners.at(-1)?.startsWith('Dagon\'s Breach - seals in'), 'near it, the countdown stands over the screen');
   // GATE-COLLAPSE: sealed for the night, the banner counts down to the collapse (it said "sealed" and nothing more)
   w2.clock.now = w2.t.sealAt + 2000;
   w2.pool.frame(0.016);
-  assert.equal(w2.banners.at(-1), 'Oblivion Gate - sealed, collapses in 9:58');
+  assert.equal(w2.banners.at(-1), 'Dagon\'s Breach - sealed, collapses in 9:58');
   w2.clock.now = w2.t.wrathAt + 1000;
   w2.pool.frame(0.016);
   assert.equal(w2.banners.at(-1), null, 'collapsing: no countdown over the screen');
@@ -354,11 +354,11 @@ test('WB2 the banner: a readout that is written only when its words change and h
   const doc = { createElement: () => { const n = { style: {}, remove() {}, set textContent(v) { this._t = v; made.push(v); }, get textContent() { return this._t; } }; return n; }, body: { append() {} } };
   drawGateBanner(null, { doc });
   assert.equal(made.length, 0, 'nothing to say, nothing made');
-  drawGateBanner('Oblivion Gate - opens in 1:00', { doc });
-  drawGateBanner('Oblivion Gate - opens in 1:00', { doc });
-  assert.deepEqual(made, ['Oblivion Gate - opens in 1:00'], 'the same words, not written again');
-  drawGateBanner('Oblivion Gate - opens in 0:59', { doc, hidden: true });
-  assert.deepEqual(made, ['Oblivion Gate - opens in 1:00', ''], 'the HUD hidden takes it with it');
+  drawGateBanner('Dagon\'s Breach - opens in 1:00', { doc });
+  drawGateBanner('Dagon\'s Breach - opens in 1:00', { doc });
+  assert.deepEqual(made, ['Dagon\'s Breach - opens in 1:00'], 'the same words, not written again');
+  drawGateBanner('Dagon\'s Breach - opens in 0:59', { doc, hidden: true });
+  assert.deepEqual(made, ['Dagon\'s Breach - opens in 1:00', ''], 'the HUD hidden takes it with it');
   destroyGateBanner();
 });
 
@@ -368,13 +368,14 @@ test('WB2 the seams: online alone, stood before the lights, the stone in the wor
   assert.match(w, /ready: \(\) => !!online\?\.gateOk,   \/\/ WB3b/, 'the door opens at a relay that runs a gate\'s boss room (WB3b; it said "not yet" to every relay until then)');
   const frameAt = w.indexOf('try { if (gatePool?.frame(dt)) warmGateVeil(); }'), lightsAt = w.indexOf('const wodLit = wod ? _wodLitCount() : 0;');   // AUDIT WB D5: and the step's veil warmed when a gate stands
   assert.ok(frameAt > 0 && frameAt < lightsAt, 'stood before the lights read it');
-  assert.equal((w.match(/\.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)\);/g) ?? []).length, 2, 'its fire lights the ground by night and by day - after the hand lights, before the camps and the dropped torches the renderer\'s cap cuts first');
+  assert.equal((w.match(/\.\.\.\(gatePool\?\.lights\(\) \?\? \[\]\), \.\.\.\(riteHost\?\.lights\(\) \?\? \[\]\), \.\.\.camps\.lights\(\), \.\.\.droppedTorches\.lights\(\)\);/g) ?? []).length, 2,   // WB12d: the rite's braziers beside it
+    'its fire lights the ground by night and by day - after the hand lights, before the camps and the dropped torches the renderer\'s cap cuts first');
   assert.match(w, /gatePool\?\.draw\(renderer\);[^\n]*\n\s*camps\.draw\(renderer\);/, 'the stone in the world pass beside the tents (before them: the tents and the wagon keep their HCC pair)');
   const duel = w.indexOf('duelWall.draw(rings'), pass = w.indexOf('gatePool.drawPass(proj, view');
   assert.ok(duel > 0 && pass > duel, 'the fire after the duel wall');
-  assert.match(w, /if \(_race\.gateWins\) \{ if \(_gatePick\.distance > _gatePick\.reach\) setMidScreenText\(TOO_FAR_AWAY_TEXT\); else gatePool\.activate\(_gatePick\.key\); \}/, 'the press\'s arm, refusing out loud past its reach');
+  assert.match(w, /if \(_race\.gateWins\) \{ if \(_gatePick\.distance > _gatePick\.reach\) setMidScreenText\(TOO_FAR_AWAY_TEXT\); else if \(!riteHost\?\.activate\(_gatePick\.key\)\) gatePool\.activate\(_gatePick\.key\); \}/, 'the press\'s arm, refusing out loud past its reach (WB12d: the faithful\'s casket rides its slot)');
   assert.match(w, /gate: _gatePick,   \/\/ WB2/);
-  assert.match(w, /gate: gatePool \? pickActivatableHit\(cam\.pos, _hd, gatePool\.targets\(\), collider\) : null,/, 'the plaque races it too');
+  assert.match(w, /gate: gatePool \? pickActivatableHit\(cam\.pos, _hd, \[\.\.\.gatePool\.targets\(\), \.\.\.\(riteHost\?\.targets\(\) \?\? \[\]\)\], collider\) : null,/, 'the plaque races it too');
   assert.match(w, /\(key\) => gatePool\?\.hoverName\(key\) \?\? null,/);
   assert.match(w, /if \(gatePool && \(modes\?\.mode \?\? 'exterior'\) !== 'exterior'\) drawGateBanner\(null\);/, 'the countdown leaves with the street');
   assert.match(read('src/player/activationRace.js'), /firmFirst\(\[gate, broker, camp, water,/, 'the gate heads the tie order (SET7: the Broker who stands beside it right after)');

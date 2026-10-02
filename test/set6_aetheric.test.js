@@ -177,7 +177,7 @@ test('SET6 the drop: the spoils\' LAST roll - a Regalia piece a sixth of the tim
   assert.deepEqual(rollSpoils(77, 12), rollSpoils(77, 12), 'the same seed, the same spoils');
 });
 
-test('SET6 the floor and the card: a Regalia piece is laid as an item in its tier\'s line - between the Legendary\'s height and the Artifact\'s, in the rung\'s colour - before the Sigil Stone and the gold; its card names the rung, its affixes, its sigil and its lore, and its name is its record\'s with no material before it (mutants: the line at a lower tier\'s height; the lore unsaid; the Daedric prefix)', () => {
+test('SET6 the floor and the card: a Regalia piece is laid as an item in its tier\'s line - between the Legendary\'s height and the Artifact\'s, in the rung\'s colour - before the Deadlands Ember and the gold; its card names the rung, its affixes, its sigil and its lore, and its name is its record\'s with no material before it (mutants: the line at a lower tier\'s height; the lore unsaid; the Daedric prefix)', () => {
   let seed = 1;
   while (seed < 500 && rollSpoils(seed, 12).pieces.length !== 4) seed++;
   assert.ok(seed < 500, 'a kill whose spoils carry a Regalia piece, within the first five hundred seeds');
@@ -185,7 +185,7 @@ test('SET6 the floor and the card: a Regalia piece is laid as an item in its tie
   assert.equal(list.length, 6, 'three graded pieces, the Regalia piece, the stone, the gold');
   assert.equal(list[3].kind, 'item');
   assert.equal(list[3].tier, 'aetheric');
-  assert.equal(list[4].item.name, 'Sigil Stone');
+  assert.equal(list[4].item.name, 'Deadlands Ember');
   assert.equal(list[5].kind, 'gold');
   assert.ok(SPOILS_LINE_H.aetheric > SPOILS_LINE_H.legendary && SPOILS_LINE_H.aetheric < SPOILS_LINE_H.artifact);
   assert.deepEqual(tierColour('aetheric').map((c) => Math.round(c * 255)), [0xbf, 0xe8, 0xff]);

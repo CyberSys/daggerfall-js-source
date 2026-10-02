@@ -19,23 +19,24 @@
 // Not a DFU member. Ledger A (WB11).
 import { HOST, HOST_KINDS, HOST_BLOWS, COURT_CENTRE, ATTACKS, hostAt, hostBlowUnder, nearestCourt } from '../net/gateBrain.js';
 import { hostVerdict, hostTelegraphAt } from '../net/gateStrike.js';
-import { hostLookOf, hostAct, hostFallAct, hostStandIn, hostCue, bossFrame, bossPlace, HOST_BITE_COLOR, hostPulseColor, emberColor, WARD_COLOR, BOSS_CUES } from '../world/gateBoss.js';
+import { hostLookOf, hostAct, hostFallAct, hostStandIn, hostCue, bossFrame, bossPlace, HOST_BITE_COLOR, hostPulseColor, emberColor, WARD_COLOR, BOSS_CUES, gateHitFlash } from '../world/gateBoss.js';
+import { setBatchHitFlash } from '../systems/hitFlash.js';   // WB13d: a body of his host struck flashes, as he does
 import { courtToDungeon } from '../world/gateArena.js';
-import { TELEGRAPH_KIND, TELEGRAPH_STYLE, TELEGRAPH_FADE_IN_MS, TELEGRAPH_FLASH_MS } from '../render/gateTelegraph.js';
+import { TELEGRAPH_KIND, TELEGRAPH_STYLE, TELEGRAPH_FLASH_MS, TELEGRAPH_EDGE, TELEGRAPH_POOL } from '../render/gateTelegraph.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { mobileBillboardSize } from '../world/rmbFlats.js';
 
 /** The words his host says that the bar and the blows do not. `boss` his name, `plural`/`name` the body's (its look's). */
 const an = (name) => `${/^[AEIOU]/i.test(name) ? 'An' : 'A'} ${name}`;
 export const COURT_HOST_TEXT = Object.freeze({
-  harriers: (boss, plural) => `${boss} calls his host - ${plural} rise from the fire!`,
-  sappers: (boss, plural) => `${plural} march on ${boss} - cut them down before they reach him!`,
-  bearers: () => 'His Ward-Bearers hold his ward - break them to break it!',
-  drunk: (boss, name) => `${an(name)} reaches ${boss} - he drinks it in.`,
+  harriers: (boss, plural) => `${plural} rise from the fire!`,   // WB13b: the event and the order, no more
+  sappers: (boss, plural) => `Stop the ${plural} before they reach him!`,
+  bearers: () => 'Ward-Bearers hold his ward. Break them!',
+  drunk: (boss, name) => `${an(name)} reaches ${boss} and heals him.`,
   // AUDIT WB11 D1: "his ward breaks" was said where his own ward follows the bearers' for its breath (SHIELD_MS,
   // Unyielding's 6 s - the signature is cast under it): every blow in it still turned
-  felled: (who, left) => (left > 0 ? `${who || 'A challenger'} cuts down a Ward-Bearer - ${left} ${left === 1 ? 'stands' : 'stand'}.` : 'The last Ward-Bearer falls - his ward is failing!'),
-  crumbled: 'His Ward-Bearers crumble - his ward is failing!',
+  felled: (who, left) => (left > 0 ? `${who || 'A challenger'} cuts down a Ward-Bearer. ${left} ${left === 1 ? 'stands' : 'stand'}.` : 'The last Ward-Bearer falls. His ward is failing!'),
+  crumbled: 'The Ward-Bearers crumble. His ward is failing!',
 });
 /** A rising, a blow, a fall or a word heard later than this after it happened is neither said nor sounded (the court's
  *  FED_LATE_MS law - heard live, never a stale one). */
@@ -61,8 +62,9 @@ const SHAPE_SLOTS = new WeakMap();
 
 /**
  * THE SHAPES OF HIS HOST on the floor at `now`, in the telegraph pass's own shape (render/gateTelegraph.js - the court's
- * frame): each blow in flight its disc, wound up as his are (a fade in, the fill, the flash at its landing); while his
- * ward holds, each Ward-Bearer's tether to him in the ward's gold; each Sapper's path to him, faint, in his ember. Blows
+ * frame): each blow in flight its disc, wound up as his are (the line whole from the word, the fill, the flash at its
+ * landing - WB13a: in the same danger edge as his); while his ward holds, each Ward-Bearer's tether to him in the ward's
+ * gold; each Sapper's path to him in his ember - WB13a: dashes flowing to him (they were drawn as burning ground). Blows
  * first, at most HOST_SHAPES_MAX. Pure.
  * @param {any} s the court's state (net/gateLink.js) @param {number} now @param {any} P the fight's profile
  * @param {any[]} [out] refilled
@@ -76,7 +78,7 @@ export function hostShapes(s, now, P, out = []) {
   /** the next shape, its slot refilled whole (AUDIT WB11 C8: a new object and four arrays a shape a frame) */
   const next = () => {
     const sh = (slots[out.length] ??= { kind: 0, origin: [0, 0], yaw: 0, r: 0, halfArc: 0, body: 0, end: [0, 0], halfW: 0, r0: 0, r1: 0, points: [], n: 0,
-      t: 0, flash: 0, alpha: 0, color: HOST_BITE_COLOR, court: 0, style: 0, since: 0, span: 1, after: -1, pool: false });
+      t: 0, flash: 0, alpha: 0, color: HOST_BITE_COLOR, edge: TELEGRAPH_EDGE, court: 0, style: 0, since: 0, span: 1, after: -1, runS: 0, pool: TELEGRAPH_POOL.blow });
     out.push(sh);
     return sh;
   };
@@ -86,19 +88,19 @@ export function hostShapes(s, now, P, out = []) {
     const B = HOST_BLOWS[a.k], tel = a.atk && B ? hostTelegraphAt(a.atk, a.k, now) : null;
     if (!tel || tel.since >= Math.max(B.active, 1) + TELEGRAPH_FLASH_MS) continue;
     const start = a.atk.at - B.windup, span = Math.max(B.active, 1);
-    const fadeIn = Math.max(0, Math.min(1, (now - start) / TELEGRAPH_FADE_IN_MS)), fadeOut = tel.since > span ? 1 - (tel.since - span) / TELEGRAPH_FLASH_MS : 1;
+    const fadeOut = tel.since > span ? 1 - (tel.since - span) / TELEGRAPH_FLASH_MS : 1;
     const pulse = a.k === HOST.bearer, el = hostBlowUnder(a.k, P).el, sh = next();
     sh.kind = TELEGRAPH_KIND.disc; sh.origin[0] = sh.end[0] = a.atk.x; sh.origin[1] = sh.end[1] = a.atk.z; sh.r = B.r; sh.halfW = 0;
-    sh.t = tel.t; sh.flash = tel.since >= 0 ? 1 : 0; sh.alpha = fadeIn * Math.max(0, fadeOut); sh.color = pulse ? hostPulseColor(P) : HOST_BITE_COLOR;
+    sh.t = tel.t; sh.flash = tel.since >= 0 ? 1 : 0; sh.alpha = Math.max(0, fadeOut); sh.color = pulse ? hostPulseColor(P) : HOST_BITE_COLOR; sh.edge = TELEGRAPH_EDGE;
     sh.court = nearestCourt(a.atk.x, a.atk.z); sh.style = pulse ? TELEGRAPH_STYLE[el] ?? TELEGRAPH_STYLE.weight : TELEGRAPH_STYLE.weight;
-    sh.since = Math.max(0, (now - start) / 1000); sh.span = B.windup / 1000; sh.after = tel.since >= 0 ? tel.since / 1000 : -1; sh.pool = false;
+    sh.since = Math.max(0, (now - start) / 1000); sh.span = B.windup / 1000; sh.after = tel.since >= 0 ? tel.since / 1000 : -1; sh.runS = 0; sh.pool = TELEGRAPH_POOL.blow;
   }
   const seethe = (now % HOST_LANE_CLOCK_MS) / 1000;   // AUDIT WB11 C6
   const lane = (a, color, alpha) => {
     const [x, z] = hostAt(a, now), sh = next();
     sh.kind = TELEGRAPH_KIND.lane; sh.origin[0] = x; sh.origin[1] = z; sh.end[0] = bx; sh.end[1] = bz; sh.r = 0; sh.halfW = HOST_PATH_HALF_W;
     sh.t = 1; sh.flash = 0; sh.alpha = alpha; sh.color = color; sh.court = nearestCourt(x, z); sh.style = TELEGRAPH_STYLE.weight;
-    sh.since = seethe; sh.span = 1; sh.after = -1; sh.pool = true;
+    sh.since = seethe; sh.span = 1; sh.after = -1; sh.runS = 0; sh.pool = TELEGRAPH_POOL.path;
   };
   if (now < s.shieldUntil) for (const a of ads) { if (out.length >= HOST_SHAPES_MAX) break; if (a.k === HOST.bearer) lane(a, WARD_COLOR, HOST_TETHER_ALPHA); }
   for (const a of ads) { if (out.length >= HOST_SHAPES_MAX) break; if (a.k === HOST.sapper && a.mv) lane(a, emberColor(P), HOST_PATH_ALPHA); }
@@ -153,7 +155,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
   function destroyBatch(b) { if (b?.batch) { renderer?.destroyBillboardBatch?.(b.batch); b.batch = null; } }
 
   /** One body drawn: the frame its act shows to my eye, at its place (an Imp hovering; one rising or crumbling under the
-   *  floor by its `sink`), facing `yaw`. */
+   *  floor by its `sink`), facing `yaw`. WB13d: struck, it flashes - whole for my blow, lightly for the court's. */
   function draw(b, act, x, z, yaw, t) {
     const T = texture(b.look.mobile);
     if (!T || !renderer?.createBillboardBatch || act.act === 'gone') { b.shown = false; return; }
@@ -168,6 +170,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
     const size = { w: fr.flip ? -sz.w : sz.w, h: sz.h };
     if (!b.batch) { b.batch = renderer.createBillboardBatch(T.archive, rkey, { w: sz.w, h: sz.h }, [[0, 0, 0]]); b.batch.origin = [0, 0, 0]; }
     b.shown = true;
+    setBatchHitFlash(b.batch, gateHitFlash(b.hurtAt, b.courtAt ?? -Infinity, t));
     b.batch.record = rkey;
     b.batch.size = size;
     if (b.batch.bounds) b.batch.bounds[3] = Math.hypot(sz.w, sz.h) * 0.5;
@@ -199,7 +202,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
         live.add(a.i);
         let b = bodies.get(a.i);
         if (!b) {
-          b = { look: hostLookOf(a.k, P.aspect.id), batch: null, shown: false, hurtAt: -Infinity, heardHurt: -Infinity, hp: a.h, wound: NaN, landed: NaN, judged: NaN, seed: (a.i * 0.6180339) % 1 * 6.283 };
+          b = { look: hostLookOf(a.k, P.aspect.id), batch: null, shown: false, hurtAt: -Infinity, courtAt: -Infinity, heardHurt: -Infinity, hp: a.h, wound: NaN, landed: NaN, judged: NaN, seed: (a.i * 0.6180339) % 1 * 6.283 };
           bodies.set(a.i, b);
           // its rising heard out of the fire, and its wave said once - while it is news
           if (Number.isFinite(a.rose) && t - a.rose <= HOST_LATE_MS && !s.fell && s.wrath == null) {
@@ -212,6 +215,7 @@ export function createGateHost({ renderer = null, getTexture = null, uploadRecor
           }
         }
         if (a.h < b.hp && t - b.heardHurt >= HOST_HURT_GAP_MS) { b.heardHurt = t; play(hostCue('hurt', b.look.mobile), placeOf(a, t, 1.2)); }
+        if (a.h < b.hp) b.courtAt = t;   // WB13d: the court's blow on it, seen
         b.hp = a.h;
         // its blow: cued at its word, heard landing, judged against my feet at its landing (co-op's law)
         if (a.atk) {

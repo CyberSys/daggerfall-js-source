@@ -1272,7 +1272,7 @@ Every law in Home.md's Process section, and what it demands of this arc:
   opens to it and a receipt claimed after is refused; a battle already void answers `repeat`, a seat with none this week
   `battle-none`. DECIDED: before its result, as a Turning voids an unfinished one - the Sellswords' escrow home - but
   the challenger's Right does NOT carry (an exploit's void, not a room lost). DECIDED: after a capture (or a revolt that
-  stood) the Charter goes back to the guild that held it as the result kept it (migration 0066's
+  stood) the Charter goes back to the guild that held it as the result kept it (migration 0067's
   `town_seat_results.prior`: its Standing, the week it took the seat, its truce, Tithe and arrears - none kept, Standing
   50 from this week), its Legacy back, the works' capture drop undone and a Fortifier's save unspent; the capturer's own
   projects fall and its Edict for next week is void. DECIDED: after a hold (a forfeit, a revolt put down) the holder's

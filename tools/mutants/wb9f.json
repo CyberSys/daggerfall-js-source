@@ -128,8 +128,8 @@
   {
     "name": "WB9f-the-court-keeps-nothing",
     "file": "src/scenes/gateCourt.js",
-    "old": "at, bearing, acct: claims.s, keep })) {",
-    "new": "at, bearing, acct: claims.s })) {",
+    "old": "at, bearing, acct: claims.s, keep, claims })) {",
+    "new": "at, bearing, acct: claims.s, claims })) {",
     "tests": [
       "test/wb9f_gate_spoils.test.js"
     ]

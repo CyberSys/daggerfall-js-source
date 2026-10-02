@@ -221,8 +221,8 @@ test('WB3b the link: the relay\'s words folded into one state - a whole state st
   assert.equal(link.receipt(200), r); assert.equal(link.receipt(199), null);
   link.leave();
   assert.equal(link.state(), GATE_STATE_EMPTY); assert.equal(link.fellAt(200), 4000, 'the falls outlive the court');
-  assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran', 'Ysolde'] }), 'Valkynaz Ruhn has fallen at the Oblivion Gate near Copperham - struck down by Mac, Bran and Ysolde. The gate collapses.');
-  assert.equal(fellLine({ near: 'X', boss: 'B', top: [] }), 'B has fallen at the Oblivion Gate near X. The gate collapses.');
+  assert.equal(fellLine({ near: 'Copperham', boss: 'Valkynaz Ruhn', top: ['Mac', 'Bran', 'Ysolde'] }), 'Valkynaz Ruhn has fallen at Dagon\'s Breach near Copperham, struck down by Mac, Bran and Ysolde. The breach collapses.');
+  assert.equal(fellLine({ near: 'X', boss: 'B', top: [] }), 'B has fallen at Dagon\'s Breach near X. The breach collapses.');
 });
 
 test('WB3b the seams, by source: the dungeon host enters the court through its own transition (the made level whole, its blocks file, the court stood before the marker is read, the way home its exit door and landing before the gate), wears the Deadlands\' air and braziers there, and names its room the gate\'s; the context refuses the map, the rest and the save; the world host opens the door at a relay that runs the room, keys the court\'s room, says the level claim once per welcome, holds the ring, casts a death out before the gate, refuses the mark, and ends the court with its day or with online (mutants: each seam removed)', () => {

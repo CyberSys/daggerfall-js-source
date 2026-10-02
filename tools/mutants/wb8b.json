@@ -38,8 +38,8 @@
   {
     "name": "WB8b-the-marks-mistold",
     "file": "src/net/gateLaw.js",
-    "old": "  return `${boss} comes ${aspect.epithet} tonight. ${aspect.omen}${said ? ` ${said}` : ''}`;",
-    "new": "  return `${boss} comes ${aspect.epithet} tonight. ${aspect.omen}`;",
+    "old": "  return `${boss} comes ${aspect.epithet} tonight${said ? `, ${said}` : ''}.`;",
+    "new": "  return `${boss} comes ${aspect.epithet} tonight.`;",
     "tests": [
       "test/wb8c_gate_detail.test.js",
       "test/wb1_gate_omen.test.js"
