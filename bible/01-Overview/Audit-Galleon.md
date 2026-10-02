@@ -172,7 +172,9 @@ object's frame), `auditgalleon_guns` G1 (P6: each shut board against her own sid
 `navaudit_guns` G12, `navaudit_helm` H4 and `navaudit_presentation`'s planks (R5: the roof rule every hull's but hers,
 the crosshair on her main topsail's box, the ball through her canvas), `auditnav2_deck` F32, DECK-WALK THE REAL HULLS
 and THE BAKES (D-wall's counts), `auditnav2_crew` F62, F35, F48 and F41, `auditnav2_deck` F34 (T1's cabin) and
-`auditwatchkit_crew` WK-W8 (a window measured 1.30 and 1.55 s) - each marked in its own line with its law intact. Other
-lists' records re-aimed by content at the new text, all dead.
+`auditwatchkit_crew` WK-W8 (a window measured 1.30 and 1.55 s); at the merge with main, its own FIELD BUGS 2026-10-02
+rock pins (`fb1002_rocks` ROCK-AWAY's rocks and the ledge, `fb1002b_rocks` HER KEEL) set by Mac's galleon's own box -
+her ends 21.93 and -19.91, her keel 4.64 m down, where the mod's galleon's stood 19.88, -24.25 and 3.35 - each marked in
+its own line with its law intact. Other lists' records re-aimed by content at the new text, all dead.
 
 Not verified in a browser.

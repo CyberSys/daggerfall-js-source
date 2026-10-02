@@ -27,6 +27,7 @@ import { readFileSync } from 'node:fs';
 import { Collider, sweepSphereTriangle } from '../src/player/collider.js';
 import { boxColliderTriangles } from '../src/world/prefabColliders.js';
 import { HULL_NAMES, colliderBounds } from '../src/systems/comeSailAwayBoat.js';
+import { hullBuild } from '../src/systems/naval/navalShips.js';
 import { scene } from './csaScene.mjs';
 
 const WORLD = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -242,11 +243,14 @@ test('ROCK-FREE HER OWN, HER KEEL: CheckCollision hands the host her keel line -
     lowest = Math.min(lowest, colliderBounds({ models: s.deps.pool.models }, boat.MeshObject, boat.MeshCollider).min[1]);
   }
   assert.ok(calls.length > 100, `swept every frame she moves (${calls.length})`);
+  // PIN MOVED (AUDIT GALLEON, the merge with main, 2026-10-02): the Small Ship is Mac's galleon - her box's foot 4.64 m
+  // under the line, where the mod's galleon's stood 3.35
+  const keel = 34 + hullBuild(SMALL_SHIP).keel;
   for (const opts of calls) {
     assert.ok(opts?.boat === boat, 'herself');
-    assert.ok(Math.abs(opts.keelY - 30.646) < 0.15, `her keel, 3.35 m under the line (${opts.keelY})`);
+    assert.ok(Math.abs(opts.keelY - keel) < 0.15, `her keel, ${(-hullBuild(SMALL_SHIP).keel).toFixed(2)} m under the line (${opts.keelY})`);
   }
-  assert.ok(lowest < 30.646 - 0.6, `while her box's lowest corner dipped to ${lowest.toFixed(2)}`);
+  assert.ok(lowest < keel - 0.6, `while her box's lowest corner dipped to ${lowest.toFixed(2)}`);
   // the host: her buckets passed, another boat's swept
   const her = { GameObject: {} }, other = { GameObject: {} };
   let asked = null;
