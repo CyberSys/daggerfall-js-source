@@ -523,8 +523,8 @@
   {
     "name": "WB12d-the-sigil-facing-down",
     "file": "src/world/riteModel.js",
-    "old": "else f.quad(GATE_PLINTH_RECORD, a.p, d.p, c.p, b.p, a.uv, d.uv, c.uv, b.uv);",
-    "new": "else f.quad(GATE_PLINTH_RECORD, a.p, b.p, c.p, d.p, a.uv, b.uv, c.uv, d.uv);",
+    "old": "else f.quad(RITE_SIGIL_RECORD, a.p, d.p, c.p, b.p, a.uv, d.uv, c.uv, b.uv);",
+    "new": "else f.quad(RITE_SIGIL_RECORD, a.p, b.p, c.p, d.p, a.uv, b.uv, c.uv, d.uv);",
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]
@@ -559,8 +559,8 @@
   {
     "name": "WB12d-a-climb-that-wraps-mid-tile",
     "file": "src/render/riteSmoke.js",
-    "old": "export const SMOKE_CLIMB_TILES = 20;",
-    "new": "export const SMOKE_CLIMB_TILES = 25;",
+    "old": "(y - t * ${f1(SMOKE_CLIMB_HEIGHTS[0])}) * per.y)",
+    "new": "(y - t * 1.05) * per.y)",
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]
@@ -586,8 +586,8 @@
   {
     "name": "WB12d-the-colour-unweighted",
     "file": "src/render/riteSmoke.js",
-    "old": "o = vec4(col * a, a);",
-    "new": "o = vec4(col, a);",
+    "old": "* max(uLight, ${f1(SMOKE_LIGHT_MIN)}) * a + glow, a);",
+    "new": "* max(uLight, ${f1(SMOKE_LIGHT_MIN)}) + glow, a);",
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]
@@ -1426,8 +1426,8 @@
   {
     "name": "AUDIT-WB12d-the-sigil-in-the-collider",
     "file": "src/scenes/riteHost.js",
-    "old": "if (sm) col.addMesh(RITE_BUCKET, model.positions, model.indices.subarray(sm.startIndex, sm.startIndex + sm.primitiveCount * 3), mats.stone);",
-    "new": "col.addMesh(RITE_BUCKET, model.positions, model.indices, mats.stone);",
+    "old": "model = buildRiteModel(C.facing, heightAt, { sigil: false });",
+    "new": "model = buildRiteModel(C.facing, heightAt);",
     "tests": [
       "test/wb12d_rite_world.test.js"
     ]
@@ -1739,6 +1739,420 @@
     "new": "m.by.slice(0, RITE_BY_MAX).filter((n) => typeof n === 'string' && n).map(sanitizeName)",
     "tests": [
       "test/wb12d_rite_law.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-wide-foot",
+    "file": "src/render/riteSmoke.js",
+    "old": "export const SMOKE_FOOT_R = 1.2;",
+    "new": "export const SMOKE_FOOT_R = 3;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-fast-swell",
+    "file": "src/render/riteSmoke.js",
+    "old": "export const SMOKE_SWELL = 0.9;",
+    "new": "export const SMOKE_SWELL = 0.6;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-fade-over-metres",
+    "file": "src/render/riteSmoke.js",
+    "old": "smoothstep(0.0, ${f1(SMOKE_FOOT_FADE_M / SMOKE_HEIGHT_M)}, h)",
+    "new": "smoothstep(0.0, 0.02, h)",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-glow-everywhere",
+    "file": "src/render/riteSmoke.js",
+    "old": "exp(-h * ${f1(SMOKE_HEIGHT_M / SMOKE_EMBER_M)})",
+    "new": "pow(1.0 - h, 18.0)",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-glow-through-the-fog",
+    "file": "src/render/riteSmoke.js",
+    "old": "* puff * f * uFade);",
+    "new": "* puff * uFade);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-glow-outlives-the-fade",
+    "file": "src/render/riteSmoke.js",
+    "old": "* puff * f * uFade);",
+    "new": "* puff * f);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-unlit",
+    "file": "src/render/riteSmoke.js",
+    "old": "max(uLight, ${f1(SMOKE_LIGHT_MIN)})",
+    "new": "1.0",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-hole-in-the-night",
+    "file": "src/render/riteSmoke.js",
+    "old": "max(uLight, ${f1(SMOKE_LIGHT_MIN)})",
+    "new": "uLight",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-light-unhanded",
+    "file": "src/render/riteSmoke.js",
+    "old": "gl.uniform1f(U.uLight, Number.isFinite(fog?.light) ? Math.max(0, Math.min(1, fog.light)) : 1);",
+    "new": "gl.uniform1f(U.uLight, 1);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-light-unclamped",
+    "file": "src/render/riteSmoke.js",
+    "old": "Math.max(0, Math.min(1, fog.light))",
+    "new": "fog.light",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-floor-in-all-fog",
+    "file": "src/render/riteSmoke.js",
+    "old": "(uFogMode == 1 ? max(f, ${f1(SMOKE_FOG_FLOOR)}) : f)",
+    "new": "max(f, ${f1(SMOKE_FOG_FLOOR)})",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-one-climb",
+    "file": "src/render/riteSmoke.js",
+    "old": "export const SMOKE_CLIMB_HEIGHTS = Object.freeze([2, 3, 5]);",
+    "new": "export const SMOKE_CLIMB_HEIGHTS = Object.freeze([2, 2, 2]);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-heart-facing-down",
+    "file": "src/world/riteModel.js",
+    "old": "if (ri === 0) f.tri(RITE_SIGIL_RECORD, a.p, d.p, c.p, a.uv, d.uv, c.uv);",
+    "new": "if (ri === 0) f.tri(RITE_SIGIL_RECORD, a.p, c.p, d.p, a.uv, c.uv, d.uv);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-sigil-on-the-plinth",
+    "file": "src/world/gateModel.js",
+    "old": "export const RITE_SIGIL_RECORD = 2;",
+    "new": "export const RITE_SIGIL_RECORD = 1;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-plinth-wears-the-sigil",
+    "file": "src/world/gateArt.js",
+    "old": "export const riteArt = () => [[RITE_SIGIL_RECORD, riteSigilArt()]];",
+    "new": "export const riteArt = () => [[GATE_PLINTH_RECORD, riteSigilArt()]];",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-art-unturned",
+    "file": "src/world/riteModel.js",
+    "old": "uvOf = (x, z) => [0.5 + (x * cf - z * sf) / (2 * RITE_SIGIL_R), 0.5 + (x * sf + z * cf) / (2 * RITE_SIGIL_R)];",
+    "new": "uvOf = (x, z) => [0.5 + x / (2 * RITE_SIGIL_R), 0.5 + z / (2 * RITE_SIGIL_R)];",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-old-reach",
+    "file": "src/world/riteModel.js",
+    "old": "export const RITE_SIGIL_REACH = 0.5;",
+    "new": "export const RITE_SIGIL_REACH = 0.75;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-old-lift",
+    "file": "src/world/riteModel.js",
+    "old": "export const RITE_SIGIL_LIFT = 0.04;",
+    "new": "export const RITE_SIGIL_LIFT = 0.06;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-old-rings",
+    "file": "src/world/riteModel.js",
+    "old": "export const RITE_SIGIL_RINGS = 12;",
+    "new": "export const RITE_SIGIL_RINGS = 6;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-old-segments",
+    "file": "src/world/riteModel.js",
+    "old": "export const RITE_SIGIL_SEGS = 48;",
+    "new": "export const RITE_SIGIL_SEGS = 28;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-one-strip-turned",
+    "file": "src/world/riteModel.js",
+    "old": "u = j * 0.15;",
+    "new": "u = 0;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-sigil-from-anywhere",
+    "file": "src/scenes/riteHost.js",
+    "old": "<= RITE_SIGIL_DRAW_M)) { r.drawMesh(sigilMesh",
+    "new": "<= Infinity)) { r.drawMesh(sigilMesh",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-no-eye-no-sigil",
+    "file": "src/scenes/riteHost.js",
+    "old": "(!eye || Math.hypot(eye[0] - C.heart[0]",
+    "new": "(!!eye && Math.hypot(eye[0] - C.heart[0]",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-old-sigil-leaked",
+    "file": "src/scenes/riteHost.js",
+    "old": "      if (sigilMesh) renderer.destroyMesh?.(sigilMesh);\n",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-sigil-leaked-at-the-going",
+    "file": "src/scenes/riteHost.js",
+    "old": "if (sigilMesh) { renderer?.destroyMesh?.(sigilMesh); sigilMesh = null; }",
+    "new": "if (sigilMesh) { sigilMesh = null; }",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-no-fire-on-the-altar",
+    "file": "src/scenes/riteHost.js",
+    "old": "    pos.push([altar[0], altar[1] + RITE_ALTAR.h, altar[2]]);\n",
+    "new": "",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-altar-s-fire-in-its-stone",
+    "file": "src/scenes/riteHost.js",
+    "old": "altar[1] + RITE_ALTAR.h, altar[2]]",
+    "new": "altar[1], altar[2]]",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-sigil-s-art-never-up",
+    "file": "src/scenes/riteHost.js",
+    "old": "of [...gateArt(), ...riteArt()])",
+    "new": "of gateArt())",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-square-tile",
+    "file": "src/world/gateArt.js",
+    "old": "put(albedo, x, y, CHAR, 0); put(emission, x, y, [0, 0, 0], 0); continue;",
+    "new": "put(albedo, x, y, CHAR); put(emission, x, y, [0, 0, 0]); continue;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-smooth-rim",
+    "file": "src/world/gateArt.js",
+    "old": "if (d > 0.9 + 0.16 * (edge(x, y, S) - 0.5))",
+    "new": "if (d > 0.9)",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-star-turned-from-the-gate",
+    "file": "src/world/gateArt.js",
+    "old": "const a = Math.PI / 2 + (i / 7) * 2 * Math.PI;",
+    "new": "const a = -Math.PI / 2 + (i / 7) * 2 * Math.PI;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-cuts-cold",
+    "file": "src/world/gateArt.js",
+    "old": "put(albedo, px, py, BURNT); put(emission, px, py, glow(1));",
+    "new": "put(albedo, px, py, BURNT); put(emission, px, py, glow(0));",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-world-draws-the-sigil-from-anywhere",
+    "file": "src/scenes/world.js",
+    "old": "riteHost?.draw(renderer, null, mwv.eye);",
+    "new": "riteHost?.draw(renderer);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-world-s-light-unhanded",
+    "file": "src/scenes/world.js",
+    "old": ", light: (renderer._ambient[0] + renderer._ambient[1] + renderer._ambient[2]) / 3 + 0.6 * renderer._sunScale })",
+    "new": " })",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-smooth-cone",
+    "file": "src/render/riteSmoke.js",
+    "old": "(1.0 + ${f1(SMOKE_LUMP)} * (lump - 0.5))",
+    "new": "1.0",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-lumps-of-their-own",
+    "file": "src/render/riteSmoke.js",
+    "old": "uTime / ${f1(SMOKE_CLOCK_PERIOD)} * ${f1(SMOKE_CLIMB_HEIGHTS[0])})",
+    "new": "uTime / ${f1(SMOKE_CLOCK_PERIOD)} * ${f1(SMOKE_CLIMB_HEIGHTS[1])})",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-lumps-off-the-billows",
+    "file": "src/render/riteSmoke.js",
+    "old": "float lump = tnoise(vec2(uv.x * per.x, ",
+    "new": "float lump = tnoise(vec2(uv.x * per.x + 1.0, ",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-axis-s-line-for-its-normal",
+    "file": "src/render/riteSmoke.js",
+    "old": "vNormal = cross(placeAt(aUV + vec2(0.0, e.y)) - placeAt(aUV - vec2(0.0, e.y)), placeAt(aUV + vec2(e.x, 0.0)) - placeAt(aUV - vec2(e.x, 0.0)));",
+    "new": "vNormal = p - axisAt(h);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-thick-edge-on",
+    "file": "src/render/riteSmoke.js",
+    "old": "abs(dot(normalize(vNormal), normalize(uCamPos - vWorld)))",
+    "new": "1.0",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-billows-one-size",
+    "file": "src/render/riteSmoke.js",
+    "old": "float y = log(1.0 + ${f1(SMOKE_BILLOW)} * h) / ${f1(Math.log(1 + SMOKE_BILLOW))};",
+    "new": "float y = h;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-rows-evenly-up",
+    "file": "src/render/riteSmoke.js",
+    "old": "float heightOf(float y) { return (exp(clamp(y, 0.0, 1.0) * ${f1(Math.log(1 + SMOKE_BILLOW))}) - 1.0) / ${f1(SMOKE_BILLOW)}; }",
+    "new": "float heightOf(float y) { return clamp(y, 0.0, 1.0); }",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-shimmer-far-off",
+    "file": "src/render/riteSmoke.js",
+    "old": "per), smoothstep(1.0, 3.0, big))",
+    "new": "per), 1.0)",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-fine-shimmer-far-off",
+    "file": "src/render/riteSmoke.js",
+    "old": "per * 4.0), smoothstep(4.0, 12.0, big))",
+    "new": "per * 4.0), 1.0)",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-a-thin-far-plume",
+    "file": "src/render/riteSmoke.js",
+    "old": "export const SMOKE_LOD_MEAN = 0.58;",
+    "new": "export const SMOKE_LOD_MEAN = 0.5;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-the-pale-floor",
+    "file": "src/render/riteSmoke.js",
+    "old": "export const SMOKE_FOG_FLOOR = 0.6;",
+    "new": "export const SMOKE_FOG_FLOOR = 0.35;",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-WB12d-no-holes",
+    "file": "src/render/riteSmoke.js",
+    "old": "export const SMOKE_COVER = Object.freeze([0.28, 0.7]);",
+    "new": "export const SMOKE_COVER = Object.freeze([0.12, 0.62]);",
+    "tests": [
+      "test/wb12d_rite_world.test.js"
     ]
   }
 ]

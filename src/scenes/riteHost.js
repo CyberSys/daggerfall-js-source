@@ -30,9 +30,8 @@ import { riteLocalOf, riteFaithfulOf, riteStands, riteWindow, RITE_REACH_M, RITE
 import { gateSpotLocal } from '../net/gateLaw.js';
 import { worldRoom, GATE_TOP_MAX } from '../net/wire.js';
 import { riteSiteId } from '../world/wodShared.js';
-import { buildRiteModel, riteLayout, RITE_BRAZIER_H, RITE_BRAZIER_R, RITE_SIGIL_R } from '../world/riteModel.js';
-import { GATE_STONE_RECORD } from '../world/gateModel.js';
-import { gateArt, GATE_ARCHIVE } from '../world/gateArt.js';
+import { buildRiteModel, riteLayout, RITE_BRAZIER_H, RITE_BRAZIER_R, RITE_SIGIL_R, RITE_ALTAR } from '../world/riteModel.js';
+import { gateArt, riteArt, GATE_ARCHIVE } from '../world/gateArt.js';
 import { RiteSmokeRenderer, SMOKE_FADE_MIN } from '../render/riteSmoke.js';
 import { FlatAnim } from '../render/flatAnimation.js';
 import { GLOBAL_SCALE } from '../player/activate.js';
@@ -102,6 +101,9 @@ export const RITE_GROUND_TOL = 0.01;
 export const RITE_BARE_R = RITE_BRAZIER_R + 1;
 /** AUDIT WB12d (G4): the collider's bucket - the altar, the casket and the braziers (the sigil is the ground's). */
 export const RITE_BUCKET = 'wb:rite';
+/** AUDIT WB12d (G6): the sigil is drawn for an eye this near its heart - from further its few centimetres over the
+ *  ground fought the land's depth (the travel view's above all), and the smoke marks the circle from there. */
+export const RITE_SIGIL_DRAW_M = 250;
 /** The hub's broken words kept, by circle. */
 const BROKEN_KEPT = 8;
 
@@ -141,9 +143,9 @@ export function createRiteHost({
 }) {
   /** the day's circle, or null (enter's shape) */
   let C = null;
-  // the art: the stone's model (the collider's too) and its mesh, each made for one ground; the tents' and the fire's
-  // art; the flames; the smoke's pass; the collider stood for one heart
-  let model = null, modelGen = -1, modelFailedGen = -1, mesh = null, meshGen = -1, meshFailedGen = -1, artUp = false;
+  // the art: the stone's model (the collider's too) and the sigil's, and their meshes, each made for one ground; the
+  // tents' and the fire's art; the flames; the smoke's pass; the collider stood for one heart
+  let model = null, sigilModel = null, modelGen = -1, modelFailedGen = -1, mesh = null, sigilMesh = null, meshGen = -1, meshFailedGen = -1, artUp = false;
   let tent = null, tentTried = false;
   let fire = null, fireTried = false, flames = null, flamesGen = -1, flamesList = NONE, anim = null;
   let smokePass = null, smokeTried = false;
@@ -180,8 +182,9 @@ export function createRiteHost({
     if (C?.bared) { placeHeart(); bareSaid(); }   // the grass grows back where it stood - its heart where the scene has it now
     if (flames) { renderer?.destroyBillboardBatch?.(flames); flames = null; flamesList = NONE; }
     if (mesh) { renderer?.destroyMesh?.(mesh); mesh = null; }
+    if (sigilMesh) { renderer?.destroyMesh?.(sigilMesh); sigilMesh = null; }
     if (colliderGen !== -1) { collider?.()?.removeBucket?.(RITE_BUCKET); colliderGen = -1; }
-    model = null; modelGen = modelFailedGen = meshGen = meshFailedGen = flamesGen = -1;
+    model = null; sigilModel = null; modelGen = modelFailedGen = meshGen = meshFailedGen = flamesGen = -1;
     C = null; madeAt = null; mats = null; target = null;
   }
   /** The circle's heart in the scene this frame (a recentre moves it), on its ground - the coarse ground where its pixel is
@@ -368,28 +371,32 @@ export function createRiteHost({
   // ── the art ──
   function ensureModel() {
     if (modelGen === C.groundGen || modelFailedGen === C.groundGen) return;
-    try { model = buildRiteModel(C.facing, heightAt); modelGen = C.groundGen; }
-    catch (e) { console.warn('[rite] the circle would not build', e?.message ?? e); modelFailedGen = C.groundGen; }   // AUDIT WB12d (G18): not again until its ground moves
+    try {
+      model = buildRiteModel(C.facing, heightAt, { sigil: false });
+      sigilModel = buildRiteModel(C.facing, heightAt, { stone: false });
+      modelGen = C.groundGen;
+    } catch (e) { console.warn('[rite] the circle would not build', e?.message ?? e); modelFailedGen = C.groundGen; }   // AUDIT WB12d (G18): not again until its ground moves
   }
   function ensureMesh() {
     if (!model || !renderer?.createMesh || meshGen === modelGen || meshFailedGen === modelGen) return;
     try {
       if (!artUp) {
-        for (const [rec, art] of gateArt()) { renderer.uploadTexture?.(GATE_ARCHIVE, rec, art.albedo); renderer.uploadEmissionTexture?.(GATE_ARCHIVE, rec, art.emission); }
+        for (const [rec, art] of [...gateArt(), ...riteArt()]) { renderer.uploadTexture?.(GATE_ARCHIVE, rec, art.albedo); renderer.uploadEmissionTexture?.(GATE_ARCHIVE, rec, art.emission); }
         artUp = true;
       }
-      const next = renderer.createMesh(model);
+      const next = renderer.createMesh(model), nextSigil = renderer.createMesh(sigilModel);
       if (mesh) renderer.destroyMesh?.(mesh);
-      mesh = next; meshGen = modelGen;
+      if (sigilMesh) renderer.destroyMesh?.(sigilMesh);
+      mesh = next; sigilMesh = nextSigil; meshGen = modelGen;
     } catch (e) { console.warn('[rite] the circle would not build', e?.message ?? e); meshFailedGen = modelGen; }
   }
-  /** AUDIT WB12d (G4): the stone stands in the world - its altar, casket and braziers under the collider's own bucket. */
+  /** AUDIT WB12d (G4): the stone stands in the world - its altar, casket and braziers under the collider's own bucket
+   *  (the sigil is the ground's: its model is apart). */
   function standCollider() {
     const col = collider?.();
     if (!col?.addMesh || !model || colliderGen === C.gen) return;
     col.removeBucket?.(RITE_BUCKET);
-    const sm = model.subMeshes.find((x) => x.textureRecord === GATE_STONE_RECORD);
-    if (sm) col.addMesh(RITE_BUCKET, model.positions, model.indices.subarray(sm.startIndex, sm.startIndex + sm.primitiveCount * 3), mats.stone);
+    col.addMesh(RITE_BUCKET, model.positions, model.indices, mats.stone);
     colliderGen = C.gen;
   }
   function ensureTent() {
@@ -408,11 +415,14 @@ export function createRiteHost({
       fire = { count, size: { w: size.width * GLOBAL_SCALE * 0.8, h: size.height * GLOBAL_SCALE * 0.8 } };
     }).catch(() => {});
   }
-  /** The flames: one on each brazier, and the camp's fire - one batch, stood again with each make. */
+  /** The flames: one on each brazier, one on the altar - the smoke's own fire - and the camp's: one batch, stood again
+   *  with each make. */
   function mountFlames() {
     if (!fire || !renderer?.createBillboardBatch || flamesGen === C.gen) return;
     if (flames) { renderer.destroyBillboardBatch?.(flames); flames = null; flamesList = NONE; }
     const pos = C.layout.braziers.map(([x, z]) => { const p = sceneAt(x, z); return [p[0], p[1] + RITE_BRAZIER_H, p[2]]; });
+    const altar = sceneAt(0, 0);
+    pos.push([altar[0], altar[1] + RITE_ALTAR.h, altar[2]]);
     pos.push(sceneAt(C.layout.fire[0], C.layout.fire[1]));
     flames = renderer.createBillboardBatch(FIRE_FLAT.archive, FIRE_FLAT.record, fire.size, pos);
     flames.frame = 0;
@@ -476,12 +486,14 @@ export function createRiteHost({
     },
     /** Whether the hub said the rite at this circle broken (systems/gateOmen.js: its order is not said then). */
     isBroken: (day, px, py) => brokenWords.has(circleKey(day, px, py)),
-    /** The circle's stone and the tents, in the host's world pass. */
-    draw(r = renderer, texRemap = null) {
+    /** The circle's stone and the tents, in the host's world pass - and its sigil for an eye near it (AUDIT WB12d G6;
+     *  no eye said, it is drawn). */
+    draw(r = renderer, texRemap = null, eye = null) {
       if (!C?.known || !r?.drawMesh) return 0;
       made();
       let n = 0;
       if (mesh) { r.drawMesh(mesh, mats.stone, texRemap); n++; }
+      if (sigilMesh && (!eye || Math.hypot(eye[0] - C.heart[0], eye[1] - C.heart[1], eye[2] - C.heart[2]) <= RITE_SIGIL_DRAW_M)) { r.drawMesh(sigilMesh, mats.stone, texRemap); n++; }
       if (tent) for (const m of mats.tents) { r.drawMesh(tent, m, texRemap); n++; }
       return n;
     },
@@ -533,7 +545,7 @@ export function createRiteHost({
     /** The site of the circle standing now - its faithful are the rite's (AUDIT WB12d C15: the Overworld's mark) - or null. */
     siteNow: () => C?.site ?? null,
     /** The host's state, for the tests and the probes. */
-    state: () => (C ? { day: C.day, site: C.site, heart: C.heart, known: C.known, spawned: C.spawned, pending: C.pending, own: C.ownLive, copies: C.pupLive, struck: !!riteMemory(C.day).struck, fell: !!riteMemory(C.day).fell, broken: !!brokenHere(), passed: C.passed, pile: !!C.pile, mesh: !!mesh, gen: C.gen, groundGen: C.groundGen } : null),
+    state: () => (C ? { day: C.day, site: C.site, heart: C.heart, known: C.known, spawned: C.spawned, pending: C.pending, own: C.ownLive, copies: C.pupLive, struck: !!riteMemory(C.day).struck, fell: !!riteMemory(C.day).fell, broken: !!brokenHere(), passed: C.passed, pile: !!C.pile, mesh: !!mesh, sigil: !!sigilMesh, gen: C.gen, groundGen: C.groundGen } : null),
     destroyAll() { leave(); },
   };
 }

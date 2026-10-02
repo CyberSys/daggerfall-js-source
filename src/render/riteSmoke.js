@@ -1,13 +1,17 @@
 // @ts-check
 // WB12d (2026-10-01, Mac: "faithful and a Summoner"): THE RITE'S SMOKE - a pillar of smoke over the faithful's circle,
-// from the omen until the breach opens, seen across the omen's ring: a dark plume rising from the braziers' glow,
-// widening and leaning as it climbs, billowing upward. Design: bible/11-Multiplayer/World-Bosses.md section 19 D.
+// from the omen until the breach opens, seen across the omen's ring: a dark plume rising from the altar's flame,
+// widening and leaning as it climbs, churning upward. Design: bible/11-Multiplayer/World-Bosses.md section 19 D.
 //
 // The gate's beacon's law (render/gatePass.js): fixed geometry (its column), every placement a uniform, the clock
-// handed wrapped and every rate whole cycles over it - the smoke's noise TILES along the column, and climbs a whole
-// number of tiles over SMOKE_CLOCK_PERIOD, so the wrap never shows. Blended PREMULTIPLIED (ONE, ONE_MINUS_SRC_ALPHA):
-// its alpha is how much sky it hides. Never thinner than a few pixels: far off it widens with its distance, and the
-// fog never takes it below SMOKE_FOG_FLOOR, so a circle a few kilometres off is a dark line on the horizon.
+// handed wrapped and every rate whole cycles over it - the smoke's noise TILES along the column, and each octave climbs
+// a whole number of columns over SMOKE_CLOCK_PERIOD, so the wrap never shows. The column's rows and its noise run on
+// the billows' own height (smokeBillowOf), so its billows grow as they climb, and the biggest bulge its outline
+// (AUDIT WB12d G17). Blended PREMULTIPLIED (ONE,
+// ONE_MINUS_SRC_ALPHA): its alpha is how much sky it hides, and the fire's glow in its foot is light added. Lit as the
+// frame is (AUDIT WB12d G8). Never thinner than a few pixels: far off it widens with its distance, and in a clear day's
+// distance fog it never thins below SMOKE_FOG_FLOOR, so a circle a few kilometres off is a dark line on the horizon -
+// weather's fog takes it whole (AUDIT WB12d G9).
 //
 // Not a DFU member. Ledger A (WB).
 import { FOG_FACTOR_GLSL } from './labGrass.js';
@@ -16,24 +20,53 @@ import { buildProgram } from './glProgram.js';
 /** The clock the smoke is drawn on, seconds, wrapped. */
 export const SMOKE_CLOCK_PERIOD = 120;
 export const smokeClock = (seconds) => ((seconds % SMOKE_CLOCK_PERIOD) + SMOKE_CLOCK_PERIOD) % SMOKE_CLOCK_PERIOD;
-/** The plume: how tall, its radius at the fire and at its top, and how far it leans by its top (metres east, north). */
+/** The plume: how tall, its radius at the fire and at its top, how slowly it swells (the power of its height), and how
+ *  far it leans by its top (metres east, north - the same way every day: no wind is read). AUDIT WB12d (G3): its foot
+ *  the altar's flame's width, swelling slowly - a 3 m foot swelling at the height's 0.6 stood a 9 m funnel round the
+ *  braziers. */
 export const SMOKE_HEIGHT_M = 340;
-export const SMOKE_FOOT_R = 3;
+export const SMOKE_FOOT_R = 1.2;
 export const SMOKE_TOP_R = 70;
+export const SMOKE_SWELL = 0.9;
 export const SMOKE_LEAN = Object.freeze([60, 24]);
 /** The column's rings round and up (a plume's swell needs its rows - a beacon's two make a cone). */
 export const SMOKE_SEGMENTS = 24;
 export const SMOKE_ROWS = 40;
-/** Its noise's tiles round the column and up it, and how many tiles it climbs over the clock's period (whole). */
+/** Its noise's tiles round the column and up it, and AUDIT WB12d (G17) the columns each octave climbs over the clock's
+ *  period (whole, so the wrap never shows): the big billows slow, the fine faster - a plume churning as it rises, where
+ *  one sheet of noise slid up it whole at 5.7 m/s. */
 export const SMOKE_TILES_AROUND = 4;
 export const SMOKE_TILES_UP = 10;
-export const SMOKE_CLIMB_TILES = 20;
-/** How dark, how thick, the ember's glow at its foot, the least of it the fog may leave, its widening a metre away. */
+export const SMOKE_CLIMB_HEIGHTS = Object.freeze([2, 3, 5]);
+/** AUDIT WB12d (G17): the billows grow as they climb, each about as tall as it is wide - the noise's height runs on
+ *  log(1 + SMOKE_BILLOW h) - where cells 34 m tall stood up a column 2 m wide and drew a searchlight's streaks. */
+export const SMOKE_BILLOW = 20;
+/** The billows' height at a height up the column (both 0..1), and its inverse - the column's rows run on it, close at
+ *  the fire and far apart at the top. Pure. */
+export const smokeBillowOf = (h) => Math.log(1 + SMOKE_BILLOW * h) / Math.log(1 + SMOKE_BILLOW);
+export const smokeHeightOf = (y) => (Math.exp(y * Math.log(1 + SMOKE_BILLOW)) - 1) / SMOKE_BILLOW;
+/** AUDIT WB12d (G17): how far its biggest billows bulge out of its outline (a share of its radius, either way) - a smooth
+ *  cone's edge read as a funnel. */
+export const SMOKE_LUMP = 0.6;
+/** AUDIT WB12d (G9): each octave fades to SMOKE_LOD_MEAN as its billows shrink under SMOKE_LOD_RAD (radians, about 3
+ *  pixels on a wide view) - no shimmer far off, and a little over the noise's own mean, so a far plume reads thick; and
+ *  the noise's thin and thick edges, where it begins to hide the sky and where it hides it all. */
+export const SMOKE_LOD_RAD = 0.003;
+export const SMOKE_LOD_MEAN = 0.58;
+export const SMOKE_COVER = Object.freeze([0.28, 0.7]);
+/** How dark, how thick, the least of it a clear day's distance fog may leave, its widening a metre away. */
 export const SMOKE_COLOR = Object.freeze([0.11, 0.1, 0.095]);
-export const SMOKE_EMBER = Object.freeze([0.85, 0.28, 0.08]);
 export const SMOKE_ALPHA = 0.95;
-export const SMOKE_FOG_FLOOR = 0.35;
+export const SMOKE_FOG_FLOOR = 0.6;
 export const SMOKE_WIDEN = 0.007;
+/** AUDIT WB12d (G3): it fades in over its first metre - the flame's - and the fire glows in it over its first few
+ *  metres (the glow falls by e every SMOKE_EMBER_M): light added, never the smoke's own colour. */
+export const SMOKE_FOOT_FADE_M = 1;
+export const SMOKE_EMBER = Object.freeze([0.85, 0.28, 0.08]);
+export const SMOKE_EMBER_M = 2.5;
+export const SMOKE_GLOW = 1.4;
+/** AUDIT WB12d (G8): the least of the frame's light it takes - the night darkens it, never to a hole in the sky. */
+export const SMOKE_LIGHT_MIN = 0.06;
 /** The most pillars a frame draws (its host stands one circle at a time - AUDIT WB12d D21: no day's pillar beside another's). */
 export const SMOKE_MAX = 2;
 /** AUDIT WB12d (G14): THE ONE THRESHOLD - a pillar this faint or fainter is not drawn, and its host says it is not
@@ -50,36 +83,7 @@ uniform vec3 uCamPos;
 `;
 const f1 = (v) => Number(v).toFixed(4);
 const v3 = (a) => `vec3(${a.map(f1).join(', ')})`;
-
-export const SMOKE_VS = HEAD + `layout(location = 0) in vec2 aUV;   // x around 0..1, y up 0..1
-uniform mat4 uVP;
-uniform vec3 uOrigin;   // the circle's heart, on its ground
-uniform vec3 uEye;
-out vec2 vUV;
-out vec3 vWorld;
-out vec3 vAxis;
-void main() {
-  float a = aUV.x * 6.283185307179586;
-  float h = aUV.y;
-  // a plume: narrow at the fire, swelling as it climbs, billowed in three slow bulges
-  float r = mix(${f1(SMOKE_FOOT_R)}, ${f1(SMOKE_TOP_R)}, pow(h, 0.6)) * (0.88 + 0.12 * sin(h * 18.0 + aUV.x * 6.283185307179586));
-  float rad = max(r, length(uEye.xz - uOrigin.xz) * ${f1(SMOKE_WIDEN)});
-  vec3 axis = uOrigin + vec3(${f1(SMOKE_LEAN[0])} * h * h, h * ${f1(SMOKE_HEIGHT_M)}, ${f1(SMOKE_LEAN[1])} * h * h);
-  vec3 p = axis + vec3(cos(a) * rad, 0.0, sin(a) * rad);
-  vUV = aUV;
-  vWorld = p;
-  vAxis = axis;
-  gl_Position = uVP * vec4(p, 1.0);
-}`;
-
-export const SMOKE_FS = HEAD + `in vec2 vUV;
-in vec3 vWorld;
-in vec3 vAxis;
-uniform float uTime;
-uniform float uFade;
-${FOG_UNIFORMS}out vec4 o;
-${FOG_FACTOR_GLSL}
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+const NOISE = `float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // value noise on a lattice that TILES: per's cells round and up, so the column's seam and the clock's wrap are seamless
 float tnoise(vec2 q, vec2 per) {
   vec2 i = floor(q), f = fract(q);
@@ -88,20 +92,79 @@ float tnoise(vec2 q, vec2 per) {
   float c = hash(mod(i + vec2(0.0, 1.0), per)), d = hash(mod(i + vec2(1.0, 1.0), per));
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
-void main() {
-  float h = vUV.y;
-  float climb = uTime * ${f1(SMOKE_CLIMB_TILES / SMOKE_CLOCK_PERIOD)};
+`;
+
+export const SMOKE_VS = HEAD + `layout(location = 0) in vec2 aUV;   // x around 0..1, y up the billows' height 0..1
+uniform mat4 uVP;
+uniform vec3 uOrigin;   // the circle's heart, on its ground
+uniform vec3 uEye;
+uniform float uTime;
+out vec2 vUV;
+out vec3 vWorld;
+out vec3 vNormal;
+out float vRad;
+${NOISE}// the column's height up it (0..1) at a row's place on the billows' height: close at the fire, far apart at the top
+float heightOf(float y) { return (exp(clamp(y, 0.0, 1.0) * ${f1(Math.log(1 + SMOKE_BILLOW))}) - 1.0) / ${f1(SMOKE_BILLOW)}; }
+vec3 axisAt(float h) { return uOrigin + vec3(${f1(SMOKE_LEAN[0])} * h * h, h * ${f1(SMOKE_HEIGHT_M)}, ${f1(SMOKE_LEAN[1])} * h * h); }
+// its radius there: the flame's width at its foot, swelling slowly as it climbs, its biggest billows bulging out of it as
+// they rise - the smoke's own first octave, so the outline swells where the smoke is thick (AUDIT WB12d G17) - and never
+// thinner than a few pixels far off
+float radiusAt(vec2 uv) {
   vec2 per = vec2(${f1(SMOKE_TILES_AROUND)}, ${f1(SMOKE_TILES_UP)});
-  vec2 q = vec2(vUV.x * per.x, h * per.y - climb);
-  float n = 0.55 * tnoise(q, per) + 0.3 * tnoise(q * 2.0, per * 2.0) + 0.15 * tnoise(q * 4.0, per * 4.0);
-  // thick where the eye looks through the plume's heart, thin at its edge
-  float core = smoothstep(0.0, 0.55, abs(dot(normalize(vWorld - vAxis), normalize(uCamPos - vWorld))));
-  float body = smoothstep(0.0, 0.02, h) * (1.0 - smoothstep(0.5, 1.0, h));
-  float a = clamp(smoothstep(0.2, 0.75, n) * core * body * ${f1(SMOKE_ALPHA)}, 0.0, 1.0);
-  vec3 col = mix(${v3(SMOKE_COLOR)}, ${v3(SMOKE_EMBER)}, pow(1.0 - h, 18.0) * 0.9);
-  float fog = max(fogFactorAt(vWorld), ${f1(SMOKE_FOG_FLOOR)});
-  a *= fog * uFade;
-  o = vec4(col * a, a);
+  float lump = tnoise(vec2(uv.x * per.x, (clamp(uv.y, 0.0, 1.0) - uTime / ${f1(SMOKE_CLOCK_PERIOD)} * ${f1(SMOKE_CLIMB_HEIGHTS[0])}) * per.y), per);
+  float r = mix(${f1(SMOKE_FOOT_R)}, ${f1(SMOKE_TOP_R)}, pow(heightOf(uv.y), ${f1(SMOKE_SWELL)})) * (1.0 + ${f1(SMOKE_LUMP)} * (lump - 0.5));
+  return max(r, length(uEye.xz - uOrigin.xz) * ${f1(SMOKE_WIDEN)});
+}
+vec3 placeAt(vec2 uv) {
+  float a = uv.x * 6.283185307179586;
+  return axisAt(heightOf(uv.y)) + vec3(cos(a), 0.0, sin(a)) * radiusAt(uv);
+}
+void main() {
+  float h = heightOf(aUV.y), a = aUV.x * 6.283185307179586, rad = radiusAt(aUV);
+  vec3 p = axisAt(h) + vec3(cos(a), 0.0, sin(a)) * rad;
+  // its own surface's normal, the bulges' slopes and all (AUDIT WB12d G17: the axis's outward line folded a bulge's
+  // flank into a hard ring)
+  vec2 e = vec2(${f1(0.25 / SMOKE_SEGMENTS)}, ${f1(0.25 / SMOKE_ROWS)});
+  vNormal = cross(placeAt(aUV + vec2(0.0, e.y)) - placeAt(aUV - vec2(0.0, e.y)), placeAt(aUV + vec2(e.x, 0.0)) - placeAt(aUV - vec2(e.x, 0.0)));
+  vUV = vec2(aUV.x, h);
+  vWorld = p;
+  vRad = rad;
+  gl_Position = uVP * vec4(p, 1.0);
+}`;
+
+export const SMOKE_FS = HEAD + `in vec2 vUV;
+in vec3 vWorld;
+in vec3 vNormal;
+in float vRad;
+uniform float uTime;
+uniform float uFade;
+uniform float uLight;   // the frame's light on it, 0..1
+${FOG_UNIFORMS}out vec4 o;
+${FOG_FACTOR_GLSL}
+${NOISE}void main() {
+  float h = vUV.y;
+  float t = uTime / ${f1(SMOKE_CLOCK_PERIOD)};   // the clock's period, 0..1
+  vec2 per = vec2(${f1(SMOKE_TILES_AROUND)}, ${f1(SMOKE_TILES_UP)});
+  // the billows grow as they climb (AUDIT WB12d G17): the noise's height, and how fast it runs here
+  float y = log(1.0 + ${f1(SMOKE_BILLOW)} * h) / ${f1(Math.log(1 + SMOKE_BILLOW))};
+  float dy = ${f1(SMOKE_BILLOW / Math.log(1 + SMOKE_BILLOW))} / (1.0 + ${f1(SMOKE_BILLOW)} * h);
+  // the coarsest billow here against the eye's few pixels at its distance (AUDIT WB12d G9)
+  float big = min(6.2831853 * vRad / per.x, ${f1(SMOKE_HEIGHT_M)} / (per.y * dy)) / max(length(uCamPos - vWorld) * ${f1(SMOKE_LOD_RAD)}, 1e-4);
+  // each octave its own climb, a whole number of columns a period (AUDIT WB12d G17), and its mean once too fine to see
+  float n = 0.5 * mix(${f1(SMOKE_LOD_MEAN)}, tnoise(vec2(vUV.x * per.x, (y - t * ${f1(SMOKE_CLIMB_HEIGHTS[0])}) * per.y), per), smoothstep(1.0, 3.0, big))
+          + 0.3 * mix(${f1(SMOKE_LOD_MEAN)}, tnoise(vec2(vUV.x * per.x * 2.0, (y - t * ${f1(SMOKE_CLIMB_HEIGHTS[1])}) * per.y * 2.0), per * 2.0), smoothstep(2.0, 6.0, big))
+          + 0.2 * mix(${f1(SMOKE_LOD_MEAN)}, tnoise(vec2(vUV.x * per.x * 4.0, (y - t * ${f1(SMOKE_CLIMB_HEIGHTS[2])}) * per.y * 4.0), per * 4.0), smoothstep(4.0, 12.0, big));
+  // thick where the eye looks through the plume's heart, thin where its surface turns edge on
+  float core = smoothstep(0.0, 0.55, abs(dot(normalize(vNormal), normalize(uCamPos - vWorld))));
+  float puff = smoothstep(${f1(SMOKE_COVER[0])}, ${f1(SMOKE_COVER[1])}, n) * core;
+  float body = smoothstep(0.0, ${f1(SMOKE_FOOT_FADE_M / SMOKE_HEIGHT_M)}, h) * (1.0 - smoothstep(0.5, 1.0, h));
+  float a = clamp(puff * body * ${f1(SMOKE_ALPHA)}, 0.0, 1.0);
+  // the floor in a clear day's distance alone - weather's fog takes it whole (AUDIT WB12d G9)
+  float f = fogFactorAt(vWorld);
+  a *= (uFogMode == 1 ? max(f, ${f1(SMOKE_FOG_FLOOR)}) : f) * uFade;
+  // lit as the frame is (AUDIT WB12d G8); the fire under it a glow in its first metres, light added (G3)
+  vec3 glow = ${v3(SMOKE_EMBER)} * (${f1(SMOKE_GLOW)} * exp(-h * ${f1(SMOKE_HEIGHT_M / SMOKE_EMBER_M)}) * puff * f * uFade);
+  o = vec4(${v3(SMOKE_COLOR)} * max(uLight, ${f1(SMOKE_LIGHT_MIN)}) * a + glow, a);
 }`;
 
 /** The plume's column, (around, up) pairs, two triangles a cell. Pure. */
@@ -137,7 +200,7 @@ export class RiteSmokeRenderer {
     this.gl = gl;
     this.program = buildProgram(gl, SMOKE_VS, SMOKE_FS, 'rite smoke');
     this.u = {};
-    for (const n of ['uVP', 'uOrigin', 'uEye', 'uTime', 'uFade', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
+    for (const n of ['uVP', 'uOrigin', 'uEye', 'uTime', 'uFade', 'uLight', 'uFogMode', 'uFogDensity', 'uFogRange', 'uCamPos', 'uFocus']) this.u[n] = gl.getUniformLocation(this.program, n);
     const verts = smokeVertices();
     this.vao = gl.createVertexArray();
     gl.bindVertexArray(this.vao);
@@ -153,7 +216,8 @@ export class RiteSmokeRenderer {
 
   /**
    * Draw the pillars: `smokes` [{ origin: [x, y, z] the circle's heart on its ground, fade 0..1 }] (at most SMOKE_MAX,
-   * the faded skipped), `eye` the view's own eye, `seconds` any clock (wrapped here), `fog` the frame's fog.
+   * the faded skipped), `eye` the view's own eye, `seconds` any clock (wrapped here), `fog` the frame's fog - and its
+   * `light`, the frame's light on the smoke 0..1 (render/rainCurtains.js's: the ambient and the sun's share).
    */
   draw(smokes, proj, view, eye, seconds, fog = null) {
     this.drawn = 0;
@@ -168,6 +232,7 @@ export class RiteSmokeRenderer {
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(U.uVP, false, this._vp);
     gl.uniform1f(U.uTime, smokeClock(seconds));
+    gl.uniform1f(U.uLight, Number.isFinite(fog?.light) ? Math.max(0, Math.min(1, fog.light)) : 1);
     gl.uniform3fv(U.uEye, eye ?? fog?.camPos ?? ORIGIN);
     gl.uniform1i(U.uFogMode, fog ? fog.mode : 0);
     gl.uniform1f(U.uFogDensity, fog?.density ?? 0);

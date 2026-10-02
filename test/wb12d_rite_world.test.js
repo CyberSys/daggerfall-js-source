@@ -10,14 +10,19 @@ import { readFileSync } from 'node:fs';
 import {
   createRiteHost, RITE_TEXT, RITE_SPRING_M, RITE_SIGHT_M, RITE_ALERT_M, RITE_CHEST_SEED_M, RITE_SMOKE_IN_MS, RITE_SMOKE_OUT_MS,
   RITE_SAY_REACH_M, RITE_RESAY_MS, RITE_ORPHAN_MS, RITE_RESTAND_MS, RITE_TEND_M, RITE_LIGHT_REACH_M, RITE_GLOW_RANGE, RITE_BARE_R,
-  RITE_BUCKET, RITE_GROUND_EVERY,
+  RITE_BUCKET, RITE_GROUND_EVERY, RITE_SIGIL_DRAW_M,
 } from '../src/scenes/riteHost.js';
 import { riteLocalOf, riteFaithfulOf, RITE_REACH_M, RITE_WORD_MS, RITE_SUMMONER_CAREER, RITE_HELPERS_MAX } from '../src/net/gateRite.js';
 import { gateTimes, gateSpotLocal, gateModsOf, gateBossOf, marksLine, omenLine, GATE_COLLAPSE_MS } from '../src/net/gateLaw.js';
 import { worldRoom, validRiteOut, RITE_COUNT_MAX, RITE_BY_MAX } from '../src/net/wire.js';
-import { riteLayout, buildRiteModel, RITE_BRAZIERS, RITE_BRAZIER_R, RITE_RING_R, RITE_TENT_R, RITE_SIGIL_LIFT, RITE_SIGIL_REACH, RITE_SIGIL_R } from '../src/world/riteModel.js';
-import { GATE_PLINTH_RECORD, GATE_STONE_RECORD } from '../src/world/gateModel.js';
-import { RiteSmokeRenderer, SMOKE_FS, SMOKE_CLIMB_TILES, SMOKE_TILES_UP, SMOKE_SEGMENTS, SMOKE_ROWS, SMOKE_MAX, SMOKE_FADE_MIN, smokeVertices } from '../src/render/riteSmoke.js';
+import { riteLayout, buildRiteModel, RITE_BRAZIERS, RITE_BRAZIER_R, RITE_BRAZIER_W, RITE_RING_R, RITE_TENT_R, RITE_SIGIL_LIFT, RITE_SIGIL_REACH, RITE_SIGIL_R, RITE_ALTAR } from '../src/world/riteModel.js';
+import { GATE_PLINTH_RECORD, GATE_STONE_RECORD, RITE_SIGIL_RECORD, GATE_ARCHIVE } from '../src/world/gateModel.js';
+import { riteSigilArt, RITE_SIGIL_ART_SIZE } from '../src/world/gateArt.js';
+import { glslFunctions } from './glsl.mjs';
+import {
+  RiteSmokeRenderer, SMOKE_VS, SMOKE_FS, SMOKE_SEGMENTS, SMOKE_ROWS, SMOKE_MAX, SMOKE_FADE_MIN, SMOKE_FOOT_R, SMOKE_HEIGHT_M, SMOKE_COLOR, SMOKE_FOG_FLOOR,
+  SMOKE_LIGHT_MIN, SMOKE_CLOCK_PERIOD, SMOKE_CLIMB_HEIGHTS, SMOKE_LEAN, SMOKE_TOP_R, SMOKE_SWELL, smokeBillowOf, smokeHeightOf, smokeVertices,
+} from '../src/render/riteSmoke.js';
 import { riteChestItems, riteChestOpened, markRiteChest, riteMemory, RITE_REAGENTS, RITE_HEART, RITE_BRAND_SET, RITE_CHEST_SAVE_VENDOR, RITE_DAY_SAVE_VENDOR } from '../src/systems/riteChest.js';
 import { restoreModSaveRecords, modSaveRecords } from '../src/systems/modSaveData.js';
 import { spoilsList, createSpoilsPool, SPOILS_TEXT } from '../src/scenes/spoilsPool.js';
@@ -56,7 +61,7 @@ function rig(over = {}, { keep = false } = {}) {
   let clock = T.omenAt + 60_000, feetAt = null;
   const r = {
     spawned: [], dropped: [], removed: [], reclaimed: [], words: [], said: [], near: [], sprung: [], unsprung: [], forgot: [], foes: [],
-    peer: new Set(), heard: new Map(), struck: new Map(), piles: [], bare: [], meshes: [], destroyed: [], batches: [], unbatched: [], buckets: [], unbucketed: [],
+    peer: new Set(), heard: new Map(), struck: new Map(), piles: [], bare: [], meshes: [], destroyed: [], batches: [], unbatched: [], buckets: [], unbucketed: [], uploads: [], drawn: [],
   };
   let spawnOk = true;
   r.host = createRiteHost({
@@ -96,7 +101,8 @@ function art(r) {
   let n = 0;
   return {
     renderer: {
-      createMesh: (m) => { const mesh = { id: ++n, m }; r.meshes.push(mesh); return mesh; }, destroyMesh: (m) => r.destroyed.push(m), drawMesh: () => {},
+      createMesh: (m) => { const mesh = { id: ++n, m }; r.meshes.push(mesh); return mesh; }, destroyMesh: (m) => r.destroyed.push(m), drawMesh: (m, mat) => r.drawn.push(m),
+      uploadTexture: (ar, rec, img) => r.uploads.push([ar, rec, img.width]),
       createBillboardBatch: (a, rec, size, pos) => { const b = { pos }; r.batches.push(b); return b; }, destroyBillboardBatch: (b) => r.unbatched.push(b),
     },
     collider: () => ({ addMesh: (k, pos, idx, m) => r.buckets.push({ k, pos, idx, m }), removeBucket: (k) => r.unbucketed.push(k) }),
@@ -487,11 +493,11 @@ test('WB12d what a frame pays for (AUDIT WB C7, AUDIT WB12d C13, G7): no circle,
   r.at(5);
   r.host.frame(); r.host.draw(); r.host.frame(); r.host.draw();
   assert.equal(r.host.targets(), tg, 'one target while the heart stands still');
-  assert.equal(drawn.length, 2);
-  assert.equal(drawn[0], drawn[1], 'one matrix');
+  assert.equal(drawn.length, 4, 'the stone and the sigil, twice');
+  assert.ok(drawn.every((m) => m === drawn[0]), 'one matrix');
   t0 = [512, 0, 0]; r.host.frame(); r.host.draw();
   assert.notEqual(r.host.targets(), tg, 'moved: made again');
-  assert.ok(Math.abs(drawn[2][12] - drawn[1][12] - 512) < 1e-3, 'with the heart');
+  assert.ok(Math.abs(drawn[4][12] - drawn[3][12] - 512) < 1e-3, 'with the heart');
   r.put(E + 512 + 5, N);
   assert.equal(r.host.lights()[0].x, E + 512, 'the lights with it');
 });
@@ -502,25 +508,34 @@ test('AUDIT WB12d (G1, G4, G18, C10): the stone is made again when its ground mo
   const a = art(r);
   const h = createRiteHost({ ...a, now: () => r.now(), omen: () => ({ site: SITE }), pixelTranslation: () => t0, feet: () => [E + t0[0] + 5, 0, N], groundAt: (x, z) => (Math.hypot(x - E - t0[0], z - N - t0[2]) > 7 ? lift : 0) });   // the land rides the scene's frame
   h.frame(); await settle(); h.frame();
-  assert.equal(r.meshes.length, 1);
+  assert.equal(r.meshes.length, 2, 'the stone and the sigil');
+  assert.ok(r.meshes[0].m.subMeshes.every((s) => s.textureRecord === GATE_STONE_RECORD), 'the stone');
+  assert.ok(r.meshes[1].m.subMeshes.every((s) => s.textureRecord === RITE_SIGIL_RECORD), 'the sigil, apart');
+  const up = r.uploads.filter(([ar]) => ar === GATE_ARCHIVE);
+  assert.deepEqual(up.map(([, rec, w]) => [rec, w]), [[GATE_STONE_RECORD, 64], [GATE_PLINTH_RECORD, 64], [RITE_SIGIL_RECORD, RITE_SIGIL_ART_SIZE]], 'its art up once, the sigil\'s own with it');
+  assert.equal(new Set(up.map(([, rec]) => rec)).size, up.length, 'each art its own record - the gate\'s plinth never wears the sigil');
   assert.equal(r.batches.length, 1, 'the flames');
+  const flames = r.batches[0].pos, L = riteLayout(FACING);
+  assert.equal(flames.length, RITE_BRAZIERS + 2, 'a flame on each brazier, on the altar - the smoke\'s own fire - and the camp\'s');
+  assert.deepEqual(flames[RITE_BRAZIERS].map((v) => +v.toFixed(6)), [+E.toFixed(6), +RITE_ALTAR.h.toFixed(6), +N.toFixed(6)], 'the altar\'s on its top, under the smoke');
+  assert.ok(Math.abs(flames.at(-1)[0] - (E + L.fire[0])) < 1e-9, 'the camp\'s at its fire');
   assert.equal(r.buckets.length, 1);
-  const bk = r.buckets[0], stone = r.meshes[0].m.subMeshes.find((s) => s.textureRecord === GATE_STONE_RECORD);
+  const bk = r.buckets[0];
   assert.equal(bk.k, RITE_BUCKET);
-  assert.equal(bk.idx.length, stone.primitiveCount * 3, 'the stone alone - the sigil is the ground\'s');
+  assert.equal(bk.idx.length, buildRiteModel(FACING, () => 0, { sigil: false }).indices.length, 'the stone alone - the sigil is the ground\'s');
   assert.ok(Math.abs(bk.m[12] - E) < 1e-3, 'at the heart');
   for (let i = 0; i < RITE_GROUND_EVERY * 2; i++) h.frame();
-  assert.equal(r.meshes.length, 1, 'still ground: one mesh');
+  assert.equal(r.meshes.length, 2, 'still ground: one make');
   lift = 0.5;
   for (let i = 0; i < RITE_GROUND_EVERY; i++) h.frame();
-  assert.equal(r.meshes.length, 2, 'new ground: made again');
-  assert.deepEqual(r.destroyed, [r.meshes[0]], 'the old one freed');
-  assert.ok(r.meshes[1].m.positions.some((v, i) => i % 3 === 1 && v > 0.4), 'on the new ground');
+  assert.equal(r.meshes.length, 4, 'new ground: made again');
+  assert.deepEqual(r.destroyed, [r.meshes[0], r.meshes[1]], 'the old ones freed');
+  assert.ok(r.meshes[2].m.positions.some((v, i) => i % 3 === 1 && v > 0.4), 'on the new ground');
   assert.equal(r.batches.length, 2, 'the flames stood again');
   assert.deepEqual(r.unbatched, [r.batches[0]]);
   assert.equal(r.buckets.length, 2, 'the collider stood again');
   t0 = [256, 0, 0]; h.frame();
-  assert.equal(r.meshes.length, 2, 'a recentre: no new mesh');
+  assert.equal(r.meshes.length, 4, 'a recentre: no new mesh');
   assert.ok(Math.abs(r.buckets.at(-1).m[12] - (E + 256)) < 1e-3, 'the collider with the heart');
   assert.equal(r.batches.length, 3);
   // a throw: not again until the ground moves
@@ -533,7 +548,7 @@ test('AUDIT WB12d (G1, G4, G18, C10): the stone is made again when its ground mo
   const removedBefore = r.unbucketed.length;
   r.set(T.wrathAt + GATE_COLLAPSE_MS); h.frame();
   assert.deepEqual(r.unbucketed.slice(removedBefore), [RITE_BUCKET], 'its collider taken down');
-  assert.ok(r.destroyed.includes(r.meshes[1]), 'the mesh freed');
+  assert.ok(r.destroyed.includes(r.meshes[2]) && r.destroyed.includes(r.meshes[3]), 'the meshes freed');
   assert.ok(r.unbatched.includes(r.batches.at(-1)), 'the flames');
 });
 
@@ -576,7 +591,7 @@ test('AUDIT WB12d (G2): the burned earth - the circle says where no grass grows 
 
 test('WB12d the circle\'s stone: the sigil faces up and rides the land - over the ground everywhere, a fold of it too; the altar, the casket and the braziers sunk at their lowest corner on a slope; six braziers ring it, the faithful\'s ring leaves its gap toward the gate and their camp stands behind (mutants: the sigil under the land; standing on air)', () => {
   const facing = 0.9;
-  const sigilOf = (m) => m.subMeshes.find((s) => s.textureRecord === GATE_PLINTH_RECORD);
+  const sigilOf = (m) => m.subMeshes.find((s) => s.textureRecord === RITE_SIGIL_RECORD);
   const tris = (m, sm) => Array.from({ length: sm.primitiveCount }, (_, t) => [0, 1, 2].map((k) => { const i = (sm.startIndex + t * 3 + k) * 3; return [m.positions[i], m.positions[i + 1], m.positions[i + 2]]; }));
   const slope = (x, z) => 0.1 * x - 0.05 * z;
   const m = buildRiteModel(facing, slope);
@@ -596,12 +611,25 @@ test('WB12d the circle\'s stone: the sigil faces up and rides the land - over th
     }
   }
   assert.ok(worst > 0, `the land shows through the sigil by ${-worst} m`);
+  let span = 0;
+  for (const t of tris(m, sig)) for (let k = 0; k < 3; k++) span = Math.max(span, Math.hypot(t[k][0] - t[(k + 1) % 3][0], t[k][2] - t[(k + 1) % 3][2]));
+  assert.ok(span <= 2 * RITE_SIGIL_REACH, `no two of its points further apart than twice its reach (${span})`);
+  // AUDIT WB12d (G19): each of a brazier's six faces its own strip of the stone
+  const flat = buildRiteModel(facing, () => 0, { sigil: false }), st = flat.subMeshes[0];
+  for (const [bx, bz] of riteLayout(facing).braziers) {
+    const strips = new Set();
+    for (const [t, tri] of tris(flat, st).entries()) {
+      if (!tri.every(([x, , z]) => Math.hypot(x - bx, z - bz) <= RITE_BRAZIER_W + 1e-5) || Math.abs(flat.normals[(st.startIndex + t * 3) * 3 + 1]) > 1e-6) continue;
+      strips.add(Math.min(...[0, 1, 2].map((k) => flat.uvs[(st.startIndex + t * 3 + k) * 2])).toFixed(4));
+    }
+    assert.equal(strips.size, 6, `a brazier's faces each their own strip (${[...strips]})`);
+  }
   const steep = (x, z) => 0.8 * x + 0.5 * z;
   const sm = buildRiteModel(facing, steep);
   const L = riteLayout(facing);
   const parts = [[L.altar.x, L.altar.z, 1.1], [L.casket.x, L.casket.z, 0.6], ...L.braziers.map(([x, z]) => [x, z, 0.4])];
   const footed = (model, ground, list) => {
-    const st = model.subMeshes.find((s) => s.textureRecord !== GATE_PLINTH_RECORD);
+    const st = model.subMeshes.find((s) => s.textureRecord !== RITE_SIGIL_RECORD);
     for (const [px, pz, rr] of list) {
       const vs = tris(model, st).flat().filter(([x, , z]) => Math.hypot(x - px, z - pz) <= rr);
       const low = Math.min(...vs.map(([, y]) => y));
@@ -621,6 +649,47 @@ test('WB12d the circle\'s stone: the sigil faces up and rides the land - over th
   assert.ok(Math.sin(facing) * L.fire[0] + Math.cos(facing) * L.fire[1] < 0, 'the camp\'s fire behind too');
 });
 
+test('AUDIT WB12d (G5, G6, G11): the sigil - its own art, burned earth ragged at its rim (the land shows past it), the star\'s first point and every cut smouldering; turned with the altar, that point toward the gate; laid close over a slope; built apart from the stone and drawn for an eye within 250 m alone (mutants: the plinth\'s flags; a square tile; the art unturned; the old drape; the sigil from anywhere)', () => {
+  const { albedo, emission } = riteSigilArt(), S = RITE_SIGIL_ART_SIZE, c = (S - 1) / 2;
+  const px = (x, y) => { const i = (Math.round(y) * S + Math.round(x)) * 4; return { a: albedo.colors[i + 3], glow: emission.colors[i] }; };
+  assert.equal(px(0, 0).a, 0, 'no square tile: its corners clear');
+  assert.equal(px(c, c * 0.02).a, 0, 'past its ragged rim, the land');
+  assert.equal(px(c + c * 0.5, c).a, 255, 'burned earth within');
+  let rimR = [];
+  for (let k = 0; k < 64; k++) { const a = (k / 64) * 2 * Math.PI; let r = 0; while (r < c && px(c + Math.cos(a) * r, c + Math.sin(a) * r).a) r += 0.5; rimR.push(r / c); }
+  assert.ok(Math.max(...rimR) - Math.min(...rimR) > 0.05, `its rim ragged (${Math.min(...rimR).toFixed(2)}-${Math.max(...rimR).toFixed(2)})`);
+  assert.ok(px(c, c + 0.64 * c).glow > 100 && px(c, c - 0.64 * c).glow < 50, 'the star\'s first point at +v, smouldering - and none opposite it');
+  const lit = [...Array(S * S).keys()].filter((i) => emission.colors[i * 4] > 100).length;
+  assert.ok(lit > S * S * 0.05 && lit < S * S * 0.2, `its cuts (${lit})`);
+  // turned with the altar: the art's +v runs toward the gate, so its star's first point is the one nearest the gate
+  const facing = 0.9, m = buildRiteModel(facing, () => 0, { stone: false });
+  assert.ok(m.subMeshes.length === 1 && m.subMeshes[0].textureRecord === RITE_SIGIL_RECORD, 'the sigil alone');
+  assert.ok(buildRiteModel(facing, () => 0, { sigil: false }).subMeshes.every((sm) => sm.textureRecord === GATE_STONE_RECORD), 'the stone alone');
+  const g = [Math.sin(facing), Math.cos(facing)], side = [g[1], -g[0]];
+  let worst = 0;
+  for (let v = 0; v < m.positions.length / 3; v++) {
+    const x = m.positions[v * 3], z = m.positions[v * 3 + 2];
+    worst = Math.max(worst, Math.abs(m.uvs[v * 2 + 1] - 0.5 - (x * g[0] + z * g[1]) / (2 * RITE_SIGIL_R)), Math.abs(m.uvs[v * 2] - 0.5 - (x * side[0] + z * side[1]) / (2 * RITE_SIGIL_R)));
+  }
+  assert.ok(worst < 1e-5, `every point of it wears the art turned toward the gate (off by ${worst})`);
+  // laid close: on a 0.3 slope no point of it a hand over the ground
+  const slope = (x, z) => 0.3 * x, sm = buildRiteModel(facing, slope, { stone: false });
+  let high = 0;
+  for (let v = 0; v < sm.positions.length / 3; v++) high = Math.max(high, sm.positions[v * 3 + 1] - slope(sm.positions[v * 3], sm.positions[v * 3 + 2]));
+  assert.ok(high <= RITE_SIGIL_REACH * 0.3 + RITE_SIGIL_LIFT + 1e-6 && high < 0.2, `${high} m over a 0.3 slope (0.285 was a plank)`);
+  // drawn for an eye near it alone
+  const drawn = [];
+  const h = createRiteHost({ now: () => T.omenAt + 60_000, omen: () => ({ site: SITE }), pixelTranslation: () => [0, 0, 0], groundAt: () => 0, renderer: { createMesh: (mm) => ({ mm }), drawMesh: (mesh) => drawn.push(mesh.mm.subMeshes[0].textureRecord) } });
+  h.frame();
+  h.draw(undefined, null, [E + 200, 30, N]);
+  assert.deepEqual(drawn.splice(0), [GATE_STONE_RECORD, RITE_SIGIL_RECORD], 'near: the stone and the sigil');
+  h.draw(undefined, null, [E + 260, 30, N]);
+  assert.deepEqual(drawn.splice(0), [GATE_STONE_RECORD], 'far: the stone alone - the smoke marks it from there');
+  h.draw();
+  assert.deepEqual(drawn.splice(0), [GATE_STONE_RECORD, RITE_SIGIL_RECORD], 'no eye said: drawn');
+  assert.equal(RITE_SIGIL_DRAW_M, 250);
+});
+
 function fakeGl() {
   const calls = [];
   const gl = new Proxy({ VERTEX_SHADER: 1, FRAGMENT_SHADER: 2, COMPILE_STATUS: 3, LINK_STATUS: 4, ARRAY_BUFFER: 5, STATIC_DRAW: 6, FLOAT: 7, TRIANGLES: 8, BLEND: 9, ONE: 10, CULL_FACE: 11, ONE_MINUS_SRC_ALPHA: 12 }, {
@@ -633,11 +702,11 @@ function fakeGl() {
 }
 const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
-test('WB12d the smoke: a plume of rows, its noise climbing whole tiles over the clock\'s period at every octave (the wrap never shows), blended premultiplied, without writing depth; at most two drawn, the faded and the placeless skipped (mutants: a cone of two rows; a climb that wraps mid-tile; drawn faded; depth written)', () => {
+test('WB12d the smoke\'s pass: a plume of rows, blended premultiplied, without writing depth; at most two drawn, the faded and the placeless skipped; AUDIT WB12d (G8) the frame\'s light handed over (mutants: a cone of two rows; drawn faded; depth written; the light unhanded)', () => {
   assert.equal(smokeVertices().length, SMOKE_SEGMENTS * SMOKE_ROWS * 12);
   assert.ok(SMOKE_ROWS >= 16, 'a swell needs rows');
-  for (const k of [1, 2, 4]) assert.equal((SMOKE_CLIMB_TILES * k) % (SMOKE_TILES_UP * k), 0, `octave ${k}`);
-  assert.match(SMOKE_FS, /o = vec4\(col \* a, a\);/);
+  const lightOf = (fog) => { const g = fakeGl(); new RiteSmokeRenderer(g.gl).draw([{ origin: [0, 0, 0], fade: 1 }], I, I, [0, 0, 0], 5, fog); return g.calls.filter((c) => c[0] === 'uniform1f' && c[1] === 'uLight').map((c) => c[2]); };
+  assert.deepEqual([lightOf({ light: 0.3 }), lightOf({ light: 5 }), lightOf({ light: NaN }), lightOf(null)], [[0.3], [1], [1], [1]]);
   const { gl, calls } = fakeGl();
   const pass = new RiteSmokeRenderer(gl);
   pass.draw([{ origin: [0, 0, 0], fade: 1 }, { origin: [1, 0, 0], fade: SMOKE_FADE_MIN }, { origin: [2, 0, 0], fade: 0.5 }, { origin: [NaN, 0, 0], fade: 1 }, { origin: [3, 0, 0], fade: 1 }], I, I, [0, 0, 0], 5);
@@ -646,6 +715,101 @@ test('WB12d the smoke: a plume of rows, its noise climbing whole tiles over the 
   assert.ok(calls.some((c) => c[0] === 'blendFunc' && c[1] === 10 && c[2] === 12), 'premultiplied');
   const draw = calls.findIndex((c) => c[0] === 'drawArrays');
   assert.deepEqual(calls.slice(0, draw).filter((c) => c[0] === 'depthMask').at(-1), ['depthMask', false]);
+});
+
+test('AUDIT WB12d (G3, G8, G9, G17): the smoke as its shaders draw it - its foot the altar\'s flame\'s width and slow to swell (no funnel round the braziers); its outline bulging with its biggest billows and rising with them, thin wherever its own surface turns from the eye (no hard ring at a bulge); its billows growing as they climb; fading in over its first metre, the fire\'s glow light added over its first few and gone above, faded and fogged with it; lit as the frame is, never to nothing; a clear day\'s distance leaves it a line, weather\'s fog takes it whole; each octave its own whole columns a period - the wrap never shows, and no one sheet slides; each octave at a thick mean once too fine to see (mutants: the wide foot; the fast swell; a smooth cone; lumps of their own; the axis\'s line for its normal; billows one size; the fade over metres; the glow everywhere, through the fog, past the fade; unlit; a hole in the night; the floor in all fog; one climb; a wrap mid-cell; shimmer far off; a thin far plume)', () => {
+  const H = SMOKE_HEIGHT_M, P = SMOKE_CLOCK_PERIOD;
+  const vs = glslFunctions(SMOKE_VS, { aUV: [0, 0], uVP: Array.from(I), uOrigin: [0, 0, 0], uEye: [0, 0, 0], uTime: 0 });
+  const axisAt = (h) => [SMOKE_LEAN[0] * h * h, h * H, SMOKE_LEAN[1] * h * h];
+  const base = (h) => SMOKE_FOOT_R + (SMOKE_TOP_R - SMOKE_FOOT_R) * h ** SMOKE_SWELL;
+  /** the column's place at u round it and y up its billows' height, at time t: its height, its radius, its normal */
+  const col = (u, y, t = 0) => {
+    Object.assign(vs.globals, { aUV: [u, y], uTime: t });
+    vs.main();
+    const h = vs.globals.vUV[1], w = [...vs.globals.vWorld], a = axisAt(h);
+    return { h, w, r: Math.hypot(w[0] - a[0], w[2] - a[2]), n: [...vs.globals.vNormal] };
+  };
+  const round = (h, t = 0) => Array.from({ length: 48 }, (_, k) => col(k / 48, smokeBillowOf(h), t).r);
+  const mean = (v) => v.reduce((n, x) => n + x, 0) / v.length;
+  assert.ok(SMOKE_FOOT_R <= 1.5 && Math.abs(mean(round(0)) / SMOKE_FOOT_R - 1) < 0.15, `the flame's width (${mean(round(0))})`);
+  assert.ok(mean(round(7 / H)) < 4, `at the braziers' height inside their ring (${mean(round(7 / H))} m; 9.4 m was a funnel round them)`);
+  assert.ok(col(0, 1 / SMOKE_ROWS).h * H < 2 && (1 - col(0, 1 - 1 / SMOKE_ROWS).h) * H > 20, 'its rows close at the fire, far apart at the top');
+  for (const h of [0.05, 0.3, 0.7]) { const r = round(h); assert.ok(Math.max(...r) / Math.min(...r) > 1.15, `bulging at ${h} (${Math.min(...r)}-${Math.max(...r)})`); }
+  const lift = (SMOKE_CLIMB_HEIGHTS[0] * 6) / P;
+  for (const u of [0.1, 0.4, 0.75]) for (const y of [0.2, 0.5, 0.8]) {
+    const was = col(u, y, 0), now = col(u, y + lift, 6);
+    assert.ok(Math.abs(now.r / base(now.h) - was.r / base(was.h)) < 1e-6, `its bulges rise with its billows (${u}, ${y})`);
+  }
+  // its normal is its own surface's: the steepest flanks of its bulges
+  const sub = (a, b) => a.map((v, i) => v - b[i]), dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const flanks = [];
+  for (let u = 0; u < 1; u += 1 / 24) for (let y = 0.1; y < 0.9; y += 0.04) {
+    const e = 1e-4, n = cross(sub(col(u, y + e).w, col(u, y - e).w), sub(col(u + e, y).w, col(u - e, y).w));
+    flanks.push({ u, y, n, tilt: Math.abs(n[1]) / Math.hypot(...n) });
+  }
+  flanks.sort((a, b) => b.tilt - a.tilt);
+  assert.ok(flanks[0].tilt > 0.3, `bulges with flanks (${flanks[0].tilt})`);
+  for (const f of flanks.slice(0, 12)) { const m = col(f.u, f.y).n; assert.ok(Math.abs(dot(m, f.n)) / Math.hypot(...m) / Math.hypot(...f.n) > 0.98, `its normal on a flank at ${f.u.toFixed(2)}, ${f.y.toFixed(2)}`); }
+  const BASE = { vUV: [0, 0], vWorld: [0, 0, 0], vNormal: [1, 0, 0], vRad: 1, uTime: 7, uFade: 1, uLight: 1, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uCamPos: [0, 0, 0], uFocus: [0, 0, 0, 0], o: [0, 0, 0, 0] };
+  const fs = glslFunctions(SMOKE_FS, BASE);
+  /** what it draws at u round it, m metres up, the eye `far` metres out on its own outward line */
+  const look = (u, m, o = {}, far = 40) => {
+    const a = u * 2 * Math.PI, c = [Math.cos(a), Math.sin(a)];
+    Object.assign(fs.globals, BASE, { vUV: [u, m / H], vWorld: [c[0] * 2, m, c[1] * 2], vNormal: [c[0], 0, c[1]], vRad: base(m / H), uCamPos: [c[0] * far, m, c[1] * far] }, o);
+    fs.main();
+    return [...fs.globals.o];
+  };
+  /** the thickest of the plume's round m metres up */
+  const at = (m, o = {}) => { let best = [0, 0, 0, 0]; for (let u = 0; u < 1; u += 1 / 48) { const p = look(u, m, o); if (p[3] > best[3]) best = p; } return best; };
+  /** the most of each of its four, round the plume m metres up */
+  const peak = (m, o = {}) => { const best = [0, 0, 0, 0]; for (let u = 0; u < 1; u += 1 / 48) look(u, m, o).forEach((v, k) => { best[k] = Math.max(best[k], Math.abs(v)); }); return best; };
+  assert.ok(look(0.3, 20, { vNormal: [0, 1, 0] })[3] < 1e-9 && look(0.3, 20)[3] > 0, 'thin where its surface turns edge on to the eye');
+  // its outline swells where its smoke is thick: the bulges are its own first octave
+  const swell = [], thick = [];
+  for (let u = 0; u < 1; u += 1 / 24) for (let y = 0.3; y < 0.75; y += 0.02) { const c = col(u, y, BASE.uTime); swell.push(c.r / base(c.h)); thick.push(look(u, c.h * H)[3]); }
+  const ms = mean(swell), mt = mean(thick);
+  const corr = swell.reduce((n, v, i) => n + (v - ms) * (thick[i] - mt), 0) / Math.sqrt(swell.reduce((n, v) => n + (v - ms) ** 2, 0) * thick.reduce((n, v) => n + (v - mt) ** 2, 0));
+  assert.ok(corr > 0.4, `its bulges where it is thick (${corr})`);
+  // near, billows and holes: it hides about half the sky behind it
+  const near = []; for (const m of [5, 20, 40, 60, 100]) for (let u = 0; u < 1; u += 1 / 48) near.push(look(u, m)[3]);
+  assert.ok(Math.min(...near) < 0.1 && Math.max(...near) > 0.9 && mean(near) > 0.3 && mean(near) < 0.65, `billows and holes (${Math.min(...near)}-${Math.max(...near)}, ${mean(near)})`);
+  // its billows grow as they climb: as often thick and thin in a metre at its foot as in several high up
+  const flips = (from, to, step) => {
+    const v = []; for (let m = from; m <= to; m += step) v.push(look(0.3, m)[3]);
+    const mid = [...v].sort((a, b) => a - b)[v.length >> 1];
+    let n = 0; for (let i = 1; i < v.length; i++) if ((v[i] > mid) !== (v[i - 1] > mid)) n++;
+    return n / (to - from);
+  };
+  assert.ok(flips(2, 40, 0.25) > 3 * flips(150, 300, 1), `billows growing as they climb (${flips(2, 40, 0.25).toFixed(3)} a metre at its foot, ${flips(150, 300, 1).toFixed(3)} high up)`);
+  const glowOf = (p) => p[0] - SMOKE_COLOR[0] * p[3];   // the light the fire adds over the smoke's own
+  assert.ok(at(0.15)[3] < 0.5 * at(2)[3], `fading in over its first metre (${at(0.15)[3]} against ${at(2)[3]})`);
+  assert.ok(at(2)[3] > 0.5, 'thick from the second metre');
+  assert.ok(glowOf(at(1)) > 0.15, `the fire's glow in its foot (${glowOf(at(1))})`);
+  assert.ok(Math.abs(glowOf(at(30))) < 1e-4, `none above (${glowOf(at(30))})`);
+  assert.ok(peak(1)[0] > 0.15, 'its fire');
+  assert.ok(Math.max(...peak(1, { uFade: 0 })) < 1e-9, 'faded, its fire with it');
+  assert.ok(Math.max(...peak(1, { uFogMode: 2, uFogDensity: 1 })) < 1e-9, 'in weather\'s fog, its fire with it');
+  const day = at(40), dusk = at(40, { uLight: 0.25 }), night = at(40, { uLight: 0 });
+  assert.ok(Math.abs(dusk[0] - day[0] * 0.25) < 1e-6 && dusk[3] === day[3], 'lit as the frame is, as thick');
+  assert.ok(Math.abs(night[0] - SMOKE_COLOR[0] * SMOKE_LIGHT_MIN * night[3]) < 1e-6 && night[0] > 0, 'never a hole in the night');
+  const clear = at(40, { uFogMode: 1, uFogRange: [0, 10] }), whiteout = at(40, { uFogMode: 2, uFogDensity: 1 });
+  assert.ok(SMOKE_FOG_FLOOR >= 0.5 && Math.abs(clear[3] - SMOKE_FOG_FLOOR * day[3]) < 1e-9, 'a clear day\'s distance leaves it a line that reads (0.35 left a pale one a kilometre and a half off: tools/riteProbe.mjs)');
+  assert.ok(whiteout[3] < 1e-9, 'weather\'s fog takes it whole');
+  assert.deepEqual(SMOKE_CLIMB_HEIGHTS.map(Number.isInteger), [true, true, true]);
+  assert.equal(new Set(SMOKE_CLIMB_HEIGHTS).size, 3, 'each its own');
+  const sample = (t, y) => look(0.3, smokeHeightOf(y) * H, { uTime: t })[3];
+  let wrapped = 0, rigid = 0;
+  for (let y = 0.2; y < 0.8; y += 0.01) {
+    wrapped = Math.max(wrapped, Math.abs(sample(0, y) - sample(P, y)), Math.abs(col(0.3, y, 0).r - col(0.3, y, P).r));
+    if (y - SMOKE_CLIMB_HEIGHTS[0] / 8 > 0.1) rigid = Math.max(rigid, Math.abs(sample(P / 8, y) - sample(0, y - SMOKE_CLIMB_HEIGHTS[0] / 8)));
+  }
+  assert.ok(wrapped < 1e-6, `the wrap never shows (${wrapped})`);
+  assert.ok(rigid > 0.05, `no one sheet slides up it (${rigid})`);
+  // far off, each octave at its thick mean: no shimmer, and a plume that reads
+  const spread = (far) => { const v = Array.from({ length: 48 }, (_, k) => look(k / 48, 5, {}, far)[3]); return [Math.max(...v) - Math.min(...v), mean(v)]; };
+  assert.ok(spread(40)[0] > 0.2, `near, its billows (${spread(40)[0]})`);
+  assert.ok(spread(3000)[0] < 0.02 && spread(3000)[1] > 0.7, `three kilometres off, even and thick (${spread(3000)})`);
 });
 
 test('WB12d the chest: gold for the opener\'s level, two to four of the rite\'s reagents - a Daedra\'s Heart rarely - and one chest in twenty a piece of Dagon\'s Brand, Magic, known on sight and bearing the set\'s sigil at Faint; the day the character\'s own, and the rite\'s memory beside it (mutants: no gold; the brand never; a heart every time; the day forgotten; the memory unsaved)', () => {
@@ -850,9 +1014,9 @@ test('WB12d the world host by source: the host made beside the gate on the camps
   assert.match(deps, /droppedLoot\.seedPile\(items, feet, \{ archive: RANDOM_TREASURE_ARCHIVE, record: 0 \}, null, pixelKey, \{ unsaved: true, drawn: false \}\), keyOf: \(p\) => `droppedLoot:\$\{p\.id\}` \},[^\n]*\n\s*level: \(\) => playerEntity\.level \?\? 1,/);
   assert.match(w, /try \{ riteHost\?\.frame\(\); \}/);
   assert.equal(w.split('...(riteHost?.lights() ?? [])').length - 1, 2, 'both light lists');
-  assert.match(w, /riteHost\?\.draw\(renderer\);/);
+  assert.match(w, /riteHost\?\.draw\(renderer, null, mwv\.eye\);/, 'AUDIT WB12d (G6): the eye, for the sigil');
   assert.match(w, /riteHost\.tick\(dt\); livePersonBatches\.push\(\.\.\.riteHost\.batches\(\)\);/);
-  assert.match(w, /if \(riteHost\?\.smoking\(\) && riteHost\.drawSmoke\(proj, view, new Float32Array\(mwv\.eye\), now \/ 1000,[^\n]*\n[^\n]*camPos: renderer\._camPos, focus: renderer\._focus \}\)\) renderer\.markForeignPass\(\);/, 'the smoke handed the travel view\'s focus, its foreign pass marked');
+  assert.match(w, /if \(riteHost\?\.smoking\(\) && riteHost\.drawSmoke\(proj, view, new Float32Array\(mwv\.eye\), now \/ 1000,[^\n]*\n[^\n]*camPos: renderer\._camPos, focus: renderer\._focus, light: \(renderer\._ambient\[0\] \+ renderer\._ambient\[1\] \+ renderer\._ambient\[2\]\) \/ 3 \+ 0\.6 \* renderer\._sunScale \}\)\) renderer\.markForeignPass\(\);/, 'the smoke handed the travel view\'s focus and (AUDIT WB12d G8) the frame\'s light, its foreign pass marked');
   assert.ok(w.indexOf('try { riteHost?.frame(); }') < w.indexOf('renderer.beginFrame(proj, view, sunDirection(minute), WORLD_FRAME);'), 'AUDIT WB12d (G14): its frame - the smoke\'s pass built there - before the renderer\'s');
   assert.match(w, /\(key\) => sigilBroker\?\.hoverName\(key\) \?\? null,[^\n]*\n\s*\(key\) => riteHost\?\.hoverName\(key\) \?\? null,/, 'named after the gate and the Broker');
   assert.ok(w.indexOf('(key) => riteHost?.hoverName(key) ?? null,') < w.indexOf("(key) => (typeof key === 'string' && key.startsWith('droppedLoot:')"), 'its pile named before the piles\' word');

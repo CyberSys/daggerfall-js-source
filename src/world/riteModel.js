@@ -1,22 +1,26 @@
 // @ts-check
 // WB12d (2026-10-01, Mac: "faithful and a Summoner"): THE FAITHFUL'S CIRCLE, MADE - cut from the gate's own stone
-// (world/gateModel.js faces, GATE_ARCHIVE): Dagon's sigil burned into the earth (the plinth's rune ring, laid on the
-// ground's own heights), a ring of braziers, an altar stone and the faithful's casket - and where their tents, their
-// fire and the faithful themselves stand. Design: bible/11-Multiplayer/World-Bosses.md section 19 D.
+// (world/gateModel.js faces, GATE_ARCHIVE): Dagon's sigil burned into the earth (its own art, world/gateArt.js
+// riteSigilArt, laid on the ground's own heights), a ring of braziers, an altar stone and the faithful's casket - and
+// where their tents, their fire and the faithful themselves stand. Design: bible/11-Multiplayer/World-Bosses.md
+// section 19 D.
 //
 // THE CIRCLE'S OWN FRAME: x east and z north from its centre, y up from the ground there - the host stands it at the
 // centre unturned. `facing` is the bearing from the circle to its gate (radians, the scene's: (sin, cos) is the way):
 // the altar's face and the opening in the faithful's ring are toward it, their camp behind. Pure.
 //
 // Not a DFU member. Ledger A (WB).
-import { faces, GATE_ARCHIVE, GATE_STONE_RECORD, GATE_PLINTH_RECORD } from './gateModel.js';
+import { faces, GATE_ARCHIVE, GATE_STONE_RECORD, RITE_SIGIL_RECORD } from './gateModel.js';
 
 /** The sigil burned into the earth: its radius, and how far over the ground it lies (no fighting the terrain). */
 export const RITE_SIGIL_R = 6.5;
-export const RITE_SIGIL_LIFT = 0.06;
+export const RITE_SIGIL_LIFT = 0.04;
 /** Each of its points rides the highest ground this near it - a fold of the land between two points never shows
- *  through (its rings and segments are never further apart than twice this). */
-export const RITE_SIGIL_REACH = 0.75;
+ *  through: its rings and segments are never further apart than twice this. AUDIT WB12d (G5): a finer drape and a
+ *  nearer reach - on a steep slope it lay a hand's breadth over the ground, a plank the faithful's feet sank into. */
+export const RITE_SIGIL_REACH = 0.5;
+export const RITE_SIGIL_RINGS = 12;
+export const RITE_SIGIL_SEGS = 48;
 /** The braziers round it: how many, how far out, and how tall (each a basalt column with a fire on it). */
 export const RITE_BRAZIERS = 6;
 export const RITE_BRAZIER_R = 8.5;
@@ -86,49 +90,58 @@ function box(f, rec, k) {
 /**
  * THE CIRCLE'S STONE: renderer.createMesh's model shape, in the circle's frame. `heightAt(x, z)` is the ground over the
  * centre's at a point of the frame (0 where nothing answers - a flat circle until the land is known). Sub-meshes by the
- * gate's own records: the stone, and the plinth's runes for the sigil.
+ * gate's archive's records: the stone, and the sigil's own (AUDIT WB12d G11). `parts` builds the one or the other - the
+ * host draws the sigil from near alone (AUDIT WB12d G6) and stands the stone in the collider.
  * @param {number} facing @param {(x: number, z: number) => number} [heightAt]
+ * @param {{stone?: boolean, sigil?: boolean}} [parts]
  */
-export function buildRiteModel(facing, heightAt = () => 0) {
+export function buildRiteModel(facing, heightAt = () => 0, { stone = true, sigil = true } = {}) {
   const h = (x, z) => { const v = heightAt(x, z); return Number.isFinite(v) ? v : 0; };
   const f = faces();
   const L = riteLayout(facing);
-  // the sigil: rings out from the heart, each point on the highest ground about it
-  const RINGS = 6, SEGS = 28, K = RITE_SIGIL_REACH, D = K * Math.SQRT1_2;
+  // the sigil: rings out from the heart, each point on the highest ground about it - its art turned with the altar, the
+  // star's first point toward the gate (gateArt.js riteSigilArt draws it at +v)
+  const RINGS = RITE_SIGIL_RINGS, SEGS = RITE_SIGIL_SEGS, K = RITE_SIGIL_REACH, D = K * Math.SQRT1_2;
   const ride = (x, z) => Math.max(h(x, z), h(x + K, z), h(x - K, z), h(x, z + K), h(x, z - K), h(x + D, z + D), h(x - D, z + D), h(x + D, z - D), h(x - D, z - D));
-  const grid = [];
-  for (let ri = 0; ri <= RINGS; ri++) {
-    const row = [];
-    for (let si = 0; si <= SEGS; si++) {
-      const r = (ri / RINGS) * RITE_SIGIL_R, a = (si / SEGS) * 2 * Math.PI;
-      const x = Math.sin(a) * r, z = Math.cos(a) * r;
-      row.push({ p: [x, ride(x, z) + RITE_SIGIL_LIFT, z], uv: [0.5 + x / (2 * RITE_SIGIL_R), 0.5 + z / (2 * RITE_SIGIL_R)] });
+  const cf = Math.cos(facing), sf = Math.sin(facing), uvOf = (x, z) => [0.5 + (x * cf - z * sf) / (2 * RITE_SIGIL_R), 0.5 + (x * sf + z * cf) / (2 * RITE_SIGIL_R)];
+  if (sigil) {
+    const grid = [];
+    for (let ri = 0; ri <= RINGS; ri++) {
+      const row = [];
+      for (let si = 0; si <= SEGS; si++) {
+        const r = (ri / RINGS) * RITE_SIGIL_R, a = (si / SEGS) * 2 * Math.PI;
+        const x = Math.sin(a) * r, z = Math.cos(a) * r;
+        row.push({ p: [x, ride(x, z) + RITE_SIGIL_LIFT, z], uv: uvOf(x, z) });
+      }
+      grid.push(row);
     }
-    grid.push(row);
-  }
-  const pt = (ri, si) => grid[ri][si];
-  for (let ri = 0; ri < RINGS; ri++) {
-    for (let si = 0; si < SEGS; si++) {
-      const a = pt(ri, si), b = pt(ri, si + 1), c = pt(ri + 1, si + 1), d = pt(ri + 1, si);
-      if (ri === 0) f.tri(GATE_PLINTH_RECORD, a.p, d.p, c.p, a.uv, d.uv, c.uv);
-      else f.quad(GATE_PLINTH_RECORD, a.p, d.p, c.p, b.p, a.uv, d.uv, c.uv, b.uv);
-    }
-  }
-  // the braziers: hexagonal columns of the stone, sunk under the lowest ground at their rims
-  for (const [x, z] of L.braziers) {
-    const R = RITE_BRAZIER_W;
-    const rim = Array.from({ length: 6 }, (_, j) => h(x + Math.cos((j / 6) * 2 * Math.PI) * R, z + Math.sin((j / 6) * 2 * Math.PI) * R));
-    const y0 = Math.min(h(x, z), ...rim) - 0.3, y1 = h(x, z) + RITE_BRAZIER_H;
-    for (let j = 0; j < 6; j++) {
-      const a0 = (j / 6) * 2 * Math.PI, a1 = ((j + 1) / 6) * 2 * Math.PI;
-      const p = (a, y) => [x + Math.cos(a) * R, y, z + Math.sin(a) * R];
-      f.quad(GATE_STONE_RECORD, p(a0, y0), p(a0, y1), p(a1, y1), p(a1, y0), [0, 0], [0, 1.5], [0.3, 1.5], [0.3, 0]);
-      f.tri(GATE_STONE_RECORD, [x, y1, z], p(a1, y1), p(a0, y1), [0.5, 0.5], [0.6, 0.5], [0.5, 0.6]);
+    const pt = (ri, si) => grid[ri][si];
+    for (let ri = 0; ri < RINGS; ri++) {
+      for (let si = 0; si < SEGS; si++) {
+        const a = pt(ri, si), b = pt(ri, si + 1), c = pt(ri + 1, si + 1), d = pt(ri + 1, si);
+        if (ri === 0) f.tri(RITE_SIGIL_RECORD, a.p, d.p, c.p, a.uv, d.uv, c.uv);
+        else f.quad(RITE_SIGIL_RECORD, a.p, d.p, c.p, b.p, a.uv, d.uv, c.uv, b.uv);
+      }
     }
   }
-  // the altar and the casket, each standing on the ground at its middle
-  box(f, GATE_STONE_RECORD, boxCorners(L.altar.x, L.altar.z, L.altar.yaw, RITE_ALTAR.w, RITE_ALTAR.d, RITE_ALTAR.h, h));
-  box(f, GATE_STONE_RECORD, boxCorners(L.casket.x, L.casket.z, L.casket.yaw, RITE_CASKET.w, RITE_CASKET.d, RITE_CASKET.h, h));
+  if (stone) {
+    // the braziers: hexagonal columns of the stone, sunk under the lowest ground at their rims - each face its own strip
+    // of the stone (AUDIT WB12d G19: six faces of one strip read as one face turned)
+    for (const [x, z] of L.braziers) {
+      const R = RITE_BRAZIER_W;
+      const rim = Array.from({ length: 6 }, (_, j) => h(x + Math.cos((j / 6) * 2 * Math.PI) * R, z + Math.sin((j / 6) * 2 * Math.PI) * R));
+      const y0 = Math.min(h(x, z), ...rim) - 0.3, y1 = h(x, z) + RITE_BRAZIER_H;
+      for (let j = 0; j < 6; j++) {
+        const a0 = (j / 6) * 2 * Math.PI, a1 = ((j + 1) / 6) * 2 * Math.PI, u = j * 0.15;
+        const p = (a, y) => [x + Math.cos(a) * R, y, z + Math.sin(a) * R];
+        f.quad(GATE_STONE_RECORD, p(a0, y0), p(a0, y1), p(a1, y1), p(a1, y0), [u, 0], [u, 1.5], [u + 0.3, 1.5], [u + 0.3, 0]);
+        f.tri(GATE_STONE_RECORD, [x, y1, z], p(a1, y1), p(a0, y1), [0.5, 0.5], [0.6, 0.5], [0.5, 0.6]);
+      }
+    }
+    // the altar and the casket, each standing on the ground at its middle
+    box(f, GATE_STONE_RECORD, boxCorners(L.altar.x, L.altar.z, L.altar.yaw, RITE_ALTAR.w, RITE_ALTAR.d, RITE_ALTAR.h, h));
+    box(f, GATE_STONE_RECORD, boxCorners(L.casket.x, L.casket.z, L.casket.yaw, RITE_CASKET.w, RITE_CASKET.d, RITE_CASKET.h, h));
+  }
   // assembled as the gate's own (gateModel.js buildGateModel)
   const recs = [...f.byRec.keys()].sort((a, b) => a - b);
   const count = recs.reduce((n, r) => n + f.byRec.get(r).p.length / 3, 0);
