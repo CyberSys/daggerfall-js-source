@@ -112,7 +112,7 @@ current design "does not work in an enjoyable manner"):
 ## The plan
 
 - **Phase 0 - the triage, shipped with this page.** WEAR-VANILLA (gear wears
-  at about DFU's rate; `05-Combat/Physical-Combat-Overhaul.md`), REPAIR-RATE,
+  at DFU's amount, twice since WEAR-TWICE; `05-Combat/Physical-Combat-Overhaul.md`), REPAIR-RATE,
   KIT-CEILING and SELL-AS-FOUND (below), POTION-COMMON (a Potion of Healing
   on a looting foe 6 times in 100 and in a J-O pile 12, and a few at every
   alchemist's and general store's counter each day -
@@ -135,20 +135,24 @@ current design "does not work in an enjoyable manner"):
 
 ## Repairs, set from the intent
 
-- **Wear** is DFU's own (WEAR-VANILLA): the mods' wear modules are off, a
-  monster's natural attack wears no armour, and a blow wears by the damage
-  that got through the overhaul's armour (AUDIT ECON W1) - DFU's armour
-  turns a blow aside and wears nothing, the overhaul's absorbs a share and
-  that share wears nothing either. Per swing, armour wears 0.71-0.86 times
-  DFU's and a blade 1.17-1.22 times.
+- **Wear** is DFU's amount, twice (WEAR-VANILLA, then WEAR-TWICE on
+  2026-10-02: "I still want there to be some challenge"): the mods' wear
+  modules are off, a monster's natural attack wears no armour, and a blow
+  wears by the damage that got through the overhaul's armour (AUDIT ECON
+  W1) - DFU's armour turns a blow aside and wears nothing, the overhaul's
+  absorbs a share and that share wears nothing either. At DFU's own amount
+  wear put no pressure on an outing (a steel longsword lost about 6.5% to a
+  hundred swings); at twice it, about 13%, and per swing armour wears
+  1.4-1.7 times DFU's and a blade 2.3-2.5 times. The pressure to come back
+  is wear, never price: the price below stays a third.
 - **The price** (REPAIR-RATE, `src/systems/repairService.js`
   `REPAIR_COST_SCALE`): a third of what Daggerfall's formula asks - it was two
   thirds since REPAIR-EASE (2026-09-30). Under Roleplay & Realism: Items'
   damage-scaled price, a full repair is a fifth of the smith's asking price
   for the piece: still a craftsman's fee (a broken Daedric longsword, 9,216
   gold before the haggle at a middling smith - 5,184 to 6,372 asked), not a
-  punishment for using the gear. With the wear above, its upkeep is 1.65-3.20
-  gold a landed hit, a seventh to a tenth of what it was.
+  punishment for using the gear. With the wear above, its upkeep is 3.3-6.4
+  gold a landed hit (17.4-24.0 before the triage).
 - **Kits stay partial** (KIT-CEILING, `src/systems/smithItems.js`): a field
   kit or a smith-made kit mends a piece no further than three quarters of its
   condition (rounded down: an Iron Dagger's 50 stops at 37). Three quarters
@@ -171,7 +175,8 @@ current design "does not work in an enjoyable manner"):
 
 ## Open numbers
 
-The outing (one dungeon, one to two hours), the kit ceiling (75%), the repair
+The outing (one dungeon, one to two hours), the wear (twice DFU's amount,
+`src/systems/equip.js` `DFU_WEAR_MULTIPLE`), the kit ceiling (75%), the repair
 scale (a third), the potions' rates and the companion's capacity are all
 tunable, and each is to be read again against the Phase 1 ledger before it is
 turned.
