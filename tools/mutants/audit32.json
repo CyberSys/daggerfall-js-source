@@ -461,35 +461,35 @@
  },
  {
   "name": "AUDIT32-P11-no-line",
-  "file": "src/ui/profHud.js",
-  "old": "        if (typeof doc.createElementNS === 'function') {",
-  "new": "        if (false) {",
+  "file": "src/ui/profReticle.js",
+  "old": "const guide = k.svg('polyline', { class: 'trace-guide', points: '' }, art);",
+  "new": "const guide = k.svg('path', { class: 'trace-guide', points: '' }, art);",
   "tests": [
    "test/audit32_pages.test.js"
   ]
  },
  {
   "name": "AUDIT32-P11-first-unmarked",
-  "file": "src/ui/profHud.js",
-  "old": "i === 0 ? 'prof-point first' : 'prof-point'",
-  "new": "'prof-point'",
+  "file": "src/ui/profReticle.js",
+  "old": ": i === 0 ? 'prof-point first' : 'prof-point');",
+  "new": ": 'prof-point');",
   "tests": [
    "test/audit32_pages.test.js"
   ]
  },
  {
   "name": "AUDIT32-P11-degrees-unequal",
-  "file": "src/ui/profHud.js",
-  "old": "        face.style.aspectRatio = `${w} / ${h}`;\n",
-  "new": "",
+  "file": "src/ui/profReticle.js",
+  "old": "return [focal * Math.tan(Math.max(-lim, Math.min(lim, dy))),",
+  "new": "return [focal * 0.6 * Math.tan(Math.max(-lim, Math.min(lim, dy))),",
   "tests": [
    "test/audit32_pages.test.js"
   ]
  },
  {
   "name": "AUDIT32-P10-slip-unsaid",
-  "file": "src/ui/profHud.js",
-  "old": " : st.slips > 0 ? `let go - hold ${key} on the first point again`",
+  "file": "src/ui/profReticle.js",
+  "old": " : s.slips > 0 ? `let go - hold ${key} on the first point again`",
   "new": "",
   "tests": [
    "test/audit32_pages.test.js"

@@ -163,18 +163,18 @@
   },
   {
     "name": "TOUCH-HOLD-the-meter-names-a-key",
-    "file": "src/ui/profHud.js",
-    "old": "st.tracing ? 'draw the knife along the line' : byUse ? 'aim the knife at the first point' :",
-    "new": "st.tracing ? 'draw the knife along the line' :",
+    "file": "src/ui/profReticle.js",
+    "old": "s.tracing ? 'draw the knife along the line' : byUse ? 'aim the knife at the first point' :",
+    "new": "s.tracing ? 'draw the knife along the line' :",
     "tests": [
       "test/fb1001_touchhold.test.js"
     ]
   },
   {
     "name": "TOUCH-HOLD-the-gentle-meter-names-a-key",
-    "file": "src/ui/profHud.js",
-    "old": "hint.textContent = byUse ? 'skinning...' : `hold ${key}`;",
-    "new": "hint.textContent = `hold ${key}`;",
+    "file": "src/ui/profReticle.js",
+    "old": "? (byUse ? 'skinning...' : `hold ${label || 'the use key'}`)",
+    "new": "? (`hold ${label || 'the use key'}`)",
     "tests": [
       "test/fb1001_touchhold.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "TOUCH-HOLD-the-host-says-no-use",
     "file": "src/scenes/gatherHost.js",
-    "old": "{ byUse: act.heldByUse === true }",
-    "new": "{ byUse: false }",
+    "old": "else hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true });",
+    "new": "else hud.setMeter(act.act, act.label ?? '', { byUse: false });",
     "tests": [
       "test/fb1001_touchhold.test.js"
     ]

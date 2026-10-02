@@ -2609,6 +2609,31 @@ four (its last section). What the arc's laws now say, by section:
   alone (5's acts, as the Sickle's Use holds the steady hand). **HERB-XP** - Mac: "XP follows your rank": a herb is
   picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct46 (past main's PATREON-LINK, acct45).
 
+## 33. PROF-MENU, PROF-RETICLE, PROF-STATIONS - the acts on the loot list and on the crosshair (BUILT 2026-10-01)
+
+Mac: "They should use the same menu the loot menu uses and not an interaction button" (asked, "One loot-style list");
+then, of the illustrated panels PROF-SCENES built, "move away from the overcomplicated minigame visuals and instead use
+the mechanics on something that doesnt cover the screen" (asked, "Around the crosshair"; the stations, "keep them
+simple"). The record is `01-Overview/Field-Bugs-2026-10-01c.md`; every act's rules, timings and report are 5's and 8's,
+unmoved.
+
+- **The list (PROF-MENU).** A node under the look is the world plaque's list, the loot pile's own: its name, its
+  profession's word, its acts as verb rows - a refused act with its reason, the first pressable lit first
+  (`scenes/gatherHost.js` `hoverHit`/`hoverName`, worldHover's 'actions' frame). A row is pressed as a loot row - the
+  click, the activate key, a tap - and a hold-act so started is held by the press, as a tool's Use holds it. ActChoice
+  walks the rows. Without the plaque (classic, touch) a list window asks. 21's prompt stays the fallback's line.
+- **The act (PROF-RETICLE, replacing PROF-SCENES).** No box and no title: each act's mechanic on and about the reticle
+  (`ui/profReticle.js`, `ui/profActStyle.js`) through the frame's own lens (`ui/worldPlaque.js` `reticleAnchor`) -
+  the mine's points and the knife's line where they stand on the node, the glint's double reach and the trace's
+  tolerance at their true size; the chop's ring, the hold's arc, the Basket's glint, the float and the haul's bar about
+  the crosshair; the count's pips and one hint under it that fades after 2.5 s unchanged. Still forms under reduced
+  motion; every cue a sound (`systems/profSounds.js`).
+- **The stations (PROF-STATIONS).** The heat, the stitch's beat and the plane keep their bars and rules, dressed in the
+  plaque's frame and the kit's tones (`ui/profStationStyle.js`); no pictures.
+
+`test/profreticle.test.js` (10), `test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profreticle.json` (57),
+`profmenu.json`; `tools/profReticleProbe.mjs`.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven (ANY-HOUR: the wilderness keeps no hours now - seven is her habit). The board's Work tab has a

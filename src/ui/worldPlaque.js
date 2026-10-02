@@ -185,6 +185,25 @@ export function plaqueAnchor(canvas) {
   };
 }
 
+/**
+ * PROF-RETICLE (2026-10-01, Mac: "use the mechanics on something that doesnt cover the screen"): WHERE THE CROSSHAIR'S
+ * MIDDLE IS, in CSS pixels, and the lens's focal length in them - `focal`, so an angle off the look `a` stands
+ * `focal * tan(a)` from the middle, as the world draws it (the frame's perspective over the world's viewport: the canvas
+ * under the docked large HUD, the crosshair's own middle). `fovRad` the vertical field of view (viewSettings
+ * fieldOfView, radians). Null off a canvas. The plaqueAnchor arithmetic, the reticle's own point.
+ */
+export function reticleAnchor(canvas, fovRad) {
+  if (!canvas?.width || !canvas?.height) return null;
+  const { largeHudHeight } = hudReticle(canvas);
+  const dpr = canvas.clientWidth > 0 ? canvas.width / canvas.clientWidth : 1;
+  const viewH = Math.max(1, canvas.height - largeHudHeight) / dpr;
+  return {
+    x: (canvas.width / 2) / dpr,
+    y: crosshairCentreY(canvas.height, largeHudHeight) / dpr,
+    focal: viewH / 2 / Math.tan(Math.max(0.1, Number(fovRad) || 1.13) / 2),
+  };
+}
+
 function paint(n, f, sel = -1, stats = []) {
   n.textContent = '';
   n.classList.toggle('has-list', f.kind === 'items' || f.kind === 'actions');

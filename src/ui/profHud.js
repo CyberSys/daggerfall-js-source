@@ -7,13 +7,14 @@
 //
 //   the PROMPT  - bottom centre above the hotbar: "[E] Pick Red Rose -
 //                 Herbalism 34", or what the node needs;
-//   the METER   - PROF-SCENES: the act's panel, where the loot plaque
-//                 stood under the crosshair and in its frame - the node
-//                 named, the act's scene (ui/profScenes.js: the rock's
-//                 face, the trunk and its ring, the plant, the leaf
-//                 litter, the pelt and its line, the water), the count,
-//                 the hint; still forms under reduced motion (the
-//                 system's own - the port has no setting of its own);
+//   the METER   - PROF-RETICLE: the act on the crosshair, no box
+//                 (ui/profReticle.js: the rock's points where they stand
+//                 on it, the ring round the crosshair, the hold's arc,
+//                 the glint about it, the line laid on the body, the
+//                 throw, the float and the haul's bar), the count and a
+//                 hint that fades under it; still forms under reduced
+//                 motion (the system's own - the port has no setting of
+//                 its own);
 //   the TOASTS  - on the right, four at most, three seconds each:
 //                 "+3 Red Roses to your Stores", "+45 Herbalism XP",
 //                 "Herbalism 34 -> 35";
@@ -25,7 +26,7 @@
 // it with the page.
 // ═══════════════════════════════════════════════════════════════════
 import { PROF_CSS } from './enhancedPlusStyle.js';
-import { buildActPanel, sceneOf, actCues } from './profScenes.js';   // PROF-SCENES: the act's panel and its scenes
+import { buildActReticle, marksOf, actCues, FOCAL_FALLBACK } from './profReticle.js';   // PROF-RETICLE: the act on the crosshair
 import { profCue } from '../systems/profSounds.js';   // PROF-SCENES: every cue a sound too
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
@@ -84,16 +85,19 @@ export function createProfHud({ doc = globalThis.document, anchor = null } = {})
   const banner = mk('prof-banner');
   doc.body.append(prompt, meter, toasts, banner);
   const queue = createToastQueue();
-  /** PROF-SCENES: the act's panel built, and the act it was built for */
+  /** PROF-RETICLE: the act's marks built, and the act they were built for */
   let panel = null;
-  /** PROF-SCENES: where the loot plaque stands (ui/worldPlaque.js plaqueAnchor) - the panel stands there too */
-  let seatX = null, seatTop = null;
+  /** PROF-RETICLE: the crosshair's middle and the lens's focal length (ui/worldPlaque.js reticleAnchor) - the marks
+   *  stand round the one and an angle off the look stands `focal * tan(angle)` from it */
+  let seatX = null, seatY = null, focal = FOCAL_FALLBACK;
   const seat = () => {
     const a = anchor?.();
-    if (!a || (a.x === seatX && a.top === seatTop)) return;
-    seatX = a.x; seatTop = a.top;
-    meter.style.setProperty?.('--wp-x', `${a.x.toFixed(1)}px`);
-    meter.style.setProperty?.('--wp-top', `${a.top.toFixed(1)}px`);
+    if (!a) return;
+    if (Number(a.focal) > 0) focal = a.focal;
+    if (a.x === seatX && a.y === seatY) return;
+    seatX = a.x; seatY = a.y;
+    meter.style.setProperty?.('--rx', `${a.x.toFixed(1)}px`);
+    meter.style.setProperty?.('--ry', `${a.y.toFixed(1)}px`);
   };
   let bannerLeft = 0;
   let lastPrompt = null, lastChip = null, drawnToasts = '';
@@ -127,22 +131,23 @@ export function createProfHud({ doc = globalThis.document, anchor = null } = {})
       if (p.alt) { const d = doc.createElement('span'); d.className = 'dim prof-alt'; d.textContent = `   ${p.alt}`; prompt.append(d); }   // AUDIT 32 P9: its own line on a phone
     },
     /**
-     * PROF-SCENES: THE ACT'S PANEL (ui/profScenes.js) for an act, or null to take it down - built once an act, moved
-     * every frame, standing where the loot plaque stood (`anchor`), in its frame. `label` the act's words (the key it
-     * holds, ACT-CLICK's press); `byUse` - TOUCH-HOLD: a tool's Use (or a press - PROF-MENU) holds the act, no key to
-     * name; `title` - PROF-MENU: the node's name, the menu's title carried into its act. Every cue its sound too.
+     * PROF-RETICLE: THE ACT ON THE CROSSHAIR (ui/profReticle.js) for an act, or null to take it down - built once an
+     * act, moved every frame, round the crosshair's middle (`anchor`). `label` the act's words (the key it holds,
+     * ACT-CLICK's press); `byUse` - TOUCH-HOLD: a tool's Use (or a press - PROF-MENU) holds the act, no key to name.
+     * The node's name is the menu's and the plaque's; the act carries no title (`title` taken and set by). Every cue
+     * its sound too.
      */
-    setMeter(act, label = '', { byUse = false, title = '' } = {}) {
+    setMeter(act, label = '', { byUse = false } = {}) {
       if (!act) { meter.hidden = true; meter.replaceChildren(); panel = null; return; }
       meter.hidden = false;
       seat();
       const st = act.state;
-      const which = sceneOf(act);
-      if (!panel || panel.act !== act || panel.which !== which) { panel = { act, which, ui: buildActPanel(doc, meter, act, { title }), prev: {} }; actCues(panel.prev, st); }
-      panel.ui.update(act, { label, byUse, reduced: reduced() });
+      const which = marksOf(act);
+      if (!panel || panel.act !== act || panel.which !== which) { panel = { act, which, ui: buildActReticle(doc, meter, act), prev: {} }; actCues(panel.prev, st); }
+      panel.ui.update(act, { label, byUse, reduced: reduced(), focal });
       for (const c of actCues(panel.prev, st)) profCue(c);
-      // the act's flashes - a blow on the glint, a Clean Cut, a bruise, the tug - on the panel itself, whole
-      const flags = ['prof-meter', `prof-kind-${which}`];
+      // the act's flashes - a blow on the glint, a Clean Cut, a bruise, the tug - on the reticle itself, whole
+      const flags = ['prof-meter', 'prof-reticle', `prof-kind-${which}`];
       if (st.bruised) flags.push('bruised');
       if (st.kind === 'mine' && st.last === 'glint' && act.swing > 0) flags.push('struck-glint');
       if (st.kind === 'chop' && st.last === 'clean' && act.swing > 0) flags.push('clean-cut');

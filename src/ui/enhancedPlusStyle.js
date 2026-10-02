@@ -16,8 +16,8 @@ import { LV2_CSS } from './levelUpStyle.js';
 import { MOTION_CSS } from './windowMotion.js';
 import { CURSOR_CSS } from './plusCursor.js';   // PLUS7: the gauntlet pointer
 import { SIGIL_RUNE_TILE_URL } from './sigilRune.js';   // SIGIL-UI: the rune in a sigil weapon's tile corner (AUDIT MERGE-PLUS D5: a picture, its outline drawn in)
-import { PROF_ACT_CSS } from './profActStyle.js';   // PROF-SCENES: the acts in the world, dressed
-import { PROF_STATION_CSS } from './profStationStyle.js';   // PROF-SCENES: the stations' acts, dressed
+import { PROF_ACT_CSS } from './profActStyle.js';   // PROF-RETICLE: the acts on the crosshair, dressed
+import { PROF_STATION_CSS } from './profStationStyle.js';   // PROF-STATIONS: the stations' acts, dressed
 
 export const PLUS_STYLE_ID = 'enhanced-plus-style';
 

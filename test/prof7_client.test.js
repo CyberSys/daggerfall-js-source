@@ -325,7 +325,7 @@ test('PROF7 HUD: the trace\'s meter - the carcass\'s face, its dotted line, the 
   const gentle = createTraceAct({ tier: 1, gentle: true });
   for (let i = 0; i < 3; i++) gentle.tick(0.2, { held: true });
   hud.setMeter(gentle);
-  assert.equal(meter.querySelector('.prof-bar').children[0].style.width, '50%');
+  assert.equal(meter.querySelector('.arc-fill').getAttribute('stroke-dasharray'), '50 100');   // PROF-RETICLE: the hold an arc round the crosshair
   assert.match(meter.textContent, /hold the use key/);
   hud.dispose();
 });

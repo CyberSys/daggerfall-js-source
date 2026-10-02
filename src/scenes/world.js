@@ -262,7 +262,7 @@ import { isBackFacing, SIGHT_RADIUS } from '../characters/enemyMotor.js';   // O
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // DUEL1: my duel opponent's health, on the enhanced HUD's target bar
 import { lowerCondition, blowWear } from '../systems/equip.js';   // DUEL1: my weapon wears on a blow that landed on my opponent; BALANCE1: on the port's wear scale
 import { reportPlayerAttack } from '../combat/formulas.js';   // DUEL1: the defender's answer, on my HUD's damage numbers
-import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn, plaqueAnchor } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
+import { worldHoverFrame, hideWorldPlaque, destroyWorldPlaque, worldPlaqueOn, reticleAnchor } from '../ui/worldPlaque.js';   // WORLD-HOVER: the one seam each host calls, its hide door for the branches that return above it, and the teardown
 import { keysHeading, axesToward, tvOwnGrow } from '../player/travelCamera.js';   // OW-FACE: the body faces the keys' way under the Overworld; OW-PEERS: the others grown as the traveller is
 import { createTravelView, TV_MOVE_ACTIONS, TRAVEL_VIEW_TEXT, travelViewLine, travelTripLine, travelWalkRate, shipPassageRows } from './travelView.js';   // TV1: the travel view (bible/06-Systems/Travel-View.md) - the raised eye, its input and its ways out
 import { showTravelViewHud, hideTravelViewHud, updateTravelViewHud, travelViewHudPickAt, showTravelViewConfirm, hideTravelViewConfirm, travelViewConfirmOpen } from '../ui/travelViewHud.js';   // TV1: its readout
@@ -8089,7 +8089,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // its kinds scenes/herbHost.js and scenes/mineHost.js); the HUD's pieces its (ui/profHud.js). Online only, and only once
   // the account service has said the professions are this account's.
   if (profBook) {
-    const hud = createProfHud({ anchor: () => plaqueAnchor(canvas) });   // PROF-SCENES: the act's panel stands where the loot plaque stood
+    const hud = createProfHud({ anchor: () => reticleAnchor(canvas, fieldOfView()) });   // PROF-RETICLE: the act's marks round the crosshair, through the frame's own lens
     if (hud) {
       // PROF7 (bible/06-Systems/Professions-Arc.md 29): A BODY MY OWN BLOW FELLED - stamped at the kill (the street's, the
       // dungeon's, a puppet's owner's word), a node where it lies while the pack holds a Skinning Knife
