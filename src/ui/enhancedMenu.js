@@ -145,6 +145,10 @@ import { drawPixelGround } from './pixelGround.js';
 // renders the tab, so the front door still reads no game state.
 import { sheetModel } from './enhancedCharSheet.js';
 import { profPagesShown, PROF_PAGE_SECTIONS, drawProfessionsPage, drawStoresPage, resetProfPages, profActUnderWay, setDownProfAct } from './profPages.js';   // PROF1: the Professions and Stores pages, online
+import { REVENANT_PAGE_SECTIONS, revenantPageShown, drawRevenantsPage } from './revenantPage.js';
+import { COMPANION_PAGE_SECTIONS, companionPageShown, drawCompanionsPage, resetCompanionRoster } from './companionRoster.js';   // COMPANION-ROSTER: the sworn and the slots
+import { swornBodyOf } from '../systems/revenantCompanions.js';   // COMPANION-ROSTER: a sworn one's live health
+import { enemyDisplayName } from '../characters/enemyBasics.js';   // REVENANT-PAGE: a revenant's kind   // REVENANT-PAGE: the foes that have earned your name
 import { affiliations } from '../systems/affiliations.js';
 import { legalRepOf } from '../systems/court.js';   // REP5: the law, region by region
 import { banishmentLeft, KNOWN_CRIMINAL_BELOW, pardonPrice, challengeFine } from '../systems/standing.js';
@@ -3628,7 +3632,7 @@ function meterRow(label, now, max, tone) {
 
 /** PROF1: the rail's pages - the sheet's six, and online, while the professions are this account's, the Professions
  *  and Stores pages (ui/profPages.js). */
-const statsSections = () => (profPagesShown() ? [...STATS_SECTIONS, ...PROF_PAGE_SECTIONS] : STATS_SECTIONS);
+const statsSections = () => [...STATS_SECTIONS, ...(revenantPageShown(playerEntity) ? REVENANT_PAGE_SECTIONS : []), ...(companionPageShown() ? COMPANION_PAGE_SECTIONS : []), ...(profPagesShown() ? PROF_PAGE_SECTIONS : [])];   // REVENANT-PAGE: after the sheet's own, before the professions'
 
 function pauseStats(body) {
   const m = sheetModel(playerEntity);
@@ -3655,6 +3659,8 @@ function pauseStats(body) {
   ({
     character: statsCharacter, attributes: statsAttributes, skills: statsSkills, specials: statsSpecials, standing: statsStanding, effects: statsEffects, master: statsMaster,   // SOFTCAP4: `master` - the Master Skills door's page
     professions: (d) => drawProfessionsPage(d, render, profKit), stores: (d) => drawStoresPage(d, render, profKit),
+    revenants: (d) => drawRevenantsPage(d, render, { ...profKit, player: playerEntity, kindName: enemyDisplayName }),   // REVENANT-PAGE
+    companions: (d) => drawCompanionsPage(d, render, { ...profKit, kindName: enemyDisplayName, here: swornBodyOf }),   // COMPANION-ROSTER
   })[statsSec](detail, m);
   // PX25: THE DOORS THE F5 SHEET CARRIED. The classic character sheet
   // has four buttons down its side - Inventory, Spellbook, Logbook,
@@ -4694,6 +4700,7 @@ export function mountEnhancedMenu(host, {
   questShowHidden = false;
   statsSec = 'character';
   resetProfPages();   // PROF1: an armed change of specialisation never outlives the visit
+  resetCompanionRoster();   // COMPANION-ROSTER: nor an armed Release
   statsAllSkills = false;
   sysSec = 'save';
   category = CATEGORIES[0].id;

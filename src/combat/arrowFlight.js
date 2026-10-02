@@ -237,7 +237,7 @@ export class ArrowFlight {
  *
  * WAVE D: four bodies became FOUR CALLERS. dungeonContext.js's
  * `m.fromPlayer` block - the arm this function was extracted FROM -
- * now calls it (dungeonContext.js:3181), so the copy that survived
+ * now calls it (dungeonContext.js:3295), so the copy that survived
  * the extraction is gone. It was not a harmless copy: it still
  * splashed at the arrow tip, the exact bug AUDIT 39r/R16 fixed here.
  * DaggerfallMissile.cs:681-687 routes an arrow into
@@ -288,6 +288,9 @@ export function playerArrowHitFoe(m, foe, {
   rolls = Math.random,
 } = {}) {
   if (!foe || foe.dead || !playerEntity) return 0;
+  // REVENANT-FATE (the 2026-10-02 audit): one held by its fate (kneeling, burning, gathering into a portal) - the shaft
+  // lands nothing: no blow, no poison, no rage, no Archery (the kill door refused the damage; the rest still landed)
+  if (foe.yielded || foe.executing || foe.sparing || foe.leaving) return 0;
   const swing = SWING_MODS[playerWeapon?.machine?.state] ?? { damage: 0, toHit: 0 };
   const back = foe.ai && playerFeet ? isBackFacing(foe.ai.yaw, foe.ai.feet, playerFeet) : false;
   const dmg = calculateAttackDamage(playerEntity, foe.entity, {

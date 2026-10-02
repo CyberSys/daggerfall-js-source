@@ -20,6 +20,7 @@
 //    aboard, knocked out or fallen, he gives it up (`takePack`) and the host stows it in her hold.
 
 import { entityMaxEncumbrance, maxEncumbrance } from '../../combat/formulas.js';   // COMPANION-WEIGHT: DFU's MaxEncumbrance
+import { companionsWithYou, COMPANION_SLOTS } from '../companionSlots.js';   // COMPANION-SLOTS: the crew and the sworn revenants share the player's side
 
 /** How many hands walk ashore with the player at once (Mac: "Up to 2"). */
 export const COMPANION_MAX = 2;
@@ -35,7 +36,7 @@ export const packCapacityKg = (entity) => (Number(entity?.stats?.strength) > 0 ?
 /** How long a knocked-out companion rests aboard before he will come ashore again - the world's minutes (8 hours). */
 export const REST_MIN = 8 * 60;
 /** Why a hand will not come ashore - short, for the picker's "(why)". */
-export const COMPANION_WHY = Object.freeze({ full: 'two ashore already', resting: 'resting aboard', uncrewed: 'no crew' });
+export const COMPANION_WHY = Object.freeze({ full: 'two ashore already', resting: 'resting aboard', uncrewed: 'no crew', slots: 'no room at your side' });
 /** The picker's words. */
 export const COMPANION_TEXT = Object.freeze({ take: 'Take ashore', back: 'Send back aboard', ashore: 'ashore', resting: 'resting' });
 
@@ -97,6 +98,8 @@ export function createCompanions(record = null, codec = null) {
       const r = restOf(boat, hand.name);
       if (r && now < r.until) return COMPANION_WHY.resting;
       if (party.length >= COMPANION_MAX && !find(boat, hand.name)) return COMPANION_WHY.full;
+      // COMPANION-SLOTS: and no more at the player's side than its slots hold, sworn revenants counted
+      if (!find(boat, hand.name) && companionsWithYou() >= COMPANION_SLOTS) return COMPANION_WHY.slots;
       return null;
     },
     /**

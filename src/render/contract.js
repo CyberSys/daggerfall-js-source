@@ -55,6 +55,7 @@
  * @property {number} [eliteGlow]                    ELITE FOES: the glow's pulse (0 off; negative an elite's corpse, the rim alone) - systems/eliteFoes.js
  * @property {number} [eliteTime]                    ELITE FOES: the embers' clock, seconds
  * @property {ReadonlyArray<number> | null} [elitePad] ELITE FOES: the quad widened past the sprite (left, bottom, right, top, as fractions of it)
+ * @property {ReadonlyArray<number> | null} [dissolve] DISSOLVE: [share gone 0..1, r, g, b] - a body burnt away or gathering through a portal (systems/dissolve.js)
  * @property {Float32Array} [bounds]                  EL5: the sphere [cx, cy, cz, r] about the origin the shadow and air replays cull by
  * @property {number} [_quads]                        BLOOD1b: how many quads the buffer holds, so `moveBillboardBatch` cannot write past it
  * @property {boolean} [_dyn]                         BLOOD1b: born DYNAMIC_DRAW, because its centres move every frame
