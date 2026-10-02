@@ -86,6 +86,7 @@ export const ARENA_TEXT = F({
     champion: (tier) => `For the title of ${tier} Champion!`,
     grand: 'For the title of Grand Champion of the Arena of Daggerfall!',
     melee: 'A Grand Melee - every fighter for themselves!',
+    players: 'A rated bout between fighters of the realm!',   // ARENA4: a bout between players, refereed
     fighter: (name, home) => (home ? `From ${home} - ${name}!` : `${name}!`),
     versus: 'Against...',
     marks: 'Fighters, to your marks!',
@@ -101,6 +102,7 @@ export const ARENA_TEXT = F({
     draw: 'Time! The judges cannot part them - a draw.',
     grand: (w) => `${w} is the Grand Champion of the Arena of Daggerfall!`,
     tier: (w, t) => `${w} is the ${t} Champion!`,
+    forfeit: (w, l) => `${l} has left the sand! ${w} wins by forfeit.`,   // ARENA4: a fighter gone from a refereed bout
   }),
   /** The purse, said after the verdict. */
   purse: F({

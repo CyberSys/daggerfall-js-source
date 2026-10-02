@@ -263,6 +263,9 @@ export const ARENA_RING_R = 14;
 export const ARENA_PVP_MARKS = Object.freeze([Object.freeze([-6, 0]), Object.freeze([6, 0])]);
 
 // ── THE BOUT ROOM ─────────────────────────────────────────────────────────────────────────────
+/** The owner a relay-run fighter's puppet stands under on the client (scenes/dungeonContext.js's own lane): a blow on it
+ *  is the referee's (`onArenaHit`), never a peer's. */
+export const ARENA_PUPPET_OWNER = 'arena-relay';
 /** The most who may watch a bout (Arena.md 7: "up to 60"). */
 export const ARENA_SPECTATORS_MAX = 60;
 /** A fighter of a matched bout who has not come to the sand in this long voids it. */

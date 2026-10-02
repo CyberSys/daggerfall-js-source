@@ -7080,10 +7080,10 @@ export function createWorldModes(host) {
    *  player arriving at their mark on the sand (`kind` 'ladder') or on the lower terrace (`'watch'`). Entered from the
    *  Herald at the gate (the host's choice - scenes/world.js arenaHerald), left by its gates back to him. Offline and
    *  online alike - the bout is this screen's (ARENA4 makes it a relay room). */
-  async function enterArenaFloor(kind = 'ladder') {
+  async function enterArenaFloor(kind = 'ladder', bout = null) {
     if (mode !== 'exterior' || !(playerEntity.health > 0)) return false;
     const city = host.arenaCity?.() ?? null;
-    const dfLocation = arenaFloorLocation({ kind, city });
+    const dfLocation = arenaFloorLocation({ kind, city, bout });   // ARENA4: `bout` the relay's bout - the instance is its room
     const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind), arenaFloor: kind, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
     return tryEnterDungeon(hit, [], { preferEnterMarker: false });
   }
@@ -7444,6 +7444,8 @@ export function createWorldModes(host) {
           onCrystalHit: (hit) => !!host.onCrystalHit?.(hit),   // WB9c: and the door a blow's number on one leaves through
           gateHost: () => host.gateHost?.() ?? null,   // WB11c: the Legion-Lord's host as bodies my blows meet (none but under the trial)
           onHostHit: (hit) => !!host.onHostHit?.(hit),   // WB11c: and the door a blow's number on one leaves through
+          arenaRival: () => host.arenaRival?.() ?? null,   // ARENA4: my opponent on a relay's sand as a body my blows meet (none outside such a bout)
+          onArenaHit: (hit) => !!host.onArenaHit?.(hit),   // ARENA4: and the door a blow's number on them leaves through - to the referee
           spoilContents: (key) => host.spoilContents?.(key) ?? null,   // WB9f: a piece of his spoils, listed on the plaque
           onActions: (data) => host.onActions?.(data), peers: () => host.peers?.() ?? null, selfId: () => host.selfId?.() ?? null, party: () => host.partyNear?.() ?? [], nodeMarks: (feet) => host.professionMarks?.(feet) ?? null,   // NODE-MARKS: the dungeon's nodes on its compass, at its own feet; WORLD3: a door moved goes out; the peers the foes see; whose blow a puppet's is
           postItem: (text) => host.postItem?.(text) ?? false, canPostItem: () => host.canPostItem?.() ?? false,   // CHAT-POST: the dungeon's pack posts through the outer host
@@ -10566,7 +10568,8 @@ export function createWorldModes(host) {
     },
     // ONLINE1: what the host needs to name the room - the mounted dungeon's
     // location, the interior's building; null in the exterior
-    roomIdentity: () => (mode === 'dungeon' ? (isGateArena(dungeonLoc) ? { kind: 'gate', day: dungeonLoc.gate } : { kind: 'dungeon', mapId: dungeonLoc?.mapTableData?.mapId ?? null, regionIndex: dungeonLoc?.regionIndex ?? -1, name: dungeonLoc?.name ?? '' })   // WB3b: the court's room is its gate's own
+    // ARENA4: the floor's instance standing a relay's bout is that bout's room (`arena:b<id>`)
+    roomIdentity: () => (mode === 'dungeon' ? (isGateArena(dungeonLoc) ? { kind: 'gate', day: dungeonLoc.gate } : isArenaFloor(dungeonLoc) && dungeonLoc.arenaBout ? { kind: 'arena', o: dungeonLoc.arenaBout } : { kind: 'dungeon', mapId: dungeonLoc?.mapTableData?.mapId ?? null, regionIndex: dungeonLoc?.regionIndex ?? -1, name: dungeonLoc?.name ?? '' })   // WB3b: the court's room is its gate's own
       : mode === 'interior' ? { kind: 'interior', buildingKey: _intShared?.owned ? 0 : (interiorBuilding?.buildingKey ?? 0), layout: _visitLayout } : null),   // WD3 (AUDIT WD3 B3): and its layout   // AUDIT WORLD6a A6/B6: an owned house or a ship keeps NO room - not a room nobody feeds (the owner joined it, could hold the seat, and published nothing)
     get dungeonLocation() { return dungeonLoc; },   // B2: playerInside's dungeon arm
     /** X7: the Identify SPELL's window (Identify.cs:71-76 pushes the

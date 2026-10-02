@@ -72,6 +72,19 @@ export function moodBand(mood) {
   return 'roar';
 }
 
+/** ARENA4: THE STANDS SHOUT - a spectator's cheer (`c` 1) or boo (-1) on the relay, `n` of them together: the mood
+ *  pushed (each a little, a crowd of them more, to a bound), the tiers hop at a roar, and the cue. Pure but for the crowd.
+ *  Answers the cues (crowdHear's shape). */
+export const SHOUT_PUSH = 0.05;
+export const SHOUT_MAX = 0.3;
+export function crowdShout(c, dir, n = 1, now = 0) {
+  if (!c || (dir !== 1 && dir !== -1)) return [];
+  const k = Math.min(SHOUT_MAX, SHOUT_PUSH * Math.max(1, n));
+  push(c, dir * k);
+  if (dir > 0 && n >= 5) { c.hopAt = now; c.hopAmp = HOP_M * 0.6; }
+  return [{ s: dir > 0 ? 'cheer' : 'boo', v: Math.min(1, 0.35 + 0.08 * n) }];
+}
+
 /** The mood settles toward its base over `dt` seconds. */
 export function crowdTick(c, dt) {
   if (!c || !(dt > 0)) return c;

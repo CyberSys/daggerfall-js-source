@@ -77,6 +77,8 @@ export const arenaRing = (c = floorCentre()) => ({ centre: [c[0], c[1], c[2]], r
  *  terrace's south side looking north over the sand. `[x, z, up]` in the floor's frame and the yaw. */
 export const ARRIVE = Object.freeze({
   ladder: Object.freeze({ at: Object.freeze([-6, 0, 0]), yaw: Math.PI / 2 }),
+  // ARENA4: the second fighter of a bout between players, on side 1's mark (east), facing west at the first
+  rival: Object.freeze({ at: Object.freeze([6, 0, 0]), yaw: -Math.PI / 2 }),
   watch: Object.freeze({ at: Object.freeze([0, -21.8, TERRACE_UP]), yaw: 0 }),
 });
 /** The ways out (the exit doors' places): the sand's north gate, and the terrace's south stair for a watcher -
@@ -89,11 +91,11 @@ export const ARENA_EXIT_W = 3.2;
 export const ARENA_EXIT_H = 3.6;
 
 /**
- * THE MADE LOCATION for a bout of `kind` ('ladder' or 'watch') at the city: the city's region, its climate, the map
+ * THE MADE LOCATION for a bout of `kind` ('ladder', 'rival' - ARENA4's second fighter - or 'watch') at the city: the city's region, its climate, the map
  * table's row with map id 0 (no world room keys off it - ARENA4's bout rooms are `arena:<id>`).
- * @param {{ kind?: string, city?: any }} o
+ * @param {{ kind?: string, city?: any, bout?: string|null }} o
  */
-export function arenaFloorLocation({ kind = 'ladder', city = null } = {}) {
+export function arenaFloorLocation({ kind = 'ladder', city = null, bout = null } = {}) {
   return {
     name: 'The Arena of Daggerfall', regionIndex: city?.regionIndex ?? 17, regionName: city?.regionName ?? 'Daggerfall', locationIndex: -1, hasDungeon: true,
     climate: { worldClimate: city?.climate?.worldClimate ?? 227, climateType: city?.climate?.climateType ?? 2 },
@@ -104,6 +106,8 @@ export function arenaFloorLocation({ kind = 'ladder', city = null } = {}) {
       blocks: [{ x: 0, z: 0, blockName: ARENA_FLOOR_BLOCK, isStartingBlock: true, blockIndex: 0, blockNumber: 0, blockNumberStartIndexBitfield: 0 }],
     },
     arenaFloor: kind,
+    // ARENA4: the relay's bout this instance stands (`arena:b<id>` - its room), null for a bout of this screen's alone
+    ...(bout ? { arenaBout: bout } : {}),
   };
 }
 /** Is this location the floor's instance? */

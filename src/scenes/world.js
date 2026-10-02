@@ -40,6 +40,12 @@ import { setPlayerBout } from '../characters/enemyTargets.js';   // ARENA2: the 
 import { exhibitionFor, nextLadderBout, arenaLadderRestore, practiceBout } from '../systems/arenaLadder.js';   // ARENA2: the hour's exhibition, the ladder's next bout
 import { heraldChoice } from '../systems/arenaHerald.js';   // ARENA2: the Herald's choice at the gate
 import { createArenaGate, nearArenaGate } from './arenaGate.js';
+import { createArenaOnline } from './arenaOnline.js';   // ARENA4: the arena online - the hall, a relay's bout, the boards and the receipts
+import { arenaBoutRoom } from '../net/arenaLaw.js';   // ARENA4: a bout's room
+import { accountArena } from '../net/accountClient.js';   // ARENA4: the arena's records on the account service
+import { fighterIdentity } from '../systems/arenaFighters.js';   // ARENA4: the relay's fighters billed by the bout's seed
+import { bossStandIn } from '../world/gateBoss.js';   // ARENA4: my opponent's stand-in for the formulas
+import { closeArenaDoor } from '../ui/arenaDoor.js';   // ARENA4: the window goes when a bout calls
 import { rollLeague } from '../systems/arenaLeague.js';   // ARENA3: the banner worn (the pause window's Arena door)   // ARENA3: the recruiters (and the bookmaker) at the gate
 import { cityFloorCentre } from '../world/arenaFloor.js';   // ARENA2: the city floor's sand, in its block's frame
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Daggerfall Bank's letter
@@ -7796,6 +7802,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     playerEntity.magicka = playerEntity.maxMagicka ?? playerEntity.magicka;
     surfacePlayer();
   };
+  /** ARENA4: the arena online (scenes/arenaOnline.js) - made once the online half of this host stands (below the
+   *  session's door); null before it, and every arena door here reads it so. */
+  let arenaOnline = null;
   const arenaBouts = createArenaBouts({
     now: () => performance.now(), playerEntity, setPlayerBout,
     say: (l) => setMidScreenText(l, 2.6),
@@ -7818,6 +7827,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // the Arena window's Watch and Fight are the Herald's own, and are pressed only at the gate
     heraldAct: (a) => arenaHeraldAct(a), atGate: () => (modes?.mode ?? 'exterior') === 'exterior' && nearArenaGate(player.pos, arenaHeraldAt()),
     onSand: () => (arenaBouts.stageKind() === 'city' ? arenaBouts.onSand() : null),
+    online: () => arenaOnline,   // ARENA4: the window's online half, its presses, the recruiters' banners on the account
   });
   /** The exhibition standing here has had the word (the book on it is shut). */
   const arenaBoutBegun = () => { const b = arenaBouts.bout(); return arenaBouts.kind() === 'exhibition' && !!b && !['call', 'walk', 'count'].includes(b.phase); };
@@ -7864,6 +7874,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   let _arenaFrames = 0;   // the probe's count of the frames the arena was ticked in
   function arenaFrame(dt) {
     _arenaFrames++;
+    arenaOnline?.tick();   // ARENA4: the receipts, the hall, my `in` on a relay's sand
     const stg = arenaStageNow();
     arenaBouts.setStage(stg);
     if (stg === arenaCityStage && !arenaBouts.bout() && !arenaBouts.pending() && !gamePaused()) {
@@ -7901,6 +7912,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       arenaBouts.ask({ where: 'floor', kind: 'exhibition', ex });
       modes?.enterArenaFloor?.('watch');
     } else if (a === 'fight') {
+      // ARENA4: ONLINE THE LADDER IS THE ACCOUNT'S - its next bout fought on the relay (scenes/arenaOnline.js)
+      if (arenaOnline?.live()) { const r = arenaOnline.fightLadder(); if (!r.ok && r.text) townTalk.say(r.text); return; }
       const next = nextLadderBout(arenaLadderRestore(playerEntity.arenaLadder));
       if (!next) return;
       arenaBouts.ask({ where: 'floor', kind: 'ladder', next });
@@ -15908,6 +15921,7 @@ export async function bootWorld(canvas, renderer, params, status) {
       // net/accountClient.js's own header states.
       mintToken: identityMinter,
     });
+    online.onArena = (w, room) => arenaOnline?.word(w, room);   // ARENA4: a relay's bout's words, to the bout on this screen
     // ONE-SEAT: the browser's arm - this tab goes online, so any other tab of this browser that is online gives its seat
     // up (net/oneSeat.js); the hub's arm is the World link's claim (chatStart)
     seatLock = createSeatLock({ onLost: () => seatLostNow() });
@@ -16942,6 +16956,49 @@ export async function bootWorld(canvas, renderer, params, status) {
     say: (text) => chatNotice(text),
     onMarks: (marks) => marksBook?.strikeLine(marks) ?? null,   // MARKS1: the gate's Marks, struck as it is counted
   }) : null;
+  // ═══ ARENA4 (2026-10-02, Mac: "choose to matchmake for a real opponent to take on in real time"; "view your ranking
+  // and even player leaderboards"): THE ARENA ONLINE ON THIS SCREEN (scenes/arenaOnline.js) - the hall's own socket, a
+  // relay's bout on the floor's instance (its room the presence session's), the boards and the receipts. ═══════════════
+  arenaOnline = createArenaOnline({
+    now: () => performance.now(),
+    session: () => online,
+    // the hall's socket: a presence-less session of my own id, minting its token as every link does
+    makeHall: () => {
+      if (!online?.url) return null;
+      const link = new OnlineSession({ url: online.url, name: online.name, look: online.look, id: online.id, secret: online.secret, presence: false });
+      link.mintToken = identityMinter;
+      link.onRelay = onRelayVersion;
+      link.onSuperseded = () => seatLostNow();
+      return link;
+    },
+    account: accountArena({ fetch: (u, i) => globalThis.fetch(u, i), storage: appStorage() }),
+    store: _spoilsStore,
+    bouts: arenaBouts,
+    enterFloor: (kind, o) => modes?.enterArenaFloor?.(kind, o) ?? false,
+    closeWindow: () => closeArenaDoor(),
+    say: (l) => chatNotice(l),
+    notice: (lines) => { for (const l of lines) townTalk.say(l); },
+    names: (seed) => (i, mobile) => fighterIdentity(seed, i, mobile),
+    level: () => playerEntity.level ?? 1,
+    maxHealth: () => playerEntity.maxHealth ?? 1,
+    guest: () => storedSession(appStorage())?.kind === 'guest',
+    struck: (d) => { if (d > 0) { flashPlayerDamage(d); playPlayerVoice(audio, playerPainVoice(playerEntity, d)); } },
+    myHealth: (hp) => { if (playerEntity.health > 0) { playerEntity.health = hp; surfacePlayer(); } },
+    inBout: () => arenaBouts.holds(),
+  });
+  /** ARENA4: MY OPPONENT on a relay's sand, as a body my blows meet (scenes/dungeonContext.js arenaRivalBody): the one
+   *  body the bout's room draws (the stands have none), its stand-in for the formulas - unarmoured, every blow's number
+   *  the referee's to judge. Null outside a bout between players. */
+  let _arenaRivalEntity = null;
+  function arenaRivalBody() {
+    const b = arenaOnline?.bout(), r = arenaBouts.relay();
+    if (!b || b.kind !== 'pvp' || !r || !r.me) return null;
+    const peer = (peersNear() ?? [])[0];
+    if (!peer?.feet) return null;
+    if (!_arenaRivalEntity) { _arenaRivalEntity = bossStandIn({ mobile: 0 }, b.vs?.n ?? 'Your opponent'); _arenaRivalEntity.armor = 100; _arenaRivalEntity.armorValues = new Array(7).fill(100); _arenaRivalEntity.skills = 0; _arenaRivalEntity.spareGear = true; }
+    _arenaRivalEntity.name = b.vs?.n ?? _arenaRivalEntity.name;
+    return { i: r.me === 'p0' ? 'p1' : 'p0', entity: _arenaRivalEntity, feet: peer.feet, height: peer.height ?? CAPSULE_HEIGHT, radius: 0.4, yaw: 0 };
+  }
   /** RAID4: THE RAID RECEIPTS THIS DEVICE CARRIES TO THE ACCOUNT SERVICE (net/raidClaims.js) - each town the relay
    *  signed my defence of, kept with the character that fought it until the service has counted it and paid its
    *  Renown; a counted raid's Renown is the page's at once, as a report's is - when that character is the one
@@ -19641,6 +19698,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const mp = overworld ? worldCoordToMapPixel(wc.x, wc.z) : null;
     if (overworld) key = roomKeyFor({ host: 'world', mode, mapPixel: mp });
     else if (modes?.roomIdentity?.()?.kind === 'gate') key = gateRoomKey(modes?.roomIdentity?.()?.day);   // WB3b: the court's room is its gate's own
+    else if (modes?.roomIdentity?.()?.kind === 'arena') key = arenaBoutRoom(modes.roomIdentity().o);   // ARENA4: a relay's bout's floor is its room
     else {
       const ident = modes?.roomIdentity?.();
       const loc = _questLoc();   // the location under the player: an interior's room is named by it
@@ -20051,6 +20109,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     onCrystalHit: (hit) => !!gateCourt?.crystalHit(hit),   // WB9c: a blow's number on one, out to the room
     gateHost: () => gateCourt?.hostTargets() ?? null,   // WB11c: his host as bodies my blows meet
     onHostHit: (hit) => !!gateCourt?.hostHit(hit),   // WB11c: a blow's number on one, out to the room
+    arenaRival: () => arenaRivalBody(),   // ARENA4: my opponent on a relay's sand, as a body my blows meet
+    onArenaHit: (hit) => !!arenaOnline?.hit(hit),   // ARENA4: a blow's number on them, out to the referee
     // WB9f: HIS SPOILS ON THE FLOOR, pressed - the pool's resting pieces as targets, their words and their items for the
     // plaque, and the press that takes one into the pack (the court's dungeon arm, worldModes.js standCourt)
     spoilTargets: () => spoilsPool?.targets() ?? null,

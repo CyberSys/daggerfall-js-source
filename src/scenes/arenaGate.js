@@ -38,11 +38,14 @@ export const RECRUITER_BANNER = Object.freeze({ redRecruiter: 'red', blueRecruit
  *   playerEntity: any, gameMinutes: () => number, showOverlay: (w: any) => void, say?: (line: string) => void,
  *   openWindow?: ((page?: string) => any) | null, liveHour?: () => (number|null), begun?: () => boolean,
  *   heraldAct?: (a: string) => void, atGate?: () => boolean, onSand?: () => ({ a: string, b: string } | null),
+ *   online?: () => any,
  * }} deps `openWindow` a door to the Arena window in place of the gate's own (ui/arenaDoor.js - null: none opens);
  *   `heraldAct` the Herald's own doors (watch, fight - the window's presses), `atGate` whether the player stands at the
  *   gate (systems/arenaGate.js nearArenaGate), `onSand` the names on the city's sand now;
  *   `liveHour` the hour whose exhibition stands on a floor here (its wager waits for its verdict), `begun` whether that
- *   bout's fight has begun (the book shuts at the word)
+ *   bout's fight has begun (the book shuts at the word); ARENA4: `online` the arena online (scenes/arenaOnline.js) or
+ *   null - while it is live the window reads the realm's boards and the hall, its challenge and its stands are pressed
+ *   here, and a banner joined or quit at a recruiter is the account's too
  */
 export function createArenaGate(deps) {
   const P = deps.playerEntity;
@@ -54,6 +57,8 @@ export function createArenaGate(deps) {
   const league = () => (P.arenaLeague = rollLeague(P.arenaLeague, gm()));
   const choice = (ch, act) => deps.showOverlay(new ChoiceWindow({ lines: ch.lines, options: ch.options.map((o) => ({ code: o.code, label: o.label ?? undefined, action: () => act(o.act, o) })) }));
   const liveHour = () => deps.liveHour?.() ?? null;
+  /** ARENA4: the arena online while it is live, else null. */
+  const online = () => { const o = deps.online?.() ?? null; return o?.live?.() ? o : null; };
   const begun = () => !!deps.begun?.();
   /** The book written back into the league. */
   const setBook = (book) => { P.arenaLeague = { ...league(), book }; };
@@ -69,12 +74,14 @@ export function createArenaGate(deps) {
         const r = joinBanner(league(), banner, gm());
         P.arenaLeague = r.league;
         if (r.ok) { say(ARENA_TEXT.recruiter.joined(name)); openWindow?.('team'); }
+        if (r.ok) online()?.team(banner);   // ARENA4: online the banner is the account's too - the service's word said if it refuses
       } else if (a === 'quit') {
         choice(quitAsk(banner), (b) => {
           if (b !== 'quit') return;
           const r = quitBanner(league(), gm());
           P.arenaLeague = r.league;
           if (r.ok) say(ARENA_TEXT.recruiter.quitDone(name));
+          if (r.ok) online()?.team(null);   // ARENA4: and struck from the account's roll
         });
       } else if (a === 'window') openWindow?.('team');
     });
@@ -136,6 +143,7 @@ export function createArenaGate(deps) {
     return arenaBoard({
       ladder: P.arenaLadder, league: league(), gameMinutes: gm(), name: P.name ?? '', atGate: !!deps.atGate?.(), onSand: deps.onSand?.() ?? null,
       healthShare: (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1), gold: totalGoldAmount(P), liveHour: liveHour(), begun: begun(),
+      online: online()?.model() ?? null,   // ARENA4: the realm's boards and the hall, while online
     });
   }
   /** A PRESS IN THE WINDOW: Watch and Fight are the Herald's (the window goes, the floor's instance comes); Wager is the
@@ -146,9 +154,12 @@ export function createArenaGate(deps) {
       if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
       return wager(data.hour, data.side === 1 ? 1 : 0, Math.floor(Number(data.stake) || 0));
     }
+    // ARENA4: the challenge and the stands - pressed anywhere the window stands (a match called sends me to the sand)
+    if (kind === 'queue' || kind === 'unqueue' || kind === 'accept' || kind === 'decline' || kind === 'spectate') return online()?.act(kind, data) ?? { ok: false, text: ARENA_TEXT.online.whyOffline };
     if (kind === 'watch' || kind === 'fight') {
       if (!atGate) return { ok: false, text: ARENA_TEXT.window.whyGate };
-      if (kind === 'fight' && (!nextLadderBout(P.arenaLadder) || (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN)) return { ok: false, text: ARENA_TEXT.window.whyHurt };
+      const onLadder = online()?.ladder() ?? P.arenaLadder;   // ARENA4: online the climb is the account's
+      if (kind === 'fight' && (!nextLadderBout(onLadder) || (P.health ?? 0) / Math.max(1, P.maxHealth ?? 1) < FIGHT_HEALTH_MIN)) return { ok: false, text: ARENA_TEXT.window.whyHurt };
       closeArenaDoor();
       deps.heraldAct?.(kind);
       return { ok: true, text: '' };

@@ -181,6 +181,7 @@ import { HIT_KINDS } from '../net/gateBrain.js';   // WB4b: a blow on the court'
 import { bossReach, BOSS_SWAY_TEXT, BOSS_SWAY_TELL_MS } from '../world/gateBoss.js';   // WB4b: a swing meets the court's boss at his skin; WB8a: and a sway meets his refusal
 import { duelSpellOf } from '../combat/duelCombat.js';   // WB4b: the harmful families alone reach the court's boss, as they alone reach a duel opponent
 import { assignEnemySpells, SPELL_CAST_SOUND } from '../systems/enemySpells.js';
+import { ARENA_PUPPET_OWNER } from '../net/arenaLaw.js';   // ARENA4: the relay's fighters' puppets - a blow on one is the referee's
 import { calculateCastCost } from '../systems/spellcost.js';
 import { snapshotPlayer, restorePlayer, composeSessionState, restoreSessionState , copyEffectEntry } from '../systems/save.js';   // B4: the ONE quest+talk composer
 import { saveSlot, loadSlot, quickLoadSlot, QUICK_SAVE_NAME, requestScreenshot, slotLoaded } from '../systems/saveSlots.js';   // SAV4: the quicksave is a SLOT named QuickSave; SS1: the shot arms here, the HOST loop delivers it
@@ -3518,6 +3519,29 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     reportPlayerAttack({ hit: true, damage: Math.round(dealt) });   // HN1: the number pops as a blow's does
     return landOnHost(hb, dealt, HIT_KINDS.Spell);
   }
+  // ═══ ARENA4: MY OPPONENT ON A RELAY'S SAND, MET ═══════════════════════════════════════════════════════════════
+  // (2026-10-02, Mac: "choose to matchmake for a real opponent to take on in real time"). The outer host's word of the
+  // other player in a refereed bout (`opts.arenaRival` - scenes/world.js: their fighter id, where their body stands, its
+  // height and radius, a stand-in for the formulas) as a foe-shaped record, made each time asked; none outside such a
+  // bout. Never in `foes` - their body is the room's (net/remotePlayers.js) - so a blow of mine that meets it is computed
+  // here by the game's own law and its number goes to the relay's referee (`opts.onArenaHit`, PVP-REF), which holds both
+  // fighters' health and decides what lands.
+  function arenaRivalBody() {
+    const r = opts.arenaRival?.() ?? null;
+    if (!r || !r.entity || !Array.isArray(r.feet) || !(r.height > 0) || !(r.radius > 0) || typeof r.i !== 'string') return null;
+    return { rival: r.i, dead: false, entity: r.entity, mobileType: null, ai: { feet: r.feet, yaw: r.yaw ?? 0, height: r.height, radius: r.radius, centreOffset: r.height / 2, isHostile: true } };
+  }
+  /** A blow's number on my opponent, out to the referee; answers whether it went. */
+  const landOnRival = (rb, damage, kind) => !!opts.onArenaHit?.({ i: rb.rival, d: damage, kind, w: playerWeapon.strikingWeapon?.templateIndex ?? -1, m: playerWeapon.strikingWeapon?.material ?? 0 });
+  /** A swing of mine that met my opponent: the parry's ring for none, else the hit's sound and blood at them and the
+   *  number out (their own screen bleeds as the relay's health falls). */
+  function swingOnRival(rb, damage, lookDir) {
+    const chest = [rb.ai.feet[0], rb.ai.feet[1] + rb.ai.centreOffset, rb.ai.feet[2]];
+    if (damage <= 0) { audio.play3d(SOUND.Parry6, chest, 1.1, { maxDistance: 24 }); landOnRival(rb, 0, 'melee'); return; }
+    audio.play3d(hitSoundFor(playerWeapon.strikingWeapon), chest, ENEMY_HIT_VOLUME, { maxDistance: 24 });
+    hitEffects?.showBloodSplash(0, chest, null, bloodHit(damage, rb.entity, { fromPlayer: true, weapon: playerWeapon.strikingWeapon, swing: playerWeapon.machine?.state, forward: lookDir }));
+    landOnRival(rb, damage, 'melee');
+  }
   /** How the swing sees him: the distance to his body's SURFACE (his axis is `radius` in and his middle `height/2` up - a
    *  point-centre law would ask a swing to reach 3 m into him), in view at the nearest point of him, the way to it
    *  clear. */
@@ -3623,6 +3647,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (f === boss) return bossSight(eye, inViewFn, boss);
       if (f.crystal != null) return bossSight(eye, inViewFn, f);   // WB9c: a crystal of Oblivion by its surface, as he is
       if (f.host != null) return bossSight(eye, inViewFn, f);   // WB11c: one of his host by its surface
+      if (f.rival != null) return bossSight(eye, inViewFn, f);   // ARENA4: my opponent by their surface
       const c = [f.ai.feet[0], f.ai.feet[1] + (f.ai.height ?? CAPSULE_HEIGHT) / 2, f.ai.feet[2]];   // foe center (mid-capsule) - ITS capsule (REVIEW 2026-09-05), the 0.9 was the player's
       const dx = c[0] - eye[0], dy = c[1] - eye[1], dz = c[2] - eye[2];
       const dist = Math.hypot(dx, dy, dz);
@@ -3632,6 +3657,8 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     };
     for (const cr of gateCrystalBodies()) { cr._backFacing = false; live.push(cr); }   // WB9c: the Reckoning's crystals, bodies the swing meets as it meets him
     for (const hb of gateHostBodies()) { hb._backFacing = false; live.push(hb); }   // WB11c: his host, bodies the swing meets (its facing is the relay's walk, not a body's - no backstab)
+    const rival = arenaRivalBody();   // ARENA4: my opponent on a relay's sand - a body the swing meets, by its surface
+    if (rival) { rival._backFacing = foeDeps.isBackFacing(rival.ai.yaw, rival.ai.feet, playerFeet); live.push(rival); }
     // (the module-level playerEntity import IS foeDeps.playerEntity -
     // the old shadowing destructure was the null read that crashed)
     let hitEnemy = false;
@@ -3645,6 +3672,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       if (foe === boss) { hitEnemy = true; swingOnBoss(boss, damage, lookDir); continue; }   // WB4b: his own arm - nothing of a foe's door is his
       if (foe.crystal != null) { hitEnemy = true; swingOnCrystal(foe, damage); continue; }   // WB9c: a crystal's own - no blood, no foe's door
       if (foe.host != null) { hitEnemy = true; swingOnHost(foe, damage, lookDir); continue; }   // WB11c: one of his host's own - its blood, no foe's door
+      if (foe.rival != null) { hitEnemy = true; swingOnRival(foe, damage, lookDir); continue; }   // ARENA4: my opponent's - the number to the referee
       // WeaponDamage returns true for a CONNECTING swing even at zero
       // damage (WeaponManager.cs:617-637 falls through to
       // DecreaseHealth/HandleAttackFromSource and returns true), so
@@ -3868,6 +3896,13 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
           if (boss && missileHitsCapsule(m.pos, boss.ai.feet, boss.ai.height, boss.ai.radius)) {
             if (boss.warded) wardTurns(boss);
             else playerArrowHitFoe(m, boss, { playerEntity, playerWeapon, playerFeet, audio, hitEffects, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnBoss(boss, d, HIT_KINDS.Shaft) });
+            retireMissile(m);
+            continue;
+          }
+          // ARENA4: a shaft meets my opponent on a relay's sand by their whole body - the number to the referee
+          const rv = arenaRivalBody();
+          if (rv && missileHitsCapsule(m.pos, rv.ai.feet, rv.ai.height, rv.ai.radius)) {
+            playerArrowHitFoe(m, rv, { playerEntity, playerWeapon, playerFeet, audio, hitEffects, say: (l) => hudText.add(l), dealDamage: (t, d) => landOnRival(rv, d, 'arrow') });
             retireMissile(m);
             continue;
           }
@@ -5564,6 +5599,12 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     // sends nothing (B5: its index is another foe's on the host).
     // QUEST-PARTY phase 3c: a party member's quest foe stood here (the room's own lane) - the blow is its OWNER's to
     // apply, whoever hosts the room: out as a hit marked `own`, named by the owner's number, the relay routing it to `to`
+    // ARENA4: one of the relay's fighters on its sand (scenes/arenaBouts.js stands it as a puppet of the relay) - my
+    // blow's number goes to the bout's referee, which holds its health and decides what lands
+    if (foe._ownFrom === ARENA_PUPPET_OWNER) {
+      if (fromPlayer && damage >= 0) opts.onArenaHit?.({ i: `a${foe._ownI}`, d: damage, kind: kind === 'arrow' ? 'arrow' : spell ? 'spell' : 'melee', w: playerWeapon?.strikingWeapon?.templateIndex ?? -1, m: playerWeapon?.strikingWeapon?.material ?? 0 });
+      return;
+    }
     if (foe._ownFrom != null) {
       if (fromPlayer && damage >= 0) {
         const _pAt = playerFeet ?? lastPlayerFeet;
