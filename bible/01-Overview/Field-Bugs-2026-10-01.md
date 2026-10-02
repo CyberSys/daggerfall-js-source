@@ -1079,8 +1079,8 @@ the street and in a shop and were never armed in a dungeon; the item lost its 10
 street click after the dungeon fired the stranded ready. A CasterOnly Heal landed everywhere (the player is one entity)
 but was said on the street's channel.
 
-**Why.** Every Use path (the pack, the U picker, the quick slots, the hotbar) runs `useItem`, whose Cast When Used
-payload goes through the session's ONE enchant ctx (`systems/enchantments.js` setDefaultEnchantCtx): a non-CasterOnly
+**Why.** Every Use path runs `useItem` (for a bracer or a scarab, the pack's Use and the U picker - the quick slots take
+potions alone, and the hotbar puts a jewel ON), whose Cast When Used payload goes through the session's ONE enchant ctx (`systems/enchantments.js` setDefaultEnchantCtx): a non-CasterOnly
 spell is `setReadySpell`, which the ctx turned into the host's `magic.readySpell(record, { free: true })`. The host's
 engine fires only above ground (its frame's `firePending` is gated to exterior mode) and indoors (worldModes takes it
 for the interior arm); the hosted dungeon mounts no ctx of its own (`enchantCtx: false`) and drives the engine it builds
@@ -1089,7 +1089,9 @@ for the interior arm); the hosted dungeon mounts no ctx of its own (`enchantCtx:
 **The fix** (`scenes/shared.js` liveCastEngine; `scenes/hostEnchant.js`; `scenes/dungeonContext.js` castEngine): the ctx
 takes a GETTER and asks it at every call - underground the dungeon context's engine, above ground and indoors the
 host's; a context left from a descent never answers outside one. Cast When Strikes and reflection ride the same
-getter. `scenes/world.js` and `scenes/exterior.js` mount it alike. `test/fb1001_castuse.test.js`.
+getter, and so do an item's self-cast utilities (Dispel, Identify, Create Item, Recall) - underground through the
+dungeon's own foe pool and windows now, not the street's. `scenes/world.js` and `scenes/exterior.js` mount it alike.
+`test/fb1001_castuse.test.js` (Area at Range and Single Target at Range; Area Around Caster reproduced, not pinned).
 
 ## SLOW-SLIP, SLOW-GRASP, SLOW-PRESS: Slowfall is heard by everything a fall does (5)
 
@@ -1218,11 +1220,15 @@ pinned red on the branch before its fix (a gap pin's mutants are its claim) and 
 | SP1 | SLOW-PRESS | under the Jump spell the airborne branch re-reads the input every step, so Forward held re-pressed a slow fall into a face past the slope limit after SLOW-PRESS had spent it: 72 degrees at a walk 19.9 s to come down 12 m, 74 at a run crept UP the face and stayed | the way the face refused is kept while it holds the body, and the air control refused it (`player/motor.js`) |
 | SP2 | SLOW-PRESS | a regression of part five's own: SLOW-PRESS spent the press on the step the body first touched a wall, and the collider's step-up needs that push the step after - a slow glide a step under a lower roof's lip fell into the street (148 of 230 arrivals at 1 m/s on the roof, 216 before) | spent only once the face has held the body over the spell's line further than a step's rise (STEP_OFFSET) |
 | SP3 | SLOW-PRESS, SLOW-SLIP | unpinned: the glide's along-face half (zeroing it passed every suite), a slip under the spell still the classic slip with its regain roll, and steering back once off a face | pinned |
+| CU1 | CAST-USE | the same two engines at the transition: a ready held when the mode flipped stayed on the other one - a touch ready taken down the stairs (the dungeon door lets one through) fired at the first click back outside, and one held at the way out died with the dungeon's engine, the item's condition spent and no spell cast (a spellbook ready the same, before part five) | the ready, its freeness and its price, handed to the engine that fires where the player stands - down at the flip (`worldModes.js`), out in the dungeon context's teardown (the door, a Recall, a load) - `hostMagic.js` handReadyTo, takeReady |
+| CU2 | CAST-USE | the dungeon's ready line priced a free ready at the spell's full cost ("Ice Storm (150)" at 50 magicka, the click spending 0) - common now item readies land there | the line prints the ready's stored price (`readiedCost`) |
+| CU3 | CAST-USE | Cast When Strikes and reflection underground ride the live engine - true, and unpinned (either door on the mount-time engine passed every suite) | pinned |
 
 The relay's bytes moved with F1, F2 and F5, before any deploy: world142's LAW row is rewritten in place (never shipped).
 Mutant records re-aimed by content: `soc1.json` S11-state-to-every-tab and `soc2.json` C2-one-half-sent. Pin moved:
 `soc2_session` (the hello's `ps`); the harness's hello with an account says `ps` unless a pin asks for an old build.
 `test/fb1001_friendsaudit.test.js`; `tools/mutants/fb1001_friendsaudit.json` (15, all dead). `test/fb1001_slowaudit.test.js` (SP1 and SP2 red on the branch before);
-`tools/mutants/fb1001_slowaudit.json` (6, all dead), `fb1001_slowfall.json` judged dead again. Seen and left (no diff, every
+`tools/mutants/fb1001_slowaudit.json` (6, all dead), `fb1001_slowfall.json` judged dead again. `test/fb1001_castaudit.test.js`
+(CU1 and CU2 red on the branch before); `tools/mutants/fb1001_castaudit.json` (8, all dead). Seen and left (no diff, every
 fall's): a peer's body has no in-air pose - the others see a slow faller walk or stand mid-air (a pose field, a relay). Seen and left (main's
 own): `auditworld34` A1 fails one run in two or three on main as on the branch (its 25 ms windows).
