@@ -449,8 +449,8 @@
   {
     "name": "PROF3-kit-not-spent",
     "file": "src/systems/smithItems.js",
-    "old": "  if (i >= 0) items.splice(i, 1);\n  return { item: it, before, after: conditionShare(it) };",
-    "new": "  return { item: it, before, after: conditionShare(it) };",
+    "old": "  if (i >= 0) items.splice(i, 1);\n  return { item: it, before, after: conditionShare(it), from, to: conditionPercentage(it) };",
+    "new": "  return { item: it, before, after: conditionShare(it), from, to: conditionPercentage(it) };",
     "tests": [
       "test/prof3_client.test.js"
     ]

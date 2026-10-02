@@ -351,7 +351,9 @@ export const ONLINE_ROOM_MOD_KEYS = Object.freeze({
   // six combat overrides are the same kind of thing (FormulaHelper
   // overrides on the striker's own blow, the wearer's own armor, the
   // walker's own load), so they take the same answer for the same
-  // reason, forced to the mod's own shipped defaults. And ONE that is
+  // reason, forced to the mod's own shipped defaults - all but
+  // `equipDamage`, which the port ships off (WEAR-VANILLA, 2026-10-01:
+  // the mod ships it on) and the room holds off. And ONE that is
   // an exploit rather than a preference: intensive training spends four
   // days of world time for its +4, and the shared clock refuses the
   // days (CLOCK-REFUSAL) - online it would be four points for nothing.
@@ -413,13 +415,15 @@ export const ONLINE_PLAYERS_OWN_MODS = [
  * research found (bible/06-Systems/Realm-Arc.md):
  *   - Unleveled Loot's material remaps: Iron -> Daedric turns a 300-gold cuirass into a 153,600-gold one, handed to
  *     peers through corpses, shared piles and shop shelves;
- *   - PCAAO's modules: `fixedStrengthDamageModifier` off doubles the strength bonus, and `fadingEnchantedItems` off
- *     keeps broken enchanted gear;
+ *   - PCAAO's modules: `fixedStrengthDamageModifier` off doubles the strength bonus (`fadingEnchantedItems` stood
+ *     here too - off, it kept broken enchanted gear - until WEAR-VANILLA, 2026-10-01, made keeping it the rule: the
+ *     port ships both of the overhaul's wear modules off, so the room's shipped default keeps a player's broken
+ *     enchanted piece, repairable, and the item sink the realm research counted is given up by choice);
  *   - Roleplay & Realism's `loanAmountPerLevel`, which EMPIRE-BANK's cap reads;
  *   - RRI's `conditionBasedPrices`: off, worn loot sells for up to 5x more;
  *   - Oblivion leveling's dials: up to 40 attribute points a level.
- * So online, every key of these mods reads its SHIPPED default, apart from the keys named here, which stay the
- * player's. A key ONLINE_ROOM_MOD_KEYS names keeps its own value (RR's classic strength bonus and intensive training
+ * So online, every key of these mods reads its SHIPPED default - the port's, where the port ships it otherwise
+ * (WEAR-VANILLA's three wear modules) - apart from the keys named here, which stay the player's. A key ONLINE_ROOM_MOD_KEYS names keeps its own value (RR's classic strength bonus and intensive training
  * are forced off whatever they ship as).
  */
 export const ONLINE_WHOLE_MODS = Object.freeze({

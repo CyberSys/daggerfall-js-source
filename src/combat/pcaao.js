@@ -1160,11 +1160,8 @@ export function pcaaoAttackDamage(attacker, target, {
   // equipmentDamageEnhanced switch registered for DFU's own path.
   // WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded feature that increases durability loss. Vanilla
   // values work fine"): A DEPARTURE - only while that module is on. Off (the port's default, modSettings.js), the blow
-  // wears what FormulaHelper's DamageEquipment says (formulas.js damageEquipment, Roleplay Realism's slot inside it),
-  // with the weapon it was struck with: a monster's stand-in is the overhaul's device, so a claw wears no armour, as in
-  // DFU. The rest of the overhaul - the hit, the damage, the reduction - is untouched.
+  // wears what FormulaHelper's DamageEquipment says, below the reduction.
   if (modules.equipmentDamageEnhanced) pcaaoDamageEquipment(attacker, target, damage, weapon, struckBodyPart, { rolls, say, modules });
-  else damageEquipment(attacker, target, damage, struckWith, struckBodyPart, { rolls, say });
   if (AITarget && isMonster(AITarget)) {
     if (!pcaaoArmorStruckVerification(target, struckBodyPart)) damage = pcaaoPercentageReductionCalculationForMonsters(attacker, target, damage, bluntWep, naturalDamResist);
     else if (unarmedAttack) damage = pcaaoArmorDamageReductionWithUnarmed(attacker, target, damage, struckBodyPart, naturalDamResist, modules);
@@ -1174,6 +1171,15 @@ export function pcaaoAttackDamage(attacker, target, {
   } else if (weaponAttack) {
     damage = pcaaoArmorDamageReductionWithWeapon(attacker, target, damage, weapon, struckBodyPart, naturalDamResist, modules);
   }
+  // WEAR-VANILLA, the module off: FormulaHelper's DamageEquipment (formulas.js damageEquipment, Roleplay Realism's slot
+  // inside it), with the weapon the blow was struck with - a monster's stand-in is the overhaul's device, so a claw
+  // wears no armour, as in DFU - and (AUDIT ECON W1) by the damage that WENT THROUGH, after the reduction above. DFU's
+  // armour turns a blow aside and the blow wears nothing; the overhaul's lets nearly every blow land and takes its
+  // share off it instead, so the share it took wears nothing either. Fed the damage before the reduction, gear wore 1.3
+  // to 2.5 times DFU's rate a swing (a level-20 player in Daedric lost 2.5 times DFU's armour to a Knight's swing);
+  // after it, 0.7 to 1.2 times. The duel reads its blow the same way (scenes/world.js, the defender's own damage). The
+  // rest of the overhaul - the hit, the damage, the reduction - is untouched.
+  if (!modules.equipmentDamageEnhanced) damageEquipment(attacker, target, damage, struckWith, struckBodyPart, { rolls, say });
   // The Ring of Namira's payload (the C# dispatches it here for an
   // enemy's blow on the player) is the port's struck hook at the tail
   // of formulas.calculateAttackDamage, fed this very damage.

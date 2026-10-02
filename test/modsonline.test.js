@@ -66,13 +66,14 @@ test('MODS-ONLINE-2: every vendored mod is classified, and the only keys the lan
     'a classification for a mod that does not exist is dead weight');
 
   // A forced key must be a key the mod actually declares, forced to the
-  // value the mod itself ships - the room's floor is the mod's own
-  // floor, not a number invented here.
+  // value the port ships - the room's floor is the mod's own floor, not
+  // a number invented here; the port's own default where it ships one
+  // (WEAR-VANILLA: Roleplay Realism's equipDamage, which the mod ships on).
   for (const [vendor, keys] of Object.entries(ONLINE_ROOM_MOD_KEYS)) {
     for (const [key, value] of Object.entries(keys)) {
       const def = MOD_SETTINGS[vendor]?.keys?.[key];
       assert.ok(def, `${vendor}/${key} is a declared switch`);
-      assert.equal(value, def.default, `${vendor}/${key} is forced to the mod's own shipped default`);
+      assert.equal(value, def.default, `${vendor}/${key} is forced to the port's shipped default`);
     }
   }
 });

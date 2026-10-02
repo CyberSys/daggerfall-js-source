@@ -85,7 +85,10 @@ current design "does not work in an enjoyable manner"):
   checkpoint is stored as written, and every source - loot, quests, shop
   sales, gate spoils (`src/systems/gateSpoils.js`) - is computed by the
   client. "Assume infinite wealth" is already literally true. The budgets and
-  telemetry `06-Systems/Realm-Arc.md` planned are not built.
+  telemetry `06-Systems/Realm-Arc.md` planned are not built. A market
+  listing's wear is the client's word too: a lie about it buys a kit's work,
+  and since KIT-CEILING a smith's - gold such a client can write for itself
+  (`06-Systems/Professions-Arc.md`, "What the listing carries").
 - **Sources scale; sinks do not.** Gate spoils, raid thanks and quest rewards
   climb with level and item values climb with material (DFU's x512 ladder),
   while the recurring costs are flat and online's essentials were halved
@@ -98,7 +101,8 @@ current design "does not work in an enjoyable manner"):
   (`src/systems/deathPenalty.js`). Repairs were the one sink that scaled with
   gear, and they scaled hardest for the best gear.
 - **Shops.** Merchants have unlimited gold; online a shop pays at most half
-  its own asking price, so Mercantile does nothing for a seller there.
+  the least it asks anyone for the piece (REALM P0.4, MERC-RISE), and under
+  that cap a seller's Mercantile and Personality still raise the sale.
 - **Already built, and used by this plan:** Drakes and the walled Gold Market
   (`src/net/marksLaw.js`, `src/net/marketLaw.js`), the escrowed trade between
   players (`server-account/src/realmTrade.js`), field and smith-made repair
@@ -108,12 +112,14 @@ current design "does not work in an enjoyable manner"):
 ## The plan
 
 - **Phase 0 - the triage, shipped with this page.** WEAR-VANILLA (gear wears
-  at DFU's rate; `05-Combat/Physical-Combat-Overhaul.md`), REPAIR-RATE and
-  KIT-CEILING (below), POTION-COMMON (a Potion of Healing on a looting foe 6
-  times in 100 and in a J-O pile 12, and a few at every alchemist's and
-  general store's counter each day - `src/systems/healingSupply.js`) and
-  COMPANION-WEIGHT (a crew companion's pack carries what a person of his
-  strength can, DFU's MaxEncumbrance - `03-World/Naval-Combat.md`).
+  at about DFU's rate; `05-Combat/Physical-Combat-Overhaul.md`), REPAIR-RATE,
+  KIT-CEILING and SELL-AS-FOUND (below), POTION-COMMON (a Potion of Healing
+  on a looting foe 6 times in 100 and in a J-O pile 12, and a few at every
+  alchemist's and general store's counter each day -
+  `src/systems/healingSupply.js`) and COMPANION-WEIGHT (a crew companion's
+  pack carries what a person of his strength can, DFU's MaxEncumbrance -
+  `03-World/Naval-Combat.md`). Audited the same day (AUDIT ECON,
+  `01-Overview/Audit-Econ.md`).
 - **Phase 1 - see failure.** The server-side gold ledger: each checkpoint's
   gold and item deltas read against budgets, every faucet counted. Nothing
   later is tuned blind.
@@ -129,19 +135,36 @@ current design "does not work in an enjoyable manner"):
 
 ## Repairs, set from the intent
 
-- **Wear** is DFU's own (WEAR-VANILLA): the mods' wear modules are off, and a
-  monster's natural attack wears no armour.
+- **Wear** is DFU's own (WEAR-VANILLA): the mods' wear modules are off, a
+  monster's natural attack wears no armour, and a blow wears by the damage
+  that got through the overhaul's armour (AUDIT ECON W1) - DFU's armour
+  turns a blow aside and wears nothing, the overhaul's absorbs a share and
+  that share wears nothing either. Per swing, armour wears 0.71-0.86 times
+  DFU's and a blade 1.17-1.22 times.
 - **The price** (REPAIR-RATE, `src/systems/repairService.js`
   `REPAIR_COST_SCALE`): a third of what Daggerfall's formula asks - it was two
   thirds since REPAIR-EASE (2026-09-30). Under Roleplay & Realism: Items'
   damage-scaled price, a full repair is a fifth of the smith's asking price
   for the piece: still a craftsman's fee (a broken Daedric longsword, 9,216
-  gold at a middling smith), not a punishment for using the gear.
+  gold before the haggle at a middling smith - 5,184 to 6,372 asked), not a
+  punishment for using the gear. With the wear above, its upkeep is 1.65-3.20
+  gold a landed hit, a seventh to a tenth of what it was.
 - **Kits stay partial** (KIT-CEILING, `src/systems/smithItems.js`): a field
   kit or a smith-made kit mends a piece no further than three quarters of its
-  condition. Three quarters is the edge of the overhaul's normal band (a blade
-  at 61-75% strikes at its own damage); the 1.1 and 1.3 of a sharp edge come
-  back at the smith's.
+  condition (rounded down: an Iron Dagger's 50 stops at 37). Three quarters
+  is the edge of the overhaul's normal band for a blade (61-75% strikes at
+  its own damage) and for armour; the 1.1 and 1.3 of a sharp edge come back
+  at the smith's. (A blunt weapon's normal band runs to 91%, so a smith adds
+  nothing to a mace's blow until 92%.) A kit is not spent on less than a
+  hundredth of a piece's condition, asks when the ceiling holds back a piece
+  the player may have meant, and is kept, said, on every refusal.
+- **Selling, online** (SELL-AS-FOUND, AUDIT ECON O1, `src/systems/tradeModes.js`):
+  a counter pays for a piece no more than the condition the world handed it
+  over at. Roleplay & Realism: Items hands loot over worn and prices a sale
+  by condition, so at a third a repair cost less than the sale it added, and
+  mending loot to sell it paid every player - a printer opened by this arc's
+  own price, closed with it. A repair is for using a piece, never for
+  selling it; a piece handed over whole is untouched.
 - **Next** (Phase 3): the Vault and Loadouts make "the right tool for the
   job" a choice rather than a chore, and secure services let a smith or a
   mage sell repairs without either side being robbed.

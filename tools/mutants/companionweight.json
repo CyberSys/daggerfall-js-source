@@ -29,8 +29,8 @@
   {
     "name": "COMPANION-WEIGHT-split-lost",
     "file": "src/systems/itemTransfer.js",
-    "old": "    if (canHold <= 0) return { ok: false, refusal: packFull(capacity) };\n    return { ok: true, amount: Math.min(canHold, stack), sound: 'click' };",
-    "new": "    if (canHold <= 0) return { ok: false, refusal: packFull(capacity) };\n    return { ok: true, amount: stack, sound: 'click' };",
+    "old": "    if (capacity.gone || canHold <= 0) return { ok: false, refusal: packFull(capacity) };\n    return { ok: true, amount: Math.min(canHold, stack), sound: 'click' };",
+    "new": "    if (capacity.gone || canHold <= 0) return { ok: false, refusal: packFull(capacity) };\n    return { ok: true, amount: stack, sound: 'click' };",
     "tests": [
       "test/companion_weight.test.js"
     ]
@@ -38,8 +38,8 @@
   {
     "name": "COMPANION-WEIGHT-refusal-unnamed",
     "file": "src/systems/itemTransfer.js",
-    "old": "const packFull = (capacity) => ({ reason: 'packFull', text: packFullText(capacity?.name) });",
-    "new": "const packFull = (capacity) => ({ reason: 'packFull', text: packFullText(null) });",
+    "old": "{ reason: 'packFull', text: packFullText(capacity?.name) });",
+    "new": "{ reason: 'packFull', text: packFullText(null) });",
     "tests": [
       "test/companion_weight.test.js"
     ]
@@ -97,6 +97,96 @@
     "tests": [
       "test/companion_weight.test.js",
       "test/companionkit.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C1-the-quest-arm-answers-first",
+    "file": "src/systems/itemTransfer.js",
+    "old": "  if (capacity && !usingWagon && packRefuses(capacity, item, item.stackCount ?? 1, remote)) return { ok: false, refusal: packFull(capacity) };\n",
+    "new": "",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C2-the-classic-label-the-piles",
+    "file": "src/ui/nativeInventory.js",
+    "old": "      label: cap ? targetIconWeightText(totalWeight(this._remote()), cap.kg) : pileLabel(loot?.pile),",
+    "new": "      label: pileLabel(loot?.pile),",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C5-the-host-never-says-gone",
+    "file": "src/scenes/world.js",
+    "old": "      if (!pack) return { kg: 0, name: named, gone: true };\n",
+    "new": "",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C5-a-gone-pack-takes-a-quiver",
+    "file": "src/systems/itemTransfer.js",
+    "old": "const packRefuses = (capacity, item, units, remote) => !!capacity.gone || canHoldAmount(",
+    "new": "const packRefuses = (capacity, item, units, remote) => canHoldAmount(",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C5-a-gone-pack-takes-gold",
+    "file": "src/systems/itemTransfer.js",
+    "old": "    if (capacity.gone) { const r = packFull(capacity); return { ok: false, refusal: r, notice: r.text }; }   // AUDIT ECON C5\n",
+    "new": "",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-the-body-read-raw",
+    "file": "src/systems/naval/crewCompanions.js",
+    "old": "Number(entity?.stats?.strength) > 0 ? entityMaxEncumbrance(entity) :",
+    "new": "Number(entity?.stats?.strength) > 0 ? maxEncumbrance(Number(entity.stats.strength)) :",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-gold-under-nothing",
+    "file": "src/systems/itemTransfer.js",
+    "old": "packFullGoldText(capacity.name, Math.max(0, canCarry))",
+    "new": "packFullGoldText(capacity.name, canCarry)",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C4-a-quiver-weighed",
+    "file": "src/systems/itemTransfer.js",
+    "old": "    const canHold = canHoldAmount(stack, effectiveUnitWeightInKg(item), capacity.kg, totalWeight(remote));\n    if (capacity.gone || canHold <= 0)",
+    "new": "    const canHold = canHoldAmount(stack, effectiveUnitWeightInKg(item) || 1, capacity.kg, totalWeight(remote));\n    if (capacity.gone || canHold <= 0)",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C4-the-exact-headroom-said",
+    "file": "src/systems/itemTransfer.js",
+    "old": "const notice = asked > canCarry ? packFullGoldText(",
+    "new": "const notice = asked >= canCarry ? packFullGoldText(",
+    "tests": [
+      "test/companion_weight.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-C4-a-limit-of-nothing",
+    "file": "src/systems/inventorySession.js",
+    "old": "return cap && Number.isFinite(cap.kg) ? cap : null;",
+    "new": "return cap ? cap : null;",
+    "tests": [
+      "test/companion_weight.test.js"
     ]
   }
 ]

@@ -21,7 +21,7 @@
   {
     "name": "KIT-CEILING-targets-unfiltered",
     "file": "src/systems/smithItems.js",
-    "old": "kitMends(metal, it) && it.currentCondition < kitCeiling(it))",
+    "old": "kitMends(metal, it) && kitGives(it))",
     "new": "kitMends(metal, it) && it.currentCondition < it.maxCondition)",
     "tests": [
       "test/repair_rate.test.js",
@@ -41,7 +41,7 @@
   {
     "name": "KIT-CEILING-refusal-dropped",
     "file": "src/systems/smithItems.js",
-    "old": "  if (!done && kitCeilingHeld(item, pack)) return { kind: 'repairKit', text: KIT_CEILING_TEXT };\n",
+    "old": "  if (!done && kitHeldBack(item, pack).length > 0) return { kind: 'repairKit', text: KIT_CEILING_TEXT, refused: true };\n",
     "new": "",
     "tests": [
       "test/repair_rate.test.js"
@@ -50,8 +50,8 @@
   {
     "name": "KIT-CEILING-refusal-never-fires",
     "file": "src/systems/smithItems.js",
-    "old": "kitMends(metal, it) && it.currentCondition < it.maxCondition);",
-    "new": "kitMends(metal, it) && it.currentCondition < kitCeiling(it));",
+    "old": "kitMends(metal, it) && it.currentCondition < it.maxCondition && !kitGives(it));",
+    "new": "kitMends(metal, it) && it.currentCondition < it.maxCondition && false);",
     "tests": [
       "test/repair_rate.test.js"
     ]
@@ -64,6 +64,154 @@
     "tests": [
       "test/repair_rate.test.js",
       "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R4-ceiling-rounded-up",
+    "file": "src/systems/smithItems.js",
+    "old": "export const kitCeiling = (it) => Math.floor(it.maxCondition * KIT_CEILING);",
+    "new": "export const kitCeiling = (it) => Math.ceil(it.maxCondition * KIT_CEILING);",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R4-ceiling-rounded",
+    "file": "src/systems/smithItems.js",
+    "old": "export const kitCeiling = (it) => Math.floor(it.maxCondition * KIT_CEILING);",
+    "new": "export const kitCeiling = (it) => Math.round(it.maxCondition * KIT_CEILING);",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R4-refusal-reads-the-wagon",
+    "file": "src/systems/smithItems.js",
+    "old": "  if (!done && kitHeldBack(item, pack).length > 0) return",
+    "new": "  if (!done && kitHeldBack(item, collection).length > 0) return",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R4-floor-dropped",
+    "file": "src/systems/repairService.js",
+    "old": "  return cost > 0 ? Math.max(1, Math.round(cost * REPAIR_COST_SCALE)) : cost;",
+    "new": "  return cost > 0 ? Math.round(cost * REPAIR_COST_SCALE) : cost;",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/repair_ease.test.js",
+      "test/fb0929_min_price.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R4-third-before-the-discount",
+    "file": "src/systems/repairService.js",
+    "old": "  const cost = dfuItemRepairCost(baseItemValue, shopQuality, condition, max, { ...opts, instantRepairs: false });\n  return cost > 0 ? Math.max(1, Math.round(cost * REPAIR_COST_SCALE)) : cost;",
+    "new": "  const cost = dfuItemRepairCost(baseItemValue, shopQuality, condition, max, { ...opts, reducedRepairCost: null, instantRepairs: false });\n  const third = cost > 0 ? Math.max(1, Math.round(cost * REPAIR_COST_SCALE)) : cost;\n  return opts.reducedRepairCost ? opts.reducedRepairCost(third) : third;",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/repair_ease.test.js",
+      "test/fb0929_min_price.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R1-the-lone-row-never-asked",
+    "file": "src/systems/smithItems.js",
+    "old": "    if (targets.length > 1 || (targets.length === 1 && kitHeldBack(item, pack).length > 0)) return",
+    "new": "    if (targets.length > 1) return",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R1-always-asked",
+    "file": "src/systems/smithItems.js",
+    "old": "    if (targets.length > 1 || (targets.length === 1 && kitHeldBack(item, pack).length > 0)) return",
+    "new": "    if (targets.length >= 1) return",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R2-the-hundredth-dropped",
+    "file": "src/systems/smithItems.js",
+    "old": "export const kitGives = (it) => kitCeiling(it) - it.currentCondition > Math.floor(it.maxCondition / 100);",
+    "new": "export const kitGives = (it) => kitCeiling(it) - it.currentCondition > 0;",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R2-a-rounded-label",
+    "file": "src/systems/smithItems.js",
+    "old": "${itemLongName(it)} ${conditionPercentage(it)}%${it.equipSlot",
+    "new": "${itemLongName(it)} ${Math.round(conditionShare(it) * 100)}%${it.equipSlot",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R2-a-rounded-mend",
+    "file": "src/systems/smithItems.js",
+    "old": "is mended: ${done.from}% to ${done.to}%.",
+    "new": "is mended: ${Math.round(done.before * 100)}% to ${Math.round(done.after * 100)}%.",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R3-the-refusal-unflagged",
+    "file": "src/systems/smithItems.js",
+    "old": "text: KIT_CEILING_TEXT, refused: true };",
+    "new": "text: KIT_CEILING_TEXT };",
+    "tests": [
+      "test/repair_rate.test.js",
+      "test/prof3_client.test.js",
+      "test/mend_aim.test.js",
+      "test/repair_ease.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R3-the-slot-silent",
+    "file": "src/systems/quickslots.js",
+    "old": "    if (res.text && !res.said) say?.(res.text);\n",
+    "new": "",
+    "tests": [
+      "test/repair_rate.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-R3-a-tool-line-said-twice",
+    "file": "src/systems/foragingInstall.js",
+    "old": "text: how, said: true };",
+    "new": "text: how };",
+    "tests": [
+      "test/fb0930b_toolsaid.test.js"
     ]
   }
 ]

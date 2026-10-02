@@ -2,8 +2,8 @@
   {
     "name": "POTION-COMMON-another-recipe",
     "file": "src/systems/healingSupply.js",
-    "old": "export const HEALING_RECIPE_KEY = 4975678;",
-    "new": "export const HEALING_RECIPE_KEY = 221871;",
+    "old": "export const HEALING_RECIPE_KEY = CLASSIC_RECIPE_KEYS[2];",
+    "new": "export const HEALING_RECIPE_KEY = CLASSIC_RECIPE_KEYS[3];",
     "tests": [
       "test/potion_common.test.js"
     ]
@@ -56,7 +56,7 @@
   {
     "name": "POTION-COMMON-shelf-loop-dropped",
     "file": "src/systems/shopStock.js",
-    "old": "  for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());\n",
+    "old": "  if (shelfIndex === 0) for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());\n",
     "new": "",
     "tests": [
       "test/potion_common.test.js",
@@ -68,6 +68,60 @@
     "file": "src/scenes/shared.js",
     "old": "  installHealingSupply();   // POTION-COMMON: Potions of Healing in the loot - after the smithing install, its field kit's roll first\n",
     "new": "",
+    "tests": [
+      "test/potion_common.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-P1-every-shelf-stocks-them",
+    "file": "src/systems/shopStock.js",
+    "old": "  if (shelfIndex === 0) for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());",
+    "new": "  for (let n = healingShelfCount(buildingType, quality); n > 0; n--) add(mintHealingPotion());",
+    "tests": [
+      "test/potion_common.test.js"
+    ]
+  },
+  {
+    "name": "AUDIT-ECON-P1-the-shelf-hands-no-index",
+    "file": "src/scenes/worldModes.js",
+    "old": "stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity, { shelfIndex: i })",
+    "new": "stockShopShelf({ buildingType: b.buildingType, quality: b.quality }, playerEntity)",
+    "tests": [
+      "test/potion_common.test.js"
+    ]
+  },
+  {
+    "name": "POTION-COMMON-a-fifth-rounded",
+    "file": "src/systems/healingSupply.js",
+    "old": "return 2 + Math.trunc(q / 5);",
+    "new": "return 2 + Math.round(q / 5);",
+    "tests": [
+      "test/potion_common.test.js"
+    ]
+  },
+  {
+    "name": "POTION-COMMON-a-tenth-rounded",
+    "file": "src/systems/healingSupply.js",
+    "old": "return 1 + Math.trunc(q / 10);",
+    "new": "return 1 + Math.round(q / 10);",
+    "tests": [
+      "test/potion_common.test.js"
+    ]
+  },
+  {
+    "name": "POTION-COMMON-I-to-P",
+    "file": "src/systems/healingSupply.js",
+    "old": "    if (i >= 10 && i <= 15) maybeAddHealingPotion(items, HEALING_PILE_CHANCE, rolls);",
+    "new": "    if (i >= 9 && i <= 16) maybeAddHealingPotion(items, HEALING_PILE_CHANCE, rolls);",
+    "tests": [
+      "test/potion_common.test.js"
+    ]
+  },
+  {
+    "name": "POTION-COMMON-under-the-kits-name",
+    "file": "src/systems/healingSupply.js",
+    "old": "  registerTabledLootHandler('healing-potion',",
+    "new": "  registerTabledLootHandler('field-repair-kit',",
     "tests": [
       "test/potion_common.test.js"
     ]

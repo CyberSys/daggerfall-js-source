@@ -16,11 +16,12 @@
 //    as before. Online, half price like every potion (shopStock.js ESSENTIALS-HALF).
 //
 // A departure (Ledger A, POTION-COMMON).
-import { createPotion, registerTabledLootHandler, registerEnemyLootExtra } from './loot.js';
+import { createPotion, registerTabledLootHandler, registerEnemyLootExtra, CLASSIC_RECIPE_KEYS } from './loot.js';
 import { BUILDING_TYPES } from '../world/buildingNames.js';
 
-/** PotionRecipe "healing" (potions.js: Heal Health, 5 + 9 a level; price 50) - classicRecipeKeys[2]. */
-export const HEALING_RECIPE_KEY = 4975678;
+/** PotionRecipe "healing" (potions.js: Heal Health, 5 + 9 a level; price 50) - classicRecipeKeys[2], ONE DFU MEMBER,
+ *  ONE EXPORT (AUDIT ECON: the key was a second literal of loot.js's). */
+export const HEALING_RECIPE_KEY = CLASSIC_RECIPE_KEYS[2];
 /** A looting foe's chance in 100 of carrying one. */
 export const HEALING_ENEMY_CHANCE = 6;
 /** A J-O pile's chance in 100 of holding one. */

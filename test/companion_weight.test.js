@@ -101,13 +101,21 @@ test('AUDIT ECON C1: a refused store writes no quest drop - a droppable quest le
   _resetForTests();
 });
 
-test('AUDIT ECON C5: a companion gone from the party (a quickload under his window that left him aboard) takes nothing - not a sword, not a weightless quiver, not gold - and says so (mutants: the gone pack still taking)', () => {
+test('AUDIT ECON C5: a companion gone from the party (a quickload under his window that left him aboard) takes nothing - not a sword, not a weightless quiver or quest piece, not gold - and says so (mutants: the gone pack still taking; the gone check below the quest arm)', () => {
   const gone = Object.freeze({ kg: 0, name: 'Hilda', gone: true });
   assert.equal(packGoneText('Hilda'), 'Hilda is no longer with you.');
   assert.deepEqual(planStore(sword(), { remote: [], capacity: gone }).refusal, { reason: 'packGone', text: 'Hilda is no longer with you.' });
   assert.equal(planStore(createWeapon(ARROW_TEMPLATE, 0, () => 0.5), { remote: [], capacity: gone }).ok, false, 'even a weightless stack');
   const gold = planDropGold('100', { carried: 500, remote: [], capacity: gone });
   assert.deepEqual([gold.ok, gold.notice], [false, 'Hilda is no longer with you.']);
+  // a weightless quest piece too - refused above the quest arm (C1's order), so its drop is never written
+  _resetForTests();
+  const res = { allowDrop: true, playerDropped: false, madePermanent: false, hasPlayerClicked: false, setPlayerClicked() { this.hasPlayerClicked = true; } };
+  const token = { group: 'MiscItems', templateIndex: 132, name: 'Letter', questItem: true, questUID: 8, questSymbol: { name: '_token_' }, weightInKg: 0 };
+  assert.equal(effectiveUnitWeightInKg(token), 0, 'weightless: no weight check refuses it');
+  assert.equal(planStore(token, { remote: [], capacity: gone, getQuest: (uid) => (uid === 8 ? { getItem: () => res } : null) }).ok, false);
+  assert.equal(res.playerDropped, false, 'never marked dropped');
+  _resetForTests();
   // the host: his items AND his limit read by his key at every look, his live body first; gone, the limit says so
   const w = code('src/scenes/world.js');
   assert.match(w, /if \(!pack\) return \{ kg: 0, name: named, gone: true \};\n\s*const body = crewAshore\.bodies\(\)\.find\(\(f\) => f\.companion === key\) \?\? rec;\n\s*return \{ kg: packCapacityKg\(body\?\.entity \?\? null\), name: pack\.name \?\? named \};/);

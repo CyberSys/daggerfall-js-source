@@ -12,8 +12,13 @@ import { MOD_SETTINGS, modSetting, setModSetting, onlineModSetting, _resetModSet
 import { onlineForcedModSetting } from '../src/systems/onlineLane.js';
 import { pcaaoModules, installPcaao } from '../src/combat/pcaao.js';
 import { installRoleplayRealism } from '../src/systems/rrInstall.js';
-import { damageEquipment, calculateAttackDamage, registerFormulaOverride, formulaOverride } from '../src/combat/formulas.js';
-import { CONDITION_WEAR_SCALE, equipTableOf, EQUIP_SLOTS, slotForBodyPart } from '../src/systems/equip.js';
+import { damageEquipment, calculateAttackDamage, registerFormulaOverride, formulaOverride, chooseEnemyWeapon } from '../src/combat/formulas.js';
+import { CONDITION_WEAR_SCALE, equipTableOf, EQUIP_SLOTS, slotForBodyPart, equipItem } from '../src/systems/equip.js';
+import { equipEnemy } from '../src/scenes/hostCombat.js';
+import { weaponOfMaterial } from '../src/combat/enemyEquipment.js';
+import { readFileSync } from 'node:fs';
+import { repairRefusal } from '../src/systems/repairService.js';
+import { getBool } from '../src/systems/settings.js';
 import { makeEnemyEntity } from '../src/characters/enemyEntity.js';
 import { ENEMY_BASICS } from '../src/characters/enemyBasics.js';
 import { mintCondition } from '../src/systems/itemTemplates.js';
@@ -82,6 +87,9 @@ test('WEAR-VANILLA: a player\'s broken enchanted piece breaks and STAYS in the p
   damageEquipment(foe(), me, 30, longsword(), BODY_PARTS.Head, { rolls: () => 0.99 });
   assert.equal(worn.currentCondition, 0, 'broken');
   assert.equal(me.items.includes(worn), true, 'and kept');
+  // AUDIT ECON (records): and REPAIRABLE - a smith takes an enchanted piece under AllowMagicRepairs, which ships on
+  assert.equal(getBool('Controls', 'AllowMagicRepairs'), true, 'the setting ships on');
+  assert.equal(repairRefusal(worn, { allowMagicRepairs: getBool('Controls', 'AllowMagicRepairs') }), null, 'a smith repairs it');
 
   setModSetting('pcaao', 'equipmentDamageEnhanced', true); setModSetting('pcaao', 'fadingEnchantedItems', true);
   const me2 = armed(helm(), EQUIP_SLOTS.Head, { isPlayer: true, items: [], activeEffects: [], stats: { strength: 50 } });
@@ -170,4 +178,64 @@ test('WEAR-VANILLA: through the overhaul\'s own attack core - its redone armour 
     registerFormulaOverride('applyConditionDamageThroughPhysicalHit', slot);
     _resetModSettings();
   }
+});
+
+test('WEAR-VANILLA: through the core, an armed Knight\'s blow on an iron-clad player wears his weapon and the struck piece DFU\'s amount of THE DAMAGE IT DEALT - after the armour\'s reduction (AUDIT ECON W1) - every draw from the rolls the core was handed, and a piece it breaks says so; an Orc whose own row out-hits his sabre strikes with his natural attack and wears nothing (mutants: the damage before the reduction; the sabre handed before the swap; the struck part dropped; a foe\'s blows wearing nothing; the floor roll off Math.random; the voice dropped; the module\'s stand-in left out)', () => {
+  _resetModSettings();
+  const stats = { strength: 60, intelligence: 50, willpower: 50, agility: 60, endurance: 60, personality: 50, speed: 60, luck: 50 };
+  const me = { isPlayer: true, level: 10, raceId: 1, stats, skills: Object.fromEntries(Array.from({ length: 35 }, (_, i) => [i, 60])), career: { weaponArmorShieldsBitfield: 0, abilityFlagsAndSpellPointsBitfield: 0, attackModifierFlags: 0 }, health: 1e6, maxHealth: 1e6, items: [], activeEffects: [], armorValues: new Array(7).fill(100), reflexes: 2, biographyAvoidHitMod: 0 };
+  const pieces = [102, 103, 104, 105, 106, 107, 108, 111].map((t) => mintCondition({ group: 'Armor', templateIndex: t, material: 0x0200, name: `piece ${t}` }));
+  for (const p of pieces) { me.items.push(p); equipItem(me, p); }
+  const lost = () => pieces.reduce((n, p) => n + p.maxCondition - p.currentCondition, 0);
+  let seed = 23; const rolls = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed % 100000) / 100000; };
+  const dfRand = () => Math.floor(rolls() * 32768);
+  const foeOf = (id) => { const e = makeEnemyEntity(id, ENEMY_BASICS[id], { ...stats, attackModifierFlags: 0 }, 10, rolls); e.items = []; e.activeEffects = []; equipEnemy(e, id, 10, rolls); return e; };
+  const slot = formulaOverride('applyConditionDamageThroughPhysicalHit');
+  const seen = [];
+  registerFormulaOverride('applyConditionDamageThroughPhysicalHit', (item, owner, damage, opts) => { seen.push({ item, damage }); return slot ? slot(item, owner, damage, opts) : false; });
+  const knight = foeOf(145), orc = foeOf(7);   // the spawns draw off Math.random of their own (a weapon's poison roll)
+  const random = Math.random;
+  Math.random = () => { throw new Error('a draw off the rolls the core was handed'); };
+  try {
+    const flail = chooseEnemyWeapon(knight.weapon, ENEMY_BASICS[145]);   // the host's own call (dungeonContext, exteriorFoes)
+    assert.ok(flail, 'the Knight is armed');
+    let exact = 0, floor = 0;
+    for (let i = 0; i < 300; i++) {
+      for (const p of pieces) p.currentCondition = p.maxCondition;
+      flail.currentCondition = flail.maxCondition;
+      seen.length = 0;
+      const d = calculateAttackDamage(knight, me, { weapon: flail, rolls, dfRand });
+      const armour = lost(), weapon = flail.maxCondition - flail.currentCondition;
+      if (!(d > 0)) { assert.deepEqual([armour, weapon, seen.length], [0, 0, 0], 'a blow that deals nothing wears nothing'); continue; }
+      assert.deepEqual(seen.map((x) => x.damage), [d, d], `the member was handed the ${d} the blow dealt - his weapon's, then the piece's`);
+      assert.equal(seen[0].item, flail);
+      assert.ok(pieces.includes(seen[1].item), 'the struck piece is mine');
+      if (dfuWear(d) > 0) { assert.deepEqual([armour, weapon], [dfuWear(d), dfuWear(d)], `${d} damage: DFU's ${dfuWear(d)}`); exact++; } else { assert.ok(armour <= 1 && weapon <= 1, 'under 5: the 20% floor roll, one at most'); floor++; }
+    }
+    assert.ok(exact >= 100 && floor >= 30, `both kinds of blow land (${exact} worn by the amount, ${floor} by the floor roll)`);
+    // a piece the blow breaks says so
+    const said = [];
+    for (let i = 0; i < 300 && !said.length; i++) {
+      for (const p of pieces) p.currentCondition = 1;
+      calculateAttackDamage(knight, me, { weapon: flail, rolls, dfRand, say: (t) => said.push(t) });
+    }
+    assert.match(said.join('|'), /piece \d+ has broken\./);
+    for (const p of pieces) { p.currentCondition = p.maxCondition; if (!me.items.includes(p)) me.items.push(p); equipItem(me, p); }
+    // the Orc with a sabre (his spawn's at the probe's draws): the host keeps it (the base row's 1-6 averages under it),
+    // the core reads his own row's 6-13 and strikes with his natural attack - and DFU wears nothing for one
+    const sabre = weaponOfMaterial(119, 1);
+    assert.equal(chooseEnemyWeapon(sabre, ENEMY_BASICS[7]), sabre, 'the host hands him his sabre');
+    assert.deepEqual([orc.basics.minDamage, orc.basics.maxDamage], [6, 13], 'his own row');
+    seen.length = 0;
+    let struck = 0;
+    for (let i = 0; i < 200; i++) struck += calculateAttackDamage(orc, me, { weapon: sabre, rolls, dfRand }) > 0 ? 1 : 0;
+    assert.ok(struck > 20, `his blows land (${struck})`);
+    assert.deepEqual([lost(), sabre.maxCondition - sabre.currentCondition, seen.length], [0, 0, 0], 'and wear nothing - neither my armour nor his sabre');
+  } finally {
+    Math.random = random;
+    registerFormulaOverride('applyConditionDamageThroughPhysicalHit', slot);
+    _resetModSettings();
+  }
+  // the module on: the overhaul's own wear, handed the weapon the core assigned - a monster's stand-in among them
+  assert.match(readFileSync(new URL('../src/combat/pcaao.js', import.meta.url), 'utf8'), /if \(modules\.equipmentDamageEnhanced\) pcaaoDamageEquipment\(attacker, target, damage, weapon, struckBodyPart, \{ rolls, say, modules \}\);/);
 });

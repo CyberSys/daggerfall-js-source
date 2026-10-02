@@ -419,12 +419,12 @@ test('RRI2 wiring: the install registers the six delegates; the read-through sit
   assert.match(hc, /const worn = eq\.worn \?\? all;\n  eq\.worn = worn;/, 'the assigner\'s worn subset is what the table takes');
   assert.match(hc, /for \(const it of worn\) \{\n    const slot = getEquipSlot\(entity, it\);/, 'and only that');
   const wm = rd('src/scenes/worldModes.js');
-  assert.equal((wm.match(/shelfLootSpawned\(stockShopShelf\(\{ buildingType: b\.buildingType, quality: b\.quality \}, playerEntity\), b\)/g) ?? []).length, 2, 'both shelf doors');
+  assert.equal((wm.match(/shelfLootSpawned\(stockShopShelf\(\{ buildingType: b\.buildingType, quality: b\.quality \}, playerEntity(?:, \{ shelfIndex: i \})?\), b\)/g) ?? []).length, 2, 'both shelf doors (AUDIT ECON P1: the shelf hands its index)');
   assert.match(rd('src/systems/containerLoot.js'), /const _handlers = new Map\(\[\n  \[RRI_VENDOR, [^\n]*\n    onShopShelfStocked\(a\.items, \/\*\* @type \{any\} \*\/ \(\{ buildingType: a\.buildingType, quality: a\.quality, containerType: a\.containerType \}\)/, 'FORAGE3: RRI\'s shelf hooks, the one home\'s first subscriber');
   assert.match(rd('src/systems/useItem.js'), /const handler = itemUseHandler\(item\.templateIndex\);\n  if \(handler\) \{\n    const handled = handler\(item, collection, \{ entity, rolls, nowMinute, localItems: bag, target, chooseTarget \}\);[^\n]*\n    if \(handled\) return questItem \? \{ \.\.\.handled, questItem: true \} : handled;\n  \}\n\n  let out = null;/, 'the delegate arm, then the ladder');
   assert.match(rd('src/systems/inventory.js'), /if \(isRriStackable\(item\)\) return true;/);
   assert.match(rd('src/systems/shopStock.js'), /let cost = conditionBasedPricesOn\(\) \? conditionCostBase\(baseValue, conditionPercentage\) : baseValue;/);
-  assert.match(rd('src/systems/tradeModes.js'), /calculateCost\(itemValueOf\(item\), quality, priceAdjustment, conditionPercentage\(item\)\) \* stack;/, 'the Sell arm passes ConditionPercentage (:462)');
+  assert.match(rd('src/systems/tradeModes.js'), /calculateCost\(itemValueOf\(item\), quality, priceAdjustment, saleConditionPercentage\(item, \{ online \}\)\) \* stack;/, 'the Sell arm passes ConditionPercentage (:462) - offline as it is, online no higher than the find (SELL-AS-FOUND, test/sell_as_found.test.js)');
   assert.match(rd('src/systems/repairService.js'), /conditionBasedPricesOn\(\) \? conditionRepairCostBase\(baseItemValue, condition, max, instantRepairs\) : Math\.trunc\(10 \* baseItemValue \/ 100\)/);
   assert.match(rd('src/systems/chargenSession.js'), /assignStartingSpells\(setIndex, spellsByIndex, result\.career\)/);
   assert.match(rd('src/systems/chargenSession.js'), /assignStartingEquipment\(playerEntity, \{ classIndex: result\.careerIndex/);
