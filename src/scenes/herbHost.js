@@ -23,11 +23,11 @@
 //   Sickle's steady hand draws DFU's Tanto in the hand.
 // ═══════════════════════════════════════════════════════════════════
 import { herbPatches, nodeKey, HERB_TABLES } from '../net/nodeLaw.js';
-import { tierOpen, TIER_RANKS, actBand, PROF_RANK_MAX, herbKey, storesFullIn } from '../net/professionLaw.js';
+import { tierOpen, TIER_RANKS, actBand, PROF_RANK_MAX, herbKey, storesFullIn, GROUND_WHERE, GROUND_WHERE_WORDS } from '../net/professionLaw.js';
 import { natureStandsAt, insideRocks } from '../world/terrainNature.js';
 import { createHerbAct } from '../systems/herbAct.js';
 import { FT } from '../systems/foragingLaw.js';
-import { foragingActRefusal, foragingToolIn } from '../systems/foragingInstall.js';
+import { foragingActRefusal, foragingToolIn, actChecksRefusal } from '../systems/foragingInstall.js';
 import { materialLabel } from '../systems/profItems.js';
 import { templateByIndex } from '../systems/itemTemplates.js';
 import { liveStat } from '../systems/statMods.js';
@@ -146,6 +146,7 @@ export function herbKind({ book }) {
     gone,
     mark: (p) => (gone(p) ? null : PATCH_MARK),   // NODE-MARKS: on the compass and lit while either harvest stands
     tools: Object.freeze([FT.Sickle, FT.Basket]),   // TOOL-USE
+    where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID
     /** PROF-MENU: the menu's title - the patch's herb. */
     nodeName: (p) => templateByIndex(p.herb)?.name ?? 'Herbs',
     plan(p, { entity, info, rank, tool = null }) {

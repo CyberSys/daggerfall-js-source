@@ -118,7 +118,8 @@ test('PROF2 law: the veins\' tables are PROF0 4.1\'s; a vein\'s tier is drawn ov
   assert.deepEqual([...seen], ['metal:iron']);
   assert.ok(seenC.has(3) && seenC.has(4) && seenC.has(5), 'Silver, Gold, Platinum and Mithril come to the confirmed');
   assert.equal(veins({ x: 400, y: 150, day: DAY, climate: C.Mountain, region: 7 }).length, nodeCount(C.Mountain, 'vein'));
-  assert.equal(vein({ x: 400, y: 150, day: DAY, slot: 6, climate: C.Mountain }), null, 'past the count');
+  assert.ok(vein({ x: 400, y: 150, day: DAY, slot: 11, climate: C.Mountain }), 'PIN MOVED (MORE-NODES): the Mountain\'s twelve');
+  assert.equal(vein({ x: 400, y: 150, day: DAY, slot: 12, climate: C.Mountain }), null, 'past the count');
 });
 
 test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, Daggerfall\'s Moonstone two veins, the others one, beside the climate\'s (AUDIT 29 A6); never unconfirmed', () => {
@@ -130,14 +131,14 @@ test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, D
   assert.equal(regionSignature(21), null, 'a March: its +25%, no signature');
   assert.equal(regionSignature(31), null);
   const at = (region, confirmed, climate = C.Woodlands) => veins({ x: 300, y: 200, day: DAY, climate, region, confirmed });
-  assert.deepEqual(at(17, true).map((v) => v.signature), [false, false, true, true], 'the Woodlands\' two, then Daggerfall\'s two');
+  assert.deepEqual(at(17, true).map((v) => v.signature), [false, false, false, false, true, true], 'the Woodlands\' four (PIN MOVED, MORE-NODES), then Daggerfall\'s two');
   assert.deepEqual(at(17, true).filter((v) => v.signature).map((v) => v.material), ['ore:moonstone', 'ore:moonstone']);
-  assert.deepEqual(at(23, true, C.Mountain).map((v) => v.signature), [false, false, false, false, false, false, true]);
-  assert.equal(at(23, true, C.Mountain)[6].material, 'ore:mithril');
+  assert.deepEqual(at(23, true, C.Mountain).map((v) => v.signature), [...Array(12).fill(false), true]);
+  assert.equal(at(23, true, C.Mountain)[12].material, 'ore:mithril');
   assert.ok(at(17, false).every((v) => !v.signature && v.tier <= 2), 'unconfirmed: the ordinary veins alone');
-  assert.equal(at(17, false).length, 2);
+  assert.equal(at(17, false).length, 4);
   const swamp = veins({ x: 300, y: 200, day: DAY, climate: C.Swamp, region: 17, confirmed: true });
-  assert.deepEqual(swamp.map((v) => v.signature), [false, true, true], 'a Swamp pixel\'s one vein kept, and the two Moonstones');
+  assert.deepEqual(swamp.map((v) => v.signature), [false, false, true, true], 'a Swamp pixel\'s two veins kept (MORE-NODES), and the two Moonstones');
   // Orichalcum grows nowhere else: no climate's table and no other region's signature holds it
   assert.ok(Object.values(VEIN_TABLES).every((t) => !t.includes('ore:orichalcum')));
   assert.ok(Array.from({ length: 62 }, (_, r) => r).filter((r) => regionSignature(r)?.ore === 'ore:orichalcum').every((r) => r === 26 || r === 16));
@@ -145,10 +146,11 @@ test('PROF2 law: the signatures by kingdom (PROF0 4.7) - on a confirmed pixel, D
 
 test('PROF2 law: the boulders - the climate\'s count a day, tier 1, Rough Stone; the dungeon veins 1-4 a day, tiers 3-6, a dungeon\'s own id', () => {
   const b = boulders({ x: 300, y: 200, day: DAY, climate: C.Mountain });
-  assert.equal(b.length, 3);
+  assert.equal(b.length, 5, 'PIN MOVED (BOULDERS, acct47): the Mountain\'s five');
   assert.ok(b.every((n) => n.tier === 1 && n.material === 'stone:rough' && n.u >= 0.04 && n.u <= 0.96));
   assert.deepEqual(boulders({ x: 300, y: 200, day: DAY, climate: C.Swamp }), [], 'the Swamp has none');
-  assert.equal(boulder({ x: 300, y: 200, day: DAY, slot: 3, climate: C.Mountain }), null);
+  assert.ok(boulder({ x: 300, y: 200, day: DAY, slot: 4, climate: C.Mountain }));
+  assert.equal(boulder({ x: 300, y: 200, day: DAY, slot: 5, climate: C.Mountain }), null);
   const counts = new Set(), tiers = new Set(), mats = new Set();
   for (let id = 1; id < 400; id++) {
     const n = dungeonVeinCount(id, DAY);

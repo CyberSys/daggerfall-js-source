@@ -498,7 +498,7 @@ export function updateTravelViewHud(f) {
   const counts = countGroups(all);
   for (const g of TV_FILTER_GROUPS) put(parts.filterNums?.[g], `fn-${g}`, String(counts[g]));
   const fl = travelViewFilters();
-  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr);
+  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr, f.feet?.front ? f.feet : null);   // OW-CROWD: my mark, the badges' nearness (off the picture, its middle)
 }
 
 /**
@@ -576,6 +576,7 @@ export const isShipKind = (m) => /\bship\b/.test(m.kind ?? '');
 const lookOf = (m) => {
   const k = (m.kind ?? '').split(' ')[0];
   if (k === 'bounty') return k;   // BOUNTY-OVERWORLD: a held bounty's hunt
+  if (k === 'gather') return k;   // GATHER-OW: a profession's group of nodes
   return k === 'place' || k === 'far' || k === 'dest' || k === 'target' || k === 'party' || k === 'lair' || k === 'band' || k === 'raider' || k === 'camp' ? k : 'traveller';
 };
 /** OW-THEME (2026-09-28, Mac: "The overworld ui needs to follow enhanced ui theme"): the plates' stone - the Enhanced
@@ -734,7 +735,7 @@ function badgeSprite(doc, m, size, party, dpr, bk = badgeKey(m.badge)) {
 }
 /** The stroke a stroked glyph is drawn at over a name (ui/nameLayer.js's glyphSvgNode width). */
 const GLYPH_NAME_W = 1.6;
-function drawMarks(marks, vw, vh, dpr) {
+function drawMarks(marks, vw, vh, dpr, feet = null) {
   const cv = parts.canvas;
   drawnKeys = marks.map((m) => m.key);
   if (!cv || (!marks.length && !canvasDrew)) { hits = []; return; }
@@ -751,12 +752,19 @@ function drawMarks(marks, vw, vh, dpr) {
     const held = m.edge ? (edgeHold(m, vw, vh, TV_EDGE_MARGIN, furniture.top, furniture.foot) ?? (m.front ? notchHold(m, vh) : null)) : null;   // OW-EDGES
     if (!m.front && !held) continue;
     const at = held ?? m;
-    const q = { m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null };
+    placed.push({ m, held, x: Math.round(at.x), y: Math.round(at.y), look: lookOf(m), side: -1, bk: '', sp: null });
+  }
+  // OW-CROWD: the region's travellers decluttered - a crowd one mark, the edge's arrows together, the badges the nearest's
+  const kept = declutterTravellers(placed, feet ?? { x: vw / 2, y: vh / 2 });
+  placed.length = 0;
+  placed.push(...kept);
+  for (const q of placed) {
     // AUDIT NAMES N1-5: a player's badge made (or found) BEFORE the layout, so every box is the drawn one's - the
-    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread
-    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(doc, m, held ? 11 : 12, q.look === 'party', dpr, q.bk); }
-    if (held) q.side = heldSide(q, vw);
-    placed.push(q);
+    // estimate ran 30-75% wide and sent a lone titled player ahead to a side, and two that fitted to an even spread.
+    // AUDIT OW-CROWD: and AFTER the crowds are folded - the frame's sixteen builds were spent on badges a crowd or the
+    // cap then dropped, and a crowd's arrow was laid out by its lead's badge, not its own words
+    if (q.m.badge) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(doc, q.m, q.held ? 11 : 12, q.look === 'party', dpr, q.bk); }
+    if (q.held) q.side = heldSide(q, vw);
   }
   spreadHeld(placed, vw, vh);
   // OW-EDGES: along the top and the foot, each held mark at the edge - stepped in only where its box meets a notch
@@ -804,7 +812,7 @@ function drawMarks(marks, vw, vh, dpr) {
   for (const q of placed) {
     const { m, held, x, y, look } = q;
     g.globalAlpha = q.fade ? TV_UNDER_HUD_ALPHA : 1;   // OW-EDGES: faint where it would lie over the compass or the hotbar
-    const color = look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
+    const color = look === 'gather' ? (m.color ?? C.brass) : look === 'party' ? C.party : look === 'traveller' ? C.traveller : look === 'lair' ? C.lair : look === 'band' ? C.band : look === 'raider' ? C.raider : look === 'camp' ? C.camp : look === 'bounty' ? C.bounty : C.brass;   // OWS3: a raider in the cinnabar; OW6: a camp in the ember
     g.fillStyle = color; g.strokeStyle = '#000'; g.lineWidth = 1;
     if (held) {   // the arrow, turned the way it lies (0 up, clockwise)
       g.save(); g.translate(x, y); g.rotate((held.angle * Math.PI) / 180);
@@ -820,10 +828,12 @@ function drawMarks(marks, vw, vh, dpr) {
       g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.lineWidth = 4; g.strokeStyle = C.bountyRim; g.stroke();
       g.lineWidth = 2; g.strokeStyle = color; g.stroke();
       g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.lineWidth = 1; g.strokeStyle = C.bountyRim; g.fill(); g.stroke();
+    } else if (look === 'gather') {   // GATHER-OW: a profession's group - a gem's diamond in its colour, a ring of dark
+      g.beginPath(); g.moveTo(x, y - 7); g.lineTo(x + 5, y); g.lineTo(x, y + 7); g.lineTo(x - 5, y); g.closePath(); g.fill(); g.stroke();
     } else if (look === 'camp') {   // OW6: a camp - a tent's peak, not a band's dot
       g.beginPath(); g.moveTo(x, y - 6); g.lineTo(x + 6, y + 5); g.lineTo(x - 6, y + 5); g.closePath(); g.fill(); g.stroke();
     } else {
-      const r = look === 'dest' ? 7 : look === 'place' || look === 'far' ? 4 : 5;
+      const r = look === 'dest' || /\bcrowd\b/.test(m.kind ?? '') ? 7 : look === 'place' || look === 'far' ? 4 : 5;   // OW-CROWD: a crowd's dot the larger
       g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); g.stroke();
     }
     if (!m.label) continue;
@@ -849,6 +859,64 @@ function drawMarks(marks, vw, vh, dpr) {
   canvasDrew = canvasDrew || placed.length > 0;
   if (unmade) canvasSig = [];
 }
+/**
+ * OW-CROWD (2026-10-02, Mac: "reduce the overwhelming player markers that flood the screen ... I like it, dont get me
+ * wrong, but there must be a way to make it where its not overwhelming"): THE REGION'S TRAVELLERS, DECLUTTERED, as they
+ * are placed on the screen. Travellers drawn within TV_CROWD_PX of one another are one mark, a dot named for how many
+ * ("4 travellers"), at their middle; arrows held at the screen's edge within TV_CROWD_EDGE_PX of one another one arrow,
+ * the nearest's, named the same; and of the travellers still drawn alone in the picture, only the TV_BADGES_MAX nearest
+ * my own mark wear their badge (the title, the Renown, the guild's tag, the glyphs) - the rest, and every arrow at the
+ * edge (AUDIT OW-CROWD), their name alone. The badges are made after (drawMarks), for the marks still wearing one. My
+ * party is never folded nor stripped (it is not a traveller's mark), nor is anything else. Pure over the placements:
+ * `{ m, x, y, held, look, side, bk, sp }`, in their own order (a crowd where its first member stood - AUDIT OW-CROWD).
+ * @param {Array<any>} placed @param {{ x: number, y: number }} feet my mark on the screen
+ */
+export function declutterTravellers(placed, feet) {
+  const isTraveller = (q) => (q.m.kind ?? '').split(' ')[0] === 'traveller';
+  const near = (q) => Math.hypot(q.x - feet.x, q.y - feet.y);
+  const order = new Map(placed.map((q, i) => [q, i]));   // AUDIT OW-CROWD: the marks' own order kept - my party over a crowd
+  const out = [], trav = [];
+  for (const q of placed) (isTraveller(q) ? trav : out).push(q);
+  trav.sort((a, b) => near(a) - near(b) || (a.m.key < b.m.key ? -1 : a.m.key > b.m.key ? 1 : 0));
+  /** @type {Array<{ held: boolean, x: number, y: number, members: any[] }>} */
+  const groups = [];
+  for (const q of trav) {
+    const held = !!q.held, r = held ? TV_CROWD_EDGE_PX : TV_CROWD_PX;
+    const g = groups.find((c) => c.held === held && Math.hypot(c.x - q.x, c.y - q.y) <= r);   // held to its first member
+    if (g) g.members.push(q);
+    else groups.push({ held, x: q.x, y: q.y, members: [q] });
+  }
+  let badges = 0;
+  for (const g of groups) {
+    const lead = g.members[0];
+    if (g.members.length === 1) {
+      if (lead.m.badge) {
+        // past the nearest few, or held at the edge (AUDIT OW-CROWD: a region's lone arrows wore every badge, uncapped,
+        // round the screen): the name alone - the badge comes with them into the picture
+        if (!lead.held && badges < TV_BADGES_MAX) badges++;
+        else { lead.m = { ...lead.m, badge: undefined }; lead.sp = null; lead.bk = ''; }
+      }
+      out.push(lead);
+      continue;
+    }
+    const n = g.members.length;
+    const x = g.held ? lead.x : Math.round(g.members.reduce((a, q) => a + q.x, 0) / n);
+    const y = g.held ? lead.y : Math.round(g.members.reduce((a, q) => a + q.y, 0) / n);
+    const ship = g.members.every((q) => isShipKind(q.m));
+    const crowd = { ...lead, x, y, bk: '', sp: null,
+      m: { key: `crowd:${lead.m.key}`, label: crowdLabel(n), kind: `traveller crowd${ship ? ' ship' : ''}`, edge: lead.m.edge, front: true, x: lead.m.x, y: lead.m.y } };
+    order.set(crowd, Math.min(...g.members.map((q) => order.get(q))));   // drawn where its first member was
+    out.push(crowd);
+  }
+  return out.sort((a, b) => order.get(a) - order.get(b));
+}
+/** OW-CROWD: travellers drawn this near one another (px) are one mark; arrows at the edge this near, one arrow; the
+ *  travellers alone in the picture who wear their badge, the nearest my mark. */
+export const TV_CROWD_PX = 36;
+export const TV_CROWD_EDGE_PX = 56;
+export const TV_BADGES_MAX = 6;
+/** OW-CROWD: a crowd's words. */
+export const crowdLabel = (n) => `${n} travellers`;
 /** A player's name in the picture: its foot this far above their head's point (px) - the dot's radius and air. */
 const NAME_ABOVE = 8;
 /** The room between two players' names stacked in the picture (px). */

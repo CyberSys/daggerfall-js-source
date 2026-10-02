@@ -403,10 +403,11 @@
   {
     "name": "AUDIT29-C11-a-foot-inside-a-neighbour",
     "file": "src/scenes/mineHost.js",
-    "old": "        if (!insideRocks(rocks ?? [], fx, fz)) local = [fx, groundAt(samples, fx, fz), fz];",
-    "new": "        local = [fx, groundAt(samples, fx, fz), fz];",
+    "old": "        if (!onPixel(foot[0], foot[1]) || insideRocks(pieces, foot[0], foot[1])) continue;   // FOOT-IN\n",
+    "new": "        if (!onPixel(foot[0], foot[1])) continue;   // FOOT-IN\n",
     "tests": [
-      "test/audit29_host.test.js"
+      "test/audit29_host.test.js",
+      "test/fb1001_rockfoot.test.js"
     ]
   },
   {

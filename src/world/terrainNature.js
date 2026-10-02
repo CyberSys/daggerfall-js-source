@@ -80,6 +80,42 @@ export function natureStandsAt(heightmapData, tilemapData, locationRect, x, y) {
 export const insideRocks = (rocks, x, z) => (rocks ?? []).some((b) => x > b[0] && x < b[3] && z > b[2] && z < b[5]);
 
 /**
+ * ROCK-FOOT (FIELD BUGS 2026-10-01, "trying to mine boulders on the outside, but it's not letting people mine"): A ROCK
+ * PIECE AS IT STANDS OUT OF THE GROUND - the XZ bounds of its mesh above the terrain (each vertex above the ground under
+ * it, and each edge where it crosses the ground), `[x0, y0, z0, x1, y1, z1]` pixel-local, or null for a piece wholly
+ * under the ground. World of Daggerfall's rock fields are hills of a few models scaled by hundreds, turned and sunk:
+ * the whole mesh's box ran 90 m to over a kilometre where the rock showed a few metres, so a boulder's foot stood on its
+ * edge far from any rock, or inside a neighbour's box and stood nowhere - under one boulder in ten stood on the shipped
+ * layouts (a stand-in mesh: test/fb1001_rockfoot.test.js).
+ * @param {ArrayLike<number>} positions model-local xyz @param {ArrayLike<number>} indices triangles
+ * @param {ArrayLike<number>} m the piece's column-major 4x4 @param {Float32Array} heightmapData the pixel's samples
+ */
+export function rockFootprint(positions, indices, m, heightmapData) {
+  const n = Math.floor(positions.length / 3);
+  const w = new Float64Array(n * 3), above = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = positions[i * 3], y = positions[i * 3 + 1], z = positions[i * 3 + 2];
+    const wx = m[0] * x + m[4] * y + m[8] * z + m[12], wy = m[1] * x + m[5] * y + m[9] * z + m[13], wz = m[2] * x + m[6] * y + m[10] * z + m[14];
+    w[i * 3] = wx; w[i * 3 + 1] = wy; w[i * 3 + 2] = wz;
+    above[i] = wy - groundAt(heightmapData, wx, wz);
+  }
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const add = (x, y, z) => {
+    if (x < x0) x0 = x; if (x > x1) x1 = x; if (z < z0) z0 = z; if (z > z1) z1 = z; if (y < y0) y0 = y; if (y > y1) y1 = y;
+  };
+  for (let i = 0; i < n; i++) if (above[i] >= 0) add(w[i * 3], w[i * 3 + 1], w[i * 3 + 2]);
+  for (let t = 0; t + 2 < indices.length; t += 3) {
+    for (let e = 0; e < 3; e++) {
+      const a = indices[t + e], b = indices[t + ((e + 1) % 3)];
+      if ((above[a] >= 0) === (above[b] >= 0)) continue;
+      const f = above[a] / (above[a] - above[b]);
+      add(w[a * 3] + (w[b * 3] - w[a * 3]) * f, w[a * 3 + 1] + (w[b * 3 + 1] - w[a * 3 + 1]) * f, w[a * 3 + 2] + (w[b * 3 + 2] - w[a * 3 + 2]) * f);
+    }
+  }
+  return x0 <= x1 ? [x0, y0, z0, x1, y1, z1] : null;
+}
+
+/**
  * PROF2: THE GROUND'S HEIGHT at a pixel-local point (metres, x east and z the tile rows' way - natureStandsAt's frame),
  * bilinear between the heightmap's four samples round it (a sample stands at each tile corner). A vein stands at a rock
  * piece's foot, which is on no tile's corner.

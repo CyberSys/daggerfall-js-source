@@ -523,8 +523,8 @@
   {
     "name": "AUDIT-DEEP2-F11-screen-read-twice",
     "file": "src/ui/travelViewHud.js",
-    "old": "  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr);",
-    "new": "  drawMarks(all.filter((m) => markShown(m, fl)), win?.innerWidth ?? 0, win?.innerHeight ?? 0, dpr);",
+    "old": "  drawMarks(all.filter((m) => markShown(m, fl)), vw, vh, dpr, f.feet?.front ? f.feet : null);",
+    "new": "  drawMarks(all.filter((m) => markShown(m, fl)), win?.innerWidth ?? 0, win?.innerHeight ?? 0, dpr, f.feet?.front ? f.feet : null);",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
@@ -613,8 +613,8 @@
   {
     "name": "OVERWORLD-NAMES-a-bare-label",
     "file": "src/ui/travelViewHud.js",
-    "old": "    if (m.badge) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(",
-    "new": "    if (false) { q.bk = badgeKey(m.badge); q.sp = badgeSprite(",
+    "old": "    if (q.m.badge) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(",
+    "new": "    if (false) { q.bk = badgeKey(q.m.badge); q.sp = badgeSprite(",
     "tests": [
       "test/tv5_far_places.test.js"
     ],
