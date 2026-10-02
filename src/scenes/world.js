@@ -15369,13 +15369,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     renownXpAdopt(who?.xp);   // RENOWN4: the total, before the level - so no frame draws the new level over the old total
     who = { ...who, level: renownAdopt(who?.level) };   // RENOWN1: the highest level this page has known, never a stale token's lower one
     _staffGlyphs = Array.isArray(who?.glyphs) ? who.glyphs : [];   // STAFF1: the service's own word on my glyphs, each issue
-    // GLYPH-WEAR: my own name wears what the room is shown - less the glyphs I took off - while the staff rights read
-    // every glyph that is true (hiding one is paint alone)
+    if (!isStaff(_staffGlyphs)) setStaffPowers({ god: false, fly: false });   // ...and a title taken away takes its switches with it
+    // GLYPH-WEAR: my own name wears what the room is shown - less the glyphs I took off - while the staff rights above
+    // read every glyph that is true (hiding one is paint alone)
     const off = Array.isArray(who?.glyphsOff) ? who.glyphsOff : [];
     who = { ...who, glyphs: _staffGlyphs.filter((g) => !off.includes(g)) };
     online?.adoptIdentity?.(who);
     for (const link of chatLinks?.values?.() ?? []) link.adoptIdentity?.(who);
-    if (!isStaff(_staffGlyphs)) setStaffPowers({ god: false, fly: false });   // ...and a title taken away takes its switches with it
   };
   /** STAFF1: MY GLYPHS AS THE ACCOUNT SERVICE LAST ISSUED THEM (never the device's stored copy, which is only a cache). */
   const staffGlyphs = () => _staffGlyphs;
