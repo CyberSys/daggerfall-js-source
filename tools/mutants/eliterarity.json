@@ -1,0 +1,83 @@
+[
+  {
+    "name": "ELITE-RARITY-the-old-one-in-twenty",
+    "file": "src/systems/eliteFoes.js",
+    "old": "export const ELITE_FOE_OVERWORLD_CHANCE = 0.02;",
+    "new": "export const ELITE_FOE_OVERWORLD_CHANCE = 0.05;",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-gate-ignores-the-standing-one",
+    "file": "src/systems/eliteFoes.js",
+    "old": "export const overworldEliteAllowed = ({ now = 0, lastAt = null, liveElites = 0 } = {}) => !(liveElites > 0)\n  && ",
+    "new": "export const overworldEliteAllowed = ({ now = 0, lastAt = null, liveElites = 0 } = {}) => ",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-gap-off-by-its-edge",
+    "file": "src/systems/eliteFoes.js",
+    "old": "now - lastAt >= ELITE_FOE_OVERWORLD_GAP_MINUTES);",
+    "new": "now - lastAt > ELITE_FOE_OVERWORLD_GAP_MINUTES);",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-a-load-holds-the-gap",
+    "file": "src/systems/eliteFoes.js",
+    "old": "(lastAt == null || now < lastAt || now - lastAt",
+    "new": "(lastAt == null || now - lastAt",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-old-one-in-five-dungeon",
+    "file": "src/systems/eliteFoes.js",
+    "old": "export const ELITE_FOE_NORMAL_DUNGEON_CHANCE = 0.1;",
+    "new": "export const ELITE_FOE_NORMAL_DUNGEON_CHANCE = 0.2;",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-elite-dungeon-thinned",
+    "file": "src/systems/eliteFoes.js",
+    "old": "export const ELITE_FOE_DUNGEON_MIN = 3;",
+    "new": "export const ELITE_FOE_DUNGEON_MIN = 2;",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-gap-unset-at-the-promotion",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "&& promoteEliteFoe(entity) && !nemesis) _lastEliteAt = _eliteMinute();",
+    "new": "&& promoteEliteFoe(entity) && !nemesis) void 0;",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-loose-stand-promoted",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "!replacing && !team && !loose && !inLocation() && elitesAllowed(",
+    "new": "!replacing && !team && !inLocation() && elitesAllowed(",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-RARITY-the-nemesis-gated",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "(nemesis ? nemesis.elite : (overworldEliteAllowed(",
+    "new": "(nemesis ? nemesis.elite && overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) : (overworldEliteAllowed(",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  }
+]

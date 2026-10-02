@@ -18,5 +18,6 @@
 - The card is a HUD piece like any other: unlock the UI (Alt+U) to move it.
 
 ## Elites
+- **Elites are rarer.** In the open world, 2% of foes (was 5%), and only one at a time: none while another elite is nearby, and none for about 15 minutes of play (3 in-game hours) after the last. A camp or a pack never brings more than one. Ordinary dungeons hold one 10% of the time (was 20%). Elite Dungeons keep their 3 to 4.
 - **Elites no longer appear below foe level 3,** and never as city watch or allies (same rules as Champions).
 - **Elites are named everywhere:** on hover, in death notices and on their corpses, not just the target bar. Champions, elites and nemeses are now named on hover even while hostile.

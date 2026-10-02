@@ -75,7 +75,7 @@ A record per character:
   rolls. Only one is out at a time, the highest rank first. This happens before the party's group-roll gate: a nemesis
   is the player's own.
 - **Stood** by `spawnFoe(..., { nemesis })` (`nemesisSpawnOptions`):
-  - an elite's glow again where elites stand (online), never a fresh roll;
+  - an elite's glow again where elites stand (online), never a fresh roll, and outside ELITE-RARITY's gate;
   - its champion trait again, never a fresh roll;
   - then **its rank**: health ×(1 + 0.25·rank), blows ×(1 + 0.1·rank), over whatever its trait or glow gave;
   - a class foe at the player's level + 2·rank.

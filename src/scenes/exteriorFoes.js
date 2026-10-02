@@ -80,7 +80,7 @@ import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVis
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
 import { nemesisFleeStep, nemesisFleeHealth, nemesisDeed, nemesisSlain, applyNemesis, grantNemesisLoot, nemesisById, nemesisSay, nemesisTauntEvent, nemesisFleeEvent, nemesisCorneredEvent, nemesisEscapeEvent, nemesisSlainEvent, NEMESIS_TAUNT_DISTANCE } from '../systems/nemesis.js';   // NEMESIS: the foes that kill you or run, and come back
-import { elitesAllowed, promoteEliteFoe, rollOverworldElite, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 5% of the wilds' foes   // HITFLASH1
+import { elitesAllowed, promoteEliteFoe, rollOverworldElite, overworldEliteAllowed, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 2% of the wilds' foes, one at a time   // HITFLASH1
 
 // The port's allocation-owner guards (classic self-limits through the
 // 144-minute cadence; these keep a long session bounded).
@@ -244,6 +244,10 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // array as soon as there is one, because EnemyAI COPIES the position
   // it is handed.
   const spawning = [];    // { feet, capped }
+  // ELITE-RARITY: the character's minute the open world last stood an elite of mine - set at the promotion itself, so
+  // a camp's members (one synchronous loop, each past its awaits in turn) never all win the roll
+  let _lastEliteAt = null;
+  const _eliteMinute = () => { try { return Number(currentMinute?.()) || 0; } catch { return 0; } };   // no clock: 0
   // AUDIT-39r: THE SWEEP'S EPOCH. clearLive below is
   // CleanupUntrackedObjects, but emptying an array cannot reach work
   // that is still crossing an await - a spawn or a corpse mint in
@@ -364,10 +368,14 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // frozen basics row (the STATIC table the ally-revert reads)
       // does not. Getting that wrong would ally every foe of the type.
       if (allied) { entity.team = 'PlayerAlly'; entity.mobileTeam = 'PlayerAlly'; }
-      // ELITE FOES: one foe in twenty in the open world stands as an elite - my own foes only (a puppet's is its owner's
-      // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, or anything on a
-      // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
-      if (!puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null }) && (nemesis ? nemesis.elite : rollOverworldElite(Math.random))) promoteEliteFoe(entity);   // NEMESIS: a returning nemesis stands as what it was - an elite's glow where elites stand, never a fresh roll   // ONLINE ONLY
+      // ELITE FOES: one foe in fifty in the open world stands as an elite - my own foes only (a puppet's is its owner's
+      // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, a loose stand (a
+      // summoning's squad), or anything on a location's ground. Off Math.random, not this pool's `rolls`, so the
+      // encounter's own dice are not moved. ELITE-RARITY: and only past the gate - none while one stands near (mine or
+      // a peer's), none within the gap of my last (overworldEliteAllowed, asked before the roll).
+      if (!puppet && !allied && !questBehaviour && !replacing && !team && !loose && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
+        && (nemesis ? nemesis.elite : (overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) && rollOverworldElite(Math.random)))
+        && promoteEliteFoe(entity) && !nemesis) _lastEliteAt = _eliteMinute();   // NEMESIS: a returning nemesis stands as what it was - an elite's glow where elites stand, never a fresh roll, and outside the gap   // ONLINE ONLY
       // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
       // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
       if (!puppet && !allied && !inLocation()) {

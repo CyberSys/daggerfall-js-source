@@ -233,7 +233,7 @@ test('NEMESIS THE HOSTS: the open world\'s pool rolls the flee once under a fift
   assert.match(x, /if \(f\.entity\.nemesis && !f\._taunted && f\.ai\.inSight && \(isLocalPlayerTarget\(f\.ai\.target\) \|\| !f\.ai\._armedTargeting\)/, 'the taunt, once a return');
   assert.match(x, /if \(f\.entity\?\.nemesis\) \{ const nr = nemesisSlain\(playerEntity, f\.entity\); if \(nr && !peer\) nemesisSay\(nemesisSlainEvent\(nr, playerEntity\?\.name, \{ archive: f\.archive \}\), say\); \}/, 'slain at last');
   const spawn = x.slice(x.indexOf('async function spawnFoe('), x.indexOf('const gender = MobileUnit.resolveGender'));
-  assert.match(spawn, /nemesis \? nemesis\.elite : rollOverworldElite\(Math\.random\)/, 'an elite stands as one again, never a fresh roll');
+  assert.match(spawn, /nemesis \? nemesis\.elite : \(overworldEliteAllowed\(\{[^}]*\}\) && rollOverworldElite\(Math\.random\)\)/, 'an elite stands as one again, never a fresh roll (nor the fresh roll\'s gate, ELITE-RARITY)');
   assert.match(spawn, /nemesis \? \(nemesis\.trait \? championIndex\(nemesis\.trait\) : null\)/, 'its trait, never a fresh one');
   const iApply = spawn.indexOf('applyNemesis(entity, nemesis)'), iLoot = spawn.indexOf('spawnEnemyLoot(entity');
   assert.ok(iApply > spawn.indexOf('applyChampion(entity') && iApply < iLoot, 'its rank over its trait, before its loot');
