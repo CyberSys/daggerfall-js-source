@@ -383,13 +383,23 @@ minutes run at HUNT_WAIT_PER_HOUR (eight) real seconds an hour under
 the overlay's `tick(dt)`, a row of dots for the wait, no key or click
 taken (the hunter is committed); RESULT, the outcome's lines and the
 gains in a click-anywhere box. The outcome is rolled and applied ONCE,
-at the turn from busy to result; the search's minutes pass on the
-clock offline (the host's ticker - the survival minutes with them) and
-online the clock stands (WORLD5) so the wait alone is the cost; the
-skills the search used are tallied. (FORAGE4, 2026-09-28: the same page is Foraging's online
-wait, THE ONE CONSTRUCTION SEAM - four constructor options the hunt
-leaves at their defaults: `ask`, `escape`, `interruptWhen`, `result`;
-`bible/06-Systems/Foraging.md` 13.1.) The beast stands when the box
+at the turn from busy to result, and the skills the search used are
+tallied there; the search's minutes pass when the box CLOSES (HUNT-FOES,
+FIELD BUGS 2026-10-02, Aru: "enemies can attack you while the result
+loads" - spent at the turn, their encounter tick stood a wanderer facing
+a hunter the result page held), on the clock offline (the host's ticker
+- the survival minutes with them) and online the clock stands (WORLD5)
+so the wait alone is the cost; a box taken from under a given result (a
+death screen, a load - which now closes it before the save is read)
+spends them quiet, the clock alone. (FORAGE4, 2026-09-28: the same page
+is Foraging's online wait, THE ONE CONSTRUCTION SEAM - four constructor
+options, of which the hunt leaves `ask`, `escape` and `result` at their
+defaults and, since HUNT-FOES, gives `interruptWhen` the host's
+`huntFoesNear` - a duel's foe, one that sees the player, or one still
+loading within 30 m: a foe come near closes the ask or the search as a
+No, nothing searched and no minute spent, and only the result page is
+left to be read; `bible/06-Systems/Foraging.md` 13.1,
+`01-Overview/Field-Bugs-2026-10-02.md`.) The beast stands when the box
 CLOSES, not under it - a foe keeps its clock under a window (WINFOE1)
 and would have had the first blow free - through the overworld host's
 own encounter placement (`_standEncounterFoe` on the wilderness arm,
@@ -1309,8 +1319,8 @@ characters regardless of mode should start with supplies"* - had been read
 as every tier, Off's included, and shipped that way (SURV-KIT, `23ee51b8`).
 It is reverted whole (`4dffc8ef`), but for six line cites in the kit's
 fallback seam that had rotted before it and named moved lines (`equip.js`'s
-`startingGear.js:70`, `chargenSession.js:225` and `world.js:4994`, `startingGear.js`'s
-`equip.js:330` and `world.js:4994`, `exterior.js`'s `equip.js:329`): each
+`startingGear.js:70`, `chargenSession.js:225` and `world.js:5222`, `startingGear.js`'s
+`equip.js:330` and `world.js:5222`, `exterior.js`'s `equip.js:329`): each
 names its line again. Casual and Hard characters set out with the kit on
 every creation path there is - the wizard and `?class=` in each of the three
 hosts, and online, where the tier is the player's own - and Off's bag is

@@ -8,8 +8,9 @@
 //
 //     r1.<base64url({ d, b, s, c, x, i, e })>.<base64url(64-byte Ed25519 signature)>
 //         d the gate's day   b the boss's id   s the account (the identity token's sub)
-//         c the loot seed (32 bits, the relay's CSPRNG)   x how it was earned ('dealt' | 'stood')
+//         c the loot seed (32 bits, the relay's CSPRNG)   x how it was earned ('dealt' | 'stood' | 'rite')
 //         l the level the fight admitted the account at (AUDIT WBX S2 - its first claim; the spoils roll no higher)
+//         r 1 when the account also broke the faithful's rite (WB12d - an ember more; optional)
 //         i issued, epoch seconds   e expires (i + RECEIPT_TTL_S)
 //
 // identityToken.js's ladder, mirrored and not shared: the version is the algorithm and is read first; signature
@@ -34,8 +35,9 @@ export const RECEIPT_V = 'r1';
 /** How long a receipt may be carried to the account service: a week (a player who logs off at the kill claims it on
  *  their next session). */
 export const RECEIPT_TTL_S = 7 * 24 * 3600;
-/** How a receipt was earned (bible section 6). */
-export const RECEIPT_EARNED = Object.freeze(['dealt', 'stood']);
+/** How a receipt was earned (bible section 6). WB12d: 'rite' - the faithful's rite broken, the breach closed, and no
+ *  part in the fight: one Deadlands Ember and nothing else, and not a breach closed (bible section 19 D). */
+export const RECEIPT_EARNED = Object.freeze(['dealt', 'stood', 'rite']);
 /** The bound on a receipt's length on the wire - a claim set is ~150 bytes, a signature 86. */
 export const RECEIPT_MAX = 512;
 /** A boss's id: the table's own shape (net/gateLaw.js GATE_BOSSES). */
@@ -58,6 +60,7 @@ export function receiptValid(c) {
   if (!Number.isSafeInteger(c.c) || c.c < 0 || c.c > 0xffffffff) return false;
   if (!RECEIPT_EARNED.includes(c.x)) return false;
   if (c.l !== undefined && !(Number.isSafeInteger(c.l) && c.l >= 1 && c.l <= RECEIPT_LV_MAX)) return false;   // AUDIT WBX S2: optional - a receipt minted before it carries none
+  if (c.r !== undefined && (c.r !== 1 || c.x === 'rite')) return false;   // WB12d: a fighter who broke the rite; a rite's own receipt is its ember already
   if (!Number.isSafeInteger(c.i) || !Number.isSafeInteger(c.e)) return false;
   if (c.e <= c.i || c.e - c.i > RECEIPT_TTL_S) return false;
   return true;
@@ -66,12 +69,12 @@ export function receiptValid(c) {
 /** AUDIT WBX S2: the most a receipt's level may say (the brain clamps its own claims far lower). */
 export const RECEIPT_LV_MAX = 999;
 /** The claims in the order the minter writes them - one byte string for one receipt.
- * @param {{d: number, b: string, s: string, c: number, x: string, l?: number}} what @param {number} nowS */
-const claimsOf = ({ d, b, s, c, x, l }, nowS) => ({ d, b, s, c, x, ...(l !== undefined ? { l } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });
+ * @param {{d: number, b: string, s: string, c: number, x: string, l?: number, r?: number}} what @param {number} nowS */
+const claimsOf = ({ d, b, s, c, x, l, r }, nowS) => ({ d, b, s, c, x, ...(l !== undefined ? { l } : {}), ...(r === 1 ? { r } : {}), i: nowS, e: nowS + RECEIPT_TTL_S });
 
 /**
  * MINT. The relay's half. With no key the receipt goes out unsigned (`r1.<body>.`) - the seed still rides it.
- * @param {{d: number, b: string, s: string, c: number, x: string, l?: number}} what
+ * @param {{d: number, b: string, s: string, c: number, x: string, l?: number, r?: number}} what
  * @param {CryptoKey|null} privateKey an Ed25519 private key, or null for none
  * @param {{subtle: SubtleCrypto, nowS: number}} env
  * @returns {Promise<string>}

@@ -84,7 +84,8 @@ const PLURAL_SAME = Object.freeze(['Twigs', 'Green Leaves', 'Root Tendrils', 'Gr
   'Jade', 'Turquoise', 'Malachite', 'Amber',
   // PROF7: the hides, leathers and silks a body and the loom bring, and its butchery ('2 Harpy Feathers', '3 Raw Meat')
   'Bat Leather', 'Spider Silk', 'Scorpion Chitin', 'Slaughterfish Scales', 'Harpy Feathers', 'Hardened Leather', 'Standard-bearer\'s Silk',
-  'Spider\'s Venom', 'Dragon\'s Scales', 'Raw Meat', 'Raw Fish', 'Fish']);
+  'Spider\'s Venom', 'Dragon\'s Scales', 'Raw Meat', 'Raw Fish', 'Fish',
+  'Mortar']);   // PROF11 (FOUND by its pin): the bench's mix is mass, as its stone - '10 Mortar', never 'Mortars'
 const PLURAL_OF = Object.freeze({ Cactus: 'Cacti', 'Pine Branch': 'Pine Branches', Ruby: 'Rubies', 'Big Tooth': 'Big Teeth' });
 export function materialCountLabel(key, n, cc = survivalOn()) {
   const full = materialLabel(key, cc);

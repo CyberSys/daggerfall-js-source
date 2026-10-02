@@ -18,7 +18,7 @@ import { ATTACKS, nearestCourt, COURTS, hostAt } from './gateBrain.js';   // WB9
  *   move: any, atk: any, shieldUntil: number, wrathAt: number|null, fighters: number, fell: any, wrath: number|null, heardAt: number,
  *   md: ReadonlyArray<string>|null, fed: {ns: ReadonlyArray<string>, at: number}|null,
  *   xa: ReadonlyArray<number>, cx: {i: number, m: number, c: number[][], broke: ReadonlyArray<{c: number, n: string, at: number}>}|null,
- *   stunUntil: number, stunAt: number, rk: number, lg: GateHost|null}} GateState
+ *   stunUntil: number, stunAt: number, rk: number, lg: GateHost|null, openUntil?: number}} GateState
  * @typedef {{ads: ReadonlyArray<{i: number, k: number, h: number, m: number, x: number, z: number, mv: any, atk: {at: number, x: number, z: number}|null, rose: number, yaw: number}>,
  *   gone: ReadonlyArray<{i: number, k: number, x: number, z: number, w: number, n: string|null, at: number}>, ward?: {n: number, at: number, is?: ReadonlyArray<number>}}} GateHost
  *   GATE-UX: `fell` carries `dm`, the kill's damage chart (net/gateBrain.js damageChart), from a relay that makes one.
@@ -35,7 +35,7 @@ import { ATTACKS, nearestCourt, COURTS, hostAt } from './gateBrain.js';   // WB9
 export const GATE_STATE_EMPTY = Object.freeze({
   day: null, boss: null, phase: 1, hp: 0, max: 0, x: 0, z: 0, yaw: 0, move: null, atk: null, shieldUntil: 0,
   wrathAt: null, fighters: 0, fell: null, wrath: null, heardAt: 0, md: null, fed: null,
-  xa: Object.freeze([]), cx: null, stunUntil: 0, stunAt: 0, rk: 0, lg: null,
+  xa: Object.freeze([]), cx: null, stunUntil: 0, stunAt: 0, rk: 0, lg: null, openUntil: 0,
 });
 
 /** WB11b: how many of his host gone the fold keeps for the court to play out (their fall, their crumbling). */
@@ -120,6 +120,7 @@ export function foldGate(s, g, now, place = bossAt) {
       day: g.d, boss: g.b, phase: g.ph, hp: g.h, max: g.m, x: g.x, z: g.z, yaw: g.yw, move: g.mv, atk: g.atk, shieldUntil: g.sh, wrathAt: g.wr, fighters: g.n, fell: g.fell, wrath: g.wrath, heardAt: now, md: g.md ?? null, fed: same ? s.fed ?? null : null,
       xa: g.xa ?? [], cx, stunUntil: g.su ?? 0, stunAt: same && s.stunUntil === (g.su ?? 0) ? s.stunAt : (g.su ? now : 0), rk: g.rk ?? 0,
       lg: hostOfState(g.lg, same ? s.lg : null),   // WB11b: his host standing - none said, none held (any other fight's)
+      openUntil: g.op ?? 0,   // WB13e: the opening's end - his wake (0: an older relay's word, and no wake)
     };
   }
   if (s.day === null) return s;   // nothing but a whole state starts a fight
@@ -186,9 +187,9 @@ export function bossAt(s, now) {
 /** The gate refusals' words as the player reads them (net/wire.js GATE_NO_WORDS). */
 export const GATE_NO_TEXT = Object.freeze({
   'the gate is closed': 'The gate is closed.',
-  'the gate is sealed': 'The gate has sealed behind the ones inside.',
-  'the gate is closing': 'The gate is closing - its master has fallen.',
-  'the court is full': 'The Burning Court can hold no more.',
+  'the gate is sealed': 'The gate has sealed.',   // WB13b: the event, then stop
+  'the gate is closing': 'The Warden has fallen. The gate is closing.',
+  'the court is full': 'The Burning Court is full.',
 });
 
 /** GATE-RELOAD (2026-09-26, volo on Discord: "the oblivion gate is bugged rn" - "you cant enter it" - "it kicks you out

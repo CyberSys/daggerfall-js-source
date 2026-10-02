@@ -107,6 +107,9 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     /** what is on its way to this account (the service's `road`) */
     road: /** @type {any[]} */ ([]),
     counts: { listings: 0, orders: 0, bids: 0 },
+    /** AUDIT SEATS-3 D2: the open listings this account may hold at the board last read from (a Market Hall's town lists
+     *  more - the service's seatForts.js listingsCapAt), or null before a service that says it */
+    listingsMax: /** @type {number|null} */ (null),
     /** PROF5b: the Marks this account's bids hold (standing, or outbid and not yet back) */
     held: 0,
     /** GOLD-MARKET: the gold this character's sales hold for it, to collect */
@@ -173,6 +176,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
     if (Number.isSafeInteger(d.balance)) { state.balance = d.balance; try { marks?.set?.(d.balance); } catch { /* the Marks book's own */ } }
     if (Array.isArray(d.road)) state.road = d.road;
     if (d.counts) state.counts = { listings: d.counts.listings | 0, orders: d.counts.orders | 0, bids: d.counts.bids | 0 };
+    if (Number.isSafeInteger(d.listingsMax) && d.listingsMax > 0) state.listingsMax = d.listingsMax;   // AUDIT SEATS-3 D2
     if (Number.isSafeInteger(d.held)) state.held = d.held;
     if (Number.isSafeInteger(d.goldHeld)) state.goldHeld = d.goldHeld;   // GOLD-MARKET
     for (const st of [d.store, ...(Array.isArray(d.stores) ? d.stores : [])]) {
@@ -185,7 +189,7 @@ export function createMarketBook({ door, storage = null, character, now = () => 
   // ─── THE READS ─────────────────────────────────────────────────────
   const cache = new Map();
   // MARKET-ANY: and the crafted pieces a "My listings" read names (the service says how each may list)
-  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(','), q.currency ?? 'marks', (q.pieces ?? []).join(',')].join('|');
+  const keyOf = (view, q) => [view, q.region, q.family ?? '', q.tier ?? '', q.material ?? '', (q.materials ?? []).join(','), q.currency ?? 'marks', (q.pieces ?? []).join(','), (q.board ?? []).join(',')].join('|');   // AUDIT SEATS-3 D2: and the board (its cap)
   const pending = new Map();
   /** AUDIT 30 C6: the acts answered so far - a read begun before an act's answer is overtaken by it, and asked again. */
   let gen = 0;

@@ -230,8 +230,13 @@ export function normalizeReputations(player, store, { recoveryOnly = false } = {
   }
 }
 
+/** SEAT1d (Seats-Arc 7.6): CURFEW - the host's word on what a crime where the player stands costs, as a multiple of its
+ *  legal reputation (2 in a Curfew town; 1, DFU's, everywhere else and offline). */
+let _crimeFactor = () => 1;
+export function setCrimeRepFactor(fn) { _crimeFactor = typeof fn === 'function' ? fn : () => 1; }
 export function lowerRepForCrime(player, regionIndex, crime) {
-  changeLegalRep(player, regionIndex, -REPUTATION_LOSS_PER_CRIME[crime], { kind: 'crime', crime });
+  const f = Math.max(1, Math.trunc(Number(_crimeFactor()) || 1));   // SEAT1d: a Curfew's doubled cost - the legal loss alone, the People's half as DFU's
+  changeLegalRep(player, regionIndex, -REPUTATION_LOSS_PER_CRIME[crime] * f, { kind: 'crime', crime });
   // PlayerEntity.cs:2294-2298 - the region's People faction takes HALF
   // the legal loss, propagating out to its allies and enemies. The
   // negation sits OUTSIDE the division in DFU, `-(loss / 2)`, and the

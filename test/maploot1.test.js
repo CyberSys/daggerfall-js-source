@@ -43,7 +43,7 @@ test('MAPLOOT1: the enhanced card READS a recipe - the potion it makes and its i
     const e = { items: [recipe], stats: {}, level: 1 };
     const view = mountEnhancedInventory(host, { entity: e, items: () => e.items, onExit: () => {} });
     let row = dom.doc.querySelectorAll('.itemrow')[0];
-    for (const b of dom.doc.querySelectorAll('button')) { if (row) break; b.onclick?.({}); row = dom.doc.querySelectorAll('.itemrow')[0]; }
+    for (const b of dom.doc.querySelectorAll('button')) { if (row) break; if (/\bstatflip-btn\b/.test(b.className ?? '')) continue; b.onclick?.({}); row = dom.doc.querySelectorAll('.itemrow')[0]; }   // STATS-CARD: the paperdoll's Stats button turns the card, it opens no list
     row.onclick?.({});
     const dd = dom.doc.querySelectorAll('.card')[0].querySelectorAll('dd').map((n) => n.textContent);
     assert.ok(dd.includes('Potion of Resist Frost'));

@@ -246,7 +246,7 @@ test('GOLD-MARKET tab: the switch reads the gold view - a gold row\'s price, its
   assert.deepEqual(t.reads.at(-1), ['history', 'gold'], 'the switch stands in History too');
   assert.match(t.text(), /Sold 5 Mithril Ore - 376 gold to you/);
   assert.equal(priceText(1200, 'gold'), '1,200 gold');
-  assert.equal(priceText(1, 'marks'), '1 Drake');
+  assert.equal(priceText(1, 'marks'), '1 silver');
 });
 
 test('GOLD-MARKET tab: My listings - a gold listing\'s price in gold; the List form\'s "Priced in gold" counts own and gold\'s units (never Drakes\'), asks no fee, says what it pays; the gold held and its Collect', async () => {

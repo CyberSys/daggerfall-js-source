@@ -627,8 +627,8 @@
   {
     "name": "CLIMB4-catch-speed-unmeasured",
     "file": "src/player/motor.js",
-    "old": "    this._pkMoveEvent(move, Math.hypot(this.velY, this._airVelX, this._airVelZ));",
-    "new": "    this._pkMoveEvent(move, 0);",
+    "old": "    move.speed = Math.hypot(this.velY, this._airVelX, this._airVelZ);",
+    "new": "    move.speed = 0;",
     "tests": [
       "test/climb4.test.js"
     ]

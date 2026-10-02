@@ -808,7 +808,7 @@ export const BROKER_CSS = `/* ── SET7: THE SIGIL BROKER'S WINDOW (ui/brokerW
   background: rgba(90,20,16,0.45); box-shadow: 0 0 8px rgba(224,64,48,0.35); text-shadow: 1px 1px 0 #050608; }
 .broker-body { display: flex; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
 .broker-offers { flex: 1 1 55%; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 112px 148px; align-items: center; gap: 10px;   /* SS2: the price's column one width in every row - "12 Sigil Stones" is 108px, "4" 101 - so the prices stand in a line */
+.broker-offer { display: grid; grid-template-columns: 48px minmax(0, 1fr) 124px 148px; align-items: center; gap: 10px;   /* SS2: the price's column one width in every row - WB12a: "12 Deadlands Embers" is 120px, "4" 115 - so the prices stand in a line */
   padding: 6px 10px; cursor: pointer; border: 1px solid transparent; }
 .broker-offer.on { background: linear-gradient(90deg, rgba(243,207,134,0.12), transparent 85%); }
 .broker-frame { position: relative; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
@@ -1008,6 +1008,25 @@ export const NOTICE_CSS = `/* ── NOTICE1: THE NOTICE BOARD ── */
 .notice-days { width: 6em; }
 .notice-count { align-self: flex-end; font-size: 11px; color: #5a4630; }
 .notice-tip { margin: 0; font-size: 12px; color: #5a4630; font-style: italic; }
+/* GUILD1e: the Guilds tab - a guild's own notes under its banner, and the town's recruitment posters */
+.notice-section { margin: 4px 4px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #f3cf86; text-shadow: 1px 1px 0 #050608; }
+.notice-section + .notice-grid { margin-bottom: 18px; }
+.notice-banner { flex: none; width: 30px; height: auto; filter: drop-shadow(2px 3px 0 rgba(5,6,8,0.45)); }
+.notice-poster .notice-banner { width: 38px; align-self: center; }
+/* SEAT1b: the Seat tab - the week's clock, the standings (each guild under its banner, the reader's own marked), the
+   reader's own lines and the levers (ui/seatTab.js) */
+.notice-seat-week, .notice-seat-mine { margin: 4px 6px 10px; font-size: 13px; color: #e6dccb; text-shadow: 1px 1px 0 #050608; }
+.notice-standings { list-style: none; margin: 0 4px 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.notice-standing { display: flex; align-items: center; gap: 10px; padding: 6px 10px; font-size: 14px; color: #f3ead8;
+  background: rgba(5,6,8,0.35); text-shadow: 1px 1px 0 #050608; }
+.notice-standing.mine { outline: 1px solid rgba(243,239,44,0.55); }
+.notice-standing .notice-banner { width: 26px; }
+.notice-seat-levers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 4px 12px; }
+.notice-seat-drakes { width: 7em; }
+/* SEAT1c: this week's battle, and the Chronicle */
+.notice-seat-battle { margin: 4px 6px 10px; font-size: 13px; color: #f3ef2c; text-shadow: 1px 1px 0 #050608; }
+.notice-chronicle { margin: 0 6px 14px 22px; padding: 0; font-size: 13px; color: #e6dccb; line-height: 1.45; text-shadow: 1px 1px 0 #050608; }
 @media (max-width: 720px) {
   .notice-shell { padding: 8px; }
   .notice-cork { padding: 10px; }
@@ -1102,6 +1121,17 @@ export const PROF_CSS = `/* ── PROF1: THE PROFESSIONS ── */
 .prof-strike.hit { color: #f6d58a; }
 .prof-strike.miss { color: #d98b6e; }
 @media (prefers-reduced-motion: reduce) { .prof-heatbar { box-shadow: none; } }
+/* PROF11: the mason's bench - a work's two buttons in the row's button track; the chisel's stone, its scored lines
+   across it, the marked one lit (a shape as well as a colour: its line doubled), the chisel's own line framed */
+.prof-smelt .prof-workacts { grid-column: 3; grid-row: 1; display: flex; gap: 4px; }
+.prof-stone { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px;
+  background: linear-gradient(180deg, #8a8478, #6c675d 60%, #57534b); border: 1px solid rgba(192,138,62,0.5); }
+.prof-chisel-line { position: relative; height: 22px; padding: 0 6px; text-align: left; font: inherit; font-size: 11px; color: #2a2620;
+  background: transparent; border: 0; border-bottom: 2px dashed rgba(40,36,30,0.55); cursor: pointer; }
+.prof-chisel-line.marked { border-bottom: 4px double #f6d58a; color: #fff6e0; text-shadow: 0 0 4px #f6d58a; }
+.prof-chisel-line.at { outline: 2px solid #efe0b8; outline-offset: -2px; }
+.prof-stone.prof-inband { box-shadow: 0 0 6px #f6d58a; }
+@media (pointer: coarse) { .prof-chisel-line { height: 40px; } }
 @media (pointer: coarse) { .prof-recipe { min-height: 40px; } }
 .prof-matline { flex: 1 1 220px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-specs { grid-template-columns: 1fr; } }
@@ -1543,28 +1573,51 @@ body .dfparty-vital.magicka .dfparty-fill { background: linear-gradient(180deg, 
    face, outlined. The fire's own colours stay his. */
 body .wb-boss-bar { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.06em; color: #efe8d6; text-shadow: 1px 1px 0 #050608, 2px 2px 0 rgba(0,0,0,0.7); }
 body .wb-boss-name { font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
-/* WB9a: the night's marks under his health - each chip its sign and name over its line, in the HUD's pixel face */
-body .wb-boss-marks { gap: 14px; margin: 3px 0 4px; }
+/* WB13c: his epithet under his name; the trailing segment the foe bar's own */
+body .wb-boss-sub { font-size: 11px; letter-spacing: 0.08em; color: #d8cfae; text-shadow: ${OUTLINED}; }
+body .wb-boss-ghost { background: linear-gradient(180deg, #fff6e4 0 2px, #ffc08a 2px); opacity: 0.6; }
+/* WB9a: the night's marks under his health - each chip its sign and name, in the HUD's pixel face */
+body .wb-boss-marks { column-gap: 14px; margin: 3px 0 4px; }
 body .wb-boss-chip { text-shadow: ${OUTLINED}; }
 body .wb-boss-chip-head { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; }
 body .wb-boss-chip-icon { filter: drop-shadow(1px 1px 0 #050608); }
 body .wb-boss-chip-name { font-size: 11px; }
-body .wb-boss-chip-text { font-size: 10px; letter-spacing: 0.04em; color: #d8cfae; opacity: 1; }
-body .wb-boss-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
+body .wb-boss-track { margin: 7px 0 6px; border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; isolation: isolate;
   background: linear-gradient(180deg, rgba(0,0,0,0.6) 0 2px, transparent 2px), #1e0906;
   box-shadow: 0 0 0 1px #050608, 3px 3px 0 1px rgba(0,0,0,0.45); }
 body .wb-boss-fill { background: linear-gradient(180deg, #ffc08a 0 2px, #ff7a3a 2px 4px, #d8341a 4px 8px, #9a1a0a 8px 10px, #5c0a04 10px); }
 body .wb-boss-fill::after { content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: min(2px, 100%); background: #ffd9a8; opacity: 0.85; }
 body .wb-boss-mark { top: 0; bottom: 0; z-index: 1; background: linear-gradient(90deg, #050608 0 1px, rgba(255,230,200,0.55) 1px); }
-body .wb-boss-ward { inset: -5px; border-color: ${FRAME_TONES.brassHi} ${FRAME_TONES.brassLo} #5c3f1a ${FRAME_TONES.brass};
-  box-shadow: 0 0 0 1px #050608, inset 0 0 0 1px #050608; }
+/* WB13c: the ward a lit cage, apart from the frame's brass */
+body .wb-boss-ward { inset: -5px; border-color: #ffe9a8; box-shadow: 0 0 0 1px #050608, 0 0 0 3px rgba(255,210,122,0.45), inset 0 0 0 1px #050608; }
 body .wb-boss-track::before, body .wb-boss-track::after { content: ''; position: absolute; top: -2px; bottom: -2px; width: 6px; z-index: 2;
   box-shadow: 0 0 0 1px #050608; background: ${CLASP}; }
 body .wb-boss-track::before { left: -6px; }
 body .wb-boss-track::after { right: -6px; }
 body .wb-boss-callout { font-size: 15px; letter-spacing: 0.12em; text-shadow: ${OUTLINED}; }
+body .wb-boss-callout.cin { animation-timing-function: steps(3); }
+/* WB13c: the line to the landing a hard pixel; Dagon's plate and MOVE in a black ring, no glow */
+body .wb-boss-callout-line { height: 2px; box-shadow: 0 1px 0 #050608; opacity: 1; }
+body .wb-boss-callout.dagon .wb-boss-callout-text { font-size: 15px; color: #efe8d6; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
+body .wb-boss-move { font-size: 12px; color: #fff6e4; background: #b8320c; box-shadow: 0 0 0 1px #050608, 2px 2px 0 1px rgba(0,0,0,0.45); }
 body .wb-boss-foot { font-size: 11px; opacity: 1; color: #d8cfae; }
+body .wb-boss-tag { background: rgba(5,6,8,0.6); border-color: #3a352a; box-shadow: 1px 1px 0 rgba(0,0,0,0.45); text-shadow: ${OUTLINED}; }
+body .wb-boss-wrath { color: #ff9a7a; border-color: #8a2820; }
+body .wb-boss-wrath.near { color: #fff6e4; }
+@media (max-width: 640px) { body .wb-boss-chip-head, body .wb-boss-chip-name { font-size: 9px; letter-spacing: 0.06em; } }
 body .wb-gate-banner { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 14px; letter-spacing: 0.14em; text-shadow: ${OUTLINED}; }
+/* WB13e: the fight's beats in the HUD's face, outlined - the name large, the rule a brass line */
+body .wb-title-card { ${PIXEL_FONT_CSS} font-weight: 400; color: #efe8d6; text-shadow: ${OUTLINED}; }
+body .wb-title-kicker { font-size: 12px; letter-spacing: 0.3em; color: ${FRAME_TONES.brassHi}; }
+body .wb-title-main { font-size: 34px; letter-spacing: 0.12em; color: #fff6e4; text-shadow: ${OUTLINED}, 0 0 14px rgba(255,90,30,0.45); }
+body .wb-title-rule { height: 2px; background: linear-gradient(90deg, transparent, ${FRAME_TONES.brass}, transparent); box-shadow: 0 1px 0 #050608; }
+body .wb-title-sub { font-size: 14px; letter-spacing: 0.06em; color: #d8cfae; }
+@media (max-width: 640px), (max-height: 480px) { body .wb-title-main { font-size: 24px; } body .wb-title-sub { font-size: 12px; } }
+/* WB13c: the ground's warning in the HUD's face, outlined on a dark band (it stood in the serif among pixel words, orange
+   on the orange rim); the way out's arrow in a hard black edge */
+body .wb-ground-warn { ${PIXEL_FONT_CSS} font-weight: 400; font-size: 16px; letter-spacing: 0.1em; text-shadow: ${OUTLINED};
+  background: rgba(5,6,8,0.55); padding: 2px 8px; box-shadow: 0 0 0 1px rgba(5,6,8,0.8); }
+body .wb-ground-arrow svg { filter: drop-shadow(1px 0 0 #050608) drop-shadow(-1px 0 0 #050608) drop-shadow(0 1px 0 #050608) drop-shadow(0 -1px 0 #050608); }
 /* WB9a: the marks' card - a stone panel in the brass frame, the pixel face outlined; each aspect keeps its own colour */
 body .wb-marks-card { ${PIXEL_FONT_CSS} font-weight: 400; letter-spacing: 0.05em; color: #efe8d6; text-shadow: ${OUTLINED};
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0 2px, transparent 2px), rgba(20,14,10,0.92);

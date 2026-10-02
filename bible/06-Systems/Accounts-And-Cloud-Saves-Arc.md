@@ -4330,7 +4330,7 @@ players can also equip/unequip their glyphs".
   moderator") - MOD1's grant (the blue shield, `/mute` and `/unmute`). There is
   no moderator title in `TITLES`, only the glyph.
 - **A glyph is still TRUE of a player** (ACC3) and still derived at every read. The one stored thing is the choice:
-  `players.glyphs_off` (migration 0046), the glyphs taken off, space-separated. `titles.js` `glyphsHidden` reads it
+  `players.glyphs_off` (migration 0068), the glyphs taken off, space-separated. `titles.js` `glyphsHidden` reads it
   against `glyphsOf` now, so a lapsed glyph is not "hidden" and a newly granted one shows until taken off;
   `glyphsShown` is the rest. `POST /v1/account/glyph { glyph, on }` shows or hides one (`not-held` 403, `no-glyph` 400)
   and answers the wardrobe, which carries `glyphsOff` beside `glyphs`.

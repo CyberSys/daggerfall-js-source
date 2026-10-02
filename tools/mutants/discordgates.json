@@ -38,8 +38,8 @@
   {
     "name": "DISCORD-GATES-the-open-said-as-the-seal",
     "file": "src/net/gateHerald.js",
-    "old": "opens ${stamp(t.openAt, 'R')}",
-    "new": "opens ${stamp(t.sealAt, 'R')}",
+    "old": "open a breach ${stamp(t.openAt, 'R')} ",
+    "new": "open a breach ${stamp(t.sealAt, 'R')} ",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -47,8 +47,8 @@
   {
     "name": "DISCORD-GATES-the-kill-pings",
     "file": "src/net/gateHerald.js",
-    "old": "allowed_mentions: { parse: [] },",
-    "new": "allowed_mentions: { parse: ['everyone', 'roles', 'users'] },",
+    "old": "The breach collapses.`,\n    allowed_mentions: { parse: [] },",
+    "new": "The breach collapses.`,\n    allowed_mentions: { parse: ['everyone', 'roles', 'users'] },",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -56,8 +56,8 @@
   {
     "name": "DISCORD-GATES-the-others-miscounted",
     "file": "src/net/gateHerald.js",
-    "old": "Math.max(0, n - names.length)",
-    "new": "Math.max(0, n)",
+    "old": "Math.max(0, n - names.length) : 0;\n  const by = names.length",
+    "new": "Math.max(0, n) : 0;\n  const by = names.length",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -279,10 +279,10 @@
     ]
   },
   {
-    "name": "DISCORD-GATES-the-record-kept-for-nothing",
+    "name": "DISCORD-GATES-the-record-kept-only-with-a-herald",
     "file": "server/src/index.js",
-    "old": "if (!this._heraldOf() || !gateSiteDayOk(m.d, now)) return;",
-    "new": "if (!gateSiteDayOk(m.d, now)) return;",
+    "old": "if (!gateSiteDayOk(m.d, now)) return;   // AUDIT WB12d (R1): kept with no herald too - the rite stands by the agreed site",
+    "new": "if (!this._heraldOf() || !gateSiteDayOk(m.d, now)) return;",
     "tests": [
       "test/discordgates.test.js"
     ]
@@ -290,8 +290,8 @@
   {
     "name": "DISCORD-GATES-the-relay-takes-any-day",
     "file": "server/src/index.js",
-    "old": "if (!this._heraldOf() || !gateSiteDayOk(m.d, now)) return;",
-    "new": "if (!this._heraldOf()) return;",
+    "old": "if (!gateSiteDayOk(m.d, now)) return;   // AUDIT WB12d (R1): kept with no herald too - the rite stands by the agreed site",
+    "new": "if (false) return;",
     "tests": [
       "test/discordgates.test.js"
     ]

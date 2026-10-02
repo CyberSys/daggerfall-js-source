@@ -22,8 +22,9 @@
 
 /** How many town homes one character may hold (PLOT1's homesteads will count apart). */
 export const HOME_CAP = 3;
-/** Who may walk in, as the owner sets it: the owner alone, the owner's party, anyone. GUILD1 adds a guild's. */
-export const HOME_ENTRIES = Object.freeze(['private', 'party', 'public']);
+/** Who may walk in, as the owner sets it: the owner alone, the owner's party, anyone - and (GUILD1d, Seats-Arc 8.2) the
+ *  owner's character's guild. */
+export const HOME_ENTRIES = Object.freeze(['private', 'party', 'public', 'guild']);
 /** A home bought is its owner's alone until they say otherwise. */
 export const HOME_ENTRY_DEFAULT = 'private';
 /** The dearest price a claim may name (a Daggerfall house's is its model's radius x 1280 - tens of thousands). */
@@ -56,14 +57,20 @@ const sameName = (a, b) => typeof a === 'string' && typeof b === 'string' && a.l
  * WHETHER A PLAYER MAY WALK IN. `home` is a town answer's row ({owner, entry, mine}) or null for a building no player
  * owns (its own law stands - DFU's locks). The owner always; anyone when public; when party, a player whose party
  * holds the owner - `partyNames` are the handles the relay signed over the party's heads. HOME-RENT: and a tenant
- * (`tenant`, when the playing character's tenancy there still runs), whoever else may.
+ * (`tenant`, when the playing character's tenancy there still runs), whoever else may. GUILD1d: when guild, a player
+ * whose character is in the owner's character's guild (`guildmate`); a hall (`hall`), its members and, when public,
+ * anyone.
  */
 export function homeMayEnter(home, { partyNames = [], nowS = Math.floor(Date.now() / 1000) } = {}) {
   if (!home) return true;
+  // GUILD1d: A GUILD'S HALL is no one's home - its members walk in (the service says whether the playing character is
+  // one, `member`), and anyone when its guild opened it; never by an account's other character, nor a party
+  if (home.hall) return home.member === true || home.entry === 'public';
   if (home.mine) return true;
   if (rentDaysLeft(home.tenant, nowS) > 0) return true;   // HOME-RENT: a room rented in it, still running - the tenant walks in whoever else may (AUDIT: until its end, not until the town is read again)
   if (home.entry === 'public') return true;
   if (home.entry === 'party') return (partyNames ?? []).some((n) => sameName(n, home.owner));
+  if (home.entry === 'guild') return home.guildmate === true;   // GUILD1d: the playing character shares the owner's character's guild (the service's word)
   return false;
 }
 

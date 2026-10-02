@@ -71,7 +71,7 @@
 // and the walk-over's reach (SPOILS_TAKE_M) went with it; leaving the court still gathers what is left (`gather`).
 //
 // Not a DFU member. Ledger A (WB).
-import { rollSpoils } from '../systems/gateSpoils.js';
+import { rollSpoils, nameEmbers, sigilStone } from '../systems/gateSpoils.js';
 import { seededRng } from '../systems/wind.js';
 import { spewLaunches, spewPiece, flySpew, keepLaunch, floorRayAt } from '../world/gateSpew.js';
 import { SpoilsGlowRenderer, tierColour } from '../render/spoilsGlow.js';   // WBX3: the loot line
@@ -120,21 +120,28 @@ export const SPOILS_TEXT = Object.freeze({
   gathered: 'The spoils of the Burning Court are in your pack.',
   goldName: (n) => `${n} Gold Pieces`,   // WB9f: the pile's name on the plaque
   granted: 'Your share of the Burning Court\'s spoils is in your pack.',   // AUDIT WB A2: a receipt that came outside its court
+  rite: 'An ember from the broken rite is in your pack.',   // WB12d: a receipt of the rite alone
 });
 
 /**
  * One player's spoils as the floor holds them - in the order they leave him: the three graded pieces (the Rare-or-better
  * first), the Sigil Stone, then the gold. Each carries its tier (the glow's) and the treasure flat the seed dresses it in.
+ * WB12d: `claims`, the receipt's - the faithful's rite alone (`x` 'rite') pays its ember and nothing else; the rite
+ * broken too (`r`) an ember more, after the first. A receipt with neither is what it always was, piece for piece.
  * Pure.
- * @param {number} seed @param {number} level
+ * @param {number} seed @param {number} level @param {{ x?: string, r?: number }|null} [claims]
  */
-export function spoilsList(seed, level) {
-  const s = rollSpoils(seed, level);
+export function spoilsList(seed, level, claims = null) {
   const look = seededRng((seed ^ 0x5eed) >>> 0);
   const flat = () => RANDOM_TREASURE_ICONS[Math.floor(look() * RANDOM_TREASURE_ICONS.length)];
+  if (claims?.x === 'rite') return [{ kind: 'item', item: sigilStone(), tier: SIGIL_TIER, record: flat() }];
+  const s = rollSpoils(seed, level);
+  const pieces = s.pieces.map((p) => ({ kind: 'item', item: p.item, tier: p.tier, record: flat() }));
+  const ember = { kind: 'item', item: s.sigil, tier: SIGIL_TIER, record: flat() };
   return [
-    ...s.pieces.map((p) => ({ kind: 'item', item: p.item, tier: p.tier, record: flat() })),
-    { kind: 'item', item: s.sigil, tier: SIGIL_TIER, record: flat() },
+    ...pieces,
+    ember,
+    ...(claims?.r === 1 ? [{ ...ember, item: sigilStone() }] : []),
     { kind: 'gold', gold: s.gold, tier: 'common', record: flat() },
   ];
 }
@@ -184,6 +191,7 @@ export const savedSince = (saves, who, at) => who != null && [...(saves ?? [])].
 function keptPiece(p) {
   if (p?.kind === 'gold') return Number.isSafeInteger(p.gold) && p.gold > 0 ? { ...p } : null;
   const item = p?.kind === 'item' ? validLootItem(p.item) : null;
+  if (item) nameEmbers([item]);   // WB12a: a stone a crash record kept under its old name lands as a Deadlands Ember
   return item ? { ...p, item } : null;
 }
 
@@ -379,11 +387,11 @@ export function createSpoilsPool({
      * already spent is nothing. The pieces as rolled go into the device's record the moment they leave him.
      * WB9f: `keep` the court's floor they must come to rest on (`{ centre, r, floorY }` - world/gateSpew.js keepLaunch).
      */
-    spew({ day, seed, level, at, bearing, acct = '', keep = null }) {
+    spew({ day, seed, level, at, bearing, acct = '', keep = null, claims = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again, for a hub that missed it
       rec = { day };
       t0 = now(); lastT = t0; from = [...at];
-      const list = spoilsList(seed >>> 0, Math.max(1, level | 0));
+      const list = spoilsList(seed >>> 0, Math.max(1, level | 0), claims);   // WB12d: the receipt's rite
       launches = spewLaunches(seededRng(((seed >>> 0) ^ 0x5a5a) >>> 0), list.length, bearing);
       if (keep) launches = launches.map((l) => keepLaunch(from, l, keep));   // WB9f: every piece rests on the court's floor
       const plane = keep && Number.isFinite(keep.floorY) ? floorRayAt(keep.floorY) : null;
@@ -398,9 +406,9 @@ export function createSpoilsPool({
      *  (cast out before the kill, gone, told by the hub's next hello): the same pieces, straight into the pack, said
      *  once. Once a receipt, as the burst is; answers whether they were given. RAID4b: `roll` answers the pieces instead
      *  (a town's thanks - raidSpoils.js raidSpoilsList), asked only for a receipt not yet spent, and `text` is said. */
-    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null }) {
+    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null, claims = null }) {
       if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }   // AUDIT WBX S1: spent - said so again
-      const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0));   // RAID4b: a town's thanks roll their own
+      const list = typeof roll === 'function' ? roll() : spoilsList(seed >>> 0, Math.max(1, level | 0), claims);   // RAID4b: a town's thanks roll their own; WB12d: the receipt's rite
       // AUDIT RAID R4: ANOTHER CHARACTER'S - the one that fought for them, when another stands here: kept on the device
       // as a crash's record is (never in this pack), and the crash's door hands them over when that character stands up
       if (owner !== undefined && owner !== who()) { spend(day, acct, list, owner); if (kept) say(kept); return true; }

@@ -72,39 +72,39 @@
   {
     "name": "ACC3a-8-the-token-carries-what-the-caller-asked-for",
     "file": "server-account/src/index.js",
-    "old": "        const wardrobe = {\n          t: titleWorn(who.player, env),\n          g: glyphsOf(who.player, env, nowS),\n",
+    "old": "        const wardrobe = {\n          ...seatT,\n          g: [...glyphsOf(who.player, env, nowS), ...(seatBadge?.glyphs ?? [])],\n",
     "new": "        const wardrobe = {\n          t: body.title,\n          g: body.glyphs,\n",
     "tests": [
       "test/acc3titles.test.js",
       "test/accountworker.test.js"
     ],
-    "note": "The exact hole ACC1g closed one slice ago for the NAME, re-opened one field over and for a stronger claim. The signature is the only thing standing between a player and any badge in the vocabulary; a mint that signs the request body makes the signature worth nothing."
+    "note": "The exact hole ACC1g closed one slice ago for the NAME, re-opened one field over and for a stronger claim. The signature is the only thing standing between a player and any badge in the vocabulary; a mint that signs the request body makes the signature worth nothing. SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "ACC3a-9-the-relay-believes-the-frame",
     "file": "server/src/index.js",
-    "old": "    return { name: c.n, kind: c.k, subject: c.s, title: c.t, glyphs: c.g, gx: c.gx, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };",
-    "new": "    return { name: c.n, kind: c.k, subject: c.s, title: m.title, glyphs: m.glyphs, gx: c.gx, au: c.au, mu, lv: c.lv, ...guild, gio: c.i };",
+    "old": "    return { name: c.n, kind: c.k, subject: c.s, title: c.t, ts: c.ts, glyphs: c.g, gx: c.gx, au: c.au, rb: c.rb, mu, lv: c.lv, ...guild, gio: c.i };",
+    "new": "    return { name: c.n, kind: c.k, subject: c.s, title: m.title, glyphs: m.glyphs, gx: c.gx, au: c.au, rb: c.rb, mu, lv: c.lv, ...guild, gio: c.i };",
     "tests": [
       "test/acc3titles.test.js"
     ],
-    "note": "The other end of the same hole: the relay holds the public half and can verify, so the badge is only worth what the signature says. Read it off the hello and the first person to open devtools is a Developer."
+    "note": "The other end of the same hole: the relay holds the public half and can verify, so the badge is only worth what the signature says. Read it off the hello and the first person to open devtools is a Developer. SEAT1c (PIN MOVED): re-aimed by content - the projection carries a seat title's claim."
   },
   {
     "name": "ACC3a-10-the-badge-nulled-rather-than-omitted",
     "file": "src/net/wire.js",
-    "old": "  const t = from?.title;\n  if (typeof t === 'string' && t) row.title = t;\n  // GLYPH-WEAR: LESS THE ONES TAKEN OFF (`gx`, off the same signature) - paint alone: `from.glyphs` stays whole on the\n  // attachment, where the rights read it (/red, /dm), and only the row anybody else is shown leaves them out\n  const gx = Array.isArray(from?.gx) ? from.gx : [];\n  const g = Array.isArray(from?.glyphs) ? from.glyphs.filter((x) => !gx.includes(x)) : null;\n  if (g && g.length) row.glyphs = g;",
-    "new": "  row.title = from?.title ?? null;\n  row.glyphs = from?.glyphs ?? [];",
+    "old": "  if (typeof t === 'string' && t) row.title = t;\n  // SEAT1c: AND A SEAT TITLE'S CLAIM beside it",
+    "new": "  row.title = from?.title ?? null; row.glyphs = from?.glyphs ?? [];\n  // SEAT1c: AND A SEAT TITLE'S CLAIM beside it",
     "tests": [
       "test/acc3titles.test.js"
     ],
-    "note": "The same discipline look.class keeps: most players wear nothing, so a null title and an empty list on every row of a 64-peer welcome is bytes paid for saying nothing - and a reader that must tell 'no title' from 'this build has no such key' has two answers where one will do."
+    "note": "The same discipline look.class keeps: most players wear nothing, so a null title and an empty list on every row of a 64-peer welcome is bytes paid for saying nothing - and a reader that must tell 'no title' from 'this build has no such key' has two answers where one will do. SEAT1c (PIN MOVED): re-aimed by content."
   },
   {
     "name": "ACC3a-11-the-who-answer-left-unbadged",
     "file": "server/src/index.js",
-    "old": "      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (b.pose ?? null) : null }, b)));",
-    "new": "      this._send(ws, JSON.stringify({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (b.pose ?? null) : null }));",
+    "old": "      this._send(ws, JSON.stringify(badged({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (this._drawn(b, a.key).pose ?? null) : null }, b)));",
+    "new": "      this._send(ws, JSON.stringify({ t: 'join', id: b.id, name: b.name, look, pose: inRange(a.key ?? '', a.pose, b.pose) ? (this._drawn(b, a.key).pose ?? null) : null }));",
     "tests": [
       "test/acc3titles.test.js"
     ],

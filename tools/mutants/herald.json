@@ -92,22 +92,22 @@
   {
     "name": "HERALD-the-vocabulary-without-it",
     "file": "src/net/identityToken.js",
-    "old": "'gatebreaker', 'herald']);",
-    "new": "'gatebreaker']);",
+    "old": "'gatebreaker', 'herald', 'warden',",
+    "new": "'gatebreaker', 'warden',",
     "tests": [
       "test/herald.test.js"
     ],
-    "note": "A title the token cannot carry: every Herald's mint throws, and the relay refuses the hello."
+    "note": "A title the token cannot carry: every Herald's mint throws, and the relay refuses the hello. THE SEATS ARC'S MERGE (PIN MOVED): re-aimed by content - herald stands after the Gatebreaker now, the seats' after it."
   },
   {
     "name": "HERALD-the-trumpet-filled",
     "file": "src/ui/playerBadge.js",
-    "old": "penitent: true, herald: true });",
-    "new": "penitent: true, herald: false });",
+    "old": "penitent: true, herald: true, tower: false,",
+    "new": "penitent: true, herald: false, tower: false,",
     "tests": [
       "test/herald.test.js"
     ],
-    "note": "The trumpet filled: a solid blot at a name's size."
+    "note": "The trumpet filled: a solid blot at a name's size. THE SEATS ARC'S MERGE (PIN MOVED): re-aimed by content - herald stands after the Gatebreaker now, the seats' after it."
   },
   {
     "name": "HERALD-the-mark-dropped",

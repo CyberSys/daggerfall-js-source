@@ -60,7 +60,7 @@
 // worn by a row nobody has looked at since.
 // ═══════════════════════════════════════════════════════════════════
 
-import { TITLES, GLYPHS, AURAS } from '../../src/net/identityToken.js';
+import { TITLES, GLYPHS, AURAS, SEAT_TITLES } from '../../src/net/identityToken.js';
 import { insigniaHeld, insigniaKeys } from '../../src/net/insignia.js';   // WB9g: the Broker's insignia - a title and an aura bought
 import { patreonTitlesOf } from './patreon.js';   // PATREON-LINK: a Patreon tier's title, held by the pledge
 
@@ -207,6 +207,10 @@ export function titlesHeld(player, env) {
   // WB9g: AND THE BROKER'S - a title bought with Sigil Stones, held because the sale is recorded on the row (0037). A
   // guest row cannot buy one (accounts.js buyInsignia refuses it), so none is ever read off one.
   for (const t of insigniaKeys(player?.insignia, 'title')) if (!held.includes(t)) held.push(t);
+  // SEAT1c (Seats-Arc 7.4): AND A CHARTER'S - "Warden of <Town>", "Protector of <Kingdom>" - derived from the seats the
+  // account's guildmaster characters' guilds hold (seatTurning.js seatTitlesOf), read by the caller and laid on the row
+  // as `seatTitles` for this request alone
+  if (Array.isArray(player?.seatTitles)) for (const t of player.seatTitles) if (SEAT_TITLES.includes(t) && !held.includes(t)) held.push(t);
   return held;
 }
 
@@ -237,7 +241,7 @@ export function glyphsOf(player, env, nowS) {
 }
 
 /** GLYPH-WEAR (2026-10-02, Mac: "can we make it where players can also equip/unequip their glyphs"): THE GLYPHS THIS
- *  PLAYER HAS TAKEN OFF - the stored choice (`glyphs_off`, 0046), read against what is true now, so a glyph that has
+ *  PLAYER HAS TAKEN OFF - the stored choice (`glyphs_off`, 0068), read against what is true now, so a glyph that has
  *  lapsed is not "hidden" and one granted later shows until it is taken off. In glyphsOf's order. */
 export function glyphsHidden(player, env, nowS) {
   const off = typeof player?.glyphs_off === 'string' ? player.glyphs_off.split(' ') : [];

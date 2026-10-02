@@ -52,6 +52,9 @@
  * @property {number[]} [tip]                         PROF4: a felled tree's fall - [x, z] the way it falls, the angle it has leaned
  * @property {object|null} [conceal]                  ECV1: the concealment visual, which moves the batch into the blended pass
  * @property {number} [hitFlash]                     HITFLASH1: a struck body's red, 0..1 - read by both billboard shaders, over any concealment
+ * @property {number} [eliteGlow]                    ELITE FOES: the glow's pulse (0 off; negative an elite's corpse, the rim alone) - systems/eliteFoes.js
+ * @property {number} [eliteTime]                    ELITE FOES: the embers' clock, seconds
+ * @property {ReadonlyArray<number> | null} [elitePad] ELITE FOES: the quad widened past the sprite (left, bottom, right, top, as fractions of it)
  * @property {Float32Array} [bounds]                  EL5: the sphere [cx, cy, cz, r] about the origin the shadow and air replays cull by
  * @property {number} [_quads]                        BLOOD1b: how many quads the buffer holds, so `moveBillboardBatch` cannot write past it
  * @property {boolean} [_dyn]                         BLOOD1b: born DYNAMIC_DRAW, because its centres move every frame

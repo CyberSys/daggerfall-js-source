@@ -57,10 +57,11 @@ test('AUDIT 68 S15-eotb-settings-snapshot: a pane edit reaches the EOTB camera a
   _resetModSettings();
   try {
     // the rig's own call (weaponRig.js: eotbCamera.loadSettings(modSetting)), then Start
+    setModSetting(MOD, 'Camera.StartInThirdPerson', true);   // FP-START: ships off now - the player who turns it on
     const c = createEotbCamera();
     c.loadSettings(modSetting);
     c.start();
-    assert.equal(c.thirdPerson(), true, 'StartInThirdPerson ships on');
+    assert.equal(c.thirdPerson(), true, 'StartInThirdPerson, turned on, starts behind the shoulder');
     c.wheel(-1);
     c.tick({});
     assert.equal(c.scroll(), 0.2, 'scrolled one notch out');

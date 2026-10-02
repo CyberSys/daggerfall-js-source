@@ -157,10 +157,10 @@ test('DECOR-SHELL the room: a model that would not load is asked again by the ne
 test('DECOR-SHELL the host by source: an online home is decorated only once its list has STOOD this visit - AUDIT DECOR-SHELL 2: a refusal or the service unreachable opens nothing (the room stood none of the service\'s pieces and none of its owner\'s taken-out furniture, whose whole list the first piece taken out wrote over the service\'s); the list asked through askDecorList, only while the visit that asked goes on and its list has not stood; the flight cut by the room\'s collider (mutants: the gate gone, the answer never marked, the gate open before the list, a left visit\'s list stood, the list asked after it stood)', () => {
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /let _decorListed = -1;/);
-  assert.match(m, /if \(interiorHome && _decorListed !== _decorVisit\) return null;\n    if \(interiorHome\) return \{ kind: 'home'/);
+  assert.match(m, /if \(\(interiorHome \|\| interiorSeatHall\) && _decorListed !== _decorVisit\) return null;\n    if \(interiorHome\?\.hall\) return \{ kind: 'home'/);   // GUILD1d (re-aimed by content): a hall's room first, an online home's too   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
   const at = m.indexOf('function loadHomeDecor() {');
   const load = m.slice(at, m.indexOf('\n  }\n', at));
-  assert.match(load, /const visit = _decorVisit;\n    askDecorList\(\{\n      ask: \(\) => host\.homeDecor\.list\(homeTownOf\(b\), b\.buildingKey\),\n      live: \(\) => visit === _decorVisit && interiorBuilding === b && _decorListed !== visit,\n      stand: \(r\) => \{\n        _decorListed = visit;/, 'the gate opens where the list stands, and nowhere else');
+  assert.match(load, /const visit = _decorVisit;\n    askDecorList\(\{\n      ask: \(\) => host\.homeDecor\.list\(homeTownOf\(b\), b\.buildingKey, seat\),\n      live: \(\) => visit === _decorVisit && interiorBuilding === b && _decorListed !== visit,\n      stand: \(r\) => \{\n        _decorListed = visit;/, 'the gate opens where the list stands, and nowhere else');   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
   assert.equal([...m.matchAll(/_decorListed = visit/g)].length, 1, 'one door to the gate: no answer but a list opens it');
   assert.doesNotMatch(m, /\.catch\(\(\) => \{ if \(visit === _decorVisit\) _decorListed = visit; \}\)/, 'a failure never opens it');
   const t = src('src/scenes/decorTool.js');

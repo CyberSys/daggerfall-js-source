@@ -382,9 +382,11 @@ test('CLIMB2 LIVE: the free climb - Forward held against a wall, the skill\'s st
 });
 
 test('CLIMB2 LIVE: on the wall - Back climbs down to the floor and stands; across, the wall\'s edge stops the body; held still, the grip drains at half', () => {
-  const down = drive(wall(6), { skill: 50, z: 0.6, steps: 420, input: (i) => ({ forward: i < 150 ? 1 : -1 }) });
-  assert.ok(down.log[149].pos[1] > 3, 'up past the face\'s own seam (the box face\'s diagonal crosses x = 0 at y = 3)');
-  const off = down.log.findIndex((e, i) => i > 150 && e.st === 'ground');
+  // (HUG-TOUCH, FIELD BUGS 2026-10-02: 165 steps up, not 150 - the classic hug's deep press leaned on that seam and shoved
+  // the climb up it 0.5 cm a step faster than its pace, as on the far side of such a seam it shoved a climb down)
+  const down = drive(wall(6), { skill: 50, z: 0.6, steps: 440, input: (i) => ({ forward: i < 165 ? 1 : -1 }) });
+  assert.ok(down.log[164].pos[1] > 3, 'up past the face\'s own seam (the box face\'s diagonal crosses x = 0 at y = 3)');
+  const off = down.log.findIndex((e, i) => i > 165 && e.st === 'ground');
   assert.ok(off > 150 && near(down.log[off].pos[1], 0, 0.02), 'down and standing');
   assert.ok(Math.abs(down.log[off].pos[0]) < 1e-3, `straight down: the hug's press slides nothing along the face (it took a climb 2.8 m sideways; x ${down.log[off].pos[0].toFixed(3)})`);
   // let go high on the wall: the fall is billed from where the hands let go, the whole of it

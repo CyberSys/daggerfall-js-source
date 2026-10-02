@@ -20,8 +20,8 @@
   {
     "name": "WB9d-the-warning-out-of-the-ground",
     "file": "src/ui/gateGroundView.js",
-    "old": "warn: inside ? GROUND_VIEW_TEXT.warn(ground) : null",
-    "new": "warn: GROUND_VIEW_TEXT.warn(ground)",
+    "old": "warn: peril ? GROUND_VIEW_TEXT.peril(peril.name) : inside ? GROUND_VIEW_TEXT.warn(ground) : null",
+    "new": "warn: peril ? GROUND_VIEW_TEXT.peril(peril.name) : GROUND_VIEW_TEXT.warn(ground)",
     "tests": [
       "test/wb9d_gate_ground.test.js"
     ]

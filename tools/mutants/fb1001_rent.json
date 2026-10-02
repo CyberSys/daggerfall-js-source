@@ -2,20 +2,22 @@
   {
     "name": "RENT-REST-the-tenant-bed-unasked",
     "file": "src/systems/homeRent.js",
-    "old": "(home.own === true || rentDaysLeft(home.tenant, nowS) > 0);",
-    "new": "(home.own === true);",
+    "old": "|| !!(home.hall && home.member) || rentDaysLeft(home.tenant, nowS) > 0);",
+    "new": "|| !!(home.hall && home.member));",
     "tests": [
       "test/fb1001_rent.test.js"
-    ]
+    ],
+    "note": "THE SEATS ARC'S MERGE (PIN MOVED): re-aimed by content - GUILD1d's hall member joined homeBedIsMine's rule (AUDIT GUILD1d A1's online bed, folded into RENT-REST's)."
   },
   {
     "name": "RENT-REST-the-tenancy-end-unread",
     "file": "src/systems/homeRent.js",
-    "old": "(home.own === true || rentDaysLeft(home.tenant, nowS) > 0);",
-    "new": "(home.own === true || rentDaysLeft(home.tenant, nowS) >= 0);",
+    "old": "|| !!(home.hall && home.member) || rentDaysLeft(home.tenant, nowS) > 0);",
+    "new": "|| !!(home.hall && home.member) || rentDaysLeft(home.tenant, nowS) >= 0);",
     "tests": [
       "test/fb1001_rent.test.js"
-    ]
+    ],
+    "note": "THE SEATS ARC'S MERGE (PIN MOVED): re-aimed by content - GUILD1d's hall member joined homeBedIsMine's rule (AUDIT GUILD1d A1's online bed, folded into RENT-REST's)."
   },
   {
     "name": "RENT-REST-the-bed-outside-the-permanent-scene",
@@ -38,7 +40,7 @@
   {
     "name": "RENT-REST-the-host-hands-no-bed",
     "file": "src/scenes/worldModes.js",
-    "old": "homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)),   // HOME1",
+    "old": "homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)) || !!interiorSeatHall?.member,   // HOME1",
     "new": "homeBed: false,   // HOME1",
     "tests": [
       "test/fb1001_rent.test.js",

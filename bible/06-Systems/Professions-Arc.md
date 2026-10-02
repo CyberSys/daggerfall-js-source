@@ -146,6 +146,11 @@ Marks** and a week's wait.
 | Cooking | **Cook** - +1 serving a dish / **Field Cook** - a campfire without a Campfire Kit's charge | **Chef** - feasts last +50% / **Provisioner** - rations and dishes never spoil |
 | Jewelcrafting | **Gemcutter** - a set gem adds +10% enchantment points / **Goldsmith** - Silver counts as Gold | **Master Jeweller** - jewellery Masterwork chance +5% / **Lapidary** - Siege-cracked Gems set as any gem |
 
+BUILT (SEAT2b part two (a), 2026-10-01): the **Siegewright** is chosen (no longer `later`). DECIDED: "siege works a day
+sooner" is a seat's work (Seats-Arc 7.5) - a project begun by a Siegewright stands a day sooner (1, 3 or 6 days); a Ram
+Kit is made at once. Its Rams' +50% is the battle's: BUILT (SEAT2b part two (b)) - a Siegewright on the attacking roster
+when the battle's door opens fields every Ram of the camp at 4,500 vitality, not 3,000.
+
 ## 4. Materials
 
 ### 4.1 Metals - DFU's ten materials on the seven tiers
@@ -309,6 +314,13 @@ The Basket's foods are Foraging's and C&C's own templates, not new ones (FORAGE0
 
 **Marks value** of a material (the writs' and the market's reference, 10.5, section 11): tier 1: **1**; 2: **2**; 3:
 **4**; 4: **6**; 5: **9**; 6: **14**; 7: **40** Marks. A common herb **1**, uncommon **2**, rare **5**.
+
+BUILT (SEAT2b part two (a), 2026-10-01; `06-Systems/Online-Arc.md` SEAT2b part two (a)): **the Ram Kit (690)** is made at
+the workbench at Carpentry 60 (9.3) and goes to the Stores - own, or bought where any input held a bought unit - never to
+the pack (`NO_PACK_FORM`): its road is a Siege Camp's writ (Seats-Arc 4.2), and a holder's stockpile and the guild Stores
+ask none. DECIDED: its worth is its inputs' at their values (40 Oak Planks 80, 20 Iron Ingots 20, 4 Bear Hides 8 - **108**
+Marks), not its tier's 9 - so a writ's pay and the influence a delivery raises keep the materials'. Its family is **Siege
+Works**; it lists on the market as any Stores material.
 
 ## 5. The hands do the work - the acts
 
@@ -668,6 +680,10 @@ etc".
 | **Makers** | The Hall of Makers: this Season's most Masterworks and most writs filled, per profession |
 
 - **Capacity**: 30 player notes a board (newest shown), the last 20 server notices, every live writ of the region.
+- **The Guilds tab - BUILT (GUILD1e, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1e):** the town's recruitment notes
+  hung as their guilds' posters (each with its banner), and the reader's own guild's notes - its members' alone, 3 live
+  a member and the newest 30 shown, taken down by their author or an Officer. The same notes open at the board placed
+  in the guild's hall (`SEAT0` 8.2).
 
 ### 10.2 The market - the auction house
 
@@ -811,7 +827,8 @@ Mac: **"Go"**. What the design above left open, DECIDED here (the record's, at M
 - **Boards stood for a hub - NOTICE1b.** 10.1 gives a hub whose blocks place no board one of its own, at the open block
   nearest the centre or beside the palace door. This lane holds no ARENA2, and a board stood blind through a building
   is worse than none. MEASURED next: `tools/boardCount.mjs` - Mac runs it over his own ARENA2 - lists every hub's
-  boards, bounty and rumour; NOTICE1b builds only if it names a hub with none. A seat's boards come with SEAT1.
+  boards, bounty and rumour; NOTICE1b builds only if it names a hub with none. A seat's boards come with SEAT1 (AUDIT-SEATS: no SEAT slice built a board of its own - a seat's Seat tab is at its
+  town's rumour boards, and a seat town with none waits on NOTICE1b's own boards).
 - **The four hosts** (17.1): the streaming world (`scenes/world.js`) wires the boards, the press, the count and the
   window in the overlay slot; the fixed city (`scenes/exterior.js`) keeps DFU's board (FLAGGED by name: it hands the
   shared mode machine no `openNoticeBoard`); the building interiors and the dungeons have no boards.
@@ -977,13 +994,13 @@ of Makers; commissions; regional prices to haul between; and every seat on the m
 | **PROF4** - SHIPPED 2026-09-28 (at `dev`, section 25) | Logging with its act (the falling tree); Carpentry; furniture; the Ram Kit | DECOR places a crafted table. Needs FORAGE1-2 (shipped: the Wood-Axe) |
 | **PROF5** - SHIPPED 2026-09-29 (at `dev`, section 26) | The Market tab: listings, regional markets, couriers, buy orders, history; the Weavers' counter | A crafted Mithril Longsword listed in one region is bought from another by courier and reaches its buyer's pack, its owner moved. Needs MARKS1, NOTICE1, PROF3 (all shipped) |
 | **PROF5b** - SHIPPED 2026-09-29 (at `dev`, section 27) | Timed auctions for Masterworks: the Auctions view, bids escrowed, the last two minutes' two, settled on read | A Masterwork posted in Daggerfall is bid on from Wayrest and Daggerfall, the outbid escrow returned, and at its end the winner's piece is theirs, the seller paid less the tax. Needs PROF5 (shipped) |
-| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT1b, bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
+| **PROF6** - SHIPPED 2026-09-29 (at `dev`, section 28) | Writs: guild writs and the guild Stores, commissions and the note's button (built); seat writs with SEAT2b (AUDIT-SEATS: it said SEAT1b), bounties with SEAT1d's Edicts | A Guildmaster's writ delivered by an outsider and a member into the guild Stores, an Officer's posted within the week's budget and refused past it (AUDIT 31 R12: this row said an Officer's writ was delivered); a commission through a crafter's note filled with a piece of their make and in the poster's pack. Seat writs need SEAT1b |
 | **PROF6b** | Found and writ-only recipes (9.1): the Recipe Scroll (695), the found recipes named, a guild's posted recipe reward | Needs a witnessed roll for loot's 1 in 500, and PROF2b's Motherlode for its 1 in 20 |
 | **PROF7** - SHIPPED 2026-09-30 (live, section 29) | Hunting (the trace), the Skinning Knife (603: its template, its online shelves - law 6's exception, for 603); Outfitting | A bear felled by the player's own blow skinned online, its hides cured and sewn into a Leather Helm in the pack; a shirt in the dye its sewer chose. Needs FORAGE1-2 (shipped: the shelves' registry) |
 | **PROF8** - BUILT 2026-09-30 (section 30) | Fishing with the net (the throw, the tug, the haul) | A haul of Raw Fish from a river, its species named; a Pearl at sea on confirmed ground; forty hauls an account a day. Needs FORAGE1-2 (shipped: the net, and the three-valued water state in both exterior hosts) |
 | **PROF9** | Cooking | - |
 | **PROF10** | Jewelcrafting | - |
-| **PROF11** | Masonry | Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
+| **PROF11** - BUILT 2026-10-01 (section 34) | Masonry | Cut Stone and Mortar at the mason's bench, the chisel clean; the Sculptor's four stone pieces in a home; the Builder's stone and the Fortifier's Walls at a seat's works (SEAT2b). Needs PROF2 (quarrying); SEAT2b and PLOT1 consume what it makes |
 | **PROF12** | Alchemy and Enchanting layers; Disenchanting | - |
 
 ## 16. What remains to measure
@@ -1034,10 +1051,11 @@ Every PROF slice's record names all four (Home.md, THE FOUR HOSTS RULE, 17e), ea
   commission it posted (its escrow returned or burnt by a line) or names (declined, its pay home - BUILT, PROF6), an
   order's escrow (burnt by a line, as said), and a guild left with no one (never reclaimed for its name while it keeps
   anything - BUILT, AUDIT 31 S7).
-- **The Tithe** (10.4) is nought until SEAT1 sets a holder's rate. **OPEN** (AUDIT 31 L5): a sale, an auction's close,
-  a guild writ's delivery and a commission's fill write no Tithe line - so SEAT1 writes the Tithe's line (to the
-  holder, or burnt) wherever it takes one BEFORE it raises the rate, or the Tithe is taken from a sale and credited to
-  no one (pinned at nought: `test/audit31_law.test.js`).
+- **The Tithe** (10.4) - BUILT (SEAT1d, 2026-10-01; `06-Systems/Online-Arc.md` SEAT1d), closing AUDIT 31 L5's OPEN item:
+  a sale and an auction's close take their seat's holder's rate and write the Tithe's own line (`tithe`, to the
+  holder's treasury, or burnt where the guild is gone or its cap holds), and a courier's share goes the same way; a
+  guild writ's delivery and a commission's fill take none (Seats-Arc 7.2: "a writ has no fee"), and the law's nought
+  (`MARKET_TITHE_PCT`) stays the default where no seat holds the board (`test/audit31_law.test.js`).
 - **A guild disbands** (or its last member leaves): refused while its gold treasury or its guild Stores hold anything
   (GUILD1's rule, grown a clause - BUILT with PROF6, and while one of its writs stands, or a closed one's pay waits for
   the treasury's room - AUDIT 31 A15: section 28), while it holds a Charter and while a Right of Siege or a Tourney is pending (SEAT0
@@ -1238,7 +1256,8 @@ what was found (FACT):
   nothing else yet; units 10 to 50 in tens (so the pay and the Renown are whole), fewer at higher tiers; the day's first
   writ the table's highest tier. **Take** fills it - a Court writ is filled whole by the first to deliver (11), so taking
   one is delivering it, at a board of its region, from the Stores, bought units first. The service does not see the
-  board: its in-person check comes where a delivery raises influence - SEAT1b's seat writs (PROF6, section 28: this line
+  board: its in-person check comes where a delivery raises influence - SEAT2b's seat writs (AUDIT-SEATS: it said SEAT1b's;
+  PROF6, section 28: this line
   said PROF6, whose writs raise none); a Court writ's pay is bounded by its
   three a day wherever it is asked from.
 - **Withdraw to pack**: bought units first; the items the law names, minted as DFU mints them; a withdrawal whose answer
@@ -1432,7 +1451,7 @@ Mac: **"Lets keep moving"** (PROF3 after the merge of main). What the design abo
   Repair Kit - made at **the anvil**, each with **the heat** (9.4) or a quick craft; 9.2's **quality**, rolled by the
   service; a **provenance id** and a **signed product record** for every piece (9.1); the recipe law
   (`src/net/recipeLaw.js`, section 14's name for it). Not here, named: found and writ-only recipes (the Recipe Scroll
-  695 is PROF6b's - AUDIT 31 R8: PROF6 gave it its own slice, 28 - and the Motherlode's, PROF2b), a seat's Forge step (SEAT1b), listing and trading a provenance
+  695 is PROF6b's - AUDIT 31 R8: PROF6 gave it its own slice, 28 - and the Motherlode's, PROF2b), a seat's Forge step (SEAT2b - AUDIT-SEATS: it said SEAT1b), listing and trading a provenance
   item (PROF5, and TRADE1's hand-over, section 18), Disenchanting and enchanting a provenance item (PROF12).
 - **The anvil is the forge's other half.** FACT: "the forge stands since PROF2" (section 15) - a Weaponsmith's or an
   Armorer's, or a home's forge station, the Stores page's Forge section (`ui/profPages.js`). DECIDED: the anvil stands
@@ -2051,14 +2070,14 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   a player's writ naming a crafter and a piece; with them **the guild Stores** (7), where a guild writ's units go -
   FACT: `guild_prof_stores` is not built (14), and a guild writ with nowhere to put its units is a door painted on a
   wall; and the note's **commission button** (10.6: "Commissions come with PROF6"). Not here, named: **seat writs**
-  (SEAT1b - influence, the stockpiles and the Siege Camps, and the board's in-person check, which only influence
+  (SEAT2b - AUDIT-SEATS: it said SEAT1b - influence, the stockpiles and the Siege Camps, and the board's in-person check, which only influence
   needs: FACT, section 22 - "its in-person check comes with PROF6, where a delivery raises influence"; no delivery
   raises influence until SEAT1b); **bounties** (SEAT0 7.6's Bounty Edict - SEAT1d's Edicts); **found and writ-only
   recipes and the Recipe Scroll** (9.1, 695) - DECIDED: their own slice, **PROF6b** (15), because no record yet names
   which recipes are found, and a scroll "1 in 500 from loot" needs a roll the service witnesses (FACT: the loot is the
   client's; law 8's witness is for the ground) - every recipe stays unlocked by rank until then; **a guild's colours**
-  (FACT: no colour or device is stored - Seats-Arc 90, its heraldry SEAT1c's) - a guild writ's seal is NOTICE1's guild
-  blue with the guild's tag until the heraldry stands.
+  (FACT: no colour or device is stored - Seats-Arc 90, its heraldry SEAT1c's; AUDIT-SEATS: GUILD1d stored it) - a guild
+  writ's seal is NOTICE1's guild blue with the guild's tag until the heraldry stands.
 - **The switches**: PROF5's three. The guild Stores are the professions' (`PROFESSIONS_OPEN`); a guild writ and a
   commission move Marks, so they are open where the professions and the Marks both are; the note's button where the
   board also is. No switch of its own.
@@ -2243,7 +2262,7 @@ Mac: **"Do it"** (2026-09-29, PROF7 after the VEIN-NEED fix: "What was next on t
   recipes (9.3) with the stitch (9.4) and a garment's dye; and the pieces they wait on elsewhere - the Bear Hide the
   Ram Kit names (25), the Harpy Feathers 9.3's arrows name, the Fishing-Net 9.3 names Outfitting's. Not here, named:
   **Trophy Hunter** ("a trophy decor piece from a tier 5+ kill"), **Couturier** ("two-colour dyes") and **Saddler**
-  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense and the Siegewright are) -
+  ("a wagon upgrade of +100 kg") are named and never chosen (`later`, as the Motherlode Sense is and the Siegewright was until SEAT2b part two) -
   FACT: DFU gives each nothing to stand as - no trophy piece exists among its templates; a DFU garment takes ONE dye (its
   `dye` field, `systems/itemDye.js`); DFU's wagon has one limit, the Horse Cart's. Each waits on Mac's word for what it
   should be.
@@ -2476,7 +2495,9 @@ asked). What sections 5.2, 6 and 3.3 left open for PROF8, DECIDED here, and what
   never nothing. Gentle acts: a plain net after the wait. DECIDED: E, not attack, is the act's key throughout - the
   gathering host hands an act E's level and attack's edge alone, and every other act's hold is E's.
 - **Where** (5.1): the cast stands just ahead of the look while the pack holds an unbroken Fishing-Net and the player
-  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground. Its prompt
+  stands in the net's water (Foraging's own `netHasWater`: in water, swimming, at sea); never underground, and never
+  while the hands are the ship's (HELM-NET, FIELD BUGS 2026-10-02, Cruor: "Gets in the way especially when trying to aim
+  bow guns" - the kind's host `busy`: a helm, laid guns, a boarding; a deck stood on still fishes). Its prompt
   says the ground's refusal first (in here, a settlement, the dark), the account's forty, the Stores' room; the start asks
   Foraging's full checks for the net, with its own lines ("You cannot fish with enemies nearby!").
 - **The service**: **acct41**, migration `0042_fishing.sql` (`node_harvests` rebuilt: the kind `fish`, and `trophy`). The
@@ -2650,6 +2671,41 @@ unmoved.
 `test/profreticle.test.js` (10), `test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profreticle.json` (57),
 `profmenu.json`; `tools/profReticleProbe.mjs`.
 
+## 34. PROF11 - Masonry, as built (BUILT 2026-10-01)
+
+Mac: **"We need to do a comprehensive audit on everything and finish the not done"** (2026-10-01, with the Seats arc's
+audit - Masonry is 15's next slice and SEAT2b's need). What sections 3.2, 3.3, 4.5, 4.8, 9.3 and 9.4 left open for
+PROF11, DECIDED here, and what was found (FACT):
+
+- **What PROF11 is.** 15's row - Masonry - whole: the mason's bench and its two works (the cut, the mix), the chisel,
+  Mortar, the Sculptor's stone decor; the Masonry track and its four specialisations practised (the Quarryman's cut, the
+  Sculptor's decor at once; the Builder and the Fortifier with SEAT2b's works - `06-Systems/Online-Arc.md` SEAT2b).
+- **Mortar** (4.5; 675): the stone family, tier 2, 2 Marks; FACT: Lodestone's grey lump is the picture Rough and Cut Stone
+  already wear, undyed - Mortar wears it too. Registered, withdrawn as an item, listed on the market.
+- **The mason's bench** (4.8): a General Store's - 50 gold a cut, a mix or a carving, as the forge's counter - or a home's
+  `mason` station (50,000, the seventh). Its works ride the forge's route with a craft's law: the cut (Rough Stone to Cut
+  Stone 2:1; a Quarryman's 1:1 at 50) at rank 0, the mix (1 Sulphur, 1 Lead and 5 Rough Stone to 10 Mortar) at rank 10.
+- **XP FOLLOWS THE RANK** (PROF8's law, Mac's): a unit worked at the rank's own tier - 20 x the tier a unit, half again
+  for a clean chisel, +500 the first time a character makes it - kept with the row (migration `0060_masonry.sql`:
+  `prof_smelts.first`, `prof_smelts.clean`, `idx_prof_smelts_recipe`). FLAGGED to Mac: Masonry's XP follows the rank's
+  tier, not the material's (the cut is tier 1 at every rank otherwise, and Masonry would never climb).
+- **The chisel** (5.1; `systems/chiselAct.js`): five scored lines, one marked for 1.2 s (2.0 at Master) x (STR + END) / 2's
+  band, moved by the glint's rule after every strike too; four strikes a work, seven a carving; every one true a clean
+  act. The arrows, a digit, Space or a press on a line; Gentle acts, Escape and one act a page as the other acts.
+- **The Sculptor's four** (3.3, 9.4; 696-699): a column, a bench, a font and a statue plinth of Cut Stone and Mortar -
+  DFU's Furniture group, delivered among the home's things and set down as their one DFU model (62315, 62322, 41220,
+  74091 - FLAGGED: the models want Mac's eye); Stonework lists on the market; refused to all but a Sculptor at 100
+  (`prof-sculptor`, 403).
+- **The Builder and the Fortifier** (3.3): named by PROF11 and chosen since SEAT2b - a Builder's fortification project asks
+  nine tenths of the stone, rounded up (`fortificationStone`, the seat's works' one law); a Fortifier on a seat's
+  defending roster keeps its Walls from a capture's drop, once a Season a seat (`server-account/src/seatForts.js`
+  fortifierAt).
+- **The pages**: the Stores page's Mason's Bench; Masonry practised on the Professions page; a work's XP said as its own
+  profession's (FOUND: it said Smithing's).
+- **Pinned**: `test/prof11_law.test.js` (11), `test/prof11_service.test.js` (7, through the real Worker),
+  `test/prof11_client.test.js` (7). Mutants: `tools/mutants/prof11.json` (138, all dead). Patch notes:
+  `PATCH-NOTES-Masonry.md`.
+
 ## Appendix A - a day of a gatherer
 
 Ilsa, a Journeyman herbalist and Apprentice miner in Anticlere (a march), sets out at seven (ANY-HOUR: the wilderness keeps no hours now - seven is her habit). The board's Work tab has a
@@ -2735,8 +2791,9 @@ At dusk the hub warns of a Motherlode in the Wrothgarian foothills in ten minute
 
 The numbers above were not guessed. A deterministic model (a seeded Monte Carlo of a week of play, 400 runs a row)
 was run over three player profiles and the whole table, and the table was retuned until it balanced. SEAT1d ships
-the model as a tool reading townSeatLaw.js and professionLaw.js directly (to be written), so every later balance pass
-is re-run, not re-guessed.
+the model as a tool reading townSeatLaw.js and professionLaw.js directly - BUILT (2026-10-01): `node
+tools/seatEconomy.mjs` (`--runs`, `--seed`, `--json`) - so every later balance pass is re-run, not re-guessed. Its
+re-run is below the first table.
 
 **The players** - a guild's members are 35% casual, 45% regular, 20% hardcore:
 
@@ -2770,6 +2827,24 @@ seat that cost nothing. **The retuned table** (writs 3 a day at x1.2, 10-50 unit
 | 20 | 13,687 / 17,513 / 20,774 | 17,416 | 14% | 86% |
 | 30 | 21,834 / 25,987 / 30,201 | 26,464 | 9% | 57% |
 | 50 | 36,270 / 42,151 / 48,517 | 43,738 | 6% | 34% |
+
+**The re-run** (SEAT1d, 2026-10-01: `tools/seatEconomy.mjs`, 400 runs a size, seed 1 - the players above, the law's own
+sources and caps, the Court writ's own units and pay; the crown's upkeep at a hundred accounts):
+
+| Guild size | Influence a week (p10 / p50 / p90) | Writ Marks a week (p50) | Palace upkeep, of that | Crown upkeep, of that |
+|---|---|---|---|---|
+| 5 | 1,942 / 3,580 / 5,255 | 3,900 | 64% | 385% |
+| 8 | 4,130 / 6,036 / 8,111 | 6,570 | 38% | 228% |
+| 12 | 6,268 / 8,858 / 11,484 | 9,660 | 26% | 155% |
+| 20 | 12,001 / 14,834 / 17,724 | 15,930 | 16% | 94% |
+| 30 | 18,481 / 22,415 / 26,244 | 24,210 | 10% | 62% |
+| 50 | 31,834 / 37,180 / 42,357 | 40,320 | 6% | 37% |
+
+The writ income agrees with the first table within a tenth; the influence runs about 15% under it - the first table's
+week was not written down, and the tool's is (the Watch a two minutes in the seat town, gates and Renown and the Siege
+Camp's quarter of the gathering at 60% in the pledged region, each source and the account at its cap). A palace is
+still within an eight-member guild's median; a crown's 30,000 is a forty-member guild's median, beyond a thirty's p90.
+Recorded OPEN for Mac in Seats-Arc Appendix C.
 
 What the table means, and why each number is where it is:
 

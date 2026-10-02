@@ -2455,8 +2455,12 @@ export function createComeSailAwayRuntime(deps) {
   const DisableParticles = () => animatedWaterWaves();
   /** DaggerfallUnity.Settings.SoundVolume * sfxVolume. */
   const loopVolume = () => f(f(deps.soundVolume?.() ?? 1) * f(setting('Audio.SoundVolume', 1)));
-  /** AudioSource.Play - from the clip's start (a playing source restarts: `plays` counts them for the host) - and Stop. */
-  const audioPlay = (src) => { src.isPlaying = true; src.plays = (src.plays ?? 0) + 1; deps.audio?.play?.(src); };
+  /** AudioSource.Play - from the clip's start (`plays` counts them for the host) - and Stop. HELM-HUSH (FIELD BUGS
+   *  2026-10-02, "audio cutting when taking helm of a ship"): a source already playing goes on where it is, where
+   *  Unity's Play restarts it - every crossfade plays the loop it fades out (CrossfadeAudioSourceCoroutine), so the
+   *  first stroke of the oars past the wake's threshold, and every slowing under it, cut the boat's loop back to its
+   *  first sample at full volume. */
+  const audioPlay = (src) => { if (!src.isPlaying) src.plays = (src.plays ?? 0) + 1; src.isPlaying = true; deps.audio?.play?.(src); };
   const audioStop = (src) => { src.isPlaying = false; deps.audio?.stop?.(src); };
   /** UpdateAudioSource (1904-1920): the mod's own volume changed (LoadSettings' Audio section) - each loop still heard
    *  takes SoundVolume x the new one; a loop faded to nothing stays there. */
@@ -2509,21 +2513,29 @@ export function createComeSailAwayRuntime(deps) {
     audioStop(boat.AudioSourceSlow);
     FadeAudioSource(boat.AudioSourceFast, 0, loopVolume());
   }
-  /** A coroutine StopCoroutine can end: `fading` is set to it before it starts, as the C# sets the field first. */
-  function startFading(body) {
-    const h = { stopped: false };
+  /** A coroutine StopCoroutine can end: `fading` is set to it before it starts, as the C# sets the field first.
+   *  `settle` lands a fade where it was going (HELM-HUSH). */
+  function startFading(body, settle = null) {
+    const h = { stopped: false, settle };
     fading = h;
     startCoroutine(() => !h.stopped && body(h));
     return h;
   }
-  /** FadeAudioSource (6549-6557): the running fade stopped, a new one. */
+  /** FadeAudioSource (6549-6557): the running fade stopped, a new one. HELM-HUSH: the one handle is every boat's, so a
+   *  boat placed (a load, a launch, a reposition) stopped another's fade where it stood - a loop faded in from nothing
+   *  was left playing, silent, until a crossfade jumped it back to full; the stopped fade lands where it was going. */
   function FadeAudioSource(target, from, to, duration = 1) {
-    if (fading != null) fading.stopped = true;   // StopCoroutine(fading)
-    startFading(FadeAudioSourceCoroutine(target, from, to, duration));
+    if (fading != null) { fading.stopped = true; fading.settle?.(); }   // StopCoroutine(fading)
+    startFading(FadeAudioSourceCoroutine(target, from, to, duration), () => {
+      if (to === 0) audioStop(target);
+      else { audioPlay(target); target.volume = to; }
+    });
   }
   /** CrossfadeAudioSource (6559-6566): only when none is running. */
   function CrossfadeAudioSource(from, to, duration = 2) {
-    if (fading == null) startFading(CrossfadeAudioSourceCoroutine(from, to, duration));
+    // AUDIT HELM-HUSH: a crossfade stopped by a fade lands too - `to` heard whole, `from` stopped - where it was left
+    // with both loops part-way and the wake's check (it asks only for a silent loop) never asked again
+    if (fading == null) startFading(CrossfadeAudioSourceCoroutine(from, to, duration), () => { audioStop(from); audioPlay(to); to.volume = loopVolume(); });
   }
   /** FadeAudioSourceCoroutine (6568-6584): played, its volume lerped over the duration a frame's end at a time, stopped
    *  at the end if faded to nothing. */

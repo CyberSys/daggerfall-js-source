@@ -64,6 +64,8 @@ const PUBLIC_ALLOWLIST = new Map([
   // gauntleted hands holding a blank parchment, 1448x1086 - and the
   // only picture the enhanced map will ship; the map itself is drawn
   // onto the paper at runtime from MAPS and WOODS data (10-UI/Held-Map-Arc.md).
+  ['public/art/climb-grip.png', "OURS - Mac's own painting of the climbing fist, drawn for the right hand and mirrored for the left (CLIMB-HANDS, 2026-10-02); no ARENA2 pixel in it"],
+  ['public/art/climb-reach.png', "OURS - Mac's own painting of the arm reaching for a hold, mirrored for the left (CLIMB-HANDS, 2026-10-02); no ARENA2 pixel in it"],
   ['public/art/held-map.png', "OURS - Mac's own painting of the held parchment (MAP0, 2026-09-18; the fourth painting, MAP-FIELD8, 2026-09-22); no ARENA2 pixel in it"],
   // DISC22-C (2026-09-24): THE GRIMOIRE LOOT SHEET. Mac's own parchment for the classic skins' quick-loot panel under
   // the GrimoireUI pack ("The screenshot of the parchment is a spritesheet to be used for the loot menu (grimoire

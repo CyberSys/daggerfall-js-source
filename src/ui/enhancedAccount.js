@@ -60,6 +60,10 @@ export const GLYPH_LABEL = Object.freeze({
   shadowfang: 'Shadow Fang',   // SHADOW-FANG: the wolf's head beside SirMcMobdon's name
   penitent: 'Penitent',   // PENITENT: the sword in its lozenge beside Diggleborf's name
   herald: 'Herald',   // HERALD: the herald's trumpet and its banner
+  tower: 'A seat\'s Charter',   // SEAT1c: the tower of a guild holding a palace seat
+  crownDF: 'The Crown of Daggerfall',   // SEAT1c: a crown seat's crown, its kingdom's
+  crownWR: 'The Crown of Wayrest',
+  crownSN: 'The Crown of Sentinel',
 });
 
 /** ACC4: THE TWO FACTS MAC ASKED FOR, as words. Pure, so node pins
@@ -277,7 +281,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${TITLE_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${TITLE_TEXT[key] ?? key}`;   // WB13b
         b.onclick = () => flow.equip(key);
         row.append(b);
       }
@@ -295,7 +299,7 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
         b.type = 'button';
         b.disabled = !!flow.busy;
         b.setAttribute('aria-pressed', worn ? 'true' : 'false');
-        b.title = worn ? 'Wearing this - press to take it off' : `Wear ${AURA_TEXT[key] ?? key}`;
+        b.title = worn ? 'Worn. Press to take it off.' : `Wear ${AURA_TEXT[key] ?? key}`;
         b.onclick = () => flow.wearAura(key);
         row.append(b);
       }
@@ -450,10 +454,10 @@ export function accountCard(doc, flow, { onClose = null } = {}) {
       // WB5b: the Oblivion Gates this account closed - each a kill the relay signed and this service counted once
       // (net/gateClaims.js carries the receipts). A service from before it says nothing.
       const gates = gateRecordText(flow.account.gates);
-      if (gates) row('Gates closed', gates);
+      if (gates) row('Breaches closed', gates);   // WB12a
       // MARKS1: the account's Marks - the server's currency, struck for acts a server witnessed (PROF0 10.5). Null where
       // Marks are not this account's (a guest, the service's switch), and a service from before it says nothing.
-      if (Number.isSafeInteger(flow.account.marks)) row('Drakes', marksText(flow.account.marks));
+      if (Number.isSafeInteger(flow.account.marks)) row('Silver', marksText(flow.account.marks));
       // RAID4: the towns this account defended - each a raid's cleanse the relay signed and this service counted once
       // (net/raidClaims.js carries the receipts). A service from before it says nothing.
       const raids = raidRecordText(flow.account.raids);

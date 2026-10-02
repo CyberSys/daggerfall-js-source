@@ -82,12 +82,12 @@
   {
     "name": "NAME-ADOPT-9-my-own-badge-trusted-unchecked",
     "file": "src/net/online.js",
-    "old": "    const b = readBadge({ title, glyphs });",
-    "new": "    const b = { title: title ?? null, glyphs: glyphs ?? [] };",
+    "old": "    const b = readBadge({ title, glyphs, ts });",
+    "new": "    const b = { title: title ?? null, glyphs: glyphs ?? [], ts: ts ?? null };",
     "tests": [
       "test/nameadopt.test.js"
     ],
-    "note": "A second spelling of the vocabulary check, and a missing one: a badge this build has never heard of would be painted beside my own name while being refused beside everybody else's."
+    "note": "A second spelling of the vocabulary check, and a missing one: a badge this build has never heard of would be painted beside my own name while being refused beside everybody else's. SEAT1c (PIN MOVED): re-aimed by content - a seat title's claim rides beside the title."
   },
   {
     "name": "NAME-ADOPT-10-the-host-starts-from-the-character",

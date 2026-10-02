@@ -353,7 +353,7 @@ test('PROF2 forge: what the Stores can smelt of a recipe - every input\'s units 
   assert.equal(smeltable(smeltRecipe('ingot:steel'), held), 0, 'no Charcoal');
   assert.equal(smeltable(smeltRecipe('ingot:iron'), () => 1000), 100);
   assert.equal(SMELT_RECIPES.length, 10);
-  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom']);   // PROF4: the workbench, a fifth; PROF7: the loom, a sixth
+  assert.deepEqual([...DECOR_STATIONS], ['alchemy', 'spells', 'enchant', 'forge', 'workbench', 'loom', 'mason']);   // PROF4: the workbench, a fifth; PROF7: the loom, a sixth; PIN MOVED (PROF11): the mason's bench, a seventh
   assert.deepEqual([DECOR_STATION_FEES.forge, DECOR_STATION_NAMES.forge], [50_000, 'Forge']);
 });
 
@@ -419,7 +419,7 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   assert.match(src('src/scenes/mineHost.js'), /return \(specs\('mining'\)\[50\] === 'prospector' && PROSPECTOR_MARKS\[n\.what\]\) \|\| MINE_MARKS\[n\.what\] \|\| MINE_MARKS\.vein;/, 'NODE-MARKS: the Prospector\'s veins marked from PROSPECT_M off, in the mine kind\'s own mark');
   assert.match(w, /onDungeonLeave: \(\) => \{ const n = handOverRoomFoes\(\);[^\n]*gatherHost\?\.leaveDungeon\(\); worldPublish\(performance\.now\(\), true\); \},/, 'the veins dropped while the dungeon still stands');
   assert.match(w, /profPress: \(\) => gatherHost\?\.press\(\) \?\? false,/);
-  assert.match(src('src/world/worldOfDaggerfall.js'), /name: session\.name\[pick\.index\] \}\)\);/);
+  assert.match(src('src/world/worldOfDaggerfall.js'), /name: session\.name\[pick\.index\], prefabName: session\.prefab\[pick\.index\] \}\)\);/);   // FOREST1: and the prefab's name - a site or a rock field
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /\n\s*dungeonLoc = dfLocation;\n\s*host\.profDungeonEntered\?\.\(ctx\);/, 'after the flip and its lock, once the dungeon is the one stood in');
   assert.match(m, /if \(interact && !pressCast && host\.profPress\?\.\(\)\) return true;/, 'AUDIT 29: Interact alone, above QG1');

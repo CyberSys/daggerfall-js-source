@@ -62,7 +62,7 @@ import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_HEIGHT } from '../pla
 import { FOOTSTEP_VOLUME } from '../systems/footsteps.js';   // AUDIT 58: PlayerFootsteps.FootstepVolumeScale (:30), which its one-shots carry too
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage
 import { SOUND } from '../systems/soundClips.js';
-import { surfacePlayer, hurtPlayer, duelSpare, staffFly } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time
+import { surfacePlayer, hurtPlayer, duelSpare, staffFly, levitateWarded, freeFlight } from '../characters/playerEntity.js';   // DUEL1: the duel's floor, for its damage over time   // AUDIT-SEATS G5: a siege's ward on Levitate   // AUDIT-SEATS G4: a spectator's flight
 import { readSpellsStd, spellsByIndexMap } from '../formats/spellsStd.js';   // G4: the two magic registries, one home
 import { readMagicDef } from '../formats/magicDef.js';
 import { setMagicItemTemplates, setSpellRecordsByIndex } from '../systems/loot.js';
@@ -88,6 +88,7 @@ import '../systems/sigilBroker.js';   // SET7: the Broker's record (what this ch
 import { installRoleplayRealism } from '../systems/rrInstall.js';   // RR1: Roleplay & Realism's InitMod - after Items', as DFU loads them (Items is the one it looks up)   // RRI1: the templates, the patches, the art - the same seam, the same reason   // DW3: its icons, on the replacement door - here and not at worldTick's module scope, where the mod's law sits in an import cycle (a TDZ)
 import { getBool, getInt } from '../systems/settings.js';   // M-FM: Audio/AlternateMusic, read once for all three hosts; MAC-O4: Controls/WeaponSwingMode, the drag route's own missing term
 import { SongManager, musicEnvironment, holdEnvironment } from '../systems/songManager.js';
+import { festivalEnvironment } from './seatFestival.js';   // FESTIVAL-STAGE: a Festival town's streets hear the tavern
 import { audio } from '../systems/audio.js';
 import { messageBox } from '../systems/notify.js';   // ENH-NOTICE3: the one door every DaggerfallUI.MessageBox goes through - the infection's popup names the KIND, never the host's window
 
@@ -777,6 +778,22 @@ export function parkourSwitchOn(search) {
   return (isOnlinePage(search) || isEnhanced(search)) && !!row;
 }
 
+/** FOREST1: THE REAL FORESTS' SWITCH - the Features row (`realForests`) on
+ *  the enhanced skin, and on for everyone online whatever their skin: the
+ *  woods are the ground Logging's trees stand on, and the room agrees on
+ *  its ground (parkourSwitchOn's shape). `?forests=off` the kill door, offline. The
+ *  world host reads it once, at its mount (a flip reaches the next world). */
+export function realForestsOn(search) {
+  // AUDIT FOREST1 F6: the kill door is offline's alone - online the woods are the room's ground, and a peer who shut
+  // them would stand Logging's trees where nobody else sees a tree
+  if (pageParam('forests', search) === 'off' && !isOnlinePage(search)) return false;
+  const row = onlineForcedPref('realForests', search) ?? getPref('realForests');
+  return !!row && (isOnlinePage(search) || isEnhanced(search));
+}
+/** FOREST1: the LocationTypes (DFRegion.cs:66-86) the woods close round - DungeonLabyrinth 4, DungeonKeep 7,
+ *  ReligionCult 9, DungeonRuin 10, Graveyard 12, Coven 13. Every other place stands in cleared fields. */
+export const FOREST_HIDDEN_LOCATION_TYPES = Object.freeze(new Set([4, 7, 9, 10, 12, 13]));
+
 /** CLIMB1: the enhanced climb's deps every host wires the same way - the
  *  switch, read live (the row takes effect at once), and the Climbing
  *  skill's reads, the same the classic climb's chance takes (climbingDeps:
@@ -1034,7 +1051,7 @@ export function applyMotorEffectFlags(player, entity, { waterSurfaceY = null, sw
   // DW-D: Iliac Puddle No More's forge rides this ONE write - LevitateMotor.IsSwimming's setter arms CancelMovement
   // on every change, so a clear here and a forge after it would cancel the swimmer's every step (XL-1's bug again)
   player.swimming = !!swimming;
-  player.levitating = hasActiveEffect(entity, 'levitate') || staffFly();   // STAFF1: /fly
+  player.levitating = hasActiveEffect(entity, 'levitate') && !levitateWarded() || staffFly() || freeFlight();   // STAFF1: /fly   // AUDIT-SEATS G5: a siege's ward holds the effect (`&&` first: the staff's /fly is never warded)   // AUDIT-SEATS G4: a battle's spectator flies
   player.waterWalking = isEntityWaterWalking(entity);   // CSA-I: either effect that raises IsWaterWalking
   player.slowFalling = hasActiveEffect(entity, 'slowfall');
 }
@@ -2127,8 +2144,11 @@ export function createMusicDirector({ fm = null, play = null, stop = null, playi
       // unresolvable temple from a city street and the city track keeps
       // playing. musicEnvironment answers null for that case; the hold is
       // here, because a pure function cannot leave a field alone.
-      const environment = holdEnvironment(musicEnvironment(merged), _lastEnvironment);
-      _lastEnvironment = environment;
+      const held = holdEnvironment(musicEnvironment(merged), _lastEnvironment);
+      _lastEnvironment = held;
+      // FESTIVAL-STAGE (Seats-Arc 7.6): the base's `festival` - a Festival rules at the town - turns its streets' City
+      // music into the Tavern's (scenes/seatFestival.js festivalEnvironment); the hold keeps what DFU resolved
+      const environment = festivalEnvironment(held, merged.festival === true);
       // Probe hook: the four scene hosts have no execution coverage in
       // node, and AUDIT 21 F1 found this director being fed exclusively on
       // frames where the overlay was guaranteed null - the whole interior

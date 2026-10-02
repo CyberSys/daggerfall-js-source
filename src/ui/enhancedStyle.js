@@ -3915,6 +3915,7 @@ ${badgeCss()}
 .hitnum-crit { font-size: calc(36px * var(--hud-scale, 1)); font-weight: 700; color: #f1c04f; text-shadow: 2px 2px 0 rgba(60,40,0,0.95), 0 0 10px rgba(241,192,79,0.45);
   animation-name: hitnum-crit; }
 .hitnum-miss, .hitnum-ineffective, .hitnum-absorbed { font-size: calc(20px * var(--hud-scale, 1)); font-weight: 500; color: rgba(168,159,136,0.85); }
+.hitnum-warded { font-size: calc(20px * var(--hud-scale, 1)); font-weight: 600; color: #ffdf8e; }   /* WB13d: the gate boss's ward, in its gold */
 /* PARTY-BUFFS: a heal I took - "+N" in green, from a little under the reticle so it never reads as a blow I struck */
 .hitnum-heal { top: 50%; color: #8fe27f; text-shadow: 2px 2px 0 rgba(0,40,0,0.9), 0 0 8px rgba(120,220,100,0.35); }
 .hitnum-tag { display: block; font-size: calc(12px * var(--hud-scale, 1)); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;

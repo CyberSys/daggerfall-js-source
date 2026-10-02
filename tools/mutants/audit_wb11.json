@@ -329,7 +329,7 @@
   {
     "name": "AUDIT-WB11-U1-the-long-tip",
     "file": "src/ui/gateMarksView.js",
-    "old": "legion: 'Guard the far ones from his Imps, stop each Atronach, break his Ward-Bearers.',",
+    "old": "legion: 'Stop the Atronachs. Break the Ward-Bearers.',",
     "new": "legion: 'Cut down the Imps off whoever stands far from him, stop each Atronach before it reaches him, and break his Ward-Bearers to break his ward.',",
     "tests": [
       "test/audit_wb11.test.js"
@@ -338,8 +338,8 @@
   {
     "name": "AUDIT-WB11-M1-the-line-on-imps",
     "file": "src/net/gateMods.js",
-    "old": "text: 'His Imps harry whoever stands far off,",
-    "new": "text: 'Imps harry whoever stands far off,",
+    "old": "text: 'His Imps, Atronachs and Ward-Bearers fight beside him'",
+    "new": "text: 'His imps, atronachs and ward-bearers fight beside him'",
     "tests": [
       "test/audit_wb11.test.js"
     ]
@@ -356,8 +356,8 @@
   {
     "name": "AUDIT-WB11-D1-breaks-said",
     "file": "src/scenes/gateHost.js",
-    "old": ": 'The last Ward-Bearer falls - his ward is failing!'),",
-    "new": ": 'The last Ward-Bearer falls - his ward breaks!'),",
+    "old": ": 'The last Ward-Bearer falls. His ward is failing!'),",
+    "new": ": 'The last Ward-Bearer falls. His ward breaks!'),",
     "tests": [
       "test/audit_wb11.test.js",
       "test/wb11_gate_host.test.js"

@@ -403,7 +403,7 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
   const bed = buttons().find((b) => b.textContent.startsWith('Plain Double Bed'));
   assert.match(bed.textContent, /wants its inputs/, 'no Linen');
   bed.onclick();
-  await press('Buy 2 from the furnisher - 4 Drakes');
+  await press('Buy 2 from the furnisher - 4 silver');
   assert.deepEqual(bought, [['cloth:linen', 2]]);
   press('Small Oak Table');
   assert.match(text(), /Use a Heartwood for a plank - a step better \(1 stored\)/);
@@ -464,14 +464,15 @@ test('PROF4 pages: the Workbench at a Furniture Store - the saws for the logs he
 
 test('PROF4 wiring: a built pixel keeps its forest (the tree flats by World of Daggerfall\'s table, their groups\' batches); the host mints furniture among the home\'s things, asks the station by the recipe, the plane\'s band off AGI and WIL; the workbench a Furniture Store\'s or a home\'s station; the billboard shader tips a felled tree; DECOR marks a set-down piece from the service\'s own row', () => {
   const w = src('src/scenes/world.js');
-  assert.match(w, /if \(isTreeRecord\(climate\.natureArchive, f\.record\)\) pixelTrees\.push\(\{ id: pixelTrees\.length, group: `\$\{natureArchive\}_\$\{f\.record\}`, i, x: f\.x, y: f\.y, z: f\.z \}\);/);
+  assert.match(w, /if \(isTreeRecord\(climate\.natureArchive, f\.record\)\) pixelTrees\.push\(\{ id: pixelTrees\.length, group: `\$\{natureArchive\}_\$\{f\.record\}`, i, x: f\.x, y: f\.y, z: f\.z, wood: f\.wood \?\? 0 \}\);/);   // FOREST1 (AUDIT F3): and how wooded its tile is
   assert.match(w, /forest: \{ base: climate\.natureArchive, archive: natureArchive, trees: pixelTrees\.filter\(\(t\) => forestGroups\.has\(t\.group\)\), groups: forestGroups \},/);
   assert.equal((w.match(/if \(archive === natureArchive\) forestGroups\.set\(k, \{ batch, centers, size[^}]*\}\);/g) ?? []).length, 2, 'both the season\'s batch and the classic one');
   assert.match(w, /if \(isCraftedFurniture\(it\)\) \(playerEntity\.furnishings \?\?= \[\]\)\.push\(it\);\n\s*else addItem\(\(playerEntity\.items \?\?= \[\]\), it, 'back'\);/);
   // PROF7 moved it: the station a recipe's profession names (craftStation) - the workbench Carpentry's, the loom Outfitting's
   assert.match(w, /const st = craftStation\(recipeById\(recipe\)\?\.profession\);\n\s*const f = st\.here\(\);/);
   assert.match(w, /const craftStation = \(profession\) => \(profession === 'carpentry'\n\s*\? \{ here: \(\) => modes\?\.workbenchHere\?\.\(\) \?\? null,/);
-  assert.match(w, /const bench = work\?\.station === 'workbench', loom = work\?\.station === 'loom';/);
+  // PIN MOVED (PROF11): the work names the mason's bench too
+  assert.match(w, /const bench = work\?\.station === 'workbench', loom = work\?\.station === 'loom', mason = work\?\.station === 'mason';/);
   assert.match(w, /planeBand: \(\) => planeBand\(\{ agility: liveStat\(playerEntity, 'agility'\), willpower: liveStat\(playerEntity, 'willpower'\) \}\),/);
   const m = src('src/scenes/worldModes.js');
   assert.match(m, /if \(interiorBuilding\.buildingType === BUILDING_TYPES\.FurnitureStore\) return interiorBuilding\.insideOpenShop === false \? null : \{ kind: 'shop', fee: WORKBENCH_FEE \};/);

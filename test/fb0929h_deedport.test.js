@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createComeSailAwayRuntime, NO_WATER_LEVEL, BOAT_DEED_TEMPLATE } from '../src/systems/comeSailAway.js';
 import { mintBoatItem } from '../src/systems/comeSailAwayItems.js';
-import { hasPort, PORT_LOCATION_IDS } from '../src/systems/travelPorts.js';
+import { hasPort, hasPortFor, PORT_LOCATION_IDS } from '../src/systems/travelPorts.js';
 import { getPixelFromPixelID } from '../src/formats/mapsFile.js';
 
 const W = readFileSync(new URL('../src/scenes/world.js', import.meta.url), 'utf8');
@@ -30,8 +30,9 @@ function hostPorts({ flagged = new Set(), dict, names, here }) {
   };
   const travelLocationSummaryAt = (d, x, y) => d.get(y * 1000 + x) ?? null;
   // eslint-disable-next-line no-new-func
-  return new Function('mapDict', 'maps', 'travelLocationSummaryAt', 'hasPort', 'PORT_LOCATION_IDS', 'getPixelFromPixelID', 'playerTravelPixel',
-    `${port[1]}\n${near[1]}\nreturn { csaIsPortTown, csaNearestPort };`)(dict, maps, travelLocationSummaryAt, hasPort, PORT_LOCATION_IDS, getPixelFromPixelID, () => here);
+  // SEAT2b part two (PIN MOVED): the port test asks hasPortFor - HasPort, or a members' Harbour at a seat (none set here)
+  return new Function('mapDict', 'maps', 'travelLocationSummaryAt', 'hasPort', 'hasPortFor', 'PORT_LOCATION_IDS', 'getPixelFromPixelID', 'playerTravelPixel',
+    `${port[1]}\n${near[1]}\nreturn { csaIsPortTown, csaNearestPort };`)(dict, maps, travelLocationSummaryAt, hasPort, hasPortFor, PORT_LOCATION_IDS, getPixelFromPixelID, () => here);
 }
 /** A map-directory row as buildMapDict mints one: its id is the pixel's (mapId & 0xfffff). */
 const row = (x, y, regionIndex, mapIndex) => [y * 1000 + x, { id: y * 1000 + x, regionIndex, mapIndex }];

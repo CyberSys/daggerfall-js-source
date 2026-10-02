@@ -22,6 +22,7 @@
 // Not a DFU member. Ledger A (WB).
 import { readGateMods } from '../net/gateMods.js';
 import { ASPECT_COLORS, EMBER_COLOR } from '../world/gateBoss.js';
+import { injectEnhancedFonts } from './enhancedStyle.js';   // WB13c: the classic face, loaded by the gate's own screens
 
 /** The element each aspect's blows carry, as a player names it. */
 export const ASPECT_ELEMENT = Object.freeze({ burning: 'Fire', rime: 'Frost', storm: 'Lightning', venom: 'Poison' });
@@ -31,19 +32,19 @@ export const ASPECT_ELEMENT = Object.freeze({ burning: 'Fire', rime: 'Frost', st
  * and all his ground (net/gateStrike.js blowOf, scenes/world.js GATE_SAVES).
  */
 export const MARK_TIPS = Object.freeze({
-  burning: 'Resist fire, and his fire and his burning ground bite less.',
-  rime: 'Resist frost, and his frost and his rime bite less.',
-  storm: 'Resist shock, and his lightning and his scorched ground bite less.',
-  venom: 'Resist poison, and his venom and his poisoned ground bite less.',
-  colossal: 'Give his slam a wider berth - and bring the whole court: he takes longer to fell.',
-  unyielding: 'Hold your strongest blows until his ward breaks at each phase.',
-  vengeful: 'Everything he lands hurts more - heal before you are low, not after.',
-  scarring: 'Where his slam and his leap land, the floor stays hostile - fight away from it.',
-  grudge: 'He hunts whoever hurts him most - the heaviest hitter should expect him.',
-  soulhungry: 'Every challenger who falls heals him - keep each other standing.',
-  favoured: 'Hellfire and meteors come from the first phase - never stand still.',
-  echoing: 'The second falls where you stand when the first lands - keep moving.',
-  legion: 'Guard the far ones from his Imps, stop each Atronach, break his Ward-Bearers.',   // WB11a (AUDIT WB11 U1: as short as the others - 138 characters made the tallest card, off a landscape phone)
+  burning: 'Resist fire to blunt his flames and burning ground.',
+  rime: 'Resist frost to blunt his frost and rime.',
+  storm: 'Resist shock to blunt his lightning and scorched ground.',
+  venom: 'Resist poison to blunt his venom and poisoned ground.',
+  colossal: 'Give his Ground Slam a wider berth.',
+  unyielding: 'Save your heaviest blows for when his ward falls.',
+  vengeful: 'Heal before you run low.',
+  scarring: 'Fight clear of the scarred floor.',
+  grudge: 'If you hit hardest, expect him.',
+  soulhungry: 'Keep each other standing.',
+  favoured: 'Keep moving from the first phase.',
+  echoing: 'Move as each meteor lands.',
+  legion: 'Stop the Atronachs. Break the Ward-Bearers.',   // WB11a (AUDIT WB11 U1: as short as the others - 138 characters made the tallest card, off a landscape phone)
 });
 
 const hex = (c) => `#${c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('')}`;
@@ -105,7 +106,7 @@ const _views = new WeakMap();
 /** The card's words. */
 export const MARKS_CARD_TEXT = Object.freeze({
   title: 'The Warden\'s Marks',
-  gate: (boss, epithet) => `Beyond this gate ${boss} waits, ${epithet}`,
+  gate: (boss, epithet) => `${boss} comes ${epithet} tonight`,   // WB13b: one subtitle near the gate and inside
   arrive: (boss, epithet) => `${boss} comes ${epithet} tonight`,
   element: (el) => `His blows carry ${el.toLowerCase()}`,
 });
@@ -154,8 +155,26 @@ export const MARKS_CARD_CSS = `
 .wb-marks-icon { flex: 0 0 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
 .wb-marks-body { flex: 1 1 auto; }
 .wb-marks-name { font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; }
-.wb-marks-text { font-size: 12.5px; opacity: 0.92; }
-.wb-marks-tip { font-size: 12px; font-style: italic; opacity: 0.8; color: #e9c9a6; }
+.wb-marks-text { font-size: 13px; opacity: 0.92; }
+.wb-marks-tip { font-size: 13px; opacity: 0.85; color: #e9c9a6; }
+/* WB13c: beside the party's frames where the screen holds both, never over them */
+@media (min-width: 900px) {
+  body:has(.dfparty:not([style*="display: none"])) .wb-marks-card { right: 220px; }
+}
+/* WB13c: on a phone held upright the party's frames hold the foot on the right - with them up, the card stands under
+   his bar instead */
+@media (max-width: 560px) {
+  body:has(.dfparty:not([style*="display: none"])) .wb-marks-card.wb-marks-arrive { top: 200px; bottom: auto; }
+}
+/* WB13c: a phone held sideways: at the foot on the left - under his bar, clear of the crosshair and the party, never off
+   the screen - the tips left to a wider one */
+@media (max-height: 480px) {
+  .wb-marks-card.wb-marks-arrive, .wb-marks-card.wb-marks-gate { left: 8px; right: auto; top: auto; bottom: 8px; width: min(340px, 42vw);
+    max-height: calc(100vh - 16px); overflow: hidden; padding: 8px 12px 6px; }
+  .wb-marks-sub { margin: 1px 0 4px; }
+  .wb-marks-row { margin: 3px 0; }
+  .wb-marks-tip { display: none; }
+}
 `;
 
 let root = null, parts = null;
@@ -179,6 +198,7 @@ function build(doc) {
     st.id = MARKS_CARD_STYLE_ID;
     st.textContent = MARKS_CARD_CSS;
     (doc.head ?? doc.body)?.append(st);
+    if (doc.head) injectEnhancedFonts(doc);   // WB13c: Cormorant on the classic skin too (it came only if another window had asked)
   }
   root = doc.createElement('div');
   root.className = 'wb-marks-card wb-marks-arrive';

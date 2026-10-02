@@ -101,7 +101,7 @@ test('WIND4 (3) the grass darkens: the sward takes the sun\'s SCALE and the moon
   assert.match(LAB_GRASS_VS, /vMoonLam = max\(dot\(nrm, normalize\(uMoonDir\)\), 0\.0\);/);
   // the host hands all of it - three of five terms is what the bug was
   assert.match(read('src/scenes/world.js'),
-    /sunScale: renderer\._sunScale, moonDir: renderer\._moonDir, moonScale: renderer\._moonScale, moonCol: renderer\._moonColor \}/);
+    /sunScale: renderer\._sunScale, moonDir: renderer\._moonDir, moonScale: renderer\._moonScale, moonCol: renderer\._moonColor,/);   // GRASS-LIT2: the lanterns follow
   // ...and a host that hands none is the OLD look, never a black field
   const grass = read('src/render/labGrass.js');
   assert.match(grass, /gl\.uniform1f\(u\.uSunScale, light\.sunScale \?\? 1\);/);
