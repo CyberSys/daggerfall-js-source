@@ -268,7 +268,7 @@ test('TOUCH-HOLD knife: the Skinning Knife\'s Use from the hotbar at a body star
     assert.equal(s.host.acting(), true, `the knife's Use started the skinning: ${JSON.stringify(r)} ${s.said}`);
     s.host.tick(0.001);
     assert.equal(s.meter?.state.kind, 'trace');
-    assert.deepEqual([s.label, s.opts], ['', { byUse: true }], 'held by the Use: no key to name');
+    assert.deepEqual([s.label, s.opts], ['', { byUse: true, title: 'Grizzly Bear' }], 'held by the Use: no key to name (PROF-SCENES: the body named on the panel)');
     assert.equal(s.host.handTool(), KNIFE_HAND, 'the knife in the hand');
     // the line, drawn by the look alone - nothing held
     const at0 = s.lookAt(bear);

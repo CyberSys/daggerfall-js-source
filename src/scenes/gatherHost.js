@@ -472,7 +472,7 @@ export function createGatherHost(deps) {
     const a = k?.start(t.node, plan, ctxFor(t, tool, byPress));
     if (!a) return false;
     if (a.refused) { hud.toast(a.refused); return false; }
-    act = { ...a, node: t.node, px: t.px, py: t.py, dungeon: t.dungeon, loose: !!t.loose, info: t.info, world: t.world };
+    act = { ...a, node: t.node, px: t.px, py: t.py, dungeon: t.dungeon, loose: !!t.loose, info: t.info, world: t.world, title: k.nodeName?.(t.node) || '' };   // PROF-SCENES: the menu's title carried into the act's panel
     chipProfession = a.profession;
     chipLeft = CHIP_S;
     return true;
@@ -484,6 +484,7 @@ export function createGatherHost(deps) {
     if (!report) return;
     a.report = report;   // AUDIT 32 P10: the act's own words, said with its answer
     a.clean = report.clean === true || report.finds >= 3;
+    if (a.clean) hud.cue?.('clean');   // PROF-SCENES: a clean finish rings
     if (a.tool) wearForagingTool(a.tool, deps.entity());   // FORAGE0 14.1: a completed act wears its tool by one
     const before = rank(a.profession);
     book.harvest({
@@ -753,8 +754,8 @@ export function createGatherHost(deps) {
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
-        else if (act.act.state.done) finish(act);
-        else hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true });   // TOUCH-HOLD: a Use's hold says no key
+        else if (act.act.state.done) { hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true, title: act.title }); finish(act); }   // PROF-SCENES: the last frame drawn (its blow's cue) before the panel goes
+        else hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true, title: act.title });   // TOUCH-HOLD: a Use's hold says no key; PROF-SCENES: the node's name on the panel
         hud.setPrompt(null);
       } else {
         target = deps.active() || inDungeon() ? findTarget() : null;

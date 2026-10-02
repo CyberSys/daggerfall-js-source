@@ -1,0 +1,506 @@
+[
+  {
+    "name": "PROFSCENES-rebuilt-each-frame",
+    "file": "src/ui/profHud.js",
+    "old": "if (!panel || panel.act !== act || panel.which !== which) {",
+    "new": "if (true) {",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-title-lost",
+    "file": "src/ui/profScenes.js",
+    "old": "t.textContent = title || word;",
+    "new": "t.textContent = word;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cracks-unread",
+    "file": "src/ui/profScenes.js",
+    "old": "const open = Math.round(clamp01(st.points / Math.max(1, st.need)) * cracks.length);",
+    "new": "const open = 0;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-mine-pips-frozen",
+    "file": "src/ui/profScenes.js",
+    "old": "      cracks.forEach((c, i) => setSvgClass(c, i < open ? 'rock-crack on' : 'rock-crack'));\n      setPips(Math.min(st.points, st.need));\n",
+    "new": "      cracks.forEach((c, i) => setSvgClass(c, i < open ? 'rock-crack on' : 'rock-crack'));\n",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-glint-unmoved",
+    "file": "src/ui/profScenes.js",
+    "old": "points.forEach((n, i) => setClass(n, i === st.glint ?",
+    "new": "points.forEach((n, i) => setClass(n, i === -2 ?",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-sparks-never",
+    "file": "src/ui/profScenes.js",
+    "old": "if (st.strikes > seen) { seen = st.strikes; sparks.fire(",
+    "new": "if (false) { seen = st.strikes; sparks.fire(",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-ring-unmoved",
+    "file": "src/ui/profScenes.js",
+    "old": "        ring.setAttribute('r', String(Math.round(r * R * 100) / 100));\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-band-unwidened",
+    "file": "src/ui/profScenes.js",
+    "old": "        band.setAttribute('stroke-width', String(Math.max(0, 2 * st.band * R)));\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-in-band-unlit",
+    "file": "src/ui/profScenes.js",
+    "old": "setSvgClass(ring, a.inBand ? 'ring-line in-band' : 'ring-line');",
+    "new": "setSvgClass(ring, 'ring-line');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-still-form-lost",
+    "file": "src/ui/profScenes.js",
+    "old": "show(face, !ctx.reduced); show(bar, !!ctx.reduced);",
+    "new": "show(face, true); show(bar, false);",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-notch-frozen",
+    "file": "src/ui/profScenes.js",
+    "old": "const d = 4 + 18 * clamp01(st.points / Math.max(1, st.need));",
+    "new": "const d = 4;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-hold-unfilled",
+    "file": "src/ui/profScenes.js",
+    "old": "      hold.setAttribute('stroke-dasharray', `${Math.round(p * 1000) / 10} 100`);\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-bruise-unshown",
+    "file": "src/ui/profScenes.js",
+    "old": "setSvgClass(plant, st.bruised ? 'herb-plant bruised' : 'herb-plant');",
+    "new": "setSvgClass(plant, 'herb-plant');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-finds-uncounted",
+    "file": "src/ui/profScenes.js",
+    "old": "(st.hits[i] ? 'prof-slot found' : 'prof-slot missed')",
+    "new": "'prof-slot missed'",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-clock-frozen",
+    "file": "src/ui/profScenes.js",
+    "old": "        left.setAttribute('stroke-dasharray', `${Math.round((1 - clamp01(st.showing / Math.max(0.01, st.glint))) * 1000) / 10} 100`);\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-line-undrawn",
+    "file": "src/ui/profScenes.js",
+    "old": "drawn.setAttribute('points', st.tracing ? (st.path ?? []).slice(-160).map(xy).join(' ') : '');",
+    "new": "drawn.setAttribute('points', '');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-gauge-frozen",
+    "file": "src/ui/profScenes.js",
+    "old": "      throwMark.style.left = pc((m - FISH_ACT.throwMinM) / (FISH_ACT.throwMaxM - FISH_ACT.throwMinM));\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-dip-lost",
+    "file": "src/ui/profScenes.js",
+    "old": "setSvgClass(floats, afloat ? `water-floats on${phase === 'tug' ? ' dip' : ''}` : 'water-floats');",
+    "new": "setSvgClass(floats, afloat ? 'water-floats on' : 'water-floats');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-haul-unshown",
+    "file": "src/ui/profScenes.js",
+    "old": "show(haul, phase === 'haul');",
+    "new": "show(haul, false);",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-net-never-flies",
+    "file": "src/ui/profScenes.js",
+    "old": "setSvgClass(net, phase === 'fly' ? 'water-net on' : 'water-net');",
+    "new": "setSvgClass(net, 'water-net');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-school-unshown",
+    "file": "src/ui/profScenes.js",
+    "old": "setSvgClass(school, afloat && st.school !== null ? 'water-school on' : 'water-school');",
+    "new": "setSvgClass(school, 'water-school');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-mine-crossed",
+    "file": "src/ui/profScenes.js",
+    "old": "if (st.kind === 'mine' && st.strikes > (prev.strikes ?? 0)) out.push(st.last === 'glint' ? 'glint' : 'strike');",
+    "new": "if (st.kind === 'mine' && st.strikes > (prev.strikes ?? 0)) out.push('strike');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-chop-crossed",
+    "file": "src/ui/profScenes.js",
+    "old": "if (st.kind === 'chop' && st.chops > (prev.chops ?? 0)) out.push(st.last === 'clean' ? 'glint' : 'strike');",
+    "new": "if (st.kind === 'chop' && st.chops > (prev.chops ?? 0)) out.push('strike');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-miss-ticks",
+    "file": "src/ui/profScenes.js",
+    "old": "out.push(st.hits[st.hits.length - 1] ? 'tick' : 'slip');",
+    "new": "out.push('tick');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-bruise-every-frame",
+    "file": "src/ui/profScenes.js",
+    "old": "if (st.kind === 'steady' && st.bruised && !prev.bruised) out.push('slip');",
+    "new": "if (st.kind === 'steady' && st.bruised) out.push('slip');",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-slip-lost",
+    "file": "src/ui/profScenes.js",
+    "old": "    if (st.slips > (prev.slips ?? 0)) out.push('slip');\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-net-silent",
+    "file": "src/ui/profScenes.js",
+    "old": "const cue = { fly: 'swing', wait: 'splash', tug: 'tug', haul: 'tick' }[st.phase];",
+    "new": "const cue = null;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cues-unsaid",
+    "file": "src/ui/profHud.js",
+    "old": "for (const c of actCues(panel.prev, st)) profCue(c);",
+    "new": "for (const c of actCues(panel.prev, st)) void c;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-cue-door-dead",
+    "file": "src/ui/profHud.js",
+    "old": "    cue(name) { profCue(name); },",
+    "new": "    cue(name) { void name; },",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-anchor-unread",
+    "file": "src/ui/profHud.js",
+    "old": "const a = anchor?.();",
+    "new": "const a = null;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-tug-unflashed",
+    "file": "src/ui/profHud.js",
+    "old": "if (st.kind === 'fish' && st.phase === 'tug') flags.push('fish-tug');",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-host-title",
+    "file": "src/scenes/gatherHost.js",
+    "old": "title: k.nodeName?.(t.node) || '' };",
+    "new": "title: '' };",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-host-clean-cue",
+    "file": "src/scenes/gatherHost.js",
+    "old": "    if (a.clean) hud.cue?.('clean');   // PROF-SCENES: a clean finish rings\n",
+    "new": "",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-host-last-frame",
+    "file": "src/scenes/gatherHost.js",
+    "old": "else if (act.act.state.done) { hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true, title: act.title }); finish(act); }",
+    "new": "else if (act.act.state.done) { finish(act); }",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-css-off-the-plaque",
+    "file": "src/ui/profActStyle.js",
+    "old": "top: var(--wp-top, 55%); transform: translateX(-50%); z-index: 12;",
+    "new": "top: 50%; transform: translateX(-50%); z-index: 12;",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  },
+  {
+    "name": "PROFSCENES-hits-one",
+    "file": "src/systems/profSounds.js",
+    "old": "const HITS = Object.freeze([0, 1, 2, 3, 4].map((i) => SOUND.Hit1 + i));",
+    "new": "const HITS = Object.freeze([0].map((i) => SOUND.Hit1 + i));",
+    "tests": [
+      "test/profscenes.test.js",
+      "test/prof7_client.test.js",
+      "test/prof8_client.test.js",
+      "test/audit32_pages.test.js",
+      "test/fb1001_touchhold.test.js",
+      "test/fb1001_nodes.test.js"
+    ]
+  }
+]
