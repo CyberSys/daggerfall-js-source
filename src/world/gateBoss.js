@@ -116,6 +116,10 @@ export const FALL_MS = 2400;
  *  wind-up, CAST_LOOSE_FRAME as it is loosed. His blade and his weight keep the swing (frames 0, 1, then 2-4). */
 export const CAST_RAISE_FRAME = 1;
 export const CAST_LOOSE_FRAME = 3;
+/** WB13f: SPENT - his heaviest blows (net/gateBrain.js ATTACKS: their recovery the longer for it) leave him in their last
+ *  frame until his recovery ends, a window to punish: his blade's last swing frame, his fire's loosing one. */
+export const SPENT_ON = Object.freeze(['slam', 'leap', 'nova']);
+export const SPENT_FRAME = 4;
 /** WB13d: HIS BODY STRUCK, SEEN, as every foe's is (systems/hitFlash.js): a full flash for my own blow, GATE_FLASH_COURT
  *  of one for the court's - a fall in his health the relay says of GATE_FLASH_SHARE of his whole or more. His host's
  *  bodies the same, any fall. */
@@ -216,9 +220,9 @@ export function bossHop(s, now) {
 }
 
 /**
- * WHAT HE IS DOING at `now`: `act` one of gone, fall, windup, strike, run, walk, flinch, idle; `anims` the orientation
- * table that shows it; `frame` the frame index within the record (held frames are indices, a loop's a count to wrap);
- * `loop` whether it wraps; `atk` the attack's key while one is shown; `t` its wind-up's share.
+ * WHAT HE IS DOING at `now`: `act` one of gone, fall, stunned, windup, strike, spent, run, walk, flinch, idle; `anims`
+ * the orientation table that shows it; `frame` the frame index within the record (held frames are indices, a loop's a
+ * count to wrap); `loop` whether it wraps; `atk` the attack's key while one is shown; `t` its wind-up's share.
  * @param {any} s the court's state (net/gateLink.js GateState) @param {number} now the relay's clock
  * @param {number} [hurtAt] when a blow of mine last landed on him
  */
@@ -246,6 +250,7 @@ export function bossAct(s, now, hurtAt = -Infinity) {
     }
     const played = Math.floor(((now - atk.at) / 1000) * PRIMARY_ATTACK_ANIM_SPEED);
     if (A !== ATTACKS.charge && played < 3) return { act: 'strike', anims: PRIMARY_ATTACK_ANIMS, frame: cast ? CAST_LOOSE_FRAME : 2 + played, loop: false, atk: A.key, t: 1 };
+    if (SPENT_ON.includes(A.key) && now < atk.at + A.active + A.recover) return { act: 'spent', anims: PRIMARY_ATTACK_ANIMS, frame: cast ? CAST_LOOSE_FRAME : SPENT_FRAME, loop: false, atk: A.key, t: 1 };   // WB13f
   }
   const at = s.move && s.move.v > 0 ? bossAt(s, now) : null;
   const walking = !!at && Math.hypot(s.move.tx - at[0], s.move.tz - at[1]) > 0.05;

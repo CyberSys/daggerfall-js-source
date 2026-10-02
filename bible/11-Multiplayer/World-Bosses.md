@@ -2003,6 +2003,23 @@ What changes beyond the wording:
 
   Slower, never faster.
 
+**As built:**
+- The last attack is left out while anything else reaches (`REPEAT_MAX` 2). Past twice running, nothing reaches, and
+  he walks at his target.
+- Six seconds of walking break the run (`REPEAT_WALK_MS`, 19 m of his walk). Without that, a fighter who stayed past
+  7 m in phase one would never be attacked again: only the Charge reaches that far.
+- Over 40 seeded fights with three fighters spread out:
+  - the Charge fell from 74% of his attacks to 58%;
+  - the same attack back to back fell from 56% to 35%;
+  - one fighter who keeps away is charged 10 times a minute (15 before).
+- Slam, Leap and Nova recover in 1.7, 1.5 and 1.9 s. No other recovery changed.
+- Spent: after the landing's three frames, the Slam and the Leap hold his swing's last frame, and the Nova its
+  casting frame, until the recovery ends. My blows don't make him flinch out of it.
+- The relay is world141, re-hashed in place. The brain's law stays 5: each screen holds the spent pose from its own
+  table.
+- Pinned in `test/wb13f_rhythm.test.js` (5), with WB4 re-pinned: the Slam's recovery is spent now, not idle.
+- Mutants in `tools/mutants/wb13f.json` (14).
+
 ### Versions
 
 The relay stays **world141**, never deployed, re-hashed in place for T2's ring, the words in its bundle, the
@@ -2472,3 +2489,8 @@ developed"*):
 - Pins `test/wb13e_beats.test.js` (8), with seven older files re-pinned; mutants `tools/mutants/wb13e.json` (26), with
   four older records re-aimed.
 
+**WB13f (2026-10-02) - the rhythm.** Section 20 above:
+- No attack more than twice running: past that he walks in, and six seconds of walking break the run.
+- The Slam, the Leap and the Nova recover longer, in a spent pose.
+- world141 re-hashed in place. The brain's law stays 5.
+- Pins `test/wb13f_rhythm.test.js` (5), with WB4 re-pinned; mutants `tools/mutants/wb13f.json` (14).

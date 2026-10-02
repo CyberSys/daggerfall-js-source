@@ -123,7 +123,8 @@ test('WB4 his look: the wind-up holds the attack\'s first frame then its second,
   assert.equal(bossAct(s, 10000 - w / 2 + 10).frame, 1, 'the raise from half way');
   assert.equal(bossAct(s, 10000 - 10, 10000 - 20).act, 'windup', 'a blow of mine never breaks a wind-up');
   assert.deepEqual([10000, 10100, 10200].map((t) => bossAct(s, t)).map((x) => [x.act, x.frame]), [['strike', 2], ['strike', 3], ['strike', 4]], 'the swing at the clip\'s 10 a second');
-  assert.equal(bossAct(s, 10300).act, 'idle', 'the recovery stands');
+  assert.equal(bossAct(s, 10300).act, 'spent', 'WB13f: the Slam\'s recovery held in its last frame');
+  assert.equal(bossAct(s, 10000 + ATTACKS.slam.active + ATTACKS.slam.recover).act, 'idle', 'and then he stands');
   // the charge
   const ch = state({ atk: W('charge', { x: -5, z: 0, tg: [[15, 0]] }), x: -5, z: 0 });
   a = bossAct(ch, 10000 + 450);
