@@ -181,5 +181,23 @@
     "tests": [
       "test/wd3_layoutPins.test.js"
     ]
+  },
+  {
+    "name": "AWD3-SCENERY-TALKS",
+    "file": "src/scenes/worldModes.js",
+    "old": "      if (pn.textureArchive != null && !isNpcFlat(pn.textureArchive)) return;",
+    "new": "",
+    "tests": [
+      "test/wd3_standins.test.js"
+    ]
+  },
+  {
+    "name": "AWD3-SAVE-BY-INDEX",
+    "file": "src/scenes/worldModes.js",
+    "old": "        else if (byKey.length) matches = byKey;",
+    "new": "",
+    "tests": [
+      "test/audit68_worldmodes.test.js"
+    ]
   }
 ]

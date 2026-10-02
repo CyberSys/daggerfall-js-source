@@ -311,6 +311,7 @@ import {
   clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
   layoutSceneName,  // WD3 (AUDIT WD3 R1): a permanent scene's visit in another layout, kept beside it
 } from '../systems/sceneCache.js';
+import { isNpcFlat } from '../world/rdbLayout.js';   // WD3 (AUDIT WD3 G1): a street flat is a person's only in a person archive
 import { WORLD_CONTEXT } from '../systems/teleportAnchor.js';   // A10: SetAnchor's world context, one enum for the three hosts
 import { stampLayout, layoutStampAt, layoutLocationKeyOfMapId, layoutsMatch } from '../systems/layoutPins.js';   // WD3: an interior's scene keeps its town's layout
 // S40: resting where the player has a claim - the rented-room finder
@@ -5358,6 +5359,10 @@ export function createWorldModes(host) {
     const npcs = npcTargets?.() ?? [];
     npcs.forEach((pn, i) => {
       if (!pn.width) return;
+      // WD3 (AUDIT WD3 G1): only a PERSON's flat carries the trigger collider the ray meets (DaggerfallBillboard: a
+      // FlatTypes.NPC archive, RDBLayout.IsNPCFlat - the same law the dungeons keep). A town mod's lamps, food and
+      // animals carry faction ids too (43,181 flats), and are scenery: never talked to, stolen from or named
+      if (pn.textureArchive != null && !isNpcFlat(pn.textureArchive)) return;
       targets.push({ key: `person:${i}`, aabb: personAabb(pn), distance: STATIC_NPC_ACTIVATION_DISTANCE });
     });
     // THE BULLETIN BOARDS, in the SAME ray as the doors and the street
@@ -11350,10 +11355,17 @@ export function createWorldModes(host) {
       const d = saved?.door;
       if (!d || mode !== 'exterior') return false;
       const entries = doorTargets();
-      const matches = entries.filter((e) =>
-        e.door.blockIndex === d.blockIndex
-        && e.door.recordIndex === d.recordIndex
-        && e.door.doorIndex === d.doorIndex);
+      const sameDoor = (e) => e.door.recordIndex === d.recordIndex && e.door.doorIndex === d.doorIndex;
+      let matches = entries.filter((e) => e.door.blockIndex === d.blockIndex && sameDoor(e));
+      // WD3 (AUDIT WD3 G3): a block a world-data mod ADDS is numbered past BLOCKS.BSA in the order the session first
+      // reads it (WorldDataReplacement.AssignNextIndex) - another session, or a town pinned in again, numbers it anew.
+      // The building key does not move: a door of the saved building is found by it, the index only preferred
+      if (d.buildingKey) {
+        const byKey = entries.filter((e) => sameDoor(e) && (buildingDataForDoor?.(e)?.buildingKey ?? 0) === d.buildingKey);
+        const exact = byKey.filter((e) => e.door.blockIndex === d.blockIndex);
+        if (exact.length) matches = exact;
+        else if (byKey.length) matches = byKey;
+      }
       const entry = (matches.length > 1 && d.buildingKey
         ? matches.find((e) => (buildingDataForDoor?.(e)?.buildingKey ?? 0) === d.buildingKey)
         : null) ?? matches[0] ?? null;

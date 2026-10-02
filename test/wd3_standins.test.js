@@ -52,6 +52,7 @@ import { DFPalette } from '../src/formats/dfPalette.js';
 import { classicRecordRgba } from '../src/formats/derivedTexture.js';
 import { openWorldDataPack } from '../src/formats/worldDataPack.js';
 import { dfMeshToModel } from '../src/world/meshReader.js';
+import { isNpcFlat } from '../src/world/rdbLayout.js';
 import { trs, multiply } from '../src/world/mat4.js';
 import { tinyRmb } from './wd3Fakes.mjs';
 
@@ -560,4 +561,11 @@ test('WD3 with ARENA2: the alias beds are built by the pipeline from the player\
   const blue = decodedTexture(38201, 0);
   assert.ok(blue && blue.width > 0, 'the blue cover built from TEXTURE.090 record 5');
   resetAll();
+});
+
+test('WD3 the towns\' scenery is never a person (AUDIT WD3 G1) - a street flat carries the trigger collider the ray meets only in a person archive (DaggerfallBillboard FlatTypes.NPC, RDBLayout.IsNPCFlat, the dungeons\' law); the mods\' lamps, food and animals carry faction ids and stay scenery', () => {
+  const W = readFileSync(join(ROOT, 'src/scenes/worldModes.js'), 'utf8');
+  assert.match(W, /if \(!pn\.width\) return;\n(?: {6}\/\/.*\n)+ {6}if \(pn\.textureArchive != null && !isNpcFlat\(pn\.textureArchive\)\) return;\n {6}targets\.push\(\{ key: `person:\$\{i\}`/);
+  for (const a of [334, 346, 357, 175, 184]) assert.equal(isNpcFlat(a), true, String(a));
+  for (const a of [210, 10021, 10024, 10010, 201, 1200]) assert.equal(isNpcFlat(a), false, String(a));
 });

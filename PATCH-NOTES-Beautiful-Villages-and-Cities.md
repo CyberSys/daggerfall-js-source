@@ -25,6 +25,8 @@
 - **Roleplay & Realism:** you can rest in the towns' coloured beds.
 - **Roleplay & Realism:** the Master Armorer quest finds the armorer's shop in the new towns, instead of naming a neighbour's house.
 - The bank no longer offers a house that has no door.
+- Lamps, food and animals in the new towns are no longer mistaken for people you can talk to.
+- Loading a save made inside a building in the new towns puts you back inside it, even after changing which mods are on.
 - Windmills stand on the new farms when Windmills of Daggerfall is on, and the Order of the Raven's guild halls work in the new cities.
 - You can enter the castles of Daggerfall, Sentinel and Wayrest in the new cities.
 - The temples in two village layouts no longer have their front doors blocked by their foundations.

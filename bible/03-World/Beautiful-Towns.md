@@ -19,7 +19,7 @@ format they ship in - one pack of the authors' edits over the player's own
 | | Beautiful Villages | Beautiful Cities |
 |---|---|---|
 | locations | 7,317: villages 1,834, hamlets 1,200, farms 1,841, wealthy homes 1,399, temples 1,043 | 410: every `TownCity` |
-| through blocks alone | 1,646 roadside taverns (their blocks rebuilt by name) | - |
+| through blocks alone | 1,646 roadside taverns (their blocks rebuilt by name - 274 of them, on `TVRNAS00` and `TVRNAS06`, now hold houses and no tavern: the author's blocks, served as DFU serves them) | - |
 | RMB blocks | 209 (156 of Daggerfall's own names rebuilt, 53 new) | 611 (178 of Daggerfall's names, 433 new - 388 composites like `WALLAA04.FARMBA01`, a wall and a farm made one) |
 | untouched | dungeons, graveyards, poor homes, covens, cults, the two ship pixels | everything that is not a city |
 
@@ -163,6 +163,15 @@ fort had the same hole). The switch keeps the textures and the music it gates
 elsewhere.
 
 ## Daggerfall's own laws the mods meet
+
+- **A street's people.** Only a flat in a person archive (334, 346, 357,
+  175-184) is a person the activation ray can meet - DFU's `FlatTypes.NPC`,
+  the trigger collider `DaggerfallBillboard` gives it alone. The mods' lamps,
+  food and animals carry faction ids (43,181 flats in 1,371 towns) and stay
+  scenery, as in DFU (`worldModes.js` - the same `isNpcFlat` the dungeons ask).
+- **An inside save, and a Recall anchor set indoors,** find their building by
+  its key: a block a mod adds is numbered past `BLOCKS.BSA` in the order a
+  session first reads it, which another session does not repeat.
 
 - **A town's dungeon.** Beautiful Cities replaces Daggerfall, Sentinel and
   Wayrest, whose castles are dungeons. A location served from JSON keeps its
