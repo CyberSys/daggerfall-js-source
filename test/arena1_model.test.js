@@ -42,13 +42,14 @@ test('ARENA1 model: a piece keeps the triangles it names, under the picture it n
   assert.deepEqual(m.subMeshes.map((s) => [s.textureArchive, s.textureRecord, s.startIndex, s.primitiveCount]), [[10, 1, 0, 1], [10, 2, 3, 1]]);
 });
 
-test('ARENA1 model: the parts merge end to end - each part\'s indices past the vertices before it, every submesh kept', () => {
+test('ARENA1 model: the parts merge end to end - each part\'s indices past the vertices before it; ARENA-FIX 5: one submesh a picture', () => {
   const a = arenaPieceModel(quad(), { model: 1, turn: 0, at: [0, 0, 0], keep: 'all' });
   const b = arenaPieceModel(quad(), { model: 1, turn: 0, at: [0, 0, 0], keep: [0] });
   const m = composeArenaModel([a, b]);
   assert.equal(m.positions.length, (6 + 3) * 3);
-  assert.deepEqual([...m.indices.slice(6)], [6, 7, 8]);
-  assert.deepEqual(m.subMeshes.map((s) => s.startIndex), [0, 3, 6]);
+  // (10,1) is a's first triangle and b's only one, together; (10,2) a's second - the pictures in the order first met
+  assert.deepEqual([...m.indices], [0, 1, 2, 6, 7, 8, 3, 4, 5]);
+  assert.deepEqual(m.subMeshes.map((s) => [s.textureArchive, s.textureRecord, s.startIndex, s.primitiveCount]), [[10, 1, 0, 2], [10, 2, 6, 1]]);
   assert.deepEqual(m.doors, []);
 });
 

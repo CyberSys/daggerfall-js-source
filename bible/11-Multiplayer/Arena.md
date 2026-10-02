@@ -76,8 +76,8 @@ the 25 classic placements rebuilt from the player's ARCH3D. Drawn through `regis
 from the player's ARENA2, climate-free as RuntimeMaterials says. A collider so the player walks the tiers and the
 floor, and the walls hold.
 
-**The gate.** The arena faces the market (cell 4,4, south). At its gate, as flats in person archives so the ray meets
-them (`isNpcFlat`):
+**The gate.** The gate opens onto the market (cell 4,4), to the north (the game's compass calls +z north; the market's
+cell lies north of the arena's). At the gate, as flats in person archives so the ray meets them (`isNpcFlat`):
 - **the Herald of the Arena** - the one door to everything (the Arena window), and the voice of every bout;
 - **the Red Banner's recruiter** and **the Blue Banner's** - to join a team;
 - **the bookmaker** - wagers on the bout on the floor (gold, house edge, odds from the fighters' records);
@@ -347,10 +347,12 @@ guard): the bout's `intrude` hook warns through the Herald, then commits Assault
 law (`setCrimeCommitted` + `_crimeResponse`). Spawned through the pools' own doors - the exterior's `spawnFoe` (`loose`,
 `transient`, `managed`, `champion: null`, `level`), the dungeon's `spawnLooseFoe` (new `level` and `bout`: no
 progression scaling, no loot, never the room's) - at their marks facing the middle (the walk is the stand: a fighter
-stands on its mark at once - a walk-to-mark steer is the motor's to add, recorded). Exhibition fighters are not hostile
+stands on its mark at once - a walk-to-mark steer is the motor's to add, recorded) [SUPERSEDED at ARENA-FIX 8: they walk in
+from the gates as the Herald cries them]. Exhibition fighters are not hostile
 (no rest refused near the colosseum); ladder opponents are. The crowd's "crit" is a blow of 15% of the struck's health
 (the critical-strike roll is the formula's, never seen at the damage door). Misses: the law counts them, but no host door
 reports a swing that connects nothing yet - the judges' third count is live only where a host says so (recorded).
+[SUPERSEDED at ARENA-FIX 9/10: the misses are heard and the crit is the formula's own roll - the record below.]
 
 **The floor's instance** (`src/world/arenaFloor.js`, the Burning Court's law: a made DUNGEON level, no fifth host).
 ARENADAG.RMB's 118 misc models carried into a made RDB block at `(X, Y + 4, Z + 4096)` (so each lands where the RMB put
@@ -383,7 +385,8 @@ player); a fighter at -0.3 or worse is booed at every blow. Sight: billboards of
 High Rock commoners (182, 184) on seats sought by a down-ray over the tiers (5 to 14.5 m above the sand, never a roof),
 140 at an exhibition up to 420 at the Grand Champion; the gesturers flip at 5 fps rising to 12 at a roar, the tiers hop
 at a crit or a fall, flowers (TEXTURE.254's roses and flowers) or refuse (its teeth) thrown at the verdict by favour.
-TEXTURE.185's records stand 6 m tall (mounted figures) and are not seated. Sound: the bed and the cheer, roar, boo and
+TEXTURE.185's records stand 6 m tall (mounted figures) and are not seated [CORRECTED at ARENA-FIX 13: they WERE seated, 6 m
+tall - TEXTURE.185 is TEXTURE.183's court at +128 scale; they sit at 183's -128 now]. Sound: the bed and the cheer, roar, boo and
 applause synthesised at runtime from DAGGER.SND 441-450 (`audio.samplesOf`, a new read-only door) and filtered noise and
 registered (`audio.registerSamples`); gasps 386/387, groan 458, drums 28/374, bell 107, fanfares 32/33 as they are; the
 bed's gain by mood and distance. Words: barks gapped 2.6 s, never repeated twice running, a town's chant.
@@ -405,13 +408,13 @@ hour, not fit to fight under half health, the ladder done).
 what it held - the owner's own things back to the furnishings or the pack, the catalogue's placed pieces paid back whole
 into Daggerfall's bank account, the furniture marks dropped, every chest's, storage piece's and floor pile's item into the
 new house's `container:0` (a crate set down where the owner first walks in when the house has none). A torch left burning
-on the old floor is not carried (recorded).
+on the old floor is not carried (recorded) [SUPERSEDED at ARENA-FIX 11: it is put out and carried].
 
 **The four hosts.** world.js WIRED (the driver, the city stage and schedule, the instance's stage through the modes,
 the crowd in both billboard passes, the music, `duelEnemyNear` and the ring, the Herald's doors, the move's doors).
 worldModes.js WIRED (the Herald's click, the instance, its gates and landing, its light and fog, the crate fallback).
 dungeonContext.js WIRED (the yield floor, the fighter's level and loot, the spare, rest/save/map). exterior.js FLAGGED
-(no driver: the Herald keeps ARENA1's notice there). Solo elsewhere is unchanged: nothing runs off Daggerfall's cell.
+(no driver: the Herald keeps ARENA1's notice there) [SUPERSEDED at ARENA-FIX 12: WIRED]. Solo elsewhere is unchanged: nothing runs off Daggerfall's cell.
 
 **Verified.** Nine suites (`test/arena2_*.test.js`, 74 tests), 77 mutants, all dead (`tools/mutants/arena2.json`). The UI
 probe (`tools/arenaHudProbe.mjs`) draws the HUD - a duel with the widest names, a three-way melee with a yield - and the
@@ -423,3 +426,83 @@ verdict and the healers, and reads the ladder's count back (one win, a 56 gp pur
 software GPU runs a frame or two a second, so a whole fight is not watched blow by blow there; the blows, the yield,
 the stall, the ring-out and the judges are the law suites'. After the fall the HUD's clock stands where the fight ended
 (the probe's verdict frame read 0:00 before that fix).
+
+## ARENA-FIX record (2026-10-02) - the QA round
+
+A visual QA pass over ARENA1 and ARENA2 in the browser (the `?exterior&shot&play` host, SwiftShader, the player's ARENA2)
+and the ARENA2 builder's own open items. Every item fixed and pinned (`test/arena_fix.test.js`, 20 tests; the arena1/arena2
+suites updated where the law moved); mutants `tools/mutants/arenafix.json` (43, all dead).
+
+1. **The stairs walk** (`world/arenaModel.js withStairRamps`). The gate courtyard's flight up to the ring failed: its foot
+   stands 0.62 m over the courtyard's ground (the mesh floats 0.22 m over the city's terrain - past stepOffset 0.5) and its
+   risers are 0.37 m on 0.40 m treads, so the capsule caught their lips and the enhanced climb took the stair for a wall.
+   Every stair run of 864102 is read off its faces (`arenaStairRuns`: vertical faces 0.1-0.48 m high, chained one on
+   another the same way a tread apart, three or more, sharing 0.5 m of width) - five: the gate's two flights (19 and 14
+   risers, 7.35 and 6.9 m wide), the east twin (14) and the south terrace's two (10 each); the wall walk's 0.58/0.72 m
+   parapet steps are no stair - and each is given a RAMP over its nosings' upper hull, 2 cm up, run on 0.6 m under its first
+   riser's foot (so the gate's floating foot meets it under the ground). The ramp's triangles follow the drawn ones in the
+   index list and in no submesh: every host draws a model by its submeshes (and the static batches and the automap's wire
+   walk submeshes) and builds every collider from the whole list - so no host changed. Walked in the browser up and down
+   all five, holding W (`climbwalk.sh`): grounded every sample, never the climb.
+2. **The gate's people by office** (`arenaGatePersonName`, `ARENA_TEXT.gateNames`): the plaque, "You see ..." and the
+   talk window ask one seam (`worldModes.js officeName`): The Herald of the Arena, Arena Warden, Red Banner Recruiter,
+   Blue Banner Recruiter, The Bookmaker.
+3. **The paving and the plazas** (`arenaGroundTiles`, `ARENA_PLAZA_FLATS`/`MODELS`). The whole cell is the climate set's
+   flagstone (record 46 - every street of the city round it; the climate's own archive draws it, its winter set in the
+   snow) in its four lays: the gate's approach, its passage, the courtyard, the aprons. At the three blind sides, where
+   ARMRAL02's (west), CUSTAA02's (east) and LIBRAL03's (south) streets meet the walls: Daggerfall's street lamps (210:29)
+   either side of each street's end, benches (41105/41106) along the walls, the arena's stores by the south towers
+   (41832, 41822), a signpost (212:6) where the streets come in. Looked at from all four streets and from the air.
+4. **The undercroft is the fighters' hall** (`world/arenaUndercroft.js`, `dungeonContext.js`, `worldModes.js`). Its stair
+   names it ("To The Arena Undercroft"); its record's name is "The Arena Undercroft" (the header keeps Kamer's for the
+   record's identity). No random foe stands at its 343 markers (it had stood a HumanStronghold's table) and no rest is
+   broken there. Out from the stair by distance: the Pit Master (357:3) at the training pit, its straw dummy (211:20) and a
+   brazier (210:19); the Keeper of the Hall (183:12) at the Hall of Champions, its cups (200:1, 200:5) and arms (207:2, 8,
+   12) beside her and a brazier; nine people at rest (the pit fighters 357:10/11 and 357:7, 334:11 at his lute; the
+   armourer at his anvil 334:14, the cook 184:16, 334:7, 334:17, 334:18), every one lit; then four chained beasts (a
+   Grizzly Bear, a Sabertooth Tiger, a Giant Scorpion, a bear - real bodies, passive, each its own always-held bout tag:
+   they target nobody, nobody them; struck, held at the yield floor and the keepers' warning said); the deep cellars
+   quiet. The Pit Master's choice opens the PRACTICE BOUT: the bout law over a pit stage (`arenaPitStage` - the pit's
+   centre, a 6 m ring, the fighters along its passage), a sparring fighter of the player's tier (`practiceBout`), no purse,
+   no ladder step, no crowd, no music, his own call and his word after. The Keeper reads the Hall (`hallOfChampions`):
+   this save's Grand Champion, each tier whose champion fell (its number and name, the title it gave), or "No name is cut
+   here yet". Seen in the browser: the hall's people and beasts stood (4 foes, all chained, none hostile), the Pit
+   Master's plaque and choice, a practice bout fought (the HUD with no crowd row).
+5. **One submesh a picture** (`composeArenaModel`): 85 submeshes for 23 pictures became 23; every triangle under its own
+   picture, the extraction's exactness test unchanged.
+6. **The seams** (`sealArenaSeams`, run on the rebuilt mesh at registration): the hairline of sky down the wall/gatehouse
+   junction was a T-JUNCTION crack (860 corners standing on other faces' edges; each face cut at them - a fan from the
+   opposite corner, or from the incentre - its uv and normal interpolated); the inner wall's streaks were Z-FIGHTING
+   (seven same-facing coplanar overlaps - 109_0 over 109_1, 171_3 boards laid twice - the plane's lesser picture set back 6
+   mm); 317 corners a hair apart welded. Before and after shots at one pose: the line of sky dots on the gatehouse pillar
+   gone (`cmp_B`).
+7. **The gate's compass**: the gate opens onto the market, to the NORTH (the design page said south).
+8. **The walk in** (`enemyMotor.js walkTo`, `arenaBouts.js walkIn`): each fighter stands at its side's gate under the tiers
+   and walks to its mark (the pursuit's own walk, 0.7 of its pace) as the Herald cries its name; the count waits for every
+   fighter on its mark (or the walk's limit). A pit has no gates: its fighter stands on its mark.
+9. **The misses** (`formulas.js registerAttackResolutionListener`, `playerWeapon.js registerPlayerSwingListener`): every
+   attack's resolution is told; between two fighters of a live bout on different sides, no damage is the striker's miss,
+   and the player's swing that reached nobody is the player's - the judges' third count is live.
+10. **The crits**: the crowd's crit is the formula's own critical-strike roll, told with the resolution and matched to
+    the blow the damage door hears within 400 ms; the 15%-of-health stand-in only where no resolution was told (a spell).
+11. **The torch**: a light left burning on a moved house's floor is put out and carried into the new house's chest, the
+    item picking it up gives (`droppedLightItem`).
+12. **The four hosts**: `scenes/exterior.js` runs the bout driver (the city's exhibitions, the Herald's choice, the floor's
+    instance, the pit, the crowd in its billboard passes, the ring, the misses) - verified in the browser (an exhibition
+    on the city floor, the Herald's choice, down to the undercroft, a practice bout). Home.md's open flag closed.
+13. **The court's nobles**: TEXTURE.185's lords and ladies (0, 1, 5-8) sit in the stands at TEXTURE.183's scale.
+14. **The big woman** in the ARENA2 shots was the PLAYER'S OWN SPRITE (Eye of the Beholder's PlayerBillboard, third person
+    by default, the Light Fighter set), facing the lens: the mod faces the sprite along its last walk, and a body placed
+    without walking (a fighter stood on its mark, a probe's pose) kept a stale facing or none (the zero vector - its front
+    to the camera). A placing now faces the body the way the view was placed (`eotbBody.js faceYaw`, a frame's jump past
+    8 m). With it, a giant noble (13) seated near the probe's camera was the other figure.
+15. **The streaming host**: `?world` (the real game) does reach play here - `__shotReady` is the `?exterior` host's
+    flag; the world host's readiness is `__mode()` and `__streamIdle()` (what `tools/arenaProbe.mjs` waits on). The
+    probe ran all ok on it after the fixes: booted in Daggerfall, the colosseum's sand in the city, the hour's
+    exhibition from its call into the fight (59 crowd batches, the fighters walking in from the gates), the Herald's
+    choice (Watch / Fight / the fighters' hall / Leave), down to the floor's instance, a ladder bout fought to a fall,
+    the verdict and the healers, the ladder counting one win and a 56 gp purse, no arena error on the page. Its shots
+    are the ARENA2 shots retaken at the same poses: the player's own sprite with its back to the camera, no giant noble.
+
+Not done / open: the probes run on a software GPU at a frame or two a second, so a whole walk-in is watched in the
+headless suite (real motors on a flat floor) and only its first metre in the browser.

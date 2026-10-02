@@ -120,8 +120,8 @@
   {
     "name": "ARENA1-COMPOSE-OFFSET",
     "file": "src/world/arenaModel.js",
-    "old": "    for (let i = 0; i < p.indices.length; i++) indices[i0 + i] = p.indices[i] + v0;",
-    "new": "    for (let i = 0; i < p.indices.length; i++) indices[i0 + i] = p.indices[i];",
+    "old": "      for (let i = 0; i < r.count; i++) indices[at++] = src[r.start + i] + r.v0;",
+    "new": "      for (let i = 0; i < r.count; i++) indices[at++] = src[r.start + i];",
     "tests": [
       "test/arena1_model.test.js"
     ]

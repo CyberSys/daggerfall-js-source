@@ -110,7 +110,7 @@ test('ARENA1 vendor: ARENADAG.RMB - DFARENA\'s 119 models (the colosseum, the 43
 
 test('ARENA1 vendor: the block served stands the gate\'s six people, each in a person archive with a faction - the Herald first', () => {
   const served = arenaBlockJson();
-  const people = served.RmbBlock.MiscFlatObjectRecords.slice(29);
+  const people = served.RmbBlock.MiscFlatObjectRecords.slice(29, 35);   // ARENA-FIX 3: the plazas' flats follow them
   assert.equal(people.length, 6);
   assert.deepEqual(ARENA_GATE_PEOPLE.map((p) => p.role), ['herald', 'warden', 'warden', 'redRecruiter', 'blueRecruiter', 'bookmaker']);
   for (const p of people) {

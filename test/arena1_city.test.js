@@ -154,8 +154,8 @@ for (const [layout, packs] of [['Daggerfall\'s own layout', false], ['Beautiful 
     const blk = blocks.getBlockByName(ARENA_BLOCK);
     assert.equal(blk.index, ARENA_BLOCK_INDEX);
     assert.equal(blk.rmbBlock.subRecords.length, 0);
-    assert.equal(blk.rmbBlock.misc3dObjectRecords.length, 119);
-    assert.equal(blk.rmbBlock.miscFlatObjectRecords.length, 35);
+    assert.equal(blk.rmbBlock.misc3dObjectRecords.length, 119 + 14, 'Kamer\'s 119 and the plazas\' 14 (ARENA-FIX 3)');
+    assert.equal(blk.rmbBlock.miscFlatObjectRecords.length, 35 + 8, 'his 29 lights, the gate\'s six, the plazas\' eight');
     // a second read: the same answer
     const again = maps.getLocation(17, 1231);
     assert.equal(again.exterior.buildings.length, listWas - 3);

@@ -18,7 +18,7 @@ test('ARENA2 hosts - world.js: one driver, ticked before the modal return, its s
   const tick = W.indexOf('    arenaFrame(dt);   // ARENA2');
   assert.ok(tick > 0);
   assert.ok(tick < W.indexOf('if (!gateScoreFrame() && !arenaScoreFrame()) musicDirector.update({'), 'ticked before the music and the modal return below it');
-  assert.match(W, /if \(mode === 'dungeon'\) return modes\?\.arenaFloorStage\?\.\(\) \?\? null;/, 'in the instance its stage');
+  assert.match(W, /if \(mode === 'dungeon'\) return modes\?\.arenaFloorStage\?\.\(\) \?\? modes\?\.arenaPitStage\?\.\(\) \?\? null;/, 'in the instance its stage (ARENA-FIX 4: in the undercroft the pit\'s)');
   assert.match(W, /if \(mode !== 'exterior' \|\| !walkMode \|\| !playerSpawned \|\| !arenaCityPixel\(\)\) return null;/);
   assert.match(W, /if \(ex\?\.open && ex\.hour !== _arenaHourRun\) \{ _arenaHourRun = ex\.hour; arenaBouts\.ask\(\{ where: 'city', kind: 'exhibition', ex \}\); \}/, 'the hour\'s bout, once an hour');
   assert.match(W, /spawn: \(mobile, feet, o\) => exteriorFoes\.spawnFoe\(mobile, feet, \{ yaw: o\.yaw, gender: o\.gender, level: o\.level, loose: true, transient: true, managed: true, champion: null \}\)/);
@@ -53,16 +53,21 @@ test('ARENA2 hosts - worldModes.js: the Herald, the instance, its gates and its 
   assert.match(M, /if \(isArenaFloor\(dungeonLoc\)\) renderer\.setLighting\(new Float32Array\(ARENA_FLOOR_AMBIENT\), 0\);/);
   assert.match(M, /if \(isArenaFloor\(dungeonLoc\)\) applyFog\(renderer, dungeonFog\(!!renderer\.lightingLane, ARENA_FLOOR_FOG\)\);/);
   assert.match(M, /spawn: \(mobile, feet, o\) => ctx\.spawnLooseFoe\?\.\(mobile, \[feet\[0\], feet\[1\] \+ 0\.9, feet\[2\]\], \{ gender: o\.gender \?\? null, yawRad: o\.yaw \?\? null, level: o\.level \?\? null, bout: o\.bout \?\? null \}\)/);
-  assert.match(M, /enterArenaFloor, enterArenaUndercroft, arenaFloorStage,/);
+  assert.match(M, /enterArenaFloor, enterArenaUndercroft, arenaFloorStage, arenaPitStage,/);
   assert.match(M, /const e = entries\.find\(\(x\) => isUndercroftDoor\(x, DOOR_TYPE\.DUNGEON_ENTRANCE\) && x\.dfLocation\?\.arenaUndercroft\);/, 'the fighters\' hall is the stair\'s own door');
 });
 
-test('ARENA2 hosts - dungeonContext.js wired (what the sand will not allow); exterior.js flagged by name', () => {
+test('ARENA2 hosts - dungeonContext.js wired (what the sand will not allow); ARENA-FIX 12: exterior.js WIRED (the FOUR HOSTS)', () => {
   assert.match(D, /if \(isArenaFloor\(dfLocation\)\) \{ hudText\.add\(ARENA_TEXT\.refuse\.rest\); return; \}/);
   assert.match(D, /if \(isArenaFloor\(dfLocation\)\) \{ if \(!quiet\) hudText\.add\(ARENA_TEXT\.refuse\.save\); return false; \}/);
   assert.match(D, /if \(isArenaFloor\(dfLocation\)\) \{ hudText\.add\(ARENA_TEXT\.refuse\.map\); return; \}/);
   assert.match(D, /savingPrevented: \(\) => isGateArena\(dfLocation\) \|\| isArenaFloor\(dfLocation\),/);
   assert.match(D, /if \(!isGateArena\(dfLocation\) && !isArenaFloor\(dfLocation\)\) sceneAmbience\.update\(dt, \{/, 'no dungeon drip on the open sand');
-  assert.match(X, /\/\/ ARENA2: FLAGGED - THE BOUTS ARE THE WORLD HOST'S \(scenes\/world\.js createArenaBouts/);
-  assert.ok(!/= createArenaBouts\(|arenaHerald:/.test(X), 'and it is true: no driver there');
+  assert.match(X, /\/\/ ARENA-FIX 12 \(2026-10-02\): WIRED - THE FOUR HOSTS\./);
+  assert.match(X, /const arenaBouts = createArenaBouts\(\{/, 'one driver');
+  assert.match(X, /arenaHerald: \(\) => arenaHerald\(\),/, 'the Herald\'s choice through the mode machine');
+  assert.match(X, /arenaFrame\(dt\);[^\n]*\n\s*player\.arena = arenaBouts\.ring\(\);[^\n]*\n(?:[^\n]*\n){0,14}?\s*if \(modes\.frame\(dt, now\)\) \{/, 'ticked before the modal return (above the torch sweep that sits on it), its ring on the motor');
+  assert.match(X, /for \(const b of arenaBouts\.batches\(\)\) _visBatches\.push\(b\);/, 'the crowd in the billboard pass');
+  assert.match(X, /extraBillboards: \(\) => \(\(modes\?\.mode \?\? 'exterior'\) === 'dungeon' \? arenaBouts\.batches\(\) : \[\]\),/, '...and in the instance\'s');
+  assert.match(X, /registerAttackResolutionListener\('arena'/, 'its misses and crits heard');
 });

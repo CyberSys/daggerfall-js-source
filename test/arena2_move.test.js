@@ -48,14 +48,19 @@ test('ARENA2 move: the old scene emptied - own things answered, placed pieces pa
   assert.equal(out.refund, 120 + 35 + 10, 'every placed catalogue piece paid back whole, every layout\'s');
   assert.equal(out.pieces, 3);
   assert.equal(out.hidden, 2);
-  assert.deepEqual(out.crate.map((i) => i.name).sort(), ['Dagger', 'Emerald', 'Potion of Healing', 'Ruby', 'Torch', 'gold'].sort());
+  assert.deepEqual(out.crate.filter((i) => i.name).map((i) => i.name).sort(), ['Dagger', 'Emerald', 'Potion of Healing', 'Ruby', 'Torch', 'gold'].sort());
+  // ARENA-FIX 11: the torch left burning on the old floor, put out and carried - the item picking it up gives
+  const lit = out.crate.filter((i) => !i.name);
+  assert.equal(out.lights, 1);
+  assert.deepEqual(lit.map((i) => [i.group, i.templateIndex, i.currentCondition]), [['UselessItems2', 247, 1]]);
+  assert.ok(lit[0].maxCondition > 0, 'its template\'s hit points');
   assert.ok(!scenes.scenes.has(FROM) && !scenes.scenes.has(layoutSceneName(FROM, 'beautiful-cities@0.5.0')), 'nothing of the old house is left');
   assert.ok(scenes.scenes.has(interiorSceneName(MAP, makeBuildingKey(9, 9, 9))), 'nobody else\'s scene is touched');
   const to = scenes.scenes.get(TO);
   assert.equal(to.lootContainers.length, 1);
   assert.equal(to.lootContainers[0].key, ARENA_CRATE_KEY);
   assert.equal(to.lootContainers[0].crate, true);
-  assert.equal(to.lootContainers[0].items.length, 6);
+  assert.equal(to.lootContainers[0].items.length, 7);
   assert.deepEqual([to.decor, to.hiddenBase, to.droppedPiles, to.decorOwn], [[], [], [], {}], 'no place of the old house comes with it');
   assert.equal(to.frame, 'building');
   assert.deepEqual([...scenes.permanent], [TO], 'the house is still the player\'s - permanent - and only its own visit');
@@ -68,7 +73,7 @@ test('ARENA2 move: the old scene emptied - own things answered, placed pieces pa
 
 test('ARENA2 move: an empty old house leaves nothing behind it; a house never visited and never permanent writes no scene', () => {
   const s = createSceneCache();
-  assert.deepEqual(emptyArenaScene(s, FROM, TO), { own: [], refund: 0, crate: [], pieces: 0, hidden: 0 });
+  assert.deepEqual(emptyArenaScene(s, FROM, TO), { own: [], refund: 0, crate: [], pieces: 0, hidden: 0, lights: 0 });
   assert.equal(s.scenes.size, 0);
   const p = createSceneCache();
   addPermanentScene(p, FROM);

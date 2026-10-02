@@ -36,7 +36,10 @@
 - The Herald calls each fighter by name, counts down "3 - 2 - 1 - Fight!" and gives the verdict in the middle of the screen.
 
 ## The undercroft
-- A stair inside the colosseum leads down to the **undercroft**: Kamer's own 32-block dungeon under the arena.
+- A stair inside the colosseum leads down to **The Arena Undercroft**: Kamer's own 32-block dungeon under the arena, now the **fighters' hall**.
+- Nothing down there attacks you, and nothing breaks your rest. You'll find fighters at rest, the arena's keepers, the armourer at his anvil, and the beasts of the beast tier on their chains.
+- Talk to **the Pit Master** at the training pit to **spar**: a practice bout against a fighter of your own tier. No purse, no crowd, no step on the ladder - just practice.
+- **The Keeper of the Hall** reads you the **Hall of Champions**: the tier champions you have beaten, and your name as Grand Champion once you earn it.
 - The castle's dungeon is not changed.
 
 ## If you had something on that block
@@ -45,3 +48,18 @@
 - **A quest building** on that block is chosen again in the city, so the quest can still be finished.
 - **A save made inside one of those buildings**, or a Recall anchor set there, puts you outside instead.
 - Online homes on that block are moved in a later update.
+
+## Fixes and polish
+- **The stairs:** every stair in the colosseum now walks smoothly up and down, including the stair from the gate courtyard to the ring. You no longer catch on the steps or start climbing them.
+- **Paving:** the streets that meet the arena now lead onto paved squares instead of ending in snow, and the gate passage and the courtyard inside the walls are paved too. Lamps, benches, crates and signposts mark the three sides away from the gate.
+- **The gate's people** are known by what they do: the Herald of the Arena, the Red Banner Recruiter, the Blue Banner Recruiter, the Bookmaker and the Arena Wardens.
+- **The entrance:** fighters now walk out from the gates under the stands to their marks as the Herald calls their names.
+- **The judges** now count missed swings (yours and your opponent's), so "fewer misses" can settle a close bout.
+- **The crowd** gasps at a real critical strike now, not just at any big hit.
+- **The stands:** the noble lords and ladies in the crowd are their proper size.
+- **Your character** now faces the way you do when you arrive somewhere (on the sand, through a door), instead of turning to face the camera.
+- Thin lines of sky that showed through some of the colosseum's walls, and flickering streaks on an inner wall, are gone.
+- The stair down to the undercroft is labelled "To The Arena Undercroft".
+- The gate faces north, onto the market.
+- A torch left burning in a house that was moved for the arena now waits for you in the new house's chest.
+- The colosseum draws faster.

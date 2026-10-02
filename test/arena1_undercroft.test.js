@@ -23,7 +23,8 @@ const city = () => ({
 test('ARENA1 undercroft: the record - Kamer\'s 32 blocks and id, its own map id, the city\'s place and climate, the city\'s castle untouched', () => {
   const c = city();
   const u = undercroftLocation(c);
-  assert.equal(u.name, 'Arena of Daggerfall');
+  assert.equal(u.name, 'The Arena Undercroft');   // ARENA-FIX 4: the place's own name
+  assert.equal(u.dungeon.recordElement.header.locationName, 'Arena of Daggerfall', 'the record\'s identity is Kamer\'s');
   assert.equal(u.hasDungeon, true);
   assert.equal(u.dungeon.recordElement.header.locationId, UNDERCROFT_LOCATION_ID);
   assert.equal(u.dungeon.recordElement.header.exteriorLocationId, UNDERCROFT_LOCATION_ID);
