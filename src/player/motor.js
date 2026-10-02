@@ -249,14 +249,24 @@ export const HEAD_DIP_TOP_MARGIN = 0.25;
 
 /** PlayerHeightChanger.controllerSwimHeight (:57) and its horse
  *  displacement (:58) - the capsule a swimmer on EXTERIOR water sinks
- *  to (DoSinking, :390-434). The eye keeps the port's own
- *  0.1-below-the-top presentation law, exactly as the crouch height
- *  above it does: 0.30 - 0.1 = 0.20 above the feet, and 0.60 - 0.1 =
- *  0.50 in the saddle. */
+ *  to (DoSinking, :390-434).
+ *  SWIM-EYE (FIELD BUGS 2026-10-02c, Discord: "Sinking in water causes
+ *  clipping underground ... could see sky and mountains underground"):
+ *  THE EYE IS DFU's. DoSinking's camera target is ControllerHeightChange's
+ *  answer, `controller.height / 2f` (:417, :477-480) - half the swim
+ *  height over the controller's CENTRE - and a controller under
+ *  2 * radius is Unity's sphere of that radius, its centre CAPSULE_RADIUS
+ *  over the feet (the collider's own clamp, _resolveCapsule). So 0.35 +
+ *  0.15 = 0.50 above the feet, and 0.35 + 0.30 = 0.65 in the saddle. The
+ *  port had read it as 0.1 under a 0.30 top - 0.20 - an eye inside the
+ *  sphere's foot: the swim bounce (headBobber, -0.17) took it to 0.03,
+ *  under the drawn ground and the 0.2 near plane, and the one-sided
+ *  terrain vanished over the sky; and at the sea's own height under
+ *  Deep Waters' 0.25 band it read as underwater. */
 export const SWIM_HEIGHT = 0.30;
 export const SWIM_HORSE_DISPLACEMENT = 0.30;
-export const SWIM_EYE_HEIGHT = 0.20;
-export const SWIM_RIDE_EYE_HEIGHT = 0.50;
+export const SWIM_EYE_HEIGHT = CAPSULE_RADIUS + SWIM_HEIGHT / 2;
+export const SWIM_RIDE_EYE_HEIGHT = CAPSULE_RADIUS + (SWIM_HEIGHT + SWIM_HORSE_DISPLACEMENT) / 2;
 
 /** DaggerfallAction.Teleport (:594) - the ONE classic writer of
  *  PlayerMotor.FreezeMotor. (ClimbingMotor.RestoreClimbingState :882

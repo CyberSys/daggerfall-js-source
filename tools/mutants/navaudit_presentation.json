@@ -1172,8 +1172,8 @@
   {
     "name": "NAVP-tags-never-covered",
     "file": "src/ui/navalHud.js",
-    "old": "reach = 700 } = {}) {\n  const want = covered ? [] : points ?? [];",
-    "new": "reach = 700 } = {}) {\n  const want = points ?? [];",
+    "old": "reach = 700, focus = null } = {}) {\n  const want = covered ? [] : layoutNavalTags(points, { scale, focus, held: tagHeld });",
+    "new": "reach = 700, focus = null } = {}) {\n  const want = layoutNavalTags(points, { scale, focus, held: tagHeld });",
     "tests": [
       "test/navaudit_presentation.test.js"
     ]

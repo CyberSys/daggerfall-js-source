@@ -560,12 +560,19 @@ void main() {
   // the sprite, phased per foe - so it reads as blending in, not as a
   // faded sprite.
   vec2 uv = vUV;
-  if (uConceal.x == 1.0) {
-    uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
-    if (uv.x < 0.0 || uv.x > 1.0) discard;   // the texture wraps REPEAT: never pull the far edge onto this one
-  }
-  // ELITE FOES: an elite's widened quad reaches past its sprite - the margin is empty, never a wrapped texel
-  vec4 tex = (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) ? vec4(0.0) : texture(uTex, uv);
+  if (uConceal.x == 1.0) uv.x += sin(vUV.y * 28.0 + uConceal.z * 7.0 + uConceal.w) * 0.008;
+  // SPRITE-GRAD (FIELD BUGS 2026-10-02c, Discord: "Black boxes around sprites in newer builds ... on a Mac M3"):
+  // BOTH MAPS ARE SAMPLED HERE, before any branch or discard. A flat's texture carries its whole mip chain, and
+  // texture() picks the level off the 2x2 quad's derivatives - which GLSL ES 3.00 leaves undefined inside non-uniform
+  // control flow. ELITE FOES sampled under a ?: (the widened quad's margin), and the quads along a sprite's edge, half
+  // their lanes past it, took the other arm: where a GPU does not keep those lanes' uv (Apple's, under Metal), the level
+  // was garbage, a tiny mip of dark RGB and middling alpha passed the cut, and every flat wore a dark box. The same
+  // for the emission map, read after the cut's discard.
+  vec4 tex = texture(uTex, uv);
+  vec3 emissionTexel = texture(uEmissionTex, uv).rgb;
+  // ELITE FOES: an elite's widened quad reaches past its sprite - the margin is empty, never a wrapped texel; ECV1: nor
+  // is the chameleon's ripple past the edge (the texture wraps REPEAT: never pull the far edge onto this one)
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) tex = vec4(0.0);
   // Spectral flats keep their 180-alpha translucency (blended pass);
   // opaque flats keep the classic 0.5 cutout. ECV1's concealed pass is
   // blended too and takes the spectral threshold.
@@ -596,7 +603,7 @@ void main() {
   // any light. Adding it on top of the exterior tint (~1.31 at noon) put
   // every missile, impact flash and fire daedra at ~2.3x albedo, clipped
   // to white. The clamp is ours; a negative albedo has no meaning here.
-  vec3 emission = texture(uEmissionTex, uv).rgb;
+  vec3 emission = emissionTexel;   // SPRITE-GRAD: sampled above the cut
   vec3 albedo = max(tex.rgb - emission, vec3(0.0));
   // R12: the indirect term, attenuation-only like the lantern term
   // (billboards have no normal).

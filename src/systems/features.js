@@ -203,8 +203,12 @@ export const MOD_CURATED = Object.freeze({
   // not draw is a key nobody can turn.
   // OW-TOGGLE: and the port's own first-person switch, on the tile for the same reason.
   // TO-ROADS: and its roads, beside it - a first-person journey that follows them.
+  // TO-LIVE (2026-10-02, Discord: "both cautious and reckless travel initiate time accelerated travel"): and Inns,
+  // beside Cautiously - the other half of the mod's rule (ui/travelPopUp.js isPlayerControlledTravel). TO-FIELD2 turned
+  // it on and FT14 took the pane it could be turned off in, so a trip stopping at inns - Recklessly's too - was always
+  // a journey and no dial on any screen said why.
   'travel-options': Object.freeze([
-    'CautiousTravel.PlayerControlledCautiousTravel', 'ShipTravel.OnlyFromPorts',
+    'CautiousTravel.PlayerControlledCautiousTravel', 'StopAtInnsTravel.PlayerControlledInnsTravel', 'ShipTravel.OnlyFromPorts',
     'GeneralOptions.LocationPause', 'TimeAcceleration.AccelerationLimit',
     'GeneralOptions.AvoidObstacles', 'GeneralOptions.FirstPersonTravel',
     'GeneralOptions.FirstPersonTravelFollowsRoads',
@@ -715,11 +719,12 @@ export const FEATURES = Object.freeze([
   modFeature('seasons-iliac-bay', 'Takes effect when the world next loads.', 'sight'),   // FT18: was world
   modFeature('roads-hazelnut', 'Takes effect when the world next loads.', 'world'),
   // TO1 (2026-09-17): TRAVEL OPTIONS - `world`, because what it changes
-  // is how you cross it. The effect line is honest about the one half
-  // that is not immediate: the settings are read ONCE at world load
-  // (the mod's own "won't take effect without restarting DFU" keys are
-  // its roads integration and its junction map), so a switch flipped
-  // mid-session reaches the NEXT world.
+  // is how you cross it. The effect line is the SWITCH's (FT9: when each
+  // switch lands), and the switch is read once at world load (AUDIT
+  // PRE-MERGE 0928 U7), as are the mod's own "won't take effect without
+  // restarting DFU" keys (its roads integration and its junction map).
+  // TO-LIVE (2026-10-02): its other dials are read again as they change
+  // (scenes/world.js refreshTravelOptionsSettings).
   modFeature('travel-options', 'Takes effect when the world next loads.', 'world'),
   // WOD1 (2026-09-23): WORLD OF DAGGERFALL - `world`, because it is the
   // wilderness itself. Read at the world's mount, like the roads it
