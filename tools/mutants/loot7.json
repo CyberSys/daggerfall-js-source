@@ -271,18 +271,19 @@
   },
   {
     "name": "LOOT7-unnamed",
-    "file": "src/systems/champions.js",
-    "old": "  return t && base ? `${t.name} ${base}` : base;",
-    "new": "  return base;",
+    "file": "src/systems/foeTitle.js",
+    "old": "  const named = typeof c === 'string' && c ? `${c.charAt(0).toUpperCase()}${c.slice(1)} ${base}` : base;",
+    "new": "  const named = base;",
     "tests": [
       "test/loot7_champions.test.js"
-    ]
+    ],
+    "note": "FOE-TITLE (re-aimed by content): championName asks systems/foeTitle.js, the names' one home"
   },
   {
     "name": "LOOT7-hud-unnamed",
     "file": "src/ui/hudFoeTarget.js",
-    "old": "    name: `${e.eliteFoe ? 'Elite ' : ''}${String(titled(e, e.name ?? e.career?.name ?? 'Foe'))}`,",
-    "new": "    name: `${e.eliteFoe ? 'Elite ' : ''}${String(e.name ?? e.career?.name ?? 'Foe')}`,",
+    "old": "    name: String(titled(e, e.name ?? e.career?.name ?? 'Foe')),",
+    "new": "    name: String(e.name ?? e.career?.name ?? 'Foe'),",
     "tests": [
       "test/loot7_champions.test.js"
     ]

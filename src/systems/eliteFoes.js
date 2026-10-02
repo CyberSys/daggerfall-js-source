@@ -150,6 +150,8 @@ function tiered(level, tier, rolls) {
   }
   return null;
 }
+/** NEMESIS: a gear piece (a weapon or armour, never ammunition) at a tier - the elite's own minting, shared. */
+export const tieredGear = (level, tier, rolls = Math.random) => tiered(Math.max(1, level | 0), tier, rolls);
 
 /** THE ELITE'S DROP, added to the body's loot: better loot than its kind carries (the table above). */
 export function eliteLoot(level = 1, rolls = Math.random) {

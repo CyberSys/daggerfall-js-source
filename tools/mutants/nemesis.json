@@ -1,0 +1,164 @@
+[
+  {
+    "name": "NEMESIS-a-plain-foe-made-one",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (!special) return false;\n",
+    "new": "",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-no-floor",
+    "file": "src/systems/nemesis.js",
+    "old": "  if ((entity.level | 0) < NEMESIS_MIN_LEVEL) return false;\n",
+    "new": "",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-off-ignored",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (!entity || !nemesisOn()) return false;",
+    "new": "  if (!entity) return false;",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-the-mercy-ignored",
+    "file": "src/systems/nemesis.js",
+    "old": "    if (!(entity.health <= 0)) return;\n    const rec = playerDoor()",
+    "new": "    const rec = playerDoor()",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-the-shared-stream-moved",
+    "file": "src/systems/nemesis.js",
+    "old": "  } finally { setSeed(saved); }",
+    "new": "  } finally { /* kept */ }",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-no-rank-up",
+    "file": "src/systems/nemesis.js",
+    "old": "    r.rank = Math.min(NEMESIS_MAX_RANK, r.rank + 1);",
+    "new": "    r.rank = Math.min(NEMESIS_MAX_RANK, r.rank);",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-no-cap",
+    "file": "src/systems/nemesis.js",
+    "old": "    if (living.length > NEMESIS_MAX) {",
+    "new": "    if (living.length > NEMESIS_MAX * 10) {",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-two-out-at-once",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (living.some((r) => r.out)) return null;\n",
+    "new": "",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-early",
+    "file": "src/systems/nemesis.js",
+    "old": "  const due = living.filter((r) => r.dueAt <= now)",
+    "new": "  const due = living.filter((r) => r.dueAt <= now + 99999)",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-the-slain-returned",
+    "file": "src/systems/nemesis.js",
+    "old": "export const livingNemeses = () => _state.list.filter((r) => !r.defeated);",
+    "new": "export const livingNemeses = () => _state.list.slice();",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-older-revision-wins",
+    "file": "src/systems/nemesis.js",
+    "old": "    if (!had || s.rev > had.rev) by.set(s.id, s);",
+    "new": "    if (!had || s.rev < had.rev) by.set(s.id, s);",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-out-over-a-load",
+    "file": "src/systems/nemesis.js",
+    "old": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => ({ ...r, out: false, outAt: 0 })) }),",
+    "new": "  getSaveData: () => ({ v: 1, list: _state.list.map((r) => ({ ...r })) }),",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-no-rank-three-rare",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (rk >= L.rareFromRank || rolls()",
+    "new": "  if (rolls()",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-a-beast-that-talks",
+    "file": "src/systems/nemesis.js",
+    "old": "  if (!nemesisSpeaks(r.mobileType)) return fill(pick(GROWLS, rolls), { n: r.name });\n",
+    "new": "",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-escape-leaves-a-corpse",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "    f.escaped = true;\n",
+    "new": "    f.escaped = true;\n    f.corpse = true;\n",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "NEMESIS-the-flee-rolled-every-frame",
+    "file": "src/scenes/exteriorFoes.js",
+    "old": "        f._fleeRolled = true;\n        if (rollNemesisFlee(f.entity)) {",
+    "new": "        if (rollNemesisFlee(f.entity)) {",
+    "tests": [
+      "test/nemesis.test.js"
+    ]
+  },
+  {
+    "name": "ELITE-FLOOR-no-floor",
+    "file": "src/systems/eliteFoes.js",
+    "old": "  && (entity.level | 0) >= ELITE_FOE_MIN_LEVEL\n",
+    "new": "\n",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  },
+  {
+    "name": "FOE-TITLE-the-elite-unnamed",
+    "file": "src/systems/foeTitle.js",
+    "old": "  return entity?.eliteFoe ? `Elite ${named}` : named;",
+    "new": "  return named;",
+    "tests": [
+      "test/elitefloor_foetitle.test.js"
+    ]
+  }
+]

@@ -14,6 +14,7 @@
 // 13 fixed-list casters do not cast up here yet.
 
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
+import { foeTitled, foeTitle } from '../systems/foeTitle.js';   // FOE-TITLE: a nemesis, a champion or an elite is named on the hover even while hostile
 import { effectiveLevel } from '../systems/mentorMode.js';   // SOFTCAP2: mentor mode - the level the world is built around
 import { markFoeStruck } from '../ui/hudFoeTarget.js';   // PX30
 import { damageShieldPool, playerBlowCameToNothing } from '../characters/playerEntity.js';   // AUDIT 58: DecreaseHealth's shield hook is the BASE class's (DaggerfallEntity.cs:313-328)
@@ -78,6 +79,7 @@ import { CAMP_SIGHT_RADIUS, CAMP_ALERT_RADIUS, PACK_ALERT_RADIUS } from '../syst
 import { combatVisualsOn, foeDraw, markConcealedHit } from '../systems/combatVisuals.js';   // ECV1: what the enhanced skin draws for a concealed foe
 import { foeHitFlash, setBatchHitFlash, puppetHurtStep } from '../systems/hitFlash.js';
 import { isOnlinePage } from '../systems/onlineLane.js';   // ELITE FOES: online play only
+import { nemesisCandidate, nemesisFleeHealth, rollNemesisFlee, nemesisDeed, nemesisSlain, applyNemesis, grantNemesisLoot, nemesisTaunt, nemesisFleeLine, nemesisEscapeLine, nemesisSlainLine, nemesisById, NEMESIS_FLEE_SECONDS, NEMESIS_ESCAPE_DISTANCE, NEMESIS_TAUNT_DISTANCE } from '../systems/nemesis.js';   // NEMESIS: the foes that kill you or run, and come back
 import { elitesAllowed, promoteEliteFoe, rollOverworldElite, grantEliteLoot, eliteGlow, setBatchEliteGlow, eliteSize, isEliteCorpse, markEliteCorpseBatch, ELITE_FOE_SIZE } from '../systems/eliteFoes.js';   // ELITE FOES: 5% of the wilds' foes   // HITFLASH1
 
 // The port's allocation-owner guards (classic self-limits through the
@@ -334,7 +336,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, nemesis = null } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -365,7 +367,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // ELITE FOES: one foe in twenty in the open world stands as an elite - my own foes only (a puppet's is its owner's
       // word, the record's `z`), never an ally, a quest's foe, a retype, a team a spawner set, or anything on a
       // location's ground. Off Math.random, not this pool's `rolls`, so the encounter's own dice are not moved.
-      if (!puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null }) && rollOverworldElite(Math.random)) promoteEliteFoe(entity);   // ONLINE ONLY
+      if (!puppet && !allied && !questBehaviour && !replacing && !team && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null }) && (nemesis ? nemesis.elite : rollOverworldElite(Math.random))) promoteEliteFoe(entity);   // NEMESIS: a returning nemesis stands as what it was - an elite's glow where elites stand, never a fresh roll   // ONLINE ONLY
       // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
       // my own foes only (a puppet is its owner's build), never an ally, never on a location's ground
       if (!puppet && !allied && !inLocation()) {
@@ -375,7 +377,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       }
       // DW-E4: SetEnemyTeam - Entity.Team alone (the treasure guards' Undead), the MobileEnemy copy kept
       if (team) entity.team = team;
-      if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : (capped ? rollStreetChampion(pending.feet, mobileType) : null));   // LOOT7: a champion - before its loot, which reads the mark
+      if (!allied && !entity.eliteFoe) applyChampion(entity, champion !== undefined ? champion : nemesis ? (nemesis.trait ? championIndex(nemesis.trait) : null) : (capped ? rollStreetChampion(pending.feet, mobileType) : null));   // LOOT7: a champion - before its loot, which reads the mark
+      if (nemesis && !puppet) applyNemesis(entity, nemesis);   // NEMESIS: its name and its rank - over its trait or its glow, before its loot
       // AUDIT WORLD6b B14: a PUPPET carries no loot of this player's (its body is its owner's - WORLD6b-iii(c): taken under the owner's grant), wears no
       // kit of its own and casts nothing, so its stand rolls no table and draws nothing off the injectable roll or
       // the shared stream: what my neighbours stream must not move my own dice
@@ -383,6 +386,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       else {
         spawnEnemyLoot(entity, mobileType, basics, playerEntity, { rolls });   // RF2: SetEnemyCareer's whole loot chain, one seam - the trio and the port's roll off this pool's stream
         if (entity.eliteFoe) grantEliteLoot(entity, builtLevel);   // ELITE FOES: better loot
+        if (entity.nemesis) grantNemesisLoot(entity, builtLevel);   // NEMESIS: its own drop, by its rank
       }
       // NT2 (F210): GetTextureArchive's gender arm - a DFRandom draw off
       // the shared stream (Ledger A: a DFRandom site never rides the
@@ -882,6 +886,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // ANOTHER foe never touches the player's alert (MT-ii).
       if (isLocalPlayerTarget(f.ai?.target) && f.ai?.detected) setEnemyAlert(playerEntity, false);   // WORLD6b-ii: mine, not a peer's (AUDIT WORLD3 C3)
       if (!peer) sayEnemyDied(say, f.mobileType, f.entity);   // EnemyDeath:79-83, the kill notice - mine alone (AUDIT WORLD6b B2); LOOT7: a champion by its name
+      if (f.entity?.nemesis) { const nr = nemesisSlain(playerEntity, f.entity); if (nr && !peer) say?.(nemesisSlainLine(nr)); }   // NEMESIS: slain at last - its record closed, whoever struck last
       stampWonWeapons(f.entity.items, _sharedFoe(f) ? fightN(f) : 1, { rolls });   // SIGIL1: the body's Magic+ weapons won online may carry a sigil - here, where its list lives, whoever struck last; a bigger fight, better odds
       raiseEnemyDeath(f.entity, { rolls, luck: liveStat(playerEntity, 'luck') });   // UL1: OnEnemyDeath (:139) - the corpse's items are the entity's. AUDIT VC6: a handler that ROLLS (SURV2's food) takes this pool's own stream and the player's luck, as spawnEnemyLoot does
       // AUDIT 24 (wave 38): EnemyDeath.CompleteDeath, through the one
@@ -1073,6 +1078,17 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (v && v.clip >= 0) audio?.play3d?.(v.clip, mid, 1, { maxDistance: 16, pitch: 1 + v.pitchLift });   // AUDIT 58: EnemySounds.cs:172-175
   }
 
+  /** NEMESIS: a fleeing foe out of reach - gone as the cull takes a foe (no corpse, no kill, its batch freed; online
+   *  its record leaves the stream), made a nemesis (or a stronger one), and said. */
+  function escapeFoe(f) {
+    releaseFoeBatch(f);
+    f.dead = true;
+    f.fleeing = false;
+    f.escaped = true;
+    if (f.ai?.detected) setEnemyAlert(playerEntity, false);
+    const r = nemesisDeed(playerEntity, f.entity, 'fled', { mobileType: f.mobileType, gender: f.gender, rec: f });
+    if (r) say?.(nemesisEscapeLine(r));
+  }
   function update(dt, playerFeet, eye, senses = {}) {
     _ecvT += dt; _lastPlayerHeight = senses.playerHeight ?? CAPSULE_HEIGHT;   // ROAD-H H2: the live capsule this tick, for the AoC blast the cast seam fires
     hitEffects?.bleed?.(dt, foes, foeBleedView);   // BLOOD2c: the wounded drip, the dead bleed out - every body this pool walks, puppets included
@@ -1155,6 +1171,31 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // EnemyAttack.cs:59-61), not merely no anim intent.
       const _fPaused = !!(f.mobile?.isPlayingOneShot() && f.mobile.oneShotPauseActionsWhilePlaying());
       if (groundStands && !groundStands(f.ai.feet[0], f.ai.feet[2])) f.ai.holdFrame(); else f.ai.update(foeFrameDt(dt), playerFeet, _armed(f, senses), _fParalyzed, _fPaused);   // FALL-HOLD: no ground built under it - held, not stepped; FOE-CATCHUP: three steps a frame at most
+      // NEMESIS (systems/nemesis.js): A FOE RUNNING FOR ITS LIFE runs and does nothing else - no blow, no cast, no
+      // cull - and once out of reach (its run spent, or NEMESIS_ESCAPE_DISTANCE off) it has ESCAPED: gone without a
+      // corpse or a kill, and a nemesis made of it. A special foe of mine on me, under a fifth of its health for the
+      // first time, rolls once whether it runs.
+      const _onMe = isLocalPlayerTarget(f.ai.target) || !f.ai._armedTargeting;
+      if (f.fleeing) {
+        if (!(f.ai.fleeLeft > 0) || Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]) > NEMESIS_ESCAPE_DISTANCE) escapeFoe(f);
+        continue;
+      }
+      if (!f._fleeRolled && _onMe && f.ai.isHostile && nemesisFleeHealth(f.entity) && nemesisCandidate(f.entity, f)) {
+        f._fleeRolled = true;
+        if (rollNemesisFlee(f.entity)) {
+          f.fleeing = true;
+          f.ai.flee(playerFeet, NEMESIS_FLEE_SECONDS);
+          say?.(nemesisFleeLine(f.entity, foeTitle(f.entity, enemyDisplayName(f.mobileType))));
+          continue;
+        }
+      }
+      // NEMESIS: a returning nemesis in sight and near says what it came to say - once a return
+      if (f.entity.nemesis && !f._taunted && _onMe && f.ai.inSight
+        && Math.hypot(playerFeet[0] - f.ai.feet[0], playerFeet[2] - f.ai.feet[2]) < NEMESIS_TAUNT_DISTANCE) {
+        f._taunted = true;
+        const line = nemesisTaunt(nemesisById(f.entity.nemesis.id), playerEntity?.name);
+        if (line) say?.(line);
+      }
       // MT-ii: the foe now aims at whatever it SELECTED - the player
       // (the only candidate in an unarmed host) or another enemy.
       const _tgt = _targetFeet(f, playerFeet);
@@ -1504,7 +1545,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     // exterior door's is a bare NUMBER.
     const f = liveFoeFor(foes, key, 'mobileFoe', { idOf });
     if (!f) return null;
-    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: !!f.entity?.champion });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
+    const t = mobileEntityName(liveEntityName(f, enemyDisplayName(f.mobileType)), { hostile: !!f.ai?.isHostile, champion: foeTitled(f.entity) });   // LOOT7-CHECK CHAMP-HOVER: a champion named while hostile
     return t ? { title: t } : null;
   };
   // MAC-E: and the general arm is the WINDOW now (PlayerActivate.cs:957),

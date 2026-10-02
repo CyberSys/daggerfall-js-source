@@ -170,8 +170,8 @@ carried only the first of the two lines, so a player fighting with the
 left-hand weapon loaded back holding the right hand's item, or bare
 fists. By the time it was found, the two restore lines had drifted six
 and thirteen lines apart inside their own hosts, and the comment in
-`worldModes.js` that pointed between them cited `world.js:10025` and
-`dungeonContext.js:7831` - lines that had moved to `:6258` and `:7804`.
+`worldModes.js` that pointed between them cited `world.js:10035` and
+`dungeonContext.js:7832` - lines that had moved to `:6259` and `:7805`.
 *Three copies of a rule, and the signpost between them stale as well.*
 
 The pair lives in `src/combat/playerWeapon.js` now - `weaponPoseOf`,
@@ -232,7 +232,7 @@ has and `exterior.js` lacks is the streaming host's own (terrain pixels,
 riding, online peers). Everything `exterior.js` has and `world.js` lacks
 is a `?rig`/`?rigNear`/`?shot` probe rig, its own `refreshSeason` - whose
 streaming twin `tickSeason` is documented AND cites `refreshSeason` by
-name at `world.js:829` - and two math helpers in the shot path. **No
+name at `world.js:830` - and two math helpers in the shot path. **No
 drift.**
 
 **S2 - the mode-transition teardown order. Three candidate findings, all
@@ -249,13 +249,13 @@ three collapsed on verification.**
 2. *"`npcSession.onWorldChanged()` is on both door exits and not on the
    teleport/load path."* True, and correct: every caller of
    `forceExitToExterior` follows it with `_teleportToPixel`, and THAT
-   function owns the call (`world.js:9997`, DFU's `OnMapPixelChanged` /
+   function owns the call (`world.js:10007`, DFU's `OnMapPixelChanged` /
    `OnLoadEvent`). The quickload caller goes through
    `restoreSessionState` instead. Calling it in both places would be the
    redundancy, not the fix.
-3. *"`worldModes.js:10989` disposes the dungeon overlay that
+3. *"`worldModes.js:10990` disposes the dungeon overlay that
    `dungeonCtx.destroy()` disposes again - HARD1's double free."* Already
-   known, already written down, at `dungeonContext.js:8718-8719`:
+   known, already written down, at `dungeonContext.js:8719-8720`:
    *"dispose() is idempotent (A2), which is what makes the outer host's
    call harmless."* The tree had the answer before the audit asked.
 
