@@ -64,7 +64,7 @@ import { SHADOW_GLSL, shadowCacheOn } from './shadowPass.js';   // EL2: the rece
 import { FOG_GLSL as EL_FOG_GLSL } from './fogGlsl.js';   // AUDIT 68 S17-fog-glsl-dup: the fog law's one home, the classic lane's too (the lane's five interpolate it by this name)
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share, the lane's flats too
 import { AIR_ADAPT_GLSL, AIR_CONTACT_GLSL, AIR_CONTACT_RANGE_FRACTION, airOn, contactOn, glslFloat } from './airPass.js';   // EL6: no AO block - the resolve's; EL8: the contact block
-import { BAYER_GLSL, BAYER_MEAN } from './orderedDither.js';
+import { BAYER_GLSL, BAYER_MEAN, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: and the mesh shader's dissolve
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // AUDIT 68 S16-el-cloudshadow-dup: the reader's one home, as the classic lane and the shafts take it - five hand copies were here
 import { CLUSTER_X, CLUSTER_Y, CLUSTER_Z, CLUSTER_LIST_W, clustersOn } from './lightClusters.js';   // LC1: the grid the lantern loop walks, and its door   // EL6: the dither at the encode - the port's one Bayer
 import { SHADE_DARK } from '../systems/concealDraw.js';   // AUDIT-EL F14: the shade's pull toward black, interpolated as the classic BB_FS does   // EL3: the ambient occlusion image by screen position, and its kill door; EL4: the adapted exposure
@@ -563,11 +563,13 @@ ${SHADOW_GLSL}
 ${AIR_CONTACT_GLSL}
 ${EL_FOG_GLSL}
 ${EL_POINT_LIT_GLSL}
+${DISSOLVE_GLSL}
 out vec4 outColor;
 void main() {
   int amMode = int(uAutomapMode + 0.5);
   if (amMode >= 3) { if (vWorldPos.y <= uClipY) discard; }
   else if (vWorldPos.y > uClipY) discard;
+  dissolveCut();   // SHIP-FADE: a ship sailing into the world or out of it, her share of her fragments (orderedDither.js)
   vec4 tex = texture(uTex, vUV);
   vec3 n = normalize(vNormal);
   // PERF-SUN2 (2026-09-19, Mac: "over 1000 calls and looking up in the sky

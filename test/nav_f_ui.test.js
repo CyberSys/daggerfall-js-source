@@ -96,7 +96,8 @@ test('NAV-F the aim under the crosshair: the battery and its word - a broadside,
 
 test('NAV-F the target card: her name and colours, her class, captain and distance, her hull and canvas, and her state - hostile, colours struck (with the key that boards her when she is in reach), boarded, taken (her hold\'s key), going down (mutants: the board key offered for another ship, the prize state missed)', () => {
   const c = navalHudText(helm({ target: card() }), KEYS).card;
-  assert.deepEqual(c, { id: 'The Red Wake', name: 'The Red Wake', faction: 'pirate', hostile: true, sub: 'Pirate Brigantine - Captain Irna Vosk - 142 m', hull: 30, sail: 75, state: 'Hostile', stateKind: '' });
+  // SHIP-STANCE (2026-10-02) PIN MOVED: the card says how she stands - `friendly`, and her hostile state line its own red
+  assert.deepEqual(c, { id: 'The Red Wake', name: 'The Red Wake', faction: 'pirate', hostile: true, friendly: false, sub: 'Pirate Brigantine - Captain Irna Vosk - 142 m', hull: 30, sail: 75, state: 'Hostile', stateKind: 'hostile' });
   const st = (t, board = null) => { const x = navalHudText(helm({ target: card(t), board }), KEYS).card; return [x.state, x.stateKind]; };
   assert.deepEqual(st({ hostile: false }), ['', '']);
   assert.deepEqual(st({ state: 'struck' }), ['Colours struck', '']);

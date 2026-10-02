@@ -8,6 +8,7 @@
 //   - Alpha 0 texels are palette-index cutouts; the shader discards them.
 
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // EE5 / VC4: the cloud shadow's reader - VC6c's one home, shared with the air pass's shafts
+import { BAYER_GLSL, DISSOLVE_GLSL } from './orderedDither.js';   // SHIP-FADE: the mesh shader's dissolve over the port's one bayer4
 import { FOG_GLSL } from './fogGlsl.js';
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share - a foe under Iliac Puddle No More's sea is in the depth texture its top reads   // AUDIT 68 S17-fog-glsl-dup: fogFactorAt's one home, for all seven world programs
 // ABOVE the first shader text on purpose: every template below is built
@@ -93,6 +94,8 @@ uniform float uAutomapMode;
 uniform float uAutomapWaterLevel;   // _WaterLevel: AddWater's per-block level (:1982-2001); the shader's own default is -10000
 uniform vec4 uAutomapWaterColor;    // _WaterColor: UnderwaterFog.waterMapColor, which Automap.cs:2590 injects into the one automap material
 ${CLOUD_SHADOW_GLSL}
+${BAYER_GLSL}
+${DISSOLVE_GLSL}
 out vec4 outColor;
 ${FOG_GLSL}
 void main() {
@@ -104,6 +107,7 @@ void main() {
   // and never draw the same fragment twice.
   if (amMode >= 3) { if (vWorldPos.y <= uClipY) discard; }
   else if (vWorldPos.y > uClipY) discard;
+  dissolveCut();   // SHIP-FADE: a ship sailing into the world or out of it, her share of her fragments (orderedDither.js)
   vec4 tex = texture(uTex, vUV);
   // INCIDENT 2026-09-04: no alpha clip here - DaggerfallDefault.shader is
   // RenderType Opaque with no clip(); the mortar runs of a wall texture
@@ -1878,6 +1882,7 @@ export class Renderer {
     this.uIndirect = gl.getUniformLocation(this.program, 'uIndirect');
     this.uIndirectColor = gl.getUniformLocation(this.program, 'uIndirectColor');
     this._solidFog = this._fogLocs(this.program);
+    this.uDissolveCut = gl.getUniformLocation(this.program, 'uDissolveCut');   // SHIP-FADE: the installed mesh program's dissolve
     // Character program (C4b): rig vertex-color path, same scene
     // lighting/fog model as the mesh program.
     this.charProgram = set.char;
@@ -2095,7 +2100,7 @@ export class Renderer {
   }
   /** SHADOW-REACH: record a caster for the maps WITHOUT drawing it - the seams drawMesh, drawTerrain and drawBillboards
    *  record through, with none of their draw. The billboards take the frame's wind as drawBillboards does. */
-  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this._shadows.recordMesh(mesh, modelMatrix, texRemap); }
+  recordShadowMesh(mesh, modelMatrix, texRemap = null) { if (this._casting && mesh?.vao) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1)); }   // AUDIT BAY A12: a fading ship's share
   recordShadowTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize) { if (this._casting && surface?.vao) this._shadows.recordTerrain(surface, modelMatrix, arrayTex, tilemapTex, tileSize); }
   recordShadowBillboards(batches, camRight, camUp) { if (this._casting && batches?.length) this._shadows.recordBillboards(batches, this._flatWind, camRight, camUp); }
   /** LC1: the grid's two integer textures - the GRID (RG16UI: offset, count per cell) and the LIST (R8UI: light
@@ -4621,6 +4626,18 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     }
   }
 
+  /** SHIP-FADE (2026-10-02): the share of the next meshes' fragments kept (1 = whole), uploaded at once - the boats'
+   *  pool sets it about a fading ship's draws and puts it back to 1 after them. */
+  setDissolve(v) {
+    const k = Math.max(0, Math.min(1, Number.isFinite(v) ? v : 1));
+    if (k === (this._dissolve ?? 1)) return;
+    this._dissolve = k;
+    if (this.uDissolveCut) {
+      this._use(this.program);
+      this.gl.uniform1f(this.uDissolveCut, 1 - k);   // the share CUT: nought, a uniform's own start, is whole
+    }
+  }
+
   /**
    * A2 + c2/S6: the automap presentation mode for the SOLID mesh pass -
    * one of AUTOMAP_MODE. Immediate upload, same reason as setClipY: the
@@ -5994,7 +6011,7 @@ void main() { vec4 t = texture(uTex, vUV); if (t.a < 0.5) discard; outColor = ve
     this._use(this.program);
     this._uploadCloudShadow('mesh');   // VC4
     gl.uniformMatrix4fv(this.uModel, false, modelMatrix);
-    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap);   // EL2
+    if (!wire && this._casting) this._shadows.recordMesh(mesh, modelMatrix, texRemap, 1 - (this._dissolve ?? 1));   // EL2; AUDIT BAY A12: a fading ship's share of her shadow
     this._bindVao(wire ? wireMesh.vao : mesh.vao);
     for (let smi = 0; smi < mesh.subMeshes.length; smi++) {
       const sm = mesh.subMeshes[smi];
