@@ -65,7 +65,7 @@
   {
     "name": "TACT2-no-hurt-backoff",
     "file": "src/ai/tactics.js",
-    "old": "    if (s.hp.length > 1 && (s.hp[0][1] - v.health) / v.maxHealth >= TACT.HURT_SHARE && s.state !== 'backoff') {",
+    "old": "    if (s.hp.length > 1 && (s.hp[0][1] - v.health) / v.maxHealth >= TACT.HURT_SHARE && s.state !== 'backoff' && now >= (s.backoffReady ?? 0)) {",
     "new": "    if (false) {",
     "tests": [
       "test/tact2.test.js"
@@ -83,8 +83,8 @@
   {
     "name": "TACT2-backoff-forever",
     "file": "src/ai/tactics.js",
-    "old": "  if ((s.state === 'recover' || s.state === 'backoff') && now >= s.until) s.state = 'wait';",
-    "new": "  if (s.state === 'recover' && now >= s.until) s.state = 'wait';",
+    "old": "  if ((s.state === 'recover' || s.state === 'backoff') && now >= s.until) {",
+    "new": "  if (s.state === 'recover' && now >= s.until) {",
     "tests": [
       "test/tact2.test.js"
     ]
@@ -110,8 +110,8 @@
   {
     "name": "TACT2-no-kite",
     "file": "src/ai/tactics.js",
-    "old": "      if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {",
-    "new": "      if (false) {",
+    "old": "    if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {",
+    "new": "    if (false) {",
     "tests": [
       "test/tact2.test.js"
     ]
@@ -156,7 +156,7 @@
   {
     "name": "TACT2-no-out-of-sight-gate",
     "file": "src/ai/tactics.js",
-    "old": "  const fighting = ai.inSight && ai.detected &&",
+    "old": "  const fighting = (ai.inSight || away) && ai.detected &&",
     "new": "  const fighting = true &&",
     "tests": [
       "test/tact2.test.js"

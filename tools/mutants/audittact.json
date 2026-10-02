@@ -2,28 +2,31 @@
   {
     "name": "ATACT-A1-kite-in-band",
     "file": "src/ai/tactics.js",
-    "old": "      if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {",
-    "new": "      if (dist < 5) {",
+    "old": "    if (s.kiting ? dist < TACT.KITE_OUT : dist < TACT.KITE_IN) {",
+    "new": "    if (dist < 5) {",
     "tests": [
-      "test/audittact.test.js"
+      "test/audittact.test.js",
+      "test/tact5_feedback.test.js"
     ]
   },
   {
     "name": "ATACT-A1-cornered-stands",
     "file": "src/ai/tactics.js",
-    "old": "        if (ai._tacBlocked) {   // a wall behind it: cornered, it fights hand to hand",
-    "new": "        if (false) {   // a wall behind it: cornered, it fights hand to hand",
+    "old": "      if (ai._tacBlocked || now >= s.kiteUntil) {   // a wall behind it: cornered, it fights hand to hand",
+    "new": "      if (now >= s.kiteUntil) {   // a wall behind it: cornered, it fights hand to hand",
     "tests": [
-      "test/audittact.test.js"
+      "test/audittact.test.js",
+      "test/tact5_feedback.test.js"
     ]
   },
   {
     "name": "ATACT-A1-blocked-unheard",
     "file": "src/characters/enemyMotor.js",
-    "old": "        if (this._tacDir) { this._tacDir = null; this._tacBlocked = true; }",
-    "new": "        if (this._tacDir) { this._tacDir = null; }",
+    "old": "        if (this._tacDir) { this._tacDir = null; this._tacBlocked = true; this.moving = false; }",
+    "new": "        if (this._tacDir) { this._tacDir = null; this.moving = false; }",
     "tests": [
-      "test/audittact.test.js"
+      "test/audittact.test.js",
+      "test/tact5_feedback.test.js"
     ]
   },
   {
