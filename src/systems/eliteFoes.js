@@ -21,6 +21,7 @@ import { mintCondition, setItemFields } from './itemTemplates.js';
 import { applyRarity, rarityEligible } from './lootRarity.js';
 import { goldStack } from './inventory.js';
 import { isAmmunition } from './itemTemplates.js';
+import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';   // ELITE-FLOOR: the watch is never an elite
 
 /** Health and damage, times the foe's own (rolled, before any Elite Dungeon doubling - an elite is 5x, not 10x). */
 export const ELITE_FOE_HEALTH_MULT = 5;
@@ -39,8 +40,18 @@ export const ELITE_FOE_DUNGEON_MAX = 4;
 export const ELITE_FOE_NORMAL_DUNGEON_CHANCE = 0.2;
 /** The elite's extra drop - better loot than its kind carries. */
 export const ELITE_FOE_LOOT = Object.freeze({ magic: 2, common: 1, rareChance: 0.25, legendaryChance: 0.06, goldPerLevel: [20, 60] });
-/** The name the HUD's target bar gives one. */
+/** The name the HUD's target bar gives one (and, FOE-TITLE, every other surface - systems/foeTitle.js). */
 export const ELITE_FOE_PREFIX = 'Elite ';
+/** ELITE-FLOOR (2026-10-02): an elite is a foe of this level or more - LOOT7's champion floor (systems/champions.js
+ *  CHAMPION_MIN_LEVEL), so a new character's first road is never a five-times foe that hits three times as hard. */
+export const ELITE_FOE_MIN_LEVEL = 3;
+
+/** ELITE-FLOOR: may this freshly built foe stand as an elite? Never under ELITE_FOE_MIN_LEVEL, never the city watch,
+ *  never an ally - LOOT7's own exclusions (systems/champions.js applyChampion). */
+export const eliteEligible = (entity) => !!entity
+  && (entity.level | 0) >= ELITE_FOE_MIN_LEVEL
+  && entity.mobileType !== KNIGHT_CITY_WATCH
+  && entity.team !== 'PlayerAlly' && entity.mobileTeam !== 'PlayerAlly';
 
 /** ONLINE ONLY (Mac: "elite enemies are online mode only"): elites stand in online play alone - an online page, or a
  *  host in a room. Offline and single-player, no foe is ever an elite. */
@@ -50,9 +61,13 @@ export const elitesAllowed = ({ onlinePage = false, inRoom = false } = {}) => !!
 export const isEliteFoe = (entity) => !!entity?.eliteFoe;
 
 /** Make a freshly built foe an elite: health, damage, the flag. `own` false for a puppet - its maximum is its owner's
- *  word (the record's `k`), so only the blows, the size and the glow are stood here. Idempotent. */
+ *  word (the record's `k`), so only the blows, the size and the glow are stood here (and its owner already asked
+ *  eliteEligible). Idempotent. ELITE-FLOOR: answers whether it stands as an elite - false for a foe eliteEligible
+ *  refuses, which is then built as it would have been. */
 export function promoteEliteFoe(entity, { own = true, eliteDungeon = false } = {}) {
-  if (!entity || entity.eliteFoe) return entity;
+  if (!entity) return false;
+  if (entity.eliteFoe) return true;
+  if (own && !eliteEligible(entity)) return false;
   entity.eliteFoe = true;
   // the hosts promote BEFORE any other scaling (and in place of the Elite Dungeon's doubling), so this is the foe's own
   // roll: an elite is 5x, not 10x
@@ -63,7 +78,7 @@ export function promoteEliteFoe(entity, { own = true, eliteDungeon = false } = {
   }
   const prior = Number.isFinite(entity.damageScale) && entity.damageScale > 0 ? entity.damageScale : 1;
   entity.damageScale = prior * (eliteDungeon ? ELITE_FOE_ELITE_DUNGEON_DAMAGE_MULT : ELITE_FOE_DAMAGE_MULT);
-  return entity;
+  return true;
 }
 
 /** A small, stable 32-bit hash (FNV-1a) - the dungeon's pick and the roll's seed. */

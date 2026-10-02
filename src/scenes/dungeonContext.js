@@ -1156,7 +1156,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
     foeDeps.applyProgressionScaling?.(entity, scaling);   // lazily loaded beside makeEnemyEntity; the dungeon's own deps (the import used `D`, which only the spawn builders below bind)
   }
   function applyEliteScaling(entity, e) {
-    if (e?.eliteFoe && entity) { promoteEliteFoe(entity, { eliteDungeon: !!e.elite }); if (e.elite) entity.elite = true; return; }   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling
+    if (e?.eliteFoe && entity && promoteEliteFoe(entity, { eliteDungeon: !!e.elite })) { if (e.elite) entity.elite = true; return; }   // ELITE FOES: 5x health, 3x damage - 7x / 4x in an Elite Dungeon, in place of its doubling
     if (!e?.elite || !entity) return void applyChampion(entity, e?.champion);   // LOOT7: a plain dungeon's champion (its loot reads the mark, so before it)
     entity.maxHealth = Math.max(1, Math.round(entity.maxHealth * ELITE_HEALTH_SCALE));
     entity.health = entity.maxHealth;
