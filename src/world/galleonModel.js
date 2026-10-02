@@ -362,11 +362,12 @@ export function nestUnderside(bench, part, mast) {
   const down = [0, -1, 0], skinD = faceSkin(part.role, down, [ax[0], low, ax[2]]);
   if ('band' in skinD) throw new Error('galleon: a nest wears no livery');
   const outer = [...ring].sort((p, q) => angle(p) - angle(q)), inner = [...section].sort((p, q) => angle(p) - angle(q));
-  // the band between two rings round one axis: march both by angle, a triangle a step
+  // the band between two rings round one axis: march both by angle, a triangle a step (read in turns: a ring's k-th
+  // corner past its last is a whole turn on)
   let i = 0, j = 0;
-  const wrap = (a, k) => a[k % a.length], ang = (a, k) => angle(wrap(a, k)) + 2 * Math.PI * Math.floor(k / a.length);
+  const wrap = (a, k) => a[k % a.length], turns = (a, k) => angle(wrap(a, k)) / (2 * Math.PI) + Math.floor(k / a.length);
   while (i < outer.length || j < inner.length) {
-    const takeOuter = j >= inner.length || (i < outer.length && ang(outer, i + 1) <= ang(inner, j + 1));
+    const takeOuter = j >= inner.length || (i < outer.length && turns(outer, i + 1) <= turns(inner, j + 1));
     const a = wrap(outer, i), b = wrap(inner, j), c = takeOuter ? wrap(outer, i + 1) : wrap(inner, j + 1);
     bench.tri(skinD.rec, a, b, c, skinD.uv(a), skinD.uv(b), skinD.uv(c), down, [down, down, down]);
     if (takeOuter) i++; else j++;
