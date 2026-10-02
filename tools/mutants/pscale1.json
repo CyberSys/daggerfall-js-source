@@ -192,8 +192,8 @@
   {
     "name": "PSCALE1-outdoor-blow-unweighed",
     "file": "src/scenes/exteriorFoes.js",
-    "old": "const dmg = partyHit(calculateAttackDamage(f.entity, playerEntity, {",
-    "new": "const dmg = ((d) => d)(calculateAttackDamage(f.entity, playerEntity, {",
+    "old": "partyHit(calculateAttackDamage(f.entity, playerEntity, {",
+    "new": "((d) => d)(calculateAttackDamage(f.entity, playerEntity, {",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"
@@ -252,8 +252,8 @@
   {
     "name": "PSCALE1-dungeon-blow-unweighed",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    const dmg = _weighHit(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
-    "new": "    const dmg = ((x, d) => d)(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
+    "old": "_weighHit(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
+    "new": "((x, d) => d)(f, foeDeps.calculateAttackDamage(f.entity, foeDeps.playerEntity, {",
     "tests": [
       "test/pscale1.test.js",
       "test/auditpscale1.test.js"

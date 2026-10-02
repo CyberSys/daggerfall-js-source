@@ -8,6 +8,7 @@
 //   - Alpha 0 texels are palette-index cutouts; the shader discards them.
 
 import { CLOUD_SHADOW_GLSL } from './cloudShadow.js';   // EE5 / VC4: the cloud shadow's reader - VC6c's one home, shared with the air pass's shafts
+import { FoeTelegraphPass } from './foeTelegraph.js';   // TACT4
 import { FOG_GLSL } from './fogGlsl.js';
 import { COLUMN_GLSL } from './columnGlsl.js';   // DW-F: the water column's share - a foe under Iliac Puddle No More's sea is in the depth texture its top reads   // AUDIT 68 S17-fog-glsl-dup: fogFactorAt's one home, for all seven world programs
 // ABOVE the first shader text on purpose: every template below is built
@@ -3429,6 +3430,17 @@ void main() {
   drawDecalPicture(batch, tex) {
     this._decalPicture = true;
     try { this.drawDecals(batch, tex); } finally { this._decalPicture = false; }
+  }
+
+  /** TACT4: the foes' telegraphed blows on the ground (render/foeTelegraph.js), under this frame's camera - each
+   *  { blow, phase } of ai/foeBlows.js drawableBlows. */
+  drawFoeTelegraphs(list) {
+    if (!list?.length || !this._proj || !this._view) return 0;
+    this._close2D();
+    if (!this._foeTelegraph) this._foeTelegraph = new FoeTelegraphPass(this.gl);
+    const n = this._foeTelegraph.draw(list, this._proj, this._view);
+    this.markForeignPass();   // the pass bound its own program and VAO
+    return n;
   }
 
   drawDecals(batch, tex, ranges = null) {

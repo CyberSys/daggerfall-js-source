@@ -13,7 +13,7 @@ overdoing it"*. His calls, asked the same day:
 | Griefing | How is it done today? | **Guards blocking doors** - guards clump in a doorway so nobody can get in or out |
 | Blows | How many new telegraphed attacks? | **One or two, tier-based** - small wind-up attacks on tougher foes only, used sparingly, always readable and dodgeable |
 
-**Status: TACT3, TACT1 and TACT2 BUILT 2026-10-02 (Mac: anti-grief first) - see their records at the foot; TACT4 designed, not built.**
+**Status: ALL FOUR BUILT 2026-10-02 - TACT3, TACT1, TACT2, TACT4 (Mac: anti-grief first); records at the foot. Not yet looked at on a real install.**
 
 ## Where it stands (measured on the code, 2026-10-02)
 
@@ -168,3 +168,30 @@ Every version of the door grief, fixed without asking further (Mac: "stop asking
   ranged foes do not yet seek a clear line round cover; guards giving up a door is TACT3's doorway rule.
 - The switch's Features note says it. Not looked at on a real install yet.
 - Pins `test/tact2.test.js` (15); mutants `tools/mutants/tact2.json` (25), all dead.
+
+## TACT4 - BUILT 2026-10-02 (the Enhanced AI switch on, every host)
+
+- **The law** - `ai/foeBlows.js`: three shapes, the world boss's language at a foe's scale - the LUNGE (a lane 4.5 m
+  ahead, 0.6 m either side, x1.5, 0.7 s), the SWEEP (a 3.2 m cone of +-65 degrees, x1.25, 0.8 s), the SLAM (a 2 m disc
+  1 m ahead, x1.75, 0.9 s). The families: beasts lunge; brutes (giants, the Orc Warlord, Daedroth, the Daedra Lord,
+  atronachs, gargoyles, dreugh) slam and sweep; blades (orcs, skeletons, mummies, vampires, frost and fire daedra,
+  seducers, lamias, centaurs, every class but the three casters, the watch) sweep and lunge; the casters, the spectral,
+  the small and the flying none. The tier (Mac): level 10 and up, or an elite.
+- **When** - from the brain (`ai/tactics.js`): a melee-token holder in reach of the local player, its cooldown (8-15 s)
+  spent, no other foe winding up within 20 m of the player, a 1-in-10 roll a classic tick. It STANDS the wind-up, its
+  aim locked; a knock or a paralysis (any classic tick the motor did not let it decide) breaks it. Once begun it is
+  committed - it lands where it was aimed though the target slips out of its sight.
+- **The landing** - where the player's feet stand (noted each frame) is the verdict; the swing comes at once (the
+  attack component's forced swing, past DFU's clock and reach); the host's own hit resolution asks `blowConnects`
+  in place of its reach test and `blowScaled` on DFU's damage roll (armour, skill, the party's weighing and all) - in
+  the street's encounters, the watch, and the dungeon (the interior's foes are the street's pool). A blow is only
+  ever at the local player.
+- **The ground** - `render/foeTelegraph.js` (`renderer.drawFoeTelegraphs`): one flat quad at the foe's feet, the shape
+  the fragment's own `inBlow` (pinned point for point), a dim rim at once, filling outward through the wind-up, a
+  flash at the landing; additive, depth-tested, unwritten; drawn under the bodies beside the blood marks in the street,
+  the building, the dungeon and both standalone hosts.
+  `tools/foeTelegraphProbe.mjs` compiles, links and draws the three shapes in a real WebGL2 context (Chromium) and
+  reads the frame back: lit inside, the ground untouched beside and behind, dimmer through the wind-up (12 held).
+- **Not built** - online, a peer does not see another's foe's telegraph (the wind-up does not ride the foe stream yet),
+  and a blow is never at a peer; a block halving it (the port has no player block).
+- Pins `test/tact4.test.js` (13); mutants `tools/mutants/tact4.json` (30), all dead.

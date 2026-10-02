@@ -209,8 +209,8 @@
   {
     "name": "TACT2-blow-unseen",
     "file": "src/characters/enemyAttack.js",
-    "old": "ai._tacSwung = (ai._tacSwung ?? 0) + 1; }",
-    "new": "}",
+    "old": "        if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; ai._tacSwung = (ai._tacSwung ?? 0) + 1; }   // TACT2: the brain sees its blow",
+    "new": "        if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; }   // TACT2: the brain sees its blow",
     "tests": [
       "test/tact2.test.js"
     ]

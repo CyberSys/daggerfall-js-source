@@ -173,6 +173,16 @@ export class EnemyAttack {
         }
         continue;
       }
+      // TACT4 (ai/foeBlows.js): a telegraphed blow's landing - the swing comes NOW, whatever the clock or the reach
+      // (the shape decides whether it lands: the host's blowConnects); never set with the switch off
+      if (ai._blowSwing) {
+        ai._blowSwing = false;
+        if (oneShot) { this.machine.state = 'Idle'; this.machine.acc = 0; }
+        const strike = STRIKES[Math.floor(this.rolls() * STRIKES.length)];
+        if (machineAttack(this.machine, strike)) { this.firedRanged = false; this.swingSeq++; ai._tacSwung = (ai._tacSwung ?? 0) + 1; }
+        this.meleeTimer = resetMeleeTimer(this.playerLevel, this.reflexes, this.rolls());
+        continue;
+      }
       if (!meleePass) continue;
       if (!ai.inSight || !withinYaw(ai.yaw, dx, dz, ATTACK_YAW_DEG)) continue;
       // MT-ii: MeleeAnimation's OWN reach (:157-160), which the port

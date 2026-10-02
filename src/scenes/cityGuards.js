@@ -57,6 +57,7 @@ import { setEnemyAlert } from '../systems/encounters.js';   // AUDIT 24 (wave 36
 import { FALL_DAMAGE_THRESHOLD, FALL_HP_PER_METRE, CAPSULE_RADIUS, CAPSULE_HEIGHT } from '../player/motor.js';   // AUDIT 24 (wave 36): ApplyFallDamage, for the watch too   // ROAD-B: PlayerController.radius, for the indoor arm's door clearance
 import { findLowestOuterInteriorDoor } from '../player/enterExit.js';   // ROAD-B: DaggerfallInterior.FindLowestOuterInteriorDoor
 import { coverDistance } from '../ai/cover.js';   // TACT1: a witness does not see through a tree
+import { blowConnects, blowScaled } from '../ai/foeBlows.js';   // TACT4
 import { SOUND } from '../systems/soundClips.js';
 import { ENEMY_BASICS } from '../characters/enemyBasics.js';
 import { copyEffectEntry } from '../systems/save.js';   // AUDIT 26 F217
@@ -164,7 +165,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
   // with no Y test. The default keeps the two street pools as they were.
   playerInside = false,
   // ROAD-G G1: GameManager.MakeEnemiesHostile over the HOST's whole
-  // area, the encounter pool's dep to the line (exteriorFoes.js:207).
+  // area, the encounter pool's dep to the line (exteriorFoes.js:208).
   // DaggerfallEntityBehaviour.cs:255-258 fires it when a NON-hostile
   // enemy is struck by the player, and Knight_CityWatch is an
   // EnemyClass - one of the two EntityTypes that walk (:250). This
@@ -756,7 +757,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
    *  which arrowFlight.js calls unconditionally (arrowFlight.js:319)
    *  because `dealDamage` is inside its own `dmg > 0` fork - so the
    *  door is PUBLIC (the returned surface below), exactly as the
-   *  encounter pool's is (exteriorFoes.js:2623). */
+   *  encounter pool's is (exteriorFoes.js:2624). */
   function handleAttackFromPlayer(g, playerFeet = null) {
     if (!g?.ai) return;
     // DISC19-F (AUDIT DISC19): A BLOW ON A DEFENDER IS ASSAULT. The
@@ -1165,7 +1166,7 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
         const hdx = playerFeet[0] - g.ai.feet[0], hdz = playerFeet[2] - g.ai.feet[2];
         const wpn = chooseEnemyWeapon(g.entity.weapon, ENEMY_BASICS[GUARD_MOBILE_TYPE]);
         const gmid = [g.ai.feet[0], g.ai.feet[1] + 0.9, g.ai.feet[2]];
-        if (meleeHitConnects(g.ai._dist, g.ai.inSight, withinYaw(g.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG))) {
+        if (blowConnects(g.ai, meleeHitConnects(g.ai._dist, g.ai.inSight, withinYaw(g.ai.yaw, hdx, hdz, MELEE_HIT_YAW_DEG)))) {   // TACT4: a telegraphed blow's shape decides
           // AUDIT 2026-08-17c: every resolved enemy attack on the
           // player tallies Dodging (EnemyAttack, before the damage
           // branch) - it was never tallied anywhere.
@@ -1175,11 +1176,11 @@ export function createCityGuards({ renderer, collider, fetchBytes, getTexture, u
           // InflictPoison seam the dungeon host already passes -
           // guard weapon poison was ROLLED at spawn and could never
           // be inflicted, because the exterior call dropped the hook.
-          const dmg = calculateAttackDamage(g.entity, playerEntity, {
+          const dmg = blowScaled(g.ai, calculateAttackDamage(g.entity, playerEntity, {   // TACT4: a telegraphed blow's weight
             weapon: wpn,   // AUDIT 18: target group derived from the entity (isPlayer -> Humanoid)
             onInflictPoison: (att, tgt, pt) => inflictPoison(playerEntity, pt, false, { currentMinute: Math.floor(currentMinute()) }),
             say,   // C-slice: equipment breaks speak
-          });
+          }));
           // AUDIT 24 (wave 39): EnemyAttack.cs:406 -
           // `PlayerObject.SendMessage("RemoveHealth", damage)` - which
           // is ShowPlayerDamage.Flash's trigger. An enemy's BLOW

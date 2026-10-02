@@ -110,8 +110,8 @@ test('THE ART FOLLOWS THE ENTITY: a character restored by restorePlayer draws HE
   assert.equal(snap.faceIndex, 4);
 
   // A FRESH PAGE: the entity is characters/playerEntity.js's pre-chargen
-  // stand-in again, and the host warms the doll with it (world.js:5193,
-  // exterior.js:1298 - the boot warm names no identity at all).
+  // stand-in again, and the host warms the doll with it (world.js:5194,
+  // exterior.js:1300 - the boot warm names no identity at all).
   Object.assign(playerEntity, { name: undefined, race: 'Breton', raceId: RACES.Breton, gender: 'male', faceIndex: 0, chargenDone: false });
   await preloadPaperDollArt(deps, {});
   await refreshPaperDoll(playerEntity);
