@@ -1,6 +1,6 @@
 // THE NEW GALLEON'S MODEL, BAKED OUT OF MAC'S BLENDER SCENE.
 //
-//     node tools/bakeGalleon.mjs [--fbx=src/assets/galleon/source/New_Ship.fbx]
+//     node tools/bakeGalleon.mjs [--fbx=src/assets/galleon/source/New_Ship.fbx] [--list]
 //
 // GALLEON (2026-10-01, Mac: "So this model is to replace the current ingame
 // gallon model. The doors/hatches should open and close and we will need to
@@ -16,13 +16,18 @@
 // GALLEON-2 (2026-10-02, Mac: "Replace it with this updated model"):
 // New_Ship_Even_EVEN_newer.fbx, committed over New_Ship.fbx. Read against
 // the first, part for part: the ship stands 36.25 m along the scene's Y
-// (FRAME.centreline - she was on Y 0); her hull is new below the wale - a
-// deeper V bottom on a keel 0.9 m lower, a finer entry and a forefoot
-// swept up to the stem (95 faces where it was 87); six deck beams carry
-// her main deck over the gun deck (`deckBeam`); and every other part is
-// the first's to the micrometre. The scene also keeps a TWIN of most parts
-// standing in the same place (Shift+D, never moved - checked vertex for
-// vertex, `SKIP` twin) and three more working stations far along Y.
+// (FRAME.centreline - she was on Y 0). Her hull is reshaped (95 faces where
+// it was 87) - AUDIT GN-B7, measured: a deeper V bottom on a keel 1.08 m
+// lower in the scene (0.75 m in her frame, -3.89 to -4.64), a finer entry
+// and a forefoot swept up to the stem, and at the bow the wale's two
+// forward corners (scene X 21.21) drawn in from 8.37 m off her centreline
+// to 7.48 m - corners her upper sides share with her lower ones, so both
+// changed, and both now lean out of their own planes (step 2). Six deck
+// beams carry her main deck over the gun deck (`deckBeam`); every other
+// part is the first's, moved with her, to 3 micrometres. The scene also
+// keeps a TWIN of most parts standing in the same place (Shift+D, never
+// moved - checked vertex for vertex, `SKIP` twin) and working stations far
+// along Y (`SKIP` minY, each said for what it is).
 //
 // tools/fbxRead.mjs is the reader and tools/fbxMesh.mjs's helpers do the
 // polygon work; this is the bake for a SCENE OF PARTS rather than one mesh.
@@ -39,25 +44,66 @@
 //    frame: +x starboard, +y up, +z the bow, the root on the waterline
 //    (systems/naval/navalShips.js's header). So a scene point (X, Y, Z) is
 //    the boat's ( CENTRELINE - Y, Z - WATERLINE, X - MIDSHIP ) times SCALE
-//    (CENTRELINE her keel line's Y, the middle of her hull's beam): a mirror,
+//    (CENTRELINE her keel line's Y - her hull object's own): a mirror,
 //    which is why every polygon's corners are REVERSED on the way through -
 //    Blender's front is counter-clockwise in a right-handed frame and the
 //    port's is clockwise in Unity's (renderer.js frontFace(CW)), so the
 //    reversal keeps each face's front its front.
 //
-//    THE FRAME IS CHOSEN, AND SAID: SCALE 0.7 makes her 43.8 m from stem to
-//    stern, the length of the galleon she replaces (Come Sail Away's hull 2,
-//    44.1 m - every number the sea fight measured against that hull keeps
-//    its sense), and puts her decks a player's height apart where Mac's
-//    scene stood them 7 m apart. WATERLINE 3 (scene metres) sits her V
-//    bottom 3.3 m in the water - the old galleon drew 3.35 - with her gun
-//    deck 1.1 m and her port sills 1.6 m over the sea. MIDSHIP 2.7 is the
-//    middle of her hull's length, so she pivots where she is longest.
+//    AUDIT GN-B5: WHAT IT CANNOT READ, IT REFUSES BY NAME - never bakes
+//    wrong: a file whose GlobalSettings are not this export's axes
+//    (EXPORT_AXES), an object parented under another, one carrying a
+//    pre/post rotation, a pivot, a rotation or scaling OFFSET or a
+//    geometric transform (the bake reads T*R*S only), one MIRRORED by its
+//    own transform (a negative determinant: every face of it would bake
+//    inside out), and one not standing where it was read (`ROLES`' boxes).
 //
-// 2. EACH POLYGON TRIANGULATED: fanned when convex, ear-clipped when not
-//    (tools/fbxMesh.mjs earClip - the hull's sides are 24- to 31-gons with
-//    a notch for every gunport). The polygons are kept as well, since a
-//    face's texture is chosen per polygon.
+//    THE FRAME IS CHOSEN, AND SAID (AUDIT GN-B7: every number measured on
+//    this export): SCALE 0.7 makes her 43.8 m from her stem head to her
+//    rudder (the bowsprit apart), the length of the galleon she replaces
+//    (Come Sail Away's hull 2, 44.1 m - every number the sea fight measured
+//    against that hull keeps its sense), and stands her gun deck 4.86 m
+//    under her main deck's planking (Mac's scene: 6.94 m). WATERLINE 3
+//    (scene metres) puts her keel 4.64 m under the sea - the first
+//    export's 3.89, the mod's galleon drew 3.35 - her gun deck 1.08 m and
+//    her port sills 1.56 m over it. MIDSHIP 2.7 is the middle of those
+//    43.8 m (to 2 cm), so she pivots where she is longest. CENTRELINE
+//    (AUDIT GN-B6) is her hull object's own scene Y, to the bit - the bake
+//    refuses a hull whose origin is not on it - so a vertex Mac mirrored
+//    across her bakes to the same |x| either side.
+//
+// 2. EACH POLYGON CUT INTO TRIANGLES AS BLENDER CUTS IT (AUDIT GN-B1; GN-B4
+//    this account, where the last one called its own fill Blender's):
+//    tools/fbxMesh.mjs blenderTessellate, Blender's own tessellation
+//    ported - a triangle kept, a quad split on the diagonal Blender
+//    takes, an n-gon filled by BLI_polyfill_calc in the plane of its
+//    Newell normal, all in single precision - on each polygon as Blender
+//    holds it (the mesh's own coordinates, its corners in their own order),
+//    the triangles then carried through the mirror as the polygon is.
+//    Blender draws a face by its triangles, and a face that is not planar
+//    is a different surface under a different cut: since GALLEON-2 her
+//    hull's sides lean up to 0.55 m out of their own planes, and the ear
+//    clip this bake used to run (an axis dropped, the lowest-index ear
+//    first) cut her two lower sides unlike each other - a 22 m wedge 65
+//    degrees off her starboard side that her port side lacked, the two
+//    half a metre apart in shape - and folded a fin under her port quarter.
+//    Blender's cut lays that wedge on BOTH sides (it is how his side, bent
+//    at the bow, is drawn), and they stand within 3.3 cm of each other's
+//    mirror. Blender itself cuts five of her hull's faces unlike their
+//    mirror images - her stern quarters (0.36 m apart) and four quads: Mac
+//    drew each the mirror of its partner, but their corners start
+//    elsewhere - and the bake keeps that too, as he sees it (pinned in
+//    test/auditgalleon_bake.test.js). A polygon
+//    its triangles do not TILE is refused by object and number, never
+//    patched (tools/fbxMesh.mjs tilingFault: every triangle wound with its
+//    face, their areas its area to 1e-6, no part of its plane covered more
+//    or fewer times than the face winds about it) - so the bake makes no
+//    point and no triangle of its own. Where Mac drew three corners on one
+//    line (a gunport's sill, a lintel, the fold of her port inner planking,
+//    #76), Blender's fill can cut a triangle of no area along it: it is
+//    kept, as Blender keeps it, and draws nothing (world/galleonMesh.js
+//    MeshBench drops a triangle of no area). The polygons are kept as well,
+//    since a face's texture is chosen per polygon.
 //
 // 3. THE RUDDER OUT OF THE HULL. Mac modelled it into the hull's own mesh
 //    (five faces aft of the sternpost); it turns, so it is its own part.
@@ -69,60 +115,75 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { readFbx, nodeAt, childNamed, childrenNamed, property70, objectName } from './fbxRead.mjs';
-import { eulerXYZ, polygonsOf, earClip, isConvexPolygon, sceneFrame } from './fbxMesh.mjs';
+import { eulerXYZ, polygonsOf, sceneFrame, blenderTessellate, blenderProject, tilingFault } from './fbxMesh.mjs';
 import { isMain } from './lib/isMain.mjs';
 
 export const SOURCE_FBX = 'src/assets/galleon/source/New_Ship.fbx';
 export const OUT = 'src/assets/galleon/galleon.json';
 
-/** The boat's frame, from Mac's scene (metres, Z up, bow +X). GALLEON-2: `centreline` the scene Y of her keel line -
- *  her hull's beam halved, 27.8779 to 44.6156 - where the first export stood her on Y 0. */
-export const FRAME = Object.freeze({ scale: 0.7, waterline: 3, midship: 2.7, centreline: 36.2467 });
+/** The boat's frame, from Mac's scene (metres, Z up, bow +X). GALLEON-2: `centreline` the scene Y of her keel line,
+ *  where the first export stood her on Y 0. AUDIT GN-B6: it is her hull object's own placement, exactly - Lcl
+ *  Translation Z -3624.673828125 cm through the file's frame (FBX -Z is the scene's Y, a centimetre a hundredth) - not
+ *  her beam halved to 0.1 mm (36.2467, 38 um to starboard of it, split mirror pairs' |x| at the bake's last digit). */
+export const FRAME = Object.freeze({ scale: 0.7, waterline: 3, midship: 2.7, centreline: 36.24673828125 });
+
+/** AUDIT GN-B5: the axes this export was written in (Blender's FBX default: Y up, Z front, X right - all positive),
+ *  read off its GlobalSettings. tools/fbxMesh.mjs sceneFrame reads the up and coord axes; the front axis it never asks
+ *  is what makes the frame right-handed, so a file written in any other axes is refused, never re-derived. */
+export const EXPORT_AXES = Object.freeze({ UpAxis: 1, UpAxisSign: 1, FrontAxis: 2, FrontAxisSign: 1, CoordAxis: 0, CoordAxisSign: 1 });
+
+/** AUDIT GN-B5: how far (m, any coordinate of the box) an object may stand from where its role was read. */
+export const BOX_SLACK = 0.02;
 
 /**
  * Each of the scene's objects, by the role it plays aboard. Read off the
  * scene itself (tools/bakeGalleon.mjs --list prints every object's box):
  * the names are Blender's defaults, so each role ALSO states where its
- * object must stand (`at`: a point inside its scene box) - a re-export
- * that renamed or moved one fails here by name, never ships a stair as a
- * hatch.
+ * object stands. AUDIT GN-B5: as its whole scene `box` ([min, max], metres,
+ * to the millimetre, read off this export) - BOX_SLACK (2 cm) out in any
+ * coordinate and the bake refuses it by name: a re-export that renamed,
+ * moved or reshaped one never ships a stair as a hatch (the old test was a
+ * point inside the box, which let a gun deck slide 5 cm and a deck beam 59).
  */
-const Y = FRAME.centreline;
 export const ROLES = Object.freeze({
-  Cube: Object.freeze({ role: 'hull', at: [2, Y + 5, 8] }),
-  'Cube.001': Object.freeze({ role: 'gunDeck', at: [0, Y, 4.55] }),
-  'Cube.002': Object.freeze({ role: 'mainDeck', at: [0, Y, 11.7] }),
-  'Cube.003': Object.freeze({ role: 'hatchAft', at: [-3.9, Y, 13] }),
-  'Cube.004': Object.freeze({ role: 'hatchFore', at: [9.3, Y, 11.9] }),
-  'Cube.005': Object.freeze({ role: 'castle', at: [-18, Y, 15] }),
-  'Cube.006': Object.freeze({ role: 'castleParapet', at: [-15, Y, 19] }),
-  'Cube.007': Object.freeze({ role: 'bulkhead', at: [-11.8, Y, 8] }),
-  'Cube.008': Object.freeze({ role: 'stairsStarboard', at: [-13, Y - 5.8, 15] }),
-  'Cube.009': Object.freeze({ role: 'balustradePort', at: [-10, Y + 7.45, 13] }),
-  'Cube.010': Object.freeze({ role: 'stairsPort', at: [-13, Y + 5.8, 15] }),
-  'Cube.011': Object.freeze({ role: 'gunportLid', at: [-3.6, Y + 9.3, 7.2] }),
+  Cube: Object.freeze({ role: 'hull', box: [[-28.597, 27.878, -3.634], [34.033, 44.616, 13.367]] }),
+  'Cube.001': Object.freeze({ role: 'gunDeck', box: [[-23.233, 28.924, 4.547], [31.592, 43.569, 4.547]] }),
+  'Cube.002': Object.freeze({ role: 'mainDeck', box: [[-24.532, 28.657, 11.486], [32.581, 43.837, 11.86]] }),
+  'Cube.003': Object.freeze({ role: 'hatchAft', box: [[-6.283, 34.167, 11.925], [-1.439, 37.403, 14.207]] }),
+  'Cube.004': Object.freeze({ role: 'hatchFore', box: [[6.913, 34.456, 11.701], [11.757, 38.038, 12.111]] }),
+  'Cube.005': Object.freeze({ role: 'castle', box: [[-25.736, 28.652, 11.172], [-12.009, 43.854, 18.74]] }),
+  'Cube.006': Object.freeze({ role: 'castleParapet', box: [[-18.434, 31.642, 18.567], [-12.121, 40.867, 19.797]] }),
+  'Cube.007': Object.freeze({ role: 'bulkhead', box: [[-12.126, 28.788, 3.959], [-11.498, 43.705, 11.612]] }),
+  'Cube.008': Object.freeze({ role: 'stairsStarboard', box: [[-18.272, 29.466, 11.596], [-7.926, 31.507, 18.707]] }),
+  'Cube.009': Object.freeze({ role: 'balustradePort', box: [[-14.12, 43.587, 10.114], [-3.083, 43.81, 17.037]] }),
+  'Cube.010': Object.freeze({ role: 'stairsPort', box: [[-18.272, 41.027, 11.596], [-7.926, 43.067, 18.707]] }),
+  'Cube.011': Object.freeze({ role: 'gunportLid', box: [[-4.215, 44.421, 7.037], [-2.971, 46.646, 7.385]] }),
   // GALLEON-2: the deck beams, aft to fore - one role, six objects (galleonModel.js draws them as one)
-  'Cube.019': Object.freeze({ role: 'deckBeam', at: [-15.67, Y, 11] }),
-  'Cube.013': Object.freeze({ role: 'deckBeam', at: [-7.18, Y, 11] }),
-  'Cube.012': Object.freeze({ role: 'deckBeam', at: [0, Y, 11] }),
-  'Cube.018': Object.freeze({ role: 'deckBeam', at: [5.86, Y, 11] }),
-  'Cube.017': Object.freeze({ role: 'deckBeam', at: [12.86, Y, 11] }),
-  'Cube.016': Object.freeze({ role: 'deckBeam', at: [17.66, Y, 11] }),
-  'Cube.014': Object.freeze({ role: 'balustradeStarboard', at: [-10, Y - 7.45, 13] }),
-  'Cube.015': Object.freeze({ role: 'castleRail', at: [-20, Y, 19.5] }),
-  Cylinder: Object.freeze({ role: 'bowsprit', at: [37, Y, 14.5] }),
-  'Cylinder.001': Object.freeze({ role: 'mainMast', at: [2.5, Y, 20] }),
-  'Cylinder.002': Object.freeze({ role: 'foreMast', at: [15.3, Y, 20] }),
-  'Cylinder.003': Object.freeze({ role: 'mainPartner', at: [2.6, Y, 12.2] }),
-  'Cylinder.004': Object.freeze({ role: 'mainStep', at: [2.6, Y, 5.3] }),
-  'Cylinder.005': Object.freeze({ role: 'foreStep', at: [15.4, Y, 5.3] }),
-  'Cylinder.006': Object.freeze({ role: 'forePartner', at: [15.4, Y, 12.2] }),
-  'Cylinder.007': Object.freeze({ role: 'crowsNest', at: [2.7, Y, 30] }),
+  'Cube.019': Object.freeze({ role: 'deckBeam', box: [[-16.22, 28.991, 10.458], [-15.114, 43.503, 11.565]] }),
+  'Cube.013': Object.freeze({ role: 'deckBeam', box: [[-7.727, 28.991, 10.458], [-6.621, 43.503, 11.565]] }),
+  'Cube.012': Object.freeze({ role: 'deckBeam', box: [[-0.553, 28.991, 10.458], [0.553, 43.503, 11.565]] }),
+  'Cube.018': Object.freeze({ role: 'deckBeam', box: [[5.301, 28.991, 10.458], [6.408, 43.503, 11.565]] }),
+  'Cube.017': Object.freeze({ role: 'deckBeam', box: [[12.299, 28.991, 10.458], [13.405, 43.503, 11.565]] }),
+  'Cube.016': Object.freeze({ role: 'deckBeam', box: [[17.102, 28.991, 10.458], [18.209, 43.503, 11.565]] }),
+  'Cube.014': Object.freeze({ role: 'balustradeStarboard', box: [[-14.12, 28.684, 10.114], [-3.083, 28.907, 17.037]] }),
+  'Cube.015': Object.freeze({ role: 'castleRail', box: [[-25.709, 28.661, 18.567], [-12.345, 43.793, 20.567]] }),
+  Cylinder: Object.freeze({ role: 'bowsprit', box: [[32.218, 35.605, 12.134], [42.484, 36.887, 16.067]] }),
+  'Cylinder.001': Object.freeze({ role: 'mainMast', box: [[1.617, 35.296, 4.102], [3.427, 37.198, 29.69]] }),
+  'Cylinder.002': Object.freeze({ role: 'foreMast', box: [[14.422, 35.296, 4.102], [16.232, 37.198, 27.198]] }),
+  'Cylinder.003': Object.freeze({ role: 'mainPartner', box: [[0.901, 34.455, 11.615], [4.312, 38.04, 12.839]] }),
+  'Cylinder.004': Object.freeze({ role: 'mainStep', box: [[0.901, 34.455, 4.271], [4.312, 38.04, 6.416]] }),
+  'Cylinder.005': Object.freeze({ role: 'foreStep', box: [[13.659, 34.455, 4.271], [17.071, 38.04, 6.416]] }),
+  'Cylinder.006': Object.freeze({ role: 'forePartner', box: [[13.659, 34.455, 11.615], [17.071, 38.04, 12.839]] }),
+  'Cylinder.007': Object.freeze({ role: 'crowsNest', box: [[0.111, 33.528, 28.901], [5.287, 38.968, 31.255]] }),
 });
 /** What the scene keeps and she never wears, each checked to be what it is said to be - so a real part is never
  *  dropped by its name:
- *  - `minY`: another STATION, wholly beyond that scene Y - the whole ship again joined into one object (three of them,
- *    working copies Mac keeps beside the parts) and the spare hatch covers and shutter by the third;
+ *  - `minY`: a working STATION, wholly beyond that scene Y. AUDIT GN-B7, each read face for face against the parts:
+ *    Cube.022 the FIRST export's ship joined into one object (its hull the first's, her fore hatch cover with it, no
+ *    aft cover, lid or beams); Cube.038 a hull BETWEEN the two exports' (79 of her 95 faces, 4 of the first's, 8 of
+ *    neither) with her other parts and her beams, no hatch cover or lid; Cube.029 her current parts joined TWICE OVER
+ *    (every face of them twice, in place), no hatch cover or lid; and Cube.020, .021 and .023, a spare aft and fore
+ *    hatch cover and gunport lid standing beside Cube.038;
  *  - `twin`: GALLEON-2, a part's copy standing IN its place (a Shift+D never moved), the same corners and faces as
  *    the part it names to the micrometre - its materials' names apart. */
 export const SKIP = Object.freeze({
@@ -149,10 +210,42 @@ export function toBoat([x, y, z], frame = FRAME) {
   return [(frame.centreline - y) * frame.scale, (z - frame.waterline) * frame.scale, (x - frame.midship) * frame.scale];
 }
 
-/** Every Mesh model with its Geometry, materials and scene placement, from a parsed FBX. */
+/** AUDIT GN-B5: the transform properties T*R*S does not carry, each at the value that leaves it out. Blender writes
+ *  none of them; a file that does was authored with a pivot or an offset the bake would silently drop. */
+const UNREAD_TRANSFORM = Object.freeze([
+  ['PreRotation', [0, 0, 0]], ['PostRotation', [0, 0, 0]], ['RotationOffset', [0, 0, 0]], ['RotationPivot', [0, 0, 0]],
+  ['ScalingOffset', [0, 0, 0]], ['ScalingPivot', [0, 0, 0]],
+  ['GeometricTranslation', [0, 0, 0]], ['GeometricRotation', [0, 0, 0]], ['GeometricScaling', [1, 1, 1]],
+]);
+
+/** AUDIT GN-B5: the file is in this export's axes (EXPORT_AXES), or the bake refuses it, naming what differs. */
+function assertExportAxes(tree) {
+  const gs = nodeAt(tree.nodes, 'GlobalSettings');
+  if (!gs) throw new Error('no GlobalSettings in this FBX - the bake reads its axes there');
+  for (const [key, want] of Object.entries(EXPORT_AXES)) {
+    const got = property70(gs, key)?.[0];
+    if (got === undefined || Number(got) !== want) {
+      throw new Error(`GlobalSettings ${key} is ${got} where this export's is ${want} - the bake reads Blender's FBX axes (${Object.entries(EXPORT_AXES).map(([k, v]) => `${k} ${v}`).join(', ')}) and no other; export with Forward -Z, Up Y`);
+    }
+  }
+}
+
+const det3 = (a) => a[0] * (a[4] * a[8] - a[5] * a[7]) - a[1] * (a[3] * a[8] - a[5] * a[6]) + a[2] * (a[3] * a[7] - a[4] * a[6]);
+
+/** AUDIT GN-B6: an Euler angle (degrees) within a microradian of a quarter turn IS that quarter turn. Blender's
+ *  exporter writes its axis conversion (-90 about X) into every root object's rotation through single precision, and
+ *  the noise is a float32 step or two: the hull's reads -90.0000093 (0.16 urad), which tilts her mirror plane enough
+ *  that a vertex Mac mirrored exactly bakes 1.6 um off its pair - across the bake's last digit for five of them. No
+ *  modelled rotation is a microradian off a quarter turn; nothing here moves more than 2.8 um (her main mast's head). */
+const quarterTurn = (deg) => { const q = Math.round(deg / 90) * 90; return Math.abs(deg - q) * (Math.PI / 180) <= 1e-6 ? q : deg; };
+
+/** Every Mesh model with its Geometry, materials and placement, from a parsed FBX: `local` its mesh's own vertices (as
+ *  Blender holds them - AUDIT GN-B1 cuts its faces there), `scene` the same placed in Mac's scene, `origin` where its
+ *  own origin stands in the scene (AUDIT GN-B6). */
 export function sceneObjects(tree) {
   const objects = nodeAt(tree.nodes, 'Objects');
   if (!objects) throw new Error('no Objects section in this FBX');
+  assertExportAxes(tree);
   const byId = new Map(objects.children.map((o) => [String(o.props[0]), o]));
   const links = childrenNamed(nodeAt(tree.nodes, 'Connections'), 'C').map((c) => ({ kind: c.props[0], src: String(c.props[1]), dst: String(c.props[2]) }));
   const frame = sceneFrame(tree);
@@ -163,7 +256,7 @@ export function sceneObjects(tree) {
     const name = objectName(model.props[1]);
     const parent = links.find((l) => l.kind === 'OO' && l.src === id);
     if (!parent || parent.dst !== '0') throw new Error(`${name} is parented under object ${parent?.dst} - the bake reads root objects only`);
-    for (const [prop, identity] of [['PreRotation', [0, 0, 0]], ['PostRotation', [0, 0, 0]], ['RotationPivot', [0, 0, 0]], ['ScalingPivot', [0, 0, 0]], ['GeometricTranslation', [0, 0, 0]], ['GeometricRotation', [0, 0, 0]], ['GeometricScaling', [1, 1, 1]]]) {
+    for (const [prop, identity] of UNREAD_TRANSFORM) {
       const v = property70(model, prop);
       if (v && v.some((x, i) => Math.abs(Number(x) - identity[i]) > 1e-9)) throw new Error(`${name} carries ${prop} ${JSON.stringify(v)} - the bake reads T*R*S only`);
     }
@@ -173,9 +266,14 @@ export function sceneObjects(tree) {
     if (!geo) throw new Error(`${name} has no Geometry`);
     const materials = links.filter((l) => l.kind === 'OO' && l.dst === id && byId.get(l.src)?.name === 'Material').map((l) => objectName(byId.get(l.src).props[1]));
     const S = (property70(model, 'Lcl Scaling') ?? [1, 1, 1]).map(Number);
-    const R = eulerXYZ((property70(model, 'Lcl Rotation') ?? [0, 0, 0]).map(Number));
+    const R = eulerXYZ((property70(model, 'Lcl Rotation') ?? [0, 0, 0]).map(Number).map(quarterTurn));
     const T = (property70(model, 'Lcl Translation') ?? [0, 0, 0]).map(Number);
     const m = frame.m;
+    // AUDIT GN-B5: a transform that mirrors (a negative scale, an odd number of them) turns every face it carries
+    // inside out - the bake's own mirror reverses each polygon's corners on the strength of the frame alone. The
+    // determinant of the whole linear map, the file's frame times R times S, says so whatever the rotation.
+    const det = det3([0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => (m[r * 3] * R[c] + m[r * 3 + 1] * R[3 + c] + m[r * 3 + 2] * R[6 + c]) * S[c])));
+    if (!(det > 0)) throw new Error(`${name}'s transform ${det < 0 ? 'mirrors it' : 'flattens it'} (scale ${JSON.stringify(S)}, determinant ${det.toPrecision(4)}) - ${det < 0 ? 'its faces would bake inside out' : 'it would bake flat'}; apply the scale in Blender (Ctrl+A) before exporting`);
     // the object's T*R*S into FBX world space, then the file's frame into the scene (metres, Z up)
     const place = (p) => {
       const s = [p[0] * S[0], p[1] * S[1], p[2] * S[2]];
@@ -185,148 +283,37 @@ export function sceneObjects(tree) {
     const raw = childNamed(geo, 'Vertices')?.props[0];
     const pvi = childNamed(geo, 'PolygonVertexIndex')?.props[0];
     if (!raw || !pvi) throw new Error(`${name}'s Geometry carries no Vertices/PolygonVertexIndex`);
-    const scene = [];
-    for (let i = 0; i < raw.length; i += 3) scene.push(place([raw[i], raw[i + 1], raw[i + 2]]));
+    const local = [], scene = [];
+    for (let i = 0; i < raw.length; i += 3) {
+      local.push([raw[i], raw[i + 1], raw[i + 2]]);
+      scene.push(place([raw[i], raw[i + 1], raw[i + 2]]));
+    }
     const matLayer = childNamed(geo, 'LayerElementMaterial');
     const matIndex = matLayer ? childNamed(matLayer, 'Materials')?.props[0] : null;
     const matMap = matLayer ? childNamed(matLayer, 'MappingInformationType')?.props[0] : null;
     const polygons = polygonsOf(pvi);
     const polyMaterial = polygons.map((_, k) => (matIndex ? (matMap === 'AllSame' ? matIndex[0] : matIndex[k]) : -1));
-    out.push({ name, scene, polygons, polyMaterial, materials });
+    out.push({ name, local, scene, origin: place([0, 0, 0]), polygons, polyMaterial, materials });
   }
   return out;
 }
 
 /**
- * BLENDER'S OWN FILL, for the faces an ear clip cannot take. The hull's sides were cut with their gunports by a
- * boolean, and what it leaves is n-gons that TOUCH THEMSELVES: a 24-gon runs round four ports through the edges between
- * them, its corners visiting the same point twice. tools/fbxMesh.mjs earClip (rightly, for a garment) refuses one; but
- * Blender draws it - BLI_polyfill_calc, an ear clip in the face's own plane in which a corner that only TOUCHES an
- * ear (on its edge, or on one of its own corners) does not block it, and which, finding no ear at all, clips one
- * anyway rather than leave the face open - and what Blender drew is what Mac modelled. So the same fill here: the
- * polygon projected as earClip projects it (the winding kept), an ear any corner whose triangle is convex and holds no
- * other corner STRICTLY inside, ears taken lowest index first, and when none is left the most convex corner clipped.
- * Returns triangles as index triples into `pts`.
+ * AUDIT GN-B1: POLYGON `k` OF AN OBJECT CUT AS BLENDER CUTS IT, OR REFUSED. Its corners as Blender holds them - the
+ * mesh's own coordinates, in the polygon's own order - through tools/fbxMesh.mjs blenderTessellate; then the cut is
+ * held to its face (tilingFault: in the plane the fill worked in, each triangle's area judged on its corners in 3D,
+ * so one standing edge-on to the face is caught too), and a polygon it does not tile is refused, naming the object
+ * and the polygon, never patched - no point made along an edge, no fill of the bake's own. Returns corner-index
+ * triples, each wound as the polygon is.
  */
-export function polyfill(pts) {
-  const n = pts.length;
-  if (n === 3) return [[0, 1, 2]];
-  const nrm = [0, 0, 0];
-  for (let i = 0; i < n; i++) {
-    const a = pts[i], b = pts[(i + 1) % n];
-    nrm[0] += (a[1] - b[1]) * (a[2] + b[2]); nrm[1] += (a[2] - b[2]) * (a[0] + b[0]); nrm[2] += (a[0] - b[0]) * (a[1] + b[1]);
-  }
-  const k = [0, 1, 2].reduce((best, i) => (Math.abs(nrm[i]) > Math.abs(nrm[best]) ? i : best), 0);
-  const [ia, ib] = k === 0 ? [1, 2] : k === 1 ? [2, 0] : [0, 1];
-  const flip = nrm[k] < 0 ? -1 : 1;
-  const p2 = pts.map((p) => [p[ia], p[ib] * flip]);
-  let span = 0;
-  for (const p of p2) span = Math.max(span, Math.abs(p[0]), Math.abs(p[1]));
-  const eps = 1e-9 * Math.max(1, span * span);
-  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  const same = (a, b) => Math.abs(a[0] - b[0]) < 1e-7 && Math.abs(a[1] - b[1]) < 1e-7;
-  const strictlyInside = (p, a, b, c) => !same(p, a) && !same(p, b) && !same(p, c) && cross(a, b, p) > eps && cross(b, c, p) > eps && cross(c, a, p) > eps;
-  const ring = pts.map((_, i) => i);
-  const tris = [];
-  while (ring.length > 3) {
-    let cut = -1, best = -1, bestTurn = -Infinity;
-    for (let r = 0; r < ring.length && cut < 0; r++) {
-      const i0 = ring[(r + ring.length - 1) % ring.length], i1 = ring[r], i2 = ring[(r + 1) % ring.length];
-      const turn = cross(p2[i0], p2[i1], p2[i2]);
-      if (turn > bestTurn) { bestTurn = turn; best = r; }
-      if (turn <= eps) continue;   // reflex or flat - not an ear
-      let clear = true;
-      for (const j of ring) {
-        if (j === i0 || j === i1 || j === i2) continue;
-        if (strictlyInside(p2[j], p2[i0], p2[i1], p2[i2])) { clear = false; break; }
-      }
-      if (clear) cut = r;
-    }
-    if (cut < 0) cut = best;   // Blender's desperate mode: no ear - the most convex corner goes anyway
-    tris.push([ring[(cut + ring.length - 1) % ring.length], ring[cut], ring[(cut + 1) % ring.length]]);
-    ring.splice(cut, 1);
-  }
-  tris.push([ring[0], ring[1], ring[2]]);
+export function fillFace(object, k) {
+  const poly = object.polygons[k];
+  if (poly.length < 3) throw new Error(`${object.name} polygon #${k}: ${poly.length} corners is not a face`);
+  const corners = poly.map((vi) => object.local[vi]);
+  const tris = blenderTessellate(corners);
+  const fault = tilingFault(blenderProject(corners), tris, corners);
+  if (fault) throw new Error(`${object.name} polygon #${k} (${poly.length} corners): Blender's cut does not tile it - ${fault}. Fix the face in Blender before exporting.`);
   return tris;
-}
-
-/** A face's corners projected into its own plane as polyfill projects them (the dominant axis of its Newell normal,
- *  flipped so the face winds counter-clockwise there). */
-function facePlane(pts) {
-  const nrm = [0, 0, 0];
-  for (let i = 0; i < pts.length; i++) {
-    const a = pts[i], b = pts[(i + 1) % pts.length];
-    nrm[0] += (a[1] - b[1]) * (a[2] + b[2]); nrm[1] += (a[2] - b[2]) * (a[0] + b[0]); nrm[2] += (a[0] - b[0]) * (a[1] + b[1]);
-  }
-  const k = [0, 1, 2].reduce((best, i) => (Math.abs(nrm[i]) > Math.abs(nrm[best]) ? i : best), 0);
-  const [ia, ib] = k === 0 ? [1, 2] : k === 1 ? [2, 0] : [0, 1];
-  const flip = nrm[k] < 0 ? -1 : 1;
-  return pts.map((p) => [p[ia], p[ib] * flip]);
-}
-/** A face's winding about a point of its plane - the face as it fills, nought outside it (in a port bridged into it). */
-function windingOf(p2, q) {
-  let w = 0;
-  for (let e = 0; e < p2.length; e++) {
-    const a = p2[e], b = p2[(e + 1) % p2.length];
-    const c = (b[0] - a[0]) * (q[1] - a[1]) - (q[0] - a[0]) * (b[1] - a[1]);
-    if (a[1] <= q[1]) { if (b[1] > q[1] && c > 0) w++; } else if (b[1] <= q[1] && c < 0) w--;
-  }
-  return w;
-}
-/** Whether every triangle of a fill lies in its face: each one's middle within the face's winding. */
-export function fillInside(pts, tris) {
-  const p2 = facePlane(pts);
-  return tris.every(([a, b, c]) => {
-    const area = (p2[b][0] - p2[a][0]) * (p2[c][1] - p2[a][1]) - (p2[c][0] - p2[a][0]) * (p2[b][1] - p2[a][1]);
-    return Math.abs(area) < 1e-9 || windingOf(p2, [(p2[a][0] + p2[b][0] + p2[c][0]) / 3, (p2[a][1] + p2[b][1] + p2[c][1]) / 3]) !== 0;
-  });
-}
-
-/**
- * THE FACE BY ITS WINDING, for a face neither clip fills inside itself: the port side's inner planking is a 24-gon that
- * runs round her ports and folds back along their lintels, and no ear is left in it - the fill's desperate corner laid
- * two triangles over two of her ports from inside (test/galleon_model.test.js shoots through them). Its winding is the
- * planking with the ports open, so it is filled as that: the plane cut into slabs at every corner's abscissa, each slab
- * between the face's edges that span it, a trapezoid (two triangles) wherever the winding is not nought. A slab's corner
- * on an edge between its ends is a point of the face's own, found along that edge. Returns `{ points, tris }`: the
- * corners and the points made, the triangles as index triples into them (counter-clockwise in the face's plane).
- */
-export function slabFill(pts) {
-  const p2 = facePlane(pts), n = pts.length;
-  const xs = [...new Set(p2.map((p) => +p[0].toFixed(7)))].sort((a, b) => a - b);
-  const points = pts.map((p) => [...p]), made = new Map(), tris = [];
-  /** The point where edge `e` stands at abscissa `x` - a corner of the face's own, or one made along the edge. */
-  const at = (e, x) => {
-    const a = p2[e], b = p2[(e + 1) % n];
-    const t = (x - a[0]) / (b[0] - a[0]);
-    if (Math.abs(t) < 1e-9) return e;
-    if (Math.abs(t - 1) < 1e-9) return (e + 1) % n;
-    const key = `${e}:${x}`;
-    if (!made.has(key)) {
-      const A = pts[e], B = pts[(e + 1) % n];
-      made.set(key, points.length);
-      points.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]);
-    }
-    return made.get(key);
-  };
-  const yAt = (e, x) => { const a = p2[e], b = p2[(e + 1) % n]; return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]); };
-  for (let s = 0; s + 1 < xs.length; s++) {
-    const x0 = xs[s], x1 = xs[s + 1], xm = (x0 + x1) / 2;
-    const span = [];
-    for (let e = 0; e < n; e++) {
-      const a = p2[e][0], b = p2[(e + 1) % n][0];
-      if (Math.min(a, b) <= x0 + 1e-7 && Math.max(a, b) >= x1 - 1e-7 && Math.abs(b - a) > 1e-9) span.push(e);
-    }
-    span.sort((e, f) => yAt(e, xm) - yAt(f, xm));
-    for (let k = 0; k + 1 < span.length; k++) {
-      const lo = span[k], hi = span[k + 1];
-      if (!(yAt(hi, xm) - yAt(lo, xm) > 1e-9) || windingOf(p2, [xm, (yAt(lo, xm) + yAt(hi, xm)) / 2]) === 0) continue;
-      const A = at(lo, x0), B = at(lo, x1), C = at(hi, x1), D = at(hi, x0);
-      if (B !== C) tris.push([A, B, C]);
-      if (A !== D) tris.push([A, C, D]);
-    }
-  }
-  return { points, tris };
 }
 
 /** GALLEON-2: whether two objects are one shape - the same faces on the same corners, each within a micrometre. */
@@ -342,11 +329,13 @@ function boxOf(points) {
   for (const p of points) for (let k = 0; k < 3; k++) { if (p[k] < min[k]) min[k] = p[k]; if (p[k] > max[k]) max[k] = p[k]; }
   return { min, max };
 }
-const inBox = (p, b, pad = 0.05) => p.every((v, k) => v >= b.min[k] - pad && v <= b.max[k] + pad);
+const mm = (b) => [b.min.map((v) => Math.round(v * 1000) / 1000 + 0), b.max.map((v) => Math.round(v * 1000) / 1000 + 0)];
 
 /**
  * One part: its scene polygons over a subset of the object's vertices, re-indexed, into the boat's frame - the
- * positions, each polygon's corners in the port's winding, its triangles, and which polygon each triangle is of.
+ * positions (the source's corners and no others), each polygon's corners in the port's winding, its triangles, which
+ * polygon each triangle is of, and (AUDIT GN-B7) `split`: how many of its polygons were cut, four corners or more -
+ * the rest were triangles already.
  */
 function bakePart(role, object, polyIds) {
   const remap = new Map();
@@ -359,36 +348,25 @@ function bakePart(role, object, polyIds) {
     return remap.get(vi);
   };
   const polygons = [], triangles = [], triangleOf = [], material = [];
-  let clipped = 0;
+  let split = 0;
   for (const k of polyIds) {
     const poly = object.polygons[k];
-    if (poly.length < 3) throw new Error(`${object.name}: a polygon with ${poly.length} corners is not a face`);
-    const pts = poly.map((vi) => object.scene[vi]);
-    let tris, extra = [];
-    if (poly.length === 3 || isConvexPolygon(pts)) {
-      tris = [];
-      for (let i = 1; i + 1 < poly.length; i++) tris.push([0, i, i + 1]);
-    } else {
-      // a simple concave face clips as tools/fbxMesh.mjs clips one; a face that touches itself, as Blender fills it -
-      // and one neither fills inside itself, by its winding (slabFill)
-      try { tris = earClip(pts); } catch { tris = polyfill(pts); }
-      if (!fillInside(pts, tris)) { const f = slabFill(pts); tris = f.tris; extra = f.points.slice(pts.length); }
-      clipped++;
-    }
+    const tris = fillFace(object, k);   // AUDIT GN-B1: Blender's cut, or refused; GN-B3: on its own corners alone
     const ring = poly.map(take);
-    const made = extra.map((q) => { positions.push(...toBoat(q).map(round4)); return positions.length / 3 - 1; });
-    const at = (i) => (i < ring.length ? ring[i] : made[i - ring.length]);
     const p = polygons.length;
     polygons.push([...ring].reverse());   // the mirror: the port's winding
     material.push(object.polyMaterial[k] >= 0 ? object.materials[object.polyMaterial[k]] ?? null : null);
-    for (const [a, b, c] of tris) { triangles.push(at(a), at(c), at(b)); triangleOf.push(p); }
+    // AUDIT GN-B1: each triangle through the mirror as its polygon goes - (a, b, c) wound with the face in Mac's scene,
+    // (a, c, b) with it in hers
+    for (const [a, b, c] of tris) { triangles.push(ring[a], ring[c], ring[b]); triangleOf.push(p); }
+    if (poly.length > 3) split++;
   }
-  return { role, object: object.name, positions, polygons, material, triangles, triangleOf, clipped };
+  return { role, object: object.name, positions, polygons, material, triangles, triangleOf, split };
 }
 
-/** The bake: the FBX's bytes in, the galleon's parts out. Pure. */
-export function bakeGalleon(fbxBytes) {
-  const tree = readFbx(fbxBytes);
+/** The bake: the FBX's bytes in, the galleon's parts out. Pure. `tree` is the bytes parsed - a test hands in one it
+ *  has changed, to see the bake refuse it. */
+export function bakeGalleon(fbxBytes, tree = readFbx(fbxBytes)) {
   const objects = sceneObjects(tree);
   const parts = [];
   const seen = new Set();
@@ -407,11 +385,15 @@ export function bakeGalleon(fbxBytes) {
     }
     const r = ROLES[o.name];
     if (!r) throw new Error(`${o.name} plays no role aboard - name it in ROLES (or SKIP) after reading the scene`);
+    // AUDIT GN-B5: where it was read, to BOX_SLACK in every coordinate of its box
     const b = boxOf(o.scene);
-    if (!inBox(r.at, b)) throw new Error(`${o.name} (${r.role}) was to stand round ${JSON.stringify(r.at)} and its box is ${JSON.stringify(b.min.map((v) => +v.toFixed(2)))}..${JSON.stringify(b.max.map((v) => +v.toFixed(2)))}`);
+    const off = Math.max(...[b.min, b.max].flatMap((end, e) => end.map((v, k) => Math.abs(v - r.box[e][k]))));
+    if (!(off <= BOX_SLACK)) throw new Error(`${o.name} (${r.role}) was read standing in the box ${JSON.stringify(r.box)} and stands in ${JSON.stringify(mm(b))} - ${(off * 100).toFixed(1)} cm out where ${BOX_SLACK * 100} cm is let pass; read the scene again (--list) before re-baking`);
     seen.add(o.name);
     const all = o.polygons.map((_, k) => k);
     if (r.role === 'hull') {
+      // AUDIT GN-B6: her centreline is this object's own Y, to the bit - or her mirror pairs bake unequal
+      if (o.origin[1] !== FRAME.centreline) throw new Error(`the hull's origin stands at scene Y ${o.origin[1]} and FRAME.centreline is ${FRAME.centreline} - set the centreline to the hull's Y`);
       const rudder = all.filter((k) => o.polygons[k].every((vi) => o.scene[vi][0] < RUDDER.aftOf && Math.abs(o.scene[vi][1] - FRAME.centreline) <= RUDDER.halfThickness));
       if (rudder.length !== 5) throw new Error(`the hull's rudder was five faces aft of ${RUDDER.aftOf} and ${rudder.length} were found`);
       parts.push(bakePart('hull', o, all.filter((k) => !rudder.includes(k))));
@@ -426,7 +408,7 @@ export function bakeGalleon(fbxBytes) {
     sha256: createHash('sha256').update(fbxBytes).digest('hex'),
     creator: childNamed(tree.nodes, 'Creator')?.props[0] ?? null,
     frame: { ...FRAME },
-    parts: parts.map(({ clipped, ...p }) => ({ ...p, earClipped: clipped })),
+    parts,
   };
 }
 
@@ -444,14 +426,14 @@ if (isMain(import.meta.url)) {
   const bytes = readFileSync(fbx);
   if (args.includes('--list')) {
     for (const o of sceneObjects(readFbx(bytes))) {
-      const b = boxOf(o.scene);
-      console.log(`${o.name.padEnd(14)} ${(ROLES[o.name]?.role ?? (SKIP[o.name] ? '(skipped)' : '?')).padEnd(20)} ${b.min.map((v) => v.toFixed(2)).join(',')} .. ${b.max.map((v) => v.toFixed(2)).join(',')}  ${o.polygons.length} polygons`);
+      // AUDIT GN-B5: the box as ROLES records it, to the millimetre
+      console.log(`${o.name.padEnd(14)} ${(ROLES[o.name]?.role ?? (SKIP[o.name] ? '(skipped)' : '?')).padEnd(20)} ${JSON.stringify(mm(boxOf(o.scene)))}  ${o.polygons.length} polygons`);
     }
   } else {
     const baked = bakeGalleon(bytes);
     mkdirSync(dirname(OUT), { recursive: true });
     writeFileSync(OUT, galleonJson(baked));
     console.log(`${fbx} -> ${OUT}`);
-    for (const p of baked.parts) console.log(`  ${p.role.padEnd(20)} ${p.object.padEnd(14)} ${String(p.positions.length / 3).padStart(4)} vertices ${String(p.polygons.length).padStart(3)} polygons ${String(p.triangles.length / 3).padStart(4)} triangles${p.earClipped ? ` (${p.earClipped} ear-clipped)` : ''}`);
+    for (const p of baked.parts) console.log(`  ${p.role.padEnd(20)} ${p.object.padEnd(14)} ${String(p.positions.length / 3).padStart(4)} vertices ${String(p.polygons.length).padStart(3)} polygons ${String(p.triangles.length / 3).padStart(4)} triangles${p.split ? ` (${p.split} cut)` : ''}`);
   }
 }
