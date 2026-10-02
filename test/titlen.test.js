@@ -86,6 +86,12 @@ test('TITLE-N grants: the Dungeon Master is SquidKamer\'s alone and Disciple is 
     assert.deepEqual(titlesHeld(dev, denv), ['developer'], `${h}: the Developer title, case-folded`);
     assert.deepEqual(glyphsOf(dev, denv, 1_900_000_000), ['dev'], `${h}: the dev glyph`);
   }
+  // MOD2 (2026-10-02, Mac: "give tabbyvish the moderator title/glyph for ingame"): the moderator list, case-folded
+  assert.equal(v('MODERATOR_HANDLES'), 'Asynian,tabbyvish', 'MOD1: Asynian; MOD2: tabbyvish');
+  for (const h of ['asynian', 'TabbyVish']) {
+    const mod = { handle: h, created_at: 1_800_000_000, registered_at: 1_900_000_000 };
+    assert.deepEqual(glyphsOf(mod, { MODERATOR_HANDLES: v('MODERATOR_HANDLES') }, 1_900_000_000), ['mod'], `${h}: the mod shield`);
+  }
   assert.equal(v('HIEROPHANT_HANDLES'), '', 'nobody yet');
   // AUDIT B8 (SHADOW-FANG): the whole list, not a prefix of it - and every list's title and glyph IN the token's closed
   // vocabulary: one outside it makes mintToken throw, and /v1/auth/token a 500 for every handle on that list
