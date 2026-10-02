@@ -360,7 +360,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   // CENTRE, and `hitDist` what AlignControllerToGround's ray found below
   // it (null: nothing within 3); the drop needs the capsule the sprite
   // sizes, so it lands once the sprite has.
-  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
+  async function spawnFoe(mobileType, pos, { gender: forcedGender = null, yaw = null, questBehaviour = null, allied = false, feetGiven = false, replacing = false, puppet = null, seq = null, level = null, placed = false, groundAlign = null, site = null, loose = false, transformY = null, team = null, transient = false, managed = false, questMarker = false, champion = undefined, revenant = null, eliteFoe = undefined } = {}) {   // LOOT7: `champion` - a puppet's owner's word or a save's trait (null none); unsaid, an encounter's own roll
     // WORLD6b: a puppet is not this cap's. AUDIT 68 review (R-scenes-loose-foe-squad-capped): nor is a `loose` stand -
     // CreateFoeSpawner's (a summoning punishment, RR's expulsion squad, a Rose's Daedroth) stands however many it is
     // told in one loop, and DFU caps none of them; the cap is the encounter rolls'
@@ -393,7 +393,8 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // summoning's squad), or anything on a location's ground. Off Math.random, not this pool's `rolls`, so the
       // encounter's own dice are not moved. ELITE-RARITY: and only past the gate - none while one stands near (mine or
       // a peer's), none within the gap of my last (overworldEliteAllowed, asked before the roll).
-      if (!puppet && !allied && !questBehaviour && !replacing && !team && !loose && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
+      if (eliteFoe === true && !allied) promoteEliteFoe(entity);   // a saved foe's classification, restored before its HP/items overlay - never re-rolled
+      else if (eliteFoe === undefined && !puppet && !allied && !questBehaviour && !replacing && !team && !loose && !inLocation() && elitesAllowed({ onlinePage: isOnlinePage(), inRoom: _net != null })
         && (revenant ? revenant.elite : (overworldEliteAllowed({ now: _eliteMinute(), lastAt: _lastEliteAt, liveElites: foes.filter((f) => !f.dead && f.entity?.eliteFoe).length }) && rollOverworldElite(Math.random)))
         && promoteEliteFoe(entity) && !revenant) _lastEliteAt = _eliteMinute();   // REVENANT: a returning revenant stands as what it was - an elite's glow where elites stand, never a fresh roll, and outside the gap   // ONLINE ONLY
       // SOFTCAP5: THE WILDS ARE AN AREA TOO - the dungeons' law, with the wilderness's share (22% by day, 44% at night):
@@ -1943,6 +1944,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
         // rewrite - came back on its species' static row and turned on
         // the player, with MeleeAttackFriendlyProtection gone with it.
         team: f.entity.team, mobileTeam: f.entity.mobileTeam,
+        eliteFoe: !!f.entity.eliteFoe,   // a saved foe is never re-rolled on load
         champion: f.entity.champion ?? null,   // LOOT7: a champion is saved one, and comes back one - never rolled again
         // AUDIT 63 F29: WabbajackActive (:124, restored :172) - the
         // once-per-creature latch WabbajackEffect.cs:69 refuses on.
@@ -1988,7 +1990,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       // owns one hands it in; a host without one restores plain foes.
       const questBehaviour = (sf.questResource && reviveQuestBehaviour)
         ? (reviveQuestBehaviour(sf.questResource) ?? null) : null;
-      spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed, champion: sf.champion ? championIndex(sf.champion) : null }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
+      spawnFoe(sf.mobileType, [lx, sf.y + yOffset, lz], { gender: sf.gender, feetGiven: true, questBehaviour, placed: !!sf.placed, eliteFoe: sf.eliteFoe === true, champion: sf.champion ? championIndex(sf.champion) : null }).then((f) => {   // REVIEW 2026-09-05: the snapshot holds FEET - a flyer must not take the centre drop twice
         if (!f) return;
         if (typeof sf.site === 'string') f.site = sf.site;   // WOD7: a shared camp's foe keeps riding for its site
         if (sf.questMarker === true) f._questMarker = true;   // AUDIT (pre-merge) F1
@@ -2754,6 +2756,11 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     if (_pupIndex.get(origin) === f) _pupIndex.delete(origin);
     f.puppet = null; f._pupMine = false; f._pup = null; f.seq = _nextSeq++;   // the owner's streamed state goes with the owner
     f._pupYield = false; f._pupExec = null; f._pupSpare = null;   // AUDIT (2026-10-02): its owner's judgement too - it stands as itself
+    // A streamed copy has no decision driver. Its new owner must resume casting from the existing spell state.
+    if (!f.caster && f.entity?.spells?.length) {
+      f.caster = new EnemyCaster(f.entity, rolls);
+      f.ai.canCastRangedSpell = () => f.caster.canCastRangedSpell();
+    }
     // QUEST-PARTY phase 2: a shared quest's foe becomes MY quest's - bound to my own copy's Foe, so its injury and its
     // death are my quest's own word from here (and it rides to the party as mine). AUDIT (the pre-merge audit, Q3): a
     // copy that holds no such quest keeps its partner's word (`_keptTag`) - it took it as a plain foe, which rode to
