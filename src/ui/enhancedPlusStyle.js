@@ -1588,6 +1588,31 @@ body .wb-dmg-track { background: rgba(5,6,8,0.72); box-shadow: 0 0 0 1px #050608
 body .wb-dmg-fill { background: linear-gradient(180deg, #ffc08a 0 1px, #ff7a3a 1px 2px, #d8341a 2px); border-radius: 0; }
 body .wb-dmg-mine { outline: 1px solid ${FRAME_TONES.brassHi}; background: rgba(192,138,62,0.14); }
 body .wb-dmg-more { font-size: 10px; font-style: normal; color: #b9ab86; opacity: 1; }
+/* ARENA2: THE BOUT'S HUD (ui/arenaHud.js) - the plate is a panel and the clock and the crowd's marks chips (the kit's
+   roles); here what a role cannot say: the HUD's words in the pixel face outlined, each track a vital's stone bevel
+   with its fill banded from a lit top (health the vitals' red, stamina their green, the crowd's mood brass), the
+   crowd's middle a brass tick, the darling's mark brass and the villain's blood, my own name brass, a banner's mark
+   down the plate's inner edge (ARENA3's teams paint it; today mine brass, theirs blood). */
+body .arena-hud { ${PIXEL_FONT_CSS} font-weight: 400; color: #efe8d6; text-shadow: ${OUTLINED}; }
+body .arena-plate { padding: 7px 12px 8px; }
+body .arena-track { border: 2px solid; border-color: #9a9079 #3a352a #25221b #6e6755; background: rgba(5,6,8,0.78);
+  box-shadow: 0 0 0 1px #050608; }
+body .arena-fill { background: linear-gradient(180deg, #f2a597 0 2px, #d8685a 2px 4px, #b53a2e 4px 8px, #8a2820 8px); }
+body .arena-stam .arena-fill { background: linear-gradient(180deg, #b9f0c4 0 1px, #49b06a 1px 3px, #2f9152 3px); }
+body .arena-crowd .arena-fill { background: linear-gradient(180deg, #fff0b8 0 1px, #f2c46b 1px 3px, #d9a441 3px 5px, #a87a2a 5px); }
+body .arena-crowd-mid { background: ${FRAME_TONES.brassHi}; box-shadow: 0 0 0 1px #050608; }
+body .arena-ftr[data-you="1"] .arena-ftr-name { color: ${FRAME_TONES.brassHi}; }
+body .arena-ftr[data-banner="you"] .arena-track, body .arena-ftr[data-banner="a"] .arena-track { box-shadow: 0 0 0 1px #050608, inset 2px 0 0 ${FRAME_TONES.brass}; }
+body .arena-ftr[data-banner="them"] .arena-track, body .arena-ftr[data-banner="b"] .arena-track { box-shadow: 0 0 0 1px #050608, inset -2px 0 0 #b83a2e; }
+body .arena-tag[data-tag="darling"] { color: ${FRAME_TONES.brassHi}; }
+body .arena-tag[data-tag="villain"] { color: #ff9a8a; }
+body .arena-out { color: #ff9a8a; }
+body .arena-timer { font-size: 17px; letter-spacing: 0.1em; color: #fffaf0; }
+body .arena-vs { color: #d8cfae; opacity: 1; }
+body .arena-crowd-word[data-band="roar"], body .arena-crowd-word[data-band="cheer"] { color: ${FRAME_TONES.brassHi}; }
+body .arena-crowd-word[data-band="boo"], body .arena-crowd-word[data-band="jeer"] { color: #ff9a8a; }
+body .arena-bark { font-size: 14px; letter-spacing: 0.08em; }
+body .arena-hint { color: ${FRAME_TONES.brassHi}; }
 /* AUDIT MERGE-PLUS D3: STONE'S LIGHT GROUND. The lane's newer surfaces joined the window and panel roles above, and
    Stone paints those a light grey their words were never chosen for - they had kept their own dark ground on every
    theme until then (the F-menu's Cancel read at 2.3:1, a refused row's reason at 4.1:1). On Stone the lane's dim

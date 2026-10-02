@@ -80,7 +80,18 @@ import { entityMaxEncumbrance, handToHandMinDamage, handToHandMaxDamage } from '
 import { carriedWeight } from './charsheet.js';
 import { totalGoldAmount } from '../systems/court.js';   // PlayerEntity.GetGoldAmount, the figure the classic sheet draws
 import { classSpecials } from '../systems/specialAdvantages.js';   // MAC-G: GetClassSpecials, read back off the career's own flags
+import { arenaLadderRestore, ladderTitle } from '../systems/arenaLadder.js';   // ARENA2: the arena's name for you
 import { liveRaceTemplate } from '../systems/vampirism.js';     // MAC-G: the blood half of that list; DISC10-D V5: PlayerEntity.RaceTemplate, the LIVE (compound) race
+
+/** ARENA2: the sheet's Arena lines - the title the ladder gives and the record ("12 won, 3 lost") - or null for a
+ *  character who never fought there. Pure. */
+function arenaSheetLine(raw) {
+  if (!raw) return null;
+  const L = arenaLadderRestore(raw);
+  const r = L.record;
+  if (!(r.wins + r.losses > 0)) return null;
+  return { title: ladderTitle(L), record: `${r.wins} won, ${r.losses} lost` };
+}
 
 /** The three career groups, in DFU's own order, plus the remainder.
  *  `_drawSkillPage`'s `names` array, which is what keys 1-4 page. */
@@ -158,6 +169,8 @@ export function sheetModel(entity) {
     skillReal: (id) => realSkillValue(e, id),
     skillText: (id) => skillValueText(e, id),
     mentor: e._mentor ? mentorStatusText(e) : null,   // automatic: said only while mentoring
+    // ARENA2: the arena's title and record (systems/arenaLadder.js) - null until a bout has been fought on its sand
+    arena: arenaSheetLine(e.arenaLadder),
     // SOFTCAP3: the Master Skills switch - its state, why it cannot move right now (null when it can), what it
     // does in words, and the one door that moves it (systems/masterSkills.js setMasterSkills: { ok, text })
     master: {

@@ -3639,6 +3639,18 @@ function statsCharacter(detail, m) {
     g.append(r);
   }
   detail.append(g);
+  // ARENA2: THE ARENA'S NAME FOR YOU (offline - systems/arenaLadder.js): the title of the highest tier whose champion you
+  // beat, Grand Champion over all, and your record on its sand; said only once you have fought there
+  if (m.arena) {
+    detail.append(pxDivider('The Arena'));
+    const a = el('div', 'px-statgrid');
+    for (const [label, v] of [['Title', m.arena.title ?? 'None yet'], ['Record', m.arena.record]]) {
+      const r = el('div', 'px-stat');
+      r.append(el('span', 'k', label), el('span', 'v', v));
+      a.append(r);
+    }
+    detail.append(a);
+  }
 }
 
 /** BUFF-END (Leafen on Discord: "Could there be a way to dispel magic for non-magic users?"): EFFECTS - every spell on

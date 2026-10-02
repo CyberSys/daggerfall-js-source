@@ -109,7 +109,8 @@ export const FRAME_ROLES = {
     'body .broker-card',
     // NAV-F: the helm's readout (ui/navalHud.js) - the ship's plate and the target card, boxes over the sea
     'body .dfnaval-plate', 'body .dfnaval-card',
-    'body .bounty-card'],   // BOUNTY1: the notice read whole, the reward box
+    'body .bounty-card',   // BOUNTY1: the notice read whole, the reward box
+    'body .arena-plate'],   // ARENA2: the versus bar's plate - a stone panel over the sand
   // panels that carry a brass edge on the left as their own mark
   panelAccent: ['.notice', '.inputbox', 'body .dfsocial-toast', 'body .dfdecor-bar'],   // PLUS-DRESS: the two that wore a brass line
   button: ['.port-host .port-btn', '.inv-info .act', '.pbind .act', '.px-sys .act', '.shell .act', '.px-win .card .act', '.pack-shell .act', '.px-setwrap .act',
@@ -163,7 +164,8 @@ export const FRAME_ROLES = {
     'body .dfnaval-choice'],   // NAV-F: the captor's three choices - the one taken brass
   chip: ['.hud-qspell', '.hud-qstag', '.hud-readied', '.lv-note-key',   // (UI3: the effect and need chips are the status widget's tiles now)
     '.shell .subbtn .count', '.hb .hb-caption',
-    'body .dfnaval-chip', 'body .dfnaval-gun'],   // NAV-F: the plate's fire/brace chips and the battery rose - readouts, never pressed
+    'body .dfnaval-chip', 'body .dfnaval-gun',   // NAV-F: the plate's fire/brace chips and the battery rose - readouts, never pressed
+    'body .arena-timer', 'body .arena-tag'],   // ARENA2: the bout's clock and the crowd's darling/villain marks - readouts
   well: ['.trade-shell .packcol', '.shell .ft-search', '.shell .ft-tile-drawer',   // FT18: the Features search and a tile's opened drawer
     '.port-host .port-field', '.port-host .port-canvas', '.port-host .port-picture img', '.port-host .port-pictureword', '.wizard .namebox', '.sb-shell .sb-rename input', '.cr-shell .cr-compose input', '.hmsearch input',
     '.talk-face', '.pack-shell .figure-doll', '.pack-shell .wornmap-doll.noart', '.shell .look-pic',
