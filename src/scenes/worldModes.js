@@ -283,6 +283,7 @@ import {
   homeDoorName,   // FIELD BUGS 2026-09-30b HOME-PLAQUE: a nameless house with verbs is a Residence
 } from '../systems/onlineHomes.js';
 import { guildHallPrice, GUILD_HALL_ENTRY_WORDS } from '../net/hallLaw.js';   // GUILD1d: what a hall costs, in its refusal's words; who may walk in
+import { SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, SEAT_HALL_TEXT } from '../net/townSeatLaw.js';   // SEAT-HALL: the palace as the holder's hall
 import { HOME_ENTRIES, homePriceOk, rentCost, rentDaysLeft } from '../net/homeLaw.js';
 // HOME-RENT: a home's rooms, rented at its door and offered, priced and collected in its owner's decorator
 import {
@@ -769,6 +770,26 @@ export function createWorldModes(host) {
   // Allows free cam mode for placement and an intuitive scrolling menu with filters". The button stands in a room the
   // player may decorate, the panel sits in this host's own overlay slot (so it pauses the room and frees the pointer as
   // every window does), and a placement flies the camera while the body stands still.
+  /** SEAT-HALL: THE DECOR DOOR - the account service's (host.homeDecor), each write naming the palace's Charter Room where
+   *  it is one (`seat`), so the service keeps it apart from every home's. */
+  function decorDoor() {
+    const d = host.homeDecor;
+    if (!d) return null;
+    const at = (a) => (interiorSeatHall && !interiorHome ? { ...a, seat: true } : a);
+    return { ...d, place: (a) => d.place(at(a)), move: (a) => d.move(at(a)), remove: (a) => d.remove(at(a)) };
+  }
+  /** SEAT-HALL (7.2: "the decor tool refuses a piece within 2 m of any NPC or quest marker the palace's layout places"):
+   *  why a piece at `pt` (the room's frame - the tool's piecePoint) cannot stand, or null - every person the palace
+   *  stands, every quest mark its layout places (a spawn's, an item's) and every quest's stand within SEAT_HALL_CLEAR_M,
+   *  across the floor. */
+  function charterClear(pt) {
+    if (!interiorSeatHall || !pt) return null;
+    const near = (x, z) => Number.isFinite(x) && Number.isFinite(z) && Math.hypot(x - pt[0], z - pt[2]) < SEAT_HALL_CLEAR_M;
+    for (const n of interiorCtx?.people ?? []) if (near(n.x, n.z)) return SEAT_HALL_TEXT.clear;
+    for (const m of interiorCtx?.markers ?? []) if ((m.type === 11 || m.type === 18) && near(m.x, m.z)) return SEAT_HALL_TEXT.clear;   // systems/quest/place.js SPAWN_MARKER_RECORD, ITEM_MARKER_RECORD
+    for (const q of questFlats ?? []) if (!q.dead && near(q.x, q.z)) return SEAT_HALL_TEXT.clear;
+    return null;
+  }
   const decorTool = createDecorTool({
     doc: typeof document !== 'undefined' ? document : null, win: typeof window !== 'undefined' ? window : null,
     canvas, touch: isTouchDevice(), renderer, pool: interiorDecor, names: decorNames,
@@ -780,7 +801,8 @@ export function createWorldModes(host) {
     stick: () => host.stickAxes?.() ?? null,   // DECOR1e: the finger's or the pad's stick, analog - it flies the eye
     actionOf: (e) => actionOf(e, keys),
     locked: () => typeof document !== 'undefined' && document.pointerLockElement === canvas, cursorOff: () => setCursorActive(false),
-    wallet: () => decorWallet(), homeDecor: host.homeDecor ?? null, character: () => host.decorCharacter?.() ?? null,
+    wallet: () => decorWallet(), homeDecor: decorDoor(), character: () => host.decorCharacter?.() ?? null,
+    charterClear: (pt) => charterClear(pt),   // SEAT-HALL: two metres from the court
     realm: () => host.realmAct ?? null,   // REALM P2.2b: a realm character's piece and its gold, one write on the service
     // DECOR2a: the player's own things - what is carried, one of it out, one back
     pack: () => playerEntity.items ?? [], identity: () => playerEntity, furnishings: () => playerEntity.furnishings ?? [],   // DECOR2b: and what the furnisher delivered
@@ -1373,6 +1395,10 @@ export function createWorldModes(host) {
   // town's answer landing mid-visit must not move my things to another scene). Null offline and for any building no
   // player owns; `own` when it is this character's.
   let interiorHome = null;
+  /** SEAT-HALL (Seats-Arc 7.2: "the palace interior is the holder's guild hall"): the visit's palace, where it is a palace
+   *  seat's - `{ key, name, member, keeper }` (host.seatHall.here: the holder's guild's name; whether this character is of
+   *  it, and one of its keepers) - else null. Committed and cleared with interiorHome; never a home (the court stays). */
+  let interiorSeatHall = null;
   // UL1: what Unleveled Loot reads of PlayerEnterExit, PlayerGPS and the
   // player - IsPlayerInsideOpenShop, Interior.BuildingData.Quality,
   // IsPlayerInsideDungeon, CurrentRegionIndex, CurrentLocation's
@@ -3401,10 +3427,10 @@ export function createWorldModes(host) {
     // an online home's are the account service's and are never written here, and a visit to one writes back the save's
     // own record for the building exactly as it came (the pool's `kept`) - and what the storage pieces hold, the owner's
     // own either way
-    const decor = interiorHome ? interiorDecor.kept() : interiorDecor.list();
+    const decor = interiorHome || interiorSeatHall ? interiorDecor.kept() : interiorDecor.list();   // SEAT-HALL: a palace's Charter Room is the service's too
     const decorItems = interiorDecor.itemsSnapshot();
     const decorOwn = interiorDecor.ownSnapshot();   // DECOR2a: the owner's own things standing here - the save's, in every room
-    const hiddenBase = interiorHome ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
+    const hiddenBase = interiorHome || interiorSeatHall ? [..._keptHidden] : (ctx.base?.hidden() ?? []);   // BASE-HIDE: an online home's list is the service's - the save's own is written back as it came
     const guildShelves = ctx.guildShelves ?? {};   // GUILD-SHELF: the day's guild shelves, as bought down - the building's, as its shop shelves are
     return { lootContainers, actionDoors, droppedPiles, droppedTorches, decor, decorItems, decorOwn, hiddenBase, frame: 'building', terrainScale: STREAMING_TERRAIN_SCALE, guildShelves };
   }
@@ -3490,12 +3516,12 @@ export function createWorldModes(host) {
     // home's pieces come from the account service after the restore (loadHomeDecor), and the save's own record for the
     // building is kept, unstood, to be written back as it came; what the pieces hold is this save's.
     const placed = (data.decor ?? []).map(decorPieceOf).filter(Boolean);
-    if (interiorHome) interiorDecor.keep(placed); else interiorDecor.set(placed);
+    if (interiorHome || interiorSeatHall) interiorDecor.keep(placed); else interiorDecor.set(placed);   // SEAT-HALL
     interiorDecor.setItems(data.decorItems);
     interiorDecor.setOwn(data.decorOwn);   // DECOR2a
     // BASE-HIDE: what the owner took out of the offline house's or ship's own furniture; an online home's comes from the
     // account service with its pieces (loadHomeDecor), and the save's own record for the building is kept to go back
-    if (interiorHome) _keptHidden = [...(data.hiddenBase ?? [])]; else interiorCtx.base?.setHidden(data.hiddenBase ?? []);
+    if (interiorHome || interiorSeatHall) _keptHidden = [...(data.hiddenBase ?? [])]; else interiorCtx.base?.setHidden(data.hiddenBase ?? []);
   }
   /** BASE-HIDE: the save's own list for an online home's building, written back as it came (the service's is the room's). */
   let _keptHidden = [];
@@ -3518,7 +3544,7 @@ export function createWorldModes(host) {
     if (piece?.station) { useDecorStation(piece); return; }   // HOME-STATIONS
     if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall
     if (!piece?.storage) return;
-    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards
+    if ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards; SEAT-HALL: a palace's too
     if (!decorOwnerHere()) {
       if (interiorHome) say(homeBelongsLine(interiorHome));
       return;
@@ -3555,13 +3581,15 @@ export function createWorldModes(host) {
 
   /** GUILD1d (Seats-Arc 8.2: "decor in the hall by Officers"): a guild's hall this character keeps - its Officers and its
    *  guildmaster (the service's `keeper`, net/hallLaw.js HALL_POWERS.decorate). */
-  const decorKeeperHere = () => !!(interiorHome?.hall && interiorHome.keeper);
+  const decorKeeperHere = () => !!(interiorHome?.hall && interiorHome.keeper) || !!interiorSeatHall?.keeper;   // SEAT-HALL: the palace's keepers
   /** GUILD1d: a guild's hall this character is a member of - its chest, its stations (AUDIT GUILD1d A2: the forge, the
    *  workbench and the loom too), its beds and its magic are the member's. */
-  const hallMemberHere = () => !!(interiorHome?.hall && interiorHome.member);
+  const hallMemberHere = () => !!(interiorHome?.hall && interiorHome.member) || !!interiorSeatHall?.member;   // SEAT-HALL: the holder's members
   /** GUILD1e (Seats-Arc 8.2: "a private guild board"): a placed piece that is Daggerfall's own board, in a guild's hall -
    *  the hall's board (systems/decorCatalogue.js HALL_BOARD_ENTRY). Anywhere else the same model is furniture. */
-  const isHallBoard = (piece) => !!interiorHome?.hall && piece?.model === BULLETIN_BOARD_MODEL_ID && !piece.item;
+  const isHallBoard = (piece) => (!!interiorHome?.hall || !!interiorSeatHall) && piece?.model === BULLETIN_BOARD_MODEL_ID && !piece.item;   // SEAT-HALL: the roster board in the Charter Room
+  /** SEAT-HALL: the guild whose hall this is - a hall's own, or the palace's holder. */
+  const hallNameHere = () => interiorHome?.hall?.name ?? interiorSeatHall?.name ?? '';
   /** SEASON1 part three (Seats-Arc 9.2: "A Hall of Records book in every seat's palace"): whether building `b` is a seat
    *  town's Palace while the seats are open to this account - its shelves (geometry in DFU's palace: no shop, no
    *  bookshelf) are then its Hall of Records. */
@@ -3603,8 +3631,8 @@ export function createWorldModes(host) {
   /** GUILD1e: THE HALL'S BOARD PRESSED - the guild's own notes for a member (the Notice Board's window, its Guilds tab
    *  alone); to anyone else it says whose it is. */
   function openHallBoard() {
-    if (!hallMemberHere()) { say(hallBoardShutLine(interiorHome?.hall?.name)); return; }
-    if (!host.guildHall?.openBoard?.(interiorHome.hall.name)) say(HALL_BOARD_COLD);
+    if (!hallMemberHere()) { say(hallBoardShutLine(hallNameHere())); return; }
+    if (!host.guildHall?.openBoard?.(hallNameHere())) say(HALL_BOARD_COLD);
   }
   /** GUILD1d: THE GUILD'S CHEST - the guild Stores, on the Guild tab (the host's social panel); said where it cannot open. */
   function openHallChest() {
@@ -3620,9 +3648,12 @@ export function createWorldModes(host) {
     // (interiorDecor.set), so a piece placed before it landed was taken down again, its item sent back to the pack;
     // AUDIT DECOR-SHELL 2: and a list that did not stand leaves the room without the service's pieces and without its
     // owner's taken-out furniture, whose whole list the first piece taken out would write over the service's
-    if (interiorHome && _decorListed !== _decorVisit) return null;
+    if ((interiorHome || interiorSeatHall) && _decorListed !== _decorVisit) return null;
     if (interiorHome?.hall) return { kind: 'home', hall: true, where: "Your guild's hall", mapId: homeTownOf(b), buildingKey: b.buildingKey };   // GUILD1d
     if (interiorHome) return { kind: 'home', where: 'Your home', mapId: homeTownOf(b), buildingKey: b.buildingKey };
+    // SEAT-HALL (7.2): the palace's Charter Room - its keepers', DECOR's catalogue, at most a hundred pieces, in its
+    // largest room and clear of the court (decorTool.js charterWhyNot; charterClear below)
+    if (interiorSeatHall?.keeper) return { kind: 'home', hall: true, seat: true, charter: true, cap: SEAT_HALL_DECOR_CAP, where: SEAT_HALL_TEXT.where, mapId: homeTownOf(b), buildingKey: b.buildingKey };
     if (b.buildingType === BUILDING_TYPES.Ship) return { kind: 'ship', where: 'Your ship' };
     return { kind: 'house', where: 'Your house' };
   }
@@ -3735,10 +3766,11 @@ export function createWorldModes(host) {
    *  (decorRoom.js askDecorList), one ask at a time - a refusal, or the service unreachable, opens no decorator. */
   function loadHomeDecor() {
     const b = interiorBuilding;
-    if (!interiorHome || !host.homeDecor || !b) return;
+    if (!(interiorHome || interiorSeatHall) || !host.homeDecor || !b) return;
+    const seat = !interiorHome && !!interiorSeatHall;   // SEAT-HALL: the palace's Charter Room, for everyone in it
     const visit = _decorVisit;
     askDecorList({
-      ask: () => host.homeDecor.list(homeTownOf(b), b.buildingKey),
+      ask: () => host.homeDecor.list(homeTownOf(b), b.buildingKey, seat),
       live: () => visit === _decorVisit && interiorBuilding === b && _decorListed !== visit,
       stand: (r) => {
         _decorListed = visit;   // DECOR-SHELL: stood - nothing later will stand the room over a placement
@@ -6628,6 +6660,7 @@ export function createWorldModes(host) {
       _insideResidence = insideResidence;
       _insidePartyRestExempt = partyRestExempt;
       interiorHome = home;   // HOME1: the visit's latch, committed with the identity and its three latches
+      interiorSeatHall = building?.buildingType === BUILDING_TYPES.Palace ? (host.seatHall?.here?.(homeTownOf(building)) ?? null) : null;   // SEAT-HALL
       if (home && !home.own && rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000)) > 0) say(rentWelcomeLine(rentDaysLeft(home.tenant, Math.floor(Date.now() / 1000))));   // HOME-RENT: a tenant is told their days
       // ...and my home's scene is KEPT, whichever page bought it: a purchase on a page that was never saved left the
       // service's word standing and the save's permanent set without it, and the next clearing of the scene cache would
@@ -6937,7 +6970,7 @@ export function createWorldModes(host) {
         // not the room's. Shut, and said so (what they keep is in their own save, never in mine).
         // GUILD1d (Seats-Arc 8.2: "the hall carries the guild Stores chest"): in a guild's hall every cupboard is the
         // guild's chest - to its members the guild Stores, on the Guild tab; to anyone else, the guild's
-        if (c && interiorHome?.hall && interiorHome.member) { openHallChest(); return true; }
+        if (c && ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member)) { openHallChest(); return true; }   // SEAT-HALL: a palace's cupboards are its holder's members' chest
         if (c && interiorHome && !interiorHome.own) { say(homeBelongsLine(interiorHome)); return true; }
         if (c) {
           const b = interiorBuilding;
@@ -7058,6 +7091,7 @@ export function createWorldModes(host) {
     interiorCtx = null;
     interiorBuilding = null;   // E2: the identity + overlay leave with the interior
     interiorHome = null;   // HOME1: and the visit's home with it
+    interiorSeatHall = null;   // SEAT-HALL
     exteriorDoor = null;       // IS1: ...and the way back in with them
 // ROAD-B B1: the whole stack leaves with the interior, not just its
     // top - a rest suspended under a message box is a real occupant.
@@ -8675,7 +8709,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14728's own wave-46 note); the interior
+          // a blow (world.js:14729's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9707,7 +9741,7 @@ export function createWorldModes(host) {
       // that lets you sleep in it" - and that moment arrived in the
       // same merge: DaggerfallBankManager.IsHouseOwned is live over
       // the region's own registry slot.
-      houseOwned: !interiorHome && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0), homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)),   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in - RENT-REST (FIELD BUGS 2026-10-01): handed as the home's BED (homeBed), which the bag stands where a bought house stands (a tenant's visit is no permanent scene, and houseOwned alone was asked inside that test - refused); an online home never asks the offline bank's houses; GUILD1d: and a member's bed in their guild's hall (homeRent.js homeBedIsMine)
+      houseOwned: !interiorHome && isHouseOwned(playerEntity.houses ?? [], b?.regionIndex ?? 0, b?.buildingKey ?? 0), homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)) || !!interiorSeatHall?.member,   // HOME1: my online home's bed is mine; HOME-RENT: and a tenant rests in the home they rent in - RENT-REST (FIELD BUGS 2026-10-01): handed as the home's BED (homeBed), which the bag stands where a bought house stands (a tenant's visit is no permanent scene, and houseOwned alone was asked inside that test - refused); an online home never asks the offline bank's houses; GUILD1d: and a member's bed in their guild's hall (homeRent.js homeBedIsMine); SEAT-HALL: and the holder's members in their palace
       // GetRentedRoom(mapId, buildingKey), through the SAME finder the
       // tavern window rents with - so the bed this answers is the bed
       // that was sold (tavern.js's own flag, retired here).
@@ -11018,7 +11052,7 @@ export function createWorldModes(host) {
         // the stack holds (ROAD-B B1).
         interiorWindows.reconcile(interiorOverlay);
         interiorWindows.clear((w) => w.dispose?.());
-        interiorCtx = null; interiorBuilding = null; interiorHome = null; interiorOverlay = null; exteriorDoor = null;   // HOME1: the visit's home with the identity
+        interiorCtx = null; interiorBuilding = null; interiorHome = null; interiorSeatHall = null; interiorOverlay = null; exteriorDoor = null;   // HOME1: the visit's home with the identity
         _insideTavern = false;   // ROAD-B B4: PlayerEnterExit.cs:874, the same latch on the teleport/load arm
         _insidePartyRestExempt = false;   // TAVERN-REST1/GUILD-REST1: cleared on the same teleport/load arm as the tavern latch above
       }
@@ -11329,7 +11363,7 @@ export function createWorldModes(host) {
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
      *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3477-3499), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11168). So an F9 pressed in a shop
+     *  unconditionally (world.js:11169). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11368,7 +11402,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11283)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11284)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11378,7 +11412,7 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10161`
+     *  HARD2c: this used to spell them out, and named `world.js:10162`
      *  and `dungeonContext.js:7821` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */

@@ -248,7 +248,7 @@
   {
     "name": "GUILD1e-visitor-reads-the-board",
     "file": "src/scenes/worldModes.js",
-    "old": "    if (!hallMemberHere()) { say(hallBoardShutLine(interiorHome?.hall?.name)); return; }\n",
+    "old": "    if (!hallMemberHere()) { say(hallBoardShutLine(hallNameHere())); return; }\n",
     "new": "",
     "tests": [
       "test/guild1e_client.test.js"

@@ -615,6 +615,13 @@ Market Day on the buyer's own client, for buying and repairing at the seat town'
 hall's rule are the holder's hall's (GUILD1d's halls; the palace interior as the holder's hall is SEAT2a's, with the
 Throne).
 
+BUILT (SEAT-HALL, 2026-10-02; Online-Arc SEAT-HALL): the palace interior as the holder's guild hall - its cupboards the
+guild Stores chest and its beds the members', the hall's board where a keeper stands it, the court as DFU stands it; the
+Charter Room in the palace's largest room, furnished by the holder's Officers from DECOR's catalogue off their own
+records, at most 100 pieces over the seat, the 2 m rule in the decorator's bar, its pieces cleared whenever the seat
+changes hands or lapses. NOT YET: the crown's throne room (banners, roster board, Stores chest) - a castle is a dungeon
+room with no furniture anchor or banner pass.
+
 ### 7.3 Standing - the town's favour
 
 Every held seat has a **Standing** from 0 to 100; a new Charter starts at **50**.
@@ -849,7 +856,7 @@ pieces' cost back there; a hall's entries are `guild` (the default) and `public`
 `guild` joined private/party/public for every home; decor by Officers - off their own records, a piece's half back to
 the treasury, the catalogue's pieces alone; the guild Stores chest is every cupboard of the hall (the Guild tab's guild
 Stores to a member). NOT YET: a hall's outside and yard (HOME-LOOK and HOME-YARD name a character); a seat's palace as
-a second hall (7.2) - pointed at SEAT1c, then SEAT2a, and built by neither (AUDIT-SEATS); it waits on SEAT2b's works.
+a second hall (7.2) - BUILT by SEAT-HALL (2026-10-02, 7.2's BUILT), its own table and not a home's row.
 
 BUILT (GUILD1e, 2026-09-30; `06-Systems/Online-Arc.md` GUILD1e): the private guild board - a guild's own notes, its
 members' alone, read and pinned on the Guilds tab of every Notice Board and at the board in its hall: Daggerfall's own

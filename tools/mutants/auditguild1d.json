@@ -21,8 +21,8 @@
   {
     "name": "AUDIT-GUILD1d-S3-insert-takes-a-hall-item",
     "file": "server-account/src/decor.js",
-    "old": "building_key = ? AND guild_id IS NOT NULL))`)",
-    "new": "building_key = ? AND guild_id IS NULL))`)",
+    "old": "building_key = ? AND guild_id IS NOT NULL))', [barred",
+    "new": "building_key = ? AND guild_id IS NULL))', [barred",
     "tests": [
       "test/auditguild1d.test.js",
       "test/guild1d_service.test.js"

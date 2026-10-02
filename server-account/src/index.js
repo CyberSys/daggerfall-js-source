@@ -827,6 +827,7 @@ const service = {
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);
         }
         if (path === '/v1/homes/mine') return json(await homesOf(ctx, who.player), 200, origin);
+        if ((path === '/v1/homes/decor' || path.startsWith('/v1/homes/decor/')) && body?.seat === true && !seatsOpenFor(who.player, env)) return no('seats-closed', 403, origin);   // SEAT-HALL: a palace's Charter Room while the seats are open
         if (path === '/v1/homes/decor') {
           const r = await decorOf(ctx, who.player, body);
           return 'error' in r ? no(r.error, 400, origin) : json(r, 200, origin);

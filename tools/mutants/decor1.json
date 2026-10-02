@@ -119,8 +119,8 @@
   {
     "name": "DECOR1-the-cap-unread",
     "file": "server-account/src/decor.js",
-    "old": "out, out ? DECOR_YARD_CAP : DECOR_CAP,",
-    "new": "out, out ? DECOR_YARD_CAP : DECOR_CAP + 1,",
+    "old": "cap: DECOR_CAP, seat: false,",
+    "new": "cap: DECOR_CAP + 1, seat: false,",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -137,8 +137,8 @@
   {
     "name": "DECOR1-a-move-rewrites-what-it-is",
     "file": "server-account/src/decor.js",
-    "old": "UPDATE home_decor SET place = ? WHERE map_id = ? AND building_key = ? AND id = ? AND ${OWNS}`)\n    .bind(placeJson(pl), ",
-    "new": "UPDATE home_decor SET place = ?, model = 99999 WHERE map_id = ? AND building_key = ? AND id = ? AND ${OWNS}`)\n    .bind(placeJson(pl), ",
+    "old": "UPDATE ${S.table} SET place = ? WHERE map_id = ? AND building_key = ? AND id = ? AND ${S.owns}`)\n    .bind(placeJson(pl), ",
+    "new": "UPDATE ${S.table} SET place = ?, model = 99999 WHERE map_id = ? AND building_key = ? AND id = ? AND ${S.owns}`)\n    .bind(placeJson(pl), ",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -443,8 +443,8 @@
   {
     "name": "DECOR1c-the-kept-record-wiped",
     "file": "src/scenes/worldModes.js",
-    "old": "    const decor = interiorHome ? interiorDecor.kept() : interiorDecor.list();",
-    "new": "    const decor = interiorHome ? [] : interiorDecor.list();",
+    "old": "    const decor = interiorHome || interiorSeatHall ? interiorDecor.kept() : interiorDecor.list();",
+    "new": "    const decor = interiorHome || interiorSeatHall ? [] : interiorDecor.list();",
     "tests": [
       "test/decor1.test.js"
     ]
@@ -461,8 +461,8 @@
   {
     "name": "DECOR1c-a-visitor-opens-a-piece",
     "file": "src/scenes/worldModes.js",
-    "old": "    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall\n    if (!piece?.storage) return;\n    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards\n    if (!decorOwnerHere()) {\n",
-    "new": "    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall\n    if (!piece?.storage) return;\n    if (interiorHome?.hall && interiorHome.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards\n    if (false) {\n",
+    "old": "    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall\n    if (!piece?.storage) return;\n    if ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards; SEAT-HALL: a palace's too\n    if (!decorOwnerHere()) {\n",
+    "new": "    if (isHallBoard(piece)) { openHallBoard(); return; }   // GUILD1e: the board in a guild's hall\n    if (!piece?.storage) return;\n    if ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member) { openHallChest(); return; }   // GUILD1d: the guild's chest, as its cupboards; SEAT-HALL: a palace's too\n    if (false) {\n",
     "tests": [
       "test/decor1.test.js"
     ]

@@ -875,6 +875,22 @@ export const SEAT_EDICTS_HOUR = 5;
  *  Officers: the levers"). */
 export const SEAT_LEVER_RANKS = Object.freeze([0, 1]);
 
+// ─── SEAT-HALL (Seats-Arc 7.2): THE PALACE AS THE HOLDER'S GUILD HALL ───
+/** The Charter Room's pieces at most (7.2: "at most 100 pieces") - a palace's, over the whole seat. */
+export const SEAT_HALL_DECOR_CAP = 100;
+/** How far a piece in the Charter Room keeps from every person and quest marker the palace's layout places, metres (7.2:
+ *  "the decor tool refuses a piece within 2 m of any NPC or quest marker"). */
+export const SEAT_HALL_CLEAR_M = 2;
+/** Whether the palace seat `seat` (`{ tier, holder }` as the seats' list dresses it) is the hall of the guild `guildId`:
+ *  a palace seat (a crown's castle is its hall, and stands no decor - 7.2), held by that guild. */
+export const seatHallOf = (seat, guildId) => !!seat && !!guildId && seat.holder?.guild?.id === guildId;
+/** The Charter Room's words. */
+export const SEAT_HALL_TEXT = Object.freeze({
+  where: 'The Charter Room',
+  clear: 'Too near someone of the court - keep two metres from every person and every quest mark.',
+  room: 'The Charter Room is the palace\'s largest room - set the piece down there.',
+});
+
 /**
  * A HELD SEAT'S WEEK OF STANDING (SEAT0 7.3), in the table's order - `{ standing, changes }`, `changes` each row that
  * moved it (`[row, delta]`), the result held to 0-100. `o`: its tier and Standing; `tithe` its rate; `watched` whether

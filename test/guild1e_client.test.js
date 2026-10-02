@@ -197,11 +197,11 @@ test('GUILD1e the catalogue: Daggerfall\'s own board is the hall\'s board - offe
 
 test('GUILD1e the hosts by source: the hall\'s board pressed opens the guild\'s notes for a member and says whose it is to anyone else; its name on the plaque; the world host\'s door in guildOnly; the town boards carry the Guilds tab; the four hosts named (mutants: the member asked; the model asked; guildOnly; guilds)', () => {
   const wm = src('src/scenes/worldModes.js');
-  assert.match(wm, /const isHallBoard = \(piece\) => !!interiorHome\?\.hall && piece\?\.model === BULLETIN_BOARD_MODEL_ID && !piece\.item;/);
+  assert.match(wm, /const isHallBoard = \(piece\) => \(!!interiorHome\?\.hall \|\| !!interiorSeatHall\) && piece\?\.model === BULLETIN_BOARD_MODEL_ID && !piece\.item;/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
   assert.match(wm, /if \(isHallBoard\(piece\)\) \{ openHallBoard\(\); return; \}/);
   const open = wm.slice(wm.indexOf('function openHallBoard() {'), wm.indexOf('\n  }', wm.indexOf('function openHallBoard() {')));
-  assert.match(open, /if \(!hallMemberHere\(\)\) \{ say\(hallBoardShutLine\(interiorHome\?\.hall\?\.name\)\); return; \}/);
-  assert.match(open, /if \(!host\.guildHall\?\.openBoard\?\.\(interiorHome\.hall\.name\)\) say\(HALL_BOARD_COLD\);/);
+  assert.match(open, /if \(!hallMemberHere\(\)\) \{ say\(hallBoardShutLine\(hallNameHere\(\)\)\); return; \}/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
+  assert.match(open, /if \(!host\.guildHall\?\.openBoard\?\.\(hallNameHere\(\)\)\) say\(HALL_BOARD_COLD\);/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
   assert.match(wm, /if \(isHallBoard\(piece\) && hallMemberHere\(\)\) return \{ title: HALL_BOARD_TITLE \};/);
   assert.equal(HALL_BOARD_TITLE, "The Guild's Board");
   assert.equal(hallBoardShutLine('The Silver Hand'), "This board is The Silver Hand's. Its notes are for its members.");

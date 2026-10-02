@@ -4775,7 +4775,7 @@ with a marked top-left pixel on its last row).
 
 *"During online play, certain enemies cant be damaged."*
 
-`src/scenes/worldModes.js:7455` read, on one physical line:
+`src/scenes/worldModes.js:7489` read, on one physical line:
 
 ```js
 useMagicItem: (item) => host.useMagicItem?.(item),   // HT1: the torch keys onFoeHit: (hit) => host.onFoeHit?.(hit),   // WORLD2: a puppet's blow goes to the host
@@ -4917,7 +4917,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8463` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8464` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11668,6 +11668,42 @@ Pinned: `test/seat2b_guards_law.test.js` (9), `test/seat2b_guards_relay.test.js`
 `test/seat2b_revolt_service.test.js` (3, through the real Worker), `test/seat2b_guards_client.test.js` (5); the relay's
 world148 row re-hashed in place. Mutants: `tools/mutants/seat2b_guards.json` (78, all dead); twenty-nine older records
 re-aimed by content. Patch notes: `PATCH-NOTES-Seats.md` (Fortifications in battle; Revolts).
+
+### SEAT-HALL - the palace as the holder's guild hall: the Charter Room
+
+2026-10-02, Mac: "Please do" (the palace as the holder's guild hall). Seats-Arc 7.2. Law (`src/net/townSeatLaw.js`
+SEAT_HALL_DECOR_CAP, SEAT_HALL_CLEAR_M, seatHallOf, SEAT_HALL_TEXT), the service (`server-account/src/decor.js` - the seat
+store; `server-account/src/index.js` - the seats' switch; migration `0065_seat_hall.sql`) and the client
+(`src/net/accountClient.js` accountDecor's `seat`, `src/scenes/decorTool.js` charterWhyNot, `src/scenes/worldModes.js`
+interiorSeatHall, `src/scenes/world.js` seatHall). `acct61` (one deploy with SEAT2b part two). Behind SEATS_OPEN.
+
+- **The hall** (7.2: "the palace interior is the holder's guild hall. The court stays where DFU stands it"): a palace
+  seat's Palace, while the guild holding it holds it, is that guild's hall to its members - every cupboard the guild's
+  Stores chest (the Guild tab's, as a hall's), the hall's board where a keeper stands Daggerfall's board model (GUILD1e's
+  roster board, offered in a hall alone), the beds theirs to rest in. The court, its people and its shelves (the Hall of
+  Records) stand as DFU stands them; nothing of the palace's own is ever taken out (the hidden list refused).
+- **The Charter Room** (7.2: "the palace's largest room, decorated by Officers with DECOR's catalogue (at most 100
+  pieces, DECOR's gold a placement)"): the decorator stands for an Officer or the guildmaster of the holder (hallLaw.js
+  HALL_POWERS.decorate) - paid off their own record, as a hall's; a piece's half back on a removal or a shrink to the
+  holder's treasury; the catalogue's pieces alone, no yard. DECIDED: its own table (`seat_hall_decor` - `home_decor`
+  stands on a home's row, and a palace is nobody's home), keyed by the seat's key and the palace the keeper's client
+  names, the hundred counted over the whole seat (a building named falsely spends the same hundred). A palace with more
+  than one room takes a piece in its largest alone (the decorator's rooms, the most floor); a palace of one room is that
+  room.
+- **The rule** (7.2: "the decor tool refuses a piece within 2 m of any NPC or quest marker the palace's layout places"):
+  the client's, in the decorator's bar - every person the palace stands, every quest spawn and item marker (records 11
+  and 18) and every quest stand within two metres across the floor. DECIDED: the service knows no palace's layout, so it
+  cannot hold the rule; a piece stood against it stands on the keeper's own screen and is said nowhere else.
+- **The room falls with the Charter**: migration 0065's triggers clear a seat's pieces whenever it changes hands (its
+  hold's guild written to another) or lapses (its hold's row deleted - Neglect, a revolt, a relinquishing, a strike, a
+  Season's wipe, the guild gone), nothing given back, as a work's building project falls.
+- **NOT YET**: the crown's hall (7.2: "the castle is the hall - its throne room carries the holder's banners, the roster
+  board and the Stores chest, and no decor"). A castle is an RDB dungeon room, which the decorator never stands in and
+  where no furniture anchor or banner pass exists yet.
+
+Pinned: `test/seathall_service.test.js` (5, through the real Worker), `test/seathall_client.test.js` (5); sixteen older
+source pins re-aimed (PIN MOVED (SEAT-HALL)). Mutants: `tools/mutants/seat_hall.json` (40, all dead). Patch notes:
+`PATCH-NOTES-Seats.md` (The palace hall).
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 

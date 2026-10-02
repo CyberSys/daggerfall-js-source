@@ -475,7 +475,8 @@ import { setHudRenown } from '../ui/hudRenown.js';   // RENOWN4: my own Renown a
 import { pickRegionHubs, hubAtMapId, hubArrivalLine } from '../systems/regionHubs.js';   // HUB1: every region's main city, its hub
 import { deriveTownSeats, seatAtMapId } from '../systems/townSeats.js';   // SEAT1a: every palace a seat, the three capitals crowns
 import { createTownSeatBook, parseSeatCommand } from '../net/townSeatBook.js';   // SEAT1a: the seats open, confirmed, witnessed
-import { seatArrivalLine } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line
+import { seatArrivalLine, seatHallOf } from '../net/townSeatLaw.js';   // SEAT1a: the seat's arrival line; SEAT-HALL: whose hall a palace is
+import { hallMay } from '../net/hallLaw.js';   // SEAT-HALL: a palace's keepers are a hall's
 import { createOnlineHomes } from '../systems/onlineHomes.js';   // HOME1: the account service's homes, one town at a time
 import { townBoardRows, townHomeRows } from '../ui/townMapMarks.js';   // TOWN-MARKS: the Notice Boards and the player housing on the town map
 import { setSigilOnline, setSigilRenown } from '../systems/sigil.js';   // SIGIL1: a weapon won online carries a sigil, woken by my Renown
@@ -8568,7 +8569,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // and dungeonContext.js:2766 mounts the same one, gated on
   // `opts.enchantCtx !== false` because setDefaultEnchantCtx is a
   // session singleton and EC1 already routes THIS host's mount into
-  // that context through modes.dungeonCtx - so worldModes.js:6748
+  // that context through modes.dungeonCtx - so worldModes.js:6781
   // passes false beside its `chargen: false` and only the standalone
   // ?dungeon route mounts its own. S40 filled isResting
   // in - the sentence that stood here said it "stays absent above
@@ -13825,7 +13826,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10263-10327 -
+  // worldModes answers it in BOTH modes (worldModes.js:10297-10361 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -20336,6 +20337,20 @@ export async function bootWorld(canvas, renderer, params, status) {
         if (!seat || !seatBook) return null;
         const r = await seatBook.records(seat.key);
         return r.data ? hallOfRecordsWindow(seat, r.data.rows, r.data.zero) : null;
+      },
+    },
+    // SEAT-HALL (Seats-Arc 7.2: "the palace interior is the holder's guild hall"): a palace seat's palace, as its visitor
+    // stands in it - `{ key, name, member, keeper }` (the holder's guild's name; whether this character is of it, and one
+    // of its keepers - hallLaw.js HALL_POWERS.decorate), or null: no seat here, a crown's (its castle is its hall), none
+    // held, or the seats shut to this account
+    seatHall: {
+      here: (mapId) => {
+        const seat = seatHere(mapId);
+        const g = seat?.tier === 'palace' ? seat.holder?.guild ?? null : null;
+        if (!g?.id) return null;
+        const mine = guildBook?.guild ?? null;
+        const member = seatHallOf(seat, mine?.id ?? null);
+        return { key: seat.key, name: g.name ?? '', member, keeper: member && hallMay(Number(mine?.rank), 'decorate') };
       },
     },
     guildHall: {

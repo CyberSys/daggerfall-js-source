@@ -169,6 +169,14 @@ The first part of guild town control is in. It is open to the developers first, 
 - **Honours.** A revolt earns no Honours. Putting it down is its own reward.
 - The siege bar shows the Captain's health and the rebels still standing, and the Chronicle records how it ended.
 
+## The palace hall (online)
+- **Your guild's palace.** A guild holding a palace seat now has that palace as a guild hall. Its members can open the guild's Stores from any cupboard there and rest in its beds. The court stays where it always stood.
+- **The Charter Room.** The holder's Officers and guildmaster can decorate the palace's largest room from the decorator's catalogue, up to **100 pieces**. Each piece costs what it costs in a home, paid by the Officer placing it. Half of a piece's cost goes back to the guild's treasury when it is taken down.
+- **The board.** A board placed in the Charter Room is the guild's own board, as in a guild hall.
+- **Keep clear of the court.** No piece can stand within **2 m** of anyone in the palace or of a quest's spot.
+- **Lost with the Charter.** When the seat changes hands or its Charter lapses, everything in the Charter Room goes. Nothing is refunded.
+- **Not yet:** a crown's castle is not yet a guild hall.
+
 ## Fixes (online)
 - **Leaving a battle.** You can now leave a siege or a Royal Tourney: the bar's **Leave** button, the result card's **Close**, `/leave` in chat, walking out of the seat's town, or dying.
 - **Battle announcements.** Each battle at a seat is announced in red at the Turning, a day before, an hour before and five minutes before.

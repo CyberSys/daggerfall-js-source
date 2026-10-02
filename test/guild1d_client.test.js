@@ -360,7 +360,7 @@ test('GUILD1d wired: the building host - the hall\'s rows and its buy, the chest
   assert.match(wm, /if \(home\) return homeVisitorRows\(home, homeDoorFor\(bd, home\)\);[^\n]*GUILD1d/);
   assert.match(wm, /const hall = homeHallBuyRow\(price, hallGuild\(\), hallArmed\(bd\)\);/);
   assert.match(wm, /if \(verb === HALL_VERB\.buy && price\) \{ pressHallBuy\(bd, price\); return true; \}/);
-  assert.match(wm, /if \(c && interiorHome\?\.hall && interiorHome\.member\) \{ openHallChest\(\); return true; \}/);
+  assert.match(wm, /if \(c && \(\(interiorHome\?\.hall && interiorHome\.member\) \|\| interiorSeatHall\?\.member\)\) \{ openHallChest\(\); return true; \}/);   // PIN MOVED (SEAT-HALL): the palace's hall shares the line
   assert.match(wm, /if \(!decorOwnerHere\(\)\) \{\n\s*if \(!hallMemberHere\(\)\) \{   \/\/ GUILD1d: a hall's stations are its members'/);
   assert.match(wm, /if \(interiorHome\?\.hall\) return \{ kind: 'home', hall: true, where: "Your guild's hall"/);
   assert.match(src('src/systems/homeRent.js'), /home\.own === true \|\| !!\(home\.hall && home\.member\) \|\| rentDaysLeft/);   // PIN MOVED (the merge of main's RENT-REST): a member's bed is the home's bed rule's, homeBedIsMine

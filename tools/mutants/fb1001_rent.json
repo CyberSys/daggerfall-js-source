@@ -40,7 +40,7 @@
   {
     "name": "RENT-REST-the-host-hands-no-bed",
     "file": "src/scenes/worldModes.js",
-    "old": "homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)),   // HOME1",
+    "old": "homeBed: homeBedIsMine(interiorHome, Math.floor(Date.now() / 1000)) || !!interiorSeatHall?.member,   // HOME1",
     "new": "homeBed: false,   // HOME1",
     "tests": [
       "test/fb1001_rent.test.js",

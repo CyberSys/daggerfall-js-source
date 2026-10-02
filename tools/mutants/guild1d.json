@@ -238,7 +238,7 @@
   {
     "name": "GUILD1d-piece-half-to-the-keeper",
     "file": "server-account/src/decor.js",
-    "old": "    const hall = delta > 0 ? await hallGuildOf(db, mapId, buildingKey) : null;\n    if (hall) {\n      // GUILD1d: a hall's piece taken out",
+    "old": "    const hall = delta > 0 ? await S.guildOf(db, mapId, buildingKey) : null;\n    if (hall) {\n      // GUILD1d: a hall's piece taken out",
     "new": "    const hall = null;\n    if (hall) {\n      // GUILD1d: a hall's piece taken out",
     "tests": [
       "test/guild1d_service.test.js"
@@ -247,7 +247,7 @@
   {
     "name": "GUILD1d-shrink-half-to-the-keeper",
     "file": "server-account/src/decor.js",
-    "old": "  const hall = delta > 0 ? await hallGuildOf(db, mapId, buildingKey) : null;\n  if (hall) {\n    // GUILD1d: a hall's piece shrunk",
+    "old": "  const hall = delta > 0 ? await S.guildOf(db, mapId, buildingKey) : null;\n  if (hall) {\n    // GUILD1d: a hall's piece shrunk",
     "new": "  const hall = null;\n  if (hall) {\n    // GUILD1d: a hall's piece shrunk",
     "tests": [
       "test/guild1d_service.test.js"
@@ -337,7 +337,7 @@
   {
     "name": "GUILD1d-chest-shut-to-members",
     "file": "src/scenes/worldModes.js",
-    "old": "        if (c && interiorHome?.hall && interiorHome.member) { openHallChest(); return true; }\n",
+    "old": "        if (c && ((interiorHome?.hall && interiorHome.member) || interiorSeatHall?.member)) { openHallChest(); return true; }",
     "new": "",
     "tests": [
       "test/guild1d_client.test.js"

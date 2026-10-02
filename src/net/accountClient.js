@@ -1021,11 +1021,11 @@ export function accountDecor({ fetch, storage, listWaitMs = DECOR_LIST_WAIT_MS }
   const post = sessionPost({ fetch, storage });
   const waited = waitedPost({ fetch, storage }, listWaitMs);
   return {
-    list: (mapId, buildingKey) => waited('/v1/homes/decor', { mapId, buildingKey }),
-    place: ({ mapId, buildingKey, character, piece, realm = null, yard = false }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}), ...(yard ? { yard: true } : {}) }),   // REALM P2.2b: and its gold on the record; HOME-YARD: outside
+    list: (mapId, buildingKey, seat = false) => waited('/v1/homes/decor', { mapId, buildingKey, ...(seat ? { seat: true } : {}) }),   // SEAT-HALL: a palace's Charter Room
+    place: ({ mapId, buildingKey, character, piece, realm = null, yard = false, seat = false }) => post('/v1/homes/decor/place', { mapId, buildingKey, character, piece, ...(realm ? { realm } : {}), ...(yard ? { yard: true } : {}), ...(seat ? { seat: true } : {}) }),   // REALM P2.2b: and its gold on the record; HOME-YARD: outside
     yards: (mapId) => waited('/v1/homes/yards', { mapId }),   // HOME-YARD: every yard of a town
-    move: ({ mapId, buildingKey, character, id, place, realm = null }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}) }),
-    remove: ({ mapId, buildingKey, character, id, realm = null }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}) }),
+    move: ({ mapId, buildingKey, character, id, place, realm = null, seat = false }) => post('/v1/homes/decor/move', { mapId, buildingKey, character, id, place, ...(realm ? { realm } : {}), ...(seat ? { seat: true } : {}) }),
+    remove: ({ mapId, buildingKey, character, id, realm = null, seat = false }) => post('/v1/homes/decor/remove', { mapId, buildingKey, character, id, ...(realm ? { realm } : {}), ...(seat ? { seat: true } : {}) }),
     // BASE-HIDE: the room's own furniture taken out - the whole list, written by the owner
     hidden: ({ mapId, buildingKey, character, keys }) => post('/v1/homes/decor/hidden', { mapId, buildingKey, character, keys }),
   };
