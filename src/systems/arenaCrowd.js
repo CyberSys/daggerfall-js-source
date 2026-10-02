@@ -212,7 +212,10 @@ export const CROWD_PEOPLE = Object.freeze({
   gesturer: Object.freeze([[182, 0]]),
   entertainers: Object.freeze([[182, 47], [182, 48], [182, 49], [182, 50], [182, 51], [182, 52], [182, 53]]),
   courtiers: Object.freeze([[180, 1], [180, 2], [180, 3]]),
-  nobles: Object.freeze([[183, 0], [183, 1], [183, 4], [185, 0], [185, 1], [185, 2]]),
+  // ARENA-FIX 13: TEXTURE.185's court - the lord, the lady, the robed councillor, the king, the eastern lord, the queen -
+  // seated at TEXTURE.183's scale (scenes/arenaBouts.js CROWD_SCALE: drawn at its own +128 it stood 6 m tall); its
+  // guards and its knight (185:2-4) stay at the Palace
+  nobles: Object.freeze([[183, 0], [183, 1], [183, 4], [185, 0], [185, 1], [185, 5], [185, 6], [185, 7], [185, 8]]),
   commoners: Object.freeze([[182, 1], [182, 2], [182, 3], [182, 4], [182, 5], [182, 6], [182, 7], [182, 8], [182, 9], [182, 10], [182, 11], [182, 12], [182, 13], [182, 14], [182, 15], [182, 16], [182, 17], [182, 18], [182, 19], [182, 20], [184, 0], [184, 1], [184, 2], [184, 3], [184, 4], [184, 5], [184, 6], [184, 7]]),
 });
 /** Who sits where: `n` seats' people, by the seed - a third gesturers (they cheer), a sprinkle of entertainers on the

@@ -38,6 +38,17 @@ export const ARENA_TEXT = F({
   /** The notebook's line for the same move (`%s` the new house's name). */
   deedMovedNote: 'The Daggerfall Bank moved my deed to %s - the arena stands where my old house was.',
 
+  /** ARENA-FIX 2: THE GATE'S PEOPLE BY THEIR OFFICE (world/arenaCity.js ARENA_GATE_PEOPLE `role`) - the name on the
+   *  hover plaque, in "You see ..." and in the talk window, never a name drawn from the city's bank: a crier, a
+   *  banner's recruiter and a bookmaker are known at the gate by what they do. */
+  gateNames: F({
+    herald: 'The Herald of the Arena',
+    redRecruiter: 'Red Banner Recruiter',
+    blueRecruiter: 'Blue Banner Recruiter',
+    bookmaker: 'The Bookmaker',
+    warden: 'Arena Warden',
+  }),
+
   // ── THE HERALD AT THE GATE (ARENA2: a choice; the Arena window is ARENA3's) ──────────────────────────────────
   herald: F({
     /** His greeting, by the hour's state (a bout on the sand, one coming, none). */
@@ -167,6 +178,39 @@ export const ARENA_TEXT = F({
   ]),
   /** A beast's billing ("The Grizzly Bear of the Wrothgarian Mountains"). */
   beast: (kind, from) => `The ${kind} of ${from}`,
+
+  // ── THE UNDERCROFT - THE FIGHTERS' HALL (ARENA-FIX 4; world/arenaUndercroft.js) ─────────────────────────────
+  undercroft: F({
+    /** Its name - over the stair down ("To The Arena Undercroft") and wherever the place is named. */
+    name: 'The Arena Undercroft',
+    /** The hall's people with an office, by it (the fighters at rest keep their own names). */
+    names: F({ pitMaster: 'The Pit Master', hallKeeper: 'Keeper of the Hall', armourer: 'Arena Armourer', keeper: 'Arena Keeper' }),
+    /** The Pit Master's word and his choice (a ChoiceWindow). */
+    pitGreet: F([
+      'The training pit. No purse, no crowd, no shame.',
+      'Spar with one of my fighters and learn what the next tier will ask of you.',
+    ]),
+    pitFight: 'S - Spar in the pit',
+    pitLeave: 'L - Leave',
+    pitHurt: 'You are in no state to spar. See a healer first.',
+    pitBusy: 'The pit is in use - finish the bout you are in.',
+    /** The practice bout: its call, its sparring partner's billing, its end. */
+    practiceCall: 'A practice bout - to the first fall or yield!',
+    practiceLabel: 'Practice',
+    practiceWon: 'Good. The next tier will not be so kind.',
+    practiceLost: 'On your feet. Again, when you are ready.',
+    practiceDraw: 'Time. Neither of you learned much from that.',
+    /** A chained beast struck: the keepers' warning. */
+    chained: 'Leave the beasts be - they are saved for the sand.',
+    /** The Hall of Champions, as its keeper reads the names cut in the stone. */
+    hallTitle: 'The Hall of Champions',
+    hallIntro: 'The names cut in this wall are the arena\'s own.',
+    hallGrand: (name) => `Grand Champion of the Arena of Daggerfall - ${name}`,
+    hallTierName: (n, tier) => `Tier ${n}, ${tier}`,
+    hallTier: (tier, title, name) => `${tier} - ${name}, ${title}`,
+    hallNone: 'No name is cut here yet. The stone waits for one.',
+    hallYours: (n) => `Your name is cut here ${n === 1 ? 'once' : `${n} times`}.`,
+  }),
 });
 
 /** Every string in ARENA_TEXT (functions called with sample names) - the tone pins walk it. */

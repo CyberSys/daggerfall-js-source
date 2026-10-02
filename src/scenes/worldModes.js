@@ -311,7 +311,9 @@ import {
   clearSceneHidden, // BASE-HIDE: and what its owner took out of its own furniture comes back
   layoutSceneName,  // WD3 (AUDIT WD3 R1): a permanent scene's visit in another layout, kept beside it
 } from '../systems/sceneCache.js';
-import { arenaGatePersonOf, arenaRecordDisplaced, isUndercroftDoor } from '../world/arenaCity.js';   // ARENA1: the gate's people; a save made in a building the arena took; ARENA2: the Herald's way down to the fighters' hall
+import { arenaGatePersonOf, arenaGatePersonName, arenaRecordDisplaced, isUndercroftDoor, isArenaUndercroft } from '../world/arenaCity.js';   // ARENA1: the gate's people; a save made in a building the arena took; ARENA2: the Herald's way down to the fighters' hall
+import { PIT_RING_R } from '../world/arenaUndercroft.js';   // ARENA-FIX 4: the training pit's ring
+import { hallOfChampions } from '../systems/arenaLadder.js';   // ARENA-FIX 4: the Hall of Champions' roll
 import { arenaFloorLocation, arenaFloorBlocks, isArenaFloor, arenaExitDoors, floorCentre as arenaFloorCentre, ARRIVE as ARENA_ARRIVE } from '../world/arenaFloor.js';   // ARENA2: the floor's instance - a made level on this host's dungeon arm
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Herald's word
 import { isNpcFlat } from '../world/rdbLayout.js';   // WD3 (AUDIT WD3 G1): a street flat is a person's only in a person archive
@@ -519,7 +521,7 @@ export function createWorldModes(host) {
    *
    * AUDIT-WH H5. Three hover arms wrote `.Name` - the C# property, as
    * the mod's own source spells it (.cs:764, :725, :777) - and the
-   * record these hosts mint spells it `name` (exterior.js:3857 hands
+   * record these hosts mint spells it `name` (exterior.js:3978 hands
    * `dfLocation`, world.js hands `_questLoc()`; both are the port's
    * location record). `.Name` on it is `undefined`, so all three arms
    * fell to `''`, and `staticDoorName` answers NULL on an empty
@@ -1422,6 +1424,10 @@ export function createWorldModes(host) {
     const dict = townTalk?.factionDict ?? null;
     return staticNpcName(npcData, { getFaction: (id) => dict?.get(id) ?? null, nameBank: currentNameBank() });
   };
+  /** ARENA-FIX 2: A STOOD PERSON'S OFFICE - the arena gate's people (world/arenaCity.js arenaGatePersonName: "The Herald
+   *  of the Arena", "Red Banner Recruiter", ...) and the undercroft's (the Pit Master, the Keeper of the Hall), or null:
+   *  the plaque, the Info click and the talk door ask it before StaticNPC.DisplayName, so the three never disagree. */
+  const officeName = (pn) => arenaGatePersonName(pn) ?? (pn?.arenaRole ? ARENA_TEXT.undercroft.names[pn.arenaRole] ?? null : null);   // ARENA-FIX 4: the undercroft's people with an office
 
   let interiorOverlay = null;
   /** ROAD-B B1: ...and the DEPTH under it. `interiorOverlay` stays the
@@ -1645,10 +1651,10 @@ export function createWorldModes(host) {
    *  billboard is CENTRE-anchored, so the base ends up ON the marker
    *  inside a building and half a height BELOW it inside a dungeon.
    *  This port's billboard shader is BOTTOM-anchored (position = base,
-   *  the C11 law dungeonContext.js:2071 states), so the same visual
+   *  the C11 law dungeonContext.js:2094 states), so the same visual
    *  result needs the shift on the DUNGEON side - which is exactly the
    *  shift the dungeon's own RDB flats already take
-   *  (dungeonContext.js:1956, `y - size.h / 2`), and which a building's
+   *  (dungeonContext.js:1979, `y - size.h / 2`), and which a building's
    *  flats correctly do not (interiorContext.js passes its centers
    *  straight through).
    *
@@ -2250,7 +2256,7 @@ export function createWorldModes(host) {
       if (key.startsWith('person:')) {
         const pn = interiorCtx.people[Number(key.split(':')[1])];
         if (!pn) return null;
-        const display = npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));
+        const display = officeName(pn) ?? npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));   // ARENA-FIX 2/4: an office's name where one stands
         const t = npcHoverName(display, { archive: pn.archive ?? -1, record: pn.record ?? -1 });
         return t ? { title: t } : null;
       }
@@ -2978,6 +2984,9 @@ export function createWorldModes(host) {
     // ARENA2: his CHOICE now (systems/arenaHerald.js - watch, fight, the fighters' hall, leave), the host's; a host with no
     // arena driver (the standalone city - scenes/exterior.js) keeps ARENA1's notice
     if (!info && arenaGatePersonOf(pn)?.role === 'herald') { if (!host.arenaHerald?.()) townTalk?.showOverlay?.(new ActionTextBox([...ARENA_TEXT.heraldNotice])); return; }
+    // ARENA-FIX 4: THE FIGHTERS' HALL - the Pit Master offers the training pit, the Keeper of the Hall reads its wall
+    if (!info && pn?.arenaRole === 'pitMaster') { pitMasterChoice(); return; }
+    if (!info && pn?.arenaRole === 'hallKeeper') { townTalk?.showOverlay?.(new ActionTextBox(hallOfChampions(playerEntity.arenaLadder, playerEntity.name || 'You'))); return; }
     Promise.resolve(townTalk?.ensureFactions?.())
       .then(() => (info ? presentNpcInfo(pn) : openStaticNpc(pn))).catch(() => {});
   }
@@ -2996,7 +3005,7 @@ export function createWorldModes(host) {
    *  default-off state. */
   function presentNpcInfo(pn) {
     const npcSceneCtx = staticNpcSceneCtx(pn);
-    const displayName = npcDisplayName(staticNpcData(pn, npcSceneCtx));
+    const displayName = officeName(pn) ?? npcDisplayName(staticNpcData(pn, npcSceneCtx));   // ARENA-FIX 2
     townTalk?.say?.(presentNpcInfoText(displayName));
   }
 
@@ -3201,7 +3210,7 @@ export function createWorldModes(host) {
       // after the session's first question opened on the follow-up
       // record. talkToNpc is TalkToNpc alone; this is the other member.
       npcSession?.startNewConversation();
-      townTalk.openTalkWindow(talk.greeting, { npcSeed: npcData.nameSeed, npcName: displayName, portrait: staticNpcPortrait(npcData) });   // the DERIVED seed (StaticNPC.Data), as the engine's own reads are
+      townTalk.openTalkWindow(talk.greeting, { npcSeed: npcData.nameSeed, npcName: officeName(pn) ?? displayName, portrait: staticNpcPortrait(npcData) });   // the DERIVED seed (StaticNPC.Data), as the engine's own reads are
       return;
     }
     townTalk?.say?.('You get no response.');
@@ -5552,6 +5561,10 @@ export function createWorldModes(host) {
       // was pinned, and had no caller in the tree. "To Privateer's
       // Hold" over the mouth of a dungeon is the mod's most
       // recognisable label and it never drew once.
+      // ARENA-FIX 4: the colosseum's stair down names the undercroft ("To The Arena Undercroft"), not the city
+      if (entries[key]?.door?.doorType === DOOR_TYPE.DUNGEON_ENTRANCE && entries[key].dfLocation?.arenaUndercroft) {
+        return staticDoorName('dungeonEntrance', { locationName: ARENA_TEXT.undercroft.name, elite: false });
+      }
       const entry = entries[key];
       if (entry?.door?.doorType === DOOR_TYPE.DUNGEON_ENTRANCE) {
         return staticDoorName('dungeonEntrance', { locationName: currentLocationName(), elite: !!entry.dfLocation?.elite });   // ELITE: 'Elite Dungeon' over its mouth
@@ -5654,7 +5667,7 @@ export function createWorldModes(host) {
     if (key.startsWith('person:')) {                                       // .cs:325-393
       const pn = npcs[Number(key.split(':')[1])];
       if (!pn) return null;
-      const display = npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));
+      const display = officeName(pn) ?? npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));   // ARENA-FIX 2: the gate's people by office
       const t = npcHoverName(display, { archive: pn.archive ?? -1, record: pn.record ?? -1 });
       return t ? { title: t } : null;
     }
@@ -7101,6 +7114,42 @@ export function createWorldModes(host) {
     };
     return _arenaStage;
   }
+  /** ARENA-FIX 4: THE TRAINING PIT AS A STAGE (scenes/arenaBouts.js) - in the undercroft, its pit's marker
+   *  (world/arenaUndercroft.js undercroftPopulation) the centre of a small ring and no gates (the sparring fighter
+   *  stands on its mark), the fighter through the context's own loose stands. Null anywhere else. */
+  let _pitStage = null, _pitStageCtx = null;
+  function arenaPitStage() {
+    if (mode !== 'dungeon' || !dungeonCtx || !isArenaUndercroft(dungeonLoc) || !dungeonCtx.arenaPit) return null;
+    if (_pitStageCtx === dungeonCtx && _pitStage) return _pitStage;
+    const ctx = dungeonCtx, p = ctx.arenaPit;
+    const top = p[1] + 2.5;
+    const d0 = ctx.collider.raycast([p[0], top, p[2]], [0, -1, 0], 8);
+    const c = [p[0], Number.isFinite(d0) ? top - d0 : p[1], p[2]];
+    _pitStageCtx = ctx;
+    _pitStage = {
+      // the fighters along the pit's passage, not across it: side 1 (the sparring fighter) beyond the Pit Master, deeper
+      // in, the side the player comes from (the stair's) side 0's
+      kind: 'pit', gates: false, radius: PIT_RING_R, markScale: 0.5,
+      axis: ctx.arenaPitAxis ? [-ctx.arenaPitAxis[0], -ctx.arenaPitAxis[1]] : null,
+      centre: () => c,
+      spawn: (mobile, feet, o) => ctx.spawnLooseFoe?.(mobile, [feet[0], feet[1] + 0.9, feet[2]], { gender: o.gender ?? null, yawRad: o.yaw ?? null, level: o.level ?? null, bout: o.bout ?? null }) ?? null,
+      remove: (f) => ctx.removeLooseFoe?.(f),
+      heightAt: () => null,   // no stands down here - no crowd is sought
+    };
+    return _pitStage;
+  }
+  /** ARENA-FIX 4: THE PIT MASTER'S CHOICE - spar (a practice bout on the pit's stage, the host's), or leave. */
+  function pitMasterChoice() {
+    const U = ARENA_TEXT.undercroft;
+    const hurt = (playerEntity.health ?? 0) < 0.5 * Math.max(1, playerEntity.maxHealth ?? 1);
+    const busy = !!host.arenaBusy?.();
+    const lines = [...U.pitGreet, ...(hurt ? ['', U.pitHurt] : busy ? ['', U.pitBusy] : [])];
+    const options = [];
+    if (!hurt && !busy && host.arenaPractice) options.push({ code: 'KeyS', label: U.pitFight, action: () => host.arenaPractice() });
+    options.push({ code: 'KeyL', label: U.pitLeave, action: () => {} });
+    options.push({ code: 'Escape', label: undefined, action: () => {} });   // the key alone, as the Herald's
+    townTalk?.showOverlay?.(new ChoiceWindow({ lines, options }));
+  }
   /** WB6c: THE WAY HOME out of the court - through the fire, as the way in was: the dungeon's exit taken at the top of the
    *  frame after the veil has closed (F-A5's deferral), for a player alive in a court still standing. WBX2: one door for
    *  the bridge's membrane and the portal that rises where he fell (scenes/gateCourt.js). */
@@ -7442,7 +7491,7 @@ export function createWorldModes(host) {
           hudMessageSink: (t) => questBridge?.notebook?.addMessage(t),
           // MAC1 J: and the relock the dungeon's pause door needs, on
           // the same threading - the context owns no canvas of its own
-          // (dungeonContext.js:7815), so the OUTER host's one rides in.
+          // (dungeonContext.js:7840), so the OUTER host's one rides in.
           // This is the most-played pause door of the six: world.js
           // gates its own Escape ladder on exterior mode, so underground
           // the key falls to routeKey -> ui/input.js:847 -> the
@@ -7544,7 +7593,7 @@ export function createWorldModes(host) {
         // The DISPLAY NAME is resolved by the port's own StaticNPC
         // member - the same one the Info click speaks through - so the
         // plaque and the click can never call one person two things.
-        const display = npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));
+        const display = officeName(pn) ?? npcDisplayName(staticNpcData(pn, staticNpcSceneCtx(pn)));   // ARENA-FIX 2/4: an office's name where one stands
         const t = npcHoverName(display, { archive: pn.archive ?? -1, record: pn.record ?? -1 });
         return t ? { title: t } : null;
       });
@@ -8660,7 +8709,7 @@ export function createWorldModes(host) {
           // AUDIT 39r: and the FLASH, which this arm was copied without.
           // An arrow reaches the player through BowDamage ->
           // ApplyDamageToPlayer -> SendDamageToPlayer, the same door as
-          // a blow (world.js:14919's own wave-46 note); the interior
+          // a blow (world.js:14922's own wave-46 note); the interior
           // MELEE hit already flashes inside exteriorFoes, so only this
           // arm - which applies its own damage - was missing it.
           flashPlayerDamage(dmg);   // BA1: RemoveHealth carries the amount
@@ -9592,7 +9641,7 @@ export function createWorldModes(host) {
   addEventListener('mousedown', (e) => {
     // AUDIT-MACK F2: THIS HOST DOES NOT FEED THE HELD SET, and MAC-K1
     // briefly made it. `keys` is not this host's - it arrives on the
-    // host bag (`exterior.js:3919`, `world.js`'s twin), and the OUTER
+    // host bag (`exterior.js:4040`, `world.js`'s twin), and the OUTER
     // host's own mousedown writes `keys.add(mouseCode(e.button))`
     // UNGATED, before any mode test, on a listener that is never
     // removed. So the three button codes were already in the Set while
@@ -10626,7 +10675,7 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
-    enterArenaFloor, enterArenaUndercroft, arenaFloorStage,   // ARENA2: the floor's instance, the fighters' hall, the instance as a bout's stage
+    enterArenaFloor, enterArenaUndercroft, arenaFloorStage, arenaPitStage,   // ARENA2: the floor's instance, the fighters' hall, the instance as a bout's stage
     enterAbyss,   // OH-D: the pit's way down
     /** OH-E: RemoveBorrowedQuestResources - every QuestResourceBehaviour under the live dungeon destroyed: the quest
      *  stands this host mounted there, and the quest foes. */
@@ -11303,9 +11352,9 @@ export function createWorldModes(host) {
      *  .cs:175-176 writes `weaponDrawn`/`usingLeftHand` off it,
      *  :420-421 restores them onto it. The port has FOUR PlayerWeapons
      *  (world.js's, this file's `interiorWeapon` :538, dungeonContext's
-     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3490-3512), and IS1 routed the inside-a-building save to
+     *  and exterior.js's - which this seam does not reach: that host has no save path at all, its charter exterior.js:3593-3615), and IS1 routed the inside-a-building save to
      *  the WORLD host's composer - which reads its own exterior rig
-     *  unconditionally (world.js:11149). So an F9 pressed in a shop
+     *  unconditionally (world.js:11152). So an F9 pressed in a shop
      *  recorded the street's sheath and hand, and the load wrote them
      *  back into the street's rig; the rig actually in the player's
      *  hands was in no envelope at all.
@@ -11344,7 +11393,7 @@ export function createWorldModes(host) {
       if (interiorOverlay instanceof DeathScreen) { interiorOverlay.restoreView(); interiorOverlay = null; }
     },
     /** The restore half - and NOT gated on the mode, deliberately.
-     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11435)
+     *  worldQuickLoad calls forceExitToExterior FIRST (world.js:11438)
      *  and only re-enters the building at :4217, so the mode at apply
      *  time is whatever the LOAD landed in, not whatever the SAVE was
      *  taken in: an outdoor save loaded while the player was indoors
@@ -11354,8 +11403,8 @@ export function createWorldModes(host) {
      *
      *  FLAG ONLY and presence-gated - both laws now stated once, in
      *  combat/playerWeapon.js's applyWeaponPose, with the citation.
-     *  HARD2c: this used to spell them out, and named `world.js:10139`
-     *  and `dungeonContext.js:7827` for its two sibling copies - lines
+     *  HARD2c: this used to spell them out, and named `world.js:10142`
+     *  and `dungeonContext.js:7852` for its two sibling copies - lines
      *  that had moved to :4418 and :5457. Three copies of a two-line
      *  law, and even the comment pointing between them had gone stale. */
     applyWeaponPose(pose) {

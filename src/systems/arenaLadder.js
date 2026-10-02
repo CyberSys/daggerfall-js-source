@@ -136,6 +136,37 @@ export function ladderTitle(L) {
 /** Every tier title a ladder has earned, lowest first. */
 export const ladderTitles = (L) => arenaLadderRestore(L).champs.map((c, i) => (c ? ARENA_TEXT.titles[i] : null)).filter(Boolean);
 
+// ── THE UNDERCROFT (ARENA-FIX 4; world/arenaUndercroft.js) ─────────────────────────────────────────────────
+/**
+ * THE TRAINING PIT'S BOUT: unranked - no purse, no step on the ladder, no crowd - against a sparring fighter of the
+ * player's own tier (its first bout's opponent at its level: the Pit Master shows you what the next bout will ask). A
+ * Grand Champion spars the Grand Melee's first. Answers the shape `nextLadderBout` does, `practice` set. Pure.
+ */
+export function practiceBout(L) {
+  const s = arenaLadderRestore(L);
+  const t = LADDER_TIERS[s.tier];
+  return {
+    tier: s.tier, bout: 0, champion: false, grand: false, opponents: Object.freeze([t.bouts[0][0]]), free: false, beasts: !!t.beasts,
+    purse: 0, label: ARENA_TEXT.undercroft.practiceLabel, tierName: ARENA_TEXT.tiers[s.tier], practice: true,
+  };
+}
+/**
+ * THE HALL OF CHAMPIONS: the lines its keeper reads off the wall for this save - its Grand Champion, then each tier
+ * whose champion was beaten (its number, its name, the title it gave), the highest first; the stone's waiting line
+ * when none is cut. `name` the player's. Pure.
+ */
+export function hallOfChampions(L, name) {
+  const s = arenaLadderRestore(L);
+  const U = ARENA_TEXT.undercroft;
+  const lines = [U.hallTitle, '', U.hallIntro, ''];
+  const cut = [];
+  if (s.grand) cut.push(U.hallGrand(name));
+  for (let i = s.champs.length - 1; i >= 0; i--) if (s.champs[i] && !(s.grand && i === s.champs.length - 1)) cut.push(U.hallTier(U.hallTierName(i + 1, ARENA_TEXT.tiers[i]), ARENA_TEXT.titles[i], name));
+  if (!cut.length) lines.push(U.hallNone);
+  else lines.push(...cut, '', U.hallYours(cut.length));
+  return lines;
+}
+
 // ── THE EXHIBITIONS ────────────────────────────────────────────────────────────────────────────────────────
 /** The schedule: a bout on each hour of the game's clock, its call at the hour's minute 0, and the last minute of the
  *  hour by which it may still begin (a player who comes later waits for the next hour). */

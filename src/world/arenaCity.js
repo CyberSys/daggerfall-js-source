@@ -31,7 +31,8 @@ import { drawNamedBuildings } from '../systems/talkTopics.js';
 import { configureLayoutPins, layoutLocationKeyOfMapId } from '../systems/layoutPins.js';
 import { LOCATION_TYPES, DUNGEON_TYPES } from '../formats/mapsFile.js';
 import { registerCustomModel } from './customModels.js';
-import { ARENA_MODEL_ID, buildArenaModel } from './arenaModel.js';
+import { ARENA_TEXT } from '../systems/arenaText.js';
+import { ARENA_MODEL_ID, buildArenaModel, withStairRamps, sealArenaSeams } from './arenaModel.js';
 import ARENA_BLOCK_JSON from '../../vendor/daggerfall-arena/Arena/ARENADAG.RMB.json' with { type: 'json' };
 import UNDERCROFT_JSON from '../../vendor/daggerfall-arena/Arena/undercroft.json' with { type: 'json' };
 import ARENA_MODEL_INDEX from '../../vendor/daggerfall-arena/Models/864102.json' with { type: 'json' };
@@ -76,17 +77,93 @@ export function arenaGatePersonOf(pn) {
   if (!pn) return null;
   return ARENA_GATE_PEOPLE.find((p) => p.position === pn.position && p.archive === pn.textureArchive && p.record === pn.textureRecord) ?? null;
 }
+/** ARENA-FIX 2: a gate person's name - their office (ARENA_TEXT.gateNames), never one drawn from the city's name bank -
+ *  or null for anyone else. The one seam the hover plaque, the Info click and both talk doors ask (scenes/worldModes.js
+ *  officeName). */
+export function arenaGatePersonName(pn, names = ARENA_TEXT.gateNames) {
+  const p = arenaGatePersonOf(pn);
+  return p ? names?.[p.role] ?? null : null;
+}
 
-/** The port's block JSON: Kamer's (vendored) with the gate's people stood in it. Pure. */
+// ARENA-FIX 3 (2026-10-02): THE PAVING AND THE PLAZAS. Kamer's ground is DFARENA's - a ZLNDFLAT re-saved, grass (record
+// 2) round a patch of dirt - and in the city that read as the colosseum standing in a meadow: the gate passage and the
+// courtyard inside the walls were the terrain's own snow, and the four streets that meet the cell (the market's from
+// the north to the gate; ARMRAL02's from the west, CUSTAA02's from the east, LIBRAL03's from the south) ran into snow
+// at a blank wall. Daggerfall paves its streets and squares with the climate set's flagstone, record 46 (the street
+// tiles of every city block round it; the climate's own archive draws it - TEXTURE.302 temperate, its winter set in
+// the snow - so it is climate-correct as every street of the city is), laid in the four turns its blocks lay it
+// (46, 110 turned, 174 flipped, 238 both - ARMRAL02's mix). The whole cell is paved: the gate's approach and passage,
+// the courtyard, the aprons round the walls; the sand stands on the colosseum's own floor over it.
+/** The flagstone tile record and its four lays (record | 0x40 turned | 0x80 flipped). */
+export const ARENA_PAVING = 46;
+/** THE CELL'S GROUND: every tile flagstone, its lay by the tile's own hash (the same every load). Pure. */
+export function arenaGroundTiles() {
+  const out = [];
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const h = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    const rot = (h >> 3) & 1, flip = (h >> 7) & 1;
+    out.push({ TileBitfield: ARENA_PAVING | (rot ? 0x40 : 0) | (flip ? 0x80 : 0), TextureRecord: ARENA_PAVING, IsRotated: !!rot, IsFlipped: !!flip });
+  }
+  return out;
+}
+/** RMB units from the city's cell frame (metres from the cell's south-west corner): x east, z north (RMB z runs
+ *  negative into the block - world/rmbLayout.js). */
+const rmbX = (m) => Math.round(m / 0.025);
+const rmbZ = (m) => Math.round(m / 0.025) - 4096;
+/**
+ * THE PLAZAS AT THE THREE BLIND SIDES: where ARMRAL02's, CUSTAA02's and LIBRAL03's streets meet the colosseum's walls
+ * (the gate is on the north, the market's side), a square of the city's own furniture so the street ends somewhere -
+ * Daggerfall's street lamp (210:29, every block round it stands them), its benches (41105/41106, the library's and the
+ * armourer's), its crates and barrels (41832, 41822 - the arena's stores by its walls) and its signpost (212:6, the arrows) where
+ * a street meets the paving. Metres in the cell (x east from its west edge, z north from its south edge), measured off
+ * the colosseum's footprint at a body's height (the west wall's face at 12.4 m, its bastion at 9.4 over z 38.8..46.8,
+ * the round towers to 9.4; the east the mirror, its face at 89.4; the south wall's face at 6.6, its postern at 3.0
+ * over x 45.4..55.4) - clear of every wall, tower and bastion by half a metre or more.
+ */
+export const ARENA_PLAZA_FLATS = Object.freeze([
+  // west: ARMRAL02's street (z 44.8..57.6) meets the wall north of the bastion - lamps either side, its signpost
+  Object.freeze({ archive: 210, record: 29, at: [6.9, 43.3] }), Object.freeze({ archive: 210, record: 29, at: [6.9, 59.3] }),
+  Object.freeze({ archive: 212, record: 6, at: [1.6, 43.8] }),
+  // east: CUSTAA02's street (z 44.8..57.6), the west's mirror
+  Object.freeze({ archive: 210, record: 29, at: [94.9, 43.3] }), Object.freeze({ archive: 210, record: 29, at: [94.9, 59.3] }),
+  Object.freeze({ archive: 212, record: 6, at: [100.2, 58.6] }),
+  // south: LIBRAL03's street (x 44.8..57.6) meets the postern - lamps either side
+  Object.freeze({ archive: 210, record: 29, at: [42.9, 3.4] }), Object.freeze({ archive: 210, record: 29, at: [58.4, 3.4] }),
+]);
+/** Their models: `[model, x, z, turn (DF units: 512 a quarter), y]` - the benches along the walls facing the plazas,
+ *  the stores stacked by the south towers. */
+export const ARENA_PLAZA_MODELS = Object.freeze([
+  // west wall (its face at x 12.4): three benches, crates and a barrel by the south-west tower
+  Object.freeze([41105, 11.7, 51.8, 512, -18]), Object.freeze([41106, 11.7, 62.8, 512, -17]), Object.freeze([41105, 11.7, 29.8, 512, -18]),
+  Object.freeze([41832, 11.4, 20.4, 0, -30]), Object.freeze([41832, 11.5, 22.1, 88, -30]), Object.freeze([41822, 10.2, 21.2, 264, -19]),
+  // east wall (its face at x 89.4), the mirror
+  Object.freeze([41105, 90.1, 51.8, 512, -18]), Object.freeze([41106, 90.1, 62.8, 512, -17]), Object.freeze([41105, 90.1, 29.8, 512, -18]),
+  Object.freeze([41832, 90.4, 20.4, 0, -30]), Object.freeze([41832, 90.3, 22.1, -88, -30]), Object.freeze([41822, 91.6, 21.2, -80, -19]),
+  // south wall (its face at z 6.6): a bench either side of the postern
+  Object.freeze([41105, 36.9, 6.0, 0, -18]), Object.freeze([41106, 64.4, 6.0, 0, -17]),
+]);
+
+/** The port's block JSON: Kamer's (vendored) with the gate's people stood in it - and (ARENA-FIX 3) its ground paved
+ *  and the blind sides' plazas furnished. Pure. */
 export function arenaBlockJson(vendored = ARENA_BLOCK_JSON) {
   const rmb = vendored.RmbBlock;
+  const fld = rmb.FldHeader;
   return {
     ...vendored,
     RmbBlock: {
       ...rmb,
+      FldHeader: { ...fld, GroundData: { ...fld.GroundData, GroundTiles: arenaGroundTiles() } },
+      Misc3dObjectRecords: [
+        ...rmb.Misc3dObjectRecords,
+        ...ARENA_PLAZA_MODELS.map(([model, x, z, turn, y]) => ({
+          ModelId: String(model), ModelIdNum: model, ObjectType: 0, XPos: rmbX(x), YPos: y, ZPos: rmbZ(z),
+          XScale: 1, YScale: 1, ZScale: 1, XRotation: 0, YRotation: turn, ZRotation: 0,
+        })),
+      ],
       MiscFlatObjectRecords: [
         ...rmb.MiscFlatObjectRecords,
         ...ARENA_GATE_PEOPLE.map((p) => ({ Position: p.position, XPos: p.x, YPos: 0, ZPos: p.z, TextureArchive: p.archive, TextureRecord: p.record, FactionID: p.faction, Flags: 0 })),
+        ...ARENA_PLAZA_FLATS.map((f, i) => ({ Position: 0x41525100 + i, XPos: rmbX(f.at[0]), YPos: -4, ZPos: rmbZ(f.at[1]), TextureArchive: f.archive, TextureRecord: f.record, FactionID: 0, Flags: 0 })),
       ],
     },
   };
@@ -144,7 +221,9 @@ export function undercroftLocation(city, spec = UNDERCROFT_JSON) {
     locationId: spec.LocationId, isInterior: isInterior ? 1 : 0, exteriorLocationId: isInterior ? spec.LocationId : 0, locationName: name,
   });
   return {
-    loaded: true, regionName: city.regionName, name, regionIndex: city.regionIndex, locationIndex: city.locationIndex,
+    // ARENA-FIX 4: named as the place it is - "The Arena Undercroft" (Kamer's record kept its colosseum's "Arena of
+    // Daggerfall", the name the header keeps for the record's identity)
+    loaded: true, regionName: city.regionName, name: ARENA_TEXT.undercroft.name, regionIndex: city.regionIndex, locationIndex: city.locationIndex,
     hasDungeon: true, politic: city.politic, climate: city.climate,
     mapTableData: { ...city.mapTableData, mapId: UNDERCROFT_MAP_ID, locationType: LOCATION_TYPES.DungeonKeep, dungeonType: DUNGEON_TYPES[spec.DungeonType] ?? DUNGEON_TYPES.HumanStronghold, discovered: true, key: 0, locationId: spec.LocationId },
     exterior: city.exterior,
@@ -169,6 +248,11 @@ export const isUndercroftDoor = (e, dungeonEntranceType) => e?.dfBlock?.name ===
 export const arenaRecordDisplaced = (rec, keyOfMapId = layoutLocationKeyOfMapId) =>
   !!rec && inArenaCell(rec.buildingKey) && keyOfMapId(rec.mapId ?? rec.mapID) === ARENA_LOCATION_KEY;
 
+/** THE COLOSSEUM AS IT IS DRAWN AND WALKED: the rebuilt mesh (the bundle's, triangle for triangle) with its seams
+ *  closed (ARENA-FIX 6, world/arenaModel.js sealArenaSeams) and its stairs' ramps under the collider (ARENA-FIX 1,
+ *  withStairRamps). */
+export const arenaDrawnModel = (built) => withStairRamps(sealArenaSeams(built));
+
 /** Where the colosseum's binary is served from (the build emits it beside the bundle). */
 export const ARENA_MODEL_BIN_URL = new URL('../../vendor/daggerfall-arena/Models/864102.bin', import.meta.url).href;
 
@@ -192,7 +276,7 @@ export function installArena({ readBin = null, log = console } = {}) {
   _installed = (async () => {
     try {
       const bin = await read();
-      registerCustomModel(ARENA_MODEL_ID, (ctx) => buildArenaModel(ARENA_MODEL_INDEX, bin, (id) => ctx?.classicModel?.(id) ?? null), () => true,
+      registerCustomModel(ARENA_MODEL_ID, (ctx) => arenaDrawnModel(buildArenaModel(ARENA_MODEL_INDEX, bin, (id) => ctx?.classicModel?.(id) ?? null)), () => true,
         { climateFree: true, needs: [...new Set(ARENA_MODEL_INDEX.pieces.map((p) => p.model))] });
       return true;
     } catch (e) {
