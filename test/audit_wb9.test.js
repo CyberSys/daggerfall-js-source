@@ -14,7 +14,7 @@ import { foldGate, crossLaid, GATE_STATE_EMPTY } from '../src/net/gateLink.js';
 import { validGateOut } from '../src/net/wire.js';
 import { createGateCourt, COURT_RECKON_TEXT, spoilsKeep, bossOf } from '../src/scenes/gateCourt.js';
 import { courtToDungeon, courtFloorTris } from '../src/world/gateArena.js';
-import { TELEGRAPH_FS, TELEGRAPH_KIND, TELEGRAPH_WALK_QUAD, GateTelegraphRenderer, telegraphShape, telegraphField, poolShapes } from '../src/render/gateTelegraph.js';
+import { TELEGRAPH_FS, TELEGRAPH_KIND, TELEGRAPH_WALK_QUAD, TELEGRAPH_THROB_MAX_HZ, GateTelegraphRenderer, telegraphShape, telegraphField, poolShapes } from '../src/render/gateTelegraph.js';
 import { glslFunctions, GlslDiscard } from './glsl.mjs';
 import { Collider } from '../src/player/collider.js';
 import { createSpoilsPool } from '../src/scenes/spoilsPool.js';
@@ -148,32 +148,36 @@ test('AUDIT WB9 brain F5 - a bound\'s word lays every walkway up to the court it
 // ═══ THE COURT'S DRAWING (WB9c/e) ═════════════════════════════════════════════════════════════════════════════════
 
 /** The telegraph's fragment stage run over a top-down grid (`step` metres a pixel), its derivatives taken as the GPU
- *  takes them - the difference across each 2x2 quad of whatever `fwidth` is asked of (two passes: the first records the
- *  argument per pixel). Answers the red channel per pixel, and each pixel's point. */
+ *  takes them - the difference across each 2x2 quad of whatever `fwidth` is asked of (two passes: the first records each
+ *  call's argument per pixel, in the order the shader asks - WB13a's asks three). Answers the red channel per pixel,
+ *  and each pixel's point. */
 function runTelegraph(sh, { step = 0.2, span = 13, extra = {} } = {}) {
   const N = Math.round((2 * span) / step), at = (i) => -span + (i + 0.5) * step;
   const pts = Array.from({ length: 10 }, (_, i) => sh.points?.[i] ?? [0, 0]);
   const base = {
     uKind: sh.kind, uOrigin: sh.origin, uYaw: sh.yaw, uR: sh.r, uHalfArc: sh.halfArc, uBody: sh.body, uEnd: sh.end, uHalfW: sh.halfW,
-    uR0: sh.r0, uR1: sh.r1, uPts: pts, uCount: sh.points?.length ?? 0, uT: sh.t, uFlash: 0, uAlpha: 1, uColor: [1, 1, 1], uTime: 0, uCourt: [0, 0], uFloorR: COURT_R,
-    uStyle: sh.style ?? 0, uSince: sh.since ?? 0, uSpan: sh.span ?? 1, uAfter: -1, uPool: 0, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uCamPos: [0, 0, 0],
+    uR0: sh.r0, uR1: sh.r1, uPts: pts, uCount: sh.points?.length ?? 0, uT: sh.t, uFlash: 0, uAlpha: 1, uColor: [1, 1, 1], uEdgeCol: [1, 1, 1], uCourt: [0, 0], uFloorR: COURT_R,
+    uStyle: sh.style ?? 0, uSince: sh.since ?? 0, uSpan: sh.span ?? 1, uAfter: -1, uPool: 0, uRunS: 0, uLineW: 1, uFogMode: 0, uFogDensity: 0, uFogRange: [0, 1], uCamPos: [0, 0, 0],
     uOnWalk: 0, uWalkC0: [0, 0], uWalkC1: [0, 0], vCourt: [0, 0], vWorld: [0, 0, 0], o: [0, 0, 0, 0], ...extra,
   };
-  let mode = 1, arg = null, fw = 0;
-  const fns = glslFunctions(TELEGRAPH_FS, { ...base, fwidth: (x) => { arg = x; return mode === 1 ? (Array.isArray(x) ? x.map(() => 0) : 0) : fw; } });
+  let mode = 1, calls = [], k = 0, fws = null;
+  const fns = glslFunctions(TELEGRAPH_FS, { ...base, fwidth: (x) => { if (mode === 1) { calls.push(x); return Array.isArray(x) ? x.map(() => 0) : 0; } return fws?.[k++] ?? 0; } });
   const G = fns.globals;
   const run = (i, j) => { G.vCourt = [at(i), at(j)]; G.vWorld = [at(i), 0.05, at(j)]; try { fns.main(); return G.o[0]; } catch (e) { if (e instanceof GlslDiscard) return -1; throw e; } };
   const args = Array.from({ length: N }, () => new Array(N));
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { arg = null; run(i, j); args[i][j] = arg; }
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { calls = []; run(i, j); args[i][j] = calls; }
   mode = 2;
   const light = Array.from({ length: N }, () => new Float64Array(N));
-  const d = (a, b) => (Array.isArray(a) ? a.map((v, k) => b[k] - v) : b - a);
+  const d = (a, b) => (Array.isArray(a) ? a.map((v, n) => b[n] - v) : b - a);
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-    const qi = i & ~1, qj = j & ~1, a = args[qi][j], bx = args[Math.min(qi + 1, N - 1)][j], ay = args[i][qj], by = args[i][Math.min(qj + 1, N - 1)];
-    if (a == null || bx == null || ay == null || by == null) { fw = 0; } else {
+    const qi = i & ~1, qj = j & ~1, A = args[qi][j], BX = args[Math.min(qi + 1, N - 1)][j], AY = args[i][qj], BY = args[i][Math.min(qj + 1, N - 1)];
+    fws = A.map((a, n) => {
+      const bx = BX[n], ay = AY[n], by = BY[n];
+      if (a == null || bx == null || ay == null || by == null) return 0;
       const dx = d(a, bx), dy = d(ay, by);
-      fw = Array.isArray(dx) ? dx.map((v, k) => Math.abs(v) + Math.abs(dy[k])) : Math.abs(dx) + Math.abs(dy);
-    }
+      return Array.isArray(dx) ? dx.map((v, m) => Math.abs(v) + Math.abs(dy[m])) : Math.abs(dx) + Math.abs(dy);
+    });
+    k = 0;
     light[i][j] = run(i, j);
   }
   return { N, at, light };
@@ -194,17 +198,18 @@ test('AUDIT WB9 court F1 - the Cleave\'s telegraph lights its own outline and no
   assert.ok(outline > 40, `its own outline lit (${outline} pixels)`);
 });
 
-test('AUDIT WB9 court F3 - the telegraph\'s throb quickens to the rate it says: its phase is hz * uSince and uT grows with uSince, so its beat is 1.5 + 3 (hz - 1.5) a second - hz = 1.5 + 5 uT^2 beat 16.5 a second at a landing (12 to 16 over a Reckoning\'s floor); a third of that quickening beats 6.5 (mutants: the throb three times too fast)', () => {
-  const m = TELEGRAPH_FS.match(/float hz = 1\.5 \+ \((\d+\.\d+) \/ (\d+\.\d+)\) \* uT \* uT;/);
-  assert.ok(m, 'the quickening, a ratio');
-  const K = Number(m[1]) / Number(m[2]);
-  assert.match(TELEGRAPH_FS, /float urgent = 0\.5 \+ 0\.5 \* cos\(6\.283185307179586 \* hz \* uSince\);/, 'its phase hz * uSince');
+test('AUDIT WB9 court F3 - the telegraph\'s throb quickens to the rate it says: its phase is hz * uSince and uT grows with uSince, so its beat is 1.5 + 3 (hz - 1.5) a second. WB13a: on the line alone, three beats a second at the landing at most (WCAG 2.3.1) - it was 6.5, and court-wide through a Reckoning (mutants: the throb three times too fast)', () => {
+  const m = TELEGRAPH_FS.match(/float hz = 1\.5 \+ (\d+\.\d+) \* T2;/);
+  assert.ok(m, 'the quickening, on the wind-up\'s share squared');
+  assert.match(TELEGRAPH_FS, /float T2 = uT \* uT;/);
+  const K = Number(m[1]);
+  assert.match(TELEGRAPH_FS, /float throb = 0\.85 \+ 0\.15 \* cos\(6\.283185307179586 \* hz \* uSince\);/, 'its phase hz * uSince');
   // the beat counted: the phase's own rate over the last half second of each wind-up, uT = uSince / uSpan
   for (const key of ['cleave', 'meteor', 'nova', 'reckon']) {
     const atk = { i: 1, a: ATTACKS[key].id, at: 100000, x: 0, z: 0, yw: 0, tg: [[3, 3]] };
     const phase = (ms) => { const s = telegraphShape(atk, 3, ms, BASE_PROFILE); return (1.5 + K * s.t * s.t) * s.since; };
     const beats = phase(100000 - 1) - phase(100000 - 501);
-    assert.ok(beats / 0.5 <= 6.6 && beats / 0.5 >= 4, `${key}: ${(beats / 0.5).toFixed(2)} beats a second at the landing`);
+    assert.ok(beats / 0.5 <= TELEGRAPH_THROB_MAX_HZ + 0.01 && beats / 0.5 >= 2, `${key}: ${(beats / 0.5).toFixed(2)} beats a second at the landing`);
   }
 });
 

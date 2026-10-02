@@ -11,8 +11,8 @@
   {
     "name": "AUDWB-A2-a-grant-twice",
     "file": "src/scenes/spoilsPool.js",
-    "old": "    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null }) {\n      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }",
-    "new": "    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null }) {\n      if (false) { if (spentBy(day, acct)) said(day); return false; }",
+    "old": "    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null, claims = null }) {\n      if (spentOn(day, acct)) { if (spentBy(day, acct)) said(day); return false; }",
+    "new": "    grant({ day, seed, level, acct = '', roll = null, text = SPOILS_TEXT.granted, owner = undefined, kept = null, claims = null }) {\n      if (false) { if (spentBy(day, acct)) said(day); return false; }",
     "tests": [
       "test/auditwb_spoils.test.js"
     ]
@@ -83,8 +83,8 @@
   {
     "name": "AUDWB-A9-the-burst-by-the-day-alone",
     "file": "src/scenes/gateCourt.js",
-    "old": "at, bearing, acct: claims.s, keep }))",
-    "new": "at, bearing, keep }))",
+    "old": "at, bearing, acct: claims.s, keep, claims }))",
+    "new": "at, bearing, keep, claims }))",
     "tests": [
       "test/auditwb_spoils.test.js"
     ]
@@ -156,8 +156,8 @@
   {
     "name": "AUDWB-A6-two-stores",
     "file": "src/scenes/world.js",
-    "old": "recoverSpoils(_spoilsStore, takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
-    "new": "recoverSpoils(spoilsStore(appStorage()), takeSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
+    "old": "recoverSpoils(_spoilsStore, takeGateSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
+    "new": "recoverSpoils(spoilsStore(appStorage()), takeGateSpoil, { who, saves: enumerateSaves().info.values(), onHanded: (rec) => spoilsPool.adopt(rec),",
     "tests": [
       "test/auditwb_spoils.test.js"
     ],

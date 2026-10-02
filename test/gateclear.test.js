@@ -11,9 +11,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  gateClearFor, gatePointIn, boxNearGate, pointNearGate, wodSiteOffGate, gateSiteTest, reachNearGate, createGateClearSweep,
-  GATE_CLEAR_M, WOD_FLAT_GATE_CLEAR_M, GATE_REACH_STRIDE,
+  gateClearFor, gatePointIn, ritePointIn, boxNearGate, pointNearGate, wodSiteOffGate, gateSiteTest, reachNearGate, createGateClearSweep,
+  GATE_CLEAR_M, WOD_FLAT_GATE_CLEAR_M, GATE_REACH_STRIDE, RITE_CLEAR_M,
 } from '../src/world/gateClearance.js';
+import { riteLocalOf } from '../src/net/gateRite.js';
+import { RITE_TENT_R, RITE_BRAZIER_R, RITE_FIRE_R } from '../src/world/riteModel.js';
 import { wodPiecewise, WOD_SITE_OBJECT_RADIUS_M } from '../src/world/roadClearance.js';
 import { PIXEL_M, gateSpotLocal, GATE_SPOT_SPREAD_M } from '../src/net/gateLaw.js';
 import { PLINTH_R } from '../src/world/gateModel.js';
@@ -35,7 +37,8 @@ test('GATE-CLEAR: the clearing holds the gate, its way home and its Broker, and 
   assert.ok(GATE_CLEAR_M > GATE_LANDING_M + 8, 'the way home lands on open ground');
   assert.ok(GATE_CLEAR_M > Math.hypot(BROKER_SPOT.lx, BROKER_SPOT.lz) + 8, 'the Broker stands clear of any rock');
   const c = gateClearFor(site(538, 412, 207, 300.5, 511.25));
-  assert.deepEqual({ ...c }, { key: '538:412,207', day: 538, px: 412, py: 207, x: 300.5, z: 511.25 });
+  const [rx, rz] = riteLocalOf(538);
+  assert.deepEqual({ ...c }, { key: '538:412,207', day: 538, px: 412, py: 207, x: 300.5, z: 511.25, rx, rz }, 'AUDIT WB12d (G12): and the faithful\'s circle');
   assert.ok(Object.isFrozen(c));
   assert.equal(gateClearFor(null), null);
   assert.equal(gateClearFor({ day: 1, px: 3, py: 4, spot: [NaN, 1] }), null);
@@ -67,6 +70,24 @@ test('GATE-CLEAR: a box is near by its nearest point on the ground, the margin g
   assert.equal(boxNearGate(edge, 501, 200, 10, 380, 60, 420), true, 'from pixel 501 the gate stands at x = -5; the box starts 15 m off');
   assert.equal(boxNearGate(edge, 501, 200, 20, 380, 60, 420), false, '25 m off');
   assert.equal(boxNearGate(null, 500, 200, 0, 0, PIXEL_M, PIXEL_M), false, 'offline, or before the scan: the mod exactly');
+});
+
+test('AUDIT WB12d (G12): the faithful\'s circle keeps its own clearing - its braziers, its tents and its fire - in the gate\'s pixel by the day\'s law, every frame reading it as the gate\'s foot is read; a whole site reaching it refused, a box kept off it (mutants: no clearing at the circle; the circle in the gate\'s frame turned; too small for its tents)', () => {
+  assert.equal(RITE_CLEAR_M, 20);
+  assert.ok(RITE_CLEAR_M >= RITE_TENT_R + 3 && RITE_CLEAR_M > RITE_FIRE_R + 3 && RITE_CLEAR_M > RITE_BRAZIER_R + 8, 'its tents stand clear of any rock');
+  const day = 7, c = gateClearFor(site(day, 500, 200, ...gateSpotLocal(day)));
+  const [rx, rz] = riteLocalOf(day);
+  assert.deepEqual(ritePointIn(c, 500, 200), [rx, rz], 'its own pixel: the law\'s point');
+  assert.deepEqual(ritePointIn(c, 499, 201), [PIXEL_M + rx, PIXEL_M + rz], 'from the pixel south-west of it, east and north by a pixel');
+  assert.equal(pointNearGate(c, 500, 200, rx + RITE_CLEAR_M - 0.1, rz), true);
+  assert.equal(pointNearGate(c, 500, 200, rx + RITE_CLEAR_M + 0.1, rz), false);
+  assert.equal(pointNearGate(c, 500, 200, rx + RITE_CLEAR_M + 0.1, rz, 0.5), true, 'its margin');
+  assert.equal(boxNearGate(c, 499, 200, PIXEL_M + rx + 5, rz - 30, PIXEL_M + rx + 9, rz + 30), true, 'a box across it, from the pixel west');
+  assert.ok(Math.hypot(rx - c.x, rz - c.z) > GATE_CLEAR_M + RITE_CLEAR_M, 'two clearings, never one');
+  const prefab = { obj: [{ pos: { x: 3, z: 3 } }] };
+  assert.equal(wodSiteOffGate(c, 500, 200, 'WOD_Camp_01', prefab, { x: Math.floor((rx - 3) / 6.4), y: Math.floor((rz - 3) / 6.4) }), false, 'a camp on the circle refused at its pick');
+  assert.equal(gateClearFor({ day: 'x', px: 1, py: 2, spot: [1, 1] }).rx, NaN, 'no day, no circle');
+  assert.equal(pointNearGate(gateClearFor({ day: 'x', px: 1, py: 2, spot: [100, 100] }), 1, 2, 400, 400), false);
 });
 
 test('GATE-CLEAR: a whole site reaching the clearing is refused at its pick - a continue, so a later instance takes the pixel; a rock field answers piece by piece; the ledger says what it cost and what stood', () => {

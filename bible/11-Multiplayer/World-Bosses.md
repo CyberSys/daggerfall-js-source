@@ -51,7 +51,7 @@ at its own rate (a day every real hour since SKY-SLOW), so the game-time column 
 longer a time the player can read off their sky: it RETIRES from the words. The gate's lines say real local times
 alone (`systems/gateOmen.js` `omenTimeLine`, `openTimeLine`, `sealTimeLine`), and the panel always did.
 `net/gateLaw.js`'s own word functions stay in the relay's bundle until a relay deploy that happens anyway retires
-them.]
+them. WB12's merge with main (world151) retired them.]
 
 | game time | real time | what |
 |---|---|---|
@@ -109,9 +109,9 @@ read and the hub has welcomed the player (or eight seconds on the relay's clock 
 so the hub's word of a kill lands first; a line is said only past the last one said for its day, so a clock that
 steps back never says one twice (AUDIT WB C4):
 
-[TIME1: the three lines that named a game time now say this machine's local time alone - *An Oblivion Gate opens
-there at 14:32 your time - it is marked on your map.*, *... stands open until 14:42 your time.*, *... It collapses at
-14:52 your time.* The table below is the words as they stood before.]
+[TIME1: the three lines that named a game time now say this machine's local time alone - in WB12's words since the
+merge, *Dagon's faithful open a breach at 14:32 your time.*, *... The Covenant seals it at 14:42 your time.*, *... It
+collapses at 14:52 your time.* The table below is the words as they stood before.]
 
 | when | line |
 |---|---|
@@ -347,7 +347,7 @@ recovery:
 | **Ground Slam** | a disc, 7 m, around him | 1.6 s | 35% | 1+ |
 | **Charge** | a lane, 3.5 m wide, to the target and 22 m on; he runs it | 1.2 s | 25% | 1+ |
 | **Hellfire** | a 3.5 m disc under each of up to 5 players, where they stood | 2.0 s | 30% fire | 2+ |
-| **Flame Nova** | a ring from 4 m to 30 m - safe at his feet, or far across the floor from him | 2.2 s | 40% fire | 2+ |
+| **Flame Nova** | a ring from 4 m to 30 m - safe at his feet, or far across the floor from him (WB13a: to 16 m - at 30 the far side was past the floor; section 20, T2) | 2.2 s | 40% fire | 2+ |
 | **Dagon's Wrath** | the whole arena | 6 s | 999% | the wrath |
 
 (AUDIT WBX F12: WB4's table, as it first shipped - section 12's WBX4 raised every share and set a base beside it, and
@@ -416,7 +416,9 @@ gets ONE key, and it can sign ONE thing (RAID3, 2026-09-27, made it two: a town 
 ```
 r1.<base64url({ d, b, s, c, x, i, e })>.<base64url(Ed25519 signature)>
     d the day   b the boss kind   s the account (the token's sub)   c the loot seed (32 bits, the relay's CSPRNG)
-    x how the account earned it (dealt / stood)   i issued   e expires (i + 7 days)
+    x how the account earned it (dealt / stood; WB12d: rite - the faithful's rite broken, no part in the fight)
+    l the level the fight admitted the account at (AUDIT WBX S2)   r 1 when it also broke the rite (WB12d)
+    i issued   e expires (i + 7 days)
 ```
 
 `net/gateReceipt.js` holds the law beside `identityToken.js`'s and mirrors its ladder (the version is the
@@ -447,7 +449,8 @@ player's roll is its own.
   gate's own kind: the boss's own source (`boss: true` - lootRarity.js SOURCE_MULT.boss, 2.5; AUDIT WBX S7: no `gate`
   kind was ever made), a Legendary chance of 10%, the ladder's own caps otherwise.
   And a **Sigil Stone**: the gate's trophy - its own item row, a gem by group but no ingredient, so it never stacks away
-  its name - worth a small fortune, one a kill.
+  its name - worth a small fortune, one a kill (WB12a named it the Deadlands Ember; WB12d pays one more to each who
+  broke the faithful's rite - section 19 D).
 - **The spew**: at the kill the boss's body bursts and each piece leaves his chest on its own arc - out and up toward
   the player's side of him, the seed choosing each angle and speed - and falls, bounces and comes to rest with the
   thrown torch's own physics (`droppedTorches.js stepProjectile`: the fixed 0.02 s step, gravity, the collider's ray,
@@ -1038,8 +1041,9 @@ THE SALE (`server-account/src/accounts.js buyInsignia`, POST `/v1/account/insign
 0040 - main's HOUSING took 0037-0039: `insignia`, the ids bought in their order; `insignia_spent`; `aura`, the aura worn)
 and paid for TWICE-CHECKED: the pack's spendable stones are taken on this side as a ware's are (`spendStones` - one hand
 with the sale's `takeFromPack`),
-and the service refuses a sale the account's own closed gates could not have paid for (gate_kills, one row a kill, less
-`insignia_spent`: 409 `short`, with the `purse` they can still pay and the `price`). ONE UPDATE is the sale - the id
+and the service refuses a sale the account's own embers could not have paid for (gate_kills' `stones` - one a row, two
+where its fighter broke the rite, WB12d - less `insignia_spent`: 409 `short`, with the `purse` they can still pay and
+the `price`). ONE UPDATE is the sale - the id
 joins the column and the price the spend only where the row does not hold it yet and its gates still cover it - so two
 sales pressed at once never spend the same stones, and a piece is never bought twice (409 `owned`); a guest row keeps
 none (403 `guest`), and the id is appended in the UPDATE itself (AUDIT WB9 I3). The Broker HOLDS the stones before it
@@ -1531,6 +1535,693 @@ on myself is no one's; it is never a part in the fight (a healer who stood the f
 before - WBX R4); a heal in the last moment before his fall may miss the chart (the word goes out once a HEAL_SEND_MS
 at most, and the relay hears none after the fall).
 
+## 19. Dagon's Breach - the gates in their year (WB12, 2026-10-01)
+
+Mac: *"So, getting feedback that our oblivion gates arent lore friendly to the current daggerfall timeline. How can
+we link it more true to lore?"* - then, shown a mock-up of the summoned frame, *"What do you think? I'd like to rename
+the stones. And if we're going to do this I want it be as detailed as possible."* Asked four questions, Mac chose
+**Dagon's Breach** for the name, **Deadlands Ember** for the stones, **harder and richer** for Mehrunes Dagon's day,
+and **shops, libraries and the first breach** for the book. Then: *"Btw I want to do all 4. We're going balls deep
+with this"* - the coven's ritual site too - and of it: the faithful stand **from the omen to the opening**, **6-8
+faithful and a Summoner**, breaking the rite pays **an extra ember** to everyone who helped when the breach is closed
+(the boss unchanged), and **a chest** stands in their circle.
+
+Then, with A shipped and B under way: *"Let's forgoe the monthly raid. Instead, as we progress through this
+integration, I just want to continue to improve the boss, hone in telegraphs, and just overall bring more AAA grade
+polish to what is already developed. Also clean up text to be less explanatory and less AI."* So B is dropped (below),
+and the polish is section 20.
+
+### The year, and why the doors close
+
+The game is 3E 417. Uriel Septim VII sits the Ruby Throne, the Amulet of Kings is worn, and the Dragonfires burn in
+the Temple of the One: the Covenant of Akatosh and Saint Alessia bars every Prince of Oblivion from forcing his way
+into Tamriel. The Oblivion Crisis - gates opening across Tamriel - comes in 3E 433, when the fires go out. So an
+"Oblivion Gate" opening on its own in 3E 417 breaks the timeline; that is the feedback, and it is right.
+
+The Covenant bars a door forced from without. It never barred a door opened from within: every conjurer who calls a
+scamp proves it, and Daggerfall's own covens call the Princes themselves on their summoning days. So the gates
+become **Dagon's Breaches** - wounds in the world that **Dagon's mortal faithful** tear open with their rite, which a
+Dremora of his house (the Warden, Valkynaz Ruhn - valkynaz is a Dremora rank) holds open from his side. **The
+Covenant fights every one**: that is why a breach only stands for its window - the Covenant **seals** it two hours
+after it opens and **tears it shut** two hours after that (the seal and the collapse every gate already keeps), and
+Dagon's Wrath is the door slammed on whoever is still inside. The precedent is canon: Dagon's legions took the
+Battlespire in the years of the Imperial Simulacrum, a generation before the game. **No mechanic changes for the
+frame**; the words do (A), and two things are added (C, D - B, Mehrunes Dagon's day, was dropped).
+
+What stays, because it is lore-sound in 3E 417: the Deadlands (Dagon's realm), the Burning Court, the Dremora ranks,
+Valkynaz Ruhn and his title **Warden of the Burning Gate** (the faithful's name for the arch the breach wears),
+"the gate" for that arch of black stone (*"The gate is sealed. It opens in 3:12."*), the Gatebreaker title, Ruhn's
+Regalia, Dagon's Brand, the Sigil Broker, and "Oblivion" as the name of the planes (*Meteor of Oblivion*, the
+*crystals of Oblivion*). What goes is "Oblivion Gate" as the name of the event, and "Sigil Stone" - a sigil stone is
+the keystone of a Crisis gate.
+
+### A. The breach and its words (WB12a)
+
+**The name.** The event is **Dagon's Breach** (a breach in running text, "the breach near Copperham"); a count of them
+is **breaches closed**. Every player-facing line that named an Oblivion Gate says it so, and the Covenant is named
+where a line says why the door closes:
+
+| moment | was | is |
+|---|---|---|
+| omen (chat) | The sky burns over the wilds near P. An Oblivion Gate opens there at 20:00 (14:32 your time) - it is marked on your map. | The sky burns over the wilds near P. Dagon's faithful are calling a door to the Deadlands: the breach opens there at 20:00 (14:32 your time). It is marked on your map. |
+| risen | An Oblivion Gate has risen near N. It opens in 4:07. | Dagon's Breach has torn open near N. It opens in 4:07. |
+| open | The Oblivion Gate near N stands open until 22:00 (...). | Dagon's Breach near N stands open until 22:00 (...). The Covenant will not suffer it long. |
+| sealed | The Oblivion Gate near N has sealed. It collapses at 00:00 (...). | The Covenant has sealed Dagon's Breach near N. It collapses at 00:00 (...). |
+| collapse | The Oblivion Gate near N collapses. B returns to the Deadlands. | The Covenant tears Dagon's Breach near N shut. B is cast back into the Deadlands. |
+| his fall | B has fallen at the Oblivion Gate near N - struck down by ... The gate collapses. | B has fallen at Dagon's Breach near N - struck down by ... The breach collapses. |
+| banner, plaque, map legend, ring, map card | Oblivion Gate - opens in 3:12 | Dagon's Breach - opens in 3:12 |
+| notice card | An Oblivion Gate | Dagon's Breach |
+| marks card | Beyond this gate B waits, ... | Beyond the breach B waits, ... |
+| Discord omen | ... An Oblivion Gate opens (in 2 hours) ... and seals at ... | ... Dagon's faithful open a breach (in 2 hours) ... and the Covenant seals it at ... |
+| Discord fall | B has fallen at the Oblivion Gate near N ... The gate collapses. | B has fallen at Dagon's Breach near N ... The breach collapses. |
+| claims, record | The gate is closed in your name. Gates closed: 4. | The breach is closed in your name. Breaches closed: 4. |
+| Drakes line | The gate is on your record. ... for two gates a day. | The breach is on your record. ... for two breaches a day. |
+| profile, account card | Gates closed: n | Breaches closed: n |
+| Broker's title and aura | ... the ember of an Oblivion Gate closed ... closed enough Gates ... | ... the ember of a breach closed ... closed enough breaches ... |
+| set power | Wrath of the Warden! The gate's fire bursts from you. | Wrath of the Warden! The breach's fire bursts from you. |
+| account refusal | ... closed enough Oblivion Gates ... Each gate closed pays one Sigil Stone. | ... closed enough of Dagon's Breaches ... Each breach closed pays its Deadlands Embers. |
+
+These are WB12a's lines. Section 20 (WB13b) rewrote every one of them, and its table is the game's.
+
+The relay's refusal WORDS (`the gate is closed`, `the gate is sealed`, `the gate is closing`, `the court is full`) are
+protocol, not prose, and keep their bytes; the sentences the client makes of them name the gate, the arch, and stay.
+
+**Deadlands Ember.** The Sigil Stone (template 570) is the **Deadlands Ember**: *a coal of the breach's fire, carried
+out when the Warden falls; it does not cool and does not go out.* Only the NAME moves - the template id, its binding,
+every key, field, save vendor, salt, device key, CSS class, token claim, insignia id and database column keep their
+bytes (a sale, a save, a realm record and a listing all read the same). The name lives in each record, not only the
+template (a stone's `name` is written when it is minted and kept by every save), so a **load repair** renames every
+template-570 record under the old name - in every list a save carries, beside the rarity names' own repair - and the
+crash records' pieces and the stack fold do the same; a stone minted after the change is an ember from birth, and a
+merge or a split can never leave a stack with two names. The Broker counts in embers ("4 Deadlands Embers", "Not
+enough Deadlands Embers", "Trades in Deadlands Embers", "The Broker's eyes never leave her embers"); the price column,
+sized for "12 Sigil Stones", is re-measured for "50 Deadlands Embers" in a real browser.
+
+**A guard**, as DRAKES pinned the old currency's name: no shipped source names an Oblivion Gate or a Sigil Stone in
+player text.
+
+### B. Mehrunes Dagon's day (WB12b) - dropped
+
+Dropped before it shipped (Mac: *"Let's forgoe the monthly raid"*). The design was one breach in 360 - the 20th of
+Sun's Dusk, every 30 real days - with the Legion-Lord always and a third trial, and double embers. Nothing of it is in
+the game: every breach is fought under the day's marks from the cycle, and pays one ember.
+
+### C. On the Burning Doors (WB12c)
+
+A Mages Guild conjurer's account of the breaches (the text is the appendix below): what the common folk call them,
+the Covenant, the faithful and their rite, the Warden, why the doors close, the Battlespire, the embers, and counsel - which tells a reader how the game works in the world's own words.
+
+- **The book**: id **417** (the year; above the classic ids, its low byte no classic book's, under the decor law's
+  0xffff), template 277 like every book, its price the classic law's own for its title (463), plain ASCII in
+  Daggerfall's book format so the reader and the raum-book skin show it as any other.
+- **Where it lives**: a port registry (`systems/portBooks.js`) that encodes its pages into the BOK format's own bytes,
+  as `encodeRscRecord` does for the port's text records; the classic table baked from DFU is never touched. The one
+  open door reads a port book from the registry before it asks for a file.
+- **Where it is found**: the **booksellers** (and the general stores and pawnshops that stock books) and the
+  **library shelves** (libraries, and the guild halls and temples whose shelves the Mages Guild opens) draw it at the
+  odds of any other book; dungeon loot, houses, biographies and quests stay the classic books'.
+- **The first breach**: the first time a character closes a breach - the first ember that enters the pack - a copy is
+  handed over: *"A Mages Guild courier finds you: 'On the Burning Doors', with the Guild's compliments."* Once a
+  character (its save's own record, as the Broker's and the codex's are).
+
+**As built (WB12c):**
+- `systems/portBooks.js` writes the book into the BOK format's bytes:
+  - the title in the large face a title page sets (FONT0004) and the conjurer centred on the first page, then one
+    page per section, its head centred over its paragraph;
+  - its price is 463, the classic law for its title, worked out without moving the classic generator.
+- The text is the appendix below, word for word, and a pin holds the two together.
+- The one door (`ui/bookDoor.js`) reads a port book with no file asked for. It hands the reader over a microtask
+  later, as a fetched file lands, so the pack has closed first.
+- The shops' book draw and the library shelves' include it (1 in 93, as any book). Houses, dungeon loot, biographies
+  and quests keep the classic draw.
+- `systems/breachBook.js` gives it with the first ember through the breach's spoils (the court's floor, a receipt
+  outside it, or the crash's records), with the courier's line in chat. A town's thanks don't bring it. A character
+  who closed breaches before this gets it with their next ember.
+- Pinned in `test/wb12c_burning_doors.test.js` (7); mutants in `tools/mutants/wb12c.json` (19).
+
+### D. The faithful's rite (WB12d)
+
+**The site.** Each breach's faithful work their rite in a circle **90-180 m from where the breach will stand**, at
+least 50 degrees off either way into the arch, at a bearing and distance the day's rolls give (`riteLocalOf(day)`,
+pure, so every client and the relay agree with no word sent). The circle stands on the side of the arch toward the
+heart of the gate's own map pixel, 140 m or more inside its edge (156 m the least over 200,000 days), so its ground is
+the pixel the gate's scan chose: land, no town, no dungeon. The scan judges whole pixels; water inside the gate's own
+pixel is not looked for, and with no map data here the real map's rate is unmeasured. No rock or tree of the World of
+Daggerfall stands within 20 m of the circle, and no grass grows on its burned earth.
+
+**The window: from the omen to the opening** (about 15 real minutes - three game hours). With the omen, a **pillar of
+smoke** rises from the circle, seen across the omen's ring. When the breach opens, the faithful still standing **pass
+into the breach** (gone, with a line to those near), broken or not. The circle, its fires and its chest stay until the
+breach collapses: the Wrath's collapse, or an early kill's.
+
+**The look.** **Dagon's sigil burned into the earth** - its own art: a seven-pointed star in a double ring of runes,
+every cut smouldering, ragged where the burn gave out, its first point toward the gate - inside a ring of six braziers
+cut from the gate's stone, each with a flame; an altar stone with the smoke's own fire on it; the faithful's casket;
+and behind them their tents and a camp fire (the game's own tent and fire flat, never the court's braziers). Every
+other brazier's flame is a third of its flicker from its neighbour's. One steady glow at the heart reaches past the
+braziers, and the camp fire has its own light. The altar, the casket and the braziers are solid.
+
+**The faithful.** **6-8 of Dagon's faithful and a Summoner** (the day's roll), robed casters - mages, battlemages,
+healers and nightblades (Daggerfall has no witch; covens are places, not mobiles) - named *Dagon's Faithful* and *the
+Summoner*, in every line that names a foe. They chant at the circle, seeing 12 m, until disturbed; one woken wakes
+them all (a camp's law). The Summoner has three times a caster's health. Online every player sees the same faithful:
+the first to come within 100 m springs them and owns them (the World of Daggerfall camps' law), every other sees them
+as the owner's. The faithful are in no save; what a character saw of them is (the slain, by kind, and the Summoner's
+fall), so a circle stood again - after a teleport, a reload, an owner who left - stands only the survivors, and never a
+fallen Summoner. An owner who leaves leaves them to the player at the circle after 10 s; a teleport or a closed page
+hands them to the players beside them, still chanting and still one camp.
+
+**Breaking the rite.** The rite is broken when **the Summoner falls before the breach opens**, however he fell (a
+Wabbajacked Summoner's fall breaks it too). Everyone who struck one of the faithful while standing at the circle is
+**one who helped**.
+
+**The extra ember.** When the breach is **closed** (the Warden falls - not when the Covenant tears it shut), everyone
+who helped **takes one more Deadlands Ember** - whether or not they fought the Warden: a challenger's receipt says so
+(`r`), and one who helped but did not fight is minted a receipt of the rite alone (`x: 'rite'`) that pays that one
+ember and nothing else. The account's purse counts it (the row's `stones`); a receipt of the rite alone is **not a
+breach closed** (no Drakes strike, no "breaches closed"). The boss is unchanged.
+
+**How the relay knows.** Each player at the circle says the rite's word (`t: 'rite'`) to the circle's own cell every
+5 s while the rite holds, at once on a change and once more a second after: the day, whether they struck the faithful,
+whether they saw the Summoner fall. The cell believes a word only from a socket whose pose stands within 60 m of the
+circle the day's law places in that pixel, from the omen until 2 s past the opening (a fall seen in the last second
+still counts). It keeps each circle said in it on its own, folds the helpers by account and, when the Summoner's fall
+is said, tells the hub - again as more helpers are said, retried every 5 s until it answers, let go once the breach
+collapses. The hub keeps each circle told, says a broken one once to everyone online and at every hello while the
+circle stands (the raids' cleanse door), and the breach's room asks it for the helpers from the opening on. At the kill
+it pays the circle at the gate's agreed site (two accounts said where the gate stands), or the most struck when none is
+agreed.
+
+**Honest limit, stated.** As with a raid, a word is its player's own: the relay checks where and when it was said, not
+each blow. A player at the circle can say they struck the faithful and buy themselves one ember. One can say the
+Summoner fell before he did: the rite reads broken for everyone then (its chest opens, and the omen's order goes
+unsaid to those who join), while the faithful still stand, and everyone who strikes them is still counted and paid. A
+word for a circle no breach stands by is a circle of its own and stands in no other's way.
+
+**The chest.** In the circle stands the faithful's chest. It opens **once the rite is broken**, for each character
+**once a day**: gold, two to four reagents of the rite (Sulphur, Ichor, Ectoplasm, Lich Dust, a Daedra's Heart
+rarely), and a small chance (one in twenty) at **a piece of Dagon's Brand** - a Magic piece of armour bearing the set's
+sigil. Anything taken from it - a whole stack, a split, a swap - spends the character's day; the chest keeps its place
+and name until it is emptied, and wears *Opened* after.
+
+**The words** (as built; each one thing, WB13b's rules):
+
+| moment | who hears it | line |
+|---|---|---|
+| the omen | chat, right after the omen's line and before tonight's marks; never once the rite is broken, nor on a relay that cannot keep it | *The faithful work their rite nearby. Kill their Summoner before the breach opens.* |
+| the rite broken | everyone online, once while the rite holds and its place is known (a player who joins after hears it at hello) | *The faithful's rite is broken near N, by A, B, C and 2 others.* |
+| the opening | a player near the faithful still standing, broken or not | *The faithful pass into the breach.* |
+| the casket | its name and state; a press while sealed | *The Faithful's Chest*, *Sealed* / *Opened*; *Sealed by the faithful's rite.* |
+| a receipt of the rite alone | the claim; its ember in the pack; on the court's floor; a guest | *Rite recorded.*; *An ember from the broken rite is in your pack.*; *Your ember from the broken rite falls to the floor.*; *Rite not recorded. Add a username within a week to keep it.* |
+| the classic lines | Info, the death alert, the corpse | *You see the Summoner.*; *The Summoner just died.*; *The Summoner (dead)* |
+| the Overworld | the camp's mark | *Dagon's Faithful, 7* |
+| Discord | the omen post, after its times; the rite broken | *The faithful work their rite nearby. Kill their Summoner before the breach opens.*; ***The faithful's rite is broken** near N, by A, B and 3 others.* |
+
+**As built (WB12d; AUDIT WB12d below):**
+- `net/gateRite.js` is the law: the site, the faithful (the Summoner a **Sorcerer**, a caster none of the faithful is,
+  so every screen knows him by his kind), the window (`riteHolds` from the omen to the opening; `riteStands` to the
+  collapse, an early kill's too; `riteHeard` 2 s past the opening), the word's reach (60 m) and beat (5 s), and at most
+  64 helpers a circle.
+- The relay (world151): the cell keeps up to 4 circles a day and the hub 8, each on its own. One fall at a time: the
+  breach's room asks the hub for the helpers every 15 s from the opening, waits 2 s at most at the kill, and keeps its
+  last answer. One tell in flight, its retry armed before it goes. The rite's bucket at the relay is twice the client's
+  burst. At the kill, fighters who helped carry `r`; helpers who did not fight are minted the rite's own receipt.
+- acct62: `r` is two embers in the purse; the rite's own receipt one, with no breach closed and no Drakes. Every claim's
+  answer carries the row's embers (`stones`).
+- `scenes/riteHost.js` stands the circle on the camps' law (site `px,py:rite.<day>`): the faithful spring within 100 m,
+  the word is said from within 55 m, again 1 s after a change; an orphaned circle is taken after 10 s and an empty
+  stand tried again after 5 s; the casket seeds within 40 m. The ground under the circle is read every 15 frames, and
+  the stone and the sigil are made again when it moves (a pixel built finer). The sigil is drawn for an eye within
+  250 m. (`world/riteModel.js`: the sigil riding the land's highs, its points never further apart than twice its reach;
+  six braziers, the altar and the casket, sunk at their lowest corners; `world/gateArt.js riteSigilArt`.)
+- `render/riteSmoke.js`: the pillar, 340 m tall and leaning the same way every day (no wind is read). Its foot is the
+  altar fire's width; its billows grow as they climb and the biggest bulge its outline; it is lit as the frame is, the
+  fire glowing in its first metres. It fades in over 8 s from the omen and thins over 30 s after the opening. Far off
+  each octave settles to a thick mean, and a clear day's distance fog leaves it 0.6 of itself, a dark line on the
+  horizon from kilometres off; weather's fog takes it whole.
+- The casket (`systems/riteChest.js`): gold (20-40 a level), two to four reagents (a Daedra's Heart 8% of draws), one
+  chest in twenty a Magic piece of Dagon's Brand at Faint. The day's memory (`RiteDay`) and the chest's (`RiteChest`)
+  are the character's save.
+- Pins `test/wb12d_rite_law.test.js` (9), `test/wb12d_rite_relay.test.js` (12), `test/wb12d_rite_world.test.js` (27),
+  `test/wb12d_rite_host.test.js` (8); mutants `tools/mutants/wb12d.json` (319); Chromium `tools/riteProbe.mjs`.
+
+### Versions and the deploy
+
+The relay's law moves to **world151** (world141 on the branch; main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and
+the Seats arc took world141-world150 first): the words of `gateHerald.js`, the rite's word and the receipt's `r`, and
+`gateLaw.js` without the three lines that named a time (TIME1 said the next relay deploy retires them; the client says
+them in local time, `systems/gateOmen.js`). The brain's law stays 5. The account service moves to **acct62** (acct46 on
+the branch, past main's acct46-acct61): migration 0066's `stones` (0046 on the branch) - the rite's ember in the purse -
+and the claim of `r` and of a rite alone. **The order of the two deploys does not matter**
+(AUDIT WB12d A1): acct62 answers every claim with the row's embers, so a fighter's `r` that acct61 counted at one ember
+is made good when it is claimed again, and the game keeps an `r` receipt until a service that answers its embers has
+counted it; acct61 refuses the rite's own receipt, and the game keeps that for its week. Each deploy drops connected
+players once, as every relay deploy does. A game from before world151 still fights the breach (the brain's law is
+unchanged): it knows nothing of the rite, never says its word, and is paid nothing for it.
+
+### What does not change
+
+Every mechanic of the Warden's fight; the schedule; the rotation of marks; the spoils' dice for the fight; the Broker's
+wares and prices; and the bytes of every id, key and column whose name A changed. The rite adds its own: the receipt's
+`r` and `x: 'rite'`, migration 0066's `stones`, the save's `RiteDay` and `RiteChest`, the relay's `rite` key. The court
+is the Burning Court; the Deadlands are the Deadlands.
+
+### AUDIT WB12d (2026-10-02, Mac: "Audit this. Its needs to be detailed and perfection. AAA grade")
+
+WB12d audited by seven lenses over a frozen tree (`2ab3847fe`): the account service (A), the relay on the real Room
+(R), the client's host - the faithful on the camps' law, the casket and the words it says (C), the law and the wire over
+200,000 days (L), the words and this record against the code (D), a mutation sweep of 113 mutants over the slice (T),
+and a real browser - the circle, the smoke and the sigil in headless Chromium by day, dusk, night and fog (G). Each
+finding was reproduced against the real modules before anything changed. The fixes went in four batches: the relay and
+the account service, the rite in the world, the rite drawn, and the record. A finding two lenses found is written once,
+under both names.
+
+| # | found | now |
+|---|---|---|
+| R1, L1 | **the relay checked a circle against the client's own pixel, never where the gate stands**, and the cell kept the day's first circle, the hub the first told: a word at a fake pixel took the record, the broadcast and the pay; one `s` there dropped the true fall; an `f` lie in the omen's first second broke the rite for everyone, and every client stopped standing the faithful | each circle on its own at the cell (4 a day) and the hub (8 a day); the hub stands by the gate's agreed site, kept with no herald too: the kill pays that circle, the channel names it; a client believes the word for its own circle alone and stands the faithful after it. The honest limit is stated in D |
+| R2, L2 | **the kill was re-entered while the hub was asked for the helpers**: every blow and beat ran it again, minting receipts on new seeds - 13 falls for 13 blows | one fall at a time; the helpers asked every 15 s from the opening and kept on the fight; the kill's own ask waits 2 s at most and keeps the last answer |
+| C1 | **a teleport poisoned the circle's site for the page's life**: its faithful never stood again for anyone online, after any fast travel, recall, death, load or ship | the site cleared by the sweep and reclaimed; leaving drops my own faithful without poisoning; what the character saw is in the save, so a circle stood again stands only the survivors, never a fallen Summoner |
+| C2 | an owner who left (a closed tab, fast travel, a death, a walk) left the circle empty for everyone until the opening | after 10 s the player at the circle stands the survivors; a teleport or a closed page hands them to the players beside them |
+| C3 | a handover went to the nearest peer however far, unplaced: the heir's cull took them, and they were a 'pack' | handed only within a camp's cull distance, still placed, chanting and one camp |
+| C4 | the casket's once a day was beaten by taking part of a stack or swapping a piece, and a pile gone untouched seeded again: endless chests | opened is any change in the pile, piece by piece and count by count, and the day is the character's at once |
+| C5 | a save kept the faithful, and a load stood them beside a fresh set: two Summoners, a reload farm | the faithful are in no save; a save's from before are known as the rite's and not stood |
+| G1 | the circle built on the far ring's coarse ground kept it once its pixel was built finer: 177 of 924 sigil points buried, the columns sunk, the flames in the air | its ground read every 15 frames; the stone, the sigil, the flames and the collider made again when it moves |
+| G2 | the game's grass grew through the sigil | none on the burned earth, placed again when the circle stands and when it goes |
+| G3 | up close the plume was a translucent orange funnel 9 m wide round the braziers | its foot the altar fire's width, swelling slowly, fading in over its first metre; the fire a glow in its first few |
+| A1, D11 | the deploy order: CI deploys world141 before acct46 while this page said the opposite, and an acct45 counted a fighter's `r` at one ember - the client let it go, and the ember was lost | the order no longer matters: every claim answers the row's embers (`stones`); an `r` row counted at one is made good when claimed again; the game keeps an `r` receipt until a service that answers its embers has counted it |
+| A2, F9 | a claim of a receipt of the rite alone answered the Drakes' strike: "No Drakes for this breach" after "Rite recorded." | a rite's own claim strikes nothing and answers no Drakes |
+| A3, D7 | a guest's rite receipt was told "Breach not recorded"; the relay's comment said a guest is handed no receipt | *Rite not recorded. Add a username within a week to keep it.*; the comment says the week it is kept |
+| A4 | the Broker's card and refusal said the title and the aura are paid from "breaches closed", which a rite's ember is not; the insignia law and the claim's answer named one stone a kill | *Paid from your account's embers.*; *Your account has too few embers for that.*; the comments name the row's `stones` |
+| R3 | a tell the hub refused was retried every 5 s forever (2,001 tells by the third hour) | let go once its breach collapses; the hub takes a late tell silently |
+| R4 | every word started its own tell: six `f` words said the rite broken six times | one tell in flight; a word that moves nothing tells nothing |
+| R5 | the retry was armed only after a failed tell: a reset mid-tell never told | armed before it goes |
+| R6 | the Discord post named only those known at the first tell | named when it is posted |
+| R7, L7 | the circle stood to the Wrath's collapse after an early kill | `riteStands` reads the kill: the circle goes with its breach |
+| R8, L4 | a fall said in the rite's last second could be lost, and the relay's bucket was the client's, so a stalled socket's bunched words were dropped | believed 2 s past the opening; the relay's burst twice the client's; the client says a change again a second later, from 55 m (the relay believes 60) |
+| S1 | two tells landing together each read a fresh day, and both said it | read and written with no await between |
+| S2 | the court's fight record with 64 rite receipts is 167 KB - over a Durable Object value's 128 KiB? | not so: the Room is SQLite-backed (`server/wrangler.toml` v1), whose values hold 2 MB; the world chunk's note now says the 128 KiB is the key-value backend's |
+| C6 | across a seam's promotion a halo socket lost its rite word (and its raid word) | each socket keeps its own |
+| C7, D1 | a page opened after the break heard "The faithful's rite in the wilds is broken", then the omen and its order | the broken word said once while the rite holds and its place is known; never the order once broken |
+| C8 | the omen's order was said over a broken rite | skipped once the hub says it broken |
+| C9, D8 | after a partial take the casket's target came back over the pile and swallowed presses, and the pile lost the chest's name | the casket's target gone while the pile holds anything; the pile keeps its name until it is emptied |
+| C10, G10 | the stone's GPU mesh leaked at every teleport and day | freed on leaving and on remaking |
+| C11 | a Wabbajacked Summoner lost his site: the rite could not break | the changed foe keeps his site and his part |
+| C12 | the near line again after each teleport | the near line is cut (D5); the opening's line once a day, in the save |
+| C13 | garbage every frame while the circle stood | none: fixed lights, the word made only when due, numeric keys |
+| C14 | the site id had no day: one day's lost site and claims carried into the next day's circle on the same pixel | the site is `px,py:rite.<day>` |
+| C15 | the faithful's bodies by class ("Sorcerer (dead)"), the Overworld's mark "Mage pack, 7" | *The Summoner (dead)*; *Dagon's Faithful, 7* |
+| L3 | the helpers asked once at the kill, with no bound: a 503 lost every `r` | asked from the opening, bounded at the kill (R2) |
+| L5, D9 | a WB12d client on an older relay said the omen's order and stood the faithful; its words never left; the casket stayed sealed | the order and the faithful only on a relay that keeps the rite |
+| L6 | the circle could stand in a neighbour pixel's shallows (7-11% of coast days on a synthetic coast) while this page said its ground was checked | it stands toward its pixel's heart, 140 m or more inside the pixel's edge (156 m the least over 200,000 days); this page says what is and is not checked |
+| L8 | `validRiteOut` cut the names to 8 before it dropped junk: 8 junk entries hid a real name | junk dropped first |
+| D2 | the classic lines named the Summoner by his class: "You see a Sorcerer.", "Sorcerer just died." | *You see the Summoner.*; *The Summoner just died.*; *The Summoner (dead)* |
+| D3 | the omen's order repeated the omen, explained a mechanic ("for an ember more"), came after the marks with its "nearby" dangling, and differed from the Discord post's | *The faithful work their rite nearby. Kill their Summoner before the breach opens.* - one sentence for the chat and the channel (`RITE_OMEN_LINE`), right after the omen and before the marks |
+| D4 | the broken line named the long place; Discord's named no count; the names reached clients unsaid | *The faithful's rite is broken near N, by A, B, C and 2 others.*, the post the same |
+| D5 | the near line said what the screen shows: "Chanting rises from the smoke." | cut |
+| D6 | a broken rite's survivors vanished at the opening without a word | *The faithful pass into the breach.*, broken or not |
+| D10 | this page said a game from before world141 is refused at the breach | it is not (the brain's law is 5); it fights, knows nothing of the rite, and this page says so |
+| D12 | world141's version row did not name WB12d | named |
+| D13 | this page said the circle's fires were lit as the court's braziers | the camp's own flame and tent, said so |
+| D14 | "while the rite stands", "tells the hub once", the honest limit understated | holds; again as more are said; the limit stated |
+| D15 | "What does not change" false after the rite; section 6's receipt without `l`, `r` and the rite; section 7's ember "one a kill" | each rewritten |
+| D16, G13 | Rendering.md said the plume leans downwind; no wind is read | the same lean every day, said so |
+| D17 | Active-Arcs had no entry for sections 19 and 20 | added |
+| D18 | the word-rule test never read the rite's lines | it does |
+| D19 | the record never said what was seen in a browser | Seen and Not seen, below |
+| D20 | a rite's helper's ember in the court spilled with the fight's line | *Your ember from the broken rite falls to the floor.* |
+| D21 | comments: the ring "first opposite the gate", the smoke "yesterday's fading beside it", the circle "until its breach collapses", the omen's "ONE line", the casket "said once", the smoke "rises over 8 s" | each says what the code does |
+| D22 | "half-blind", "the claim's stones", no late joiner and no *Opened*, 19 A's table with no pointer to WB13b, the Port-Ledger's "WB12a-d", a Testing row missing a test, relay test titles naming mutants that were not there | each mended |
+| F1-F7 | the sweep's 113 mutants left 102 alive on the frozen tree (85 of them real): the relay's `s` check, yesterday's helpers at today's kill, any day past the first, the Summoner's career in the tally, the site filter, the site regex, the Broker's sale against the purse | pinned in the first two batches. The sweep was run again on the finished tree: 29 died as they stood, 63 had moved and were re-aimed at the same behaviour, 8 were retired with the code they mutated (the near line, D5; the nearest three lights, G7; a broken rite stopping a stand, R1; a dead waker the tally no longer reaches) - and 37 lived. Each is pinned now: the bible's own numbers (a word from 60 m, every 5 s; the faithful within 100 m; the smoke in 8 s and out in 30; the chest's two to four, its heart 8%, its Brand one in twenty at Faint), the hub's bounds, the channel's retry, the wire's edges, a halo's own welcome. 69 dead; 4 recorded equivalent, none reachable: an older day's word, an older day's tell, the hello's replay outside the hub, an account with no subject |
+| F8 | `test/fakeRoom.mjs` stored by reference where the runtime copies | stores copies, and spends an alarm as its handler begins |
+| F10-F22 | the chest's save, the alarm's sooner rule, the hub told again, the swept prefixes, the rate gate, the post, the halo, the host's edges, the casket's, the near line, the chest's contents, numbers pinned only against themselves, the layout's seams | pinned with F1-F7's |
+| T, weak pins | pins that could not fail: the law's site checked against itself, "behind the altar" with no geometry, the claim's verdict as two lines of its source, relay test titles naming mutants that were not there | the law's own answer for one day written down; the Summoner's place measured behind the altar; the claim driven through the device's queue; the titles mended |
+| G4 | no collider: players, the faithful, arrows and the camera passed through the altar, casket and columns | solid |
+| G5 | the sigil lay up to 0.285 m over a 0.3 slope, a dark plank the faithful's feet sank into | a finer drape and a nearer reach: 0.19 m at most there, no two of its points further apart than twice its reach |
+| G6 | the sigil z-fought from the travel view | drawn for an eye within 250 m |
+| G7 | the nearest three of seven lights changed six times a lap | two steady lights |
+| G8 | the smoke unlit: a pale ghost at night | lit as the frame is, never under 6% |
+| G9 | the fog's floor held in weather's fog too: a third of the plume through a whiteout | the floor in a clear day's distance alone, 0.6 of it (0.35 left a pale line at 1.5 km); far off, each octave settles to a thick mean |
+| G11 | the sigil wore the plinth's flags, a paved plaza, its art unturned | its own art: Dagon's seven-pointed star in a double ring of runes, every cut smouldering, ragged at its rim; turned with the altar, its first point toward the gate |
+| G12 | WoD boulders through the altar and the tents | a 20 m clearing at the circle |
+| G14 | the smoke's pass built in its first draw drew nothing, so the host's foreign-pass mark never came: a stale VAO and one draw lost | built by the frame, before the renderer's, at one threshold |
+| G15 | looking up from inside the old funnel, two full-screen layers of noise | the foot narrowed (G3): an eye is inside the plume only at the altar |
+| G16 | the far ring cannot hide the smoke 4.5-6 km off | kept, as the gate's beacon keeps it: the far ring draws at the far plane, so it hides nothing behind it |
+| G17 | the plume a corkscrew, its noise one sheet sliding at 5.7 m/s - and, seen in Chromium, cells 34 m tall on a column 2 m wide: a searchlight's streaks | its rows and noise on the billows' own height, growing as they climb; its outline bulging with its own first octave and rising with it; its edge thin where its own surface turns from the eye; each octave its own whole climb |
+| G18 | a failed build retried every frame | not again until its ground moves |
+| G19 | a brazier's six faces one strip of the stone and its cap a tenth of the art; the flames in lockstep; the camp's fire 0.8 of a camp fire | each face its own strip, the cap a patch as wide; every other brazier's flame its own batch, a third of the flicker apart; the camp's fire a camp fire's |
+
+Seen in Chromium (`tools/riteProbe.mjs`, 14 checks, SwiftShader's WebGL2): the smoke's program compiles and links, its
+light a live uniform; from 30 m, the fire glowing over the altar and gone a few metres up, the smoke dark there; from
+400 m and 1.5 km on a clear day, a dark leaning plume whose billows grow as it climbs, 40% darker than the sky; at
+night, darker than its sky; in weather's fog, gone; from under it at the altar, soft folds and no hard ring; the sigil
+from above, burned earth ragged at its rim, the star's first point toward the gate, its cuts alight, the land past its
+rim. Not seen: the game's own art for the flames and the tents (this container has no ARENA2), a real map's coast under
+a circle, the faithful in a fight, and the hub's word and the chest on the deployed relay and service (world141 and
+acct46 are not deployed).
+
+Pinned in `test/wb12d_rite_relay.test.js` (12), `test/wb12d_rite_law.test.js` (9), `test/wb12d_rite_world.test.js`
+(27), `test/wb12d_rite_host.test.js` (8, the real foe pool and the world's camp law end to end) and
+`test/gateclear.test.js` (+1); mutants `tools/mutants/wb12d.json` (319, every one dead but 5 recorded equivalent).
+Re-aimed: discordgates', wb5b's, wb8c's and wb13b's omen and claim pins; the auditpace, auditpscale1, cursesync,
+discordgates, gateclear, loot7 and survtiers3 lists. world141 re-hashed in place (undeployed).
+
+### Appendix - On the Burning Doors
+
+*By Ysolde Marnhel, Master Conjurer of the Mages Guild, Wayrest.*
+
+> Every day now, somewhere in the wilds of the Bay, the sky catches fire. Herders swear to a door of black stone that
+> rises where no stone stood, its arch full of flame, and to a lord of the Deadlands who waits within. The common folk
+> call these the doors of Oblivion and bar their shutters. They are right to bar them, and wrong about nearly
+> everything else.
+>
+> **The Covenant.** Since the days of Saint Alessia, Akatosh has kept a covenant with the blood of the Emperors. While
+> a Septim wears the Amulet of Kings and the Dragonfires burn in the Temple of the One, no Prince of Oblivion may force
+> his way into Tamriel. Our Emperor Uriel, seventh of that name, sits the Ruby Throne, and the fires burn. No invasion
+> comes. But the Covenant was made to bar a door forced from without. It was never made to bar a door opened from
+> within. Every apprentice who calls a scamp into a circle proves as much, and every coven of the Bay that calls a
+> Prince on his own day proves it more loudly.
+>
+> **The faithful.** Mehrunes Dagon, Prince of Destruction, has never lacked for worshippers in a land as quarrelsome
+> as ours. His faithful keep to the wilds, and to a rite older than Wayrest. They gather about a ring of braziers, burn
+> his sigil into the earth, and bleed for him. What opens is not a gate as the Daedra raise them in their own realms.
+> It is a breach: a wound in the world, held open by the will of the Prince and the blood of his faithful, and by
+> nothing else.
+>
+> **The Warden.** No Prince walks through such a wound himself. He sends a lord of his house to hold it, a Dremora of
+> the rank they call valkynaz, and the one who answers most often in our Bay names himself Ruhn. Among the faithful he
+> is the Warden of the Burning Gate. I have spoken with three who stood before him and lived. They agree that he is
+> very large, that he burns, and that he does not tire.
+>
+> **Why the doors close.** Here the Covenant shows its teeth. A breach is a door the Dragonfires did not permit, and
+> they will not suffer it long. From the hour it opens the Covenant presses upon it like a hand upon a wound. Within
+> two hours it is sealed; two hours after, it collapses entirely, and whatever of Dagon's remains on our side is cast
+> back into the Deadlands. Should the Warden fall before then, the breach fails at once. It is his will that holds the
+> door.
+>
+> **The Battlespire.** I am asked whether the Prince has done such a thing before. He has, and worse. In the years of
+> the false Emperor his legions took the Battlespire itself, where the Empire trained its battlemages, and held it
+> until a single apprentice drove them out. Not since the Battlespire fell has Dagon found doors so wide as these.
+>
+> **The embers.** Those who close a breach carry out coals of its fire. They do not cool and they do not go out, and in
+> the Guild we call them Deadlands embers. The Guild will buy them for study. A certain Broker of the wilds pays
+> better, and asks fewer questions.
+>
+> **Counsel.** If you would close a door, find the faithful first. Their circle stands within sight of where the breach
+> will open, and their smoke rises with the first omen. No one coven opens a breach - the Prince presses on that place
+> from his side, and the faithful only widen the wound - so their door will open whatever you do. But cut down their
+> Summoner before the rite is done, and the fire of the broken rite clings to those who broke it: when the door is
+> closed, it pays each of them an ember more. What the faithful keep in their circle is yours as well. Do not go alone.
+> Do not stand where the ground glows. And when the Covenant closes the door, do not be on the wrong side of it.
+
+## 20. The polish (WB13, 2026-10-01)
+
+Mac: *"Let's forgoe the monthly raid. Instead, as we progress through this integration, I just want to continue to
+improve the boss, hone in telegraphs, and just overall bring more AAA grade polish to what is already developed. Also
+clean up text to be less explanatory and less AI."*
+
+Four lanes looked at what ships, in Chromium, before anything was changed:
+- **The telegraphs:** every shape at a player's eye and from above, at each moment of its wind-up, under every aspect,
+  overlapping, at a distance and on a phone.
+- **The fight's feel:** beat by beat, with the screen coverage of each shape measured from where a fighter stands and
+  the brain's choices simulated.
+- **The HUD:** both skins at 1280x720, 390x844 and 844x390, filmed in motion.
+- **The words:** 330 strings, each traced to the tests that hold it.
+
+Six slices follow. The rule for all of them: nothing gets faster (Mac, WBX: *"I dont think making mechanics faster is
+the play"*), and what a player must do is shown before it is said.
+
+### WB13a. The telegraphs
+
+| # | found | now |
+|---|---|---|
+| T1 | **burning ground drawn ten marks a group, the newest dropped** - two phase-three Hellfires on five fighters left ten live pools invisible, and they still bit | a full group starts another: every live pool is drawn |
+| T2 | **the Flame Nova could not be escaped from the outer floor**: its ring ran 4-30 m on a 24 m floor, so with him at the heart (every phase turn puts him there) 26% of the floor in phase two and 47% in phase three was out of reach at 7.6 m/s. The escape law measured from the ring's middle | the ring runs **4-16 m**: safe at his feet, or past 16 m - from anywhere inside it, the nearer edge is 6 m off at most (0.8 s). The escape law walks every point of the floor |
+| T3 | the fill reached the floor's edge early (the Nova and the Spokes ran 30 m on a 24 m floor; the near spoke filled at half its wind-up) | the fill runs to where the shape meets the rim, so it reaches the edge at the landing |
+| T4 | **the outline dimmed as danger neared** (the fuse burned 90% of it down by 90% of the wind-up), a brighter false edge moved inside it, and it faded in over 150 ms | one outline, the brightest line of the shape, full from the first frame with a short pop; the fill eases in behind it |
+| T5 | **no landing**: the last 350 ms flooded the shape at the landing's own brightness, and the Cleave, the Charge and the Spokes threw no burst | the last 180 ms brightens the rim alone; the landing flashes white-hot and decays to a scorch in about 300 ms; the Charge's flash follows his head down the lane |
+| T6 | burning ground looked like a pending attack and outshone it; the Sappers' paths and the Ward-Bearers' tethers looked like fire | ground is terrain - darker, a dashed rim, a slow seethe, no halo; paths and tethers are dashes flowing toward him |
+| T7 | his mark was the brightest thing on the floor, and inside a shape centred on him it read as a safe heart | a dashed, dimmer ring; the chevron kept |
+| T8 | **the element replaced the danger colour**: Rime, Storm and Venom outlines went grey, mauve and olive on the red floor, and blue reads as safe | every pending outline wears one danger edge (Dagon's crimson for his own blows); the element lives in the fill and the grain |
+| T9 | at the Nova's word the brightest line was the edge of its safe heart - it read as a Slam and sent fighters outward | the safe edge is cool, the danger field fills from the first frame |
+| T10 | the outline was a 41 px band at the sides and thin near and far | anti-aliased by the edge's own derivative, with a dark keyline outside it |
+| T11 | flashing over 3 Hz (the throb's last 45%, Storm's crackle at 12 Hz) and the frost lattice shimmering | the throb on the rim only, at 3 Hz at most; the crackle at 4 Hz; the grain fades with distance |
+| T12 | every shockwave ran 9.9 m - a Bite's swept five times its size, the Nova's ran through its safe heart | the wave is sized to its shape, and never enters a safe heart |
+| T13 | **in first person at sword reach the Cleave's shape is 0% of the frame** and the Slam's 8% | **in it**: while your feet stand in a pending shape, the screen's rim pulses in the danger colour and the attack's name and MOVE stand under the crosshair, with an arrow to the nearest way out |
+| T14 | every pass drew the whole 49 m court - 1.65M fragments a Legion-Lord frame on a phone | a quad per shape, sized to it |
+
+The hit law does not move except T2's ring: what lands is what the ground shows.
+
+**As built** (`render/gateTelegraph.js`, `scenes/gateCourt.js` perilAt, `ui/gateGroundView.js`, `scenes/gateHost.js`,
+`net/gateBrain.js` ATTACKS.nova):
+- The shader was rewritten from the lane's prototype, rendered beside the shipped one in Chromium.
+- The cone's edge is one continuous distance, so its line can be read off its own derivative (AUDIT WB9 F1's jump is
+  gone).
+- The blend is premultiplied (`blendFuncSeparate(ONE, ONE_MINUS_SRC_ALPHA, ZERO, ONE)`), so the frame's alpha is
+  untouched.
+- The line shows from the word (`alpha` is the afterglow's fade alone).
+- The landing decays over 90 ms.
+- The Charge's landing follows `runS`.
+- Paths and tethers are `TELEGRAPH_POOL.path`.
+- The quad is 0..1, laid over `telegraphQuadOver`.
+- **In it** reads my feet against his blow in flight (never the whole floor's) and his host's, landing soonest first.
+  It finds the way out over 24 bearings in 0.25 m steps, on the floor. It turns the way out by the camera's yaw
+  (`scenes/world.js` cam.yaw), and the ground view draws it as a chevron 72 px out from the crosshair.
+- Pinned: `test/wb13a_telegraphs.test.js` (13), and the re-pinned WB4, WB9d, WB9e and AUDIT WB9 laws.
+- AUDIT WB9's shader harness takes every derivative the shader asks for (it took one).
+- Mutants: `tools/mutants/wb13a.json` (22).
+- Seven older records were re-aimed by content (the fuse's is gone with the fuse).
+
+### WB13b. The words
+
+Every line the feature says, traced to the tests that hold it and rewritten to say one thing and stop:
+1. The event, then where, when or what to do. No second sentence that explains or comments.
+2. Colons only in label rows ("Breaches closed: 4"), never "Name: explanation".
+3. No "X, not Y". No dash asides; " - " only between a label and its value.
+4. Lists only where there is a list. No rhythm of three for its own sake.
+5. Nothing the screen already shows: the ring, the bar, the card and the countdowns carry state.
+6. Orders are short imperatives, one exclamation at most.
+7. The effect, not the sensation.
+8. Numbers as numerals; game time with the player's own beside it (TIME1, at the merge with main: the player's own alone).
+9. The lore nouns exact: Dagon's Breach, the Covenant, Dagon's faithful, the Deadlands, the Burning Court, Deadlands
+   Embers, Valkynaz Ruhn.
+
+What changes beyond the wording:
+- Chat names the marks ("Valkynaz Ruhn comes the Rime-Wrought tonight, Colossal and Unyielding."); the card and the bar
+  say what each does.
+- The line on stepping into the court is cut: the card shows the marks at that moment.
+- The card has one subtitle near the gate and inside.
+- A phase turn is a title and one order (WB13e).
+- A screen that never found the site says "in the wilds", as Discord does, not "near the wilds".
+
+**As built:**
+- The omen, rise and open lines say the event, where and when (*"The sky burns near Copperham. Dagon's faithful open a
+  breach at 20:00 (14:32 your time)."*; since TIME1, at the merge, *"... open a breach at 14:32 your time."*).
+- The rise line no longer contradicts itself ("has torn open... It opens in").
+- The marks line names the marks. The aspects' omens lose their "X, not Y"; the arrival and floor words are gone.
+- Every trial reads as one statement with its number ("deal 25% more", "heals him 3%"). Every tip is one order.
+- The court's strike, Reckoning, host and refusal lines are one event each, the dash asides now full stops.
+- The Discord omen has two sentences for the two times and the chat's marks sentence; the kill post is the chat's own
+  sentence.
+- The claim, Drakes and account refusals are shorter. The Broker's window, insignia, dismantle and set powers say the
+  event and stop.
+- The notice board's card says where and the countdown's state.
+- The relay's protocol words, the save and token keys and Daggerfall's own lines are unchanged.
+- Pinned:
+  - `test/wb13b_words.test.js`: the style as a law over 85 lines of the tables, and the design changes.
+  - 30 older pins re-aimed to the new words.
+- Mutants: `tools/mutants/wb13b.json` (11); eight older records re-aimed. AUDIT WB11 M1's law (Imps capitalised) holds
+  on the trial's line.
+
+### WB13c. The HUD
+
+**Broken, fixed first:**
+- On a landscape phone the marks card and the damage chart covered his bar and ran off the top of the screen, and the
+  bar's callout sat on the crosshair.
+- The card near the gate and the chart covered the party frames.
+- A phone could never open the map's card for the breach.
+- His bar stood over the step-through fire.
+
+**The bar:**
+- A trailing damage segment (`ui/barLoss.js`, the vitals' and the foes' own), and a smooth drain in place of 180 ms
+  steps.
+- The ward as a state: it fades in, a gold cage, the fill dimmed under it, and a flash when it fails.
+- Callouts enter and leave, with a line that fills to the landing. Dagon's Wrath and the Reckoning get a red plate, and
+  MOVE shows when a blow is aimed at you.
+- The phase ticks show which phases are spent.
+- His name on one line, the epithet beneath it.
+- The marks row is a sign and a name each.
+- The foot is chips, with the Wrath's timer pulsing under a minute.
+- FELLED, then the bar fades.
+
+**The rest:**
+- The Plus skin dresses the ground warning.
+- Numbers are tabular.
+- The classic face is loaded by the gate's own screens.
+- Small classic text is larger.
+- The bar sits lower on a portrait phone.
+- The chart drops two columns on narrow screens and enters row by row.
+
+**As built:**
+- The bar (`ui/gateBossBar.js`):
+  - A trailing segment behind the fill, held 0.55 s and drained at 70% a second (`ui/barLoss.js`). The fill eases over
+    250 ms.
+  - The ward is a class. The cage fades in over 160 ms, the fill dims under it, and its failing flashes the track for
+    250 ms. "Warded" is in the ward's gold.
+  - Callouts come in over 140 ms and fade over 160 ms, keeping their words, plate and line until they are gone. The
+    line under each fills with the wind-up and is full at the landing.
+  - Dagon's Wrath and the Reckoning stand on a red plate pulsing at 2 Hz.
+  - MOVE stands beside his blow's name while it is aimed at your feet (`scenes/gateCourt.js` perilAt, the ground
+    warning's own).
+  - A phase mark flashes for 400 ms as he crosses it, then stays dim. A mark crossed before you came never flashes.
+  - His name stands alone; his epithet is beneath it, in his aspect's colour. The Warden unmarked has his title there.
+  - Each mark is a sign and a name. The row wraps on a narrow phone.
+  - The foot is a chip each: the fighters, his host, the next Reckoning, and the Wrath's countdown, red and pulsing in
+    its last minute.
+  - FELLED holds for 1.2 s, then the bar fades over 0.5 s as the damage chart comes in.
+  - His name and health come up on the bar's first showing in a fight. A fight that ends resets the bar.
+  - Each one-shot flash is timed by the fight's clock and then removed, so showing the HUD again never replays it.
+- The layouts:
+  - The bar sits at 72 px on a portrait phone. On a landscape phone it sits at 44 px and drops its marks row.
+  - On a landscape phone the card stands at the foot on the left without its tips. The chart stands on the left under
+    the menu button, in the narrow grid.
+  - The bar is hidden under the step-through fire.
+  - With the party frames up, the card and the chart stand beside them on screens 900 px or wider. On a portrait phone
+    the card moves under the bar and the chart to where the bar was.
+  - The chart drops Blows and Best under 1000 px.
+  - The chart's rows come in 40 ms apart, each bar growing over 600 ms.
+- The map: tapping a mark that has a card shows the card and its label for 4 s (`ui/heldMap.js`).
+- Type:
+  - Every gate screen loads the classic face itself.
+  - Figures are lining and tabular.
+  - The card's lines and tips are 13 px and upright.
+  - The Plus skin dresses the ground warning, the new parts and a lit ward cage.
+- Not done from the audit: the falling chunks, a flash on my own hit before the relay's word, the gate card collapsing
+  to a strip, and shorter callout words.
+- Pinned: `test/wb13c_hud.test.js` (10) and the map's tap in `test/eventtip.test.js`. Seven older test files
+  re-pinned.
+- Mutants: `tools/mutants/wb13c.json` (29). Five older records re-aimed.
+- Seen in Chromium at 1280x720, 390x844 and 844x390 in both skins.
+
+### WB13d. The blows
+
+- **His body:**
+  - He flashes when struck, fully for your blows and lightly for the court's.
+  - So does his host.
+  - A blow into his ward says *Warded*, not a number.
+- **Your body:** his heavy elemental blows shake the camera as his physical ones do, and so do landings near you, by
+  how near. The player's own shake setting caps it.
+- **Light:** each landing lights the floor where it lands, not his chest.
+- **Sound:** a release sound 350 ms before each landing, and the wind-up barks spread at least four semitones apart.
+- **His fire:** his cast pose for his fire, not his sword's.
+- **The meteor:** seen falling, longer and lower.
+- **No hit-stop:** the port has none, and a frozen frame online reads as lag.
+
+**As built:**
+- His body flashes on the game's own curve (`systems/hitFlash.js`). My blows flash him fully. The court's flash him at
+  0.4: a fall in his health of 0.3% of his whole or more, as the relay reports it. His host's bodies flash the same way
+  on any fall in their health. His falling body never flashes.
+- A blow into his ward shows *Warded* in the ward's gold, never a number.
+- His elemental blows shake the camera as his physical ones do and still never flash (`ui/damageFlash.js`
+  shakePlayerDamage).
+- His landings shake it by how near they fall (`world/gateBoss.js` LAND_SHAKE):
+  - Slam and Leap: 2.5, fading to nothing at 12 m.
+  - The bound: 4, to 25 m.
+  - The Meteor: 3.5, to 15 m.
+  - The Nova: 2, to 24 m.
+  - The Wrath and the Reckoning: 6, everywhere.
+  - The player's own shake setting caps it.
+- His own landings light the floor at his feet. The Meteor and the Hellfire light the floor where they land for
+  450 ms (3.0 over 16 m, 1.2 over 7 m) and leave him his ember.
+- A release sound plays 350 ms before each landing: a low blade swing, a body's fall for his weight, or his fire's cast
+  at 1.1 (his aspect's under an aspect).
+- Wind-ups that share a clip are at least four semitones apart: Cleave 0.96, Slam 0.76, Leap 0.6 and Spokes 0.47 on his
+  bark; Hellfire 0.8, Nova 0.63 and Meteor 0.5 on his cast.
+- His fire uses the Daedra Lord's spell frames: frame 1 held through the wind-up, frame 3 as it lands.
+- The meteor falls for 1700 ms at 35 degrees, from the same side.
+- No relay change.
+- Pinned in `test/wb13d_blows.test.js` (10), with WB4 and WB9e re-pinned.
+- Mutants in `tools/mutants/wb13d.json` (28), with three older records re-aimed.
+
+### WB13e. The beats
+
+- **His wake:** the opening's end is said in the state, and a roar, a flare and his name come as he moves.
+- **A phase turn:** a title card ("II - The Burning Court"), its one order kept until he lands, and the roar after
+  the bark instead of over it.
+- **His fall is an event:**
+  - a burst, a flash and a shake;
+  - he sinks into a column of embers and leaves his body;
+  - the spoils come after his body meets the floor, under a banner.
+- **The Wrath:** a line a minute out and another at its wind-up, the court reddening over the six seconds, then white.
+- **Under 10%:** his ember sputters and the bar pulses.
+- **Aimed at you:** a Meteor or a Leap aimed where you stand says so with a sting.
+- **Lines that stay readable:** a line on the middle of the screen stays for its length (WB13b keeps them short).
+
+**As built:**
+- The card is `ui/gateTitleCard.js`. It sits over the middle of the screen, above the crosshair and clear of his bar,
+  and hides with the HUD and under the step-through fire.
+- His wake:
+  - The relay's state says when the opening ends (`op`).
+  - 1.2 s before then: his roar, his ember flaring over 1.5 s, and the card (his title, his name, his epithet).
+  - A screen that arrives later, or an older relay, gets no wake.
+- A phase turn:
+  - The card shows the numeral, the phase's name and its one order ("Follow him over the walkway.", "Follow him to the
+    last court.") until the bound lands.
+  - Nothing is said beside it.
+  - His roar comes 600 ms after the bound's bark.
+- His fall:
+  - At the kill: a burst of Dagon's size, the court's light white for 400 ms, and a shake of 4.
+  - His hurt frames play until his body meets the floor at 1.5 s.
+  - Then three ember bursts rise 250 ms apart as he sinks 1.5 m into the stone.
+  - His corpse stays where he fell, at three times its size.
+  - The spoils come at 1.7 s instead of 0.5 s, under a 3 s card: his name over *Felled*.
+  - A screen that arrives later sees his body, and nothing is replayed.
+- The Wrath:
+  - A minute out (only while that is news): "Dagon's Wrath in 1:00. Bring him down!"
+  - As it gathers: "Dagon's Wrath!"
+  - His court's light reddens over the wind-up and turns white as it lands.
+- Under 10% health his ember sputters in 90 ms steps and sheds a spark every 500 ms, and the bar pulses.
+- A Meteor or a Leap called on the ground you stand on plays a sting at its word: the parry's ring, high, at your feet.
+- The court's lines in the middle of the screen stay up for their length: 3.5 words a second, 1.5 to 6 s.
+- Not done: marking the nearest teammate for everyone else when a blow is aimed at them, and a white screen flash
+  (the court's light does it instead).
+- The relay is world141, re-hashed in place for `op`. The brain's law stays 5.
+- Pinned in `test/wb13e_beats.test.js` (8), with WB3, WB4, WB7, WB8c, WBX, GATE-UX and WB13b re-pinned.
+- Mutants in `tools/mutants/wb13e.json` (26), with four older records re-aimed.
+
+### WB13f. The rhythm
+
+- **No attack more than twice running.** With the fighters spread out, phase one was the Charge in 36 of 50 attacks,
+  28 of them back to back.
+- **Heavy blows recover longer, in a spent pose you can punish:**
+  - Slam 1.1 to 1.7 s
+  - Leap 0.9 to 1.5 s
+  - Nova 1.3 to 1.9 s
+
+  Slower, never faster.
+
+**As built:**
+- The last attack is left out while anything else reaches (`REPEAT_MAX` 2). Past twice running, nothing reaches, and
+  he walks at his target.
+- Six seconds of walking break the run (`REPEAT_WALK_MS`, 19 m of his walk). Without that, a fighter who stayed past
+  7 m in phase one would never be attacked again: only the Charge reaches that far.
+- Over 40 seeded fights with three fighters spread out:
+  - the Charge fell from 74% of his attacks to 58%;
+  - the same attack back to back fell from 56% to 35%;
+  - one fighter who keeps away is charged 10 times a minute (15 before).
+- Slam, Leap and Nova recover in 1.7, 1.5 and 1.9 s. No other recovery changed.
+- Spent: after the landing's three frames, the Slam and the Leap hold his swing's last frame, and the Nova its
+  casting frame, until the recovery ends. My blows don't make him flinch out of it.
+- The relay is world141, re-hashed in place. The brain's law stays 5: each screen holds the spent pose from its own
+  table.
+- Pinned in `test/wb13f_rhythm.test.js` (5), with WB4 re-pinned: the Slam's recovery is spent now, not idle.
+- Mutants in `tools/mutants/wb13f.json` (14).
+
+### Versions
+
+The relay stays **world141**, never deployed, re-hashed in place for T2's ring, the words in its bundle, the
+opening's end and the rhythm. The brain's law stays 5: each screen judges its own feet, so an older game fights the
+older ring until it reloads. Nothing changes in the account service.
+
 ## Shipped
 
 **WB1 (2026-09-25) - the omen.** `net/gateLaw.js` (the schedule, the room's key and window, the rolls, the boss table,
@@ -1926,3 +2617,105 @@ as #506 did, the patch notes ride the pull request: the two notes files this bra
 WB11 D1's pin keeps the court's words; the notes on the pull request say the same), and the branch's Testing rows and
 Active-Arcs entries are within GROWTH1's caps. Merging deploys world140 (`relay-deploy.yml`), which drops connected
 players once.
+
+**WB12a (2026-10-01) - Dagon's Breach and the Deadlands Ember.** Section 19 A above:
+- The chat's lines, Discord's posts and every name on screen say Dagon's Breach.
+- The Sigil Stone is the Deadlands Ember. A load repair (`systems/gateSpoils.js` nameEmbers) renames every old record.
+- A guard test scans every shipped string for the old names.
+- Relay world141 (not deployed).
+- Pins `test/wb12a_breach_words.test.js` (9); mutants `tools/mutants/wb12a.json` (10), with the campaigns it re-aimed
+  (162 dead).
+
+Mehrunes Dagon's day (WB12b) was dropped before it shipped (Mac: *"Let's forgoe the monthly raid"*).
+
+**WB13a (2026-10-01) - the telegraphs, honed.** Section 20 above, T1-T14:
+- `render/gateTelegraph.js`: the shader rewritten, every pool drawn, a quad per shape.
+- `net/gateBrain.js`: the Flame Nova's ring to 16 m.
+- `scenes/gateCourt.js` perilAt and `ui/gateGroundView.js`: a blow to come on your feet, said with the way out.
+- `scenes/gateHost.js`: paths and tethers as flowing dashes.
+- world141 re-hashed in place; the brain's law stays 5.
+- Pins `test/wb13a_telegraphs.test.js` (13), with WB4, WB9d, WB9e and AUDIT WB9 re-pinned; mutants
+  `tools/mutants/wb13a.json` (22), with seven older records re-aimed.
+- Seen in Chromium over the stand-in court: every attack, at a fighter's eye and from above, in all four aspects.
+- Not seen: the game's own art and a live fight.
+
+**WB13b (2026-10-01) - the words.** Section 20 above (Mac: *"clean up text to be less explanatory and less AI"*):
+- Every line the breach, the court and the Broker say now says one thing and stops.
+- The chat names the marks; the line said on stepping into the court is gone.
+- One card subtitle; a phase turn is its name and two orders.
+- Discord and the chat share their sentences, and a screen without the site says "in the wilds".
+- world141 re-hashed in place.
+- Pins `test/wb13b_words.test.js` (5), with 30 older pins re-aimed; mutants `tools/mutants/wb13b.json` (11), with eight
+  older records re-aimed.
+
+**WB13c (2026-10-01) - the HUD.** Section 20 above (Mac: *"just overall bring more AAA grade polish to what is already
+developed"*):
+- His bar has a trailing segment, a ward that comes and goes, callouts with a line to the landing, Dagon's plate and
+  MOVE, spent phase marks, his epithet on its own line, chips in the foot, and FELLED before the fade.
+- Phone layouts: nothing runs off the screen or covers the crosshair while he fights, and nothing covers the party
+  frames on a wide screen.
+- The bar is hidden under the step-through fire. A finger's tap shows the breach's card on the map.
+- The classic face is loaded by the gate's own screens.
+- No relay or account change.
+- Pins `test/wb13c_hud.test.js` (10) and `test/eventtip.test.js`, with seven older files re-pinned; mutants
+  `tools/mutants/wb13c.json` (29), with five older records re-aimed.
+
+**WB13d (2026-10-01) - the blows.** Section 20 above:
+- He and his host flash when struck: fully for my blows, lightly for the court's.
+- A blow into his ward shows *Warded*.
+- His elemental blows shake the camera, and his landings shake it by how near they fall.
+- His landings light the floor where they land.
+- A release sound plays before each landing, and his wind-ups are spread apart.
+- His fire uses his cast pose.
+- The meteor is seen falling.
+- No relay or account change.
+- Pins `test/wb13d_blows.test.js` (10), with WB4 and WB9e re-pinned; mutants `tools/mutants/wb13d.json` (28), with
+  three older records re-aimed.
+
+**WB13e (2026-10-01) - the beats.** Section 20 above:
+- His wake: a roar, a flare and his name as the opening ends.
+- A phase turn is a card held until he lands, with his roar after the bark.
+- His fall is an event: a burst, a white light and a shake; he sinks and leaves his body; the spoils come after, under
+  a card.
+- The Wrath is said a minute out and as it gathers, and the court reddens.
+- Under 10% his ember sputters and the bar pulses.
+- A Meteor or a Leap aimed at you stings.
+- The court's lines stay up for their length.
+- world141 re-hashed in place for the state's opening end. The brain's law stays 5.
+- Pins `test/wb13e_beats.test.js` (8), with seven older files re-pinned; mutants `tools/mutants/wb13e.json` (26), with
+  four older records re-aimed.
+
+**WB13f (2026-10-02) - the rhythm.** Section 20 above:
+- No attack more than twice running: past that he walks in, and six seconds of walking break the run.
+- The Slam, the Leap and the Nova recover longer, in a spent pose.
+- world141 re-hashed in place. The brain's law stays 5.
+- Pins `test/wb13f_rhythm.test.js` (5), with WB4 re-pinned; mutants `tools/mutants/wb13f.json` (14).
+
+**WB12c (2026-10-02) - On the Burning Doors.** Section 19 above:
+- The Mages Guild's account of the breaches, the port's first book of its own (id 417), in the classic format.
+- Sold by booksellers, general stores and pawnshops, and found on library shelves, at the odds of any other book.
+- A character's first Deadlands Ember brings a copy by courier.
+- No relay or account change.
+- Pins `test/wb12c_burning_doors.test.js` (7); mutants `tools/mutants/wb12c.json` (19).
+
+**WB12d (2026-10-02) - the faithful's rite.** Section 19 above:
+- Each breach's faithful work their rite in a circle near it, under a pillar of smoke, from the omen to the opening.
+- Kill their Summoner before the breach opens: everyone who struck the faithful takes an ember more when the breach is
+  closed, whether or not they fought the Warden.
+- The faithful's chest opens once the rite is broken, once a day a character.
+- world141 re-hashed in place; acct46 (migration 0046) - deploy it first. The brain's law stays 5.
+- Pins `test/wb12d_rite_law.test.js` (6), `test/wb12d_rite_relay.test.js` (4), `test/wb12d_rite_world.test.js` (15);
+  mutants `tools/mutants/wb12d.json` (94).
+
+**The merge with main (2026-10-02).** Main's CLIMB5 and CLIMB6, FRIENDS-SYNC, ELITE FOES and the Seats arc took
+world141-world150 and acct46-acct61 first, so WB12's and WB13's relay law is world151 and the rite's service acct62, its
+migration 0066 (0046 on the branch): the law row over the merged bundle (main's ten rows kept), every version pin
+re-chained ("WB12 moved it on last (world151 ...); before it SEAT2b part two (b) moved it on (world150 ..."), RITE_RELAY_MIN
+151, disc7's list, soc1.json's S38, gatekeys.json's pin and BOUNTY1 B4. Main's TIME1 says the gate's times in local time
+alone: the omen, the opening and the seal (`systems/gateOmen.js` omenTimeLine, openTimeLine, sealTimeLine) say WB12's
+words in it, and this relay deploy retires `gateLaw.js`'s three, as TIME1 said it would. Main's SILVER: the breach's
+line of the counting-houses says silver ("No silver for this breach. The counting-houses strike it for two breaches a
+day."). Main's SEAT1b: a gate claim carries its region and is the war-guild's influence; a rite's own row records no
+region and earns no influence, the rite alone being no kill. Main's siege tick runs before the rite's tell in a room's
+alarm. The patch notes ride the pull request (REL6). Merging deploys world151 and acct62, which drops connected players
+once.
