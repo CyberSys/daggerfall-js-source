@@ -143,6 +143,13 @@ export function blockBuildingCount(dfBlock) {
  *  An entry naming no guild of this game draws for no hall - each hall takes its own guild's entry. */
 export const UNCARRIED_GUILD_FACTIONS = Object.freeze(new Set([1000]));
 export function mergeNamedBuildings(exteriorBuildings, blocks, { locationIndex = 0 } = {}) {
+  return drawNamedBuildings(exteriorBuildings, blocks, { locationIndex }).out;
+}
+/** ARENA1: the same draw, answering besides each block instance's merged list the location entries it DREW and kept
+ *  (a draw a building replacement handed back is not among them) - world/arenaCity.js strips exactly the entries the
+ *  cell the arena takes drew, so every other building keeps the entry it always drew. */
+export function drawNamedBuildings(exteriorBuildings, blocks, { locationIndex = 0 } = {}) {
+  const drawnBy = new Map();   // block -> [the location's BuildingData objects it drew]
   const pool = exteriorBuildings
     .filter((b) => isNamedBuildingType(b.buildingType))
     .filter((b) => !(b.buildingType === BUILDING_TYPES.GuildHall && UNCARRIED_GUILD_FACTIONS.has(b.factionId)))
@@ -208,10 +215,11 @@ export function mergeNamedBuildings(exteriorBuildings, blocks, { locationIndex =
         list[i].buildingType = BUILDING_TYPES.GuildHall;
         list[i].factionId = 414;
       }
+      if (drawn?.used) drawnBy.set(b, [...(drawnBy.get(b) ?? []), drawn.data]);
     }
     out.set(b, list);
   }
-  return out;
+  return { out, drawn: drawnBy };
 }
 
 /** Build the location's named-building directory.

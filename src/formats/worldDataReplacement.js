@@ -174,13 +174,46 @@ export const boundWorldDataBlocks = () => _blocksFile;
 /** Once: the readers' door. Tests reset with `_resetWorldDataReplacement`. */
 export function installWorldDataReplacement() {
   setNewLocationIndexResolver(getNewDFLocationIndex);   // AUDIT-RR F33: SetNewLocationVariant -> GetNewDFLocationIndex (WorldDataVariants.cs:101) - RR3a's seam, wired
-  setWorldDataDoor({ getDFRegionAdditionalLocationData, getDFLocationReplacementData, getDFBlockReplacementData, getBuildingReplacementData, getNewDFBlockName, getNewDFBlockIndex, applyBuildingReplacementAutoMapData, noteReadingLocation });   // WD3: MapsFile.getRmbBlockName names the town whose blocks come next
+  setWorldDataDoor({ getDFRegionAdditionalLocationData, getDFLocationReplacementData, getDFBlockReplacementData, getBuildingReplacementData, getNewDFBlockName, getNewDFBlockIndex, applyBuildingReplacementAutoMapData, noteReadingLocation, editLocation });   // WD3: MapsFile.getRmbBlockName names the town whose blocks come next; ARENA1: the port's own edits of a location read
 }
 export function _resetWorldDataReplacement({ assets = true } = {}) {
   regions = new Map(); locations = new Map(); blocks = new Map(); buildings = new Map();
   nextBlockIndex = 0; newBlockNames = new Map(); newBlockIndices = new Map(); _blocksFile = null;
   _refused.clear(); _quietLocations = false; _doorLatched = null;
-  if (assets) _assets.clear();
+  if (assets) { _assets.clear(); _portBlocks.clear(); _locationEdits.length = 0; }
+}
+
+// ---- ARENA1: THE PORT'S OWN WORLD DATA - not a mod's, so behind no switch ----
+// The Arena of Daggerfall is not a layout mod and not a switch (bible/11-Multiplayer/Arena.md "How it is laid": "the
+// arena is not a switch, it is the city"), so its block and its edit of the city are served whatever AssetInjection,
+// a mod's switch or a save's pin says - and outside DFU's new-block sequence: a port block takes a FIXED index past
+// any BSA (world/gateArena.js's made block is the precedent), so the first block a mod's file names still takes
+// BsaFile.Count (DFU's AssignBlockIndices, RR3b) and no pack's new block moves.
+const _portBlocks = new Map();   // name -> { index, json, block }
+/** A block of the port's own, by name, at a fixed index (>= 900000). */
+export function registerPortBlock(name, json, index) {
+  if (!name || json == null || !Number.isSafeInteger(index)) return false;
+  _portBlocks.set(name, { index, json, block: null });
+  return true;
+}
+const portBlockByIndex = (index) => { for (const [name, b] of _portBlocks) if (b.index === index) return name; return null; };
+function portBlock(name) {
+  const b = _portBlocks.get(name);
+  if (!b) return null;
+  b.block ??= blockFromJson(b.json, b.index);
+  return b.block;
+}
+/** ARENA1: an edit the port makes to a location as it is read - `fn(dfLocation, maps, blocksFile)`, after the
+ *  location is read (MAPS.BSA's, a mod's file, a pinned town's), with its indices set. Never on readClassicLocation:
+ *  that is the location a pack's edit is taken against. */
+const _locationEdits = [];
+export function registerLocationEdit(fn) { if (typeof fn === 'function' && !_locationEdits.includes(fn)) _locationEdits.push(fn); }
+let _editing = false;   // a location read inside an edit (a pin oracle asking a town's type) is answered unedited
+export function editLocation(dfLocation, maps = null) {
+  if (_editing || !dfLocation) return dfLocation;
+  _editing = true;
+  try { for (const fn of _locationEdits) fn(dfLocation, maps, _blocksFile); } finally { _editing = false; }
+  return dfLocation;
 }
 
 // ---- file names (:76-94) ----
@@ -341,8 +374,8 @@ function addNewDFLocationVariant(locationIndex, locationVariantKey, variantLocat
 }
 
 // ---- the new block indices (:312-340, :531-573) ----
-export const getNewDFBlockIndex = (blockName) => newBlockIndices.get(blockName) ?? -1;
-export const getNewDFBlockName = (block) => newBlockNames.get(block) ?? null;
+export const getNewDFBlockIndex = (blockName) => _portBlocks.get(blockName)?.index ?? newBlockIndices.get(blockName) ?? -1;   // ARENA1: a port block first
+export const getNewDFBlockName = (block) => portBlockByIndex(block) ?? newBlockNames.get(block) ?? null;
 function assignBlockIndices(dfLocation) {
   if (!_blocksFile) return false;   // ContentReader/BlockFileReader null: nothing assigned, and the region is not cached
   if (nextBlockIndex === 0) nextBlockIndex = _blocksFile.count;
@@ -366,6 +399,7 @@ function assignNextIndex(blockName) {
  *  with its RMB buildings replaced where a building file says so; null
  *  when the mod ships none. */
 export function getDFBlockReplacementData(block, blockName) {
+  if (blockName && _portBlocks.has(blockName)) return portBlock(blockName);   // ARENA1: the port's own, behind no door
   if (!worldDataOn() || !blockName) return null;
   const variant = getBlockVariantHere(blockName);
   const blockKey = `${blockName}${variant}`;

@@ -84,6 +84,26 @@ export const removePermanentScene = (cache, sceneName) => {
  *  goes with the scene when the house is sold or the room expires. */
 export const layoutSceneName = (sceneName, layout) => `${sceneName}|${layout || 'classic'}`;
 
+/** ARENA1: A SCENE MOVED TO ANOTHER BUILDING - a house deed the arena displaced (systems/arenaMove.js) takes its
+ *  scene with it: the cached entry and its other layouts' visits, and their permanence, renamed from `from` to `to`
+ *  (whatever stood cached under `to` - a stranger's house once visited - gives way). Answers how many entries moved. */
+export function renameScene(cache, from, to) {
+  let n = 0;
+  const moved = (name) => name === from || name.startsWith(`${from}|`);
+  for (const [name, data] of [...cache.scenes]) {
+    if (!moved(name)) continue;
+    cache.scenes.delete(name);
+    cache.scenes.set(to + name.slice(from.length), data);
+    n++;
+  }
+  for (const name of [...cache.permanent]) {
+    if (!moved(name)) continue;
+    cache.permanent.delete(name);
+    cache.permanent.add(to + name.slice(from.length));
+  }
+  return n;
+}
+
 /** The player's own dropped piles, deep-copied. They are the third
  *  thing a scene holds in this port because the port keeps a pile's
  *  position and its items in a nested record, where DFU's
@@ -253,7 +273,7 @@ export function restoreSceneCache(cache, snap) {
 // HOUSE deed's AddPermanentScene, which needed the building directory
 // to know which building was bought: H1/H2 shipped both halves -
 // banking.js:214 calls the hook inside allocateHouseToPlayer with the
-// bought building's own mapId and key, and worldModes.js:2956 supplies
+// bought building's own mapId and key, and worldModes.js:2958 supplies
 // it as addPermanentScene(sceneCache(), interiorSceneName(mapId, key)),
 // reached from the bank's buy arm (:2144-2148), the knightly gift
 // (:2752) and :4933, with sellHouse dropping the scene again (:2184). The

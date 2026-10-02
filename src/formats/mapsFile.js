@@ -421,6 +421,7 @@ export class MapsFile {
 
     dfLocation.regionIndex = region;
     dfLocation.locationIndex = location;
+    worldDataDoor()?.editLocation?.(dfLocation, this);   // ARENA1: the port's own edits (world/arenaCity.js - Daggerfall's cell 4,3), on every layout's read
     return dfLocation;
   }
 

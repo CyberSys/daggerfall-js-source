@@ -57,10 +57,12 @@ let _gridOf = () => null;               // a location key -> the block names its
 let _keyOfTown = () => null;            // (regionIndex, town name) -> its location key (the discovery store's town id)
 let _typeOf = () => null;               // a location key -> its MapTable LocationType, or null
 let _pins = new Map();                  // locationKey -> { out:Set, in:Set, stamp, why }
+let _displaced = () => false;           // ARENA1: a record whose building the port itself took away (world/arenaCity.js)
 
 /** The hosts' half: which layout mods are loaded for the game (the latch) and their versions (the world-data loader,
  *  scenes/modWorldData.js), and where a town is (the world host, which holds the map). Each is kept until replaced. */
-export function configureLayoutPins({ vendorOn = null, vendorVersion = null, locationKeyOfMapId = null, locationKeyOfPixel = null, gridOf = null, locationKeyOfTown = null, locationTypeOf = null } = {}) {
+export function configureLayoutPins({ vendorOn = null, vendorVersion = null, locationKeyOfMapId = null, locationKeyOfPixel = null, gridOf = null, locationKeyOfTown = null, locationTypeOf = null, recordDisplaced = null } = {}) {
+  if (typeof recordDisplaced === 'function') _displaced = recordDisplaced;
   if (typeof locationTypeOf === 'function') _typeOf = locationTypeOf;
   if (typeof locationKeyOfTown === 'function') _keyOfTown = locationKeyOfTown;
   if (typeof vendorOn === 'function') _vendorOn = vendorOn;
@@ -165,6 +167,10 @@ export function layoutsMatch(a, b) {
  */
 export function recordStands(rec) {
   if (!rec?.mapId || layoutLocationKeyOfMapId(rec.mapId) == null) return true;
+  // ARENA1: a building the arena took (Daggerfall's cell 4,3, in every layout) is no building at all - a room rented
+  // there is honoured at any inn of the city, a ticket at any smith, a quest site chosen again (place.js
+  // reseatMovedSite); a house deed is moved before it is ever asked (systems/arenaMove.js)
+  if (_displaced(rec)) return false;
   return layoutsMatch(rec.layout, layoutStampOfMapId(rec.mapId));
 }
 /** The layout of a town by the discovery store's id for it (`<regionIndex>:<name>`, systems/discovery.js), now - or
@@ -275,4 +281,5 @@ export function _resetLayoutPins() {
   _keyOfPixel = () => null;
   _gridOf = () => null;
   _keyOfTown = () => null;
+  _displaced = () => false;
 }

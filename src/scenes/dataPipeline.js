@@ -12,7 +12,7 @@ import { dfMeshToModel } from '../world/meshReader.js'; import { patchSeams } fr
 import { fetchBytes, texName } from './shared.js';
 import { decodedTexture, preloadTextureArchive, isVendorArchive, vendorTextureStandIn, setTextureDeriveContext } from '../systems/textureReplacement.js';   // M-TEX: user-supplied textures override the classic ones
 import { classicRecordRgba } from '../formats/derivedTexture.js';   // WD2: a mod sprite rebuilt from the player's own record
-import { customModelFor, customAliasFor, aliasSubMeshes } from '../world/customModels.js';   // DS1: models no ARCH3D carries; WD3: a classic model with its pictures swapped
+import { customModelFor, customAliasFor, aliasSubMeshes, customModelNeeds } from '../world/customModels.js';   // DS1: models no ARCH3D carries; WD3: a classic model with its pictures swapped
 import { dyeToken, changeDyeBitmap } from '../characters/dyes.js';   // DW3: the per-dye UI variant; DYE-ICON: and the classic arm's ChangeDye
 import { ROTOR, MACHINERY, MACHINERY_MODEL_ID, MACHINERY_CHILDREN, PLANK_GEAR, ROLLER } from '../world/windmillMesh.js';   // WM2b/WM2d/WM4b: the vendored mill and its machinery, uploaded like any other model
 import { skinnedBody } from '../world/windmills.js';   // WM2e: its walls and roof follow the climate
@@ -279,7 +279,13 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
       return gpu;
     }
     // DS1: the registry's models (world/customModels.js) - asked before ARCH3D, as MeshReplacement is
-    const custom = customModelFor(modelIdNum);
+    // ARENA1: a model built over classic pieces (the colosseum's undercroft) reads them out of the player's ARCH3D -
+    // their pictures loaded first, so dfMeshToModel sizes their uvs as the pieces' own build would
+    for (const id of customModelNeeds(modelIdNum)) {
+      const i = arch.getRecordIndex(id);
+      if (i !== -1) for (const sm of arch.getMesh(i).subMeshes) await getTexture(sm.textureArchive);
+    }
+    const custom = customModelFor(modelIdNum, { classicModel: classicModelOf });
     if (custom) {
       const gpu = await uploadModel(modelIdNum, custom);
       cpuModels.set(modelIdNum, { modelIdNum, positions: custom.positions, indices: custom.indices, subMeshes: custom.subMeshes, doors: custom.doors ?? [], normals: custom.normals, uvs: custom.uvs });
@@ -307,6 +313,12 @@ export function createDataPipeline({ renderer, arch, palette, fetch = fetchBytes
     cpuModels.set(modelIdNum, { modelIdNum, positions: model.positions, indices: model.indices, subMeshes: model.subMeshes, doors: model.doors, normals: model.normals, uvs: model.uvs });   // PERF4: the static batch merges the whole vertex
     gpuMeshes.set(modelIdNum, gpu);
     return gpu;
+  }
+  /** ARENA1: a classic model as dfMeshToModel mints it (no seam patched - a copy of it in a custom model is the
+   *  ARCH3D record's own), or null; its pictures must be loaded (customModelNeeds). */
+  function classicModelOf(id) {
+    const i = arch.getRecordIndex(id);
+    return i === -1 ? null : dfMeshToModel(arch.getMesh(i), getTextureSize);
   }
   /** WD3: an alias's mesh - its classic model's geometry and UVs (sized by the classic pictures, which a swapped
    *  picture keeps), the swap laid on, then an ordinary model under the alias's own id. No classic model, no mesh. */

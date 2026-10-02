@@ -15,12 +15,22 @@
 // from it (RDBLayout.cs:634-638) - never a thrown scene
 // (`emptyModel`).
 
-const _models = new Map();   // id -> { build, isOn, cached }
+const _models = new Map();   // id -> { build, isOn, cached, climateFree, needs }
 
-/** Register a model for `id`: `build()` answers { positions, normals, uvs, indices, subMeshes, doors }. */
-export function registerCustomModel(id, build, isOn = () => true) {
-  _models.set(Number(id), { build, isOn: typeof isOn === 'function' ? isOn : () => true, cached: null });
+/** Register a model for `id`: `build(ctx)` answers { positions, normals, uvs, indices, subMeshes, doors }.
+ *  ARENA1: `climateFree` - DFU's RuntimeMaterials with ApplyClimate off: the hosts never swap its pictures for the
+ *  climate or the season (scenes/world.js, scenes/exterior.js); `needs` - the classic models its build reads out of
+ *  the player's ARCH3D (`ctx.classicModel(id)`, dfMeshToModel's shape), whose textures the pipeline loads first. */
+export function registerCustomModel(id, build, isOn = () => true, { climateFree = false, needs = [] } = {}) {
+  _models.set(Number(id), { build, isOn: typeof isOn === 'function' ? isOn : () => true, cached: null, climateFree: !!climateFree, needs: Object.freeze([...needs].map(Number)) });
 }
+/** ARENA1: whether a registered model wears its pictures whatever the climate (RuntimeMaterials, ApplyClimate 0). */
+export const isClimateFreeModel = (id) => !!_models.get(Number(id))?.climateFree;
+/** ARENA1: the texture table a climate-free model is drawn and merged by - empty, so no swap a host made for the
+ *  models around it reaches it. Never written. */
+export const NO_CLIMATE_REMAP = new Map();
+/** ARENA1: the classic models a registered model's build reads, or none. */
+export const customModelNeeds = (id) => _models.get(Number(id))?.needs ?? [];
 export function unregisterCustomModel(id) { _models.delete(Number(id)); _aliases.delete(Number(id)); }
 
 // WD3 (2026-10-01): A MODEL THAT IS A CLASSIC ONE WITH OTHER PICTURES ON IT. Beautiful Villages' and Beautiful Cities'
@@ -49,10 +59,10 @@ export function aliasSubMeshes(subMeshes, remap) {
 export const classicModelIdOf = (id) => customAliasFor(id)?.model ?? Number(id);
 
 /** The model registered for `id` while its switch is on, built once; else null. */
-export function customModelFor(id) {
+export function customModelFor(id, ctx = null) {
   const m = _models.get(Number(id));
   if (!m || !m.isOn()) return null;
-  return (m.cached ??= m.build());
+  return (m.cached ??= m.build(ctx));
 }
 export const hasCustomModel = (id) => !!_models.get(Number(id))?.isOn();
 
