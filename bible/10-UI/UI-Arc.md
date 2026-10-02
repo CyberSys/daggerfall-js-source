@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12459, dungeonContext.js:8349. A seam
+    / NOTEBOOK          world.js:12459, dungeonContext.js:8358. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -17721,6 +17721,14 @@ mod's rather than folded into the port's pinned `activateBuilding`: its
 closed-message gate is `<= Palace` where DFU's is `< Temple`, so it
 tells you a temple is shut and DFU does not; and a palace substitutes
 its own word for "Store".
+
+**And one the Loot arc made (LOOT7-CHECK CHAMP-HOVER, 2026-10-01, Mac: "fix the smaller things").** The mod
+names a living entity only when its motor is not hostile (.cs:304-312), so a CHAMPION (`06-Systems/Loot-Arc.md`
+section 9) - whose name IS its trait, `Mighty Orc` - was never on the plaque while it fought you, against Mac's
+"single named foes with visible traits". `worldTooltips.js` `mobileEntityName` takes `champion` beside `hostile`, and
+every live arm (the street's, a building's, the dungeon's, the watch's) tells it; any other hostile foe still says
+nothing, and with the loot-rarity row off no champion stands, so the mod's silence is whole. The classic skin, which
+has no plaque, hears a champion on its line instead (`Loot-Arc.md` section 17, CHAMP-SAID).
 
 The classic skin has none of it, byte for byte.
 
