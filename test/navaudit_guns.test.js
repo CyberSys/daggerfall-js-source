@@ -336,7 +336,13 @@ test('AUDIT NAV1 G12 the rig is a target: a ball through her canvas tears it - a
   near(Math.acos(heeled.ay[1]) / DEG, 12, 0.01, 'the masts heel with her');
   assert.equal(HULL_BUILDS[HULL.Rowboat].rig.length, 0);
   assert.equal(HULL_BUILDS[HULL.Carrack].rig.length, 3, 'two courses and a lateen mizzen');
-  for (const b of HULL_BUILDS) for (const [mn] of b.rig) assert.ok(mn[1] >= b.top - 1e-9, `hull ${b.hull}: the canvas stands over her roof`);
+  // PIN MOVED (AUDIT GALLEON R5/G9): the Small Ship's boxes hang down to her canvas under her roof (her course's foot,
+  // her gaff sail's, her jib's) - each still reaches out of her hull's box, and the chain shot's band (navalAI.js rigBand)
+  // starts at her roof; every other hull's canvas stands over its roof as it did
+  for (const b of HULL_BUILDS) for (const [mn, mx] of b.rig) {
+    if (b.hull === HULL.SmallShip) assert.ok(mx[1] > b.top || mx[2] > b.bowZ || mn[2] < b.aftZ || mx[0] > b.halfWidth || mn[0] < -b.halfWidth, `hull ${b.hull}: each box out of her hull's`);
+    else assert.ok(mn[1] >= b.top - 1e-9, `hull ${b.hull}: the canvas stands over her roof`);
+  }
 });
 
 test('AUDIT NAV1 G13 the shots\' own: the targets read once a step however many balls fly; each gun of a ripple fires from its port where the deck has carried it; the brace stops the reload; what floats drifts downwind (mutants: the targets per ball, the carry dropped, the clocks braced, no drift)', () => {

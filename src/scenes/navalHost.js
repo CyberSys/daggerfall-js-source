@@ -57,7 +57,7 @@ import { createShotField, insideGrown } from '../systems/naval/navalShots.js';
 import { createNavalEffects } from '../systems/naval/navalEffects.js';
 import { createNavalDirector, DENSITY, seedBaseOf, SEED_SALT, DESPAWN_BEYOND } from '../systems/naval/navalDirector.js';
 import { createSeaShip, stepCaptain, quatOfYaw, forwardOfYaw, velocityOf, provoke, hostile, lookoutOf, fightingPower, TEMPERS, HEAR_S, RUN_OUT_S, RUN_OUT_DEG, BOW_RUN_OUT, SPARE_S, GUNS_SEEN_S, PROVOKED_S, NAVY_HUNTS } from '../systems/naval/navalAI.js';
-import { wrapAngle } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap
+import { wrapAngle, multiply } from '../world/mat4.js';   // ONCRASH1: the port's one angle wrap; AUDIT GN-R5: a rig box turned with its boom
 import { createShipDamage, shotDamage, SHIP_STATES, SINK_SECONDS, SINK_CLEAR, sinkAngles, sinkDepth, BRACE_TAKEN, FIRE_CHANCE, WRECKED_OARS, repairCost, STRUCK_AT } from '../systems/naval/navalDamage.js';
 import { createGunDeck, aimSolution, volleyLaunches, bearingOf, sideForBearing, toWorld, RIPPLE_S, READY_FLASH_S } from '../systems/naval/navalGunnery.js';
 import { hullBuild, batteryOf, batteriesOf, GUNS, classById, classFor, shipNames, crownOf, classLine, SIDES, SIDE_DIR, BARREL, NAVAL_FACTIONS, HULL } from '../systems/naval/navalShips.js';
@@ -78,7 +78,7 @@ import { Boat, boatAnimators, boatParticleSystems, animatorOf, setLights, meshLo
 import { runsDark, nightSight, lampSize, lampAlpha, lampPoints, LAMP_NEAR_M, LAMP_COLOR } from '../systems/naval/shipWatch.js';   // SHIP-WATCH: the sea by night, and my lookout
 import { stowSail } from '../systems/comeSailAway.js';
 import { quatEuler } from '../world/unityAnimator.js';
-import { quatRotate, quatLookRotation } from '../world/quat.js';
+import { quatRotate, quatLookRotation, quatAngleAxis, mat4FromQuatPos } from '../world/quat.js';
 import { constantCurve } from '../world/unityParticles.js';
 import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
@@ -373,14 +373,28 @@ export function hullBoxOf(boat, models) {
   return orientedBox(boat.MeshObject.worldMatrix(), local.center, local.extent);
 }
 /** AUDIT NAV1 (the guns): a boat's rig as oriented boxes in the world - its build's canvas (navalShips.js HULL_BUILDS
- *  `rig`, the root's frame) through the same MeshObject the hull rides, so the masts heel and settle with her. */
+ *  `rig`, the root's frame) through the same MeshObject the hull rides, so the masts heel and settle with her.
+ *  AUDIT GN-R5/G9: a box on a boom (`boom`, `pivot`) turned about its pivot by that boom's own rotation as the trim sets
+ *  it - the canvas goes where the boom swings it, and so does the box; one askew (`obb`) as it lies. A boom the boat has
+ *  not (another variant's, none walked yet) leaves its box home. */
 export function rigBoxesOf(boat) {
   const rig = hullBuild(boat?.hull).rig;
   const mo = boat?.MeshObject;
   if (!rig?.length || !mo) return [];
   const m = mo.worldMatrix();
   const lp = mo.localPosition ?? [0, 0, 0];
-  return rig.map(([mn, mx]) => orientedBox(m, [(mn[0] + mx[0]) / 2 - lp[0], (mn[1] + mx[1]) / 2 - lp[1], (mn[2] + mx[2]) / 2 - lp[2]], [(mx[0] - mn[0]) / 2, (mx[1] - mn[1]) / 2, (mx[2] - mn[2]) / 2]));
+  const at = (p) => [p[0] - lp[0], p[1] - lp[1], p[2] - lp[2]];   // the root's frame in her mesh object's
+  return rig.map((box) => {
+    const [mn, mx] = box, b = /** @type {any} */ (box);
+    if (b.obb) return orientedBox(multiply(m, mat4FromQuatPos(quatAngleAxis(b.obb.pitch, [1, 0, 0]), at(b.obb.c)), new Float32Array(16)), [0, 0, 0], b.obb.h);
+    const c = at([(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2]), h = [(mx[0] - mn[0]) / 2, (mx[1] - mn[1]) / 2, (mx[2] - mn[2]) / 2];
+    const q = b.boom != null ? boat.Booms?.[b.boom]?.localRotation : null;
+    if (!q || !b.pivot) return orientedBox(m, c, h);
+    // about the pivot: there, turned, and back
+    const P = at(b.pivot);
+    const turn = multiply(mat4FromQuatPos(q, P), mat4FromQuatPos([0, 0, 0, 1], [-P[0], -P[1], -P[2]]), new Float32Array(16));
+    return orientedBox(multiply(m, turn, new Float32Array(16)), c, h);
+  });
 }
 
 /**
