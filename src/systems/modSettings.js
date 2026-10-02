@@ -175,7 +175,7 @@ export const MOD_SETTINGS = Object.freeze({
     keys: Object.freeze({
       Enabled: Object.freeze({
         default: true,
-        description: 'Knights, bandits or orcs raid towns across the Bay for two hours at a time (online, ten real minutes). Be there and they come '
+        description: 'Knights, bandits or orcs raid towns across the Bay for two hours at a time. Be there and they come '
           + 'for you, with the town guard fighting beside you. Beat 15 to 25 of them to free the town and raise '
           + 'your standing in the region. Made for this port. Online, everyone in the town fights the same raid.',
       }),
