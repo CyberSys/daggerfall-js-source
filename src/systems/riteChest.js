@@ -4,7 +4,8 @@
 // Ichor, Ectoplasm, Lich Dust - a Daedra's Heart rarely) and, one time in twenty, a piece of Dagon's Brand - a Magic
 // piece of armour bearing the set's sigil. Design: bible/11-Multiplayer/World-Bosses.md section 19 D.
 //
-// The day it was opened is the character's own record in the save (systems/modSaveData.js), as the Broker's is.
+// The day it was opened is the character's own record in the save (systems/modSaveData.js), as the Broker's is - and
+// beside it, the rite's memory (AUDIT WB12d: which of the day's faithful fell, whether the Summoner did).
 //
 // Not a DFU member. Ledger A (WB).
 import { createRandomArmor } from './loot.js';
@@ -70,4 +71,30 @@ registerModSaveData(RITE_CHEST_SAVE_VENDOR, {
   newSaveData: () => ({ day: -1 }),
   getSaveData: () => ({ day: _day }),
   restoreSaveData: (r) => { _day = Number.isSafeInteger(r?.day) ? r.day : -1; },
+});
+
+// ── AUDIT WB12d (C1, C5): THE RITE'S MEMORY - what this character saw of a day's faithful, in the save beside the chest:
+// how many of each career fell, whether the Summoner did, and whether the broken word and the opening's line were said.
+// The faithful are never in a save themselves (transient): a circle stood again - after a teleport, a reload, a load, a
+// peer who left with them - stands the survivors alone, never a fallen Summoner, and its lines are not said twice ──
+export const RITE_DAY_SAVE_VENDOR = 'RiteDay';
+/** The most of one career a day's faithful hold (riteFaithfulOf: the Summoner and RITE_FAITHFUL_MAX beside him). */
+const SLAIN_MAX = 9;
+const blank = (d) => ({ d, slain: {}, fell: 0, struck: 0, passed: 0, saidBroken: 0 });
+let _rite = blank(-1);
+/** The day's memory, this character's (a new day's starts blank). Mutated in place by the rite's host. */
+export function riteMemory(day) {
+  if (_rite.d !== day) _rite = blank(day);
+  return _rite;
+}
+const bit = (v) => (v === 1 ? 1 : 0);
+registerModSaveData(RITE_DAY_SAVE_VENDOR, {
+  newSaveData: () => blank(-1),
+  getSaveData: () => ({ ..._rite, slain: { ..._rite.slain } }),
+  restoreSaveData: (r) => {
+    if (!r || !Number.isSafeInteger(r.d)) { _rite = blank(-1); return; }
+    const slain = {};
+    for (const [k, v] of Object.entries(r.slain && typeof r.slain === 'object' ? r.slain : {})) if (/^\d{1,4}$/.test(k) && Number.isSafeInteger(v) && v > 0) slain[k] = Math.min(v, SLAIN_MAX);
+    _rite = { d: r.d, slain, fell: bit(r.fell), struck: bit(r.struck), passed: bit(r.passed), saidBroken: bit(r.saidBroken) };
+  },
 });

@@ -8,8 +8,9 @@
 // (WORLD5); before the first welcome the offset is 0 and the machine's own clock stands in, as it does for the sky.
 //
 // EACH LINE IS SAID ONCE. The last moment announced is remembered by the gate's day and phase, so a frame that finds
-// the same phase says nothing, and a player who arrives mid-gate hears the ONE line for where the gate stands now -
-// "it opens in 2:30", not the omen, the rise and the countdown in a burst.
+// the same phase says nothing, and a player who arrives mid-gate hears the one line for where the gate stands now -
+// "it opens in 2:30", not the omen, the rise and the countdown in a burst - with what goes beside it once a day (the
+// rite's order, tonight's marks; AUDIT WB12d D21).
 //
 // THE SITE IS ASKED LAZILY: the scan over the map files (systems/gateSite.js) runs the first time a gate is in the
 // omen or later, not at boot, and a host with no map data (a probe, a test) hands `site` a null and the omen stays
@@ -26,8 +27,9 @@ export const insideGateRing = (mark, px, py, slack = 1) => !!mark && Math.hypot(
 /** The gate's spot in the SCENE's x/z: its pixel's translation (the streaming host's `pixelTranslation`, the pixel's
  *  south-west corner) plus the spot, [east, north] metres - spawned dungeons' own sum (scenes/world.js, the sight line). */
 export const gateSceneXZ = (standing, t) => [t[0] + standing.spot[0], t[2] + standing.spot[1]];
-/** WB12d: the faithful's rite, said beside the omen's line while it holds (scenes/riteHost.js stands its circle). */
-export const riteOmenLine = ({ place }) => `Dagon's faithful work their rite near ${place}. Kill their Summoner before the breach opens for an ember more.`;
+/** WB12d: the faithful's rite, said right after the omen's line while it holds (scenes/riteHost.js stands its circle).
+ *  AUDIT WB12d (D3): the Discord post's own sentence - "nearby" the breach just named, the order alone. */
+export const riteOmenLine = () => 'The faithful work their rite nearby. Kill their Summoner before the breach opens.';
 
 // ═══ WBX8: THE SKY BURNS ═════════════════════════════════════════════════════════════════════════════════════════
 // Mac (2026-09-26): "Improve the sky effect to be more like the /event dread command" - "When I say sky effect, I mean
@@ -129,9 +131,11 @@ export const OMEN_SETTLE_MS = 1500;
  * ("14:32"); `fellAt` the relay's word of the kill (WB3), null until it is said. AUDIT WB C4: `ready` whether the host
  * knows the relay's clock and has heard the hub (until then nothing is said and no gate stands - the machine's own
  * clock is not the world's), and `settleMs` how long past that the omen still holds (OMEN_SETTLE_MS in the game).
- * @param {{now: () => number, site: (day: number) => any, say: (text: string) => void, localTime?: (classicMinutes: number) => (string|null), fellAt?: (day: number) => (number|null), ready?: () => boolean, settleMs?: number}} deps
+ * AUDIT WB12d (C8, L5): `riteBroken(day, site)` whether the hub said that breach's rite broken, and `riteReady()` whether
+ * the relay keeps the rite at all - the rite's order is not said otherwise.
+ * @param {{now: () => number, site: (day: number) => any, say: (text: string) => void, localTime?: (classicMinutes: number) => (string|null), fellAt?: (day: number) => (number|null), ready?: () => boolean, settleMs?: number, riteBroken?: (day: number, site: any) => boolean, riteReady?: () => boolean}} deps
  */
-export function createGateOmen({ now, site, say, localTime = () => null, fellAt = () => null, ready = () => true, settleMs = 0 }) {
+export function createGateOmen({ now, site, say, localTime = () => null, fellAt = () => null, ready = () => true, settleMs = 0, riteBroken = () => false, riteReady = () => true }) {
   let saidDay = null, saidRank = -1;   // the day the last line was said for, and how far through its lines
   let marksDay = null;   // WB8c: the day whose marks were said (once, beside the first of its omen, rise or open)
   let riteDay = null;   // WB12d: the day whose rite was said (once, beside its omen or its rise)
@@ -171,12 +175,14 @@ export function createGateOmen({ now, site, say, localTime = () => null, fellAt 
         if (line === 'omen') say(omenLine({ ...words, at: at(t.day, GATE_OPEN_MINUTE) }));
         else if (line === 'rise') say(riseLine({ ...words, left: countdownText(t.openAt - now()) }));
         else if (line === 'open') say(openLine({ ...words, at: at(t.day, GATE_SEAL_MINUTE) }));
+        // WB12d: the faithful's rite, while it holds - right after the omen's or the rise's line (AUDIT WB12d D3: its
+        // "nearby" is the breach just named), once a day; AUDIT WB12d (C8, L5): never once the hub says it broken, nor
+        // where the relay cannot keep it
+        if ((line === 'omen' || line === 'rise') && riteDay !== t.day) { riteDay = t.day; if (riteReady() && !riteBroken(t.day, s)) say(riteOmenLine()); }
         // WB8c: tonight's marks, beside the first line of a gate still to be fought (never after it has sealed)
         if ((line === 'omen' || line === 'rise' || line === 'open') && marksDay !== t.day) { marksDay = t.day; say(marksLine({ boss: words.boss, md: gateModsOf(t.day) })); }
         else if (line === 'seal') say(sealLine({ ...words, at: at(t.day, GATE_WRATH_MINUTE) }));   // GATE-COLLAPSE: and when it goes
         else if (line === 'wrath') say(wrathLine(words));
-        // WB12d: the faithful's rite, while it holds - beside the omen's or the rise's line, once a day
-        if ((line === 'omen' || line === 'rise') && riteDay !== t.day) { riteDay = t.day; say(riteOmenLine(words)); }
       }
       return current;
     },

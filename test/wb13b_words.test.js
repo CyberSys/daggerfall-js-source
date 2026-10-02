@@ -14,8 +14,10 @@ import { GATE_TEXT } from '../src/scenes/gatePool.js';
 import { GATE_NO_TEXT } from '../src/net/gateLink.js';
 import { GATE_CLAIM_TEXT } from '../src/net/gateClaims.js';
 import { MARKS_TEXT } from '../src/net/marksBook.js';
-import { omenPost, fellPost } from '../src/net/gateHerald.js';
-import { fellLine } from '../src/systems/gateOmen.js';
+import { omenPost, fellPost, ritePost } from '../src/net/gateHerald.js';
+import { fellLine, riteOmenLine } from '../src/systems/gateOmen.js';
+import { RITE_TEXT } from '../src/scenes/riteHost.js';
+import { SPOILS_TEXT } from '../src/scenes/spoilsPool.js';
 import { INSIGNIA_SUB, INSIGNIA_LINE, INSIGNIA_CARD } from '../src/ui/brokerWindow.js';
 import { dismantleAsk } from '../src/systems/sigilBroker.js';
 import { accountRefusalText } from '../src/net/accountClient.js';
@@ -51,6 +53,12 @@ function lines() {
   for (const [k, v] of Object.entries(INSIGNIA_CARD)) v.forEach((x, i) => add(`card.${k}.${i}`, x));
   dismantleAsk('Ebony Cuirass', 2).forEach((x, i) => add(`dismantle.${i}`, x));
   for (const w of ['short', 'guest']) add(`refusal.${w}`, accountRefusalText(w));
+  // AUDIT WB12d (D18): the faithful's rite, every line it says
+  add('rite.omen', riteOmenLine());
+  for (const [k, v] of Object.entries(RITE_TEXT)) add(`rite.${k}`, typeof v === 'function' ? (k === 'broken' ? v({ near: 'Copperham', by: ['Ann', 'Bran'], n: 5 }) : v(7)) : v);
+  add('rite.post', ritePost({ place: 'Copperham, Wrothgarian Mountains', by: ['Ann', 'Bran'], n: 5 }).content);
+  add('claim.rite', GATE_CLAIM_TEXT.rite); add('claim.guestRite', GATE_CLAIM_TEXT.guestRite);
+  add('spoils.rite', SPOILS_TEXT.rite); add('strike.spilledRite', COURT_STRIKE_TEXT.spilledRite());
   return out;
 }
 

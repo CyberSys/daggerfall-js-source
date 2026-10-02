@@ -62,7 +62,7 @@ test('AUDIT WB C4 a link lost and found settles again: a kill the relay saw whil
   let fell = null;
   const omen = createGateOmen({ now: () => clock.now, site: () => SITE, say: (s) => lines.push(s), localTime: (m) => `L${m}`, fellAt: () => fell, ready: () => host.ready, settleMs: OMEN_SETTLE_MS });
   omen.frame(); clock.now += OMEN_SETTLE_MS; omen.frame();
-  assert.deepEqual(lines.slice(1), [marks(643), riteOmenLine({ place: SITE.place })], 'the rise, and (WB8c) tonight\'s marks beside it - WB12d: and the faithful\'s rite');
+  assert.deepEqual(lines.slice(1), [riteOmenLine(), marks(643)], 'the rise, and (WB12d; AUDIT WB12d D3) the faithful\'s rite right after it, then (WB8c) tonight\'s marks');
   host.ready = false;
   clock.now = t.openAt + 120_000;   // away through the opening - and the Warden fell just before the return
   omen.frame();
@@ -94,8 +94,8 @@ test('AUDIT WB C4 a clock that steps BACK never says a line twice; a new day say
   clock.now = u.omenAt + 1000;
   omen.frame();
   assert.equal(lines[2], omenLine({ place: SITE.place, at: `L${642 * 1440 + 1200}` }));
-  assert.equal(lines[3], marks(642));
-  assert.equal(lines[4], riteOmenLine({ place: SITE.place }), 'WB12d: the faithful\'s rite, beside the omen');
+  assert.equal(lines[3], riteOmenLine(), 'WB12d: the faithful\'s rite, right after the omen (AUDIT WB12d D3)');
+  assert.equal(lines[4], marks(642));
   clock.now = u.riseAt + 1000;
   omen.frame();
   assert.equal(lines[5], riseLine({ near: 'Copperham', left: '4:59' }));

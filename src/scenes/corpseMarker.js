@@ -54,7 +54,7 @@
 // it, so the port does the same. What the window restores is the
 // CHOICE, which is the half that was missing.
 
-import { championName } from '../systems/champions.js';   // LOOT7: a champion's death line names it
+import { championName, properName } from '../systems/champions.js';   // LOOT7: a champion's death line names it
 import { getBool } from '../systems/settings.js';   // AUDIT 28 W1: DisableEnemyDeathAlert
 import { floorLanding } from '../player/enterExit.js';
 import { billboardSize } from '../world/rmbFlats.js';
@@ -140,7 +140,7 @@ export function sayEnemyDied(say, mobileType, entity = null) {
   // AUDIT 28 W1: the gate the comment above quotes was never read - the
   // setting sat `stored` while every kill spoke. GetBool, as :82.
   if (getBool('GUI', 'DisableEnemyDeathAlert')) return null;
-  const name = championName(entity, enemyDisplayName(mobileType));   // LOOT7: a champion by its name
+  const name = properName(entity) ?? championName(entity, enemyDisplayName(mobileType));   // LOOT7: a champion by its name; AUDIT WB12d (D2): the Summoner by his
   if (!name) return null;
   const line = `${name} just died.`;   // thingJustDied, %s
   say?.(line);

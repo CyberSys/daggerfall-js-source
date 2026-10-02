@@ -23,21 +23,31 @@ const DAYS = Array.from({ length: 3000 }, (_, i) => i).filter(isGateDay);
 test('WB12d the circle: 90 to 180 m from the arch, 50 degrees or more off either way in, inside the gate\'s own pixel with room to spare - carried out of the gate\'s frame as the Broker\'s spot is, and another day another place (mutants: the approach not kept; the distance not kept; the frame turned the wrong way)', () => {
   assert.ok(DAYS.length > 100);
   const sides = new Set(), near = [];
+  let edge = Infinity;
   for (const d of DAYS) {
     const [lx, lz] = riteOffset(d), dist = Math.hypot(lx, lz);
     assert.ok(dist >= RITE_MIN_M - 1e-9 && dist <= RITE_MAX_M + 1e-9, `day ${d}: ${dist} m`);
     const offWay = Math.acos(Math.min(1, Math.abs(lz) / dist)) * (180 / Math.PI);
     assert.ok(offWay >= RITE_OFF_APPROACH_DEG - 1e-9, `day ${d}: ${offWay} degrees off the way in`);
     const [e, n] = riteLocalOf(d), [sx, sz] = gateSpotLocal(d);
-    assert.ok(e > 29 && e < PIXEL_M - 29 && n > 29 && n < PIXEL_M - 29, `day ${d}: inside its pixel (${e}, ${n})`);
+    // AUDIT WB12d (L6): toward its pixel's heart - 140 m or more inside the pixel's edge, on the pixel's own land
+    assert.ok(Math.min(e, n, PIXEL_M - e, PIXEL_M - n) >= 140, `day ${d}: on its pixel's own ground (${e}, ${n})`);
+    edge = Math.min(edge, e, n, PIXEL_M - e, PIXEL_M - n);
     // gatePool.js gateLocal, on the circle: the offset comes back
     const c = Math.cos(gateYaw(d)), s = Math.sin(gateYaw(d)), dx = e - sx, dz = n - sz;
     assert.ok(Math.abs(c * dx - s * dz - lx) < 1e-6 && Math.abs(s * dx + c * dz - lz) < 1e-6, `day ${d}: the gate's own frame`);
+    // ...and nearer its pixel's heart than any of its mirrors across the arch or its axis
+    const h = PIXEL_M / 2, from = (x, z) => Math.hypot(sx + c * x + s * z - h, sz - s * x + c * z - h);
+    for (const [mx, mz] of [[-lx, lz], [lx, -lz], [-lx, -lz]]) assert.ok(from(lx, lz) <= from(mx, mz) + 1e-9, `day ${d}: the heart's side`);
     sides.add(Math.sign(lx)); near.push(dist);
   }
+  assert.ok(edge < 200, `the bound is met, not loose (${edge})`);
   assert.deepEqual([...sides].sort(), [-1, 1], 'either side of the arch');
   assert.ok(Math.min(...near) < 100 && Math.max(...near) > 170, 'near and far');
-  assert.deepEqual(riteLocalOf(700), riteLocalOf(700), 'every client and the relay alike');
+  // AUDIT WB12d (T): the law's own answer, written down - every client and the relay read this one place (a change here
+  // is a relay version; it was a tautology, the function against itself)
+  const [e700, n700] = riteLocalOf(700);
+  assert.ok(Math.abs(e700 - 337.4638054557544) < 1e-9 && Math.abs(n700 - 355.8854500617274) < 1e-9, `${e700}, ${n700}`);
   assert.notDeepEqual(riteLocalOf(700), riteLocalOf(712));
 });
 
@@ -102,6 +112,8 @@ test('WB12d the wire: a rite word is {d, px, py, s, f} and nothing more, parsed 
   const names = Array.from({ length: 20 }, (_, i) => `N${i}`);
   const out = validRiteOut({ k: 'br', d: 700, px: 1, py: 2, at: 5, by: [...names, '', 3] });
   assert.equal(out.by.length, RITE_BY_MAX);
+  // AUDIT WB12d (L8): junk ahead of the names hides none of them
+  assert.deepEqual(validRiteOut({ k: 'br', d: 700, px: 1, py: 2, at: 5, by: ['', 3, null, {}, ...names] }).by, names.slice(0, RITE_BY_MAX));
   assert.equal(validRiteOut({ k: 'xx', d: 700, px: 1, py: 2, at: 5 }), null);
   assert.equal(RITE_RELAY_MIN, 141);
   assert.deepEqual(['world140', 'world141', 'world142', 'acct46', null].map(relaySupportsRite), [false, true, true, false, false]);

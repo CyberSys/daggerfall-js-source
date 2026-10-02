@@ -266,8 +266,8 @@ test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears
   assert.equal(lines.length, 7, lines.join('\n'));
   assert.equal(lines[0], omenLine({ place: 'Copperham, Wrothgarian Mountains', at: `L${600 * 1440 + 1200}` }));
   assert.match(lines[0], /^The sky burns near Copperham, Wrothgarian Mountains\. Dagon's faithful open a breach at 20:00 \(L\d+ your time\)\.$/);   // WB13b
-  assert.equal(lines[1], marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(600) }), 'WB8c: tonight\'s marks, beside the omen - once');
-  assert.equal(lines[2], riteOmenLine({ place: 'Copperham, Wrothgarian Mountains' }), 'WB12d: the faithful\'s rite, beside the omen - once');
+  assert.equal(lines[1], riteOmenLine(), 'WB12d: the faithful\'s rite, right after the omen (AUDIT WB12d D3: its "nearby" the breach just named) - once');
+  assert.equal(lines[2], marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(600) }), 'WB8c: tonight\'s marks, beside the omen - once');
   assert.equal(lines[3], riseLine({ near: 'Copperham', left: '5:00' }));
   assert.equal(lines[4], openLine({ near: 'Copperham', at: `L${600 * 1440 + 1320}` }));
   assert.equal(lines[5], sealLine({ near: 'Copperham', at: `L${600 * 1440 + 1440}` }));
@@ -278,7 +278,7 @@ test('WB1 the chat: each moment\'s line ONCE, in order, and a late arrival hears
   const late = omenOver(601);
   late.clock.now = late.t.riseAt + GATE_RISE_MS + 90_000;
   late.omen.frame(); late.omen.frame();
-  assert.deepEqual(late.lines, [riseLine({ near: 'Copperham', left: countdownText(late.t.openAt - late.clock.now) }), marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(601) }), riteOmenLine({ place: 'Copperham, Wrothgarian Mountains' })]);   // WB12d: and the rite, while it holds
+  assert.deepEqual(late.lines, [riseLine({ near: 'Copperham', left: countdownText(late.t.openAt - late.clock.now) }), riteOmenLine(), marksLine({ boss: 'Valkynaz Ruhn', md: gateModsOf(601) })]);   // WB12d: and the rite, while it holds - right after the rise (AUDIT WB12d D3)
 });
 
 test('WB1 the chat: a fallen boss\'s gate says no wrath, and a host with no map data says nothing at all', () => {

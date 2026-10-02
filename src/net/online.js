@@ -507,10 +507,13 @@ export class OnlineSession {
       // no roster wiped (the seam crossing was a churn: every puppet gone, every peer re-said); the cell left steps
       // down to a halo, and setHalo lets it go once it is out of range. AUDIT WORLD6b-iii(b) A6: the demoted entry's
       // status is the SOCKET's - open, or still connecting (an 'error' after a relay error frame is a close on its way)
-      const old = { ws: this._ws, status: this.status === 'open' ? 'open' : 'connecting', retryAt: null, backoff: BACKOFF_MIN_MS, since: this._now() };
+      // AUDIT WB12d (C6): each socket's own relay's word goes with it - the cell crossed into keeps the raid and the rite
+      // its welcome said it keeps, and the one stepped down keeps its own (sendRaid/sendRite read the socket's word)
+      const old = { ws: this._ws, status: this.status === 'open' ? 'open' : 'connecting', retryAt: null, backoff: BACKOFF_MIN_MS, since: this._now(), raidOk: this.raidOk, riteOk: this.riteOk };
       this._halo.delete(room);
       this._halo.set(this.room, old);
       this._ws = h.ws; this.status = h.status; this.error = null; this._retryAt = h.retryAt; this._backoff = h.backoff;
+      this.raidOk = !!h.raidOk; this.riteOk = !!h.riteOk;
       this.room = room;
       this._pose = pose ?? this._pose;
       this._lastSent = null; this._lastSentAt = -Infinity;

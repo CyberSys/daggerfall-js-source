@@ -148,7 +148,7 @@ test('WB12d relay: the Summoner\'s fall breaks the rite - the hub told, and agai
     const c = circle(cell.store.get(RITE_KEY));
     assert.equal(c.f, 1);
     assert.equal(c.told, 1, 'the hub heard it, with the one who struck');
-    assert.deepEqual(rites(h), [{ t: 'rite', k: 'br', d: DAY, px: PX, py: PY, at: c.at, by: ['peer-0001'] }]);
+    assert.deepEqual(rites(h), [{ t: 'rite', k: 'br', d: DAY, px: PX, py: PY, at: c.at, by: ['peer-0001'], n: 1 }], 'AUDIT WB12d (D4): and how many broke it');
     assert.ok(hub.alarm.at != null && hub.alarm.at <= now(), 'the post armed at once');
     await say(a, { s: 1, f: 1 });
     assert.equal(rites(h).length, 1, 'said once');
@@ -161,7 +161,7 @@ test('WB12d relay: the Summoner\'s fall breaks the rite - the hub told, and agai
     await hub.fire();
     const post = posts.find((p) => /is broken/.test(p.body.content));
     assert.ok(post, 'posted');
-    assert.match(post.body.content, /peer-0001 and peer-0002/, 'both named - the names read when it goes');
+    assert.match(post.body.content, /^\*\*The faithful's rite is broken\*\* (near [^,]+|in the wilds), by peer-0001 and peer-0002\.$/, 'both named - the names read when it goes; AUDIT WB12d (D4): the kill\'s own sentence');
     const fellAt = now();
     await hub.room.fetch(new Request(`https://relay.internal${GATE_INTERNAL_FELL}`, { method: 'POST', body: JSON.stringify({ d: DAY, at: fellAt, top: ['Ann'], n: 1, rc: [], here: [] }) }));
     set(fellAt + GATE_COLLAPSE_MS);

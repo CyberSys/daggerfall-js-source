@@ -237,8 +237,9 @@ const rand01 = () => rand32() / 4294967296;
 const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' } });
 /** WB12d: the names of those who broke a circle's rite, in the order they were said. */
 const riteNames = (c) => Object.values(c?.h ?? {}).filter((n) => typeof n === 'string' && n);
-/** WB12d: the hub's word of a broken rite - its day, its circle, when, and the first names of those who broke it. */
-const riteSaid = (d, c) => ({ k: 'br', d, px: c.px, py: c.py, at: c.at, by: riteNames(c).slice(0, RITE_BY_MAX) });
+/** WB12d: the hub's word of a broken rite - its day, its circle, when, the first names of those who broke it and (AUDIT
+ *  WB12d D4) how many did. */
+const riteSaid = (d, c) => ({ k: 'br', d, px: c.px, py: c.py, at: c.at, by: riteNames(c).slice(0, RITE_BY_MAX), n: Object.keys(c.h).length });
 /** AUDIT WB12d (R1): the circles a day's record stands by - those at the gate's agreed site (net/gateHerald.js
  *  agreedGateSite: two accounts said where it stands) when there is one, else every circle told, the most struck first
  *  (the first told on a tie). A lie at a pixel no breach stands in is a circle the agreed site never names. */
@@ -2603,7 +2604,7 @@ export class Room {
         const site = agreedGateSite(await this._gateSiteOf(), st.riteOwe.d);
         const c = riteCirclesBy(await this._riteOf(), st.riteOwe.d, site)[0] ?? null;   // AUDIT WB12d (R1): the circle the gate's site agrees with
         if (!c) retry = now + HERALD_RETRY_MS;   // none yet: owed while its circle stands
-        else if (await this._heraldSend(ritePost({ day: st.riteOwe.d, place: site?.pl ?? null, by: riteNames(c) }))) { st.rite = st.riteOwe.d; st.riteOwe = null; }
+        else if (await this._heraldSend(ritePost({ day: st.riteOwe.d, place: site?.pl ?? null, by: riteNames(c), n: Object.keys(c.h).length }))) { st.rite = st.riteOwe.d; st.riteOwe = null; }
         else retry = now + HERALD_RETRY_MS;
       }
       if (st.owe && (st.owe.d <= st.fell || !heraldFellLive(st.owe.d, now))) st.owe = null;

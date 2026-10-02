@@ -93,12 +93,16 @@ export function fellPost({ day, place = null, top = [], n = 0 }) {
 
 /**
  * WB12d: THE RITE'S POST - the faithful's rite broken before the breach opened, where, and by whom. Pings nobody.
- * @param {{day?: number, place?: string|null, by?: ReadonlyArray<string>}} o
+ * AUDIT WB12d (D4): the kill's own sentence (fellPost) - the event, the place, the first few who broke it and how many
+ * more (`n`, the hub's count of them).
+ * @param {{day?: number, place?: string|null, by?: ReadonlyArray<string>, n?: number}} o
  */
-export function ritePost({ place = null, by = [] }) {
+export function ritePost({ place = null, by = [], n = 0 }) {
   const names = (Array.isArray(by) ? by : []).slice(0, GATE_TOP_MAX).map(heraldName).filter(Boolean);
+  const others = Number.isSafeInteger(n) ? Math.max(0, n - names.length) : 0;
+  const who = names.length ? `, by ${listOf([...names, ...(others ? [`${others} other${others === 1 ? '' : 's'}`] : [])])}` : '';
   return {
-    content: `**The faithful's rite ${place ? `near ${place}` : 'in the wilds'} is broken**${names.length ? ` by ${listOf(names)}` : ''}.`,
+    content: `**The faithful's rite is broken** ${place ? `near ${place}` : 'in the wilds'}${who}.`,
     allowed_mentions: { parse: [] },
   };
 }

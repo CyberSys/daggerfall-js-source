@@ -54,6 +54,14 @@ export function championName(entity, base) {
   return t && base ? `${t.name} ${base}` : base;
 }
 
+/** AUDIT WB12d (D2): A FOE WITH A NAME OF ITS OWN - a feature's one foe that every line calls by it (WB12d's "the
+ *  Summoner", scenes/riteHost.js) - its words as a line begins them, or null. Said with no article: "You see the
+ *  Summoner.", "The Summoner just died.", "The Summoner (dead)". */
+export function properName(entity) {
+  const n = typeof entity?.properName === 'string' ? entity.properName : '';
+  return n ? n[0].toUpperCase() + n.slice(1) : null;
+}
+
 /** FNV-1a over a few integers - a mixer of the dungeon's own (the same answer on every client, every load). */
 function mix(...ns) {
   let h = 0x811c9dc5;

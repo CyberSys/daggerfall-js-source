@@ -34,8 +34,11 @@ export const SMOKE_EMBER = Object.freeze([0.85, 0.28, 0.08]);
 export const SMOKE_ALPHA = 0.95;
 export const SMOKE_FOG_FLOOR = 0.35;
 export const SMOKE_WIDEN = 0.007;
-/** The most pillars a frame draws (one circle a day; yesterday's fading beside it). */
+/** The most pillars a frame draws (its host stands one circle at a time - AUDIT WB12d D21: no day's pillar beside another's). */
 export const SMOKE_MAX = 2;
+/** AUDIT WB12d (G14): THE ONE THRESHOLD - a pillar this faint or fainter is not drawn, and its host says it is not
+ *  smoking (scenes/riteHost.js): a pass asked to draw always draws, so the host's foreign-pass mark always follows. */
+export const SMOKE_FADE_MIN = 0.001;
 
 const HEAD = `#version 300 es
 precision highp float;
@@ -154,7 +157,7 @@ export class RiteSmokeRenderer {
    */
   draw(smokes, proj, view, eye, seconds, fog = null) {
     this.drawn = 0;
-    const list = (Array.isArray(smokes) ? smokes : []).filter((s) => s && Array.isArray(s.origin) && s.origin.length === 3 && s.origin.every(Number.isFinite) && s.fade > 0.001).slice(0, SMOKE_MAX);
+    const list = (Array.isArray(smokes) ? smokes : []).filter((s) => s && Array.isArray(s.origin) && s.origin.length === 3 && s.origin.every(Number.isFinite) && s.fade > SMOKE_FADE_MIN).slice(0, SMOKE_MAX);
     if (!list.length) return;
     const gl = this.gl, U = this.u;
     mat4Multiply(this._vp, proj, view);

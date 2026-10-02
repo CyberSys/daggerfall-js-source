@@ -173,7 +173,7 @@ test('AUDIT 62 F12: a saturated pool refuses a plain spawn and ACCEPTS the trans
 
 test('AUDIT 62 F12: all three Wabbajack re-stand sites pass it', () => {
   for (const [h, re] of [
-    ['src/scenes/world.js', /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)\.then\(stamp\)/],
+    ['src/scenes/world.js', /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true, \.\.\.siteFoeSpawn\(f\) \}\)\.then\(\(nf\) => \{ stamp\(nf\);/],   // AUDIT WB12d (C11): and a site's foe keeps its site
     ['src/scenes/exterior.js', /exteriorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\)\.then\(stamp\)/],
     ['src/scenes/worldModes.js', /return interiorFoes\.spawnFoe\(mobileType, feet, \{ replacing: true \}\);/],
   ]) assert.match(src(h), re, `${h}: the transform is unconditional, as WabbajackEffect.cs:86-88 is`);

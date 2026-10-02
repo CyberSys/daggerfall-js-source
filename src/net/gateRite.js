@@ -35,22 +35,26 @@ export const RITE_WORD_MS = 5000;
 const unit = (v) => v / 4294967296;
 
 /**
- * The circle's offset from the gate in the gate's own frame, metres: [x across the arch, z through the fire]. To one
- * side of the arch (the day's roll), within 40 degrees of its x axis - so 50 or more off either way in - and
- * RITE_MIN_M to RITE_MAX_M out. Pure.
+ * The circle's offset from the gate in the gate's own frame, metres: [x across the arch, z through the fire] -
+ * RITE_MIN_M to RITE_MAX_M out and within 40 degrees of the arch's x axis (so 50 or more off either way in), by the
+ * day's rolls. AUDIT WB12d (L6): on the side of the arch, and of its axis, toward the heart of the gate's pixel - its
+ * ground the pixel's own, the land the gate's scan chose (net/gateLaw.js GATE_SPOT_SPREAD_M 200 and the circle's 180
+ * leave it 140 m or more inside the pixel's edge, where a neighbour's sea never reaches; a side by the day's roll stood
+ * it 30 m from the edge, in the shallows of a coast). Pure.
  * @param {number} day
  */
 export function riteOffset(day) {
-  const side = gateRoll(day, 9) % 2 ? 1 : -1;
-  const a = (unit(gateRoll(day, 16)) * 2 - 1) * (90 - RITE_OFF_APPROACH_DEG) * (Math.PI / 180);
+  const a = unit(gateRoll(day, 16)) * (90 - RITE_OFF_APPROACH_DEG) * (Math.PI / 180);
   const d = RITE_MIN_M + unit(gateRoll(day, 10)) * (RITE_MAX_M - RITE_MIN_M);
-  return [side * d * Math.cos(a), d * Math.sin(a)];
+  const [sx, sz] = gateSpotLocal(day), yaw = gateYaw(day), c = Math.cos(yaw), s = Math.sin(yaw);
+  const ux = PIXEL_M / 2 - sx, uz = PIXEL_M / 2 - sz;   // the spot to its pixel's heart, east and north
+  const across = c * ux - s * uz >= 0 ? 1 : -1, through = s * ux + c * uz >= 0 ? 1 : -1;   // its two halves, in the gate's frame
+  return [across * d * Math.cos(a), through * d * Math.sin(a)];
 }
 
 /**
  * Where the faithful work their rite: [east, north] metres from the gate pixel's south-west corner (gateSpotLocal's
- * frame) - the offset carried out of the gate's frame as the Broker's spot is (scenes/sigilBrokerPool.js). Always
- * inside the pixel: the spot is at most 200 m from its centre, the circle 180 m more, the half-side 409.6. Pure.
+ * frame) - the offset carried out of the gate's frame as the Broker's spot is (scenes/sigilBrokerPool.js). Pure.
  * @param {number} day
  */
 export function riteLocalOf(day) {

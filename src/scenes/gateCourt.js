@@ -49,6 +49,8 @@ export const COURT_STRIKE_TEXT = Object.freeze({
   // WBX3 (Swololo on Discord: "loot was not distributed, was instantly pillaged by others"): said at the burst - every
   // fighter's spoils are their own, on their own screen, and nobody else can see or take them
   spilled: () => 'Your spoils spill across the floor.',
+  // AUDIT WB12d (D20): a receipt of the faithful's rite alone spills its one ember
+  spilledRite: () => 'Your ember from the broken rite falls to the floor.',
   burning: 'burning ground',
 });
 /** WBX5: THE TURN OF A PHASE, as he leaps into the court's heart - each phase by its name (net/gateBrain.js PHASE_NAMES)
@@ -556,7 +558,7 @@ export function createGateCourt({
     const bearing = f ? Math.atan2(f[0] - at[0], f[2] - at[2]) : s.yaw;
     const keep = spoilsKeep(x, z);   // WB9f: on the floor of the court he fell in, never off its edge into the fire
     if (spoils.spew({ day: s.day, seed: claims.c, level: spoilsLevel(player()?.level ?? 1, claims.l), at, bearing, acct: claims.s, keep, claims })) {   // WB12d: and the rite's ember   // AUDIT WBX S2: never past the level the fight admitted   // AUDIT WB A9: once a receipt - its day and account
-      say(COURT_STRIKE_TEXT.spilled());   // WBX3: and said to be theirs
+      say(claims.x === 'rite' ? COURT_STRIKE_TEXT.spilledRite() : COURT_STRIKE_TEXT.spilled());   // WBX3: and said to be theirs; AUDIT WB12d (D20): the rite's ember by its own
       addBurst(at, t, FX_KINDS.spoils, SPOILS_BURST_COLOR, keep.floorY);   // WB9f: his chest bursts in gold as they leave it
     }
   }

@@ -51,7 +51,7 @@ import { inflictPoison } from '../systems/poisons.js';
 import { onMonsterHit, SPIDER_TOUCH_SPELL_INDEX } from '../systems/diseases.js';   // AUDIT 24 (wave 30): the monster special-attack rider, above ground
 import { MINUTES_PER_DAY, playerWeaponHitEntity, playerWeaponKillReported } from '../systems/worldTick.js';   // DISC10-D H1: OnWeaponHitEntity's one dispatcher
 import { FOES_MS } from '../net/online.js';   // AUDIT ALL B2: the watchman moved since the frame the striker swung at
-import { applyChampion, rollStreetChampion, championIndex, championName } from '../systems/champions.js';   // LOOT7: the street's champions
+import { applyChampion, rollStreetChampion, championIndex, championName, properName } from '../systems/champions.js';   // LOOT7: the street's champions
 import { lootCrown } from './lootLines.js';   // LOOT11: a body's line of light
 import { validFoeRecord, CELL_PUPPETS_MAX, CELL_WATCH_PUPPETS_MAX, CELL_FRAME_RECORDS_MAX, FOE_SEQ_MAX, POSE_BOUND, POSE_Y_BOUND, tokenGate, FOE_HEALTH_MAX, hitPoisonOf, hitSpellOf, hitSpellFields, HIT_ARROWS_MAX } from '../net/wire.js';   // STRIKE-SHARED: a strike spell rides the hit
 import { CORPSE_ACTIVATION_DISTANCE, liveFoeTargets, liveFoeFor } from '../player/activate.js';   // WORLD-HOVER H2: the LIVE bodies, in the shape the hover's one seam takes
@@ -70,7 +70,7 @@ import { addItem } from '../systems/inventory.js';   // AR1: BowDamage's recover
 import { EnemySoundSource, acuteHearingMultiplier } from '../characters/enemySounds.js';   // AUDIT 24 (wave 41): EnemySounds.cs, one home
 import { flashPlayerDamage } from '../ui/damageFlash.js';   // AUDIT 24 (wave 39): ShowPlayerDamage   // AUDIT 24 (wave 38): EnemyDeath's one home
 import { bindQuestFoeHost, isPrivateQuestFoe } from './questFoeHost.js';   // B1: quest foes ride this pool; CURSE-SYNC: a world quest's ride as the world's
-import { validSites, validSiteTags, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
+import { validSites, validSiteTags, isRiteSite, WOD_CAMP_PUPPETS_MAX, WOD_SITES_MAX, WOD_AGE_MAX } from '../world/wodShared.js';   // WOD7: a World of Daggerfall camp's foes, shared
 import { validRaidTags, validAlliedIds, RAID_PUPPETS_MAX } from '../world/raidShared.js';   // RAID2: a town's raid, shared
 import { isShipmate } from '../combat/friendlyFire.js';   // SHIPMATES: my crew named on the wire, and never the swing's
 import { campTagsOf, validCampTags } from '../world/campShared.js';   // OW6: a camp rides tagged, and an heir takes it as a camp
@@ -166,6 +166,16 @@ export const ENCOUNTER_CULL_DISTANCE = 120;
  *  MAX_CAMP_SPAWN_DISTANCE) and see only 60 m, so the 120 m cull took most of CAMP-RING's groups on the
  *  frame after they stood, never seen. A camp member is culled past this instead - the band and a margin. */
 export const CAMP_CULL_DISTANCE = 200;
+/** AUDIT WB12d (C11): A SITE'S FOE CHANGED IS STILL ITS SITE'S - a Wabbajack's re-stand (scenes/world.js
+ *  enchantReplaceFoe) keeps a shared camp's member shared, and the faithful's Summoner turned a beast is still their
+ *  Summoner (scenes/riteHost.js reads its part): the spawn's options for the new foe, and what it takes from the old. */
+export const siteFoeSpawn = (f) => (f?.site ? { site: f.site, placed: true, transient: !!f.transient } : {});
+const SITE_FOE_KEYS = Object.freeze(['campId', 'campKind', 'campAlertRadius', 'riteRole', 'riteCareer']);
+export function carrySiteFoe(from, to) {
+  if (!from?.site || !to) return;
+  for (const k of SITE_FOE_KEYS) if (from[k] !== undefined) to[k] = from[k];
+  if (to.entity && from.entity?.campId !== undefined) to.entity.campId = from.entity.campId;
+}
 
 export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture, uploadRecordFrame,
   playerEntity, audio, onPlayerHurt, currentMinute, say = null, rolls = Math.random,
@@ -1446,7 +1456,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  producer did not stand. */
   const hoverName = (key) => {
     const e = corpseEntryFor(foes, key, 'foeCorpse', corpseLens);
-    return e ? { title: corpseName(championName(e.entity, enemyDisplayName(e.mobileType))) } : null;   // .cs:526; LOOT7: a champion's body by its name
+    return e ? { title: corpseName(properName(e.entity) ?? championName(e.entity, enemyDisplayName(e.mobileType))) } : null;   // .cs:526; LOOT7: a champion's body by its name; AUDIT WB12d (D2): the Summoner's by his
   };
   /** ...and what it HOLDS (AUDIT-WH H3). `foeCorpse:` itemises, so the
    *  plaque draws a LIST for it; without this the host's `contents`
@@ -1668,6 +1678,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     corpseBatches.length = 0;
     foes.length = 0;
     for (const s of spawning) s.capped = false;   // AUDIT 68 S20-encounter-cap-race: a cancelled spawn holds no slot in the next world
+    _lostSites.clear();   // AUDIT WB12d (C1): a site a race gave away is the old world's - the epoch above already ends its spawns in flight
     _owners.clear(); _pupPending.clear(); _pupIndex.clear(); _pupKept.clear();   // AUDIT WORLD6b C10: the teardown ends the owners' records too (AUDIT DISC28 QS-J: the kept ones with them)
     _onHccClear?.();   // AUDIT HCC O2: and the peers' teams with them - a fast travel's clearLive re-anchors the origin with no offset to ride
     _onDuelClear?.();   // DUEL1: and the rings they duel in
@@ -1762,6 +1773,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
    *  the mint is; the caller does not wait on the art. */
   function restoreWorld(saved, fromNative, yOffset = 0, { reviveQuestBehaviour = null } = {}) {
     for (const sf of saved ?? []) {
+      if (isRiteSite(sf.site)) continue;   // AUDIT WB12d (C5): a breach's faithful are never a save's - its circle stands its survivors again (scenes/riteHost.js)
       const [lx, lz] = fromNative(sf.nativeX, sf.nativeZ);
       // AUDIT 63 F24: SerializableEnemy.cs:205-218 - a saved
       // questSpawn gets its QuestResourceBehaviour back BEFORE the
@@ -1859,8 +1871,13 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
   /** WOD7: my own foes a site stood - taken down whole when a race gives the site to a peer. */
   function removeSiteFoes(site) {
     _lostSites.add(site);   // AUDIT WOD7: and one still building ends as it lands
-    for (const f of [...foes]) if (f.site === site && !f.puppet) questPoolOps.removeFoe(f);
+    dropSiteFoes(site);
   }
+  /** AUDIT WB12d (C1): my own foes a site stood taken down, the site still mine to stand again - a circle left behind
+   *  (a teleport, its breach collapsed), never a race lost (removeSiteFoes poisons the site for good). */
+  function dropSiteFoes(site) { for (const f of [...foes]) if (f.site === site && !f.puppet) questPoolOps.removeFoe(f); }
+  /** AUDIT WB12d (C1, C2): a site a race gave away, mine to stand again - a peer's camp that left with its owner. */
+  function reclaimSite(site) { _lostSites.delete(site); }
   function setOnCamps(fn) { _onCamps = typeof fn === 'function' ? fn : null; }
   function setOnHcc(fn, onClear = null) { _onHcc = typeof fn === 'function' ? fn : null; _onHccClear = typeof onClear === 'function' ? onClear : null; }   // HCC-ONLINE
   function setOnBands(fn) { _onBands = typeof fn === 'function' ? fn : null; }   // TV7b
@@ -2551,6 +2568,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
       if (f.ai) f.ai.sightRadius = CAMP_SIGHT_RADIUS;
       if (f.entity) f.entity.campId = id;
     }
+    if (f.site) f.placed = true;   // AUDIT WB12d (C3): a site's foe taken over stands where it was stood - no relevance cull takes it off every screen
     _adopted.set(origin, f);   // AUDIT (pre-merge) D2: theirs again if they stream it alive
     return 1;
   }
@@ -2622,7 +2640,7 @@ export function createExteriorFoes({ renderer, collider, fetchBytes, getTexture,
     setNet, foesFrame, applyFoes, applyHit, spellToOwner, pruneOwners, clearPuppets, handOverFrame, dropOwnLive,
     deepPuppetsNear,   // DEEP-SHARE: the deep's foes others stand near a point
     setQuestShare,   // QUEST-PARTY
-    setOnSites, removeSiteFoes,   // WOD7
+    setOnSites, removeSiteFoes, dropSiteFoes, reclaimSite,   // WOD7; AUDIT WB12d (C1): a site left behind, and one taken back
     setOnRaids,   // RAID2
     setOnCsa,   // CSA-J
     setOnBands,   // TV7b

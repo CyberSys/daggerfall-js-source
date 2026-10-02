@@ -250,8 +250,9 @@ test('WBX3 the picture, the burst and the pieces\' words: the icon\'s key is its
   assert.equal(await itemIconColor32(null), null);
   assert.equal(await itemIconColor32({ templateIndex: 101 }), null, 'node has no canvas - the pile stands');
   const gc = read('src/scenes/gateCourt.js');
-  assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) \{[^\n]*\n\s*say\(COURT_STRIKE_TEXT\.spilled\(\)\);/);
+  assert.match(gc, /if \(spoils\.spew\(\{[^\n]*\}\)\) \{[^\n]*\n\s*say\(claims\.x === 'rite' \? COURT_STRIKE_TEXT\.spilledRite\(\) : COURT_STRIKE_TEXT\.spilled\(\)\);/);   // AUDIT WB12d (D20): the rite's ember by its own
   assert.match(COURT_STRIKE_TEXT.spilled(), /^Your spoils/, 'WB13b: "Your" says they are no one else\'s');
+  assert.match(COURT_STRIKE_TEXT.spilledRite(), /^Your ember/);
   assert.match(read('src/scenes/world.js'), /iconOf: \(item\) => itemIconColor32\(item, \{ identity: playerEntity \}\),/);   // AUDIT WBX S6: drawn for its wearer
   assert.ok(lineHeight('artifact') > lineHeight('legendary'));
 });

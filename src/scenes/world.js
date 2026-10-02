@@ -154,7 +154,7 @@ import { hasCustomLocationPosition } from '../world/locationLayout.js';   // ROA
 import { FootstepMachine, pickFootstepSet, pickFootstepKind } from '../systems/footsteps.js';   // FS-slice; PEER-FS1: pickFootstepKind for the pose's own `fk`
 import { immersiveFootsteps, reportModCompatibilityIssues } from '../systems/immersiveFootsteps.js';
 import { betterAmbience, classicFootstepAllowed } from '../systems/betterAmbience.js';   // BA1: Better Ambience - the shake, the dungeon's fog and light, the reverb, the indoor rain, its own stride   // IF1: Immersive Footsteps owns the stride and the three landing sounds once its clips are in (DisableVanillaFootsteps)
-import { createExteriorFoes, MAX_ACTIVE_ENCOUNTER_FOES, CAMP_CULL_DISTANCE, ENCOUNTER_CULL_DISTANCE } from './exteriorFoes.js';   // X-slice; OW6: the pool's bound, a warband's too, and the culls a walk-away handover comes before
+import { createExteriorFoes, MAX_ACTIVE_ENCOUNTER_FOES, CAMP_CULL_DISTANCE, ENCOUNTER_CULL_DISTANCE, siteFoeSpawn, carrySiteFoe } from './exteriorFoes.js';   // X-slice; OW6: the pool's bound, a warband's too, and the culls a walk-away handover comes before
 import { StaticBatchBuilder, keyResolver } from '../render/staticBatch.js';   // PERF4: a pixel's static models as one mesh
 import { createBreather, frameFitBudget } from '../systems/buildBreather.js';   // PERF7: the stream build yields to the frame; PERF-EXT24: a slice of what the frame left
 import { pieceIndex } from '../render/labGrass.js';   // PERF8: the piece under a point, by arithmetic
@@ -209,7 +209,7 @@ import { WORLD_SALT, spawnsDungeon, spawnedMapId, pathFreePixel, createSpawnGrou
 import { createGateOmen, insideGateRing, gateSceneXZ, fellLine, OMEN_SETTLE_MS, GATE_STORM_RING } from '../systems/gateOmen.js';   // WB1 (Mac: "on the timer, a large area would be shown on the map, also in chat"): the Oblivion Gate's omen - its lines, its ring, its compass mark
 import { gateScanner, findGateSite, gateSeaPixel, politicClaimed } from '../systems/gateSite.js';   // WB1: where the day's gate stands, over the map files every client holds alike
 import { createGatePool, GATE_TEXT } from './gatePool.js';   // WB2: the gate the world stands - its stone, its fire and beacon, its collider and its door
-import { createRiteHost } from './riteHost.js';   // WB12d: the faithful's rite - its circle, its smoke, its faithful, its word and its chest
+import { createRiteHost, RITE_TEXT } from './riteHost.js';   // WB12d: the faithful's rite - its circle, its smoke, its faithful, its word and its chest
 import { RANDOM_TREASURE_ARCHIVE } from '../systems/lootDataTables.js';   // WB12d: the casket's pile, undrawn
 import { createSigilBroker } from './sigilBrokerPool.js';   // SET7: the Sigil Broker beside the gate - her body, her box and name, her press
 import { createBrokerOverlay, closeBrokerDoor } from '../ui/brokerDoor.js';   // SET7: her window, a lazy chunk behind its door
@@ -1924,6 +1924,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   const wodSprungList = () => { const now = performance.now(); return [..._wodSprung].reverse().map(([s, at]) => [s, now - at]); };
   /** AUDIT WOD7: a pixel promoted afresh (no carry) mints fresh markers - a peer's old spring there is spent no more. */
   function wodForgetPeerSites(key) { for (const s of [..._wodPeerSprung]) if (s.startsWith(`${key}:`)) _wodPeerSprung.delete(s); }
+  // AUDIT WB12d (C1, C2): `_wodPeerHeard` - when a peer last spoke for a site (its frames' tags and sprung list), so a
+  // breach's faithful whose owner went quiet are stood again (scenes/riteHost.js); a site let go is said by nobody
+  const _wodPeerHeard = new Map();
+  /** AUDIT WB12d (C2): how long since a peer last spoke for `site`, ms (Infinity: never). */
+  const wodPeerHeldAgo = (site) => { const at = _wodPeerHeard.get(site); return at == null ? Infinity : performance.now() - at; };
+  /** AUDIT WB12d (C2): a peer's spring of `site` spent no more - its owner left with what it stood. */
+  function wodForgetPeer(site) { _wodPeerSprung.delete(site); _wodPeerHeard.delete(site); }
+  /** AUDIT WB12d (C1): `site` let go - mine no more, so my frames stop saying it is (a circle left, a teleport). */
+  function wodUnsprang(site) { if (_wodSprung.delete(site)) _wodSprungChanged = true; }
   /** WOD7: markers a peer sprang, [[site, ageMs|null]] - mine are spent; one I sprang too is a race: the first
    *  spring keeps it, a tie inside the window goes to the smaller id (yieldsTo), an age not yet heard waits. */
   function wodPeerSites(from, sites) {
@@ -1936,6 +1945,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       }
       _wodPeerSprung.delete(s); _wodPeerSprung.add(s);
       if (_wodPeerSprung.size > WOD_PEER_SITES_MAX) _wodPeerSprung.delete(_wodPeerSprung.values().next().value);
+      _wodPeerHeard.delete(s); _wodPeerHeard.set(s, performance.now());   // AUDIT WB12d (C2)
+      if (_wodPeerHeard.size > WOD_PEER_SITES_MAX) _wodPeerHeard.delete(_wodPeerHeard.keys().next().value);
     }
   }
   /** WOD6: SaveLoadManager.OnLoad, heard by every standing marker that has run Start. */
@@ -8456,7 +8467,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // through the one that owns the billboard - `exteriorFoePool` is
     // the watch AND the encounter foes, and this arm reached the
     // encounter pool's remover for both. That was not a leak: removeFoe
-    // (exteriorFoes.js:532-537) never looks the record up in `foes`, and
+    // (exteriorFoes.js:542-547) never looks the record up in `foes`, and
     // both pools share this host's one renderer, so a struck WATCHMAN
     // got exactly what removeGuard (cityGuards.js:1627-1645) gives it -
     // batch freed, `dead = true`, no corpse, skipped by the next AI pass
@@ -8480,7 +8491,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // a GUARD frees a slot in the guard pool and none in this one, so
     // the encounter cap could refuse the re-stand and leave the struck
     // watchman erased with nothing standing in his place.
-    exteriorFoes.spawnFoe(mobileType, feet, { replacing: true }).then(stamp).catch(() => {});
+    // AUDIT WB12d (C11): a site's foe changed is still its site's - the faithful's Summoner turned a rat is still their
+    // Summoner, so the rite still breaks (exteriorFoes.js siteFoeSpawn, carrySiteFoe)
+    exteriorFoes.spawnFoe(mobileType, feet, { replacing: true, ...siteFoeSpawn(f) }).then((nf) => { stamp(nf); carrySiteFoe(f, nf); }).catch(() => {});
   };
   /** SD1: stand a loose foe - SoulBound's break release, the Sanguine
    *  Rose's Daedroth - through DFU's OWN placement law, in whichever
@@ -9796,6 +9809,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // mid-fight left the fight standing and restoreWorld spawned the
     // save's copies on top of it. The distance cull spares anything
     // that has detected you, so nothing else was going to.
+    handOverSiteFoes();
     exteriorFoes.clearLive();
     wodCarry.clear();   // WOD3/WOD4: a sweep is an unload - nothing carries past it
     for (const list of _dwRubbleCarry.values()) for (const r of list) dwFreeRubble(r);   // AUDIT DW-F: nor does a rebuild's rubble
@@ -15654,6 +15668,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     // reaches collectWorld - deep game code, in a browser EVENT HANDLER - and a throw there used to skip the leave,
     // both chat links and the rigs, so the room got a silence instead of a farewell and the peers held a ghost until
     // PEER_TIMEOUT_MS.
+    globalThis.addEventListener?.('pagehide', () => handOverSiteFoes());   // AUDIT WB12d (C2): a shared camp's and the faithful's foes to the players beside them - first, before the farewell below
     globalThis.addEventListener?.('pagehide', () => {
       try { worldPublish(performance.now(), true); }
       catch (e) { console.error('[online] the farewell memory could not be collected - leaving anyway:', e); }
@@ -16701,6 +16716,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     // (its word of a kill comes just behind) - or, a hub that never answers, eight seconds on the relay's clock alone
     ready: () => { if (!online?.clockRead) { _omenClockAt = null; return false; } if (_omenClockAt == null) { _omenClockAt = performance.now(); warmGateScan(); } return !!socialLink()?.clockRead || performance.now() - _omenClockAt > 8000; },
     settleMs: OMEN_SETTLE_MS,
+    riteBroken: (day, s) => !!riteHost?.isBroken(day, s?.px, s?.py),   // AUDIT WB12d (C8): the hub's word came first - its order is no order
+    riteReady: () => !!online?.riteOk,   // AUDIT WB12d (L5): a relay that keeps the rite
   }) : null;
   /** GATE-CLEAR: THE CLEARING World of Daggerfall keeps its rock off (world/gateClearance.js, the streamer's sweep far
    *  above) - the site of the gate the clock is about (net/gateLaw.js gateAt: from the last gate's collapse to this
@@ -16814,29 +16831,37 @@ export async function bootWorld(canvas, renderer, params, status) {
   }) : null;
   /** WB12d: THE FAITHFUL'S RITE (scenes/riteHost.js) - online alone, as the gate is: each breach's circle from the omen to
    *  its collapse, its smoke until the breach opens, its faithful shared by the World of Daggerfall camps' law (one site,
-   *  `px,py:rite`), the rite's word to its cell, the hub's broken word, and the casket's pile once it is broken. */
+   *  `px,py:rite.<day>`), the rite's word to its cell, the hub's broken word, and the casket's pile once it is broken. */
   const riteHost = gateOmen ? createRiteHost({
     renderer, gl: renderer.gl, meshes: { getGpuMesh, cpuModels }, getTexture, uploadRecordFrame,
+    collider: () => collider,   // AUDIT WB12d (G4): its altar, casket and braziers stand in the world
+    onBare: (x0, z0, x1, z1) => labGrassField?.invalidate(x0, z0, x1, z1),   // AUDIT WB12d (G2): the grass placed again round its burned earth
     now: () => Date.now() + _sharedOffsetMs,
     omen: () => gateOmen.current(),
-    pixelTranslation: (px, py) => state.pixelTranslation(px, py),
+    fellAt: (day) => gateLink?.fellAt(day) ?? null,   // AUDIT WB12d (R7): an early kill's collapse ends the circle too
+    pixelTranslation: (px, py, out) => state.pixelTranslation(px, py, out),
     groundAt: (x, z) => surfaceAt(x, z),   // the drawn triangles' height - what a placed thing stands on
     coarseGround: (px, py, x, z) => gateGroundAt(px, py, x, z),   // the smoke beyond the streamed grid
     feet: () => (walkMode && playerSpawned ? player.feetAt() : null),
-    online: () => !!online,
+    online: () => !!online?.riteOk,   // AUDIT WB12d (L5, D9): a relay that keeps the rite (net/wire.js relaySupportsRite) - an older one never hears its word
     foes: {
-      spawn: (career, [x, z], { yaw, site }) => {
+      spawn: (career, [x, z], { yaw, site, transient }) => {
         const y = surfaceAt(x, z);
         if (!Number.isFinite(y)) return Promise.resolve(null);
         const hit = collider.surfaceHit([x, y + 0.2, z], _DOWN, 3);
-        return exteriorFoes.spawnFoe(career, [x, y, z], { yaw, placed: true, groundAlign: { hitDist: hitDistance(hit) }, site });   // WOD7: tagged with its site - shared, as a marker's foe is
+        return exteriorFoes.spawnFoe(career, [x, y, z], { yaw, placed: true, groundAlign: { hitDist: hitDistance(hit) }, site, transient });   // WOD7: tagged with its site - shared, as a marker's foe is; AUDIT WB12d (C5): in no save
       },
       list: () => exteriorFoes.foes,
-      removeSite: (site) => exteriorFoes.removeSiteFoes(site),
+      drop: (site) => exteriorFoes.dropSiteFoes(site),   // AUDIT WB12d (C1): taken down, the site kept
+      remove: (f) => exteriorFoes.removeFoe(f),
+      reclaim: (site) => exteriorFoes.reclaimSite(site),
       campId: () => exteriorFoes.newCampId(),
     },
     peerSprang: (site) => _wodPeerSprung.has(site),
+    peerHeldAgo: (site) => wodPeerHeldAgo(site),   // AUDIT WB12d (C2)
+    forgetPeer: (site) => wodForgetPeer(site),
     sprang: (site) => wodSprang(site),
+    unsprang: (site) => wodUnsprang(site),
     struckAt: (f) => renownStruckAt(f),
     send: (w, cell) => !!online?.sendRite?.(w, cell),
     say: (text) => chatNotice(text),
@@ -17364,9 +17389,33 @@ export async function bootWorld(canvas, renderer, params, status) {
   const handOverFoes = () => {
     const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];
     if (!near.length) return 0;
-    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe)
+    const heirOf = (f) => { if (f.entity?.team === 'PlayerAlly' || f.managed || f.deckBoat != null) return null; const at = f.ai?.feet; if (!at) return null; let id = null, best = f.site ? CAMP_CULL_DISTANCE : Infinity; for (const q of near) { if ((isPrivateQuestFoe(f) || f._keptTag) && !social?.isPartyPeer(q.id)) continue; const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } } return id; };   // QUEST-PARTY phase 2: a shared quest's foe goes to a party member alone (CURSE-SYNC: a world quest's to anyone, as an encounter's); SUMMON-SYNC: and my ALLY to nobody - it goes with its summoner (the record carries no side, so an heir stood it as everyone's foe); AUDIT WB12d (C3): a site's foe (a shared camp's, the faithful) to a player within a camp's cull distance of it alone - a far heir took a camp it stood nowhere near
     const frame = exteriorFoes.handOverFrame(heirOf);
     return frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+  };
+  /** AUDIT WB12d (C2): A SITE'S FOES OUTLIVE ITS OWNER'S TELEPORT - a shared camp's and the faithful's (WOD7's `site`) go to
+   *  the player nearest each, within a camp's cull distance of it, on one last own frame before a teleport's sweep or
+   *  the page's going takes my pools down (the door's and the death's handover, handOverFoes, for these alone). What
+   *  nobody near takes goes with me; a circle stands its survivors again for whoever comes (scenes/riteHost.js).
+   *  Answers how many went. */
+  const handOverSiteFoes = () => {
+    try {
+      const near = online?.room && isCellRoom(online.room) && (modes?.mode ?? 'exterior') === 'exterior' ? (peersNear() ?? []) : [];
+      if (!near.length) return 0;
+      const heirOf = (f) => {
+        if (!f.site || f.puppet || f.dead || f.managed || f.deckBoat != null || f.entity?.team === 'PlayerAlly') return null;
+        const at = f.ai?.feet;
+        if (!at) return null;
+        let id = null, best = CAMP_CULL_DISTANCE;
+        for (const q of near) { const d = Math.hypot(at[0] - q.feet[0], at[2] - q.feet[2]); if (d < best) { best = d; id = q.id; } }
+        return id;
+      };
+      if (!exteriorFoes.foes.some((f) => heirOf(f))) return 0;
+      const frame = exteriorFoes.handOverFrame(heirOf);
+      const n = frame && online.sendFoes(frame) ? exteriorFoes.dropOwnLive() : 0;
+      if (n) console.info(`[foes] handed ${n} camp foe(s) on leaving`);
+      return n;
+    } catch (e) { console.warn('[foes] the camps\' handover', e?.message ?? e); return 0; }   // the sweep, or the leave, goes on
   };
   // OW6 (2026-09-29, the player: "Everything needs that persistence between players in the overworld"): A FOE ITS OWNER
   // WALKS AWAY FROM GOES TO THE PLAYER BESIDE IT. A camp stood by me and fought by a friend stood until I was its cull
@@ -21136,7 +21185,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
   let _tvAttack = null;       // { kind: 'band' | 'camp', id } - the enemy attacked, exempt from the slowdown
   const tvEnemyMarkKey = (key) => key.startsWith('band:') || key.startsWith('camp:');
   /** The camp a live foe stands in, as travelViewCamps keys it (mine, or a peer's by the tags their frames carry). */
-  const foeCampKey = (f) => (f?.puppet ? (f._pupCamp ? `${f.puppet}:${f._pupCamp.id}` : null) : f?.campId != null ? `me:${f.campId}` : null);
+  const foeCampKey = (f) => (f?.site && f.site === riteHost?.siteNow() ? `rite:${f.site}` : f?.puppet ? (f._pupCamp ? `${f.puppet}:${f._pupCamp.id}` : null) : f?.campId != null ? `me:${f.campId}` : null);   // AUDIT WB12d (C15): the faithful by their rite
   /** The attacked enemy's marker: its name, and where it stands now (a scene point and its pixel) - or null, gone. */
   function tvAttackTarget(key) {
     if (key.startsWith('band:')) {
@@ -21152,7 +21201,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
     if (!c) return null;
     const n = state.worldCoords(c.at);
     const m = /^(.*), (\d+)$/.exec(c.label ?? '');   // campLabel's "Orc camp, 4" - the box says "the Orc camp (4)"
-    return { kind: 'camp', id, label: m ? `the ${m[1]} (${m[2]})` : `the ${c.label}`, point: c.at, pix: worldCoordToMapPixel(n.x, n.z) };
+    const label = c.kind === 'rite' ? RITE_TEXT.markAsk(c.n) : m ? `the ${m[1]} (${m[2]})` : `the ${c.label}`;   // AUDIT WB12d (C15): "Attack Dagon's Faithful (7)?"
+    return { kind: 'camp', id, label, point: c.at, pix: worldCoordToMapPixel(n.x, n.z) };
   }
   function tvEnemyClick(key, e) {
     const t = performance.now();
@@ -21556,12 +21606,14 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
    *  and my peers' puppets tagged with their owner's camp, living ones alone, grouped one camp a group. */
   function travelViewCamps() {
     const members = [];
+    const rite = riteHost?.siteNow() ?? null;   // AUDIT WB12d (C15): the breach's faithful are the rite's, mine or a peer's - never a "Mage pack"
     for (const f of exteriorFoes.foes) {
       if (f.dead || !f.ai?.feet) continue;
-      if (f.puppet) { if (f._pupCamp) members.push({ camp: `${f.puppet}:${f._pupCamp.id}`, kind: f._pupCamp.kind, type: f.mobileType, feet: f.ai.feet }); }
+      if (rite && f.site === rite) members.push({ camp: `rite:${rite}`, kind: 'rite', type: f.mobileType, feet: f.ai.feet });
+      else if (f.puppet) { if (f._pupCamp) members.push({ camp: `${f.puppet}:${f._pupCamp.id}`, kind: f._pupCamp.kind, type: f.mobileType, feet: f.ai.feet }); }
       else if (f.campId != null) members.push({ camp: `me:${f.campId}`, kind: f.campKind ?? 'pack', type: f.mobileType, feet: f.ai.feet });
     }
-    return groupCamps(members, enemyDisplayName);
+    return groupCamps(members, enemyDisplayName).map((c) => (c.kind === 'rite' ? { ...c, label: RITE_TEXT.mark(c.n) } : c));
   }
   // PERF-TV: THE GROUND'S GENERATION - moves whenever a scene point's place or height can have: a pixel built or dropped,
   // the floating origin re-anchored (and every half second besides, for whatever that signature cannot see). The marks,
@@ -24313,6 +24365,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       // expensive because of the string it built; the arithmetic it
       // repeats is free. A stash here would be mutable state and a
       // coordinate guard bought for no measured gain.
+      const _bare = riteHost?.clearing() ?? null;   // AUDIT WB12d (G2): the faithful's burned earth, this frame
       const keep = (x, z) => {
         const hit = pieceAt(x, z);
         if (!hit) return null;
@@ -24335,6 +24388,8 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
         // lane's nature underfoot; a camp's floor or a rock field's
         // stones would otherwise stand in a lawn.
         if (p.wodSite && tx >= p.wodSite.xMin && tx < p.wodSite.xMax && tz >= p.wodSite.yMin && tz < p.wodSite.yMax) return null;
+        // AUDIT WB12d (G2): nor through the faithful's sigil - the rite's circle is burned earth (scenes/riteHost.js)
+        if (_bare && (x - _bare.x) * (x - _bare.x) + (z - _bare.z) * (z - _bare.z) <= _bare.r * _bare.r) return null;
         // GRASS-WET1 (2026-09-19, Mac: "some textures not taking the
         // water tile"): NOT A CORNER OF IT IN WATER. `rec === 0` above
         // rejects only tiles that are water WHOLE; the water-grass shore

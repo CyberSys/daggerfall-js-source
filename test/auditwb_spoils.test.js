@@ -52,7 +52,7 @@ test('AUDIT WB A2 the seams: every receipt the link folds is offered to the pool
   // AUDIT WBX S2/S4: one tab at a time (the Web Locks API), and never past the level the fight admitted the account at
   assert.match(fn, /spoilsLock\(\(\) => spoilsPool\.grant\(\{ day: c\.d, seed: c\.c, level: spoilsLevel\(playerEntity\.level \?\? 1, c\.l\), acct: c\.s, claims: c, text: c\.x === 'rite' \? SPOILS_TEXT\.rite : SPOILS_TEXT\.granted \}\)\)/, 'the receipt\'s own seed and account - WB12d: and its rite');
   // WBX3: the burst's own seed and account - and, once the pieces have left him, whose they are said (they are nobody else's)
-  assert.match(read('src/scenes/gateCourt.js'), /if \(spoils\.spew\(\{ day: s\.day, seed: claims\.c, level: spoilsLevel\(player\(\)\?\.level \?\? 1, claims\.l\), at, bearing, acct: claims\.s, keep, claims \}\)\) \{[^\n]*\n\s*say\(COURT_STRIKE_TEXT\.spilled\(\)\);/);   // WB12d: and its rite
+  assert.match(read('src/scenes/gateCourt.js'), /if \(spoils\.spew\(\{ day: s\.day, seed: claims\.c, level: spoilsLevel\(player\(\)\?\.level \?\? 1, claims\.l\), at, bearing, acct: claims\.s, keep, claims \}\)\) \{[^\n]*\n\s*say\(claims\.x === 'rite' \? COURT_STRIKE_TEXT\.spilledRite\(\) : COURT_STRIKE_TEXT\.spilled\(\)\);/);   // WB12d: and its rite; AUDIT WB12d (D20): its own line
 });
 
 test('AUDIT WB A9 a receipt spent is its day AND account: two accounts on one device each have their gate; an older build\'s spent day stays spent for anyone; the list is bounded', () => {
