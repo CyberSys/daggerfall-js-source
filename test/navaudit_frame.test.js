@@ -336,7 +336,7 @@ test('AUDIT NAV1 (#11/#12) A NODE\'S MATRIX AND ROTATION KEPT WHILE THEY READ TH
 /** world.js's own sync, lifted: csaSyncColliders over a stand-in scene (a real Collider, the boats given). */
 function liftedSync(scope) {
   const body = `
-    let { colliderPoses, invertAffine, boxColliderTriangles, csaModeCollider, csaAboard, csaColliderBoats, csaColliderMesh, _csaBoatIds, _csaBoatSerial } = s;
+    let { colliderPoses, invertAffine, boxColliderTriangles, csaModeCollider, csaAboard, csaColliderBoats, csaColliderMesh, _csaBoatIds, _csaBoatSerial, csa, modes } = s;
     ${cutLine(WORLD, '  const _csaBuckets = new Map();')}${cutLine(WORLD, '  const csaBoatId = (boat) =>')}
     ${cut(WORLD, '  const csaShapeOf = (c) =>', ');\n')}${cutLine(WORLD, '  const CSA_RIGID_EPS =')}${cut(WORLD, '  function csaCarry(b, m) {')}
     ${cut(WORLD, '  function csaSyncColliders() {')}
@@ -354,7 +354,7 @@ test('AUDIT NAV1 (#12) THE WORLD\'S SYNC CARRIES A BOAT\'S BUCKETS: three ships 
   class Counting extends Collider { addMesh(k, p, ix, m, t, r) { adds++; return super.addMesh(k, p, ix, m, t, r); } }
   let col = new Counting();
   const geometry = (c) => (c.m_Mesh?.mesh ? pool.models.geometry(c.m_Mesh.mesh) : null);
-  const scope = { colliderPoses, invertAffine, boxColliderTriangles, csaModeCollider: () => col, csaAboard: { aboard: null }, csaColliderBoats: () => ships, csaColliderMesh: geometry, _csaBoatIds: new WeakMap(), _csaBoatSerial: 0 };
+  const scope = { colliderPoses, invertAffine, boxColliderTriangles, csaModeCollider: () => col, csaAboard: { aboard: null }, csaColliderBoats: () => ships, csaColliderMesh: geometry, _csaBoatIds: new WeakMap(), _csaBoatSerial: 0, csa: { peerBoats: [] }, modes: { mode: 'exterior' } };   // FIELD BUGS 2026-10-01b: the sync stands the peers' boats on the street too - none here
   const w = liftedSync(scope);
   /** Rays down on each of `boats` meet the mode's collider as a fresh bake of every ship where she stands. */
   const asFresh = (boats, what) => {

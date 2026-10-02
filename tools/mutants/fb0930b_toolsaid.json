@@ -65,15 +65,15 @@
   {
     "name": "TOOL-USE-the-way-unsaid-on-the-hud",
     "file": "src/systems/foragingInstall.js",
-    "old": "    hudText(how);\n    return { kind: 'foraging', refused: true, text: how };",
-    "new": "    return { kind: 'foraging', refused: true, text: how };",
+    "old": "    hudText(how);\n    return { kind: 'foraging', refused: true, text: how, said: true };",
+    "new": "    return { kind: 'foraging', refused: true, text: how, said: true };",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {
     "name": "TOOL-USE-the-way-strikes-gold",
     "file": "src/systems/foragingInstall.js",
-    "old": "    return { kind: 'foraging', refused: true, text: how };",
-    "new": "    return { kind: 'foraging', text: how };",
+    "old": "    return { kind: 'foraging', refused: true, text: how, said: true };",
+    "new": "    return { kind: 'foraging', text: how, said: true };",
     "tests": ["test/fb0930b_toolsaid.test.js"]
   },
   {

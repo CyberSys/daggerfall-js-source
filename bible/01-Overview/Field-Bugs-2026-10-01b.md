@@ -1,81 +1,59 @@
-# FIELD BUGS 2026-10-01b - the camps' shrubs in the air, the journey's hold on enemies, the party's ready
+# FIELD BUGS 2026-10-01b - another player's boat, walked through and never stood on; a vampire's day indoors
 
-Three lines from Mac, the same day as `Field-Bugs-2026-10-01.md`: *"World of daggerfall bush props float above the
-ground in bandit camps"*, then *"Also when party readying up, the ui element is hidden. We also need to reduce the
-distance at which overworld enemies slow the user down"*.
+Mac, the same day, in one list: *"Players aren't colliding with other players' boats and can't stand on board"* and
+*"Sunlight debuff applies in interior (Should be buffed in interiors) (Vampires)"*. Each was reproduced on the real
+modules before it was fixed, pinned by tests that fail on the code as it stood, and mutation-proven.
 
 | | Report | What it was | Done |
 |---|---|---|---|
-| 1 | the bush props float in bandit camps | the mod's own heights, read off the author's ground, in the band the mod only eases toward the site's level | fixed (WOD-BUSH) |
-| 2 | the ready-up element is hidden | the ready-up's own windows closed the Party tab that holds it, and the leader's HUD label stood 4 s of a 60 s round | fixed (PARTY-READY) |
-| 3 | overworld enemies slow the traveller too far out | the port's own warning (OW6), 1.2 s since OW6-NEAR | fixed (OW6-HALF) |
+| 1 | "Players aren't colliding with other players' boats" | CSA-K stood another player's boat in a player's collider only while that player was aboard it (PR-WAGON1's "Others' wagons don't block", carried over to boats; CSA-J had stood it in none): to everyone else her hull and her deck's furniture were walked and swum through | fixed (PEER-HULL) |
+| 2 | "... and can't stand on board" | her deck was no floor to anyone not aboard - only her ladder's press or a drop onto it boarded her - and the aboard door took only the drop, so a body standing on her own colliders was never aboard and she would sail out from under it | fixed (PEER-DECK) |
+| 3 | "Sunlight debuff applies in interior (Should be buffed in interiors) (Vampires)" | VAMP-DAY's -20 read the hour alone: a vampire in a building, a dungeon or a cell by day was 20 down on seven stats where DFU gives him 20 up | fixed (VAMP-SUN) |
 
-## WOD-BUSH: World of Daggerfall's shrubs stand on the ground (1)
+## PEER-HULL, PEER-DECK: her boat is met and stood on as my own (1, 2)
 
-World of Daggerfall stands every object of a site at the site's average height plus the author's own height
-(`LocationLoader.cs:232-252`, `world/wodLocationLoader.js` `placeObjects`). It levels the ground to that average only
-inside the prefab's rect; past it, every sample is lerped toward it by `1 / (distance + 1)` - half one sample out, a
-third two out (`flattenForLocation`). The layouts ring their sites with one shrub model, 60610 - 202 placements across
-the layouts, every bandit camp among them, never inside the rect - in that band, at heights the author read off the
-ground of the one place they were laid out (posY from -27 to +15 at scales of 3 to 10). Where a camp's ground falls
-away past its rect, the shrubs hung in the air; where it rises, they sank. DFU does the same: nothing in the mod reads
-the terrain after the flatten.
+**Reproduced first** (`test/fb1001b_peerboats.test.js`: Come Sail Away's pool over the vendored hulls, Ann's boat posed
+off her word, the aboard machine, the real `Collider` and `PlayerMotor`, world.js's own `csaSyncColliders`,
+`csaSphereCastAll` and `csaPeersFrame` lifted and run in the frame's order): a wader running at her Small Ship's beam
+walked through her and ran on 40 m, where my own of the same hull stops him 3.45 m off her keel; a ray across her deck
+met no mainmast; a body set down on her deck fell into it.
 
-The shrub now stands on the DRAWN ground: its mesh's foot (its transformed box's bottom) goes to the lowest ground under
-the middle half of its footprint (`world/terrainSurface.js` `lowestGroundUnder`, `scenes/world.js` `buildPixelNow`),
-read at the footprint's corners, its centre lines and every sample line that crosses it, so no quad under it is
-skipped, and held to the pixel (the neighbour's ground is not this pixel's to read). The middle half, because a shrub's
-foot is its middle: the whole box would bury a wide one deep on a slope for corners that are empty air. The matrix
-moves before the shrub is batched and its collider filed, so what is drawn is what is struck. Every other object keeps
-the mod's height: the rocks are embedded on purpose, and a tent, a fire or a wall stands on the levelled rect. A
-Ledger A row records the departure.
+**Why.** CSA-K (13cf2088b, 2026-09-28) stood her colliders only for the one aboard her, and boarded only by her ladder or
+a drop onto her deck (`scenes/comeSailAwayAboard.js` frame: `ground == null`). It never worked; nothing recent broke it.
 
-That 60610 is the shrub is read off the layouts (the only non-rock nature model in them, ringing every site with
-uneven scales and random tilts; the camps carry no nature-archive flat at all), not off ARCH3D, which this container
-does not hold. NOT SEEN ON A GPU.
+**The fix** (Mac's word sets PR-WAGON1's law aside for boats; a wagon's stands). `scenes/world.js` csaSyncColliders
+stands every peer's boat that stands beside my boats and the sea's ships, aboard her or not, on the street alone; the
+helm's sweep meets her as it meets a boat of mine. `scenes/comeSailAwayAboard.js` boards by the module's own `on`:
+standing on her colliders is aboard her, so her deck carries whoever stands on it as she sails (CSA-K's carry). THE
+FOUR HOSTS: world.js wired; worldModes.js and dungeonContext.js stand no one's boat; exterior.js has no peers. No relay
+or wire change.
 
-`test/wodbush.test.js` (5); `tools/mutants/wodbush.json` 7, 7 dead.
+**Not changed.** The mod's own rays (the placing, the riders) still meet the player's own boats alone, so a boat can
+still be placed inside another's; a foe on her deck is not carried (CSA-K's declared limit, reachable now that her deck
+is a floor). Every shown peer boat is solid (at most eight a player); a range limit was not added and a crowded port's
+cost was not measured. Pins: `test/fb1001b_peerboats.test.js` (5); `tools/mutants/fb1001b_peerboats.json` 9, all dead;
+`csa_together.json`'s two records re-aimed, all 93 dead. Not seen in a browser with two players.
 
-## PARTY-READY: the ready-up stays on screen (2)
+## VAMP-SUN: out of the sun, a vampire is DFU's (3)
 
-The ready-up is PARTY-TRAVEL's round (`systems/partyTravel.js`, `06-Systems/Online-Arc.md` PARTY-TRAVEL and PARTY-READY):
-the leader chooses a destination on the travel map, the gathered members are asked, and the party sets out when nobody
-gathered is still waiting. It has three things on screen - the leader's HUD label, a member's Yes/No box and the Party
-tab's Journey block (the round's count and Call off; a member's Ready and Stay behind) - and the round took them away
-itself:
+**Reproduced first** (`test/fb1001b_vampsun.test.js`). The player, cursed by `createVampirismCurse`, ticked a minute at a
+time through the hosts' own ticker. The real mode machine (worldModes, which world.js's street and exterior.js both
+build) entered a real tavern by its own entry at noon; its seam answered that no sun reached him, and the curse's round
+still wrote -20 on the seven stats. dungeonContext's own registration, lifted from src/, did the same in a crypt.
 
-- **The leader's Party tab.** Its Travel map opens the travel map, a window over the HUD; the Social panel closes under
-  any such cover (SOC3) and nothing opened it again, so for the whole round the tab - the count, Call off - was gone.
-- **The leader's label.** "Waiting for the party to ready up (n/m ready)." stood PARTY_REST_FAR_SECONDS (4) of a round
-  that runs PARTY_READY_TIMEOUT_MS (60); the answers after that reached the chat alone.
-- **A member's Party tab.** Open as the round began, it was asked anyway by the box, which pauses the game - and the
-  pause takes the tab, the chat and the party's HUD out of the page.
+**Why.** VAMP-DAY (2026-09-26, `9901928e`) traded the sun's burn for 20 off the seven stats by day, keyed on
+`isDayFromMinutes`: "wherever the vampire stands". The burn it replaced never reached indoors: since V2c (`c5a298f8`) it
+fired only on `playerInSunlight` - DamageFromSunlight strikes `if (IsPlayerInSunlight)` (PassiveSpecialsEffect.cs:168),
+which is IsDay && !IsPlayerInside && !InPrison (PlayerEnterExit.cs:371), IsPlayerInside raised by EnableInteriorParent
+(:1086) and EnableDungeonParent (:1110). Out of the sun, ApplyVampireAdvantages gives +20 every round, everywhere
+(VampirismEffect.cs:349-373). VAMP-DAY moved the cost and dropped the place.
 
-Now the Party tab a cover took mid-journey comes back when it lifts (after the map its Travel map opened, or after any
-window over an open round); the leader's label stands for what is left of the round, set again only as the count
-moves, and the set-out, a call-off or a lapse says its own line over it; and a member with the tab open answers there,
-the box asking only once it is closed unanswered. No regression in the history the clone holds: a gap in PARTY-UI's
-design (2026-09-26), not a break.
-
-Found on the way: `test/partytravel.test.js` did not parse - two unescaped `'` in its RELAY_VERSION history line,
-since the merge before this one - so none of its tests ran and every mutant list naming it (`party-travel.json`,
-`auditpartyui.json`, ...) killed nothing. Escaped; the lists that name it run real again (101 dead in the two
-re-aimed).
-
-Not changed, and asked: if "the ui element" is the PARTY HUD (the portraits, SOC4), it still hides on a member's
-screen while the box stands - a member without the tab open is asked by the box, and the whole enhanced HUD hides
-under a pausing window by design.
-
-`test/partytravel.test.js` (+3), `test/soc3_socialpanel.test.js` (+1); `tools/mutants/partyready.json` 14, 14 dead.
-
-## OW6-HALF: the journey's hold on enemies begins half as far out (3)
-
-The slowdown is the port's own (OW6, `06-Systems/Travel-View.md`): the time scale is held so the traveller has
-THREAT_WARN_S real seconds before the nearest enemy's reach, and the lead-in is reach + THREAT_WARN_S x (own pace + the
-enemy's chase) x the scale. Mac named no figure; the warning is halved, 1.2 -> 0.6, the one knob that shortens the
-lead-in for every threat without moving any band's, raider's, ship's or camp's sight or chase - which would also change
-when they spot the traveller. A rider at x40 is held from 384 m short of a band's sight, not 768; on foot 84 m, not
-168. The reach is still met at walking pace. The third "too early": 5 -> 2 (OW6-LATE), 2 -> 1.2 (OW6-NEAR), 1.2 -> 0.6.
-
-`test/ow6_slowdown.test.js` re-derived (each threat that would no longer hold at x40 stands nearer, so its pin still
-means what it did); `tools/mutants/ow6s.json` 27, 27 dead.
+**The fix.** `systems/vampirism.js` `vampireStatMod` asks the same flag: passiveSpecials.js `playerInSunlight`, the one
+port of IsPlayerInSunlight and the seam every host registers. THE FOUR HOSTS, none changed: world.js's street and
+exterior.js through the mode machine each builds, a building through worldModes, a dungeon through dungeonContext's own
+registration. In the street from 06:00 to 18:00 the seven stats (and an Anthotis mind) are 20 down as before; indoors,
+underground, in a cell or by night he has DFU's +20, and nothing past it - felt within a game minute of the door, DFU's
+round. Unchanged: the skills' +30, holy ground, feeding, and the travel rules (CheckFastTravel reads the hour alone,
+:195-208); the hood still lifts the travel rules only - OPEN for Mac: whether a raised hood in the street by day should
+lift the -20 too. Pins: `test/fb1001b_vampsun.test.js` (4); `tools/mutants/fb1001b_vampsun.json` 10, all dead;
+`vampday.json`'s two records re-aimed (9, all dead); lived1, vamphood and HOOD-SAID re-run (62, all dead).

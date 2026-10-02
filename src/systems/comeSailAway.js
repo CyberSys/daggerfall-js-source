@@ -138,12 +138,12 @@
 //                                                 helm, at StartSailing (AUDIT NAV2 F14)
 // }
 
-import { Boat, setLights, HULL_NAMES, HULL_PRICES, HULL_WEIGHTS, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
+import { Boat, setLights, HULL_NAMES, HULL_PRICES, packedHullWeight, CARGO_CONTAINER_IMAGE, TRIGGER_MODEL, goModelName, meshLocalBounds, colliderBounds, animatorOf, boatAnimators, boatParticleSystems, nodeOf, AUDIO_CLIPS, SAIL_ANIMATION_SPEED } from './comeSailAwayBoat.js';
 import { constantCurve, twoConstantsCurve, SPACE } from '../world/unityParticles.js';
 import { quatEuler } from '../world/unityAnimator.js';
 import { quatLookRotation, quatRotate, quatAngleAxis, quatMultiply, quatSlerp } from '../world/quat.js';
 import { transferAll } from './inventory.js';
-import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE, mintBoatItem, boatItemName, boatItemMessage } from './comeSailAwayItems.js';   // CSA-H: the two items
+import { BOAT_PARTS_TEMPLATE, BOAT_DEED_TEMPLATE, mintBoatItem, boatItemName, boatItemMessage, mintDeed } from './comeSailAwayItems.js';   // CSA-H: the two items; SHIP-PACK: a ship's deed given back
 import { NO_WATER_LEVEL } from '../world/deepWaterSwim.js';
 import { invertAffine } from '../world/prefabColliders.js';
 import { buildWaveMesh, stepWaveFrame, waveFrameTimeOf, isDayHour, WAVE_FRAME_COUNT, WAVE_SCALE } from './comeSailAwayWaves.js';
@@ -271,6 +271,9 @@ export function boardPlaceOf(triggerNode) {
 export const NICE_BOAT_TEXT = 'Nice Boat!';
 /** CSA-K (DECLARED): the pack's refusal while another player stands on the deck, in the driver's words' shape. */
 export const PASSENGERS_ABOARD_TEXT = 'You cannot pack a boat with passengers aboard!';
+/** SHIP-PACK (the port's own): the pack's refusal of a deed ship whose deed is not in the pack - her parts take its place,
+ *  and a deed left elsewhere would call a second ship of hers to a port. */
+export const DEED_NOT_HELD_TEXT = 'Her deed must be in your pack to pick her up.';
 /** The mod's two helm keys this slice reads, as the port's registry actions (KB1: one key, one action). */
 export const BOAT_ACTIONS = Object.freeze({
   disembark: 'BoatDisembark', toggleLight: 'BoatToggleLight',
@@ -1590,6 +1593,7 @@ export function createComeSailAwayRuntime(deps) {
       if (boat.packable) {
         if (state.CurrentBoat != null && state.CurrentBoat === boat) deps.midScreenText('You cannot pack a boat you are driving!', 1.5);
         else if ((deps.passengersAboard?.(boat) ?? 0) > 0) deps.midScreenText(PASSENGERS_ABOARD_TEXT, 1.5);   // CSA-K (DECLARED): the driver's refusal, for a deck another player stands on - a pack would drop them in the sea
+        else if (deedMissing(boat)) deps.midScreenText(DEED_NOT_HELD_TEXT, 1.5);   // SHIP-PACK: a deed ship goes with her deed
         else PackBoat(boat, true);   // PackBoat(boat, item: true)
       }
     } else if (isSailing() && boat === state.CurrentBoat) StopSailingDelayed();
@@ -1670,31 +1674,56 @@ export function createComeSailAwayRuntime(deps) {
    * PackBoat (6130-6158): as an item, the boat's parts - `hull * 10 + variant`, the hull's price and weight, its name
    * - and a cargo aboard moved whole into PackedCargoes under the parts' UID, its weight on the parts; the parts to
    * the back of the pack. Then the boat is gone: its pixel nulled, its object destroyed, its record off the list.
+   * SHIP-PACK (2026-10-01, the review before the merge: "Allow larger ships to be picked up, just like smaller vessels" -
+   * the port's own): EVERY HULL PACKS, AND HER PARTS ARE HER.
+   * - A DEED SHIP (crewed, her deed's number on her) is packed only with that deed in the pack, and the deed goes with
+   *   her - her parts stand for her now, and give it back when she is placed (takePlaceItem). Without it nothing is done
+   *   and false answers (`deedMissing`): a deed kept elsewhere would call a second ship of hers to a port.
+   * - HER NUMBER: the parts keep her UID, where the C# minted a new one - her naval state (navalHost.js myBoatState), her
+   *   crew's names and her hands ashore (crewCompanions.js) are hers again when she stands; under a new number every
+   *   ship stood anew, mended and fully crewed. The spent PackedCargoes entry takePlaceItem leaves under it is refilled,
+   *   where any other key already held throws, as the C#'s Dictionary.Add does - and now before the hold has moved.
+   * - HER WORTH: what placed her (`itemValue` - her deed's or her parts'; a claimed prize's papers, a quarter of her
+   *   hull's price), the hull's price only for a boat no item placed; her weight packedHullWeight's (a ship's no more
+   *   than the Large Boat's).
+   * Answers whether she was packed.
    */
   function PackBoat(boat, item = false) {
     if (item) {
+      const deed = boat.crewed && boat.uid ? deedInPack(boat.uid) : null;
+      if (boat.crewed && boat.uid && deed == null) return false;
       deps.hudText('You store the boat in your inventory');
       const val = deps.items.create(BOAT_PARTS_TEMPLATE);
+      if (boat.uid) val.UID = boat.uid;   // SHIP-PACK: her number
       val.message = boatItemMessage(boat.hull, boat.variant);
-      val.value = HULL_PRICES[boat.hull];
-      val.weightInKg = HULL_WEIGHTS[boat.hull];
+      val.value = Number.isFinite(boat.itemValue) ? boat.itemValue : HULL_PRICES[boat.hull];   // SHIP-PACK: her worth
+      val.weightInKg = packedHullWeight(boat.hull);
       val.name = boatItemName(val.name, boat.hull, boat.variant);
       if (boat.Cargo.Items.length > 0) {
         const weight = f(deps.cargoWeight(boat.Cargo.Items));   // ItemCollection.GetWeight
+        const key = cargoKey(val.UID);
+        // Dictionary.Add's throw - SHIP-PACK: asked before the hold moves, and the spent entry takePlaceItem leaves under
+        // her own number (emptied and kept) hers to fill again
+        if (state.PackedCargoes.has(key) && !(boat.uid && state.PackedCargoes.get(key).length === 0)) throw new Error(`ArgumentException: An item with the same key has already been added. (${key})`);
         const val3 = [];
         transferAll(boat.Cargo.Items, val3);   // val3.TransferAll(boat.Cargo.Items): from the hold into the packed collection
         val.weightInKg = f(val.weightInKg + weight);
-        const key = cargoKey(val.UID);
-        if (state.PackedCargoes.has(key)) throw new Error(`ArgumentException: An item with the same key has already been added. (${key})`);   // Dictionary.Add
         state.PackedCargoes.set(key, val3);
       }
+      if (deed) removeItem(deps.items.player(), deed);   // SHIP-PACK: her deed goes with her
       deps.items.addToPlayer(val);   // AddItem(val, AddPosition.Back)
     }
     boat.MapPixel = null;
     deps.pool.remove(boat);   // Object.Destroy(boat.GameObject)
     const i = state.AllBoats.indexOf(boat);
     if (i >= 0) state.AllBoats.splice(i, 1);
+    return true;
   }
+  /** SHIP-PACK: a deed in the player's pack by its number (the host's pack, `deps.items.player`), or null. */
+  const deedInPack = (uid) => (deps.items?.player?.() ?? []).find((it) => it?.templateIndex === BOAT_DEED_TEMPLATE && it.UID === uid) ?? null;
+  /** SHIP-PACK: whether a ship waits on her deed to be picked up - crewed, placed by a deed (her number on her), and that
+   *  deed not in the pack. A boat no item placed (number 0) packs without one. */
+  const deedMissing = (boat) => !!boat?.crewed && !!boat.uid && deedInPack(boat.uid) == null;
   /** OpenCargo (6521-6525): the inventory over the boat's cargo, as a loot target. */
   function OpenCargo(boat) { deps.openCargo?.(boat.Cargo); }
   /** OpenBoatCargo (5575-5587): the boat the box hangs under, its cargo opened - OpenCargo(null) throws there when
@@ -1960,7 +1989,8 @@ export function createComeSailAwayRuntime(deps) {
     state.disembarking = null;   // its queued step ends at its next turn (resumeStopSailing)
     stopSailingTail(co.boatlast);
   }
-  /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat). */
+  /** OnPreFastTravel (1952-1971): placing stops; a packable boat sailed is packed (PackBoat) - SHIP-PACK: a ship too,
+   *  her deed in the pack (without it PackBoat packs nothing, and she stays where she lies, as a ship always did). */
   function OnPreFastTravel() {
     if (state.placing) StopPlacing();
     if (isSailing()) {
@@ -2050,6 +2080,25 @@ export function createComeSailAwayRuntime(deps) {
     StopPlacing();
     return boat;
   }
+  /**
+   * SHIP-CLAIM (2026-10-01, the port's own - bible/03-World/Naval-Combat.md SHIP-CLAIM): A DEED'S BOAT STOOD WHERE A
+   * PRIZE LIES. LaunchFromParts' sibling for a DEED: the placing click's own two halves - PlaceBoat, then the item's
+   * (takePlaceItem: the deed's UID on her, so the deed answers her - GetPlacedBoatWithUID - and the deed spent unless she
+   * is crewed, as the mod spends every small boat's on placing) - at `position` on the water, her bow along `direction`:
+   * a ship taken by boarding and claimed (scenes/navalHost.js claimPrize), heading as she lies. The port's rule for a
+   * deed is untouched (useBoatDeed: a bought deed's boat stands where a port puts it) - a deed whose boat already stands
+   * is the port's to move, and is refused here. It says nothing: the claim's words are its caller's. What the click
+   * would have been placing is let go with it (the closing StopPlacing). Returns the boat, or null.
+   */
+  function LaunchFromDeed(deed, itemCollection, position, direction, terrain = null) {
+    if (deed?.templateIndex !== BOAT_DEED_TEMPLATE || GetPlacedBoatWithUID(deed.UID) != null) return null;
+    state.placeItem = deed;
+    state.placeItemCollection = itemCollection;
+    const placed = PlaceBoat([...position], [...direction], hullFromMessage(deed.message), variantFromMessage(deed.message), terrain);
+    takePlaceItem(placed);
+    StopPlacing();
+    return placed;
+  }
   /** PlaceBoat(Boat, Vector3, Vector3, Terrain) (6171-6178). */
   function PlaceBoatOnTerrain(newBoat, position, direction, terrain = null) {
     SpawnBoat(newBoat);
@@ -2075,15 +2124,20 @@ export function createComeSailAwayRuntime(deps) {
     PlaySlow(boat);
   }
 
-  /** The item's half of each arm that places (6328-6341): the deed's UID on the boat, its packed cargo aboard, the item spent unless the boat is crewed. */
+  /** The item's half of each arm that places (6328-6341): the deed's UID on the boat, its packed cargo aboard, the item
+   *  spent unless the boat is crewed. SHIP-PACK: and the item's worth on her (`itemValue`, what her parts are packed at);
+   *  a crewed ship's PARTS are spent too, her deed given back in their place in the pack - her number, their worth - so
+   *  she stands by her deed as a bought ship does (her port, her lost-boat rule, her pick-up). */
   function takePlaceItem(boat) {
     if (state.placeItem != null) {
       boat.uid = state.placeItem.UID;
+      if (Number.isFinite(state.placeItem.value)) boat.itemValue = state.placeItem.value;   // SHIP-PACK: her worth
       if (state.PackedCargoes.has(cargoKey(state.placeItem.UID))) {
         const value = state.PackedCargoes.get(cargoKey(state.placeItem.UID));
         transferAll(value, boat.Cargo.Items);   // ItemCollection.TransferAll: stacked as AddItem stacks, the packed collection emptied and kept
       }
       if (!boat.crewed) removeItem(state.placeItemCollection, state.placeItem);
+      else if (state.placeItem.templateIndex === BOAT_PARTS_TEMPLATE) swapItem(state.placeItemCollection, state.placeItem, mintDeed(boat.hull, boat.variant, state.placeItem.UID, state.placeItem.value));   // SHIP-PACK: her deed back
     }
   }
 
@@ -2652,6 +2706,7 @@ export function createComeSailAwayRuntime(deps) {
           Items: deps.packedItems.serialize(b.Cargo.Items),
           lights: b.LightOn,
           inside: b.inside,
+          ...(Number.isFinite(b.itemValue) ? { Value: b.itemValue } : {}),   // SHIP-PACK (the port's own): her worth, kept
         });
         if (state.CurrentBoat === b) num = i;
       }
@@ -2696,6 +2751,7 @@ export function createComeSailAwayRuntime(deps) {
         boat.Direction = arr3(placedBoat.Direction);
         boat.MapPixel = placedBoat.MapPixel ? { X: placedBoat.MapPixel.X, Y: placedBoat.MapPixel.Y } : null;
         boat.inside = !!placedBoat.inside;
+        if (Number.isFinite(placedBoat.Value)) boat.itemValue = placedBoat.Value;   // SHIP-PACK: her worth
         state.AllBoats.push(boat);
         PlaceBoatAtMapPixel(boat, boat.Position, boat.Direction, boat.MapPixel);
         boat.Cargo.Items = deps.packedItems.deserialize(placedBoat.Items ?? []);
@@ -2796,6 +2852,7 @@ export function createComeSailAwayRuntime(deps) {
     turnDoor,   // CSA-K: TriggerDoor's arm, for a door on another player's boat
     CanSail, IsBeached, IsNodeOnWater, CanTurnLeft, CanTurnRight, ResetTimeScale,
     LaunchFromParts, nodeReadingAt,   // OWS2: the Overworld's crossing - a launch aimed by the journey, and the node's law it probes with
+    LaunchFromDeed,   // SHIP-CLAIM: a claimed prize's deed, her boat stood where she lies
     activate, OnStartLoad, OnPreFastTravel, OnPostFastTravel, OnPlayerDeath, OnNewMagicRound,
     UpdateWind, OnNewHour, OnWeatherChange,
     GetSailPower, ToggleSails, RaiseSails, LowerSails, ToggleSquareSails, HasLargeSquareSailWithGaff,
@@ -2806,7 +2863,7 @@ export function createComeSailAwayRuntime(deps) {
     properties: { moveSpeed, moveAccel, turnSpeed, turnAccel, wakeThreshold, hasInput, inputTarget },
     console: { giveboat: consoleGiveBoat, placeboat: consolePlaceBoat, printboats: consolePrintBoats, identifyboat: consoleIdentifyBoat, purgeboat: consolePurgeBoat },
     // CSA-H: the items, the cargo, the variants and the ports
-    IsNearPort, PackBoat, OpenCargo, OpenBoatVariantPicker, OpenBoatVariantPicker_OnItemPicked, useBoatParts, useBoatDeed,
+    IsNearPort, PackBoat, deedMissing, OpenCargo, OpenBoatVariantPicker, OpenBoatVariantPicker_OnItemPicked, useBoatParts, useBoatDeed,
     // CSA-I: the position reading, OnGUI's map and values, the water walk
     CheckBoatPosition, StartShowBoatPosition, StopShowBoatPosition, IsPositionMarked, LeftClickOnMap, RightClickOnMap,
     mapOverlay, debugValues, StartWaterwalking, EndWaterwalking,
@@ -2852,6 +2909,15 @@ function roundToInt(v) {
 /** ItemCollection.RemoveItem: by the item's UID, the collection's key, else the item itself. AUDIT PRE-MERGE 0928 S2:
  *  `list` may be a getter - the host's live list (world.js csaLiveList) - read at the spend, so a load between the use
  *  and the click spends the loaded pack's copy, as DFU's one ItemCollection does. */
+/** SHIP-PACK: `item` replaced where it lies in the list (a list, or a function answering one) by `by`; nothing where it
+ *  is not there. */
+function swapItem(list, item, by) {
+  const l = typeof list === 'function' ? list() : list;
+  if (!l) return;
+  let i = l.indexOf(item);
+  if (i < 0 && item?.UID != null) i = l.findIndex((it) => it?.UID === item.UID && it?.templateIndex === item.templateIndex);
+  if (i >= 0) l.splice(i, 1, by);
+}
 function removeItem(list, item) {
   const l = typeof list === 'function' ? list() : list;
   if (!l) return;

@@ -110,8 +110,8 @@
   {
     "name": "AUDITCLIMB2-H5-no-top-out",
     "file": "src/player/motor.js",
-    "old": "          const move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;\n          if (move) {",
-    "new": "          const move = null;\n          if (move) {",
+    "old": "    const move = ledge.ok ? this._pkOnto(ledge, geo, skill) : null;\n    if (move) {\n      this._wallEnd();",
+    "new": "    const move = null;\n    if (move) {\n      this._wallEnd();",
     "tests": [
       "test/auditclimb2.test.js",
       "test/climb2.test.js",
@@ -179,7 +179,7 @@
   {
     "name": "AUDITCLIMB2-C1-depth-any-rise",
     "file": "src/player/parkour.js",
-    "old": "      if (at(j) - deep < PARKOUR_GRIP_RUNG - PARKOUR_RAY_SCATTER) break;",
+    "old": "      if (at(j) - deep < PARKOUR_GRIP_RUNG * PARKOUR_TOP_RUN - PARKOUR_RAY_SCATTER) break;",
     "new": "      if (at(j) - deep < 0) break;",
     "tests": [
       "test/auditclimb2.test.js",
@@ -191,7 +191,7 @@
   {
     "name": "AUDITCLIMB2-C1-depth-stepped-rise",
     "file": "src/player/parkour.js",
-    "old": "      if (at(j) - deep < PARKOUR_GRIP_RUNG - PARKOUR_RAY_SCATTER) break;",
+    "old": "      if (at(j) - deep < PARKOUR_GRIP_RUNG * PARKOUR_TOP_RUN - PARKOUR_RAY_SCATTER) break;",
     "new": "      if (at(j) - deep < PARKOUR_EDGE_INSET) break;",
     "tests": [
       "test/auditclimb2.test.js",
@@ -201,18 +201,16 @@
     ]
   },
   {
-    "name": "AUDITCLIMB2-C1-step-any-recession",
+    "name": "AUDITCLIMB2-C1-step-the-inset",
     "file": "src/player/parkour.js",
-    "old": "at(i - 1) - dist < PARKOUR_EDGE_INSET) continue;",
-    "new": "at(i - 1) - dist < 0) continue;",
+    "old": "at(i - 1) - dist <= PARKOUR_RAY_SCATTER) continue;",
+    "new": "at(i - 1) - dist < PARKOUR_EDGE_INSET) continue;",
     "tests": [
       "test/auditclimb2.test.js",
       "test/climb2.test.js",
       "test/parkour.test.js",
       "test/auditclimb1.test.js"
-    ],
-    "equivalent": true,
-    "why": "The scan runs top-down: a rung whose rung above stands out from it by less than the inset is only reached once that rung above was itself asked and refused - and what refuses it (no step of its own above it, no depth up the rungs over it) leaves this rung's own depth walk short too. Kept so the top's probe, the inset past the face from the rung above, never starts inside the wall."
+    ]
   },
   {
     "name": "AUDITCLIMB2-C1-no-face-under-eave",
@@ -571,7 +569,7 @@
   {
     "name": "AUDITCLIMB2-G4-no-reach",
     "file": "src/player/motor.js",
-    "old": "if (g && w.stuck && catchClear(",
+    "old": "if (g && (w.stuck || (level && g.eave)) && catchClear(",
     "new": "if (false && catchClear(",
     "tests": [
       "test/auditclimb2.test.js",
@@ -583,16 +581,15 @@
   {
     "name": "AUDITCLIMB2-G4-reach-unproven",
     "file": "src/player/motor.js",
-    "old": "w.stuck && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) {",
-    "new": "w.stuck) {",
+    "old": "(w.stuck || (level && g.eave)) && catchClear(this.collider, this.pos, g, CAPSULE_HEIGHT)) {",
+    "new": "(w.stuck || (level && g.eave))) {",
     "tests": [
+      "test/auditclimb1.test.js",
       "test/auditclimb2.test.js",
       "test/climb2.test.js",
-      "test/parkour.test.js",
-      "test/auditclimb1.test.js"
-    ],
-    "equivalent": true,
-    "why": "The reach is a straight 10-16 cm between two bodies each proven to fit - the stuck one where the climb left it, the hang senseGrip fitted - so a solid on the way short of either end would have to lie between two capsules that overlap along most of their length. Kept as the catch's own law, which a reach is."
+      "test/climbfield.test.js",
+      "test/parkour.test.js"
+    ]
   },
   {
     "name": "AUDITCLIMB2-G4-never-stuck",
@@ -676,6 +673,27 @@
       "test/climb2.test.js",
       "test/parkour.test.js",
       "test/auditclimb1.test.js"
+    ]
+  },
+  {
+    "name": "CLIMBFIELD-R1-top-45",
+    "file": "src/player/parkour.js",
+    "old": "export const PARKOUR_TOP_MIN_NY = Math.cos((50 * Math.PI) / 180);",
+    "new": "export const PARKOUR_TOP_MIN_NY = Math.cos((45 * Math.PI) / 180);",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/auditclimb1.test.js",
+      "test/climb2.test.js"
+    ]
+  },
+  {
+    "name": "CLIMBFIELD-R1-depth-a-rung",
+    "file": "src/player/parkour.js",
+    "old": "      if (at(j) - deep < PARKOUR_GRIP_RUNG * PARKOUR_TOP_RUN - PARKOUR_RAY_SCATTER) break;",
+    "new": "      if (at(j) - deep < PARKOUR_GRIP_RUNG - PARKOUR_RAY_SCATTER) break;",
+    "tests": [
+      "test/auditclimb2.test.js",
+      "test/climb2.test.js"
     ]
   }
 ]

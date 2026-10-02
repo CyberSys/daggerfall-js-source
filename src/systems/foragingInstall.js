@@ -188,7 +188,7 @@ export function useForagingTool(item, collection, { entity } = {}) {
     // anywhere else, or the open pack's Use (its window holds the world off): no yield, quest or wear - the way said,
     // in the HUD (the hotbar's) and in the box (the pack's), in place of Foraging's refusal ("You cannot mine in here!")
     hudText(how);
-    return { kind: 'foraging', refused: true, text: how };
+    return { kind: 'foraging', refused: true, text: how, said: true };   // AUDIT ECON R3: said - the hotbar never says it twice
   }
   if (!foragingOn() || !entity) return null;
   const w = worldNow();

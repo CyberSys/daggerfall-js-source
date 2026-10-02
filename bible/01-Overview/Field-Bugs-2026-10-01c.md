@@ -1,89 +1,81 @@
-# FIELD BUGS 2026-10-01c - the professions' acts on the loot list and the crosshair, the pickups at the centre
+# FIELD BUGS 2026-10-01c - the camps' shrubs in the air, the journey's hold on enemies, the party's ready
 
-Mac, the same day as `Field-Bugs-2026-10-01b.md`: *"Can you also overhaul the profession minigames? They should use the
-same menu the loot menu uses and not an interaction button. And all minigames should be overhauled to be more detailed
-and use the enhanced plus UI look"* (asked, "One loot-style list" and "Richer visuals, same rules"); then *"ALSO, a
-better center screen notification for pickups"*; then, the illustrated panels built and seen, *"I feel like maybe we
-should move away from the overcomplicated minigame visuals and instead use the mechanics on something that doesnt cover
-the screen"* (asked, "Around the crosshair"; the stations, "Yes, keep them simple").
+Three lines from Mac, the same day as `Field-Bugs-2026-10-01.md`: *"World of daggerfall bush props float above the
+ground in bandit camps"*, then *"Also when party readying up, the ui element is hidden. We also need to reduce the
+distance at which overworld enemies slow the user down"*.
 
 | | Report | What it was | Done |
 |---|---|---|---|
-| 1 | the minigames start from an interaction button, not the loot menu | a node's act was the E prompt's alone | fixed (PROF-MENU) |
-| 2 | the minigames, more detailed, in the Plus look - then: nothing that covers the screen | the old meter, a plain box under the crosshair | built (PROF-SCENES), replaced (PROF-RETICLE) |
-| 3 | the stations kept simple | the heat, stitch and plane bars in the older brass | dressed (PROF-STATIONS) |
-| 4 | a better centre-screen pickup notice | a quick-loot take said one mid-screen line, the classic's | built (PICKUP-FEED) |
+| 1 | the bush props float in bandit camps | the mod's own heights, read off the author's ground, in the band the mod only eases toward the site's level | fixed (WOD-BUSH) |
+| 2 | the ready-up element is hidden | the ready-up's own windows closed the Party tab that holds it, and the leader's HUD label stood 4 s of a 60 s round | fixed (PARTY-READY) |
+| 3 | overworld enemies slow the traveller too far out | the port's own warning (OW6), 1.2 s since OW6-NEAR | fixed (OW6-HALF) |
 
-The rules, the timings and what the counting-house is told are untouched throughout: every act is still its own module
-(`systems/herbAct.js`, `mineAct.js`, `chopAct.js`, `traceAct.js`, `fishAct.js`; `heatAct`, `planeAct`, `stitchAct`), and
-the server reads only their reports.
+## WOD-BUSH: World of Daggerfall's shrubs stand on the ground (1)
 
-## PROF-MENU: a node is the loot plaque's list (1)
+World of Daggerfall stands every object of a site at the site's average height plus the author's own height
+(`LocationLoader.cs:232-252`, `world/wodLocationLoader.js` `placeObjects`). It levels the ground to that average only
+inside the prefab's rect; past it, every sample is lerped toward it by `1 / (distance + 1)` - half one sample out, a
+third two out (`flattenForLocation`). The layouts ring their sites with one shrub model, 60610 - 202 placements across
+the layouts, every bandit camp among them, never inside the rect - in that band, at heights the author read off the
+ground of the one place they were laid out (posY from -27 to +15 at scales of 3 to 10). Where a camp's ground falls
+away past its rect, the shrubs hung in the air; where it rises, they sank. DFU does the same: nothing in the mod reads
+the terrain after the flatten.
 
-A profession node under the look is a list on the world plaque (`ui/worldPlaque.js`), the loot pile's own: its name, its
-profession's word and its acts as verb rows - "Pick Red Rose", "Skin the Grizzly Bear", "Search the Grizzly Bear" - a
-refused act with its reason beside it (none where its label already says it), the first pressable one lit first
-(`scenes/gatherHost.js` `hoverHit`, `hoverName`; `systems/worldHover.js` `resolveHover`'s 'actions' frame). A row is
-pressed as a loot row is - the click, the activate key, a tap - and starts that act; a hold-act started from the list is
-held by the press as a tool's Use holds it (`heldByUse`), so it does not cancel the moment E is not down. The ActChoice
-key walks the rows (`systems/quickLoot.js` `plaqueStep`; its Controls row). Where the plaque does not stand - the classic
-skin, touch - the node asks through a list window (`ListPickerWindow`, the boat menu's precedent). The hover yields to a
-ray winner in reach when no row of the node is pressable, so a door or a body behind a spent patch is still the press.
+The shrub now stands on the DRAWN ground: its mesh's foot (its transformed box's bottom) goes to the lowest ground under
+the middle half of its footprint (`world/terrainSurface.js` `lowestGroundUnder`, `scenes/world.js` `buildPixelNow`),
+read at the footprint's corners, its centre lines and every sample line that crosses it, so no quad under it is
+skipped, and held to the pixel (the neighbour's ground is not this pixel's to read). The middle half, because a shrub's
+foot is its middle: the whole box would bury a wide one deep on a slope for corners that are empty air. The matrix
+moves before the shrub is batched and its collider filed, so what is drawn is what is struck. Every other object keeps
+the mod's height: the rocks are embedded on purpose, and a tent, a fire or a wall stands on the levelled rect. A
+Ledger A row records the departure.
 
-`test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profmenu.json`.
+That 60610 is the shrub is read off the layouts (the only non-rock nature model in them, ringing every site with
+uneven scales and random tilts; the camps carry no nature-archive flat at all), not off ARCH3D, which this container
+does not hold. NOT SEEN ON A GPU.
 
-## PROF-SCENES, then PROF-RETICLE: the act on the crosshair (2)
+`test/wodbush.test.js` (5); `tools/mutants/wodbush.json` 7, 7 dead.
 
-PROF-SCENES first drew each act as an illustrated scene in the plaque's frame - the rock's face, the trunk and its
-notch, the plant, the leaf litter, the pelt, the water. Mac saw it and asked for less: nothing that covers the screen.
-PROF-RETICLE replaced it (`ui/profScenes.js` deleted): no box, no title, no picture. Each act's mechanic is drawn on and
-about the reticle (`ui/profReticle.js`, dressed by `ui/profActStyle.js`), round the crosshair's middle as the world
-draws it (`ui/worldPlaque.js` `reticleAnchor`: the middle under a docked large HUD, and the frame's focal length through
-`fieldOfView`, so an angle `a` off the look stands `focal x tan(a)` from the middle):
+## PARTY-READY: the ready-up stays on screen (2)
 
-- **mine** - the face's five points marked where they stand on the rock, moving as the look does; the glinting one
-  shows the reach a blow counts double in (MINE_ACT.radiusDeg); a blow's flash on the crosshair, gold on the glint.
-- **chop** - the notch a ring round the crosshair, the band a Clean Cut stands in, the ring closing on it and lit in
-  the band; a short still bar under reduced motion.
-- **hand, steady, a Gentle trace** - the hold, an arc round the crosshair; a bruise turns it.
-- **basket** - the glint at its spot about the crosshair, lifted clear of the pips, its time left an arc round it, the
-  three finds as pips.
-- **trace** - the knife's line laid on the body, the tolerance it is scored in a faint band under it, the first point's
-  reach until the knife starts, the points passed lit, the line drawn behind the knife.
-- **fish** - the throw an arc while it winds, its metres beside it; the float under the crosshair while it waits (an
-  over-a-school ring); a ring's flash and the float's dip at the tug; the haul's band and weight a bar beside the
-  crosshair, slipping marked, the net's fill an arc.
+The ready-up is PARTY-TRAVEL's round (`systems/partyTravel.js`, `06-Systems/Online-Arc.md` PARTY-TRAVEL and PARTY-READY):
+the leader chooses a destination on the travel map, the gathered members are asked, and the party sets out when nobody
+gathered is still waiting. It has three things on screen - the leader's HUD label, a member's Yes/No box and the Party
+tab's Journey block (the round's count and Call off; a member's Ready and Stay behind) - and the round took them away
+itself:
 
-Under the crosshair the count's pips and one line of hint - the act's own words, unchanged - fading once it has stood
-2.5 s unchanged (`HINT_MS`); a number moving in it (the throw's metres) does not bring it back, a new line does. Every
-cue is a shape and a sound (`actCues`, `systems/profSounds.js`, DFU's own clips). The node's name is the menu's; the act
-carries none.
+- **The leader's Party tab.** Its Travel map opens the travel map, a window over the HUD; the Social panel closes under
+  any such cover (SOC3) and nothing opened it again, so for the whole round the tab - the count, Call off - was gone.
+- **The leader's label.** "Waiting for the party to ready up (n/m ready)." stood PARTY_REST_FAR_SECONDS (4) of a round
+  that runs PARTY_READY_TIMEOUT_MS (60); the answers after that reached the chat alone.
+- **A member's Party tab.** Open as the round began, it was asked anyway by the box, which pauses the game - and the
+  pause takes the tab, the chat and the party's HUD out of the page.
 
-`test/profreticle.test.js` (10); `test/audit32_pages.test.js` P11 (the line's degree the same across as up, now the
-lens's) and `test/prof7_client.test.js` (the Gentle hold an arc) re-aimed; `tools/mutants/profreticle.json` 57, all
-dead; `tools/profReticleProbe.mjs` (every act over a sky and a field, desk, phone and reduced motion). NOT SEEN IN THE
-WORLD ON A GPU: the probe draws the marks over a flat ground through a 65 degree lens, not the frame.
+Now the Party tab a cover took mid-journey comes back when it lifts (after the map its Travel map opened, or after any
+window over an open round); the leader's label stands for what is left of the round, set again only as the count
+moves, and the set-out, a call-off or a lapse says its own line over it; and a member with the tab open answers there,
+the box asking only once it is closed unanswered. No regression in the history the clone holds: a gap in PARTY-UI's
+design (2026-09-26), not a break.
 
-## PROF-STATIONS: the stations' bars, dressed (3)
+Found on the way: `test/partytravel.test.js` did not parse - two unescaped `'` in its RELAY_VERSION history line,
+since the merge before this one - so none of its tests ran and every mutant list naming it (`party-travel.json`,
+`auditpartyui.json`, ...) killed nothing. Escaped; the lists that name it run real again (101 dead in the two
+re-aimed).
 
-The anvil's heat, the loom's beat (both the heat's bar) and the workbench's board keep their markup and their rules,
-dressed in the plaque's frame and the kit's tones (`ui/profStationStyle.js`): the craft box the plaque's ink ground and
-stone border, the bar a carved well, the band and the marker edged in ink, the strikes the acts' diamond pips. No
-picture: an illustrated forge, cloth and board were built aside and left out at Mac's word.
+Not changed, and asked: if "the ui element" is the PARTY HUD (the portraits, SOC4), it still hides on a member's
+screen while the box stands - a member without the tab open is asked by the box, and the whole enhanced HUD hides
+under a pausing window by design.
 
-## PICKUP-FEED: what a take put in the pack, at the centre (4)
+`test/partytravel.test.js` (+3), `test/soc3_socialpanel.test.js` (+1); `tools/mutants/partyready.json` 14, 14 dead.
 
-On the enhanced skin every quick-loot take - one row or take-all, from a body, a dropped pile or a fish, gold included -
-shows a card per item at the centre of the screen (`ui/pickupFeed.js`): its icon (the pack's own cached lookup, asked once
-a card), "+" and the name in its rarity's colour, "x N" past one, gold as "+N Gold". Taking the same item while its card
-stands adds to its count, restarts its clock and brings it to the front; four at most, each 2.5 s and a 0.4 s fade,
-the newest nearest the middle, a take-all in pile order. The feed starts on the mid-screen label's line and stands clear
-of the crosshair, the plaque and its stats, the act's marks and the mid-screen line above, and the HUD's bottom, the
-profession prompt and a docked large HUD below; short of room it moves up, then shows only the newest. The take tells it
-through `quickLootTake`'s `took` hook, the take itself free of the DOM: shown, the success line is not said; on the
-classic skin, off a document or if the hook throws, Daggerfall's line is said as before; a refusal is always said; gold
-counts what moved. The plaque's hide and teardown take the cards down. Not here: a loot window's clicks (the item moves
-in the window), DFU's arrows line, torches and the Burning Court's spoils, which keep their own words.
+## OW6-HALF: the journey's hold on enemies begins half as far out (3)
 
-`test/pickupfeed.test.js` (22); `test/quickloot.test.js`, `discord5`, `audit24_wave38` and `disc7` re-aimed;
-`tools/mutants/pickupfeed.json` 54, all dead; `tools/pickupFeedProbe.mjs` (202 layout checks at desk and phone).
+The slowdown is the port's own (OW6, `06-Systems/Travel-View.md`): the time scale is held so the traveller has
+THREAT_WARN_S real seconds before the nearest enemy's reach, and the lead-in is reach + THREAT_WARN_S x (own pace + the
+enemy's chase) x the scale. Mac named no figure; the warning is halved, 1.2 -> 0.6, the one knob that shortens the
+lead-in for every threat without moving any band's, raider's, ship's or camp's sight or chase - which would also change
+when they spot the traveller. A rider at x40 is held from 384 m short of a band's sight, not 768; on foot 84 m, not
+168. The reach is still met at walking pace. The third "too early": 5 -> 2 (OW6-LATE), 2 -> 1.2 (OW6-NEAR), 1.2 -> 0.6.
+
+`test/ow6_slowdown.test.js` re-derived (each threat that would no longer hold at x40 stands nearer, so its pin still
+means what it did); `tools/mutants/ow6s.json` 27, 27 dead.

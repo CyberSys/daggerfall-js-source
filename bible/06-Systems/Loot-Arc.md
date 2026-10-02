@@ -146,7 +146,8 @@ as a CHAMPION, with one TRAIT:
 
 Every champion has twice its health and its blows a quarter harder (damageScale, multiplied - never overwriting an
 elite's). Its name is the trait's and its own - `Mighty Orc Warlord` - on the HUD's target bar, its corpse and its
-death line.
+death line (LOOT7-CHECK, section 17: on the plaque while it fights you too, and - on either skin - said at the first
+blow either way, with what its trait does).
 
 **Its loot.** A champion is a stronger source: its tier +4 and its quality x1.5. And it ALWAYS carries a Rare or
 better: if its own roll found none, its best eligible piece is made Rare - or, carrying none, a weapon or a piece of
@@ -223,6 +224,7 @@ list lives on its owner's side (the street's own law). Off, nothing draws.
 | LOOT10 | the codex and the imprint | a record and a window |
 | LOOT11 | a line of light over every find | a render pass |
 | AUDIT LOOT | the whole arc, audited | - |
+| LOOT7-CHECK | the champions checked: four fixed | - |
 
 ## 15. What shipped, slice by slice
 
@@ -496,7 +498,9 @@ relay's and never a pool foe.
 
 **Its name** is the trait's and its own - `Mighty Orc` - on the hover over it alive (`worldTooltips.js`
 `liveEntityName`, every pool's one namer), the HUD's target bar (`ui/hudFoeTarget.js`), its body (both pools) and
-its death line (`corpseMarker.js` `sayEnemyDied`).
+its death line (`corpseMarker.js` `sayEnemyDied`). LOOT7-CHECK (section 17) found two of the four untrue as
+shipped - the hover never named a HOSTILE champion (the plaque's own law) and no dungeon death was ever said - and
+fixed both.
 
 **Its loot.** `rollCorpseLoot` reads the mark: a champion's corpse door is the plain door with `CHAMPION_SOURCE`
 (four tiers, quality x1.5). Then `scenes/hostCombat.js` `ensureChampionLoot`: when its own roll found no Rare or
@@ -769,3 +773,74 @@ disc7's list, soc1.json's S38 and BOUNTY1 B4). HERALD's account service (acct45)
 world138 or world139. REL6 (#503, Mac: "Remove patch notes from the codebase"): the arc's player notes ride its pull
 request, never a file in the tree; GROWTH1's caps (#503): the Loot rows say what each file pins now, in at most 1,000
 characters, and the arc's Active-Arcs entry stands in 700, so the branch lands the same either side of it.
+
+## 17. LOOT7-CHECK - the champions checked (2026-10-01)
+
+Mac: *"I want to check and see if the special enemy types from our recent loot commit is working properly"*; then, the
+check read back, *"Yes and fix the smaller things. Just want this to be as detailed as possible"*.
+
+**What was driven.** The arc's own suites (loot7, auditloot, LR1, RF2, LOOT4, LOOT6, LOOT8, LOOT11 - 62 tests) were
+green, and half of LOOT7's pins read the source; so every trait was driven through the REAL combat formula
+(`calculateAttackDamage`, its struck and strike tails) on a real orc (`makeEnemyEntity`, ENEMY_BASICS row 7): the
+Mighty's blows 2.05 times a plain orc's over 3,000 seeded blows (1.875 by the table - the rest is small blows rounded
+up, `Math.max(1, Math.round(d x 1.875))`); the Stalwart three times the health; the Swift's Speed 50 -> 80 and its walk
+5.0 -> 5.75 (`enemyMoveSpeed`, about a seventh, as section 15 says), read live by both motors and both attack clocks
+(`liveStat(entity, 'speed')`); the Vampiric healing 0.55 of what it dealt and the Thorned returning 0.177 of mine (a
+half and a seventh, each at least 1 a blow - the floor is what lifts both on small blows). Who stands, the wire's
+`cp`, the save and the load, the guarantee and the corpse door's stronger source read sound, and the relay that carries
+`cp` is live (the relay deploy on main's head, #510, passed). Four things were not:
+
+- **CORPSE-FIND - no body ever kept its unique find.** `lootRarity.js` `rollCorpseLoot` (LR4) rolls a COPY of the
+  body's list - the carried pieces, the worn kit cut out - and `rollLootRarity` pushes the door's unique find onto the
+  list it is handed: the Dwarven Thunderlock and its pellets landed on the copy and went with it. 0 of 20,000 level-12
+  champions' bodies kept one where the list door, on the same seeds, kept 111 - against `05-Combat/Dwarven-Thunderlock.md`'s
+  own table ("tier-4 corpse, about 1 in 700"); a champion's body, its source four tiers up and so always past the
+  find's tier 4, was where it was likeliest. What the roll added past the carried pieces goes onto the body now (a
+  body with no list is given one). The piles were never touched: each hands the door its own list. RF2's boss pin had
+  passed only because of it - with every roll at its floor the body keeps the Thunderlock and its pellets now, and a
+  pellet is ammunition, which the ladder never promotes: the pin's claim is the eligible pieces' (`isAmmunition`), as
+  its arrow exemption already said.
+- **CHAMP-HOVER - a fighting champion was never on the plaque.** World Tooltips names a living entity only when its
+  motor is not hostile (.cs:304-312; `worldTooltips.js` `mobileEntityName`), so LOOT7's "its name on the hover over it
+  alive" held only for a champion at peace. A champion is that law's one recorded exception now
+  (`mobileEntityName(name, { hostile, champion })`) - its name is its trait, Mac's "single named foes with visible
+  traits" - and every live arm tells the door (the street's, a building's, the dungeon's, and the watch's, which never
+  stands one). Any other hostile foe still says nothing, and with the row off no champion stands: the mod's silence
+  is whole (`10-UI/UI-Arc.md`, WORLD-HOVER's departures).
+- **CHAMP-SAID - on the classic skin a champion was invisible until it died, and no screen said what a trait does.**
+  The plaque is the enhanced skin's (`ui/worldPlaque.js` `worldPlaqueOn`: `isEnhanced() && !isTouchDevice()`; the
+  classic face resolves quick loot's piles alone), so is the target frame (`ui/hudFoeTarget.js`, PX30), and
+  `CHAMPION_TRAITS`' `text` was read by nothing. `champions.js` `sayChampion`: the first blow that lands EITHER WAY -
+  its on me, mine on it, through formulas.js's struck and strike tails under their own name (`CHAMPIONS_SAID`), the
+  seams every pool already shares (the dungeon's, the street's, a building's, a puppet's), so no host stands it - says
+  two rows on the line every skin draws (`notify.js` `popupMessage`, DaggerfallUI.PopupMessage, the line "%s just
+  died." is said on; the first producer to walk that door): `Mighty Orc stands as a champion.` and `Its blows land
+  half again as hard.` Once per champion (a rebuild or a load is a new one); never a plain foe, a blow on a peer's copy
+  (another player's screen is theirs) or a peer's blow. The longest row, the Thorned's at 60 characters, measures about
+  225 px in FONT0003's own advances (the `grimoire-ui` SDF cut of it, 4 px to an `a`) - inside the classic line's 320,
+  which centres a row and never wraps it. On the enhanced skin each row is a toast (ENH-NOTICE3).
+- **DUNGEON-DIED - no dungeon death was ever said.** EnemyDeath.cs:79-83 says "%s just died." at every death, and
+  AUDIT 24 wave 38 gave it to the two street pools; `dungeonContext.js` `damageFoe`'s death arm had none, so a dungeon
+  champion's name was never said at its fall (nor any other foe's). It says it now, the street's law (AUDIT WORLD6b
+  B2): mine alone - a peer's killing blow applied at the host speaks no notice of mine - through
+  `DisableEnemyDeathAlert`. And online the dungeon can do what the street cannot: the host's record names whose blow
+  it was (`v`, AUDIT SET P-M3), so `applyFoeRecord` says it at the striker it names, once.
+
+**Said, not fixed.** The street's peer kill is said nowhere: a puppet's death says nothing (`puppetDie` - its owner's
+world's), and the owner says none for a peer's blow; the street's foe record carries no killer to say it with, and
+one is a field on the wire and a relay version, not a small thing. A dungeon's rest encounter is never a champion:
+the dungeon's champions are its layout's (the hash every client agrees on), and an encounter stood later is not in
+it. AUDIT LOOT's stated Vampiric stands as it was.
+
+Pinned: `test/loot7check.test.js` (4), each red on the code before - CORPSE-FIND the corpse door against the list door
+seed for seed over 6,000 champions' bodies (the Thunderlock loaded), a kitted body and a bare one, the spawn seam's
+champion, off; CHAMP-HOVER the law, a real champion through the hosts' composition onto `resolveHover`'s frame, off,
+the four arms, the plaque's skin; CHAMP-SAID the five traits' rows golden, the real blows both ways through a
+registered presenter, once, the plain foe, the peer's copy and the peer's blow, off; DUNGEON-DIED `damageFoe` and
+`applyFoeRecord` lifted from src/ and run. `tools/mutants/loot7check.json` (25, all dead). Moved with it:
+worldhover's four-hosts pin reads the new call, and `worldhover.json`'s two records on the changed lines were re-aimed
+by content (both dead); RF2's boss pin exempts ammunition by the registry; audit68's two harnesses carry
+`sayEnemyDied`; 29 cites moved by `tools/citeShift.mjs` and one by hand (chargenSession.js's wrapped `overlayHover`
+cite, which the shifter cannot reach). Judged again, every campaign the change can
+move - the loot, set, sigil, card, quick-loot and hover lists whole, and every record the three edited pins kill
+elsewhere: 831 records, 829 dead and 2 equivalent as recorded, none stale.

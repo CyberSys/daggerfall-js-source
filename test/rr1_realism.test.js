@@ -68,7 +68,8 @@ test('RR1 the record: the manifest, the switches (27 keys - 26 on the pane, figh
       assert.ok(keys[name], `${name} is on the pane`);
       assert.equal(keys[name].description, k.Description, `${name}: the mod's own words`);
       const expected = typeof k.Value === 'string' ? (k.Value === 'True' ? true : k.Value === 'False' ? false : Number(k.Value)) : k.Value;
-      if (name === 'shipPorts') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'SHIP-PORTS: the ONE recorded departure from the mod\'s defaults - the boat stays reachable from anywhere until a player asks for the port rule'); n++; continue; }
+      if (name === 'shipPorts') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'SHIP-PORTS: a recorded departure from the mod\'s defaults - the boat stays reachable from anywhere until a player asks for the port rule'); n++; continue; }
+      if (name === 'equipDamage') { assert.equal(expected, true); assert.equal(keys[name].default, false, 'WEAR-VANILLA: the other recorded departure - armour wears at DFU\'s rate, not x5'); n++; continue; }
       assert.equal(keys[name].default, expected, `${name}: the mod's own default`);
       n++;
     }
@@ -183,6 +184,7 @@ test('RR1 equipDamage: armor takes damage x5 and the override answers true, a we
   // replaces FormulaHelper's whole member while its equipmentDamageEnhanced is on (as in DFU, where the mod that
   // registered last owns the member) - off here, so DFU's member and this override's slot inside it run
   setModSetting('pcaao', 'equipmentDamageEnhanced', false);
+  on('equipDamage');   // WEAR-VANILLA: the port ships it off - the law under test is the module's
   const attacker = { items: [], activeEffects: [] };
   const target = { items: [], activeEffects: [] };
   const worn = mint({ group: 'Armor', templateIndex: 102, material: 0 });

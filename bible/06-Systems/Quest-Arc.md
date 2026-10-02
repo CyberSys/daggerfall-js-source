@@ -4287,6 +4287,11 @@ risking the import cycle this arc has now hit three times.
 `quest/foe.js` already imports anyway - and `quest/foe.js` re-exports
 them, so the edge got shorter rather than longer.
 
+(LOOT7-CHECK DUNGEON-DIED, 2026-10-01: the notice reached the two street pools here and never the dungeon -
+`dungeonContext.js` `damageFoe`'s death arm had no line, so no dungeon foe's death was ever said. It is said now,
+the street's law: mine alone, and online at the striker the host's record names. `06-Systems/Loot-Arc.md`
+section 17.)
+
 That move turned up its own bug. The dungeon's pacification line reads
 
 ```js
@@ -5475,7 +5480,7 @@ lesson one host over.
 **What did NOT ship:** PlayerEntity.Update's per-minute *intermittent
 spawn* roll (:486-492) still has no caller on this route. It is not
 this pool's dependency — it is a loop that carries the passive-guard
-spawns and the NPC-guard conversion with it (world.js:7596-7695) — and
+spawns and the NPC-guard conversion with it (world.js:7648-7747) — and
 it is named at the mount so the absence reads as a fact.
 
 **(c) The find-place seam's absence, narrowed to one sentence.**
@@ -5499,10 +5504,10 @@ ready-spell events (`hostMagic.js:94-95`), and those two doors are the
 (`machine.js:900`/`:883`; C# subscribes them in the action's
 constructor). Every `cast X spell do` and `cast X effect do` on this
 whole route could therefore never latch and never fire. The pair the
-other two engine-owning hosts wire (`world.js:7984-7985`,
+other two engine-owning hosts wire (`world.js:8036-8037`,
 `dungeonContext.js:2536-2537`) is wired here now, and with it
 `CastSpellDo`'s two world reads — `getClassicSpellEffects` and the
-byte-folded `spellHasMatchForClassicEffect` (`world.js:13622-13625`),
+byte-folded `spellHasMatchForClassicEffect` (`world.js:13681-13684`),
 absent which the action self-completes at *parse*
 (`actions.js:2781`/`:2788`) and the task can never arm at all.
 
