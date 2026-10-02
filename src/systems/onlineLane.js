@@ -142,6 +142,9 @@ export function declareOnlinePrefs(table) {
 export const ONLINE_PLAYERS_OWN_PREFS = [
   'touchAnalogStick', 'touchGyroLook', 'touchHaptics', 'touchFullscreen',   // TI2: how this phone is held
   'showFps',          // FPS1: a diagnostic over the game
+  'hudLocked',        // HUD-MOVE: where THIS player keeps their HUD - a layout on one screen, nothing the room agrees on
+  'hudBarsSplit',     // HUD-MOVE: whether this player's three bars move apart - the same screen's
+  'hudSnap',          // HUD-SNAP: whether this player's pieces catch on each other while moved - the same screen's
   'skipStartVideo',   // UXB1-A: whether THIS player sits through the opening film - read at the front door, before any room
   'chatHidden',       // CHAT-R2: whether THIS player wants the chat on screen - the room does not get a say in what someone looks at
   'peerClassSprites', // 2026-09-17: how OTHER players are drawn on THIS machine (animated class sprite vs paperdoll) -

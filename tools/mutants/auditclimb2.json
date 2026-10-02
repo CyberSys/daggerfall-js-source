@@ -354,9 +354,7 @@
       "test/climb2.test.js",
       "test/parkour.test.js",
       "test/auditclimb1.test.js"
-    ],
-    "equivalent": true,
-    "why": "The free climb's every move is proven whole since G2 (bandsClear and the wall's contact, _fcHeld): a rung the ladder lands inside the eave or the wall is refused there, and beside a block (plinths 0.8-1.0 m measured with the ladder and without) the collider's own resolve gives the same path. Kept so the climb's move says what it is - a climber never steps."
+    ]
   },
   {
     "name": "AUDITCLIMB2-G1-ladder-unasked",

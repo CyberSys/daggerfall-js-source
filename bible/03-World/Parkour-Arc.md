@@ -42,6 +42,7 @@ over them (`combat/heldPose.js`, the held map's) for hands on a lip in first per
 | CLIMB5 | Online and third person: the climb on the wire, the peers turned to the wall and heard climbing, the own body facing the wall | **SHIPPED** 2026-10-01 |
 | PERF-CLIMB | The dense-mesh limit: a capsule resolve that moved nothing stops | **SHIPPED** 2026-10-01 |
 | AUDIT CLIMB-FIELD | The climb on Daggerfall's own town blocks: eaves, the real roofs' pitch, Jump on a wall, two collider wedges (Mac: "You cant mantle the bottom of roofs, you get stuck") | **FIXED** 2026-10-01 |
+| AUDIT CLIMB-DUNGEON | The climb in Daggerfall's dungeons, 25 of them: the 3.2 m unit's jamb, the press along a face's seam, the crack between a wall's pieces, the step back, the corner (Chilloutman: "A two blocks wall is too high for my character to climb up"; Mac: "Enhanced climbing needs a further perfection audit") | **FIXED** 2026-10-02 |
 
 ## CLIMB1 (2026-09-30): THE LEDGE SENSOR, THE MANTLE, THE CLAMBER AND THE VAULT - SHIPPED
 
@@ -508,7 +509,7 @@ AUDIT CLIMB1 and CLIMB2 record again, the lines the audit moved re-aimed. Each s
 | C2: the plan's sunk height | Dead behind that unsink: no plan is made while sunk | Removed |
 | C1: the depth walk across any rise | A moulding 6 cm deep, its wall set back a further 4 cm a few centimetres up, read as a roof at some heights and not others | The walk asks a rung's height of recession a rung (a 45-degree top, the rays' scatter less - `PARKOUR_RAY_SCATTER`); pinned at eleven heights |
 | C1: the step's inset | Equivalent: the scan is top-down, and the rung above is asked first | Recorded |
-| G1: the climb's `noStep`, and the ladder's own check | Behind G2's whole-body proof, a rung landed in the eave is refused anyway; beside a block the collider's resolve gives the same path (measured on 0.8-1.0 m plinths) | Recorded equivalent: a climber never steps |
+| G1: the climb's `noStep`, and the ladder's own check | Behind G2's whole-body proof, a rung landed in the eave is refused anyway; beside a block the collider's resolve gives the same path (measured on 0.8-1.0 m plinths) | Recorded equivalent: a climber never steps. Since HUG-TOUCH (FIELD BUGS 2026-10-02) no longer: the press stops at the face, the resolve no longer holds the body off a plinth, and without `noStep` a climb across beside a 0.8 m plinth steps up 7 cm in a step - `noStep` is the plinth's one guard, and G1's pin kills its mutant |
 | G2: the free start's own check | A climb taken inside a rail leans out on its first move | Recorded equivalent |
 | G2: the rail (found pinning the start) | A climber under a rail sat stuck, every move pressed back into it, and the collider's sphere turned a move up into one down | The climb leans out past it (`PARKOUR_LEAN`, the hug let go of, then 2, 5, 10 cm out); pinned at 8 and 12 cm. (A move the collider turned back was refused too, until the finer bands below caught the rail first and made that check dead - AFTER AUDIT CLIMB2) |
 | G4: the reach's path proven | Equivalent: a straight 10-16 cm between two bodies each proven to fit | Recorded |
@@ -921,6 +922,46 @@ that way, no leap" pins read the push-off (L1's gap past Jumping 0 had never hun
 reach, and the pin read nothing). **Mutants**: `tools/mutants/climbfield.json` (15), 14 dead and one recorded equivalent (the eave ahead's own terrain guard, behind the eave's); auditclimb2's C1 and G4
 records realigned (G4-reach-unproven is no longer equivalent: an eave's reach is 0.4 m, and a bracket beside it kills
 it), CLIMBFIELD-R1-top-45 and -depth-a-rung added.
+
+## AUDIT CLIMB-DUNGEON (FIELD BUGS 2026-10-02): THE CLIMB IN DAGGERFALL'S DUNGEONS
+
+Chilloutman, on #bug-reports: *"A two blocks wall is too high for my character to climb up, so Im stuck in this hole.
+Luckily I have levitate. Its 'Ruins of Old Carololda's Farm'"*, *"I would have been able with old climbing
+mechanics"*; and Mac: *"Enhanced climbing needs a further perfection audit"*. The climb had been proven on boxes and on
+three town blocks, never in a dungeon. The record (`01-Overview/Field-Bugs-2026-10-02.md`) climbed every wall with a
+top in reach of a floor in the reporter's dungeon and in 24 more (the collider as the dungeon host builds it, Forward
+held square and 8 degrees either side, Climbing 100, each failure run again on the classic lane with every roll
+passing), and found five faults the classic climb never had (the fifth, CORNER-TOP, the batch's own review's):
+
+| | Finding | Where | Fix |
+|---|---|---|---|
+| SEAM-STEP | A dungeon wall stands in 3.2 m units. Where the unit above has a jamb a hand's width over the climber, the head met its underside 1.4 m up, and the across clamp undid the resolve's push out from under it: the reporter's "two blocks" | Carololda's N0000035, N0000090 | stuck going straight up, the hands move along the wall (up to 0.45 m) to where the body rises 0.1 m, along and up at the diagonal pace; still stuck there, on the same way; a failed search kept, not asked every frame (`motor.js _fcSidestep`) |
+| HUG-TOUCH | The free climb pressed 7 cm into the face each step (the classic hug's whole step). The push back out leans along a seam between two coplanar triangles: up a 25 m face split on the diagonal, 1.3 cm a step lost, and at Climbing 0 the climb never left the floor | Carololda's N0000090 | the press is the gap to the face plus 1 cm (`PARKOUR_HUG_PRESS`, `w.gap`) |
+| CRACK-LIP | Stacked pieces stand a unit (2.5 cm) apart. The hand-hold read the slot as a lip: hang, nothing there, let go, fall, repeated. The eave law read the slot's rung as no plain wall | The Pit of Sahoth's N0000008 | the slot measured, top and foot: no taller than 3 cm is a crack: no lip, no ledge, a plain wall's rung (`parkour.js faceGoesOn`); a 6 cm slot is a hold |
+| STEP-BACK | A piece set 0.2-0.3 m behind the one under it (too shallow a top to stand on) ended the hands' contact at the step, or hung the climber from it to let go and fall | N0000033 (the Mordywyr Mines, the Convocation of Elona) | going up (straight or across), a face that steps back, turned within the hold's 30 degrees, is climbed on to as CLIMB3 passes a sill: straight past the step's top unpressed (`w.past`, `_fcFaceTop`), then the grab's 0.5 m reach (`w.seek`, a save's retake too). Down past it stops above it, as above a sill; down from under its top reaches as the grab does (`w.down`) and gets to the floor |
+| CORNER-TOP | In a narrow corner the start can take the side wall, which runs on past the front wall's top, and the climb went on up it | Carololda's N0000090 pit, by hand | going up, the look turned 20 degrees or more along the held wall as the hands took it (read once a hold) asks the top of a face on that side in contact (`_fcCornerSide`, `_fcCornerWall`) |
+
+What still stalls: tops past 50 degrees (N0000014's 53-degree ramps, N0000011's ridges, N0000041's slopes, N0000008's peak; AUDIT
+CLIMB-FIELD's own limit) and a lip with no landing right behind its edge (Castle Kingwing's N0000034, a pillar;
+Castle Faallem's N0000026, a gap). None is a trap. Over 3,214 walls and 9,642 climbs: 7,946 topped before and 8,050
+after, the audit's included (a top is one stood on a second later); failures where the classic lane topped went from 81
+to 45, all of them those (N0000011's 64-68 degree ridges, 21 of them, the base reached by letting go at the lip).
+The grip at low skill and Fatigue is recorded there and not changed (Mac's "Free-climb on grip"). Pinned:
+`test/fb1002_climb.test.js` (7; its last on ARENA2); `tools/mutants/fb1002_climb.json` (15, all dead). PIN MOVED:
+`climb2.test.js`'s seam climb (165 steps at the honest pace: the old press shoved it up that seam).
+
+The audit (Mac: *"Audit this"*; the record's "The audit") ran four lenses over the batch, the climb's in the modes the
+Forward-only probe never ran (Back from every height, strafes, catches, leaps, the shimmy, 15-45 degree approaches,
+Climbing 5 tired) on 8 dungeons and 3 town blocks. Its climb findings, each fixed: CORNER-TOP read the look every step
+and mantled a climber sideways onto a crate or over a fence (now read once a hold); SEAM-STEP asked a failed search
+every frame (311 collider calls a frame under Carololda's slabs, the base's 59) and stood 0.2 m along a jamb over the body's middle; a
+save in STEP-BACK's pass loaded at contact and fell 5.84 m; the step was passed going straight up only; an 11.5 m
+Sahoth wall approached off square let go at 10.96 m when the contact switched to a corner's sloped face, and a strafe
+into a 43-degree face let go (the hold now turns to a new face only when that face is met along its own normal,
+`PARKOUR_TURN_HOLDS`); Back just past N0000033's step-back froze at 5.27 m or let go 5.45 m up over a 12 cm recess
+(`w.down`); the crack law read slots to 9 cm as cracks by where the rung fell (now measured). Still stalling, no fall:
+the leaning top past 50 degrees, and a 2 m by 0.4 m niche whose lintel the hang meets. Pinned:
+`test/fb1002_audit.test.js` (12, its last on ARENA2); `tools/mutants/fb1002_audit.json` (19).
 
 ## Still open
 

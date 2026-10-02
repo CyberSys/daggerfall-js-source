@@ -410,7 +410,8 @@ test('PROF2 hosts: the streaming world stands every kind through the one host, i
   assert.match(w, /gatherHost = createGatherHost\(\{\n\s*book: profBook, hud, kinds: \[herbKind\(\{ book: profBook \}\), mineKind\(\{ book: profBook \}\),\n\s*treeKind\(\{ book: profBook, renderer, flatBatchAabb, getTexture, billboardSize, uploadRecord \}\),[^\n]*\n\s*huntKind\(\{ book: profBook, bodies: \(\) => huntBodies\(\), openLoot: openHuntLoot \}\),/);   // PROF4: Logging's trees, the third; PROF7: Hunting's bodies, the fourth; PROF8's casts after them
   assert.match(w, /if \(rockPick\(m\.pick\)\) \{ const foot = rockFootprint\(cpu\.positions, cpu\.indices, m\.matrix, samples\); if \(foot\) pixelRocks\.push\(foot\); \}/, 'a rock piece that stood - after the road\'s clearance; ROCK-FOOT: as it stands out of the ground');
   assert.match(w, /rocks: pixelRocks,/);
-  assert.match(w, /const rockPick = \(i\) => wodPicks\[i\]\?\.name === 'Rocks' \|\| wodPicks\[i\]\?\.name === 'Mountains';/);
+  assert.match(w, /const rockPick = \(i\) => WOD_ROCK_SITES\.includes\(wodPicks\[i\]\?\.name\);/);   // ROCK-SUNK: the rock sites one list, the shrub's exemption's too
+  assert.match(src('src/world/wodLocationObjects.js'), /export const WOD_ROCK_SITES = Object\.freeze\(\['Rocks', 'Mountains'\]\);/, 'the Rocks and Mountains layouts');
   assert.match(w, /if \(!townTalk\.overlayActive && act === 'Escape' && gatherHost\?\.cancel\(\)\) \{ e\.preventDefault\(\); e\.profActEnded = true; return true; \}/, 'Escape above the mode gate');
   assert.ok(w.indexOf("act === 'Escape' && gatherHost?.cancel()") < w.indexOf("if (!townTalk.overlayActive && (modes?.mode ?? 'exterior') === 'exterior') {"), 'before the exterior gate');
   assert.match(w, /nodes: professionMarks\(\),/);   // PROF7 moved it: a Tracker's animals beside a Prospector's veins; NODE-MARKS: every node beside them

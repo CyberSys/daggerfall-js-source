@@ -2,7 +2,7 @@
 // do this" / "This needs to be perfect"): ONLINE THE FULL MOON IS A NIGHT. Design: bible/06-Systems/Online-Time-Arc.md
 // section 6.1. DFU forces a lycanthrope's change for the whole calendar day either moon is full, and online that day was
 // two real hours no rest could shorten (the moon is the sky's, which no rest moves). Online the change is forced while
-// the full moon is UP - from the dusk of a full-moon date to the next dawn, fifteen real minutes on TIME1's sky - and at
+// the full moon is UP - from the dusk of a full-moon date to the next dawn, thirty real minutes on TIME1's sky - and at
 // dawn the lock ends. Offline DFU's whole day stands. THE LAW EXECUTES: the night's date, the full moon up, the round
 // online and offline, the round runner's lane, the morning after, and the Hircine ring.
 import { test, beforeEach } from 'node:test';
@@ -57,11 +57,11 @@ test('TIME2 a full moon UP: the night begun at a full-moon date\'s dusk, and no 
   assert.equal(isFullMoonNightFromMinutes(FULL + D + DAWN_HOUR * 60), false, 'its dawn ends it');
   assert.equal(isFullMoonNightFromMinutes(FULL + 720), false, 'noon of the full-moon date: the moon is not up');
   assert.equal(isFullMoonNightFromMinutes(FULL + 3 * 60), false, 'the small hours OF the full-moon date belong to the night before it, which is no full moon');
-  // each night is twelve hours of the sky: fifteen real minutes at TimeScale 48
+  // each night is twelve hours of the sky: thirty real minutes at TimeScale 24
   let up = 0;
   for (let m = FULL; m < FULL + 2 * D; m++) if (isFullMoonNightFromMinutes(m)) up++;
   assert.equal(up, 12 * 60, 'one night of twelve hours across the two dates it spans');
-  assert.ok(Math.abs(12 * 60 / SKY_SEGMENTS[0].minutesPerMs / 60_000 - 15) < 1e-9, 'fifteen real minutes on the sky');
+  assert.ok(Math.abs(12 * 60 / SKY_SEGMENTS[0].minutesPerMs / 60_000 - 30) < 1e-9, 'thirty real minutes on the sky');
 });
 
 test('TIME2 the round, online: the moon forces the change at its dusk and through its night, never at its noon - and offline DFU\'s whole day', () => {
@@ -129,20 +129,20 @@ test('TIME2 the Hircine ring still holds the change off, the night of the full m
   }
 });
 
-test('TIME2 on the sky: a full moon\'s night is fifteen real minutes, and a werewolf meets the two moons\' nights two real hours apart, then none for fourteen', () => {
+test('TIME2 on the sky: a full moon\'s night is thirty real minutes, and a werewolf meets the two moons\' nights four real hours apart, then none for twenty-eight', () => {
   const from = SKY_SEGMENTS[0].fromMs + 3_600_000;
   const nights = [];
   let inNight = false, start = 0;
-  for (let t = from; t < from + 40 * 3_600_000; t += 15_000) {
+  for (let t = from; t < from + 80 * 3_600_000; t += 15_000) {
     const up = isFullMoonNightFromMinutes(skyClassicMinutes(t));
     if (up && !inNight) { inNight = true; start = t; }
     if (!up && inNight) { inNight = false; nights.push({ start, len: t - start }); }
   }
-  assert.ok(nights.length >= 4, `${nights.length} full-moon nights in forty real hours`);
-  for (const n of nights) assert.ok(Math.abs(n.len - 15 * 60_000) <= 15_000, `a night of fifteen real minutes (${n.len / 60_000})`);
+  assert.ok(nights.length >= 4, `${nights.length} full-moon nights in eighty real hours`);
+  for (const n of nights) assert.ok(Math.abs(n.len - 30 * 60_000) <= 15_000, `a night of thirty real minutes (${n.len / 60_000})`);
   const gaps = nights.slice(1).map((n, i) => (n.start - nights[i].start) / 3_600_000);
-  assert.ok(gaps.every((g) => Math.abs(g - 2) < 0.01 || Math.abs(g - 14) < 0.01), `the gaps: ${gaps.join(', ')} real hours`);
-  // AUDIT TIME (second round): both gaps, alternating - a moon a night every two hours would pass the line above
-  const short = gaps.map((g) => Math.abs(g - 2) < 0.01);
+  assert.ok(gaps.every((g) => Math.abs(g - 4) < 0.01 || Math.abs(g - 28) < 0.01), `the gaps: ${gaps.join(', ')} real hours`);
+  // AUDIT TIME (second round): both gaps, alternating - a moon a night every four hours would pass the line above
+  const short = gaps.map((g) => Math.abs(g - 4) < 0.01);
   assert.ok(short.includes(true) && short.includes(false) && short.every((s, i) => i === 0 || s !== short[i - 1]), `the gaps alternate: ${gaps.join(', ')} real hours`);
 });

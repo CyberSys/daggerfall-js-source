@@ -59,7 +59,7 @@ FM-bank audit. Audio.md also still disowns `ActivateLockUnlock = 316`
 (`:158` "NOT OURS... neither of which is ported") - it sits in
 `soundClips.js:10` with three consumers (R1) - and still claims
 `deps.inCastle` stays false (`:105`), live since AUDIT 21
-(`dungeonContext.js:2965`). This is the one page whose live-queue
+(`dungeonContext.js:2975`). This is the one page whose live-queue
 claims actively contradict the code, the Ledger, and the rest of the
 bible at once.
 
@@ -131,7 +131,7 @@ per arc:
   first-arm); S40's "house ledger is unported" flag
   (`banking.js:173 isHouseOwned` feeds the rest seam); S16's
   "monsters 0-42 still spawn as billboards" (C11 pivoted them to real
-  foes, `dungeonContext.js:958-1009`); the mid-file Queue
+  foes, `dungeonContext.js:965-1016`); the mid-file Queue
   (`:742-748`) still carries FreeAction / Create Item / enchantment
   value / rest-UI / "Later: guilds, shops, dialog, calendar" - all
   shipped, list actively maintained (it struck its fatigue line).
@@ -237,7 +237,7 @@ opposite of their own code and deserve a slice's attention:
 (world.js:5200 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:656 → :903); `Player-Arc.md:979` (worldModes.js:1008 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
-(CHAR_PIXEL "7" - `renderer.js:644` ships 9, and the doc missed two
+(CHAR_PIXEL "7" - `renderer.js:665` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`
 (interiorContext.js:214 → :199); `Rendering.md:173`
 (CHAR_SPRITE_RT_SIZE "256" → 512).

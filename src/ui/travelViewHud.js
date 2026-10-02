@@ -37,6 +37,7 @@ import { renownText } from '../net/renown.js';
 import { guildTagText } from '../net/guildLaw.js';
 import { ribbonColours } from '../net/heraldryLaw.js';   // AUDIT-SEATS: a Season's banner ribbon, under the name here too
 import { TV_FILTER_GROUPS, TV_FILTER_TEXT, travelViewFilters, toggleTravelViewFilter, onTravelViewFilters, markShown, countGroups } from '../systems/travelViewFilters.js';   // OW-FILTER
+import { tickHudLayout } from './hudLayout.js';   // HUD-MOVE: the Overworld's block and the travel bar move too
 import { travelPathMode, setTravelPathMode, onTravelPathMode, TRAVEL_PATH_MODES, TRAVEL_PATH_TEXT } from '../systems/travelPathMode.js';   // OW-PATH: the Roads / Free switch
 
 export const TRAVEL_VIEW_HUD_ID = 'travel-view';
@@ -290,6 +291,7 @@ export function showTravelViewHud(hooks = {}, doc = globalThis.document) {
   }
   paintModes(travelPathMode());
   paintFilters(travelViewFilters());
+  tickHudLayout(doc);   // HUD-MOVE
   parts.back.onclick = (e) => { e.preventDefault(); hooks.onReturn?.(); };
   parts.idleMap.onclick = (e) => { e.preventDefault(); hooks.onMap?.(); };
   furniture.at = -Infinity;   // EDGE-FURNITURE: what stands at the edges now (a journey's panel may have come or gone)

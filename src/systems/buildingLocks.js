@@ -201,7 +201,7 @@ export function classicBuildingOpen(buildingType, hour) {
  * Offline they are identical. Online, and only for a shop, a closure is
  * covered by ONLINE_SHIFT. Suns Rest is part of the classic shop closure,
  * so it is covered by the same policy rather than becoming a real-time
- * outage (a sky day is 30 real minutes online since TIME1; it was 120).
+ * outage (a sky day is 60 real minutes online since TIME1 and SKY-SLOW; it was 120).
  *
  * `online` is injectable for node tests. Production defaults to the shared
  * clock standing (worldTick.sharedClockOn) - the one predicate every
