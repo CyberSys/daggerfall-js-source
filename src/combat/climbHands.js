@@ -479,6 +479,7 @@ export const climbArtUrl = (file) => new URL(file, APP_ROOT ?? globalThis.docume
 /**
  * The draw: the law plus the two textures, loaded once on first need (a promise in flight draws nothing). `fetchBytes`
  * is the door a test comes through; by default the paintings are fetched from the build beside the page.
+ * @param {{ renderer?: any, fetchBytes?: ((file: string) => Promise<any>) | null, decode?: (bytes: any) => Promise<any> }} [opts]
  */
 export function createClimbHands({ renderer, fetchBytes = null, decode = decodePng } = {}) {
   const law = new ClimbHands();
