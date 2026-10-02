@@ -461,7 +461,7 @@
   {
     "name": "WORLD-landing-her-middle",
     "file": "src/scenes/world.js",
-    "old": "    return navalDeckPoint(boat, deck, deck.clamp(local[0], local[2]));",
+    "old": "    return navalDeckPoint(boat, deck, deck.land(local[0], local[2], local[1]));",
     "new": "    return navalDeckPoint(boat, deck, deck.nearest(0, 0));",
     "tests": [
       "test/livingcrew.test.js"

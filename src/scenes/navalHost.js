@@ -84,6 +84,7 @@ import { amGroupRollOwner } from '../systems/campEncounters.js';
 import { NAVAL_SFX, NAVAL_CLASSIC, NAVAL_FIRE_LOOP, NAVAL_SINK_LOOP, navalSoundRange } from '../systems/naval/navalSounds.js';
 import { raiderPlan, raiderClassOf } from '../systems/naval/navalRaiders.js';
 import { intoDeck, mainLevel, DECK_STEP } from '../systems/naval/navalDeck.js';   // AUDIT NAV2 F36: the feet in her deck's frame (aboardShip)
+import { CAPSULE_RADIUS } from '../player/motor.js';   // AUDIT GN-D3: aboard under her main deck, a body's own reach (standsOn)
 import { createGalleonGunDeck } from '../systems/naval/galleonGunDeck.js';   // GALLEON: her shutters and guns at work
 
 /** The record's name in the save's per-mod slot (systems/modSaveData.js) - the port's own, as the Sigil Broker's is. */
@@ -1537,9 +1538,14 @@ export function createNavalHost(deps) {
    *  quay point 19.6 m from her hull) and stood the hunt, a bounty's trail and a band's chase down. F60: a hull whose
    *  root stands past her own reach of the feet (her stem, her stern and her beam, and DECK_REACH_M) is never asked - her
    *  box was built for every boat and every sea ship on every call (3.34 us and 11 KB: each step's hostileNear, the
-   *  threats, playerAfloat each frame). GALLEON (2026-10-01): DECK_REACH_M her rail's - feet at her main deck or over it;
-   *  under it a floor of hers under the feet themselves (the new galleon's gun deck lies 1.08 m over the sea, and a
-   *  metre's reach of it stood a swimmer or a quay against her side aboard). */
+   *  threats, playerAfloat each frame). GALLEON (2026-10-01): DECK_REACH_M (by her rail, past her deck's inset edge) for
+   *  feet within DECK_STEP of her main deck or over it (mainLevel - DECK_STEP, on every hull); under that a floor of hers
+   *  within the body's own reach - the new galleon's gun deck lies 1.08 m over the sea, and a metre's reach of it stood
+   *  a swimmer or a quay against her side aboard. AUDIT GN-D3: that reach the capsule's own radius (motor.js
+   *  CAPSULE_RADIUS), never the feet's own cell alone - a 0.5 m cell read a man between her guns, on a gun, on her
+   *  mast's step as ashore (the galleon's 891 of 25197 standable points under her main deck, the Carrack's 638, the
+   *  Large Galley's 3829: no Sail ho!, no alarm, rest and journeys open, playerAfloat false), while the capsule's reach
+   *  misses none of the galleon's and reads 0.37% of the points round her hull aboard (a metre read 3.8%). */
   const _aboardLocal = [0, 0, 0];
   const standsOn = (boat, feet) => {
     const r = boat.GameObject?.worldMatrix?.(), b = hullBuild(boat.hull);
@@ -1547,7 +1553,7 @@ export function createNavalHost(deps) {
     const deck = boat.MeshObject && deps.pool.deckOf?.(boat.hull, boat.variant ?? 0);
     if (!deck?.count || !deck.under) { const box = hullBox(boat); return !!box && insideGrown(box, feet, DECK_REACH_M); }
     const l = intoDeck(boat.MeshObject.worldMatrix(), feet, _aboardLocal);
-    return deck.under(l[0], l[2], l[1], l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : 0);
+    return deck.under(l[0], l[2], l[1], l[1] >= mainLevel(deck) - DECK_STEP ? DECK_REACH_M : CAPSULE_RADIUS);
   };
   function aboardShip() {
     if (myBoat() || (boarding?.boat && myBoats().includes(boarding.boat)) || deps.aboardPeer?.()) return true;
