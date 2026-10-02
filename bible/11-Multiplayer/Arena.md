@@ -235,7 +235,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 | Slice | What ships | Verifiable by |
 |---|---|---|
 | **ARENA1** (SHIPPED 2026-10-02 - the record below) | the colosseum in cell (4,3) of Daggerfall (both layouts), the model vendored and drawn, ARENADAG.RMB, the building list strip, the gate's people (Herald opens a placeholder card), the undercroft dungeon, the displaced records moved (offline) | ARENA2 data: the city's grid, the strip, the model's mesh and collider, the move of a deed |
-| **ARENA2** | the bout law, AI fighters (bout team, foe yield floor), exhibitions on the city floor, the instance of the floor, the ladder's ten tiers offline, the crowd (sound, sight, mood, words), the Herald, the HUD | the bout law's tests, a bout played through headless |
+| **ARENA2** (SHIPPED 2026-10-02 - the record below) | the bout law, AI fighters (bout team, foe yield floor), exhibitions on the city floor, the instance of the floor, the ladder's ten tiers offline, the crowd (sound, sight, mood, words), the Herald, the HUD | the bout law's tests, a bout played through headless |
 | **ARENA3** | the teams, the Arena window (all tabs, offline records), tier titles and Grand Champion offline, purses, the bookmaker | UI probes, the window's model tests |
 | **ARENA4** | online: the account service tables and board, the relay's arena rooms, matchmaking, PVP-REF, the relay-run ladder opponent, spectators, the online titles and the laurel glyph, the online home move | the relay over fake sockets, the service over node:sqlite |
 | **ARENA5** | the audit: every slice re-read against this page, the probes, the mutants | |
@@ -294,7 +294,8 @@ or a Recall anchor stands outside (`restoreInterior`'s new guard - the old block
 town's GEMSAL03). A house deed is moved once (`systems/arenaMove.js`): to a free house of its type in the city (any
 house when none is free), never one another record holds or an active quest's, by the market's xorshift seeded by the
 map id and old key; its scene renamed with it (`sceneCache.renameScene` - the entry, its other layouts' visits, their
-permanence); the cell's discoveries forgotten, the new house discovered as the player's residence, the Daggerfall
+permanence; SUPERSEDED at ARENA2: the old scene is emptied into the new house by what it held, `emptyArenaScene`, and
+`renameScene` is gone); the cell's discoveries forgotten, the new house discovered as the player's residence, the Daggerfall
 Bank's letter and a notebook line. Verified with ARENA2 in both layouts: a GEMSAL03 House2 deed lands on a House2 of
 the city outside the cell.
 
@@ -312,4 +313,113 @@ row already outside the cell is never touched. The relay's `interior:m<map>.<key
 **Not done / open.** Not seen in a browser or on a GPU: the colosseum's look, the tiers' walkability under the port's
 collider, and the gate people's footing on the terrain at the block's edge are unverified by eye. Smaller Dungeons (a
 setting) may trim the undercroft as it trims any keep. The Herald's line is a placeholder until ARENA2's bouts and
-ARENA3's Arena window.
+ARENA3's Arena window. [ARENA2: the Herald's choice stands; the displaced deed's scene is EMPTIED into the new house
+rather than renamed onto it - see the ARENA2 record.]
+
+## ARENA2 record (2026-10-02) - SHIPPED
+
+**The bout law** (`src/systems/arenaBout.js`, pure - the clock and the dice handed in, so ARENA4's relay runs the same
+law): call (a beat for the bout's line and one per fighter, each cried) - walk (every fighter on their mark, or
+WALK_MAX_MS) - count (the duel's three seconds, said 3, 2, 1) - fight - end (END_HOLD_MS) - verdict (VERDICT_MS) - heal
+(the duel's DUEL_HEAL_HOLD_MS) - done. A side is out when all of it is; the bout ends when one side (or none) stands, so
+a two-against-one and a Grand Melee (every fighter a side) are the same law. Endings: YIELD at 15% or under (the
+player's by choice - sheathing the blade at the line; refused above it with the Herald's "not yet"; an AI's by its
+TEMPER, one roll a second, `temper x 0.45`, none for a beast, a daedra or a vampire), FALL at the 1 HP floor, RING-OUT
+past the ring plus the duel's 4 m slack for its 2 s, TIME (3 min) and the judges: damage, then hits, then fewer misses,
+level on all three a draw. Events: call, crier, walk, count, fight, hit, crit, miss, knockdown (a quarter of the struck's
+health in one blow, or driven under the line), comeback (once low at 35%, drawn level), stall (no blow for 8 s, once a
+stall), flee (outside the line inside the slack 1.5 s), yield, fall, ringout, timeout, end, verdict, heal, done. The purse:
+favour -1..1 raises it by up to half or cuts it by up to a quarter.
+
+**The fighters** (`src/scenes/arenaBouts.js` the driver, `src/systems/arenaFighters.js` who they are). Daggerfall's
+own class enemies and monsters, a name drawn by DFU's NameHelper over the bank of their home (High Rock's Bretons,
+Hammerfell's Redguards, Skyrim's Nords, ... Orsinium's orcs on the monster bank) on DFRandom seeded by the bout and put
+back as it stood, an epithet and the town, all from the seed. THE BOUT TEAM is a seam beside `campId` in
+`characters/enemyTargets.js` (`boutGate`, `entity.bout` `{ id, side, out, hold, hooks }`, `setPlayerBout`): a bout's
+pair skips the team, ally, infighting and hostility chain (two orcs of one bout fight, infighting off or on); anyone
+else meets no fighter and no fighter meets them (the watch, a passer-by, another foe); the player is a target only as
+the bout's opponent; nobody is a target before the word or once out; the target machine drops a target the gate
+refuses (the striker MakeEnemyHostileToAttacker writes in). THE FOE YIELD FLOOR in both damage doors
+(`scenes/exteriorFoes.js damageFoe`, `scenes/dungeonContext.js damageFoe`), before every death arm: held at 1, no corpse,
+no loot, no renown (not even the strike's credit), no death notice, no soul trap, the bout told the floor once and every
+blow (`hooks.hurt`). A player's blow on an EXHIBITION fighter (no bout of theirs) turns no area (`handleAttackFromPlayer`'s
+guard): the bout's `intrude` hook warns through the Herald, then commits Assault and calls the watch by the street's own
+law (`setCrimeCommitted` + `_crimeResponse`). Spawned through the pools' own doors - the exterior's `spawnFoe` (`loose`,
+`transient`, `managed`, `champion: null`, `level`), the dungeon's `spawnLooseFoe` (new `level` and `bout`: no
+progression scaling, no loot, never the room's) - at their marks facing the middle (the walk is the stand: a fighter
+stands on its mark at once - a walk-to-mark steer is the motor's to add, recorded). Exhibition fighters are not hostile
+(no rest refused near the colosseum); ladder opponents are. The crowd's "crit" is a blow of 15% of the struck's health
+(the critical-strike roll is the formula's, never seen at the damage door). Misses: the law counts them, but no host door
+reports a swing that connects nothing yet - the judges' third count is live only where a host says so (recorded).
+
+**The floor's instance** (`src/world/arenaFloor.js`, the Burning Court's law: a made DUNGEON level, no fifth host).
+ARENADAG.RMB's 118 misc models carried into a made RDB block at `(X, Y + 4, Z + 4096)` (so each lands where the RMB put
+it; the undercroft's 43600 stair and the gate's people stay in the city), its 29 light flats as flats (centred by their
+measured half heights) and as dungeon Light objects, a start marker by kind - the ladder fighter on their mark on the sand
+(-6, 0), a watcher on the lower terrace (0, -21.8, 6.9 up). The sand: the colosseum's model floor (y -4.68 in its frame,
+a 19.5 m disc measured off the mesh); the ring 14 m (the motor's clamp, `player.arena`, the duel's own), ring-out at 18 m
+before the wall. Its ways out: the sand's north gate and the terrace's stair (exit doors), shut while my bout stands
+(`ARENA_TEXT.refuse.door`), landing before the Herald. No rest, save or map there (`dungeonContext`'s refusals); no
+dungeon drip; an open-sky torchlit ambient and a thin night fog (`worldModes`). Entered by the Herald's Fight or Watch
+(`enterArenaFloor`); the fighters' hall is the undercroft's stair taken as a door (`enterArenaUndercroft`).
+
+**Exhibitions** (`exhibitionFor`): one an hour of the gates' hours (08:00-21:00), open for its first 20 game minutes, two
+fighters of one tier's roster (beast against beast in the beast tier) drawn from `arenaHash(hour)` - the same hour the same
+bout on every screen, so ARENA4's relay runs the schedule on the shared clock. On the CITY floor (world.js
+`arenaCityStage`: the colosseum block's origin in its built pixel plus the RMB colosseum's place less its sand) while the
+player stands within 150 m (dismissed past 260 m, unsaid, and restarted from its call on return inside the window); and
+in the instance when Watch is chosen.
+
+**The ladder** (`src/systems/arenaLadder.js`) is the design table row for row; Tier 9's third bout is Knight + Mage (the
+table names two pairs for three bouts); Tier 10's three Grand Melees are Knight/Warrior/Healer at 20, Assassin/Battlemage/
+Monk at 21, and the champions' survivors (Vampire, Daedra Seducer, Orc Warlord), then the Iron Atronach. Purses: bouts
+50-1,800, champions 200-5,400, the Grand Champion 10,000. The save's `arena` (versioned `v: 1`; any older or broken shape
+reads back whole; a pre-ARENA2 save climbs from the Pit). Titles (Pit Fighter ... Paragon, Grand Champion) offline: in
+the Herald's lines and the character sheet's Arena section (`ui/enhancedCharSheet.js arenaSheetLine`).
+
+**The crowd** (`systems/arenaCrowd.js`, `systems/arenaSound.js`). Mood -1..1 (boo, jeer, murmur, cheer, roar), each event's
+push, settling over 7 s; favour per fighter (Daggerfall's own start loved; the beast tier starts sour and pities the
+player); a fighter at -0.3 or worse is booed at every blow. Sight: billboards of 182:0, 182:47-53, 180:1-3, 183 and the
+High Rock commoners (182, 184) on seats sought by a down-ray over the tiers (5 to 14.5 m above the sand, never a roof),
+140 at an exhibition up to 420 at the Grand Champion; the gesturers flip at 5 fps rising to 12 at a roar, the tiers hop
+at a crit or a fall, flowers (TEXTURE.254's roses and flowers) or refuse (its teeth) thrown at the verdict by favour.
+TEXTURE.185's records stand 6 m tall (mounted figures) and are not seated. Sound: the bed and the cheer, roar, boo and
+applause synthesised at runtime from DAGGER.SND 441-450 (`audio.samplesOf`, a new read-only door) and filtered noise and
+registered (`audio.registerSamples`); gasps 386/387, groan 458, drums 28/374, bell 107, fanfares 32/33 as they are; the
+bed's gain by mood and distance. Words: barks gapped 2.6 s, never repeated twice running, a town's chant.
+
+**Music** (`systems/arenaScore.js`): ARENAMAR (B-flat march, 116 BPM, 16 bars) through the call and the fight, ARENAWIN
+for 9 s from the verdict, then quiet; held by world.js beside the court's score.
+
+**The HUD** (`ui/arenaHud.js`, a readout like the gate bar): the versus bar (names, banner marks for ARENA3, health, the
+darling and villain marks, Yielded/Down/Out), my stamina, the crowd's meter and its word, the clock, the crowd's shout,
+the yield hint; the Herald's calls and 3 - 2 - 1 - Fight! mid-screen (`setMidScreenText`). Its own sheet in the pixel face
+(both skins), dressed on Plus by the kit's roles (`.arena-plate` a panel, `.arena-timer`/`.arena-tag` chips) and
+`ONLINE_DRESS_CSS`'s fills; textContent only, widths alone inline, reduced motion, touch sizes.
+
+**The Herald** (`systems/arenaHerald.js`): a ChoiceWindow (the enhanced dialog on Plus, the panel on classic) - Watch,
+Fight, the fighters' hall, Leave; a choice that cannot be taken is not offered and his lines say why (no bout until the
+hour, not fit to fight under half health, the ladder done).
+
+**The fix from ARENA1** (`systems/arenaMove.js emptyArenaScene`): the old house's scene is emptied into the new one by
+what it held - the owner's own things back to the furnishings or the pack, the catalogue's placed pieces paid back whole
+into Daggerfall's bank account, the furniture marks dropped, every chest's, storage piece's and floor pile's item into the
+new house's `container:0` (a crate set down where the owner first walks in when the house has none). A torch left burning
+on the old floor is not carried (recorded).
+
+**The four hosts.** world.js WIRED (the driver, the city stage and schedule, the instance's stage through the modes,
+the crowd in both billboard passes, the music, `duelEnemyNear` and the ring, the Herald's doors, the move's doors).
+worldModes.js WIRED (the Herald's click, the instance, its gates and landing, its light and fog, the crate fallback).
+dungeonContext.js WIRED (the yield floor, the fighter's level and loot, the spare, rest/save/map). exterior.js FLAGGED
+(no driver: the Herald keeps ARENA1's notice there). Solo elsewhere is unchanged: nothing runs off Daggerfall's cell.
+
+**Verified.** Nine suites (`test/arena2_*.test.js`, 74 tests), 77 mutants, all dead (`tools/mutants/arena2.json`). The UI
+probe (`tools/arenaHudProbe.mjs`) draws the HUD - a duel with the widest names, a three-way melee with a yield - and the
+Herald's choice at 1440, 800 and 390 wide on both skins: inside the viewport, nothing spilling, in the pixel face. The
+world probe (`tools/arenaProbe.mjs`, Chromium on a software GPU, the player's data) boots in Daggerfall, finds the sand
+in the city, runs the hour's exhibition from the call into the fight with the crowd drawn, opens the Herald's choice
+(Watch / Fight / Hall / Leave), goes down to the floor's instance, starts a ladder bout there, ends it by a fall to the
+verdict and the healers, and reads the ladder's count back (one win, a 56 gp purse) - no arena error on the page. A
+software GPU runs a frame or two a second, so a whole fight is not watched blow by blow there; the blows, the yield,
+the stall, the ring-out and the judges are the law suites'. After the fall the HUD's clock stands where the fight ended
+(the probe's verdict frame read 0:00 before that fix).

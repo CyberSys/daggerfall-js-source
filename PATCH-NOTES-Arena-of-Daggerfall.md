@@ -9,14 +9,38 @@
 
 ## The gate
 - At the north gate you'll find the **Herald of the Arena**, two gate wardens of the Royal Guard, recruiters for the Red Banner and the Blue Banner, and a bookmaker.
-- Talk to the Herald to hear when the bouts begin. The fights themselves, the teams and the betting come in a later update.
+- Talk to the **Herald** and he gives you a choice: **watch the exhibition**, **fight on the ladder**, **go down to the fighters' hall** (the undercroft), or leave. If a choice isn't open, he tells you why.
+- The teams and the betting come in a later update.
+
+## The bouts
+- **Exhibitions:** every hour from 8 in the morning until 10 at night, two fighters meet on the arena's sand. Stand near the colosseum and you'll see the bout, hear the crowd and see the fight on your screen. The same hour always brings the same two fighters.
+- **The Ladder:** ten tiers, from **The Pit** to **The Grand Melee**. Win three bouts in a tier and you face its **Tier Champion**; beat the champion and you climb, and the arena gives you a title. Tier 5's champion is two Warriors at once, Tier 6 throws you to the beasts, Tier 9 is two against one, and Tier 10 is a free-for-all melee before the **Grand Champion**.
+- Your opponents don't grow with you. The ladder is a fixed mountain.
+- **Nobody dies on the sand.** At 1 health you go down and the bout is over. Badly hurt (15% health or less)? Sheathe your weapon to yield. Fighters can also be carried out of the ring, and after three minutes the judges decide: damage dealt, then hits landed, then fewer misses.
+- After every bout the arena's healers make you whole again.
+- **Purses** run from 50 gold for a first-tier win to 10,000 gold for the Grand Champion. The crowd's favour raises or cuts your purse. Losing costs you only the purse.
+- While your bout is on, you can't rest, travel or leave through the gates.
+- Your progress, titles and record are saved with your character. Your arena title and record show on the character sheet.
+- Strike an exhibition fighter and the Herald will warn you once. Do it again and the watch comes for you.
+
+## The crowd
+- The tiers fill with Daggerfall's own people: the gesturing man, dancers and musicians, courtiers and nobles. Big bouts draw hundreds.
+- The crowd cheers a great blow, gasps at a telling one, groans at a knockdown and roars at a comeback. It boos stalling, running away and an early yield. A fighter it hates is booed every time they strike.
+- Each fighter has the crowd's favour, for good or ill. Its darling and its villain are marked on the screen.
+- The crowd shouts, too: "Blood on the sand!", "Get up, you dog!", and the name of a favourite's home town.
+- At the verdict the crowd throws flowers for a winner it loves, and something worse for one it doesn't.
+- The crowd's voices are built while you play from Daggerfall's own crowd recordings. Drums, the bell and the old Arena fanfares are Daggerfall's own sounds. The arena also has its own march and victory fanfare.
+
+## On your screen
+- A **versus bar** shows both fighters' names and health, your stamina, the crowd's mood and the time left. It takes no keys and never pauses the game.
+- The Herald calls each fighter by name, counts down "3 - 2 - 1 - Fight!" and gives the verdict in the middle of the screen.
 
 ## The undercroft
 - A stair inside the colosseum leads down to the **undercroft**: Kamer's own 32-block dungeon under the arena.
 - The castle's dungeon is not changed.
 
 ## If you had something on that block
-- **A house:** the Daggerfall Bank moves your deed to a house of the same kind elsewhere in the city, the first time you load. Your furniture, chests, decorations and the things on the floor go with it. You'll get a letter, and a note in your notebook.
+- **A house:** the Daggerfall Bank moves your deed to a house of the same kind elsewhere in the city, the first time you load. Your own furniture goes back to your furnishings, ready to set down again, and anything you bought from the decorator is paid back in full to your Daggerfall bank account. Everything that was in your chests and on your floor waits for you in a chest in the new house (or in a crate by the door if the house has no chest). You'll get a letter, and a note in your notebook.
 - **A rented room** at the old tavern is honoured at any inn in the city.
 - **A quest building** on that block is chosen again in the city, so the quest can still be finished.
 - **A save made inside one of those buildings**, or a Recall anchor set there, puts you outside instead.
