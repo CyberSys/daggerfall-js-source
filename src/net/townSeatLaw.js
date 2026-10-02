@@ -1230,6 +1230,8 @@ export const SIEGE_WHY = Object.freeze({
   // AUDIT-SEATS S3 (17: a void siege): a receipt that reached the service after its week's Turning, which voided the battle;
   // VOID (18): or after the Moderators voided it (`/siege void`)
   'battle-void': 'That battle is void - at its Turning, or by the Moderators - and its result does not count.',   // VOID: a moderator's too
+  // AUDIT 529 V5: a moderator's `/siege void` that reached the service after the battle's week was reckoned
+  'battle-settled': 'That battle\'s week is settled - its Turning has reckoned it, and it can no longer be voided.',
   // AUDIT-SEATS S10 (8.1: "changing either ... is refused in a siege week")
   'heraldry-siege': 'Your guild fights a battle for a seat this week. Its heraldry may change after the Turning.',
 });

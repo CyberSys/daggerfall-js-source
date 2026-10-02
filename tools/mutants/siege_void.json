@@ -74,8 +74,8 @@
  {
   "name": "SIEGE-VOID-forts-unkept",
   "file": "server-account/src/seatSiege.js",
-  "old": "    stmts.push(...fortsDueStatements(db, nowS, K), db.prepare(`UPDATE town_seat_results SET prior = json_set(COALESCE(prior, '{}'), '$.forts',",
-  "new": "    stmts.push(...fortsDueStatements(db, nowS, K), db.prepare(`UPDATE town_seat_results SET prior = json_set(COALESCE(prior, '{}'), '$.fortz',",
+  "old": "  '$.forts', json((SELECT json_group_object(work, tier) FROM town_seat_forts WHERE key = ?2)),",
+  "new": "  '$.fortz', json((SELECT json_group_object(work, tier) FROM town_seat_forts WHERE key = ?2)),",
   "tests": [
    "test/siege_void.test.js"
   ]
@@ -182,7 +182,7 @@
  {
   "name": "SIEGE-VOID-restored-unsaid",
   "file": "server-account/src/seatSiege.js",
-  "old": "        restored = names.has(b.defender);\n",
+  "old": "        restored = back && names.has(b.defender);\n",
   "new": "",
   "tests": [
    "test/siege_void.test.js"
@@ -198,10 +198,10 @@
   ]
  },
  {
-  "name": "SIEGE-VOID-held-gain-kept",
+  "name": "AUDIT529-V4-guess-back",
   "file": "server-account/src/seatSiege.js",
-  "old": "SET standing = MAX(0, standing - ?) WHERE key = ? AND guild_id = ?').bind(gain, key, b.defender)",
-  "new": "SET standing = MAX(0, standing - ?) WHERE key = ? AND guild_id = ?').bind(0, key, b.defender)",
+  "old": "          stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(held.standing, key, b.defender));\n        }\n",
+  "new": "          stmts.push(db.prepare('UPDATE town_seat_holds SET standing = ? WHERE key = ? AND guild_id = ?').bind(held.standing, key, b.defender));\n        } else if (b.kind === 'siege') {\n          stmts.push(db.prepare('UPDATE town_seat_holds SET standing = MAX(0, standing - ?) WHERE key = ? AND guild_id = ?').bind(siegeAftermath('siege', r.result, Number(r.raised)).standing, key, b.defender));\n        }\n",
   "tests": [
    "test/siege_void.test.js"
   ]
@@ -346,6 +346,195 @@
   "file": "src/net/townSeatBook.js",
   "old": "      if (!r?.ok) return { ok: false, text: accountRefusalText(r?.error) };\n      at = -Infinity;",
   "new": "      if (!r?.ok) return { ok: false, text: accountRefusalText('server') };\n      at = -Infinity;",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V1-void-revolt-unlapsed",
+  "file": "server-account/src/seatSiege.js",
+  "old": "      stmts.push(...revoltStood(db, key, W, b.defender, nameOf(b.defender), nowS, history));\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V1-holder-unasked",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    if (!r && b.kind === 'revolt' && await db.prepare('SELECT 1 FROM town_seat_holds WHERE key = ? AND guild_id = ?').bind(key, b.defender).first()) {",
+  "new": "    if (!r && b.kind === 'revolt') {",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V1-siege-lapsed",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    if (!r && b.kind === 'revolt' && await",
+  "new": "    if (!r && b.kind !== 'tourney' && await",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-projects-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "  '$.projects', json((SELECT",
+  "new": "  '$.projectz', json((SELECT",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-held-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "  '$.held', json((SELECT",
+  "new": "  '$.heldz', json((SELECT",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-revolt-prior-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "...fortsDueStatements(db, nowS, K), priorWorks(db, W, K, b.defender),\n",
+  "new": "...fortsDueStatements(db, nowS, K),\n",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-revolt-edict-unkept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "priorWorks(db, W, K, b.defender)",
+  "new": "priorWorks(db, W, K)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-unrestored",
+  "file": "server-account/src/seatSiege.js",
+  "old": "          stmts.push(...fortsRestoredStatements(db, key, b.defender, projects, stuff));\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-revolt-edict-unproclaimed",
+  "file": "server-account/src/seatSiege.js",
+  "old": "            stmts.push(db.prepare(\"UPDATE town_seat_edicts SET state = 'proclaimed' WHERE key = ? AND week = ? AND guild_id = ? AND edict = ? AND state = 'void'\").bind(key, W + 1, b.defender, p.edict));\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-stockpile-kept",
+  "file": "server-account/src/seatForts.js",
+  "old": "        db.prepare(`UPDATE town_seat_stockpile SET qty = qty - MIN(?6, qty) WHERE key = ?1 AND material = ?5 AND ${again}`).bind(key, work, building, guild, material, n),\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-held-unreturned",
+  "file": "server-account/src/seatForts.js",
+  "old": "SELECT ?1, ?2, ?5, MIN(?6, qty) FROM town_seat_stockpile",
+  "new": "SELECT ?1, ?2, ?5, 0 FROM town_seat_stockpile",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-day-never-short",
+  "file": "server-account/src/seatForts.js",
+  "old": "h.material = json_extract(j.value, '$[0]')), 0) < json_extract(j.value, '$[1]'))",
+  "new": "h.material = json_extract(j.value, '$[0]')), 0) < 0)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-day-forgotten",
+  "file": "server-account/src/seatForts.js",
+  "old": "UPDATE town_seat_forts SET stands_at = ?5 WHERE",
+  "new": "UPDATE town_seat_forts SET stands_at = NULL WHERE",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V2-tier-unasked",
+  "file": "server-account/src/seatForts.js",
+  "old": "      WHERE key = ?1 AND work = ?2 AND building IS NULL AND tier = ?3 - 1`)",
+  "new": "      WHERE key = ?1 AND work = ?2 AND building IS NULL`)",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V3-back-always",
+  "file": "server-account/src/seatSiege.js",
+  "old": "        const back = held != null || kept == null;",
+  "new": "        const back = true;",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V3-unkept-as-unheld",
+  "file": "server-account/src/seatSiege.js",
+  "old": "        const back = held != null || kept == null;",
+  "new": "        const back = held != null;",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V3-capturer-kept",
+  "file": "server-account/src/seatSiege.js",
+  "old": "!back ? db.prepare('DELETE FROM town_seat_holds WHERE key = ? AND guild_id = ? AND since_week = ?').bind(key, b.attacker, W)",
+  "new": "!back ? db.prepare('SELECT 1').bind()",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V5-read-unasked",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    if (await db.prepare('SELECT 1 FROM town_seat_weeks WHERE week = ?').bind(W).first()) return { error: 'battle-settled' };   // AUDIT 529 V5\n",
+  "new": "",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V5-write-unasked",
+  "file": "server-account/src/seatSiege.js",
+  "old": "    const unsettled = 'NOT EXISTS (SELECT 1 FROM town_seat_weeks WHERE week = ?1)';",
+  "new": "    const unsettled = '1';",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V5-status",
+  "file": "server-account/src/index.js",
+  "old": "  'battle-settled': 409,   // AUDIT 529 V5",
+  "new": "  // AUDIT 529 V5",
+  "tests": [
+   "test/siege_void.test.js"
+  ]
+ },
+ {
+  "name": "AUDIT529-V5-words",
+  "file": "src/net/townSeatLaw.js",
+  "old": "  'battle-settled': 'That battle\\'s week is settled - its Turning has reckoned it, and it can no longer be voided.',\n",
+  "new": "",
   "tests": [
    "test/siege_void.test.js"
   ]

@@ -17,7 +17,8 @@
 //     castle's dungeon-entrance door (`castle`, its frame), a crown's Throne, its defenders' camp and its Palace square
 //     stand before THAT door - the palace's only where none is found. CASTLE-GATE (2026-10-02, Mac: "lets finish the
 //     build work"): the city's host now finds it - castleEntranceOf, the LOWEST of the pixel's dungeon-entrance doors
-//     (DFU lands a player leaving the castle at its lowest: player/enterExit.js dungeonEntranceLanding).
+//     by its centre, of those a face is taken from (DFU lands a player leaving the castle at its lowest:
+//     player/enterExit.js dungeonEntranceLanding), facing along the door record's own outward normal (doorFaceSign).
 //
 // THE SAME ON EVERY MACHINE: every input is the town's own records (MAPS.BSA, the RMB blocks), and the world point is
 // pure arithmetic off the pixel and the local metres - never the floating origin - rounded to whole natives (the wire's
@@ -42,23 +43,39 @@ export function buildingKeysOfType(blocks, makeKey, type) {
 export const SIEGE_FIELD = Object.freeze({ thronePaceM: 1.5, defendCampM: 12, gateInM: 6, attackCampM: 14, openGateM: 40, openCampM: 60, squareM: 20, templePaceM: 2 });
 
 /**
- * CASTLE-GATE: A CROWN CITY'S CASTLE ENTRANCE - of a pixel's dungeon-entrance doors (each `{ door: { a, b }, box }`, the
- * door's two corners and the box of the model it stands in, pixel-local metres), the lowest (its lower corner's height;
- * on a tie the first, the records' order - the same on every machine): `{ door, box }`, the frame siegeFieldOf's
- * `castle` and scenes/seatBanners.js seatBannerAnchors' take. Null for none. Pure.
- * @param {Array<{ door: { a: number[], b: number[] } | null, box: number[] }>} doors
+ * CASTLE-GATE: A CROWN CITY'S CASTLE ENTRANCE - of a pixel's dungeon-entrance doors (each `{ door: { a, b }, box, normal }`,
+ * the door's two corners, the box of the model it stands in and the door's outward normal, pixel-local metres), the
+ * lowest (AUDIT G2: its centre's height, as DFU's landing measures it - player/enterExit.js doorWorldPosition; on a tie
+ * the first, the records' order - the same on every machine) of those a face can be taken from (AUDIT G3: doorFace - a
+ * door narrower than a man passed over for the next): `{ door, box, normal }`, the frame siegeFieldOf's `castle` and
+ * scenes/seatBanners.js seatBannerAnchors' take. Null for none. Pure.
+ * @param {Array<{ door: { a: number[], b: number[] } | null, box: number[], normal?: number[] | null }>} doors
  */
 export function castleEntranceOf(doors) {
   let best = null, low = Infinity;
   for (const d of doors ?? []) {
     if (!d?.door || !Array.isArray(d.door.a) || !Array.isArray(d.door.b) || !Array.isArray(d.box) || d.box.length < 6) continue;
-    const y = Math.min(d.door.a[1], d.door.b[1]);
-    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: [...d.box] }; }
+    const y = (d.door.a[1] + d.door.b[1]) / 2;
+    const normal = Array.isArray(d.normal) ? [...d.normal] : null;
+    if (!doorFace({ door: d.door, box: d.box, normal })) continue;   // AUDIT G3: a door no face is taken from
+    if (Number.isFinite(y) && y < low - 1e-6) { low = y; best = { door: d.door, box: [...d.box], normal }; }
   }
   return best;
 }
 
-/** A door's middle and its face (square to the door's span, away from the building's middle) - or null. */
+/** CASTLE-GATE (AUDIT G1): a door's face `[ox, oz]` (square to its span) turned to agree with the frame's outward
+ *  `normal` where it carries one that leans along the face (a castle's entrance), else away from the box's middle (a
+ *  palace's or a hall's frame, which carry none) - a U-shaped forecourt's or a recessed gate's box middle stands OUTSIDE
+ *  the door, and the normal is the record's own word. Pure. */
+export function doorFaceSign(ox, oz, cx, cz, box, normal) {
+  const dn = Array.isArray(normal) ? ox * normal[0] + oz * normal[2] : NaN;
+  if (Number.isFinite(dn) && Math.abs(dn) >= 0.5) return dn < 0 ? [-ox, -oz] : [ox, oz];
+  const mx = (box[0] + box[3]) / 2, mz = (box[2] + box[5]) / 2;
+  return (cx - mx) * ox + (cz - mz) * oz < 0 ? [-ox, -oz] : [ox, oz];
+}
+
+/** A door's middle and its face (square to the door's span, away from the building's middle - CASTLE-GATE: along the
+ *  frame's outward `normal` where it carries one, doorFaceSign) - or null. */
 export function doorFace(frame) {
   const d = frame?.door, box = frame?.box;
   if (!d || !Array.isArray(d.a) || !Array.isArray(d.b) || !Array.isArray(box) || box.length < 6) return null;
@@ -66,10 +83,7 @@ export function doorFace(frame) {
   const w = Math.hypot(rx, rz);
   if (!(w >= 0.3)) return null;
   const cx = (d.a[0] + d.b[0]) / 2, cz = (d.a[2] + d.b[2]) / 2;
-  let ox = -rz / w, oz = rx / w;
-  const mx = (box[0] + box[3]) / 2, mz = (box[2] + box[5]) / 2;
-  if ((cx - mx) * ox + (cz - mz) * oz < 0) { ox = -ox; oz = -oz; }
-  return { at: [cx, cz], out: [ox, oz] };
+  return { at: [cx, cz], out: doorFaceSign(-rz / w, rx / w, cx, cz, box, frame.normal) };
 }
 const boxMid = (box) => [(box[0] + box[3]) / 2, (box[2] + box[5]) / 2];
 const unit = (x, z) => { const l = Math.hypot(x, z); return l > 1e-9 ? [x / l, z / l] : [1, 0]; };

@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8603` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8604` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11875,8 +11875,16 @@ siege HUD ... and the Chronicle".
   alone - closes with **a Roll of Arms**, each guild it names, once, with its heraldry in words.
 - DECIDED: a guild the client knows no heraldry of (no seat held or fought for, not the reader's own) wears none; the
   Chronicle shows a guild's heraldry as it is now, not as it was that day. No relay or service change, no version.
+- **Audited** (2026-10-02): a Moderators' void (`siege-voided`) is about the holder it restored, else none - never the
+  attacker its line never names; the Roll of Arms lists only the guilds a row's line names, in the line's order; the
+  index keeps each tag's guild name (`heraldryIndex`, `armsNamed`), and a Chronicle row's guild - the Seat tab's and the
+  Roll's - wears arms only where the tag's guild bears its name too (a disbanded guild's tag taken by a new guild shows
+  none of the new arms), a name tag still by tag alone; and the Overworld's name face (`ui/travelViewHud.js` badgeSprite)
+  frames a `<TAG>` as the name over a head does - the plate in the border colour and the shield drawn on its canvas
+  (`ui/heraldryArt.js` drawShield) into the kept sprite, keyed by the heraldry - off the same lookup
+  (setTravelViewArmsOf(seatArmsOf)).
 
-Pinned: `test/seat_heraldry_ui.test.js` (6). Mutants: `tools/mutants/seat_heraldry_ui.json` (57, all dead).
+Pinned: `test/seat_heraldry_ui.test.js` (10). Mutants: `tools/mutants/seat_heraldry_ui.json` (75, all dead).
 
 ### SIEGE-VOID - a moderator voids a siege (`/siege void`) (2026-10-02)
 
@@ -11889,25 +11897,40 @@ Modelled end to end on the developer's `/seat strike <key>`.
   `POST /v1/seats/siege/void { key }` (`net/accountClient.js` accountSeats `voidSiege`) and says the answer in words.
 - **Who may** (`server-account/src/seatSiege.js` voidSiege): titles.js canModerate - a moderator (MOD1's list) or a
   developer; anyone else `not-moderator` (403). A seat with no battle this week `battle-none` (404, "No battle is named
-  here this week."); a battle already void answers `repeat` - idempotent.
+  here this week."); a battle already void answers `repeat` - idempotent. AUDIT 529 V5: a battle whose week its Turning
+  has settled (a void whose clock was read before the boundary) `battle-settled` (409, "That battle's week is settled -
+  its Turning has reckoned it, and it can no longer be voided."), asked in the void's own write too.
 - **What it does** - the seat's battle of this week (a siege, a Tourney or a revolt) void, a Chronicle row
   (`siege-voided`: "the siege of X was voided by the Moderators"), no red line; no pass opens to it and a receipt claimed
   after is `battle-void`. DECIDED, each: before its result, the Sellswords' escrow home now (signed or not), and the
-  challenger's Right does NOT carry (an exploit's void - the Turning carries only a battle still scheduled); after a
+  challenger's Right does NOT carry (an exploit's void - the Turning carries only a battle still scheduled) - and
+  (AUDIT 529 V1) a revolt's holder's Charter lapses now, as the Turning lapses a revolt nobody put down (the shared
+  `revoltStood` statements: the hold gone, its projects fallen, its Edict for next week void, `revolt-stood`); after a
   capture (or a revolt that stood), the Charter back to the guild that held it as the result kept it - its Standing, the
   week it took the seat, its truce, Tithe and arrears (none kept: Standing 50 from this week) - its Legacy back, the
   works' capture drop undone and a Fortifier's save unspent, the capturer's own projects fallen to the stockpile and its
-  Edict for next week void; after a hold (or a forfeit, or a revolt put down), the holder's Standing back where it stood
-  and its defence fifth struck, the challenger's bar lifted and its influence and Legacy back; after a Tourney, the
+  Edict for next week void, and (AUDIT 529 V2) the holder's own projects the capture or the lapse made fall begun again
+  (`seatForts.js` fortsRestoredStatements: the tier they were raising, their starter's marks and day, what they held
+  taken back out of the stockpile as far as it is still there - short, the day forgotten and the project waiting on the
+  stockpile again; given back, never refunded) and a revolt's voided Edict proclaimed again; (AUDIT 529 V3) a capture of
+  a seat the result kept unheld (its holder relinquished before the battle) gives no Charter back - the capturer's alone
+  gone; after a hold (or a forfeit, or a revolt put down), the holder's Standing back where it stood (AUDIT 529 V4: a
+  result that kept none leaves it as it stands) and its defence fifth struck, the challenger's bar lifted and its
+  influence and Legacy back; after a Tourney, the
   winner's Charter gone (the fee stays burnt). Honours, Marks, Renown and Spoils already claimed stand - never clawed
   back; the Sellswords paid at the result stay paid; the palace's decor a capture cleared is not given back. A forfeit
   the Moderators voided is not the pair's forfeit of the Season.
-- **Migration 0066** (`0067_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
+- **Migration 0067** (`0067_seat_siege_void.sql`): `town_seat_results.prior` - what stood before the result, kept in the
   result's own INSERT (the seat's Charter row, its Legacy rows from that week on, and at a capture the works' tiers
-  after the due projects rose), so the void gives back exactly that.
+  after the due projects rose), so the void gives back exactly that. AUDIT 529 V2: and at a capture or a revolt that
+  stood, the building projects the result makes fall (`projects`), what they held (`held`) and the holder's Edict for
+  next week (`edict`). AUDIT 529 V3: a result written before the column keeps NULL - the void reads it as nothing kept,
+  never as a seat nobody held.
 
 Pinned: `test/siege_void.test.js` (8). Mutants: `tools/mutants/siege_void.json` (39, all dead). A new route and a
-migration; no service version bump (no pin required one) and no relay change.
+migration; no service version bump (no pin required one) and no relay change. AUDIT 529 (V1-V6): six more tests
+(`test/siege_void.test.js`, 14), the mutants 60 (21 more, all dead); the service `acct64`, naming this route and migration 0067 and
+STANDING-TREND's `standing` rows, which rode acct63's deploy unnamed.
 
 ### STANDING-TREND and FESTIVAL-STAGE - Standing's trend, a Festival's town (2026-10-02)
 
@@ -11918,7 +11941,7 @@ Mac: "lets finish the build work" - two more of the Seats arc's NOT YETs (Seats-
   writes every held seat's Standing as it found it and as it left it, a `town_seat_history` row of kind `standing`,
   first in its batch (`server-account/src/seatTurning.js` settleWeek); the Chronicle and the Hall of Records never
   show it (`seatInfluence.js` chronicleOf), and the standings read names the holder's `was` off the last Turning's
-  row where it names this holder (standingWas). No migration; the service stays `acct61` (undeployed, noted on it).
+  row where it names this holder (standingWas). No migration; it went out with the service's `acct63` deploy, and is named on `acct64`.
 - **The Festival's town** (7.6: "music, banners, lanterns"; `scenes/seatFestival.js`), while a Festival rules there -
   the holder's Edict on the seats' list, nothing on the relay or the service: its streets' City music becomes DFU's
   tavern playlist (`scenes/shared.js` createMusicDirector, festivalEnvironment - the day's song as a tavern picks
@@ -11926,8 +11949,12 @@ Mac: "lets finish the build work" - two more of the Seats arc's NOT YETs (Seats-
   each tavern's door, a pennant over each bounty board, at most 6; `scenes/seatBanners.js` createSeatBanners); and a
   lantern burns before every banner the town flies, in the street's lantern pool (festivalLanternsOf,
   `world/cityLights.js` fillLanternPool's `extra`), lit dusk to dawn and flickering on the slots after the pixel's own.
+- **Audited** (2026-10-02): the seats' list was read only at the session's start and a town's arrival, so a Festival (or a
+  Curfew) outlived its week for a player who stayed in town past the Turning, and one that became law was never staged.
+  A list read in an earlier seat week is now expired (`net/townSeatBook.js` read), and the book's frame tick (redTick,
+  already called each online frame) reads it again once when the seat week turns, while the seats are open.
 
-Pinned: `test/seat_standing_festival.test.js` (6). Mutants: `tools/mutants/seat_standing_festival.json` (23, all dead).
+Pinned: `test/seat_standing_festival.test.js` (8). Mutants: `tools/mutants/seat_standing_festival.json` (27, all dead).
 
 ### CASTLE-GATE - a crown's field and banners at its castle's entrance (2026-10-02)
 
@@ -11946,9 +11973,18 @@ blocks stand.
   door's field. The service settles a battle's field on the two sides' agreeing, so every client measures it alike.
 - **The banners** (seatBannerAnchors' `castle`): two flanking it, after the palace's two and before the gates and
   boards, within SEAT_BANNERS_MAX.
+- **AUDIT (G1-G3)**: the door is gathered with its record's OUTWARD NORMAL too (`scenes/hallBanners.js` doorNormalOf -
+  meshReader's model-space normal through the model matrix's rotation alone, the one DFU's exit landing steps out
+  along), and the entrance's face - the field's (`doorFace`) and the banners' (`hallBannerAnchors`) - turns to agree with
+  it (`siegeField.js` doorFaceSign; a normal that does not lean along the face, or a palace's or hall's frame, which
+  carries none, keeps the box-middle rule): a U-shaped castle's forecourt or a recessed gate no longer faces the Throne,
+  the camps, the square, the ring and the banners into the keep. "Lowest" is the door's CENTRE, as DFU's landing measures
+  it (doorWorldPosition), not its lower corner; and a door no face can be taken from (narrower than 0.3 m) is passed
+  over for the town's next, never dropping the crown back to the palace door.
 
-Pinned: `test/castle_gate.test.js` (4). Mutants: `tools/mutants/castle_gate.json` (9, all dead). Client alone - no relay,
-no service version.
+Pinned: `test/castle_gate.test.js` (8). Mutants: `tools/mutants/castle_gate.json` (21, all dead; guild1d.json's
+GUILD1d-banner-faces-the-building and seat2a4.json's SEAT2a4-field-face re-aimed at the shared face). Client alone - no
+relay, no service version.
 
 ## QUEST-PARTY phase 1 - A SHARED QUEST'S FOES RIDE TO THE PARTY (2026-09-26)
 
