@@ -120,20 +120,39 @@ export function crewSayBox(text, scale = 1) {
   const lines = Math.max(1, Math.ceil(run / (CREW_SAY_W * CREW_SAY_WRAP_SLACK)));
   return { w: (Math.min(CREW_SAY_W, run) + CREW_SAY_PAD_W + 2 * CREW_SAY_RING) * scale, h: (lines * CREW_SAY_LINE_H + CREW_SAY_PAD_H + 2 * CREW_SAY_RING) * scale };
 }
+/** FIELD BUGS 2026-10-02b CREW-SAY's audit: how fast a bubble's lift comes DOWN to its place (CSS px a second at the
+ *  HUD's scale) once a line under it ends - a rise is at once, so no two ever meet. */
+export const CREW_SAY_EASE = 160;
+/** A memory for `layoutCrewLines` across frames: each bubble's first frame and the lift it is drawn at. */
+export const crewSayMemory = () => ({ seq: 0, bubbles: new Map() });
 /**
- * The lines laid out: `points` `[{ x, y, text, name?, kind, distance }]` (each head's screen point; `name` a hand's own,
- * said before his line). Answers the CREW_SAY_MAX nearest lines to draw, nearest first, each `{ x, y, text, kind,
- * distance, lift }` - `text` with its speaker's name when he says it alone, `lift` the px it stands over its own place.
+ * The lines laid out: `points` `[{ x, y, text, name?, who?, kind, distance }]` (each head's screen point; `name` a
+ * hand's own, said before his line; `who` the speaker, one key a hand). Answers the CREW_SAY_MAX nearest lines to draw,
+ * nearest first, each `{ x, y, text, kind, distance, lift }` - `text` with its speaker's name when he says it alone,
+ * `lift` the px it stands over its own place.
+ * FIELD BUGS 2026-10-02b CREW-SAY's audit (Mac: "Audit this"):
+ *   - only a line SUNG or SHOUTED by several at once is laid once (the chorus, a battle's cry) - two hands' talk is each
+ *     his own, by his name, though the words are the same (two pairs at one old yarn stood as one bubble, by no name);
+ *   - with `memory` (crewSayMemory) a stack stands in the order its lines were first said, the nearest first among
+ *     lines said in one frame - so the eye's drift never turns a stack over (re-ordered by distance every frame, its
+ *     bubbles swapped places, up to 247 px in a frame); a lift comes down at CREW_SAY_EASE px a second (`dt`), and up
+ *     at once;
+ *   - a lifted bubble whose top would stand over `top` (the screen's top) is not drawn - a stack of six at scale 2 on
+ *     a 540-line screen stood off it.
  */
-export function layoutCrewLines(points, { scale = 1 } = {}) {
+export function layoutCrewLines(points, { scale = 1, memory = null, dt = 0, top = -Infinity } = {}) {
   const said = new Map();
   for (const p of [...(points ?? [])].filter(Boolean).sort((a, b) => a.distance - b.distance)) {
-    const g = said.get(p.text);
-    if (g) g.n++; else said.set(p.text, { p, n: 1 });   // nearest first: a chorus stands over its nearest singer
+    const together = p.kind === 'sing' || p.kind === 'shout';
+    const key = together ? `${p.kind}|${p.text}` : `${p.who ?? p.name ?? ''}|${p.text}`;
+    const g = said.get(key);
+    if (g) g.n++; else said.set(key, { key, p, n: 1, at: said.size });   // nearest first: a chorus stands over its nearest singer
   }
+  const chosen = [...said.values()].slice(0, CREW_SAY_MAX);
+  for (const g of chosen) g.born = memory?.bubbles.get(g.key)?.born ?? (memory ? ++memory.seq : g.at);   // a line's place in its stack: when it was first laid, the nearest first of a frame's
   const out = [], placed = [];
-  for (const { p, n } of said.values()) {
-    if (out.length >= CREW_SAY_MAX) break;
+  for (const g of [...chosen].sort((a, b) => a.born - b.born)) {
+    const { p, n } = g;
     const text = n === 1 && p.name ? `${p.name}: ${p.text}` : p.text;
     const { w, h } = crewSayBox(text, scale);
     const foot = p.y - CREW_SAY_LIFT * scale;
@@ -141,13 +160,26 @@ export function layoutCrewLines(points, { scale = 1 } = {}) {
     for (let k = 0; k <= placed.length; k++) {
       const under = placed.find((q) => Math.abs(q.x - p.x) < (q.w + w) / 2 && bottom > q.top && bottom - h < q.bottom);
       if (!under) break;
-      bottom = under.top - CREW_SAY_GAP * scale;   // over the nearer one it would cover
+      bottom = under.top - CREW_SAY_GAP * scale;   // over the one it would cover
     }
-    const lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));   // whole pixels (the face's crispness), rounded UP: the gap whole
+    let lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));   // whole pixels (the face's crispness), rounded UP: the gap whole
+    const was = memory?.bubbles.get(g.key);
+    if (was && was.lift > lift) {   // down, eased - or held where it stands while its way down is barred; never over one
+      const clear = (l) => !placed.some((q) => Math.abs(q.x - p.x) < (q.w + w) / 2 && foot - l > q.top - CREW_SAY_GAP * scale && foot - l - h < q.bottom + CREW_SAY_GAP * scale);
+      const eased = Math.max(lift, was.lift - (dt > 0 ? Math.max(1, Math.floor(CREW_SAY_EASE * scale * dt)) : 0));   // a pixel a frame at the least: whole pixels
+      if (clear(eased)) lift = eased;
+      else if (clear(was.lift)) lift = was.lift;
+    }
+    if (lift > 0 && foot - lift - h < top) continue;   // over the screen's top: not drawn
     placed.push({ x: p.x, w, top: foot - lift - h, bottom: foot - lift });   // the box as it is drawn
-    out.push({ x: p.x, y: p.y, text, kind: p.kind, distance: p.distance, lift });
+    out.push({ x: p.x, y: p.y, text, kind: p.kind, distance: p.distance, lift, key: g.key, born: g.born });
   }
-  return out;
+  if (memory) {
+    const keep = new Map();
+    for (const b of out) keep.set(b.key, { born: b.born, lift: b.lift });
+    memory.bubbles = keep;
+  }
+  return out.sort((a, b) => a.distance - b.distance).map(({ key, born, ...b }) => b);
 }
 export const TAG_FADE_FROM = 150;
 export const TAG_FADE_TO = 0.55;
@@ -969,8 +1001,9 @@ export function drawCrewBars(points, { covered = false, doc = globalThis.documen
  * fading with the distance; a window over the world hides them all.
  */
 let saySlots = [];
-export function drawCrewLines(points, { covered = false, doc = globalThis.document, scale = 1 } = {}) {
-  const want = covered ? [] : layoutCrewLines(points, { scale });   // CREW-SAY: laid out, never over each other
+let sayMemory = crewSayMemory();   // FIELD BUGS 2026-10-02b CREW-SAY: the stacks' order and their lifts, frame to frame
+export function drawCrewLines(points, { covered = false, doc = globalThis.document, scale = 1, dt = 0 } = {}) {
+  const want = covered ? [] : layoutCrewLines(points, { scale, memory: sayMemory, dt, top: 0 });   // CREW-SAY: laid out, never over each other
   if (!tagRoot) {
     if (!want.length || !doc?.createElement) return;
     injectSheets(doc);
@@ -1002,5 +1035,5 @@ export function destroyNavalHud() {
   root?.remove?.();
   root = null; parts = null; shown = {}; touchBrace = false; loss = null; hudClock = 0;
   tagRoot?.remove?.();
-  tagRoot = null; tagSlots = []; crewSlots = []; saySlots = [];
+  tagRoot = null; tagSlots = []; crewSlots = []; saySlots = []; sayMemory = crewSayMemory();
 }

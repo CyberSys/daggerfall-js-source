@@ -4,6 +4,13 @@ Mac, testing sailing: *"I notice ships get stuck in the world of daggerfall ocea
 in place, your crew mates speaking sometimes seems like gibberish"*. Each was reproduced on the real modules before it
 was fixed, pinned by tests that fail on the code as it stood, and mutation-proven.
 
+> **Audited** the same day (FIELD BUGS 2026-10-02b, Mac: "Audit this" - `01-Overview/Field-Bugs-2026-10-02b.md`).
+> SEA-SHOAL below is STRUCK: Deep Waters' real carve never took the lifted sea, so it changed nothing; the sea is kept
+> at the flatten now (SEA-LEVEL). ROCK-FREE's nine-ray sweep, its `pass`, and the host's "beneath" rule are gone - the
+> sphere is swept exactly, a keel line stands for the rule, an overlap counts once, and a boat never holds; each sweep
+> reaches her own end (ROCK-REACH). CREW-SAY merges only what is sung or shouted, keeps a stack's order and eases it
+> down, and draws no lifted bubble off the screen's top. The record below stands as it was written.
+
 | | Report | What it was | Done |
 |---|---|---|---|
 | 1 | "ships get stuck in the world of daggerfall ocean rocks" | the hull's sweep read a pixel's whole ground as ONE collider: a ledge under her answered the zero point and hid every other rock of the pixel, so she sailed into the rock ahead; inside it, both faces of its walls held her for good; and every rock in her sweep, ahead or astern, held her to a metre a second even as she sailed away from it | fixed (ROCK-FREE, ROCK-AWAY) |

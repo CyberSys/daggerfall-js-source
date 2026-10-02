@@ -9,12 +9,11 @@
 // Now the host asks the collider's hullSweepAll, collider by collider as Unity's SphereCastAll answers: a bucket's parts
 // are its colliders (each addMesh one - a World of Daggerfall object's MeshCollider); a part her sphere overlaps where
 // the sweep starts answers once, at its overlap, where it touches (never the zero point); a part that holds her centre
-// answers nothing (Unity's sweep reads no back face); every other part is met by the sweep. The host drops an overlap
-// deeper under her centre than it is off it (a ledge beneath her: flattened, its push is any way at all). And in a rock
-// field a third held her: the response (systems/comeSailAway.js lateUpdateSailing) took her way OFF what she met as well
-// as into it, so a rock astern of a ship sailing away from it held her to its push, a metre a second. The pins, each
-// red on the code before - every one through the REAL modules: the collider (player/collider.js), world.js's own
-// csaSphereCastAll lifted from its source, and Come Sail Away's runtime over the vendored hulls (test/csaScene.mjs):
+// answers nothing (Unity's sweep reads no back face); every other part is met by the sweep. And in a rock field a third
+// held her: the response (systems/comeSailAway.js lateUpdateSailing) took her way OFF what she met as well as into it,
+// so a rock astern of a ship sailing away from it held her to its push, a metre a second. The pins, each red on the
+// code before - every one through the REAL modules: the collider (player/collider.js), world.js's own csaSphereCastAll
+// lifted from its source, and Come Sail Away's runtime over the vendored hulls (test/csaScene.mjs):
 //   A LEDGE HIDES NO ROCK - over a ledge she is held off the rock ahead where open water holds her
 //   THE LEDGE ALONE       - she sails over it and off it, nothing pushing her
 //   ROCK-AWAY             - what she met takes only her way into it: sailing off from a rock astern, or backing off one
@@ -24,8 +23,12 @@
 //                           sails out of it
 //   THE SWEEP'S LAW       - hullSweepAll part by part: an overlap answered once where it touches, a pitched sweep
 //                           never grazing onto it again, a holding part silent (a shared edge crossed once), a mover
-//                           never holding, raycastHit's `pass`
-//   THE HOST              - an overlap beneath her dropped, one beside her kept where it touches
+//                           never holding; nothing under her keel
+//   THE HOST              - her keel line handed on, an overlap beside her kept where it touches
+// Moved by the record's audit (2026-10-02b, `01-Overview/Field-Bugs-2026-10-02b.md`; its own pins in
+// test/fb1002b_rocks.test.js): the sweep is the sphere's own (no spokes, so no `pass` for them), a ledge is no rock
+// by the KEEL LINE where the host had dropped an overlap "beneath" her, and each sweep reaches her own end (ROCK-REACH)
+// - so the rocks of these pins stand inside her own length, and the ledge under her keel.
 // `01-Overview/Field-Bugs-2026-10-02.md`.
 import './modsOff.js';
 import { test } from 'node:test';
@@ -43,8 +46,8 @@ const cutLine = (s, start) => { const i = s.indexOf(start); assert.ok(i >= 0, `l
  *  ground probe over a sea with no ground under it. */
 function liftSweep(col) {
   const body = `let { csaModeCollider, _csaBuckets, modes, surfaceAt, csaPixelAt, state, deepWaters } = s;
-    ${cutLine(WORLD, '  const _csaSlab = [0, 0, 0];')}
-    ${cut(WORLD, '  function csaSphereCastAll(o, r, d, dist) {')}
+    ${cutLine(WORLD, '  const _csaSlab = [0, 0, 0]')}
+    ${cut(WORLD, '  function csaSphereCastAll(')}
     return csaSphereCastAll;`;
   // eslint-disable-next-line no-new-func
   return new Function('s', body)({ csaModeCollider: () => col, _csaBuckets: new Map(), modes: { mode: 'exterior' }, surfaceAt: () => -Infinity, csaPixelAt: () => null, state: null, deepWaters: null });
@@ -89,8 +92,9 @@ function under(rocks, { sails = true } = {}) {
   return { s, boat, sail };
 }
 
-/** A shelf 3 m under the sea's line, under her where she starts and running on under the rock ahead (its foot). */
-const LEDGE = { min: [60, 20, 150], max: [140, 31, 300] };
+/** A shelf 4 m under the sea's line - under her keel (her collider's box's foot, 3.35 m down) - under her where she
+ *  starts and running on under the rock ahead (its foot). */
+const LEDGE = { min: [60, 20, 150], max: [140, 30, 300] };
 /** A rock ahead, standing out of the sea. */
 const ROCK = { min: [70, 0, 280], max: [130, 80, 320] };
 
@@ -121,11 +125,11 @@ test('ROCK-FREE OUT OF THE ROCK: a hull standing inside a rock - a closed one, o
 });
 
 test('ROCK-AWAY: what she met takes only her way INTO it - a rock astern of her under sail, and a rock ahead of her backing off it at the oars, each leave her the way open water does (each held her to the push\'s one metre a second for as long as it lay in her sweep); at rest, or rowing into it, the C#\'s push', () => {
-  // a rock 3 m astern of her stern (her sweep astern reaches it), and she sails away from it
-  const astern = { min: [70, 0, 140], max: [130, 80, 172] };
+  // a rock just inside her stern's sphere (her sweep astern reaches 175.75 m), and she sails away from it
+  const astern = { min: [70, 0, 140], max: [130, 80, 176.5] };
   assert.deepEqual(under([astern]).sail(60), under([]).sail(60), 'under sail away from it: open water\'s track');
-  // a rock 30 m ahead of her centre (her sweep ahead reaches it); at the oars she backs off it
-  const ahead = { min: [70, 0, 228], max: [130, 80, 260] };
+  // a rock just inside her bow's sphere (her sweep ahead reaches 219.87 m); at the oars she backs off it
+  const ahead = { min: [70, 0, 219], max: [130, 80, 260] };
   const backing = under([ahead], { sails: false });
   const rowed = backing.sail(20, ['MoveBackwards']);
   assert.deepEqual(rowed, under([], { sails: false }).sail(20, ['MoveBackwards']), 'backing off it: open water\'s track');
@@ -144,7 +148,7 @@ test('ROCK-AWAY: what she met takes only her way INTO it - a rock astern of her 
   assert.ok(Math.abs(drift([ahead]) + 0.25) < 1e-4, `onto the rock ahead: the push alone (${drift([ahead])})`);
 });
 
-test('ROCK-FREE THE SWEEP\'S LAW: hullSweepAll answers part by part - an overlap once, where it touches; a pitched sweep never grazes onto it again; a part holding her centre answers nothing (its top\'s shared edge crossed once); a mover never holds; raycastHit passes through the parts it is handed', () => {
+test('ROCK-FREE THE SWEEP\'S LAW: hullSweepAll answers part by part - an overlap once, where it touches; a pitched sweep never grazes onto it again; a part holding her centre answers nothing (its top\'s shared edge crossed once); a mover never holds; nothing wholly under her keel is met', () => {
   const o = [0, 0, 0], r = 3;
   // a ledge beneath (part 0) and a rock ahead (part 1)
   const col = pixel([{ min: [-20, -10, -20], max: [20, -2, 60] }, { min: [-5, -10, 30], max: [5, 10, 40] }]);
@@ -176,15 +180,15 @@ test('ROCK-FREE THE SWEEP\'S LAW: hullSweepAll answers part by part - an overlap
   const hull = rockMesh(box);
   boats.addMesh('boat', hull.positions, hull.indices, I, () => [0, 0, 0], () => [1, 0, 0, 0, 1, 0, 0, 0, 1]);
   assert.deepEqual(boats.hullSweepAll(o2, r2, [0, 0, 1], 30).filter((h) => h.start).map((h) => h.point), [[0, 0, 8]], 'a mover\'s overlap answers, where it touches');
-  // raycastHit's `pass`: the parts named, passed through; none named, the answer it always was
-  assert.equal(Math.round(col.raycastHit([0, 5, -50], [0, 0, 1], 200).dist), 80, 'the rock\'s near face');
-  assert.equal(col.raycastHit([0, 5, -50], [0, 0, 1], 200, { only: ['pixel'], pass: new Set([1]) }).dist, Infinity, 'its part passed through');
-  assert.equal(Math.round(col.raycastHit([0, -5, -50], [0, 0, 1], 200, { only: ['pixel'], pass: new Set([1]) }).dist), 30, 'the ledge\'s end, its own part met');
+  // the keel line (2026-10-02b): the ledge wholly under her keel is not met at all - the rock ahead is, as it was
+  const keeled = col.hullSweepAll(o, r, [0, 0, 1], 30, { keelY: -1 });
+  assert.deepEqual(keeled.map((h) => [h.part, Math.round(h.dist * 1e6) / 1e6]), [[1, 27]], 'the ledge (its top 1 m under her keel) unmet; the rock\'s face at 27');
+  assert.equal(col.hullSweepAll(o, r, [0, 0, 1], 30, { keelY: -3 }).filter((h) => h.start).length, 1, 'a keel under the ledge\'s top: its overlap answers');
 });
 
-test('ROCK-FREE THE HOST: world.js\'s sweep drops an overlap deeper under her centre than it is off it (a ledge beneath her) and keeps one beside her where it touches, a static collider\'s, with no root; a rock just past her sphere answers nothing', () => {
+test('ROCK-FREE THE HOST: world.js\'s sweep hands the collider her keel line (2026-10-02b: the ledge beneath her unmet - an overlap "beneath" her had been dropped, a rock awash beside her with it) and keeps an overlap beside her where it touches, a static collider\'s, with no root, marked `start`; a rock just past her sphere answers nothing', () => {
   const col = pixel([{ min: [-20, -10, -20], max: [20, -2, 20] }, { min: [2, -10, -5], max: [12, 10, 5] }, { min: [-10, -10, -5], max: [-3.5, 10, 5] }]);
-  const out = liftSweep(col)([0, 0, 0], 3, [0, 0, 1], 10);
-  assert.deepEqual(out, [{ point: [2, 0, 0], distance: 0, name: 'pixel', root: null, terrain: false, entity: false }], 'the rock beside her, where it touches; the ledge beneath, dropped; the rock 3.5 m off, out of her sphere (3), nothing');
+  const out = liftSweep(col)([0, 0, 0], 3, [0, 0, 1], 10, { keelY: -1.5 });
+  assert.deepEqual(out, [{ point: [2, 0, 0], distance: 0, name: 'pixel', root: null, terrain: false, entity: false, start: true }], 'the rock beside her, where it touches; the ledge under her keel, unmet; the rock 3.5 m off, out of her sphere (3), nothing');
   assert.ok(!out.some((h) => h.point.every((v) => v === 0)), 'never the zero point');
 });

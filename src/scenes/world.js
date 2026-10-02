@@ -5568,10 +5568,7 @@ export async function bootWorld(canvas, renderer, params, status) {
         mapPixelX: p.px, mapPixelY: p.py,
         get position() { return state.pixelTranslation(p.px, p.py, [0, 0, 0]); },   // the terrain's transform: the pixel's corner, the vertical compensation
         get tileMap() { return p.tilemapBytes ?? null; },   // DaggerfallTerrain.TileMap's `.r`, converted as UpdateTileMapData writes it (terrainGen.js)
-        // FIELD BUGS 2026-10-02 SEA-SHOAL: a carved cell's ground is its seafloor (DW-B's law, heightAt's) - World of
-        // Daggerfall's flatten lifts a coastal site's samples toward its average AFTER the tiles are read, so a sea the
-        // mod carved read land under the heightmap (the sea is 6 mm under the line): a boat beached there, at sea
-        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); const lx = c(q[0] - o[0]), lz = c(q[2] - o[2]); const fl = p.deepWaters ? deepWaters?.floorLocalY(p, lx, lz) : null; return fl ?? terrainSampleHeightAt(p.samples, lx, lz, p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight over the terrain's own y - FIELD-CSA2: at Unity's heightmap precision, the flat sea 33.994 under the mod's 34 (the drawn ground's floats read 34.000001: every node on the sea land, no boat sailed)
+        sampleHeight: (q) => { state.pixelTranslation(p.px, p.py, o); const c = (v) => Math.max(0, Math.min(TERRAIN_SIZE, v)); return terrainSampleHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },   // CSA-J (the audit): past the terrain's edge, the edge's height - GetInterpolatedHeight clamps its [0, 1] coordinates, where this sampler went on up the last quad's slope   // Terrain.SampleHeight over the terrain's own y - FIELD-CSA2: at Unity's heightmap precision, the flat sea 33.994 under the mod's 34 (the drawn ground's floats read 34.000001: every node on the sea land, no boat sailed)
       };
       _csaTerrains.set(p, t);
     }
@@ -5665,7 +5662,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     }
     for (const [key, b] of _csaBuckets) if (!want.has(key)) { b.col?.removeBucket?.(key); _csaBuckets.delete(key); }
   }
-  const _csaSlab = [0, 0, 0];
+  const _csaSlab = [0, 0, 0], _csaSweepSkip = new Set();   // FIELD BUGS 2026-10-02b: the sweep's scratch - the sweeping boat's own buckets
   /**
    * CSA-C: PHYSICS.RAYCAST AS COME SAIL AWAY CASTS IT - the Player and Ignore Raycast layers masked out, triggers as
    * asked. The port's scene as its colliders stand: the static world's meshes (the street's collider, or the
@@ -5741,17 +5738,19 @@ export async function bootWorld(canvas, renderer, params, status) {
    * leaves out, the ground asked every half metre along the sweep under the sphere's centre (DECLARED). The foes'
    * controllers are entities the C# leaves out, so none is swept. A boat's own buckets carry its root.
    */
-  function csaSphereCastAll(o, r, d, dist) {
+  function csaSphereCastAll(o, r, d, dist, opts = null) {
     const out = [];
     const col = csaModeCollider();
-    // FIELD BUGS 2026-10-02 ROCK-FREE: the hull's own sweep (player/collider.js hullSweepAll), collider by collider as
-    // Unity's - a rock holding her holds her no more, a ledge she overlaps hides no other rock of its pixel - and an
-    // overlap answered where it touches, never the zero point; one deeper under her sphere's centre than it is off it
-    // (a ledge beneath her) has no side to push her from (flattened, it is any way at all), and is dropped
-    for (const h of col?.hullSweepAll?.(o, r, d, dist) ?? []) {
-      if (h.start && o[1] - h.point[1] > Math.hypot(h.point[0] - o[0], h.point[2] - o[2])) continue;
+    // FIELD BUGS 2026-10-02 ROCK-FREE and its audit (2026-10-02b): the hull's own sweep (player/collider.js
+    // hullSweepAll) - the sphere swept exactly, collider by collider as Unity's, a rock holding her holding her no
+    // more, an overlap answered where it touches (`start`, never the zero point); nothing under her keel (`keelY`, a
+    // shelf she floats over), and none of her own colliders (`opts.boat`'s buckets, which CheckCollision drops)
+    const skip = _csaSweepSkip;
+    skip.clear();
+    if (opts?.boat) for (const [k, b] of _csaBuckets) if (b.boat === opts.boat) skip.add(k);
+    for (const h of col?.hullSweepAll?.(o, r, d, dist, { keelY: opts?.keelY ?? -Infinity, skip }) ?? []) {
       const b = _csaBuckets.get(h.key);
-      out.push({ point: h.point, distance: h.dist, name: b ? String(h.key) : String(h.key ?? 'StaticGeometry'), root: b ? b.boat.GameObject : null, terrain: false, entity: false });
+      out.push({ point: h.point, distance: h.dist, name: b ? String(h.key) : String(h.key ?? 'StaticGeometry'), root: b ? b.boat.GameObject : null, terrain: false, entity: false, ...(h.start ? { start: true } : {}) });
     }
     if ((modes?.mode ?? 'exterior') === 'exterior') {
       for (let t = 0; t <= dist + 1e-9; t += 0.5) {
@@ -7228,7 +7227,7 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  land by the crew's own sight cache, under the covers the bars keep. */
   const _sayKeys = new WeakMap();
   let _sayKey = 0;
-  function navalCrewLines(proj, view, eye) {
+  function navalCrewLines(proj, view, eye, dt = 0) {
     if (typeof document === 'undefined') return;
     const covered = townTalk.overlayActive || gamePaused() || !!townTalk.hudHidden || _mode() !== 'exterior' || !!travelView?.active;
     const points = [];
@@ -7246,10 +7245,10 @@ export async function bootWorld(canvas, renderer, params, status) {
         // FIELD BUGS 2026-10-02 CREW-SAY: the name rides beside the line, so a line many say at once (the chorus) is laid
         // once and by no name - six copies each behind its own name stood over each other (ui/navalHud.js layoutCrewLines)
         const name = csa.boats.includes(l.key) ? naval?.crewName?.(l.key, l.member.i) : null;
-        points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, kind: l.kind, distance: d });
+        points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, who: key, kind: l.kind, distance: d });   // FIELD BUGS 2026-10-02b: `who`, the speaker - his talk is his own
       }
     }
-    drawCrewLines(points, { covered, scale: enhancedHudScale() });
+    drawCrewLines(points, { covered, scale: enhancedHudScale(), dt: gamePaused() ? 0 : dt });
   }
   /** The helm's readout, under every window and with the HUD - `dt` the frame's (the card's hull bar's loss readout). */
   function navalHud(dt = 0) {
@@ -24664,7 +24663,7 @@ const _pixelOrder = [];   // NEAR-FIRST: the frame's pixel walk, nearest first -
       drawPeerNames(proj, view, mwv.eye);   // ONLINE1: the names over the heads
       navalTags(proj, view, mwv.eye);   // AUDIT NAV1 (#14): the ships' tags
       navalCrewBars(proj, view, mwv.eye);   // SHIPMATES: the crew's green bars
-      navalCrewLines(proj, view, mwv.eye);   // LIVING CREW: the lines over their heads
+      navalCrewLines(proj, view, mwv.eye, dt);   // LIVING CREW: the lines over their heads
       // WORLD-HOVER: the plaque, where this host already draws its HUD.
       // It races EXACTLY what the press races - the same six live picks
       // against the same door/person/board set, settled by the same

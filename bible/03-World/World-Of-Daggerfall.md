@@ -107,10 +107,19 @@ through `Math.fround`, so the samples it writes are the ones DFU's
 `SetHeights` received.
 
 The lerp reaches EVERY sample of the tile, so a site a few metres over the
-sea lifts its whole pixel's sea over Come Sail Away's 34 m line (the sea is
-0.4 of a heightmap step from reading land) while the tiles stay water: with
-Deep Waters on, every boat there read beached. SEA-SHOAL (FIELD BUGS
-2026-10-02) has the boat read a carved cell's seafloor; the flatten stands.
+sea lifted its whole pixel's sea over Come Sail Away's 34 m line (the sea is
+0.4 of a heightmap step from reading land) and over Deep Waters' carve (its
+four corners at most 34.019 m) while the tiles stay water: with Deep Waters
+on, every boat there lay beached, her sails refused, and no sea was carved.
+SEA-LEVEL (FIELD BUGS 2026-10-02b, Mac: "Controls for the player vessel are
+currently broken, including not being able to lower sails"; a departure):
+the flatten never raises the sea past SEA_RAMP (2) samples of the site's own
+rect - a sample at the sampler's sea clamp (SEA_SAMPLE) under the site's
+mean stays the sea past it; inside the rect the site's ground is the mod's,
+and within SEA_RAMP the mod's own lerp, a ramp down to the water. The land
+is levelled as the mod levels it. (SEA-SHOAL, FIELD BUGS 2026-10-02, had the
+boat read a carved seafloor there; the carve never took the lifted sea, and
+its audit struck it.)
 
 Because the flatten runs after texturing and before nature, three
 things follow and all three are the reference's: the ground's TILES are

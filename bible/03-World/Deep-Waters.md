@@ -43,10 +43,13 @@ stood - the author's bake is a little wetter at the coast).
 
 A carved cell's ground is the seafloor: the world host's `heightAt` answers
 the floor's own height there, so the capsule, the foes and every probe stand
-on it with no second ground - and since SEA-SHOAL (FIELD BUGS 2026-10-02) Come
-Sail Away's boat reads it too (`csaTerrainOf`'s SampleHeight), where Unity's
-reads the heightmap under the hole, which World of Daggerfall's flatten can
-lift over the sea's line. The floor's walls stand along the pixel's edge,
+on it with no second ground. Come Sail Away's boat reads the heightmap under
+the hole, as Unity's SampleHeight does: SEA-SHOAL (FIELD BUGS 2026-10-02) had
+it read the floor where World of Daggerfall's flatten lifted the sea over its
+line, and was struck by its audit (FIELD BUGS 2026-10-02b) - the carve itself
+takes a cell only where its four corners stand at the ocean's height, so no
+lifted cell was ever carved; the flatten keeps the sea now (SEA-LEVEL,
+`03-World/World-Of-Daggerfall.md`), and the carve takes it. The floor's walls stand along the pixel's edge,
 where the carve stops at the boundary (AppendHoleEdgeWalls: the border
 cells only, where the bake's hole does not run on across the boundary, and
 never on a pixel read off the local fallback) - a carved cell beside the

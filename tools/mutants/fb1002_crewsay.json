@@ -2,8 +2,8 @@
   {
     "name": "SAY-chorus-each",
     "file": "src/ui/navalHud.js",
-    "old": "    if (g) g.n++; else said.set(p.text, { p, n: 1 });",
-    "new": "    said.set(`${p.text}\\u0000${said.size}`, { p, n: 1 });",
+    "old": "    if (g) g.n++; else said.set(key, { key, p, n: 1, at: said.size });",
+    "new": "    said.set(`${key}\\u0000${said.size}`, { key: `${key}\\u0000${said.size}`, p, n: 1, at: said.size });",
     "tests": [
       "test/fb1002_crewsay.test.js"
     ]
@@ -38,7 +38,7 @@
   {
     "name": "SAY-no-lift",
     "file": "src/ui/navalHud.js",
-    "old": "      bottom = under.top - CREW_SAY_GAP * scale;   // over the nearer one it would cover",
+    "old": "      bottom = under.top - CREW_SAY_GAP * scale;   // over the one it would cover",
     "new": "      break;",
     "tests": [
       "test/fb1002_crewsay.test.js"
@@ -47,7 +47,7 @@
   {
     "name": "SAY-no-gap",
     "file": "src/ui/navalHud.js",
-    "old": "      bottom = under.top - CREW_SAY_GAP * scale;   // over the nearer one it would cover",
+    "old": "      bottom = under.top - CREW_SAY_GAP * scale;   // over the one it would cover",
     "new": "      bottom = under.top;",
     "tests": [
       "test/fb1002_crewsay.test.js"
@@ -56,8 +56,8 @@
   {
     "name": "SAY-lift-rounded",
     "file": "src/ui/navalHud.js",
-    "old": "    const lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));",
-    "new": "    const lift = Math.max(0, Math.round(foot - bottom));",
+    "old": "    let lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));",
+    "new": "    let lift = Math.max(0, Math.round(foot - bottom));",
     "tests": [
       "test/fb1002_crewsay.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "SAY-lift-fractional",
     "file": "src/ui/navalHud.js",
-    "old": "    const lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));",
-    "new": "    const lift = Math.max(0, foot - bottom);",
+    "old": "    let lift = Math.max(0, Math.ceil(foot - bottom - 1e-9));",
+    "new": "    let lift = Math.max(0, foot - bottom);",
     "tests": [
       "test/fb1002_crewsay.test.js"
     ]
@@ -101,8 +101,8 @@
   {
     "name": "SAY-unbounded",
     "file": "src/ui/navalHud.js",
-    "old": "    if (out.length >= CREW_SAY_MAX) break;\n    const text = n === 1",
-    "new": "    const text = n === 1",
+    "old": "  const chosen = [...said.values()].slice(0, CREW_SAY_MAX);",
+    "new": "  const chosen = [...said.values()];",
     "tests": [
       "test/fb1002_crewsay.test.js"
     ]
@@ -175,8 +175,8 @@
   {
     "name": "SAY-world-name-in-line",
     "file": "src/scenes/world.js",
-    "old": "        points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, kind: l.kind, distance: d });",
-    "new": "        points.push({ x: at.x, y: at.y, text: l.text, name: null, kind: l.kind, distance: d });",
+    "old": "        points.push({ x: at.x, y: at.y, text: l.text, name: name ? name.split(' ')[0] : null, who: key, kind: l.kind, distance: d });",
+    "new": "        points.push({ x: at.x, y: at.y, text: l.text, name: null, who: key, kind: l.kind, distance: d });",
     "tests": [
       "test/fb1002_crewsay.test.js"
     ]

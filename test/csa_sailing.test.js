@@ -282,7 +282,7 @@ test('CSA-D: CheckCollision - two sweeps of the half-beam along the hull; each c
   const local = MODELS.meshes.OldSkiffHull.aabb;
   const c0 = s.out.casts[0];
   assert.ok(close(c0.r, local.extent[0], 1e-6), 'radius = sharedMesh.bounds.extents.x');
-  assert.ok(close(c0.dist, 2 * (local.extent[2] - local.extent[0]), 1e-4), 'length = 2 (extents.z - x)');
+  assert.ok(close(c0.dist, local.extent[2] - local.extent[0], 1e-4), 'length = extents.z - x: her own end (FIELD BUGS 2026-10-02b ROCK-REACH, a departure - the C#\'s reached twice that, half a hull past her end)');
   closeV(c0.d, [0, 0, 1], 1e-6, 'the first sweep toward the bow');
   closeV(s.out.casts[1].d, [0, 0, -1], 1e-6, 'the second toward the stern');
   assert.deepEqual(s.out.log.filter((l) => l.startsWith('COME SAIL AWAY - BOAT COLLIDED')), ['COME SAIL AWAY - BOAT COLLIDED WITH Pier', 'COME SAIL AWAY - BOAT COLLIDED WITH Rock']);

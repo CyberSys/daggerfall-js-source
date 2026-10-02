@@ -1112,7 +1112,12 @@ with crew naturally getting into position and fighting enemies".
   mates speaking sometimes seems like gibberish"): laid by `layoutCrewLines` - a line two or more say at once once,
   over the nearest and by no name; a line said alone by its speaker's first name; each foot clear of a mate's bar and
   name; each farther bubble lifted over every nearer one it would cover, the nearest drawn over the rest. They had
-  stood over each other in 56% of the frames with two lines up, the chorus up to six deep. AUDIT NAV2: a re-keyed ship keeps her crew and a hold
+  stood over each other in 56% of the frames with two lines up, the chorus up to six deep. Its audit (FIELD BUGS
+  2026-10-02b): only a line SUNG or SHOUTED by many is laid once - two hands' talk is each his own, by his name; a stack
+  stands in the order its lines were first said (`crewSayMemory`), so the eye's drift never turns it over (bubbles
+  swapped places, up to 247 px in a frame), and a bubble comes down to its place at CREW_SAY_EASE px a second, held
+  where it stands while its way down is barred, up at once - never over another; a lifted bubble that would stand over
+  the screen's top is not drawn. AUDIT NAV2: a re-keyed ship keeps her crew and a hold
   let go stands her again whole (F6: a room's hand-over stood a second crew beside the flats the first switched back
   on, down for good once she left); a ship going down keeps her living crew to the end, her flats down (F45: dropped
   at the sinking, the mod's static flats in their place); with the arc off no living crew stands - Come Sail Away as

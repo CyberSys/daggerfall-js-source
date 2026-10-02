@@ -2,8 +2,8 @@
   {
     "name": "FIELD-CSA2-host-reads-the-drawn-ground",
     "file": "src/scenes/world.js",
-    "old": "return fl ?? terrainSampleHeightAt(p.samples, lx, lz, p._stride ?? 1); },",
-    "new": "return fl ?? surfaceHeightAt(p.samples, lx, lz, p._stride ?? 1); },",
+    "old": "return terrainSampleHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },",
+    "new": "return surfaceHeightAt(p.samples, c(q[0] - o[0]), c(q[2] - o[2]), p._stride ?? 1); },",
     "tests": [
       "test/field_csa2.test.js"
     ]

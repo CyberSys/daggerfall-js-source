@@ -754,11 +754,6 @@ export class Collider {
    * The travel steering casts a dozen feelers a frame through here
    * (systems/travelSteer.js createColliderProbe) and owns one result for
    * all of them. Without it the answer is the one it always was.
-   *
-   * FIELD BUGS 2026-10-02 ROCK-FREE: and `pass` - a Set of a bucket's
-   * parts (its `addMesh` calls, in order) the ray passes through, for
-   * the one bucket `only` names (hullSweepAll: the colliders a hull's
-   * sphere overlaps, or that hold her).
    */
   raycastHit(origin, dirW, maxDist, filter = null, out = null) {
     let best = Infinity;
@@ -767,7 +762,6 @@ export class Collider {
     let bestR = null;   // AUDIT NAV1 (#12): and the turn of the bucket it stands in
     const only = filter?.only ? new Set(filter.only) : null;
     const skip = filter?.skip ? new Set(filter.skip) : null;
-    const pass = filter?.pass ?? null;
     // FB0930-FRAME: the buckets the ray's own world box reaches, in the walk's order - the rest would fail the box below
     const ex = origin[0] + dirW[0] * maxDist, ez = origin[2] + dirW[2] * maxDist;
     const near = this._near(Math.min(origin[0], ex) - BOX_SKIN, Math.max(origin[0], ex) + BOX_SKIN,
@@ -827,7 +821,6 @@ export class Collider {
             if (marks[ti] === stamp) continue;
             if (yHiOf[ti] < rLo || yLoOf[ti] > rHi) continue;   // not reachable in this cell - left unmarked
             marks[ti] = stamp;
-            if (pass !== null && pass.has(bucket.part[ti])) continue;
             const tri = bucket.tris[ti];
             const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
             if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
@@ -839,7 +832,6 @@ export class Collider {
       // AUDIT BRANCH (WoD) B1: the wide triangles, where this bucket holds any
       if (bucket.wide.length) {   // OW-WOD-LAG: the tree's, each wide triangle once
         for (const ti of wideOnRay(bucket, ox, oy, oz, dir, Math.min(maxDist, best))) {
-          if (pass !== null && pass.has(bucket.part[ti])) continue;
           const tri = bucket.tris[ti];
           const hit = rayTriangle(ox, oy, oz, dir, tri[0], tri[1], tri[2]);
           if (hit !== null && hit < best && hit <= maxDist) { best = hit; bestKey = bkey; bestTri = tri; bestR = R; }
@@ -1117,45 +1109,35 @@ export class Collider {
   }
 
   /**
-   * FIELD BUGS 2026-10-02 ROCK-FREE (Mac: "ships get stuck in the world of daggerfall ocean rocks"): A HULL'S SWEEP,
-   * COLLIDER BY COLLIDER - Come Sail Away's CheckCollision through the world's host (scenes/world.js csaSphereCastAll),
-   * in place of `sphereCastAll` above. That one is Unity's SphereCastAll over a bucket as ONE collider, and a static
-   * bucket is a pixel's whole ground - every World of Daggerfall rock of it in one. So a ledge under a hull, overlapping
-   * her sphere where the sweep starts, answered the zero point (a push from the scene's origin, whatever lay there) and
-   * cast no ray at the rest of the pixel: she sailed into the rock ahead unmet. And from inside a rock every ray met its
-   * inner walls (both faces, the collider's law) and pushed her back in, for good.
-   *
-   * Here a bucket's PARTS are its colliders - each `addMesh` one, as a World of Daggerfall object or a model is its own
-   * MeshCollider (CreateDaggerfallMeshGameObject) - and each answers once, as Unity's SphereCastAll answers a collider:
-   *   - a part her sphere OVERLAPS where the sweep starts answers at its overlap - the nearest point of its faces her
-   *     whole sphere reaches (the fine cells across its radius and the wide faces) - `start: true`, and nothing more
-   *     (a ledge she rides over is never met again as a rock ahead, when the swell pitches her sweep onto it);
-   *   - a part that holds her sphere's CENTRE (`partsHolding`) answers nothing: from inside a solid, Unity's sweep
-   *     meets back faces alone, and reads none (Physics.queriesHitBackfaces off) - she leaves as she likes;
-   *   - every other part is met by the sweep: nine spokes over the sphere's cross-section - the centre's to the
-   *     sphere's front at the sweep's end, the rim's eight to the rim's - the nearest contact the bucket's, its
-   *     distance the sphere's travel to it.
-   * Answers `[{ key, dist, point, start? }]`.
+   * FIELD BUGS 2026-10-02 ROCK-FREE (Mac: "ships get stuck in the world of daggerfall ocean rocks"), and its audit
+   * (2026-10-02b, Mac: "Audit this"): A HULL'S SWEEP, MET AS UNITY MEETS IT - Come Sail Away's CheckCollision through
+   * the world's host (scenes/world.js csaSphereCastAll), in place of `sphereCastAll` above. That one is Unity's
+   * SphereCastAll over a bucket as ONE collider cast as nine rays, and a static bucket is a pixel's whole ground - every
+   * World of Daggerfall rock of it in one: a ledge under her answered the zero point for the whole pixel and hid the
+   * rock ahead; from inside a rock its inner walls (both faces, the collider's law) held her in for good; and a rock
+   * smaller than the gap between two spokes was never met at all. Here:
+   *   - THE SPHERE ITSELF IS SWEPT (`sweepSphereTriangle`: the face, its three edges, its three corners) against every
+   *     triangle the swept sphere's box reaches - no rock slips between rays;
+   *   - a bucket's PARTS are its colliders - each `addMesh` one, as a World of Daggerfall object or a model is its own
+   *     MeshCollider (CreateDaggerfallMeshGameObject) - and each answers ONCE, as Unity answers a collider: an overlap
+   *     where the sweep starts at the nearest point she touches (`start: true`, `dist` 0), else her first contact
+   *     along the sweep (`dist` her centre's travel to it);
+   *   - a part that holds her sphere's centre answers nothing (`partsHolding`; Unity's sweep reads no back face) - she
+   *     leaves as she likes; only a static bucket holds (one that turns, a boat's collider, never does);
+   *   - `keelY`: nothing wholly under her keel is met - a shelf she floats over is no rock, however the swell pitches
+   *     her sweep (a world height; a static bucket's faces only - another boat's are always met);
+   *   - `skip`: buckets not asked (her own colliders - CheckCollision would drop them, after the walk).
+   * Answers `[{ key, part, dist, point, start? }]`.
    */
-  hullSweepAll(origin, radius, dir, maxDist) {
+  hullSweepAll(origin, radius, dir, maxDist, { keelY = -Infinity, skip = null } = {}) {
     const out = [];
     const end = [origin[0] + dir[0] * maxDist, origin[1] + dir[1] * maxDist, origin[2] + dir[2] * maxDist];
     const lo = [0, 1, 2].map((i) => Math.min(origin[i], end[i]) - radius);
     const hi = [0, 1, 2].map((i) => Math.max(origin[i], end[i]) + radius);
-    let ux = -dir[2], uy = 0, uz = dir[0];
-    let ul = Math.hypot(ux, uy, uz);
-    if (ul < 1e-6) { ux = 1; uy = 0; uz = 0; ul = 1; }
-    ux /= ul; uy /= ul; uz /= ul;
-    const vx = dir[1] * uz - dir[2] * uy, vy = dir[2] * ux - dir[0] * uz, vz = dir[0] * uy - dir[1] * ux;
-    const h = radius * Math.SQRT1_2;
-    const spokes = [[0, 0, 0], [ux * radius, uy * radius, uz * radius], [-ux * radius, -uy * radius, -uz * radius],
-      [vx * radius, vy * radius, vz * radius], [-vx * radius, -vy * radius, -vz * radius],
-      [(ux + vx) * h, (uy + vy) * h, (uz + vz) * h], [(ux - vx) * h, (uy - vy) * h, (uz - vz) * h],
-      [(-ux + vx) * h, (-uy + vy) * h, (-uz + vz) * h], [(-ux - vx) * h, (-uy - vy) * h, (-uz - vz) * h]];
-    const r2 = radius * radius;
-    const reachCells = Math.ceil(radius / CELL);
-    const held = SWEEP_HELD, pass = SWEEP_PASS, touches = SWEEP_TOUCH;
+    const held = SWEEP_HELD, first = SWEEP_FIRST;
     for (const [key, bucket] of this._buckets) {
+      if (skip && skip.has(key)) continue;
+      if (!(bucket.min[0] <= bucket.max[0])) continue;   // an empty bucket's box is inverted
       const t = bucket.t();
       const R = bucket.r ? bucket.r() : null;
       let apart = false;
@@ -1165,54 +1147,49 @@ export class Collider {
       } else for (let i = 0; i < 3; i++) if (hi[i] < bucket.min[i] + t[i] - BOX_SKIN || lo[i] > bucket.max[i] + t[i] + BOX_SKIN) apart = true;
       if (apart) continue;
       intoBucket(origin[0], origin[1], origin[2], t, R, LOCAL);
-      const lx = LOCAL[0], ly = LOCAL[1], lz = LOCAL[2];   // copied out: the queries below take the scratch
-      held.clear(); pass.clear(); touches.clear();
-      if (sphereTouchesBox(lx, ly, lz, radius, bucket.min, bucket.max)) {
-        if (!R) partsHolding(bucket, lx, ly, lz, held);   // a mover's turned frame has no up of its own: a boat holds no hull
-        const visited = VISITED;
-        visited.clear();
-        const touch = (ti) => {
-          if (visited.has(ti)) return;
-          visited.add(ti);
-          const part = bucket.part[ti];
-          if (held.has(part)) return;
-          if (bucket.yHi[ti] < ly - radius || bucket.yLo[ti] > ly + radius) return;
-          const tri = bucket.tris[ti];
-          if (!triNear(tri, lx, ly, lz, radius)) return;
-          closestPointOnTriangle(lx, ly, lz, tri[0], tri[1], tri[2], TMP);
-          const dx = lx - TMP[0], dy = ly - TMP[1], dz = lz - TMP[2], d2 = dx * dx + dy * dy + dz * dz;
-          if (d2 >= r2) return;
-          const was = touches.get(part);
-          if (!was || d2 < was[0]) touches.set(part, [d2, TMP[0], TMP[1], TMP[2]]);
-        };
-        const gx = Math.floor(lx / CELL), gz = Math.floor(lz / CELL);
-        for (let ox = -reachCells; ox <= reachCells; ox++) {
-          for (let oz = -reachCells; oz <= reachCells; oz++) {
-            const cell = bucket.grid.get(cellKey(gx + ox, gz + oz));
-            if (cell) for (const ti of cell) touch(ti);
-          }
-        }
-        if (bucket.wide.length) for (const ti of [...wideNear(bucket, lx, ly, lz, radius)]) touch(ti);
-        for (const part of held) pass.add(part);
-        for (const [part, [, cx, cy, cz]] of touches) {
-          pass.add(part);
-          const p = R ? [R[0] * cx + R[3] * cy + R[6] * cz + t[0], R[1] * cx + R[4] * cy + R[7] * cz + t[1], R[2] * cx + R[5] * cy + R[8] * cz + t[2]]
-            : [cx + t[0], cy + t[1], cz + t[2]];
-          out.push({ key, dist: 0, point: p, start: true });
+      const ox = LOCAL[0], oy = LOCAL[1], oz = LOCAL[2];   // copied out: partsHolding and the walk take the scratch
+      let dx = dir[0], dy = dir[1], dz = dir[2];
+      if (R) { intoBucket(dir[0], dir[1], dir[2], ZERO3, R, LOCAL_DIR); dx = LOCAL_DIR[0]; dy = LOCAL_DIR[1]; dz = LOCAL_DIR[2]; }
+      const ex = ox + dx * maxDist, ey = oy + dy * maxDist, ez = oz + dz * maxDist;
+      const x0 = Math.min(ox, ex) - radius, x1 = Math.max(ox, ex) + radius;
+      const y0 = Math.min(oy, ey) - radius, y1 = Math.max(oy, ey) + radius;
+      const z0 = Math.min(oz, ez) - radius, z1 = Math.max(oz, ez) + radius;
+      held.clear();
+      first.clear();
+      if (!bucket.r) partsHolding(bucket, ox, oy, oz, held);
+      const keel = bucket.r ? -Infinity : keelY - t[1];   // a static bucket's frame is its translation's alone
+      const marks = rayMarks(bucket), stamp = RAY_STAMP;
+      const yLoOf = bucket.yLo, yHiOf = bucket.yHi, partOf = bucket.part, tris = bucket.tris;
+      const test = (ti) => {
+        if (marks[ti] === stamp) return;
+        marks[ti] = stamp;
+        if (yHiOf[ti] < keel || yHiOf[ti] < y0 || yLoOf[ti] > y1) return;
+        const part = partOf[ti];
+        if (held.has(part)) return;
+        const tri = tris[ti], a = tri[0], b = tri[1], c = tri[2];
+        if (Math.max(a[0], b[0], c[0]) < x0 || Math.min(a[0], b[0], c[0]) > x1 || Math.max(a[2], b[2], c[2]) < z0 || Math.min(a[2], b[2], c[2]) > z1) return;
+        if (!sweepSphereTriangle(ox, oy, oz, radius, dx, dy, dz, maxDist, a, b, c, SWEEP_HIT)) return;
+        // an overlap answers at the part's nearest point to her centre, of every face it touches her with
+        const near = SWEEP_HIT[0] === 0 ? (SWEEP_HIT[1] - ox) ** 2 + (SWEEP_HIT[2] - oy) ** 2 + (SWEEP_HIT[3] - oz) ** 2 : 0;
+        const was = first.get(part);
+        if (!was || SWEEP_HIT[0] < was[0] || (SWEEP_HIT[0] === 0 && near < was[4])) first.set(part, [SWEEP_HIT[0], SWEEP_HIT[1], SWEEP_HIT[2], SWEEP_HIT[3], near]);
+      };
+      const gx0 = Math.floor(x0 / CELL), gx1 = Math.floor(x1 / CELL), gz0 = Math.floor(z0 / CELL), gz1 = Math.floor(z1 / CELL);
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gz = gz0; gz <= gz1; gz++) {
+          const cell = bucket.grid.get(cellKey(gx, gz));
+          if (cell) for (let ci = 0; ci < cell.length; ci++) test(cell[ci]);
         }
       }
-      let best = Infinity, bestPoint = null;
-      const filter = { only: [key], pass: pass.size ? pass : null };   // the parts answered above, or holding her, once
-      for (let k = 0; k < spokes.length; k++) {
-        // the centre's spoke reaches the sphere's front at the sweep's end, a rim spoke the rim's own end - its travel
-        // the sphere's (the rim's reach was a radius past the swept sphere, so what else stood in the bucket - its box
-        // the sweep's cull - decided whether it met anything there)
-        const ahead = k === 0 ? radius : 0;
-        const o = [origin[0] + spokes[k][0], origin[1] + spokes[k][1], origin[2] + spokes[k][2]];
-        const hit = this.raycastHit(o, dir, maxDist + ahead, filter);
-        if (hit.dist - ahead < best) { best = hit.dist - ahead; bestPoint = [o[0] + dir[0] * hit.dist, o[1] + dir[1] * hit.dist, o[2] + dir[2] * hit.dist]; }
+      if (bucket.wide.length) {
+        const half = maxDist / 2;
+        for (const ti of [...wideNear(bucket, ox + dx * half, oy + dy * half, oz + dz * half, half + radius)]) test(ti);
       }
-      if (Number.isFinite(best)) out.push({ key, dist: Math.max(0, best), point: bestPoint });
+      for (const [part, [d, cx, cy, cz]] of first) {
+        const p = R ? [R[0] * cx + R[3] * cy + R[6] * cz + t[0], R[1] * cx + R[4] * cy + R[7] * cz + t[1], R[2] * cx + R[5] * cy + R[8] * cz + t[2]]
+          : [cx + t[0], cy + t[1], cz + t[2]];
+        out.push(d === 0 ? { key, part, dist: 0, point: p, start: true } : { key, part, dist: d, point: p });
+      }
     }
     return out;
   }
@@ -2034,13 +2011,13 @@ export class Collider {
 
 const ZERO3 = [0, 0, 0];
 /** FIELD BUGS 2026-10-02 ROCK-FREE: `partsHolding`'s line, straight up, and how near two of its crossings are one (a
- *  shared edge, a vertex - the skin crossed once); hullSweepAll's scratch - the parts holding her centre, the parts
- *  passed through, each overlapped part's nearest contact - and partsHolding's, each part's crossings. */
+ *  shared edge, a vertex - the skin crossed once); hullSweepAll's scratch - the parts holding her centre, each part's
+ *  first contact, the sweep's answer - and partsHolding's, each part's crossings. */
 const UP3 = [0, 1, 0];
 const CROSSING_SAME = 1e-4;
 const SWEEP_HELD = new Set();
-const SWEEP_PASS = new Set();
-const SWEEP_TOUCH = new Map();
+const SWEEP_FIRST = new Map();   // hullSweepAll: each part's first contact, [dist, x, y, z, an overlap's squared distance]
+const SWEEP_HIT = [0, 0, 0, 0];   // sweepSphereTriangle's answer: [dist, x, y, z]
 const HOLD_CROSSINGS = new Map();
 
 /**
@@ -2073,6 +2050,85 @@ function partsHolding(bucket, lx, ly, lz, out) {
     if (n & 1) out.add(part);
   }
   return out;
+}
+
+/**
+ * FIELD BUGS 2026-10-02b ROCK-FREE's audit: A SPHERE SWEPT AGAINST ONE TRIANGLE, exactly - the sphere of radius `r`
+ * from (cx, cy, cz) along the unit (dx, dy, dz) for at most `L`. Its first contact into `out` - [travel, x, y, z], the
+ * point on the triangle it touches - true; false if it touches nothing on the way. WINDING-BLIND, as every query here
+ * is. An overlap where it starts is travel 0 at the nearest point. Else the face (met before any edge or corner where
+ * it is met at all), then the three edges (each the infinite line's quadratic, kept where the contact falls on the
+ * segment) and the three corners (each a ray against a sphere about it), the earliest.
+ */
+export function sweepSphereTriangle(cx, cy, cz, r, dx, dy, dz, L, a, b, c, out) {
+  const r2 = r * r;
+  closestPointOnTriangle(cx, cy, cz, a, b, c, TMP);
+  const qx = cx - TMP[0], qy = cy - TMP[1], qz = cz - TMP[2];
+  if (qx * qx + qy * qy + qz * qz <= r2) { out[0] = 0; out[1] = TMP[0]; out[2] = TMP[1]; out[3] = TMP[2]; return true; }
+  const e1x = b[0] - a[0], e1y = b[1] - a[1], e1z = b[2] - a[2];
+  const e2x = c[0] - a[0], e2y = c[1] - a[1], e2z = c[2] - a[2];
+  const n0x = e1y * e2z - e1z * e2y, n0y = e1z * e2x - e1x * e2z, n0z = e1x * e2y - e1y * e2x;
+  const nl = Math.hypot(n0x, n0y, n0z);
+  if (nl > 1e-12) {
+    let nx = n0x / nl, ny = n0y / nl, nz = n0z / nl;
+    let s = nx * (cx - a[0]) + ny * (cy - a[1]) + nz * (cz - a[2]);
+    if (s < 0) { s = -s; nx = -nx; ny = -ny; nz = -nz; }   // the side she is on
+    const nd = nx * dx + ny * dy + nz * dz;
+    if (nd < -1e-12 && s >= r) {
+      const tp = (s - r) / -nd;
+      if (tp <= L) {
+        const px = cx + dx * tp - nx * r, py = cy + dy * tp - ny * r, pz = cz + dz * tp - nz * r;
+        const tol = -1e-9 * nl;   // inside all three edges, by the triangle's own normal
+        if (edgeSide(e1x, e1y, e1z, px - a[0], py - a[1], pz - a[2], n0x, n0y, n0z) >= tol
+          && edgeSide(c[0] - b[0], c[1] - b[1], c[2] - b[2], px - b[0], py - b[1], pz - b[2], n0x, n0y, n0z) >= tol
+          && edgeSide(a[0] - c[0], a[1] - c[1], a[2] - c[2], px - c[0], py - c[1], pz - c[2], n0x, n0y, n0z) >= tol) {
+          out[0] = tp; out[1] = px; out[2] = py; out[3] = pz;
+          return true;
+        }
+      }
+    }
+  }
+  let best = sweepEdge(cx, cy, cz, r2, dx, dy, dz, L, a, b, Infinity, out);
+  best = sweepEdge(cx, cy, cz, r2, dx, dy, dz, L, b, c, best, out);
+  best = sweepEdge(cx, cy, cz, r2, dx, dy, dz, L, c, a, best, out);
+  best = sweepCorner(cx, cy, cz, r2, dx, dy, dz, L, a, best, out);
+  best = sweepCorner(cx, cy, cz, r2, dx, dy, dz, L, b, best, out);
+  best = sweepCorner(cx, cy, cz, r2, dx, dy, dz, L, c, best, out);
+  if (best === Infinity) return false;
+  out[0] = best;
+  return true;
+}
+/** sweepSphereTriangle's edge test: (u x v) . n - which side of an edge `u` a point `v` from its start lies. */
+const edgeSide = (ux, uy, uz, vx, vy, vz, nx, ny, nz) => (uy * vz - uz * vy) * nx + (uz * vx - ux * vz) * ny + (ux * vy - uy * vx) * nz;
+/** sweepSphereTriangle's edge p..q: the infinite line's quadratic, kept where the contact falls on the segment and
+ *  before `best` - its point into `out[1..3]`. The earlier of the two. */
+function sweepEdge(cx, cy, cz, r2, dx, dy, dz, L, p, q, best, out) {
+  const ex = q[0] - p[0], ey = q[1] - p[1], ez = q[2] - p[2];
+  const wx = cx - p[0], wy = cy - p[1], wz = cz - p[2];
+  const ee = ex * ex + ey * ey + ez * ez, ed = ex * dx + ey * dy + ez * dz, ew = ex * wx + ey * wy + ez * wz;
+  const A = ee - ed * ed;   // |d| = 1
+  if (A <= 1e-12 * ee) return best;   // along the edge: its corners answer
+  const B = 2 * (ee * (dx * wx + dy * wy + dz * wz) - ed * ew);
+  const C = ee * (wx * wx + wy * wy + wz * wz - r2) - ew * ew;
+  const disc = B * B - 4 * A * C;
+  if (disc < 0) return best;
+  const tt = (-B - Math.sqrt(disc)) / (2 * A);
+  if (tt < 0 || tt > L || tt >= best) return best;
+  const f = (ed * tt + ew) / ee;
+  if (f < 0 || f > 1) return best;
+  out[1] = p[0] + ex * f; out[2] = p[1] + ey * f; out[3] = p[2] + ez * f;
+  return tt;
+}
+/** sweepSphereTriangle's corner `v`: a ray against a sphere about it. The earlier of it and `best`. */
+function sweepCorner(cx, cy, cz, r2, dx, dy, dz, L, v, best, out) {
+  const wx = cx - v[0], wy = cy - v[1], wz = cz - v[2];
+  const B = 2 * (dx * wx + dy * wy + dz * wz), C = wx * wx + wy * wy + wz * wz - r2;
+  const disc = B * B - 4 * C;
+  if (disc < 0) return best;
+  const tt = (-B - Math.sqrt(disc)) / 2;
+  if (tt < 0 || tt > L || tt >= best) return best;
+  out[1] = v[0]; out[2] = v[1]; out[3] = v[2];
+  return tt;
 }
 const TMP = [0, 0, 0];
 const UP = Object.freeze([0, 1, 0]);   // WW-LID: the head's rise, asked as a ray

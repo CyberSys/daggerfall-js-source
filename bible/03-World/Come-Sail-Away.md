@@ -503,15 +503,20 @@ step, the steps over the quad's two triangles (GetInterpolatedHeight, the
 drawn ground's own cut), the height a step times size.y over kMaxHeight.
 Declared: the port rounds a height to its step (Unity's own rounding is in
 no source the port has; the sea is step 579 either way).
-`01-Overview/Field-Bugs-2026-09-29c.md`. SEA-SHOAL (FIELD BUGS 2026-10-02,
-Mac: "your ship can get stuck at sea in place"; a departure): a CARVED cell's
-ground is its seafloor - `csaTerrainOf` answers the carve's floor there
-(DW-B's law, the host's `heightAt`'s), the heightmap elsewhere. World of
-Daggerfall levels a site's ground after the tiles are read, lerping every
-sample of its tile toward the site's mean (WOD's "The flatten"): a site a
-few metres over the sea lifted its whole pixel's sea over the line, under
-a sea Deep Waters carves and draws, and every node there read land. A sea
-the mod has not carved reads its heightmap still.
+`01-Overview/Field-Bugs-2026-09-29c.md`. SEA-SHOAL (FIELD BUGS 2026-10-02)
+had a carved cell's ground read as its seafloor; its audit struck it
+(FIELD BUGS 2026-10-02b, `01-Overview/Field-Bugs-2026-10-02b.md`): Deep
+Waters' real carve takes a cell only where its four corners stand at the
+ocean's height, so it carved none of a sea World of Daggerfall's flatten
+had lifted over the line, and every node there read land still - the ship
+beached at sea, her sails refused ("Unable to raise sail. Boat is
+obstructed."). The sea is kept at its source now (SEA-LEVEL,
+`03-World/World-Of-Daggerfall.md`), and `csaTerrainOf` reads the
+heightmap as it did. PLACE-AFLOAT (a departure): with Iliac Puddle No More
+on, PlaceBoatAtRayHit refuses a water tile whose ground stands over the
+line - a town's harbour basin at its ground's height - with a word
+(PLACE_RAISED_TEXT), where it placed her beached; the mod off, the tile
+alone decides, as the C#'s.
 `01-Overview/Field-Bugs-2026-10-02.md`. The Terrain form reads the player's
 terrain unless one is given; the pixel form reads its own pixel's, and
 nothing where none is built. UpdateAllBoatsNodes is kept as the C# has
@@ -662,15 +667,27 @@ than three off water is beached - stopped dead, no move - and CanSail
 wants all five (the sails' arm, CSA-E's).
 
 FIELD BUGS 2026-10-02 (Mac: "ships get stuck in the world of daggerfall
-ocean rocks"; `01-Overview/Field-Bugs-2026-10-02.md`):
+ocean rocks"; `01-Overview/Field-Bugs-2026-10-02.md`), as its audit left it
+(FIELD BUGS 2026-10-02b, `01-Overview/Field-Bugs-2026-10-02b.md`):
 - ROCK-FREE: the world host answers the sweep collider by collider
   (`player/collider.js` `hullSweepAll`) - a bucket's parts, each `addMesh`
-  a MeshCollider, as World of Daggerfall's objects are. A part the sphere
-  overlaps at the start answers once, where it touches (the port's point,
-  not the zero point - a departure); a part holding the sphere's centre
-  answers nothing (Unity's sweep reads no back face); the rest are swept.
-  A ledge under her had answered the zero point for its whole pixel and
-  hidden the rock ahead; a rock round her had held her in for good.
+  a MeshCollider, as World of Daggerfall's objects are, each answering
+  once. The sphere itself is swept (`sweepSphereTriangle`: face, edges,
+  corners), its first contact the exact one - nine rays had passed a rock
+  smaller than their gaps. A part the sphere overlaps at the start answers
+  once, at its nearest point to her centre (not the zero point - a
+  departure), and the second sweep refuses it as it refuses the zero point;
+  a STATIC part holding the sphere's centre answers nothing (Unity's sweep
+  reads no back face) - a boat's collider never holds; nothing wholly under
+  her KEEL LINE is met - her collider's box's foot under its centre, as she
+  floats however the swell pitches her (the host had dropped an overlap
+  "beneath" her, a rock awash beside her with it); her own colliders are not
+  asked. An overlap straight under her sweep's centre has no side to push
+  her from, and pushes nothing.
+- ROCK-REACH (a departure): each sweep reaches her own end - the C#'s
+  reached the whole length again past it, so a rock half a hull clear
+  pushed her and refused her helm, and the push answered the sum: two
+  clear astern and one clear ahead, and she sailed onto the one ahead.
 - ROCK-AWAY (a departure): the response takes her way INTO what she met
   and no more - under way away from it she keeps her way, at rest or into
   it the C#'s push; the current is taken only carrying her onto it. A rock
@@ -761,7 +778,8 @@ it), the right strafe the stern's, the left the starboard's, the port node
 never; a right turn costs fatigue and a left one never; with no key held
 the oars coast at the sails' 0.2; the first sweep keeps a start overlap's
 zero point, a direction from the scene's origin (the world host answers
-an overlap where it touches since ROCK-FREE; the arm stands for any sweep
+an overlap where it touches since ROCK-FREE, and each sweep reaches her own
+end since ROCK-REACH, the C#'s twice that; the arm stands for any sweep
 that answers zero); the borrowed ship is the small one
 and the scenes taken back are the large one's (5, 5 and a building key
 16777216); StopSailingDelayed's Update runs on after it, so the oars
