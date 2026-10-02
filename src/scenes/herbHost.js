@@ -117,8 +117,17 @@ export const SICKLE_HAND = Object.freeze({ group: 'Weapons', templateIndex: 114,
  * @returns {import('./gatherHost.js').GatherKind}
  */
 export function herbKind({ book }) {
-  let basketChoice = false;   // the choice key's pick at the targeted patch
   const gone = (p) => book.taken(p.key, 'herbs') && book.taken(p.key, 'food');
+  /** The patch's plan for its herbs (`basket` false) or its food, `only` that harvest (a tool's Use, a menu's row). */
+  const planOf = (p, { entity, info, rank }, basket, only) => {
+    const plan = patchPlan({
+      patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket, only,
+      rank: rank('herbalism'), sickle: !!foragingToolIn(entity, FT.Sickle), basketTool: !!foragingToolIn(entity, FT.Basket),
+      storesFull: (key) => storesFullIn(book, key), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),   // STORES-ROOM: every origin, as the service counts
+      today: book.state.today?.herbalism ?? 0, cap: book.state.caps?.harvests ?? 60,
+    });
+    return { ...plan, harvest: plan.kind, profession: 'herbalism' };
+  };
   return {
     id: 'herb',
     professions: Object.freeze(['herbalism']),
@@ -138,20 +147,22 @@ export function herbKind({ book }) {
     mark: (p) => (gone(p) ? null : PATCH_MARK),   // NODE-MARKS: on the compass and lit while either harvest stands
     tools: Object.freeze([FT.Sickle, FT.Basket]),   // TOOL-USE
     where: () => actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS),   // SETTLE-SAID
-    choose() { basketChoice = !basketChoice; },
-    retarget() { basketChoice = false; },
-    plan(p, { entity, info, rank, keyLabel, tool = null }) {
-      // TOOL-USE: the Sickle's Use asks the herbs and the Basket's the food, whatever the choice key picked - the pick unmoved
+    /** PROF-MENU: the menu's title - the patch's herb. */
+    nodeName: (p) => templateByIndex(p.herb)?.name ?? 'Herbs',
+    plan(p, { entity, info, rank, tool = null }) {
+      // TOOL-USE: the Sickle's Use asks the herbs and the Basket's the food; E (no tool) the herbs first while untaken
       const only = tool === FT.Sickle ? 'herbs' : tool === FT.Basket ? 'food' : null;
-      const plan = patchPlan({
-        patch: p, taken: (k) => book.taken(p.key, k), counting: (k) => book.counting(p.key, k), basket: only ? only === 'food' : basketChoice, only: !!only,
-        rank: rank('herbalism'), sickle: !!foragingToolIn(entity, FT.Sickle), basketTool: !!foragingToolIn(entity, FT.Basket),
-        storesFull: (key) => storesFullIn(book, key), herbKeyOf: (h) => herbKey(h, info?.region ?? 0),   // STORES-ROOM: every origin, as the service counts
-        today: book.state.today?.herbalism ?? 0, cap: book.state.caps?.harvests ?? 60,
-      });
-      return { ...plan, harvest: plan.kind, profession: 'herbalism', alt: plan.both ? `[${keyLabel('ActChoice')}] ${plan.kind === 'food' ? 'the herbs' : 'the Basket'}` : '' };
+      return planOf(p, { entity, info, rank }, only ? only === 'food' : false, !!only);
     },
-    start(p, plan, { entity, rank, keyLabel = () => 'E', tool: used = null }) {
+    /** PROF-MENU (2026-10-01, Mac: "use the same menu the loot menu uses"): THE PATCH'S TWO HARVESTS AS THE MENU'S ROWS -
+     *  its herbs and its food (the act choice key's toggle, retired), each its own refusal; gathered whole, its one row. */
+    rows(p, ctx) {
+      const herbs = planOf(p, ctx, false, true), food = planOf(p, ctx, true, true);
+      if (!herbs.both && !herbs.ready && !food.ready && herbs.verb === food.verb) return [{ ...herbs, id: 'herbs' }];
+      return [{ ...herbs, id: 'herbs' }, { ...food, id: 'food' }];
+    },
+    start(p, plan, { entity, rank, keyLabel = () => 'E', tool: usedTool = null, byPress = false }) {
+      const used = usedTool ?? (byPress || null);   // PROF-MENU: a click's or a list's press holds the act as a tool's Use does
       const common = plan.harvest === 'herbs' && p.tier === 1;
       const refusal = foragingActRefusal(plan.harvest === 'food' ? FT.Basket : FT.Sickle);
       if (refusal) return { refused: refusal };

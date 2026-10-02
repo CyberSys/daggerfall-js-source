@@ -1169,14 +1169,20 @@ export const CHAMPION_SOURCE = Object.freeze({ tier: 4, quality: 1.5 });
  *  entity.items and onto the equip table, writing no equipSlot), so the
  *  roll runs over the items NOT on its table: the loot it carries, not
  *  the sword it swings - a Legendary in a Daedra Lord's hand would have
- *  struck the player with it. The source is corpseSource's. */
+ *  struck the player with it. The source is corpseSource's.
+ *  LOOT7-CHECK CORPSE-FIND: the roll runs over a COPY (the carried cut), and the door's unique find is pushed onto the
+ *  list it is handed - so the find landed on the copy and was thrown away with it: no body ever kept one (the
+ *  Thunderlock's "tier-4 corpse, about 1 in 700"; 0 of 20,000 level-12 champions' bodies, where the list door kept 111).
+ *  What the roll added past the carried pieces goes onto the body. */
 export function rollCorpseLoot(entity, basics, { rolls = Math.random, luck = 50, qualityMult = 1 } = {}) {
   if (!lootRarityOn() || !entity) return entity?.items ?? [];
   const worn = new Set(entity.equip ? equipTableOf(entity).filter(Boolean) : []);
   const loot = (entity.items ?? []).filter((it) => it && !worn.has(it));
+  const carried = loot.length;
   const source = corpseSource(basics, entity.level, entity.mobileType);   // LOOT6: its family
   const champ = typeof entity.champion === 'string' && entity.champion !== '';   // LOOT7: a champion is a stronger source
   rollLootRarity(loot, { ...source, tier: source.tier + (champ ? CHAMPION_SOURCE.tier : 0), qualityMult: qualityMult * (champ ? CHAMPION_SOURCE.quality : 1) }, { rolls, luck });
+  if (loot.length > carried) (entity.items ??= []).push(...loot.slice(carried));   // LOOT7-CHECK CORPSE-FIND: the find onto the body
   return entity.items;
 }
 /** SIGIL1 (Mac: "weapons obtained through online play recieve a sort of sigil power"; "Magic and up, found online";

@@ -20,10 +20,20 @@
 //   them and destroyPixel frees them (EVERY ALLOCATION HAS AN OWNER) - and
 //   stood again at the UTC day's turn, when the service says a pixel's
 //   state, or when a node is taken whole (gone for the day, PROF0 5.3).
-//   THE TARGET. The node in reach nearest the look, of any kind; the
-//   prompt says what E does there, or what it needs.
-//   THE ACT. E starts it (the kind's checks - Foraging's first, FORAGE0
-//   14.3); the frame plays it (the kind's machine: systems/herbAct.js,
+//   THE TARGET. The node in reach nearest the look, of any kind.
+//   THE MENU (PROF-MENU, 2026-10-01, Mac: "They should use the same menu
+//   the loot menu uses and not an interaction button"). The target is the
+//   loot plaque's own list under the crosshair (ui/worldPlaque.js
+//   'actions'): the node named, its acts the rows - a patch's herbs and
+//   its Basket, a body's knife and its search - a refused one with its
+//   reason; the wheel or the d-pad lights one, E or the click presses it.
+//   Where no plaque stands (a phone, the classic skins) the prompt says
+//   the choice and E opens it as a list (`choose`), the boat menu's way.
+//   The act choice key's toggle and the "[E] verb  [Up] the Basket"
+//   prompt it served are gone: the key steps the list's light instead,
+//   wrapping, the keyboard's wheel.
+//   THE ACT. The row's press starts it (the kind's checks - Foraging's
+//   first, FORAGE0 14.3); the frame plays it (the kind's machine: systems/herbAct.js,
 //   systems/mineAct.js); Escape, or walking off, ends it with nothing
 //   lost; its end wears the tool and asks the service (net/profBook.js -
 //   kept and asked again until answered). The answer is said in the
@@ -155,8 +165,9 @@ export function aimAt(eyePos, at, view) {
  *   heldByUse? }` or `{ refused: text }` - `heldByUse`, TOOL-USE: a Use started it, and the Use holds it (E's level unasked)
  * @property {readonly number[]} [tools] TOOL-USE: the Foraging tools whose Use (the hotbar's, a quick slot's) at this
  *   kind's node is E there
- * @property {(node: any) => void} [choose] the act choice key at this node
- * @property {() => void} [retarget] a new node is targeted
+ * @property {(node: any, ctx: any) => any[]} [rows] PROF-MENU: the node's acts as the menu's rows, each a plan with its
+ *   `id` - a patch's herbs and its food, a body's knife and its search; without it the one `plan`
+ * @property {(node: any) => string} [nodeName] PROF-MENU: what the menu's title calls the node ('Red Rose', 'Wolf')
  * @property {(a: any, data: any) => string} cleanNote what a clean act is called in the XP toast
  * @property {(report: any) => string} [actNote] AUDIT 32 P10: what the act's report says in the XP toast, clean or not (a
  *   torn pelt, a true line drawn too quick) - the kind's own word, where cleanNote says only a clean act
@@ -196,12 +207,16 @@ export function aimAt(eyePos, at, view) {
  *   pixelInfo: (px: number, py: number) => ({ climate: number, region: number } | null),
  *   nowMs: () => number, eye: () => ({ pos: number[], dir: number[] }), view: () => ({ yaw: number, pitch: number }),
  *   feet: () => number[], entity: () => any, keyLabel: (a: string) => string,
- *   input: () => ({ held: boolean, attack: boolean, choice: boolean }), active: () => boolean,
+ *   input: () => ({ held: boolean, attack: boolean, choice?: boolean }), active: () => boolean,
  *   activeDungeon?: () => boolean, onSettle?: () => void, clear?: (from: number[], to: number[], underground: boolean) => boolean,
- *   settled?: (pos: number[]) => boolean,
+ *   plaque?: () => boolean, lit?: (key: string) => any, choose?: (rows: string[], pick: (i: number) => void) => boolean,
+ *   step?: (n: number) => boolean, settled?: (pos: number[]) => boolean,
  * }} deps `active` - the streaming world's exterior, walking, nothing over it (the host's); `activeDungeon` - a dungeon
- *   entered, walking, nothing over it; `nowMs` the shared clock; `settled` - SETTLE-STAND: whether a scene place is on a
- *   settlement's ground as the acts' check reads it (FORAGE0 14.3: the place's pixel's town, farm, temple, tavern or
+ *   entered, walking, nothing over it; `nowMs` the shared clock. PROF-MENU: `plaque` - the loot plaque stands (it names
+ *   the node, so no prompt does); `lit(key)` - the row the plaque has lit over that key (quickLoot.js plaqueActionFor);
+ *   `choose(rows, pick)` - the rows as a list, where no plaque stands (true when it opened); `step(n)` - the plaque's lit
+ *   row moved n rows (quickLoot.js plaqueStep), the act choice key's. `settled` - SETTLE-STAND: whether a scene place is
+ *   on a settlement's ground as the acts' check reads it (FORAGE0 14.3: the place's pixel's town, farm, temple, tavern or
  *   wealthy home, its footprint and a block round it), where no node of the ground (a kind with a `where`) stands
  */
 export function createGatherHost(deps) {
@@ -213,7 +228,7 @@ export function createGatherHost(deps) {
   let day = utcDayOfMs(deps.nowMs());
   let target = null;          // { node, px, py, info, world }
   let act = null;             // { act, node, harvest, tool, profession, label, px, py, info, world, hand }
-  let refreshAt = 0, pixelsAt = 0, targetKey = null;
+  let refreshAt = 0, pixelsAt = 0;
   let storesSaid = false;     // GATHER-SAID: storesWhereLine said this session
   let passedOn = '';          // VEIN-NEED: what the node the last press passed on needs, until the host hands it back
   let passedCast = null;      // CAST-E: the cast the last press passed on - played when the host hands the press back
@@ -434,13 +449,19 @@ export function createGatherHost(deps) {
     return Array.isArray(w) ? [w[0], w[1] + (n.lift ?? 0.3), w[2]] : null;
   }
   /** TOOL-USE: `tool` - the template whose Use asks, null for E. */
-  const ctxFor = (t, tool = null) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel, pitch: t.pitch ?? null, tool });
+  /** PROF-MENU: `byPress` - a row pressed by the click or picked from the list: no key is held for the act, so the press
+   *  holds it, as a tool's Use does (TOUCH-HOLD) - the kind's start reads it beside `tool`. */
+  const ctxFor = (t, tool = null, byPress = false) => ({ entity: deps.entity(), info: t.info, book, rank, specs, keyLabel: deps.keyLabel, pitch: t.pitch ?? null, tool, byPress });
   /** REFUSALS-LEARNED (AUDIT 2026-10-01 part four): A PLAN THE SERVICE HAS REFUSED TODAY IS NO READY PLAN - the account's
    *  day in the craft (every character's), or its veins in dungeons nobody has vouched for: counts the state does not
    *  carry, so the book keeps what the refusal said (net/profBook.js `closed`) and the prompt says it, never an act played
    *  and a tool worn for the same refusal again. */
   function planFor(t, tool = null) {
-    const plan = kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null;
+    return learned(t, kindOf(t.node)?.plan(t.node, ctxFor(t, tool)) ?? null);
+  }
+  /** REFUSALS-LEARNED over one plan - the kind's `plan`, or one of its menu's rows. SETTLE-SAID: and the ground's check -
+   *  a ready plan on a settlement's ground is none, its reason the act's own words. */
+  function learned(t, plan) {
     const where = plan?.ready ? (kindOf(t.node)?.where?.(t.node) ?? null) : null;   // SETTLE-SAID
     if (where) return { ...plan, ready: false, rest: where };
     if (!plan?.ready || typeof book.closed !== 'function') return plan;
@@ -452,11 +473,35 @@ export function createGatherHost(deps) {
     return plan;
   }
 
+  // ─── THE MENU (PROF-MENU) ──────────────────────────────────────────
+  /** The plaque's key for a target - its own family, never a loot key (worldHover keyItemises reads none of it). */
+  const menuKey = (t) => `prof:${t.node.key}`;
+  /** A row the press can act on: an act ready, a search that opens its loot, a search the press hands on (AUDIT 29 C1). */
+  const pressable = (p) => !!(p && (p.ready || p.open || p.loot));
+  /** The node's acts as the menu's rows: the kind's `rows` or its one plan, each with its id, each REFUSALS-LEARNED. */
+  function rowsFor(t) {
+    const k = kindOf(t.node);
+    if (!k) return [];
+    const ctx = ctxFor(t);
+    const raw = k.rows ? k.rows(t.node, ctx) : [k.plan(t.node, ctx)];
+    return raw.filter(Boolean).map((p, i) => ({ ...learned(t, p), id: p.id ?? p.harvest ?? String(i) }));
+  }
+  /** A row as a list says it - its reason after it where it is refused (the plaque's own form). */
+  const rowLabel = (p) => (pressable(p) || !p.rest ? p.verb : `${p.verb} (${p.rest})`);
+  /** A row pressed: its loot opened, its act started, or - refused - what it needs kept for the host to hand back
+   *  (VEIN-NEED) and the press passed on (AUDIT 29 C1). True when the press was the node's. */
+  function pressRow(t, plan, byPress = false) {
+    if (plan?.open) { plan.open(); return true; }
+    if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }
+    start(t, plan, null, byPress);
+    return true;
+  }
+
   // ─── THE ACT ───────────────────────────────────────────────────────
   /** The act at `t` started - true - or its checks' refusal said. TOOL-USE: `tool`, the template whose Use started it. */
-  function start(t, plan, tool = null) {
+  function start(t, plan, tool = null, byPress = false) {
     const k = kindOf(t.node);
-    const a = k?.start(t.node, plan, ctxFor(t, tool));
+    const a = k?.start(t.node, plan, ctxFor(t, tool, byPress));
     if (!a) return false;
     if (a.refused) { hud.toast(a.refused); return false; }
     act = { ...a, node: t.node, px: t.px, py: t.py, dungeon: t.dungeon, loose: !!t.loose, info: t.info, world: t.world };
@@ -471,6 +516,7 @@ export function createGatherHost(deps) {
     if (!report) return;
     a.report = report;   // AUDIT 32 P10: the act's own words, said with its answer
     a.clean = report.clean === true || report.finds >= 3;
+    if (a.clean) hud.cue?.('clean');   // PROF-SCENES: a clean finish rings
     if (a.tool) wearForagingTool(a.tool, deps.entity());   // FORAGE0 14.1: a completed act wears its tool by one
     const before = rank(a.profession);
     book.harvest({
@@ -588,24 +634,79 @@ export function createGatherHost(deps) {
     },
     /** The tool in the hand for the rig (combat/weaponRig.js actTool): the act's, as DFU's own sprite. */
     handTool: () => (act?.hand ? act.hand(act) : null),
-    /** E pressed: a node in reach takes it - an act started. True when the press was the node's. */
-    press() {
+    /**
+     * E pressed - or, PROF-MENU, the activation's click (`click`): a node in reach takes it. The row the plaque has lit
+     * over the node is the one pressed; a click presses that and nothing else (a click with no lit row of a node's is the
+     * ladder's). With no plaque standing, a node of one act presses it and a node of two or more opens them as a list
+     * (`deps.choose`, the boat menu's way). AUDIT 32 H8: a row that opens something of its own (a body's search, by its
+     * loot's key) takes the press; AUDIT 29 C1: a row that cannot be worked takes none - the press goes on to the door,
+     * the chest or the foe it was meant for, and VEIN-NEED keeps what it needs for the host to hand back if the press
+     * opened nothing else. True when the press was the node's.
+     * @param {{ click?: boolean }} [o]
+     */
+    press({ click = false } = {}) {
       passedOn = '';
       passedCast = null;
-      if (act) return true;   // AUDIT 29 D3: a press during an act is the act's - never a door's or a loot's behind it
+      if (act) return !click;   // AUDIT 29 D3: E during an act is the act's - never a door's or a loot's behind it (a click is clickTaken's)
       if (!target || !(deps.active() || inDungeon()) || book.state.open !== true) return false;
-      const plan = planFor(target);
-      // AUDIT 32 H8: a plan that opens something of its own (a body's search, by its loot's key) takes the press
-      if (plan?.open) { plan.open(); return true; }
-      // AUDIT 29 C1: a node that cannot be worked takes no press - the press goes on to the door, the chest or the foe it
-      // was meant for. VEIN-NEED: what it needs is kept, for the host to hand back if the press opened nothing else
-      if (!plan || !plan.ready) { passedOn = needLine(plan, rank); return false; }
+      const t = target;
+      const rows = rowsFor(t);
+      const lit = deps.lit?.(menuKey(t)) ?? null;
+      const chosen = lit != null ? rows.find((r) => r.id === lit) ?? null : null;
+      if (click) return chosen ? pressRow(t, chosen, true) : false;
+      if (chosen) return pressRow(t, chosen);
+      const ready = rows.filter(pressable);
       // CAST-E (AUDIT of CAST-LOOK): a node the look itself stands (Fishing's cast - `yields`) is the target at any look in
       // the net's water, a sea's deck and a pier among it: E there was the net's before the door, the crew or the chest
-      // under the look. It passes the press on like a node with a need, and is cast when the host hands it back
-      if (target.node.yields === true) { passedCast = target; passedCastAt = deps.nowMs(); return false; }
-      start(target, plan);
-      return true;
+      // under the look. Unlit by the plaque (hoverHit yields it to the ray's winner), it passes the press on like a node
+      // with a need, and is cast when the host hands it back
+      if (t.node.yields === true && ready.length) { passedCast = t; passedCastAt = deps.nowMs(); return false; }
+      // the list pressed later: the rows read again, for the node chosen - the list paused the world under it. A list that
+      // could not open (its art not in yet) leaves the press to the first act, as before the menu
+      if (ready.length > 1 && deps.choose?.(ready.map(rowLabel), (i) => { const id = ready[i]?.id; const now = rowsFor(t).find((r) => r.id === id); if (now) pressRow(t, now, true); })) return true;
+      const took = pressRow(t, ready[0] ?? rows[0] ?? null);
+      // a press that picked its row itself and handed it on (a body's search) keeps the act's own refusal for the host to
+      // hand back if nothing opened - what E said before the menu; a search the player chose says nothing of its own
+      if (!took && !passedOn) passedOn = rows.map((r) => needLine(r, rank)).find(Boolean) ?? '';
+      return took;
+    },
+    /**
+     * PROF-MENU: THE NODE AS THE PLAQUE'S PICK - the target, while nothing plays, as a hit the plaque resolves to the
+     * node's list (`hoverName`). A node with nothing to press yields to the ray's own winner in reach - the press goes
+     * there (AUDIT 29 C1), and so does the plaque; with none, its refused rows are listed, their reasons said.
+     * @param {any} [ray] the host's own race's winner this frame
+     */
+    hoverHit(ray = null) {
+      if (act || !target || book.state.open !== true || !(deps.active() || inDungeon())) return null;
+      const rows = rowsFor(target);
+      if (!rows.length) return null;
+      if (!rows.some(pressable) && ray && ray.distance <= ray.reach) return null;
+      if (target.node.yields === true && ray && ray.distance <= ray.reach) return null;   // CAST-E: the cast is never the plaque's over a door, the crew or a chest
+      const { pos } = deps.eye();
+      const w = target.world;
+      const d = Math.hypot(w[0] - pos[0], w[1] - pos[1], w[2] - pos[2]);
+      return { key: menuKey(target), distance: d, reach: d };
+    },
+    /**
+     * PROF-MENU: THE NODE'S LIST - its name, its profession's word (a ready act's own, a school's beside a cast), and its
+     * acts as the plaque's verb rows: a refused one with its reason (none where its label says it), the first pressable
+     * lit first. Null for any other key.
+     * @param {any} key
+     */
+    hoverName(key) {
+      if (act || !target || key !== menuKey(target)) return null;
+      const k = kindOf(target.node);
+      const rows = rowsFor(target);
+      if (!k || !rows.length) return null;
+      const profession = rows[0].profession ?? k.professions[0];
+      const live = rows.find((r) => r.ready && r.rest);
+      const start = rows.findIndex(pressable);
+      return {
+        title: k.nodeName?.(target.node) || professionName(profession),
+        subs: [live ? live.rest : `${professionName(profession)} ${rank(profession)}`],
+        actions: rows.map((p) => (pressable(p) ? { id: p.id, label: p.verb } : { id: p.id, label: p.verb, disabled: true, why: p.rest ?? '' })),
+        ...(start > 0 ? { actionsStart: start } : {}),
+      };
     },
     /**
      * VEIN-NEED (FIELD BUGS 2026-09-29h): the press a node passed on opened nothing else - no door, no chest, no foe -
@@ -704,20 +805,25 @@ export function createGatherHost(deps) {
         const away = gone || Math.hypot(act.world[0] - pos[0], act.world[2] - pos[2]) > (act.node.reach ?? NODE_REACH) + 1;
         const here = act.dungeon ? inDungeon() : deps.active();
         if (act.act.state.cancelled || away || !here) { act = null; hud.setMeter(null); hud.toast(ACT_STOPPED_LINE); }   // GATHER-SAID: said, never only the meter gone (Escape ends it in `cancel`, unsaid)
-        else if (act.act.state.done) finish(act);
+        else if (act.act.state.done) { hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true }); finish(act); }   // PROF-SCENES: the last frame drawn (its blow's cue) before the marks go
         else hud.setMeter(act.act, act.label ?? '', { byUse: act.heldByUse === true });   // TOUCH-HOLD: a Use's hold says no key
         hud.setPrompt(null);
       } else {
         target = deps.active() || inDungeon() ? findTarget() : null;
-        if ((target?.node.key ?? null) !== targetKey) {
-          targetKey = target?.node.key ?? null;
-          for (const k of kinds) k.retarget?.();   // a new node: its first harvest first (the herbs before the Basket)
-        }
-        if (target && input.choice) kindOf(target.node)?.choose?.(target.node);
         if (target) {
-          const plan = planFor(target);
-          if (plan) hud.setPrompt({ key: deps.keyLabel('Interact'), verb: plan.verb, rest: plan.rest, alt: plan.alt ?? '' });
-          else hud.setPrompt(null);
+          // PROF-MENU: the plaque names the node and lists its acts where it stands - no prompt beside it; where none
+          // stands, the prompt says the one act, or the choice E opens
+          const rows = rowsFor(target);
+          if (input.choice && rows.length > 1 && deps.plaque?.()) {
+            // the act choice key: the next row lit, the last back to the first
+            const at = rows.findIndex((r) => r.id === (deps.lit?.(menuKey(target)) ?? null));
+            deps.step?.(at >= rows.length - 1 ? -at : 1);
+          }
+          const ready = rows.filter(pressable);
+          const plan = ready[0] ?? rows[0] ?? null;
+          if (!plan || deps.plaque?.()) hud.setPrompt(null);
+          else if (ready.length > 1) hud.setPrompt({ key: deps.keyLabel('Interact'), verb: 'Choose', rest: ready.map((r) => r.verb).join(' / ') });
+          else hud.setPrompt({ key: deps.keyLabel('Interact'), verb: plan.verb, rest: plan.rest });
           chipProfession = plan?.profession ?? chipProfession;
           chipLeft = Math.max(chipLeft, 0.5);
         } else hud.setPrompt(null);

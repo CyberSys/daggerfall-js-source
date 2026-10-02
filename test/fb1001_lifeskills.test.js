@@ -62,7 +62,7 @@ function pixelEntry() {
 
 /** The gathering host over the pixel with the ground's kinds and the net's, the player holding every tool, in the water;
  *  `settled` the world's settlement test, none by default. */
-async function stage({ settled = undefined, more = [], nowMs = () => NOON_MS } = {}) {
+async function stage({ settled = undefined, more = [], nowMs = () => NOON_MS, deps = {} } = {}) {
   const S = { prompt: null, said: [] };
   S.e = { stats: { intelligence: 60, agility: 60, strength: 55, endurance: 50, luck: 50 }, fatigue: 1e9, items: [FT.Sickle, FT.Basket, FT.PickAxe, FT.WoodAxe, FT.FishingNet].map((t) => createForagingItem(t)), wagonItems: [] };   // rested (FISH-TIRED)
   const book = {
@@ -86,7 +86,7 @@ async function stage({ settled = undefined, more = [], nowMs = () => NOON_MS } =
     pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs,
     eye, view: () => S.view, feet: () => S.feet, entity: () => S.e,
     keyLabel: () => 'E', input: () => ({ held: false, attack: false, choice: false }),
-    active: () => true, activeDungeon: () => false, settled,
+    active: () => true, activeDungeon: () => false, settled, ...deps,
   });
   setForagingHost({ world: () => WATER, monthValue: () => 5, entity: () => null, startQuest: () => true, professionsOpen: () => true, keyLabel: () => 'E', professionUse: () => false });
   S.host.onBuilt(entry);
@@ -220,4 +220,28 @@ test('CAST-E: a press the cast passed on that the ladder took (a door opened) is
     assert.equal(t.host.sayNeed(), true);
     assert.equal(t.host.acting(), true);
   } finally { t.done(); }
+});
+
+test('CAST-E under PROF-MENU (the merge of main\'s menu): the plaque never lists the cast over a door, the crew or a chest in reach - the ray\'s winner keeps it, and E passes on - and lists it over nothing; a cast the plaque lit is cast by E or the click at once (mutants: the cast the plaque\'s over the ray; the lit cast passed on)', async () => {
+  let lit = null;
+  const s = await stage({ deps: { plaque: () => true, lit: () => lit } });
+  try {
+    s.feet[0] = 2; s.feet[2] = 2;
+    assert.equal(s.look(37, 10)?.node.kind, 'haul');
+    assert.equal(s.host.hoverHit({ key: 'door:1', distance: 2, reach: 3 }), null, 'a door in reach keeps the plaque');
+    assert.equal(s.host.press(), false, 'and E, unlit, passes on to it');
+    s.look(37, 10);
+    const hit = s.host.hoverHit(null);
+    assert.ok(hit?.key.startsWith('prof:'), 'over nothing, the cast\'s list');
+    assert.equal(s.host.hoverHit({ key: 'door:far', distance: 9, reach: 3 })?.key, hit.key, 'a door out of reach: the cast\'s');
+    const name = s.host.hoverName(hit.key);
+    assert.equal(name.title, 'Open Water');
+    lit = name.actions[0].id;
+    assert.equal(s.host.press(), true, 'E on the lit cast: cast at once');
+    assert.equal(s.host.acting(), true);
+    s.host.cancel();
+    s.look(37, 10);
+    assert.equal(s.host.press({ click: true }), true, 'and the click');
+    assert.equal(s.host.acting(), true);
+  } finally { s.done(); }
 });

@@ -41,6 +41,7 @@ over them (`combat/heldPose.js`, the held map's) for hands on a lip in first per
 | CLIMB4 | The feel: the camera's dip, sway, rhythm, looks and kicks; the sounds; the hands off the weapon and onto the wall | **SHIPPED** 2026-10-01 |
 | CLIMB5 | Online and third person: the climb on the wire, the peers turned to the wall and heard climbing, the own body facing the wall | **SHIPPED** 2026-10-01 |
 | PERF-CLIMB | The dense-mesh limit: a capsule resolve that moved nothing stops | **SHIPPED** 2026-10-01 |
+| AUDIT CLIMB-FIELD | The climb on Daggerfall's own town blocks: eaves, the real roofs' pitch, Jump on a wall, two collider wedges (Mac: "You cant mantle the bottom of roofs, you get stuck") | **FIXED** 2026-10-01 |
 
 ## CLIMB1 (2026-09-30): THE LEDGE SENSOR, THE MANTLE, THE CLAMBER AND THE VAULT - SHIPPED
 
@@ -874,9 +875,57 @@ walk-in start is held (`player/motor.js` _freeStart, `pk.hold` - `scenes/shared.
 world host's), and its count begins again when it lets go. A jump's grab, a mantle, the hang and the shimmy are not
 held. `test/fb1001_climbnode.test.js` (4); `tools/mutants/fb1001_climbnode.json` (6, all dead).
 
+## AUDIT CLIMB-FIELD (2026-10-01): THE CLIMB ON DAGGERFALL'S OWN ROOFS
+
+Mac: *"Can you audit our integration of enhanced climbing? You cant mantle the bottom of roofs, you get stuck. You cant
+jump from a wall, hitting the top of an angled roof at a certain angle can get your character stuck, etc"*.
+
+**How it was audited.** Every slice above was proven on boxes, prisms and random scenes, and the one real-data test
+(`climbreal.test.js`) climbed the first 24 building-sized ARCH3D models - which are INTERIORS (rooms whose walls face
+in) and only measured overlap, never the outcome. This audit fetched the freeware ARENA2 (`tools/fetch-data.sh`) and
+climbed real town blocks as the exterior host builds them (BLOCKS.BSA's RMB placements of ARCH3D, `layoutRmbBlock`):
+Forward held at three points of every side of every building, Jump pressed on the wall, bodies dropped on roofs with
+random keys, and the shapes behind every stall sectioned out of the model.
+
+**What it found**, on three blocks (RESIGL01, RESIAM06, TVRNAL05; 612 climbs):
+
+| | Finding | Measured | Fix |
+|---|---|---|---|
+| E1 | **THE EAVE.** 151 of the town blocks' 392 building models carry a soffit; the common eave stands 0.4 m out on a flat or falling soffit and its roof rises from a knife edge (ARCH3D 201: wall to 3.22, soffit out to 0.4, 37 degrees; 127: soffit 3.22 to 3.03, 46.2). The hand-hold reads a lip where the face steps OUT; an eave steps IN. The free climb's head met the soffit and the climber hung there until the grip ran out; CLIMB-DOWN's lower walked off every such eave | 380 of 612 climbs stalled on the wall; RESIAM06: 0 of 168 reached a roof; the lower fell at every eave | `parkour.js senseEave`: when the face shows no lip and is not a plain wall, the edge is sought OUT from it (down rays from 0.9 m out, in, bisected); a face under the edge (a fascia, a sill's front) is the hand-hold's own law from that face; none is an overhang, and the body hangs free under the edge. The rays are the meshes' alone: a terrain cliff is never an eave (CLIMB1's law, which the first cut broke - a crouched run off a heightmap cliff was lowered into a hang over it, and AUDIT CLIMB-ARC L5's crouched-run pin read nothing). The free climb REACHES out to it (`motor.js`: a proven `reach` move, never a step); `senseEdge` takes it from the edge itself when the wall is past its ray |
+| E2 | A jump caught an eave only from under the soffit - the ledge sensor needs the wall in the grab's reach | standing 0.1 m outside the hang point: no catch | `senseEaveAhead`: down rays ahead find the roof, its edge sought as E1's; caught to a lip's reach (the edge within 0.85 m of the axis) |
+| E3 | From a hang on an eave whose wall is past the grab's reach, Forward found no ledge | a 0.6 m eave: hung, never onto the roof | `senseEaveLedge`: the hold as the ledge (its edge the face), senseLedge's landing (`landOn`, factored out) |
+| R1 | **THE PITCH.** The "45-degree" roofs are 45.1 to 48.7 (whole-unit vertices; 157 models, ~2,500 placements) - every one past the 45-degree top: no hang at the eave, no mantle | 0 holds on a 46.2 eave | `PARKOUR_TOP_MIN_NY` 50 degrees (the face scan's lean still ends a 50-degree roof's face: 0.084 a rung against 0.08), the C1 depth read at the limit's run (`PARKOUR_TOP_RUN`), the wall that is not a top (`PARKOUR_WALL_MAX_NY`) the same line; the C1 first rung asks only that the rung over it stand back at all (its inset left the top of the window blind on a roof past 45 - and AUDITCLIMB2-C1-step-any-recession was not equivalent there) |
+| J1 | **JUMP ON A WALL.** A press with no hold in the leap's reach was spent and the hands held on: Jump, Jump with Forward, Jump with Left or Right did nothing (only Back pushed off) | every free climb up a plain wall | A press with nowhere to go pushes off (the eject). On the free climb Jump climbs onto a top in reach first (`_fcTopOut`, factored out of H5), as Forward does; a grip too spent to push off still refuses it |
+| W1 | **A WEDGE IN THE AIR.** The down pass's collide-and-stop (`collider.js _moveStep`) refused every descent the resolve pushed - and a body leaning on a face past the slope limit is pushed at any descent: it came down nothing and stood on nothing, its fall speed growing | ARCH3D 633 (a 71-degree roof over a wall's top): motionless at 6.5 m, velY past -600; 445 (a wall walk's 76-degree parapet): airborne at 6.52 for 25 s | The stop is kept only where the body stands; otherwise the down pass's own slide |
+| W2 | **STANDING ON ITS HEAD.** COL1 F8 made a middle sphere's contact under its centre a wall, never ground; the player's head sphere still grounded. An eave's knife edge at the chest sits in the chain's waist, and the head's half of it leaned up past the slope limit: the body stood on the edge by its head, in the air, and Jump held hopped forever | an eave 1.6 m up: held at 0.43, climbing on or off | The head sphere is mid-body for every body with an axis (the swim stance's one sphere keeps its floor) |
+
+**After** (the same three blocks): 478 roofs reached (229 before), 117 climbs stalled on the wall (380); RESIAM06 116 of
+168 (0), TVRNAL05 142 of 216 (9). Random roof landings and key scripts on 445, 633, 201, 127, 158, 204 and 116: no wedge in
+700 runs (445 and 633 wedged before).
+
+**What still stalls, and why it is no trap.** An eave past the hands' reach (0.8 m: the porch roofs, the 1.5-2 m
+overhangs of the gable ends of 127, 132, 136, 143), a roof past 50 degrees (204's 55, the 52-degree hip facets of 126
+and 209), the valley where two wings' roofs meet, a neighbour's eave over the wall. The climber stops under it as under
+any top it cannot take - and Jump pushes off, Back climbs down, Crouch lets go (`climbreal.test.js` presses Jump at every
+stall on RESIAM06).
+
+**Not changed** (seen, recorded): a body resting on a too-steep quad's diagonal edge is grounded by the edge's contact
+(the face's own normal is not asked there, as MO-1 asks it for the one-way floor) - close to Unity's controller, which
+stands on steep slopes, and no trap (it walks and jumps off). An awning's open side (ARCH3D 753) lets a body walk under
+it and start a climb of its back wall that cannot rise; letting go of Forward ends it.
+
+**Pinned**: `test/climbfield.test.js` (10), each RED on the code before its fix, on the shapes the real models have (a
+wall SHELL - Daggerfall's have no top under the soffit - a soffit, a knife edge, a roof); `climbreal.test.js`'s RESIAM06
+half (ARENA2). The 45-degree pins moved to 50 (auditclimb1 G1, auditclimb2 C1, climb2's knife edge); CLIMB3's "no hold
+that way, no leap" pins read the push-off (L1's gap past Jumping 0 had never hung - at Climbing 0 the lip was out of
+reach, and the pin read nothing). **Mutants**: `tools/mutants/climbfield.json` (15), 14 dead and one recorded equivalent (the eave ahead's own terrain guard, behind the eave's); auditclimb2's C1 and G4
+records realigned (G4-reach-unproven is no longer equivalent: an eave's reach is 0.4 m, and a bracket beside it kills
+it), CLIMBFIELD-R1-top-45 and -depth-a-rung added.
+
 ## Still open
 
 - **Real geometry**: `test/climbreal.test.js`'s real half ran with the freeware ARENA2 (`tools/fetch-data.sh`) during
-  AUDIT CLIMB-ARC and passed. The full real-data suite has not been run end to end.
+  AUDIT CLIMB-ARC and AUDIT CLIMB-FIELD and passed. The full real-data suite has not been run end to end, and the
+  climb has still not been looked at in a browser on a real town.
 - **CLIMB6 in game**: the climb on the Morrowind body is pinned and shaped, but not yet looked at on a real install.
 - **The relay**: world141 is not yet deployed; until it is, the others see a climber as before.

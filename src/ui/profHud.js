@@ -7,12 +7,14 @@
 //
 //   the PROMPT  - bottom centre above the hotbar: "[E] Pick Red Rose -
 //                 Herbalism 34", or what the node needs;
-//   the METER   - centred under the crosshair while an act plays: the
-//                 kneel's and the steady hand's bar (the hold turns red
-//                 when the herb bruises), the Basket's leaves with the
-//                 glint to tap; PROF7 the knife's dotted line over the
-//                 carcass, the points drawn past lit; a still bar under reduced motion (the
-//                 system's own - the port has no setting of its own);
+//   the METER   - PROF-RETICLE: the act on the crosshair, no box
+//                 (ui/profReticle.js: the rock's points where they stand
+//                 on it, the ring round the crosshair, the hold's arc,
+//                 the glint about it, the line laid on the body, the
+//                 throw, the float and the haul's bar), the count and a
+//                 hint that fades under it; still forms under reduced
+//                 motion (the system's own - the port has no setting of
+//                 its own);
 //   the TOASTS  - on the right, four at most, three seconds each:
 //                 "+3 Red Roses to your Stores", "+45 Herbalism XP",
 //                 "Herbalism 34 -> 35";
@@ -23,10 +25,9 @@
 // host's frame feeds. One owner: the host builds it online and disposes
 // it with the page.
 // ═══════════════════════════════════════════════════════════════════
-import { BASKET_SPOTS } from '../systems/herbAct.js';
-import { MINE_POINTS } from '../systems/mineAct.js';   // PROF2: the vein's face
-import { MINE_ACT, CHOP_ACT, TRACE_ACT, throwM } from '../net/professionLaw.js';
 import { PROF_CSS } from './enhancedPlusStyle.js';
+import { buildActReticle, marksOf, actCues, FOCAL_FALLBACK } from './profReticle.js';   // PROF-RETICLE: the act on the crosshair
+import { profCue } from '../systems/profSounds.js';   // PROF-SCENES: every cue a sound too
 
 /** The toasts: four at most, three seconds each (PROF0 8). */
 export const PROF_TOASTS_MAX = 4;
@@ -65,9 +66,9 @@ export function createToastQueue({ max = PROF_TOASTS_MAX, ttl = PROF_TOAST_S } =
 const STYLE_ID = 'prof-hud-style';
 
 /**
- * @param {{ doc?: Document }} [o]
+ * @param {{ doc?: Document, anchor?: (() => ({ x: number, y: number, focal?: number } | null)) | null }} [o]
  */
-export function createProfHud({ doc = globalThis.document } = {}) {
+export function createProfHud({ doc = globalThis.document, anchor = null } = {}) {
   if (!doc?.body) return null;
   if (!doc.getElementById(STYLE_ID)) {
     const st = doc.createElement('style');
@@ -84,6 +85,20 @@ export function createProfHud({ doc = globalThis.document } = {}) {
   const banner = mk('prof-banner');
   doc.body.append(prompt, meter, toasts, banner);
   const queue = createToastQueue();
+  /** PROF-RETICLE: the act's marks built, and the act they were built for */
+  let panel = null;
+  /** PROF-RETICLE: the crosshair's middle and the lens's focal length (ui/worldPlaque.js reticleAnchor) - the marks
+   *  stand round the one and an angle off the look stands `focal * tan(angle)` from it */
+  let seatX = null, seatY = null, focal = FOCAL_FALLBACK;
+  const seat = () => {
+    const a = anchor?.();
+    if (!a) return;
+    if (Number(a.focal) > 0) focal = a.focal;
+    if (a.x === seatX && a.y === seatY) return;
+    seatX = a.x; seatY = a.y;
+    meter.style.setProperty?.('--rx', `${a.x.toFixed(1)}px`);
+    meter.style.setProperty?.('--ry', `${a.y.toFixed(1)}px`);
+  };
   let bannerLeft = 0;
   let lastPrompt = null, lastChip = null, drawnToasts = '';
   /** AUDIT 29 C10: the system's reduced motion, asked once a second at most - never twice a frame through an act */
@@ -115,192 +130,33 @@ export function createProfHud({ doc = globalThis.document } = {}) {
       if (p.rest) { const d = doc.createElement('span'); d.className = 'dim'; d.textContent = ` - ${p.rest}`; prompt.append(d); }
       if (p.alt) { const d = doc.createElement('span'); d.className = 'dim prof-alt'; d.textContent = `   ${p.alt}`; prompt.append(d); }   // AUDIT 32 P9: its own line on a phone
     },
-    /** The meter for an act (systems/herbAct.js), or null to take it down. `label` the act's words; `byUse` - TOUCH-HOLD:
-     *  a tool's Use holds the act (no key to hold). */
+    /**
+     * PROF-RETICLE: THE ACT ON THE CROSSHAIR (ui/profReticle.js) for an act, or null to take it down - built once an
+     * act, moved every frame, round the crosshair's middle (`anchor`). `label` the act's words (the key it holds,
+     * ACT-CLICK's press); `byUse` - TOUCH-HOLD: a tool's Use (or a press - PROF-MENU) holds the act, no key to name.
+     * The node's name is the menu's and the plaque's; the act carries no title (`title` taken and set by). Every cue
+     * its sound too.
+     */
     setMeter(act, label = '', { byUse = false } = {}) {
-      if (!act) { meter.hidden = true; meter.replaceChildren(); return; }
+      if (!act) { meter.hidden = true; meter.replaceChildren(); panel = null; return; }
       meter.hidden = false;
+      seat();
       const st = act.state;
-      meter.classList.toggle('bruised', !!st.bruised);
-      meter.classList.toggle('struck-glint', st.kind === 'mine' && st.last === 'glint' && act.swing > 0);
-      meter.classList.toggle('clean-cut', st.kind === 'chop' && st.last === 'clean' && act.swing > 0);
-      meter.replaceChildren();
-      if (st.kind === 'chop') {
-        // PROF4: THE RING - the trunk's notch, the band a Clean Cut stands in, and the ring shrinking onto it (a still
-        // bar under reduced motion: the ring's marker sliding along it, the band marked); the chops below
-        const span = CHOP_ACT.ringFrom - CHOP_ACT.ringTo;
-        const pct = (r) => `${Math.round(((r - CHOP_ACT.ringTo) / span) * 1000) / 10}%`;
-        if (reduced()) {
-          const bar = mk('prof-ringbar');
-          const band = mk('prof-ringband');
-          band.style.left = pct(1 - st.band); band.style.width = `${Math.round(((2 * st.band) / span) * 1000) / 10}%`;
-          const mark = mk('prof-ringmark');
-          mark.style.left = pct(act.ring);
-          bar.append(band, mark);
-          meter.append(bar);
-        } else {
-          const box = mk(`prof-ring${act.inBand ? ' in-band' : ''}`);
-          const r1 = ((1 - st.band) / CHOP_ACT.ringFrom) * 100, r2 = ((1 + st.band) / CHOP_ACT.ringFrom) * 100;
-          if (st.band > 0) box.style.backgroundImage = `radial-gradient(circle closest-side, transparent ${r1}%, rgba(243,207,134,0.45) ${r1}%, rgba(243,207,134,0.45) ${r2}%, transparent ${r2}%)`;
-          const notch = mk('prof-notch');
-          notch.style.width = `${Math.round((1 / CHOP_ACT.ringFrom) * 1000) / 10}%`;
-          const ring = mk('prof-ringline');
-          ring.style.width = `${Math.round((Math.max(0, act.ring) / CHOP_ACT.ringFrom) * 1000) / 10}%`;
-          box.append(notch, ring);
-          meter.append(box);
-        }
-        const pips = mk('prof-finds');
-        pips.textContent = `${'o '.repeat(Math.min(st.points, st.need))}${'. '.repeat(Math.max(0, st.need - st.points))}`.trim();
-        const hint = mk('prof-hint');
-        hint.textContent = st.creaked ? 'it creaks - keep chopping' : st.gentle ? (label || 'click to chop') : (label || 'click as the ring meets the notch');   // ACT-CLICK: the press named - either button, a tap, Attack
-        meter.append(pips, hint);
-        return;
-      }
-      if (st.kind === 'mine') {
-        // PROF2: THE GLINT - the node's face as a box (MINE_ACT's spread), its five points, the one glinting, and where
-        // the crosshair is on it; the strikes below (a strike on the glint counts two)
-        const face = mk('prof-face');
-        /** @param {readonly number[]} p [yaw, pitch] degrees */
-        const at = (p) => [50 + (p[0] / (2 * MINE_ACT.spreadYawDeg)) * 100, 50 - (p[1] / (2 * MINE_ACT.spreadPitchDeg)) * 100];
-        MINE_POINTS.forEach((p, i) => {
-          const n = mk(i === st.glint ? 'prof-glint' : 'prof-point');
-          const [x, y] = at(p);
-          n.style.left = `${x}%`; n.style.top = `${y}%`;
-          if (i === st.glint && reduced()) n.style.animation = 'none';
-          face.append(n);
-        });
-        if (st.aim) {
-          const a = mk('prof-aim');
-          const [x, y] = at([Math.max(-MINE_ACT.spreadYawDeg, Math.min(MINE_ACT.spreadYawDeg, st.aim.yaw)), Math.max(-MINE_ACT.spreadPitchDeg, Math.min(MINE_ACT.spreadPitchDeg, st.aim.pitch))]);
-          a.style.left = `${x}%`; a.style.top = `${y}%`;
-          face.append(a);
-        }
-        const pips = mk('prof-finds');
-        pips.textContent = `${'o '.repeat(Math.min(st.points, st.need))}${'. '.repeat(Math.max(0, st.need - st.points))}`.trim();
-        const hint = mk('prof-hint');
-        hint.textContent = st.gentle ? (label || 'click to strike') : (label || 'click to strike the glint');   // ACT-CLICK: the press named (it said 'strike the glint', and only the right button struck)
-        meter.append(face, pips, hint);
-        return;
-      }
-      if (st.kind === 'trace') {
-        // PROF7: THE TRACE - the carcass's face as a box (the line's span, a margin round it), the dotted line, the points
-        // the knife has passed lit, and where the crosshair is on it; a hold's bar for Gentle acts
-        // (`label` the key held - E, the use key's own binding)
-        const key = label || 'the use key';
-        if (st.gentle) {
-          const bar = mk('prof-bar');
-          const fill = doc.createElement('i');
-          fill.style.width = `${Math.round(act.progress * 100)}%`;
-          bar.append(fill);
-          const hint = mk('prof-hint');
-          hint.textContent = byUse ? 'skinning...' : `hold ${key}`;   // TOUCH-HOLD: the knife's Use holds it
-          meter.append(bar, hint);
-          return;
-        }
-        const face = mk('prof-face');
-        const w = TRACE_ACT.spanYawDeg + 2 * TRACE_ACT.startDeg, h = 2 * (TRACE_ACT.spanPitchDeg + TRACE_ACT.startDeg);
-        // AUDIT 32 P11: a degree the same across as up (the face was 8.4px a degree across and 5.8 up, so a stray up read a
-        // third smaller than it was), the line the points are scored against drawn through them, and the first marked
-        face.classList.add('prof-traceface');
-        face.style.height = 'auto';
-        face.style.aspectRatio = `${w} / ${h}`;
-        /** @param {readonly number[]} p [yaw, pitch] degrees */
-        const at = (p) => [50 + (p[0] / w) * 100, 50 - (p[1] / h) * 100];
-        if (typeof doc.createElementNS === 'function') {
-          const NS = 'http://www.w3.org/2000/svg';
-          const svg = doc.createElementNS(NS, 'svg');
-          svg.setAttribute('class', 'prof-line');
-          svg.setAttribute('viewBox', '0 0 100 100');
-          svg.setAttribute('preserveAspectRatio', 'none');
-          const line = doc.createElementNS(NS, 'polyline');
-          line.setAttribute('points', st.points.map((p) => at(p).map((v) => v.toFixed(2)).join(',')).join(' '));
-          svg.append(line);
-          face.append(svg);
-        }
-        st.points.forEach((p, i) => {
-          const passed = st.tracing && i <= st.reached;
-          const n = mk(passed ? 'prof-glint' : i === 0 ? 'prof-point first' : 'prof-point');
-          const [x, y] = at(p);
-          n.style.left = `${x}%`; n.style.top = `${y}%`;
-          if (passed && reduced()) n.style.animation = 'none';
-          face.append(n);
-        });
-        if (st.aim) {
-          const a = mk('prof-aim');
-          const [x, y] = at([Math.max(-w / 2, Math.min(w / 2, st.aim.yaw)), Math.max(-h / 2, Math.min(h / 2, st.aim.pitch))]);
-          a.style.left = `${x}%`; a.style.top = `${y}%`;
-          face.append(a);
-        }
-        const hint = mk('prof-hint');
-        // AUDIT 32 P10: a slip said - the trace let go before the last point starts again, and the meter said only its start
-        // TOUCH-HOLD: the knife's Use holds it - no key to hold, the knife only aimed (a held Use never slips)
-        hint.textContent = st.tracing ? 'draw the knife along the line' : byUse ? 'aim the knife at the first point' : st.slips > 0 ? `let go - hold ${key} on the first point again` : `hold ${key} on the first point`;
-        meter.append(face, hint);
-        return;
-      }
-      if (st.kind === 'basket') {
-        const leaves = mk('prof-leaves');
-        if (st.spot >= 0) {
-          const g = mk('prof-glint');
-          const [x, y] = BASKET_SPOTS[st.spot];
-          g.style.left = `${x * 100}%`; g.style.top = `${y * 100}%`;
-          if (reduced()) g.style.animation = 'none';
-          leaves.append(g);
-        }
-        const finds = mk('prof-finds');
-        finds.textContent = st.hits.map((h) => (h ? '*' : '.')).join(' ') + ` ${Math.min(st.find + 1, 3)} of 3`;
-        meter.append(leaves, finds);
-        const hint = mk('prof-hint');
-        hint.textContent = label || 'tap the glint';
-        meter.append(hint);
-        return;
-      }
-      if (st.kind === 'fish') {
-        // PROF8: THE NET - the wind's bar and the throw it makes; the wait; the tug, flashed; the haul: the bar with the
-        // tension band and the net's weight on it, the meter's fill under it and the slip said (a still bar either way -
-        // nothing here moves but by the act's own numbers)
-        const key = label || 'E';
-        const pc = (v) => `${Math.round(Math.max(0, Math.min(1, v)) * 1000) / 10}%`;
-        meter.classList.toggle('fish-tug', st.phase === 'tug');
-        const hint = mk('prof-hint');
-        if (st.phase === 'haul') {
-          const haul = mk('prof-haulbar');
-          const band = mk('prof-haulband');
-          band.style.left = pc(st.bandAt); band.style.width = pc(st.bandW);
-          const weight = mk('prof-haulweight');
-          weight.style.left = pc(st.weight);
-          haul.append(band, weight);
-          const bar = mk('prof-bar');
-          const fill = doc.createElement('i');
-          fill.style.width = pc(st.fill);
-          bar.append(fill);
-          hint.textContent = `hold ${key} to raise the band, let go to lower it - keep the weight inside${st.slip > 0 ? ` (slipping, ${Math.round(st.slip * 100)}%)` : ''}`;
-          meter.append(haul, bar, hint);
-          return;
-        }
-        const bar = mk('prof-bar');
-        const fill = doc.createElement('i');
-        fill.style.width = pc(act.progress);
-        bar.append(fill);
-        hint.textContent = st.phase === 'wind' ? `hold ${key} to wind the net, let go to throw it (${Math.round(throwM(st.windS))} m)`
-          : st.phase === 'fly' ? 'the net flies...'
-            : st.phase === 'wait' ? `waiting for a bite${st.school !== null ? ' - over a school' : ''}...`
-              : `a tug! press ${key} now`;
-        meter.append(bar, hint);
-        return;
-      }
-      const bar = mk('prof-bar');
-      const fill = doc.createElement('i');
-      fill.style.width = `${Math.round(act.progress * 100)}%`;
-      bar.append(fill);
-      const hint = mk('prof-hint');
-      // STEADY-SAID (AUDIT 2026-10-01 part four): the key the steady hand holds, where it holds one (E's start; the
-      // Sickle's Use holds it itself)
-      hint.textContent = st.kind === 'steady'
-        ? (st.bruised ? `bruised - ${label ? `keep ${label} held` : 'hold on'} to keep what is left` : `${label ? `hold ${label} and ` : ''}keep still (${Math.round(st.window * 10) / 10} degrees)`)
-        : (label || 'kneeling...');
-      meter.append(bar, hint);
+      const which = marksOf(act);
+      if (!panel || panel.act !== act || panel.which !== which) { panel = { act, which, ui: buildActReticle(doc, meter, act), prev: {} }; actCues(panel.prev, st); }
+      panel.ui.update(act, { label, byUse, reduced: reduced(), focal });
+      for (const c of actCues(panel.prev, st)) profCue(c);
+      // the act's flashes - a blow on the glint, a Clean Cut, a bruise, the tug - on the reticle itself, whole
+      const flags = ['prof-meter', 'prof-reticle', `prof-kind-${which}`];
+      if (st.bruised) flags.push('bruised');
+      if (st.kind === 'mine' && st.last === 'glint' && act.swing > 0) flags.push('struck-glint');
+      if (st.kind === 'chop' && st.last === 'clean' && act.swing > 0) flags.push('clean-cut');
+      if (st.kind === 'fish' && st.phase === 'tug') flags.push('fish-tug');
+      const c = flags.join(' ');
+      if (meter.className !== c) meter.className = c;
     },
+    /** PROF-SCENES: a cue said outright - an act's clean finish, which its last frame cannot see. */
+    cue(name) { profCue(name); },
     /** A line on the right; `keep` (GATHER-SAID) outlasts the unkept past four. */
     toast(text, o) { queue.push(text, o); },
     /** The rank's banner. */
@@ -329,6 +185,6 @@ export function createProfHud({ doc = globalThis.document } = {}) {
     },
     /** The HUD's lines, for the pins. */
     get toastLines() { return queue.lines.map((l) => l.text); },
-    dispose() { prompt.remove(); meter.remove(); toasts.remove(); chip.remove(); banner.remove(); queue.clear(); },
+    dispose() { prompt.remove(); meter.remove(); toasts.remove(); chip.remove(); banner.remove(); queue.clear(); panel = null; },
   };
 }

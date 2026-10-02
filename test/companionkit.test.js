@@ -314,8 +314,9 @@ test('COMPANION-KIT THE WORLD\'S WIRING: both cast engines are handed my compani
   assert.equal((w.match(/companionBodies: \(\) => crewAshore\.bodies\(\),/g) ?? []).length, 2, 'the world\'s engine and the dungeon\'s');
   assert.match(m, /companionBodies: \(\) => host\.companionBodies\?\.\(\) \?\? null,/);
   assert.match(d, /companionBodies: opts\.companionBodies \? \(\) => opts\.companionBodies\(\) : null,/);
-  // AUDIT WK-P3 (PIN MOVED): his pack read by his key at every look, never a list taken once
-  assert.match(w, /const w = makeInventoryWindow\(\{ loot: \{ items: \(\) => naval\?\.companionPack\?\.\(key\)\?\.items \?\? \(orphan \?\?= \[\]\), containerImage: \(\) => CONTAINER_IMAGES\.Backpack, playerOwned: true, storage: true \} \}\);/);
+  // AUDIT WK-P3 (PIN MOVED): his pack read by his key at every look, never a list taken once; COMPANION-WEIGHT (PIN
+  // MOVED): and its capacity, his body's (companion_weight.test.js)
+  assert.match(w, /const w = makeInventoryWindow\(\{ loot: \{ items: \(\) => naval\?\.companionPack\?\.\(key\)\?\.items \?\? \(orphan \?\?= \[\]\), containerImage: \(\) => CONTAINER_IMAGES\.Backpack, playerOwned: true, storage: true, capacity \} \}\);/);
   assert.match(w, /openCompanion: \(rec\) => openCompanionPack\(rec\),/);
   assert.match(w, /openCompanionPack: \(rec\) => openCompanionPack\(rec\),/);
   assert.equal((m.match(/openCompanion: \(rec\) => !!host\.openCompanionPack\?\.\(rec\),/g) ?? []).length, 2, 'a building and a dungeon');

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { scene, ctxFor } from './csaScene.mjs';
 import { spawnBoat, Boat, TRIGGER_MODEL } from '../src/systems/comeSailAwayBoat.js';
-import { activationModelOf, ACTIVATION_DISTANCE, PASSENGERS_ABOARD_TEXT } from '../src/systems/comeSailAway.js';
+import { activationModelOf, ACTIVATION_DISTANCE, PASSENGERS_ABOARD_TEXT, DEED_NOT_HELD_TEXT } from '../src/systems/comeSailAway.js';
 import { boatTriggers, boatMenuRows, boatMenuStart, boatMenuRefusal, boatVerbNode, pressBoatVerb, BOAT_VERB, BOAT_MENU_TEXT, BOAT_MENU_WHY } from '../src/systems/csaBoatMenu.js';
 import { mintBoatItem } from '../src/systems/comeSailAwayItems.js';
 import { resolveHover, nextSelection } from '../src/systems/worldHover.js';
@@ -19,17 +19,23 @@ const menuOf = (boat, s = {}) => {
 };
 const labels = (rows) => rows.map((r) => (r.disabled ? `${r.label} (${r.why})` : r.label));
 
-test('BOAT-MENU: EACH HULL LISTS THE BOXES IT CARRIES - the rowboat its helm, its ladder and the pick-up; the Large Boat its chest and its styles too; the ships their chest, status and position, the pick-up refused with its reason (a deed ship is not packed); the helm taken reads "Leave the helm" and hides the ladder; aboard, no ladder (mutants: a box not walked, a row not gated on its box, the refusals dropped)', () => {
+test('BOAT-MENU: EACH HULL LISTS THE BOXES IT CARRIES - the rowboat its helm, its ladder and the pick-up; the Large Boat its chest and its styles too; the ships their chest, status and position and (SHIP-PACK) the pick-up, refused with its reason while her deed is not in the pack; the helm taken reads "Leave the helm" and hides the ladder; aboard, no ladder (mutants: a box not walked, a row not gated on its box, the refusals dropped)', () => {
   const at = { position: [0, 0, 0], rotation: [0, 0, 0, 1] };
   const hull = (h) => { const b = new Boat(h, 0); spawnBoat(b, ctxFor(at)); return b; };
   const want = [
     ['Take the helm', 'Board', 'Pick up'],
     ['Take the helm', 'Board', 'Open storage', 'Pick up', 'Change style'],
-    ['Take the helm', 'Board', 'Open storage', `Pick up (${BOAT_MENU_WHY.moored})`, 'Status', 'Position'],
-    ['Take the helm', 'Board', 'Open storage', `Pick up (${BOAT_MENU_WHY.moored})`, 'Status'],
-    ['Take the helm', 'Board', 'Open storage', `Pick up (${BOAT_MENU_WHY.moored})`],
+    // SHIP-PACK (PIN MOVED): the ships pick up as the small boats do - they listed `Pick up (a deed ship stays afloat)`
+    ['Take the helm', 'Board', 'Open storage', 'Pick up', 'Status', 'Position'],
+    ['Take the helm', 'Board', 'Open storage', 'Pick up', 'Status'],
+    ['Take the helm', 'Board', 'Open storage', 'Pick up'],
   ];
   for (let h = 0; h < 5; h++) assert.deepEqual(labels(menuOf(hull(h)).rows), want[h], `hull ${h}`);
+  assert.deepEqual(labels(menuOf(hull(4), { noDeed: true }).rows), ['Take the helm', 'Board', 'Open storage', `Pick up (${BOAT_MENU_WHY.noDeed})`], 'her deed not in the pack');
+  assert.deepEqual(labels(menuOf(hull(4), { noDeed: true, passengers: 1 }).rows).at(-1), `Pick up (${BOAT_MENU_WHY.passengers})`, 'the mod\'s own refusals first');
+  assert.equal(boatMenuRefusal(BOAT_MENU_WHY.noDeed), DEED_NOT_HELD_TEXT, 'the runtime\'s own words');
+  // a boat that does not pack (no `Packable` node, and no `Crewed` - no hull of the mod's now) keeps the mod's refusal
+  assert.deepEqual(labels(boatMenuRows({ boxes: new Set(['drive']), packable: false })), [BOAT_MENU_TEXT.helm, `Pick up (${BOAT_MENU_WHY.moored})`]);
   const b = hull(1);
   assert.deepEqual(labels(menuOf(b, { sailingThis: true, sailing: true }).rows), ['Leave the helm', 'Open storage', `Pick up (${BOAT_MENU_WHY.driving})`, `Change style (${BOAT_MENU_WHY.sailing})`]);
   assert.deepEqual(labels(menuOf(b, { aboard: true }).rows), ['Take the helm', 'Open storage', 'Pick up', 'Change style']);

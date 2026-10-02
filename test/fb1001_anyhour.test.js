@@ -83,7 +83,7 @@ async function stage(hour) {
     pixelInfo: () => ({ climate: WOODS, region: GLENUMBRA }), nowMs: () => NOON_MS,
     eye, view: () => view, feet: () => feet, entity: () => S.e,
     keyLabel: (a) => ({ Interact: 'E', ActChoice: 'Up' })[a] ?? '?', input: () => S.input,
-    active: () => true, activeDungeon: () => false,
+    active: () => true, activeDungeon: () => false, lit: () => S.lit ?? null,   // PROF-MENU: the plaque's lit row
   });
   setForagingHost({ world: () => wild(hour), monthValue: () => 5, entity: () => null, startQuest: () => true, professionsOpen: () => true, keyLabel: () => 'E', professionUse: () => false });
   S.host.onBuilt(entry);
@@ -116,11 +116,10 @@ test('ANY-HOUR: the instruction - at 21:00 and at 03:00 every gathering act star
       assert.equal(s.start(boulder), 'mine', `${hour}:00 - the boulder: ${s.said.join(' | ')}`);
       assert.equal(s.start(tree), 'chop', `${hour}:00 - the tree: ${s.said.join(' | ')}`);
       assert.ok(['hand', 'steady'].includes(s.start(patch)), `${hour}:00 - the patch's herbs (by hand, or the Sickle's steady hand): ${s.said.join(' | ')}`);
-      // the act choice key picks the Basket at the patch
-      s.face(patch);
-      s.input = { held: false, attack: false, choice: true }; s.host.tick(0.016); s.input = { held: false, attack: false, choice: false };
-      assert.equal(s.prompt?.verb, 'Search with the Basket');
+      // PROF-MENU: the patch's list - its Basket row lit and pressed
+      s.lit = 'food';
       assert.equal(s.start(patch), 'basket', `${hour}:00 - the patch, by the Basket: ${s.said.join(' | ')}`);
+      s.lit = null;
       assert.deepEqual(s.said.filter((l) => /daylight/.test(l)), [], 'no line asks for daylight');
       // the net: Foraging's checks for its act, in the water
       setForagingHost({ world: () => ({ ...wild(hour), swimming: true, exteriorWater: 'Swimming' }), monthValue: () => 5, entity: () => null, professionsOpen: () => true });
@@ -134,7 +133,7 @@ test('ANY-HOUR: the instruction - at 21:00 and at 03:00 every gathering act star
 
 test('ANY-HOUR: the words keep no hours - the Fishing-Net\'s line, the Fishing page and the net\'s prompt name none (mutants: the line, the page and the prompt said the daylight again)', () => {
   assert.doesNotMatch(PROFESSION_TOOL_HOW[FT.FishingNet]('E'), /daylight|07:00|17:59/);
-  assert.match(PROFESSION_TOOL_HOW[FT.FishingNet]('E'), /^Fishing is done in water: stand in it, swim, or stand at sea until the prompt shows, then press E \(or use the Fishing-Net\)\.$/);
+  assert.match(PROFESSION_TOOL_HOW[FT.FishingNet]('E'), /^Fishing is done in water: stand in it, swim, or stand at sea until its acts show, then press E \(or use the Fishing-Net\)\.$/);   // PROF-MENU: its acts - the list, or the prompt
   assert.doesNotMatch(FISHING_HOW, /daylight|07:00|17:59/);
   assert.match(FISHING_HOW, /stand at sea, at any hour\./);
   assert.deepEqual([...NET_WHERE], ['inside', 'town'], 'the ground\'s words: inside and a settlement - never the hour');

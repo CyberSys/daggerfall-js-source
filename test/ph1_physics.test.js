@@ -143,7 +143,7 @@ test('PH2: the snap descends a quantum at a time from the feet, accepts a hair o
   // (test/auditdisc28_motion.test.js)
   assert.match(src, /const lowOneWay = straddle \? axis : true;/);
   assert.match(src, /this\._resolveSphere\(low, CAPSULE_RADIUS, out, standCeil, lowOneWay\);/, 'the lower sphere\'s');
-  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0 \? lowOneWay : false, tall && axis !== 0\);/, 'never the head\'s (AUDIT pre-merge S1: and a floor-keeping body\'s head never grounds at all)');
+  assert.match(src, /this\._resolveSphere\(high, CAPSULE_RADIUS, out, standCeil, axis === 0 \? lowOneWay : false, axis !== 0\);/, 'never the head\'s (AUDIT pre-merge S1, AUDIT CLIMB-FIELD W2: and a body\'s head never grounds at all, but the swim stance\'s one sphere)');
   // a ledge deeper than STEP_OFFSET is a fall, as MAC3 pins for terrain
   const col = dungeonFloor();
   const low = quad(-10, -(STEP_OFFSET + 0.3), 20, 10, -(STEP_OFFSET + 0.3), 20, 10, -(STEP_OFFSET + 0.3), 40, -10, -(STEP_OFFSET + 0.3), 40);

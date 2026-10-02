@@ -67,6 +67,21 @@ export const boatItemName = (name, hull, variant) => `${name} ${at(HULL_NAMES, h
 export const boatItemMessage = (hull, variant) => hull * 10 + variant;
 
 /**
+ * SHIP-CLAIM (2026-10-01, the port's own - bible/03-World/Naval-Combat.md SHIP-CLAIM): A DEED TO ONE HULL AND VARIANT,
+ * minted as the shelf mints a deed - ItemBuilder.CreateItem (`mintBoatItem`, the host's UID) given the deed arm's
+ * message and name (AssignVariantsToShopItems: `hull * 10 + variant`, "Deed to Small Ship 'I'") - at `value` gold: a
+ * prize claimed at sea (scenes/navalHost.js claimPrize; her value navalPlunder.js prizeDeedValue). Its weight is the
+ * row's half kilogram, as every deed's. A hull or variant the C#'s arrays would throw on throws here too.
+ */
+export function mintDeed(hull, variant, uid, value) {
+  const deed = mintBoatItem(BOAT_DEED_TEMPLATE, uid);
+  deed.message = boatItemMessage(hull, variant);
+  deed.value = value;
+  deed.name = boatItemName(deed.name, hull, variant);
+  return deed;
+}
+
+/**
  * The shelf's two given the UID DFU's construction gives every item (DaggerfallUnityItem's constructor,
  * DaggerfallUnity.NextUID): the port's shelf mints its items with none, and a deed without one would answer any boat
  * another such deed placed (GetPlacedBoatWithUID). An item that has one keeps it; `uid()` is the host's mint.

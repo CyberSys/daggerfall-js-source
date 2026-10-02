@@ -332,7 +332,7 @@ test('PROF8 meter: each phase its words - wind (the throw it makes), the wait (o
   waitOut(a);
   hud.setMeter(a, 'E');
   assert.match(meter().textContent, /a tug! press E now/);
-  assert.match(src('src/ui/profHud.js'), /meter\.classList\.toggle\('fish-tug', st\.phase === 'tug'\);/, 'the tug flashed');
+  assert.ok(meter().className.split(' ').includes('fish-tug'), 'the tug flashed (PROF-SCENES: on the panel, whole)');
   a.tick(0.05, { attack: true });
   hud.setMeter(a, 'E');
   assert.match(meter().textContent, /hold E to raise the band, let go to lower it - keep the weight inside/);

@@ -222,7 +222,7 @@
   {
     "name": "CAST-E-the-cast-takes-the-press",
     "file": "src/scenes/gatherHost.js",
-    "old": "      if (target.node.yields === true) { passedCast = target; passedCastAt = deps.nowMs(); return false; }\n",
+    "old": "      if (t.node.yields === true && ready.length) { passedCast = t; passedCastAt = deps.nowMs(); return false; }\n",
     "new": "",
     "tests": [
       "test/fb1001_lifeskills.test.js"
@@ -246,6 +246,26 @@
       "test/fb1001_lifeskills.test.js",
       "test/fb0930b_fishtired.test.js"
     ]
+  },
+  {
+    "name": "CAST-E-the-plaque-over-the-ray",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      if (target.node.yields === true && ray && ray.distance <= ray.reach) return null;",
+    "new": "",
+    "tests": [
+      "test/fb1001_lifeskills.test.js"
+    ],
+    "note": "MERGE of PROF-MENU: the plaque lists the cast over a door, the crew or a chest in reach - their plaque lost on any pier."
+  },
+  {
+    "name": "CAST-E-the-lit-cast-passed-on",
+    "file": "src/scenes/gatherHost.js",
+    "old": "      if (chosen) return pressRow(t, chosen);\n",
+    "new": "      if (chosen && t.node.yields !== true) return pressRow(t, chosen);\n",
+    "tests": [
+      "test/fb1001_lifeskills.test.js"
+    ],
+    "note": "MERGE of PROF-MENU: a cast the plaque lit (nothing else under the look) is passed on as if unlit."
   },
   {
     "name": "FOOT-IN-the-pixel-unasked",

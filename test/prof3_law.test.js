@@ -87,7 +87,7 @@ test('PROF3 law: the XP - 20 x the tier, a quarter more than two tiers below the
   assert.deepEqual([heatBand({ strength: 30, agility: 40 }), heatBand({ strength: 50, agility: 50 }), heatBand({ strength: 90, agility: 80 })], [0.85, 1, 1.3]);
   assert.deepEqual([makerName('  Silverthorn  '), makerName(''), makerName(null), makerName('x'.repeat(40)).length, makerName('Ta\u0007ra')], ['Silverthorn', null, null, MAKER_MAX, 'Tara']);
   assert.deepEqual(pieceLines({ quality: 2, maker: 'Ann', provenance: '0123456789abcdef' }), ['Fine', 'Made by Ann']);
-  assert.deepEqual(pieceLines({ kitMetal: 5, provenance: '0123456789abcdef' }), ['Mends a quarter of a Mithril piece\'s condition, once']);
+  assert.deepEqual(pieceLines({ kitMetal: 5, provenance: '0123456789abcdef' }), ['Mends a quarter of a Mithril piece\'s condition, up to 75%, once'], 'KIT-CEILING');
   assert.deepEqual(pieceLines({ quality: 2, maker: 'Ann' }), [], 'no provenance, no anvil made it');
 });
 

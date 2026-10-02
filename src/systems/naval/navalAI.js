@@ -72,6 +72,13 @@
 // NIGHT_DARK_SIGHT - `c.lit`), and a threat to run from no farther: a pirate running dark comes up on a merchantman
 // unseen, and a player who douses their lanterns slips past a pirate at a cable's length. The guns are heard as ever,
 // and a ship that fired in the last GUNS_SEEN_S is seen by her flashes as a lit one is.
+//
+// SEA-EASE (2026-10-01, Mac: "Friendly AI should help the player in combat") - A CROWN'S SHIP STANDS BY A LAWFUL PLAYER.
+// Of the pirates in her lookout, one fighting a player she does not hunt (`standsBy`: in her fight or coming alongside
+// them) is hers first - chosen as if AID_PRIORITY nearer than she is - so the cutter that comes up on a fight takes the
+// pirate on the player's quarter, not the one a mile off; the director sends her (navalDirector.js THE RELIEF) and the
+// host forgives the player's stray ball on her (navalHost.js ALLY_STRAY_SHARE). And the bay is gentler: a quarter of
+// the pirates bold (BOLD_SHARE), and a boat lying still grappled only after GRAPPLE_STILL_S.
 
 import { classById, batteryOf, hullBuild, GUNS, HULL, SHIP_CLASSES } from './navalShips.js';
 import { mulberry32 } from '../../combat/bloodArt.js';   // SEA-PEACE: the temper's draw (navalShips.js names on the same stream kind)
@@ -174,7 +181,9 @@ export const GRAPPLE_RANGE = 28;
 export const GRAPPLE_GAP = 12;
 export const GRAPPLE_HULL = 0.35;
 export const GRAPPLE_STILL = 1.2;
-export const GRAPPLE_STILL_S = 5;
+/** SEA-EASE (Mac: "The sea is too dangerous right now"): a boat lying still is grappled after a quarter of a minute, not
+ *  five seconds - a captain who stops to look about is not boarded for it. */
+export const GRAPPLE_STILL_S = 15;
 export const GRAPPLE_CREW = 6;
 /** Coming alongside to board: she makes the pace that stops her BOARD_SAILS.from metres short of the berth at DECEL -
  *  never under .min of her sail - and matches the boat's own way. */
@@ -216,7 +225,8 @@ export const PROVOKED_S = 300;
  *  gunners' skill a player's boat is sized up at (a class's `skill` is her own); and how far and how long a navy hears
  *  gunfire (m, s). */
 export const TEMPERS = Object.freeze({ peaceful: 'peaceful', dutiful: 'dutiful', bold: 'bold', wary: 'wary' });
-export const BOLD_SHARE = 0.4;
+/** SEA-EASE (Mac: "The sea is too dangerous right now"): a quarter of the pirates bold (two in five were). */
+export const BOLD_SHARE = 0.25;
 export const WARY_ODDS = 1.25;
 export const PLAYER_GUN_SKILL = 0.6;
 /** AUDIT NAV2 F25: the range a duel is sized at (m - the navy-pirate duels' own middle), and the turn (degrees) she comes
@@ -225,6 +235,8 @@ export const DUEL_RANGE = 110;
 export const TURN_PER_VOLLEY = 90;
 export const HEAR_GUNS_M = 1600;
 export const HEAR_S = 40;
+/** SEA-EASE: a pirate fighting a player a crown's ship stands by is chosen as if this share of her distance off. */
+export const AID_PRIORITY = 0.5;
 /** SHIP-WATCH: a ship that fired within this (s) is seen by night as a lit one - her guns' flashes. */
 export const GUNS_SEEN_S = 20;
 /** AUDIT WK-N3: by night a ship that ran keeps running this long (s) from where she last saw the threat - a threat lost
@@ -814,6 +826,7 @@ export function stepCaptain(ship, world) {
   // who is out there, and who is an enemy - the one she fights kept until it is past DISENGAGE of its reach
   const sight = lookoutOf(ship);
   let enemy = null, enemyD = Infinity, threat = null, threatD = Infinity, prize = null, prizeD = Infinity;
+  const aids = standsBy(ship, world);   // SEA-EASE: the players a crown's ship stands by
   // SHIP-WATCH: who showed themselves by their guns' flashes lately (by night, seen as a lit ship is)
   const flashed = world.night ? new Set((world.gunfire ?? []).filter((g) => world.now - g.at <= GUNS_SEEN_S).map((g) => g.by)) : null;
   for (const c of world.contacts ?? []) {
@@ -826,7 +839,9 @@ export function stepCaptain(ship, world) {
     const lit = !!c.lit || !!flashed?.has(c.id);
     const see = nightSight(sight, { night: !!world.night, lit });   // SHIP-WATCH: by night, by her lanterns (or her guns)
     if (hostile(ship, c, world) && !((ship.spare.get(c.id) ?? -Infinity) > ship.clock)) {
-      if (dist < (held ? see * DISENGAGE : see) && (held ? dist * 0.8 : dist) < enemyD) { enemy = c; enemyD = held ? dist * 0.8 : dist; }
+      // SEA-EASE: a pirate fighting a player she stands by is hers first
+      const rank = (held ? dist * 0.8 : dist) * (aids && fightsAny(c, aids) ? AID_PRIORITY : 1);
+      if (dist < (held ? see * DISENGAGE : see) && rank < enemyD) { enemy = c; enemyD = rank; }
     }
     // a threat is anything hostile that would take US - SEA-PEACE: sized up by her own power, and a player who fired on
     // her a threat to a pirate too (a wary one runs from a stronger one; a bold one fights it out, as she did)
@@ -923,6 +938,17 @@ export function stepCaptain(ship, world) {
   }
   return out;
 }
+
+/** SEA-EASE: the players a crown's ship stands by - every player in her contacts she does not take for an enemy - or
+ *  null (she is no crown's ship, or stands by no one). */
+function standsBy(ship, world) {
+  if (ship.cls.faction !== 'navy') return null;
+  let ids = null;
+  for (const c of world.contacts ?? []) if (c.kind === 'player' && !hostile(ship, c, world)) (ids ??= new Set()).add(c.id);
+  return ids;
+}
+/** SEA-EASE: whether a contact is a ship fighting one of `ids` - in her fight with them, or coming alongside them. */
+export const fightsAny = (c, ids) => c.kind === 'ship' && !!c.ship && ids.has(c.ship.target) && (c.ship.mode === 'engage' || c.ship.mode === 'board');
 
 /** SHIP-LIFE: moored - her way off, her sails stowed, eased onto her berth over MOOR_EASE_S (shipLife.js): no helm, no
  *  way, nothing she steers round; her guns run in. */

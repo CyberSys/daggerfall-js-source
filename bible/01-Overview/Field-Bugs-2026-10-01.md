@@ -1135,6 +1135,11 @@ the ladder's foot when nothing opened - casts it. A press the ladder took is nev
 `fb0930b_fishtired`'s angler presses as the world does (the press, then the hand-back) - PIN MOVED; mutants
 `fb1001_boulders.json` CAST-E 3, dead; `fb0929h_veinneed.json` VEIN-NEED-said-twice re-aimed by content, dead.
 
+MERGE of main's PROF-MENU (a node's acts the loot plaque's list): CAST-E rides the menu - `hoverHit` yields the cast to
+the ray's winner in reach (the door's, the crew's or a chest's plaque kept), E unlit passes on as before, and a cast the
+plaque lit over nothing is cast by E or the click at once; SETTLE-SAID's ground check moved into `learned`, so every
+row of the list says it. Pin: `fb1001_lifeskills` CAST-E under PROF-MENU; CAST-E 5, dead.
+
 **Checked and sound.** The client keeps no service-version gate (acct47 is the deploy marker alone); the raised counts
 reach only the boulder law, the service's slot bound and two "any boulders" tests (`climateHolds`, the writs' Rough
 Stone) whose answers are unchanged; a slot's law point is its own hash, so slot 0 stands where it stood. The settlement

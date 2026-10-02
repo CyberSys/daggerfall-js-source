@@ -1539,10 +1539,12 @@ As built:
   are classic-window art (`ui/targetIconPanel.js`), so the section is named, not pictured.
 - **The Repair Kit** (692) is registered with the ores and ingots (`systems/profTemplates.js`), DFU's Warhammer's world
   picture dyed by its metal. DECIDED: **used from the pack, it mends the most-worn weapon or armour of its metal** (the
-  lowest share of its condition left, an equipped piece first on a tie) by a quarter of its condition, never past whole,
-  and is spent; with nothing of its metal to mend it is kept and says so ("Nothing of Mithril here wants mending"). A
-  Steel kit mends the chain too. No picker: DFU's use is one press, and the most-worn piece is the one a smith would take
-  up first. Offline as online - a kit is the pack's (`scenes/shared.js` installs its use in every host).
+  lowest share of its condition left, an equipped piece first on a tie) by a quarter of its condition, never past three
+  quarters (KIT-CEILING, 2026-10-01 - whole until then; `06-Systems/Economy-Arc.md`), and is spent; with nothing of its
+  metal to mend it is kept and says so ("Nothing of Mithril here wants mending"). A Steel kit mends the chain too. No
+  picker was the decision here (DFU's use is one press); MEND-AIM put one over it - the worn pieces first, and "Mend
+  which?" when there is a choice. Offline as online - a kit is the pack's (`scenes/shared.js` installs its use in every
+  host).
 - **Pinned**: `test/prof3_law.test.js` (6), `test/prof3_service.test.js` (5), `test/prof3_client.test.js` (7);
   `tools/mutants/prof3.json`, 59 mutants, every one dead (AUDIT 32 R6: 57 dead and two recorded equivalent since PROF7 -
   the stock's "never withdrawn" gate, law and service, has nothing left to refuse). The done-when is `prof3_client`'s DONE WHEN: a Mithril
@@ -1778,9 +1780,13 @@ Mac's instruction - "make the decisions ... This is your baby"), and what was fo
   the lock's line, which the form never shows).
 - **What the listing carries of the piece.** FOUND: `products` has no condition or enchantments (section 14's line
   deferred them to PROF5). DECIDED: the listing carries the piece's **wear** - its condition as a share of its most, in
-  thousandths - and the buyer's piece is minted from its record with that share of its condition; a lie about wear is
-  a Repair Kit's work bought for the listing fee (the piece listed "whole" and cancelled comes back whole), and the
-  buyer reads the wear on the card before buying ("worn to N%", 99 at most - AUDIT 30). **No enchantments are
+  thousandths - and the buyer's piece is minted from its record with that share of its condition; a lie about wear (a
+  modified client's - the game sends the piece's own, `net/marketLaw.js` wearOf) buys the lie for the listing fee (the
+  piece listed "whole" and cancelled comes back whole): a Repair Kit's work when this was decided, and since KIT-CEILING
+  (2026-10-01) a smith's repair past three quarters too - gold a client that can write its own purse never needs to buy
+  (the realm's gold is the client's word after its first save, `06-Systems/Economy-Arc.md` "Where the economy stands"),
+  so the wear stays the client's word until the Phase 1 ledger reads it; and the buyer reads the wear on the card
+  before buying ("worn to N%", 99 at most - AUDIT 30). **No enchantments are
   carried**: the buyer's piece rolls its record's seed again (a Superior's Magic roll and a Masterwork's Rare, the same
   on every mint). FOUND (AUDIT 30, correcting this line's "nothing enchants a crafted piece but its seed"): DFU's item
   maker can enchant a crafted piece, and that work would be lost on the way - so **only a piece still as minted lists**,
@@ -2618,6 +2624,31 @@ four (its last section). What the arc's laws now say, by section:
   Skinning Knife's Use from the hotbar or a quick slot is E at a body and holds the knife - the line drawn by the look
   alone (5's acts, as the Sickle's Use holds the steady hand). **HERB-XP** - Mac: "XP follows your rank": a herb is
   picked at the highest tier the rank opens, as a haul is worked (3.2). Both, with ANY-HOUR, are the service's acct46 (past main's PATREON-LINK, acct45).
+
+## 33. PROF-MENU, PROF-RETICLE, PROF-STATIONS - the acts on the loot list and on the crosshair (BUILT 2026-10-01)
+
+Mac: "They should use the same menu the loot menu uses and not an interaction button" (asked, "One loot-style list");
+then, of the illustrated panels PROF-SCENES built, "move away from the overcomplicated minigame visuals and instead use
+the mechanics on something that doesnt cover the screen" (asked, "Around the crosshair"; the stations, "keep them
+simple"). The record is `01-Overview/Field-Bugs-2026-10-01d.md`; every act's rules, timings and report are 5's and 8's,
+unmoved.
+
+- **The list (PROF-MENU).** A node under the look is the world plaque's list, the loot pile's own: its name, its
+  profession's word, its acts as verb rows - a refused act with its reason, the first pressable lit first
+  (`scenes/gatherHost.js` `hoverHit`/`hoverName`, worldHover's 'actions' frame). A row is pressed as a loot row - the
+  click, the activate key, a tap - and a hold-act so started is held by the press, as a tool's Use holds it. ActChoice
+  walks the rows. Without the plaque (classic, touch) a list window asks. 21's prompt stays the fallback's line.
+- **The act (PROF-RETICLE, replacing PROF-SCENES).** No box and no title: each act's mechanic on and about the reticle
+  (`ui/profReticle.js`, `ui/profActStyle.js`) through the frame's own lens (`ui/worldPlaque.js` `reticleAnchor`) -
+  the mine's points and the knife's line where they stand on the node, the glint's double reach and the trace's
+  tolerance at their true size; the chop's ring, the hold's arc, the Basket's glint, the float and the haul's bar about
+  the crosshair; the count's pips and one hint under it that fades after 2.5 s unchanged. Still forms under reduced
+  motion; every cue a sound (`systems/profSounds.js`).
+- **The stations (PROF-STATIONS).** The heat, the stitch's beat and the plane keep their bars and rules, dressed in the
+  plaque's frame and the kit's tones (`ui/profStationStyle.js`); no pictures.
+
+`test/profreticle.test.js` (10), `test/fb0930b_toolsaid.test.js` (+5); `tools/mutants/profreticle.json` (57),
+`profmenu.json`; `tools/profReticleProbe.mjs`.
 
 ## Appendix A - a day of a gatherer
 

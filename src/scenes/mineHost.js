@@ -280,6 +280,8 @@ export function mineKind({ book }) {
     },
     tools: Object.freeze([FT.PickAxe]),   // TOOL-USE: the Pick-Axe's Use at a vein or a boulder is E there
     where: (n) => (n.what === 'dvein' ? null : actChecksRefusal(GROUND_WHERE, GROUND_WHERE_WORDS)),   // SETTLE-SAID: a dungeon's vein asks no settlement (DUNGEON_SKIP)
+    /** PROF-MENU: the menu's title - the boulder, or the vein's ore. */
+    nodeName: (n) => (n.what === 'boulder' ? 'Boulder' : `${materialLabel(n.material).replace(/ Ore$/, '')} Vein`),
     plan(n, { entity, rank }) {
       const plan = minePlan({
         node: n, taken: book.taken(n.key, harvestOf(n)), counting: book.counting(n.key, harvestOf(n)), rank: rank('mining'),

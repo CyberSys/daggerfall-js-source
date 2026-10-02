@@ -382,11 +382,16 @@ export const MOD_SETTINGS = Object.freeze({
       Enabled: Object.freeze({
         default: true,
         description: 'Armour reduces the damage you take instead of your chance to be hit, your skills decide whether you '
-          + 'hit, weapons and shields wear and block according to their material, and critical hits multiply '
+          + 'hit, shields block according to their material, and critical hits multiply '
           + 'damage. Off uses Daggerfall Unity’s combat.',
       }),
-      equipmentDamageEnhanced: Object.freeze({ default: true, description: 'Equipment condition damage is increased significantly, the amount of wear your equipment takes is based on many different factors; Material, Damage Source, Etc' }),
-      fadingEnchantedItems: Object.freeze({ default: true, description: 'Enchanted Weapons and Armor will be destroyed upon breaking from physical combat. !!!! This Module Is Dependent On Equipment Damage Enhanced' }),
+      // WEAR-VANILLA (2026-10-01, the repair triage: "Disable the modded feature that increases durability loss.
+      // Vanilla values work fine"): the mod ships its two wear modules ON, the port ships them OFF - a blow wears gear
+      // at Daggerfall Unity's own rate (combat/formulas.js damageEquipment) and a broken enchanted piece stays,
+      // repairable. Online the room reads these defaults (onlineLane.js ONLINE_WHOLE_MODS); offline they stay the
+      // player's. A value saved under the old default is let go once (SWITCH_RESETS). Port-Ledger, WEAR-VANILLA.
+      equipmentDamageEnhanced: Object.freeze({ default: false, description: 'Equipment condition damage is increased significantly, the amount of wear your equipment takes is based on many different factors; Material, Damage Source, Etc' }),
+      fadingEnchantedItems: Object.freeze({ default: false, description: 'Enchanted Weapons and Armor will be destroyed upon breaking from physical combat. !!!! This Module Is Dependent On Equipment Damage Enhanced' }),
       fixedStrengthDamageModifier: Object.freeze({ default: true, description: 'Fixes a bug in DFU 0.10.21, the strength modifier for damage is double what classic had. This module fixes that, so 10 points = +1, instead of 10 points = +2' }),
       armorHitFormulaRedone: Object.freeze({ default: true, description: 'Armor no longer increases your chance to avoid damage, but instead reduces the damage that you do take in physical combat. The readme and mod-page provided goes into great detail if desired' }),
       criticalStrikesIncreaseDamage: Object.freeze({ default: true, description: 'Critical Strikes Increase Damage, not just hit-chance. !!!! This Module Is Dependent On Armor Hit Formula Redone' }),
@@ -492,7 +497,7 @@ export const MOD_SETTINGS = Object.freeze({
       Enabled: Object.freeze({
         default: true,
         description: 'Realism changes: bows by draw weight, no climbing with a weapon out, fairer swing speed and hit '
-          + 'chance, armour that wears as it’s hit, bank loans by level, ships only from ports, a heavy-load '
+          + 'chance, bank loans by level, ships only from ports, a heavy-load '
           + 'penalty, lights out when you leave a dungeon, purification that cures poison, reworked class '
           + 'enemies, harsher guild expulsions, and beds you can click to sleep in. Its options below are the '
           + 'mod’s own.',
@@ -507,7 +512,7 @@ export const MOD_SETTINGS = Object.freeze({
       climbingRestriction: Object.freeze({ default: true, description: 'Prevents climbing with a weapon drawn.' }),
       weaponSpeed: Object.freeze({ default: true, description: 'Moderates DPS of weapons for characters with high speed attributes.' }),
       weaponMaterials: Object.freeze({ default: true, description: 'Moderates the to-hit bonuses of weapon materials so skill remains key factor' }),
-      equipDamage: Object.freeze({ default: true, description: 'Increases equipment damage proportional to max condition.' }),
+      equipDamage: Object.freeze({ default: false, description: 'Increases equipment damage proportional to max condition.' }),   // WEAR-VANILLA (2026-10-01): the mod ships it ON (armour x5), the port OFF - see the overhaul's wear modules above; the room's too (onlineLane.js)
       enemyAppearance: Object.freeze({ default: true, description: 'Remixes human enemy appearance based on class' }),
       purificationPotion: Object.freeze({ default: true, description: 'Changes purification potion to cure poison rather than grant invisibility' }),
       autoExtinguishLight: Object.freeze({ default: true, description: 'Automatically extinguish any light sources when you exit a dungeon' }),
@@ -1246,6 +1251,10 @@ export const KEY_MIGRATIONS = Object.freeze([
  *  KEY_MIGRATIONS, which can only match a value. A file that never mentioned the mod is not grown one. */
 export const SWITCH_RESETS = Object.freeze([
   Object.freeze({ vendor: 'diverse-weapons', key: 'WeaponWidgetPreset', stamp: 'WeaponWidgetPreset@DISC20' }),
+  // WEAR-VANILLA (2026-10-01): the three wear switches that moved to off
+  Object.freeze({ vendor: 'pcaao', key: 'equipmentDamageEnhanced', stamp: 'equipmentDamageEnhanced@WEAR-VANILLA' }),
+  Object.freeze({ vendor: 'pcaao', key: 'fadingEnchantedItems', stamp: 'fadingEnchantedItems@WEAR-VANILLA' }),
+  Object.freeze({ vendor: 'roleplay-realism', key: 'equipDamage', stamp: 'equipDamage@WEAR-VANILLA' }),
 ]);
 /** FGH2H-R (2026-09-24, Mac: "retire it"): A SWITCH TAKEN OFF THE PANE. Roleplay & Realism's
  *  fightersTeachHandToHand swapped Giantish for HandToHand in the Fighters Guild's lists; FGH2H put HandToHand in the
