@@ -374,7 +374,7 @@ const rememberReload = () => {
   if (/re-pick|not in the stored/i.test(e.message)) {
     const b = document.createElement('button');
     b.textContent = 'clear stored data and pick again';
-    b.style.cssText = 'display:block;margin:16px;padding:12px;font:14px monospace';
+    b.style.cssText = 'display:block;margin:16px;padding:12px;font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;';
     b.onclick = async () => {
       const { clearStoredData } = await import('./scenes/dataSource.js');
       try { await clearStoredData(); } catch { /* wipe best-effort */ }
@@ -400,7 +400,7 @@ function crashOverlay(msg) {
   }
   const el = document.createElement('pre');
   el.id = 'crash';
-  el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;max-height:45%;overflow:auto;background:#300;color:#f88;font:12px monospace;padding:8px;border:1px solid #f66;z-index:20;white-space:pre-wrap;pointer-events:none';   // PL3: a report, not a wall - it sat over the bottom half of the canvas and ate every click that should have relocked the pointer
+  el.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;max-height:45%;overflow:auto;background:#300;color:#f88;font:12px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;padding:8px;border:1px solid #f66;z-index:20;white-space:pre-wrap;pointer-events:none';   // PL3: a report, not a wall - it sat over the bottom half of the canvas and ate every click that should have relocked the pointer
   el.textContent = `CRASH\n${msg}`;
   document.body.appendChild(el);
   return el;

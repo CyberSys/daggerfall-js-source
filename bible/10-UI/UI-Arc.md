@@ -957,7 +957,7 @@ does the pack's USE arm.
                         close-then-hand-over ordering U55 got
                         backwards. No law needs extracting first.
     THE LOGBOOK         THREE sites: charSheetNav.js:53,
-    / NOTEBOOK          world.js:12318, dungeonContext.js:8359. A seam
+    / NOTEBOOK          world.js:12322, dungeonContext.js:8359. A seam
                         wants making, as U52's and U53's did.
     HISTORY             ONE site (charSheetNav.js:61), and it reads
                         only the entity's backStory. The small one.
@@ -10674,9 +10674,9 @@ re-resolved the `exterior.js` half of a three-file sentence and left the
 `ExteriorAutomapWindow` construction, `:4101` on a `locationName:`
 field). Both halves are now read by `test/citedrift.test.js` - the
 existing entries only ever captured the exterior number, which is how
-the other half went stale unnoticed. (The rest cite named `world.js:12738`,
+the other half went stale unnoticed. (The rest cite named `world.js:12742`,
 the first of the host's TWO identical `act === 'Rest'` arms; ROAD-H H5
-deleted the second and the cite is `world.js:12744` now.)
+deleted the second and the cite is `world.js:12748` now.)
 
 ## AUDIT 62 F24/F25 - THE SENTINEL SWEEP WAS TWO WINDOWS SHORT (2026-09-07)
 
@@ -15575,9 +15575,9 @@ whether an entry MATCHES and asserts nothing.
 Following it out was worse than the symptom. Five Ledger rows cite a
 PAIR - `` `world.js:N`, `exterior.js:M` `` - and the table captured `M`
 alone. So `M` was re-resolved at every wave for a year and `N` was never
-read: `world.js:10291` named a line that is 8950, `:1627` one that is
+read: `world.js:10295` named a line that is 8950, `:1627` one that is
 1215, `:1094` one that is 2194, `:3903` one that is 3066, `:3920` one
-that is 8907. `world.js:10025-10057` and `dungeonContext.js:1677` were
+that is 8907. `world.js:10029-10061` and `dungeonContext.js:1677` were
 stale the same way. Seven numbers re-resolved BY CONTENT, every
 uncaptured half de-baked to `\d+`, and eight new entries added so every
 number in a pair is captured. The half nobody reads cannot rot in
@@ -18683,13 +18683,15 @@ The gate's four Plus-dress rules wrote `font-weight: 400` after the trio to undo
 from 8 to under 11px raised to 11 - 86 rules: the hotbar's key letters and counts (and the phone's 8/9px pair), the
 inventory's quickslot marks and counts, the Features rail, the party frames, the chat's tags and times (their calc()
 base), the naval HUD, the Plus dress's item and market lines. Left as they were, on purpose: a pseudo-element glyph
-(the ◆ and the rarity pips), the broker insignia's word (an emblem, sized to its sign) and the province map's SVG
-labels (6-7 user units, scaled by the SVG). A wholesale 12px floor was measured and refused: about 200 rules, many of
+(the ◆ and the rarity pips), the broker insignia's word (an emblem, sized to its sign), the province map's SVG
+labels (6-7 user units, scaled by the SVG) and the 7px word and rounds inside a 16px effect icon (the party card's,
+the crew's - AUDIT FONT3 C3 named them; the first pin skipped everything under 8px). The floor is the DECLARED size: a
+player's own scale under 1 (the HUD scale to 0.5, the chat's corner to 0.8) draws under it, as they chose. A wholesale 12px floor was measured and refused: about 200 rules, many of
 them chips in fixed boxes this lane could not see in a browser without ARENA2.
 
 **The dim, lifted.** `#7d7460` as a WORD's colour is `#9c937d` (5.7:1) - its rules and borders keep the old tone - so
-the order holds: bone, `#a89f88` mid (6.6:1), then the dim. `--dim` is `#a39d8f` (6.4:1), with every `var(--dim,
-#8b8578)` fallback moved with it. The quietest counts (`#5f5b53`, 2.6:1) take the old dim, `#8b8578`.
+the order holds: bone, `#a89f88` mid (6.6:1), then the dim. `--dim` is `#9a9486` (5.7:1 - AUDIT FONT3 C2 took it down from
+FONT3's `#a39d8f`, 6.4:1, which read as the mid), with every `var(--dim, #8b8578)` fallback moved with it. The quietest counts (`#5f5b53`, 2.6:1) take the old dim, `#8b8578`.
 
 **One face - closed where the leak starts.** The body of the game's sheet was `var(--data)`, Barlow, the LAUNCHER's
 face, and PX1/FONT1 set the pixel stack root by root, so every surface whose root they missed - and every rule under a
@@ -18746,8 +18748,11 @@ through the classic travel map a player chose. The input-box line was paid by AU
 
 **Measured in a browser** (Chromium 1280x800, the front door with no ARENA2, the game's own font request fetched
 through the probe's route): the home screen and the Settings pane under the change - every text node's computed
-family is the pixel stack, and no text box clips. Not seen in a browser: Features, Overhauls, About and every in-game
-window the floor touched (no ARENA2 here) - the floor raises a size by at most 3px and only under 11px. Pins: `test/font3_readable.test.js` (9: the pair and the trio's order, the body and the
+family is the pixel stack, and no text box clips. That was the whole of FONT3's own browser check, and it was too
+little: the in-game windows render without ARENA2 too (the repo's own probes and fixtures), and AUDIT FONT3
+(`01-Overview/Audit-Font3.md`) measured them on the base tree and on FONT3 and fixed what the floor and the tracking
+broke in fixed boxes - the naval plate's batteries, the party rows, the hotbar's corners on a phone, the accessory
+shelf's labels. Pins: `test/font3_readable.test.js` (9: the pair and the trio's order, the body and the
 tokens, the recovery code's reason, THE FLOOR over all 25 sheets, the dim's contrast and order, the named surfaces,
 the dungeon line, the text layer over a fake document, the prison label mounted and taken down). Followed:
 `test/audit39_uicore.test.js` (the touch layer's order), `test/audit0928_input.test.js` (the map seam's new free

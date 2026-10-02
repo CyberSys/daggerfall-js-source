@@ -9,7 +9,7 @@
 // dress, which the refresh wrote INTO the enhanced sheet, moved here whole. The kit goes LAST, as it always did.
 import { FRAME_CSS, LAYOUT_CSS, PLUS_THEMES, DEFAULT_PLUS_THEME, FRAME_TONES } from './enhancedFrame.js';
 import { getPref, setPref } from '../systems/uiPrefs.js';
-import { PIXEL_STACK, PIXEL_FONT_CSS } from './pixelifyFive.js';   // PLUS7; PLUS-DRESS: the whole trio for the sheets that forgot it
+import { PIXEL_STACK, PIXEL_FONT_CSS, PIXEL_FACE_CSS } from './pixelifyFive.js';   // PLUS7; PLUS-DRESS: the whole trio for the sheets that forgot it
 import { DIALOG_CSS } from './enhancedDialogStyle.js';
 import { PORT_CSS } from './enhancedPortStyle.js';
 import { LV2_CSS } from './levelUpStyle.js';
@@ -496,6 +496,7 @@ body.draglock .pack-shell .wornsock { touch-action: none; }
 .pack-shell .wornshelf.dragover { outline: 2px solid var(--brass); outline-offset: 3px; }
 .pack-shell .shelflabel { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #a89f88; text-shadow: 1px 1px 0 #050608; }
+@media (max-width: 640px) { .pack-shell .shelflabel { letter-spacing: 0; } }   /* AUDIT FONT3 L6: after the rule it narrows - AMULETS and CRYSTALS whole in a 52px group (BRACELETS was cut before FONT3 too) */
 `;
 
 
@@ -524,7 +525,7 @@ body:has(.hud-foe.on.blade) .travelpanel { --tp-top: calc(18px + 28px * var(--hu
   pointer-events: auto; ${PIXEL_FONT_CSS} }
 /* PLUS-MAP (Mac: "the fonts dont look like this ... make sure its enhanced plus"): the bar speaks the Plus pixel face
    outright - the map's root is lettered in the body face, and the bar inherited it */
-.hmroot .hmtools button, .hmroot .hmtools .hmfloor, .hmroot .hmtools .dlg-key { ${PIXEL_FONT_CSS} }
+.hmroot .hmtools button, .hmroot .hmtools .hmfloor, .hmroot .hmtools .dlg-key { ${PIXEL_FACE_CSS} }   /* AUDIT FONT3 F2: the face alone - the trio's reading pair (0.5px) outranked .hmtool's own 0.12em here, at (0,2,1) over (0,2,0); the weight and spacing inherit */
 .hmroot .hmtoolgroup { display: flex; align-items: center; gap: 6px; padding: 7px 12px; }
 .hmroot .hmtoolgroup + .hmtoolgroup { border-left: 2px solid rgba(5,6,8,0.55); box-shadow: inset 1px 0 0 rgba(163,152,128,0.18); }
 .hmroot .hmtool { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -1591,7 +1592,7 @@ body .wb-dmg-head { font-size: 11px; letter-spacing: 0.1em; color: #b9ab86; bord
 body .wb-dmg-name { font-size: 12px; }
 body .wb-dmg-lv { font-size: 11px; color: #d8cfae; opacity: 1; }
 body .wb-dmg-you { font-size: 11px; color: ${FRAME_TONES.brassHi}; }
-body .wb-dmg-num { font-size: 11px; }
+body .wb-dmg-num { font-size: 11px; letter-spacing: 0; }   /* AUDIT FONT3 L7: a five-digit Best in its 44px column */
 body .wb-dmg-track { background: rgba(5,6,8,0.72); box-shadow: 0 0 0 1px #050608; border-radius: 0; }
 body .wb-dmg-fill { background: linear-gradient(180deg, #ffc08a 0 1px, #ff7a3a 1px 2px, #d8341a 2px); border-radius: 0; }
 body .wb-dmg-mine { outline: 1px solid ${FRAME_TONES.brassHi}; background: rgba(192,138,62,0.14); }

@@ -25,7 +25,7 @@ export const TEXT_LAYER_CSS = `${PIXELIFY_FIVE_FACE}
  *  of the next one. */
 export const TEXT_LAYER_FIT = 0.9;
 
-/** @type {Map<string, { root: any, nodes: any[] }>} */
+/** @type {Map<string, { root: any, nodes: any[], doc: any }>} */
 const layers = new Map();
 
 const css = (c) => `rgba(${Math.round((c?.[0] ?? 1) * 255)}, ${Math.round((c?.[1] ?? 1) * 255)}, ${Math.round((c?.[2] ?? 1) * 255)}, ${c?.[3] ?? 1})`;
@@ -38,6 +38,7 @@ const css = (c) => `rgba(${Math.round((c?.[0] ?? 1) * 255)}, ${Math.round((c?.[1
 export function drawEnhancedTextLayer(id, items, canvas, doc = (typeof document === 'undefined' ? null : document)) {
   if (!doc) return null;
   let layer = layers.get(id);
+  if (layer && layer.doc !== doc) { layer.root.remove?.(); layer = null; }   // AUDIT FONT3 F5: a layer belongs to the document it was built in
   if (!layer) {
     if (!doc.getElementById(STYLE_ID)) {
       const style = doc.createElement('style');
@@ -51,7 +52,7 @@ export function drawEnhancedTextLayer(id, items, canvas, doc = (typeof document 
     root.id = id;
     root.setAttribute('aria-hidden', 'true');
     doc.body.append(root);
-    layer = { root, nodes: [] };
+    layer = { root, nodes: [], doc };
     layers.set(id, layer);
   }
   const dpr = canvas?.clientWidth > 0 ? canvas.width / canvas.clientWidth : 1;
@@ -72,5 +73,5 @@ export function drawEnhancedTextLayer(id, items, canvas, doc = (typeof document 
 /** Take the layer `id` down (its window went). Safe off a document and on a layer never drawn. */
 export function hideEnhancedTextLayer(id) {
   const layer = layers.get(id);
-  if (layer) layer.root.style.display = 'none';
+  if (layer && layer.root.style.display !== 'none') layer.root.style.display = 'none';   // AUDIT FONT3 F1: called every frame by a host's guard
 }

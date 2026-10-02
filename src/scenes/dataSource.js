@@ -1007,7 +1007,7 @@ async function pickAssetFolder({ title, blurb, store, register, directory = true
     _pickerOpen = true;
     // FONT3: under the enhanced skin the picker a Features tile opens (music, sounds, lighting, Morrowind) speaks the
     // skin's face; the classic skin and the first-run picker below keep the plain monospace they always had.
-    const face = isEnhanced() ? `${PIXEL_FONT_CSS}font-size:14px;` : 'font:14px monospace;';
+    const face = isEnhanced() ? `${PIXEL_FONT_CSS}font-size:14px;` : 'font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;';
     ui.style.cssText = `position:fixed;inset:0;background:#111;color:#ddd;${face}display:flex;align-items:center;justify-content:center;z-index:${ASSET_PICKER_Z}`;
     ui.innerHTML = `
       <div style="max-width:460px;text-align:center;border:1px solid #444;padding:24px">
@@ -1456,7 +1456,7 @@ export async function ensureArena2() {
 
   await new Promise((resolve) => {
     const ui = document.createElement('div');
-    ui.style.cssText = 'position:fixed;inset:0;background:#111;color:#ddd;font:14px monospace;display:flex;align-items:center;justify-content:center;z-index:10';
+    ui.style.cssText = 'position:fixed;inset:0;background:#111;color:#ddd;font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;display:flex;align-items:center;justify-content:center;z-index:10';
     ui.innerHTML = `
       <div style="max-width:460px;text-align:center;border:1px solid #444;padding:24px" id="dz">
         <h2 style="margin-top:0">Daggerfall Online</h2>

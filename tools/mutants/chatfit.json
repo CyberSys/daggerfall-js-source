@@ -2,7 +2,7 @@
  { "name": "CHATFIT-the-column-still-sets-the-box-height", "file": "src/ui/chatPanel.js",
    "old": ".dfchat-who-inner { position: absolute; inset: 0;", "new": ".dfchat-who-inner { position: static; inset: 0;", "tests": ["test/chatfit.test.js"] },
  { "name": "CHATFIT-the-name-does-not-give", "file": "src/ui/chatPanel.js",
-   "old": ".dfchat-who-name { font-weight: 600; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }", "new": ".dfchat-who-name { font-weight: 600; flex: none; }", "tests": ["test/chatfit.test.js"] },
+   "old": ".dfchat-who-name { font-weight: 600; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }", "new": ".dfchat-who-name { font-weight: 600; flex: none; letter-spacing: 0; }", "tests": ["test/chatfit.test.js"] },
  { "name": "CHATFIT-the-line-wraps-again", "file": "src/ui/chatPanel.js",
    "old": ".dfchat-who-line { display: flex; align-items: baseline; white-space: nowrap; min-width: 0; }", "new": ".dfchat-who-line { display: flex; align-items: baseline; white-space: normal; min-width: 0; }", "tests": ["test/chatfit.test.js"] },
  { "name": "CHATFIT-the-roster-parts-sit-on-the-row-not-its-line", "file": "src/ui/chatPanel.js",

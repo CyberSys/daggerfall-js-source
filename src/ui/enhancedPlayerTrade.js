@@ -31,9 +31,9 @@ const PTRADE_CSS = `
 .ptrade-shell input { font: inherit; }   /* AUDIT DROPS F1: every form control, the stack-quantity field included - a control falls to the browser's face unless told */
 .ptrade-shell .goldbox input { width: 110px; background: #0e1013; color: var(--bone, #e9e4d9); border: 1px solid var(--iron, #2b323b);
   border-radius: 3px; padding: 4px 6px; font: inherit; }
-.ptrade-shell .lockmark { font-size: 12px; padding: 2px 8px; border-radius: 3px; background: var(--iron, #2b323b); color: var(--dim, #a39d8f); }
+.ptrade-shell .lockmark { font-size: 12px; padding: 2px 8px; border-radius: 3px; background: var(--iron, #2b323b); color: var(--dim, #9a9486); }
 .ptrade-shell .lockmark.on { background: var(--brass, #c08a3e); color: var(--ink, #0e1013); }
-.ptrade-shell .ptrade-note { margin: 0; padding: 6px 4px; font-size: 12.5px; color: var(--dim, #a39d8f); flex: 1 1 100%; }
+.ptrade-shell .ptrade-note { margin: 0; padding: 6px 4px; font-size: 12.5px; color: var(--dim, #9a9486); flex: 1 1 100%; }
 .ptrade-shell .itemrow.staged { outline: 1px solid var(--brass, #c08a3e); }
 /* CARD-FIT U4 (the card audit): THE STRIP IS BOUNDED. A set piece's words ran it to 2,174 px on a phone - the three
    lists fell to nothing and Offer and Close under the window's foot. Its words scroll in a box of their own and the

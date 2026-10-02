@@ -989,7 +989,9 @@ ${CROSSBAR_CSS}
 .hud-quick.hotbarmode .hud-qdiamond, .hud-quick.hotbarmode .hud-qspell { display: none; }
 
 @media (max-width: 760px) { .hb { --hb-cell: 40px; --hb-gap: 3px; } .hb-glyph { font-size: 12px; } .hb-hint { display: none !important; } }
-@media (max-width: 480px) { .hb { --hb-cell: 32px; --hb-gap: 2px; } .hb-key { font-size: 11px; } .hb-count { font-size: 11px; } }
+@media (max-width: 480px) { .hb { --hb-cell: 32px; --hb-gap: 2px; } .hb-key { font-size: 11px; } .hb-count { font-size: 11px; }
+  /* AUDIT FONT3 L3: at the floor the corner words keep to their corners - a 1.0 line and no tracking in a 32px cell */
+  .hb-key, .hb-count, .hb-pip { line-height: 1; letter-spacing: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .hb-slot, .hb-slot.hb-strike, .hb-slot.hb-deny { animation: none; transition: none; transform: none; }
   .hb-ring { display: none; }

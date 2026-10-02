@@ -6041,6 +6041,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!w) return;
     _csaMapWindow = null;
     _csaMapKeys.held.clear();
+    hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER);   // AUDIT FONT3 F1: here, not in dispose alone - the interior and dungeon slots close a window without disposing it
     modes?.closeWindow?.(w);
   }
   /** EntityEffectManager.AssignBundle for StartWaterwalking's bundle: its one WaterWalkingSilent on the player, for
@@ -6461,6 +6462,9 @@ export async function bootWorld(canvas, renderer, params, status) {
    *  and LateUpdate (the boat's move, the placing click on ActivateCenterObject's release) - then its boats in the
    *  mode's collider where they now stand. Outdoors it runs after the motor, before the eye is taken from the body. */
   function csaUpdate(dt) {
+    // AUDIT FONT3 F1: a DOM line stays painted until it is told - with no map up, its words are down, whatever slot
+    // the window left by (every mode runs this; the hide is a no-op on a layer already down)
+    if (!_csaMapWindow) hideEnhancedTextLayer(CSA_MAP_TEXT_LAYER);
     if (!csaRuntime) return;
     const paused = gamePaused() || _loading;   // CSA-J (the audit): Update, LateUpdate and FixedUpdate return while SaveLoadManager.LoadInProgress too (4291/4917/5087), the pause's arm
     _csaDt = paused ? 0 : dt * worldTimeScale();

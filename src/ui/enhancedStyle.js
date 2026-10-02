@@ -61,7 +61,7 @@ export const ENHANCED_TOKENS = `:root {
   --slate: #171b21;
   --iron: #2b323b;
   --bone: #e9e4d9;
-  --dim: #a39d8f;
+  --dim: #9a9486;
   --brass: #c08a3e;
   --blood: #8c3a32;
   --ruby: #b91309;
@@ -3124,6 +3124,11 @@ ${badgeCss()}
   font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
   font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;
   color: rgb(243,239,44); text-shadow: 2px 2px 0 rgb(93,77,12); }
+/* AUDIT FONT3 F4: THE PRISON'S LINE is the prison screen's, not the HUD's - it rides the native panel (its size is the
+   panel's 7-row cell at the panel's scale, ui/prisonScreen.js), never the HUD scale (which takes it to 7.5px at 0.5),
+   in DaggerfallCourtWindow's own colour and shadow (DAYS_LABEL_COLOR / DAYS_LABEL_SHADOW). */
+.hudmid.hudprison { transform: translateX(-50%); font-size: var(--prison-px, 22px); letter-spacing: 0.06em;
+  color: rgb(232,196,76); text-shadow: 2px 2px 0 rgb(48,36,20); }
 
 /* FONT1: THE ONLINE STATUS LINE - the socket's own word (connecting,
    reconnecting, refused), top-left where the classic drew it and clear
@@ -3327,8 +3332,8 @@ ${badgeCss()}
 .rest-shell .hours-field { display: block; width: 140px; margin: 4px auto 22px; font-family: inherit;
   font-size: 34px; text-align: center; background: #0e1013; color: var(--bone, #e9e4d9);
   border: 1px solid var(--iron, #2b323b); border-radius: 3px; padding: 6px 8px; }
-.rest-shell .vitals-line { margin: 10px 0 0; font-size: 14px; color: var(--dim, #a39d8f); font-variant-numeric: tabular-nums; }
-.rest-shell .clock-line { margin: 8px 0 0; font-size: 13px; color: var(--dim, #a39d8f); text-align: center; }   /* AUDIT LIVED1b U7 */
+.rest-shell .vitals-line { margin: 10px 0 0; font-size: 14px; color: var(--dim, #9a9486); font-variant-numeric: tabular-nums; }
+.rest-shell .clock-line { margin: 8px 0 0; font-size: 13px; color: var(--dim, #9a9486); text-align: center; }   /* AUDIT LIVED1b U7 */
 .rest-shell .clock-line:empty { display: none; }
 .tavern-shell .px-body { flex: 0 1 auto; overflow-y: auto; padding: 18px 22px 22px; }
 .tavern-shell .sb-top { display: grid; grid-template-columns: 1fr auto 1fr;
@@ -4983,7 +4988,7 @@ ${badgeCss()}
 .ft-tile:hover, .ft-tile.sel { border-color: var(--dim); }
 .ft-tile.sel { background: var(--iron); }
 .ft-tile:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
-.ft-tile-name { font-family: var(--data); font-size: 14.5px; color: var(--bone); line-height: 1.2; }
+.ft-tile-name { font-family: var(--data); font-size: 14.5px; color: var(--bone); line-height: 1.2; letter-spacing: 0; }   /* AUDIT FONT3 L4: a mod's "X by Author" on one line where it fits - the tiles' rows stay even */
 .ft-tile-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .ft-tile-lock { font-family: var(--data); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); }
 
@@ -5763,9 +5768,10 @@ export function injectEnhancedStyle(doc = document) {
  *
  *  It is separate from the stylesheet because a font is a NETWORK
  *  request and the sheet is not: blocked, offline or opted out, the
- *  screens still lay out in the stack's fallbacks (Georgia and the
- *  system sans), which is the same never-traps law the title screen
- *  follows when its art is missing.
+ *  screens still lay out in the stack's fallback (monospace - since
+ *  FONT3 the whole skin is the pixel stack, whose last word it is),
+ *  which is the same never-traps law the title screen follows when
+ *  its art is missing.
  *
  *  And it is SKIPPABLE. `?nofonts` is the escape hatch for anyone who
  *  does not want the request at all - a probe, an offline build, or a

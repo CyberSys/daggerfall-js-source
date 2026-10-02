@@ -4,13 +4,13 @@
 - **Text is easier to read across the Enhanced interface.** Letters are drawn slightly heavier and a little further
   apart, so small text no longer blurs into grey at the edges.
 - **No more tiny text.** Labels, counts, key hints and badges that were drawn at 9 or 10 pixels are now at least 11,
-  the smallest size the pixel font draws cleanly. That covers the hotbar's key letters and stack counts, the
+  the smallest size the pixel font draws cleanly. That covers the hotbar's key letters (and its stack counts on a phone), the
   inventory's quickslot marks, the Features rail, the party frames, the chat's tags and times, and the naval HUD.
 - **Grey text is brighter.** The dim grey used for secondary text (hints, notes, labels, counts) was too dark to read
   comfortably on the dark panels. It is lighter now, and still clearly quieter than the main text.
 
 ## One font everywhere
-- **Every Enhanced screen now uses the Enhanced pixel font.** Several places were still using older fonts:
+- **Every Enhanced screen now uses the Enhanced pixel font** (three exceptions below). Several places were still using older fonts:
   - the Features, Overhauls and About pages
   - character creation's skills and questions
   - the detail lines on an inventory item's card
@@ -24,5 +24,10 @@
   - the Come Sail Away position map's help lines and marker labels
 - **Fixed:** in dungeons, a readied spell was named twice, once by the HUD and once by an old line in the classic
   font. Only the HUD names it now.
-- The account recovery code still uses a plain font on purpose: it has to be copied onto paper exactly, and the pixel
-  font draws B and 8, G and 6, and S and 5 too much alike.
+- Kept in their own fonts on purpose:
+  - the account recovery code, which has to be copied onto paper exactly - the pixel font draws B and 8, G and 6, and
+    S and 5 too much alike
+  - the pages of books, which stay in the readable book serif
+  - the place names lettered on the map
+- Long labels that had to squeeze into small boxes (the ship's battery counts, party members' locations, the hotbar's
+  key letters on a phone, the accessory shelves) were fitted so the bigger text still fits.

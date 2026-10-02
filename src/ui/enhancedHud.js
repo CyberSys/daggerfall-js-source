@@ -1050,7 +1050,11 @@ export function drawEnhancedHud(vitals, heading01, dt = 0, opts = {}) {
   // word is not a readout, it is a stutter - the chip below says it is
   // readied by lighting up, which is one thing said once.
   const slotSpell = spellQuickslot();
-  const doubled = !!readySpell && !!slotSpell && slotSpell.index === readySpell.index;
+  // AUDIT FONT3 F3: ...and only while something else IS naming it. With the diamond switched off and no hotbar up,
+  // the spell chip is hidden (.nodiamond), so the caption is the one readout left - FONT3 took the dungeon's bitmap
+  // line, which had been the only one in that setup underground (and there had been none above ground).
+  const named = getPref('quickslots') !== false || hotbarMode();
+  const doubled = named && !!readySpell && !!slotSpell && slotSpell.index === readySpell.index;
   const readyName = readySpell && !doubled ? String(readySpell.name ?? '') : null;
   if (last.readied !== readyName) {
     last.readied = readyName;

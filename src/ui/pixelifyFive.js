@@ -60,8 +60,12 @@ export const PIXEL_STACK = `${PIXEL_FAMILIES}, monospace`;
 // AFTER this keeps it - so this goes FIRST in a rule (ui/touch.js was the
 // one place that wrote a weight before the trio, and was turned round).
 export const PIXEL_READ_CSS = 'font-weight: 500; letter-spacing: 0.5px;';
-export const PIXEL_FONT_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
-  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0; ${PIXEL_READ_CSS}`;
+/** AUDIT FONT3 F2: the face without the reading pair - for a rule on an element INSIDE a surface that already wears
+ *  the trio (a toolbar's buttons), where restating the pair would outrank the element's own spacing. Roots take
+ *  PIXEL_FONT_CSS. */
+export const PIXEL_FACE_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;
+  font-variant-ligatures: none; font-feature-settings: 'liga' 0, 'clig' 0;`;
+export const PIXEL_FONT_CSS = `${PIXEL_FACE_CSS} ${PIXEL_READ_CSS}`;
 /** The classic shadowed pair the enhanced skin uses for text over the
  *  world - hard, one pixel-step, never a blur (ui/enhancedStyle.js
  *  `.hud`). A blurred shadow under a pixel face is the one thing that

@@ -224,8 +224,8 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-chip.brace { border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; color: ${T.brassHi}; }
 .dfnaval-chip.wreck { border-color: #e0584a #5a130f #3d0d0a #b83a2e; color: #ffc4bb; }
 .dfnaval-chip.mend, .dfnaval-chip.repair { border-color: #9fd6a8 #2f6b3b #1f4a28 #5fa36c; color: #cdf0d2; }
-.dfnaval-rose { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto auto; gap: 4px; margin: 8px 6px 2px; align-items: stretch; }
-.dfnaval-gun { position: relative; overflow: hidden; padding: 3px 4px 4px; min-height: 30px; text-align: center; background: ${T.groundButton};
+.dfnaval-rose { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto auto auto; gap: 4px; margin: 8px 3px 2px; align-items: stretch; }   /* AUDIT FONT3 L1: 3px a side, not 6 - the batteries' words at the 11px floor need it */
+.dfnaval-gun { position: relative; overflow: hidden; padding: 3px 1px 4px; min-height: 30px; text-align: center; background: ${T.groundButton};
   border: 2px solid; border-color: ${T.stoneLit} ${T.stoneDim} ${T.stoneDark} ${T.stoneMid}; box-shadow: 0 0 0 1px #050608; }
 .dfnaval-gun.bow { grid-column: 2; grid-row: 1; }
 .dfnaval-gun.port { grid-column: 1; grid-row: 2; }
@@ -236,8 +236,10 @@ body:has(.hud-foe.on.blade) .dfnaval-hud { --nc-top: ${NAVAL_CARD_TOP_BLADE}; }
 .dfnaval-gun-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 0;
   background: linear-gradient(180deg, ${T.brassHi} 0 2px, rgba(192,138,62,0.6) 2px); }
 .dfnaval-gun-side, .dfnaval-gun-count { position: relative; z-index: 1; display: block; line-height: 1.15; text-shadow: 1px 1px 0 #050608; }
-.dfnaval-gun-side { font-size: 11px; letter-spacing: 0.12em; color: #efe8d6; text-transform: uppercase; }
-.dfnaval-gun-count { font-size: 11px; color: #d8cfae; }
+/* AUDIT FONT3 L1: at the 11px floor "STARBOARD" at 0.12em clipped in its box and "12 great guns" wrapped, growing the
+   plate a third (256 -> 292px; 161 -> 180px on a 740x360 phone) - the side word tracks 0.04em, the count none */
+.dfnaval-gun-side { font-size: 11px; letter-spacing: 0.04em; color: #efe8d6; text-transform: uppercase; }
+.dfnaval-gun-count { font-size: 11px; letter-spacing: 0; word-spacing: -2px; font-weight: 400; color: #d8cfae; }   /* the spaces give the 2.6px "12 great guns" lacked in a 70.7px battery - the letters keep theirs */
 .dfnaval-gun.ready { border-color: ${T.brassHi} ${T.brassLo} #5c3f1a ${T.brass}; }
 .dfnaval-gun.ready .dfnaval-gun-count { color: ${T.brassHi}; }
 .dfnaval-gun.active { background: #2c2413; box-shadow: 0 0 0 1px #050608, 0 0 8px rgba(243,207,134,0.45); }

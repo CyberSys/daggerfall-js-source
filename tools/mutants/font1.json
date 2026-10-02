@@ -84,8 +84,8 @@
   {
     "name": "party-title-blurred-shadow",
     "file": "src/ui/partyPanel.js",
-    "old": "  color: var(--dim, #a39d8f); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }",
-    "new": "  color: var(--dim, #a39d8f); text-shadow: 0 1px 2px #000; }",
+    "old": "  color: var(--dim, #9a9486); text-shadow: 2px 2px 0 rgba(0,0,0,0.85); }",
+    "new": "  color: var(--dim, #9a9486); text-shadow: 0 1px 2px #000; }",
     "tests": [
       "test/soc4_partyhud.test.js"
     ]
@@ -111,8 +111,8 @@
   {
     "name": "smoothing-left-on-everywhere",
     "file": "src/ui/pixelifyFive.js",
-    "old": "export const PIXEL_FONT_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;",
-    "new": "export const PIXEL_FONT_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: antialiased;",
+    "old": "export const PIXEL_FACE_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: none;",
+    "new": "export const PIXEL_FACE_CSS = `font-family: ${PIXEL_STACK}; -webkit-font-smoothing: antialiased;",
     "tests": [
       "test/chat1.test.js",
       "test/soc3_socialpanel.test.js",

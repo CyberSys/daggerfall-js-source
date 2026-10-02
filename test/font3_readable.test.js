@@ -2,7 +2,7 @@
 // complaints, additionally we need to ensure everything recieves our enhanced font"). The laws, pinned:
 //   - THE READING PAIR rides the one trio (weight 500, half a pixel of tracking), and the enhanced body wears it;
 //   - THE FLOOR: no enhanced sheet sets text under 11px (a decorative glyph and an SVG's own units aside);
-//   - THE DIM IS READABLE: the pixel skin's #7d7460 is never a text colour, and --dim clears 6:1 on the panels;
+//   - THE DIM IS READABLE: the pixel skin's #7d7460 is never a text colour, and --dim clears 5.5:1 on the panels, under the mid tone (AUDIT FONT3 C2);
 //   - ONE FACE: the menu-era tokens name the pixel stack in the game's sheet, and the surfaces the audit found
 //     (the death screen, the gate's ground warning, the prison countdown, a draw list's words, the pad prompt bar,
 //     the opening film, the two inline cards, the asset picker) are in it - the recovery code alone stays plain.
@@ -58,15 +58,17 @@ const FLOOR_SHEETS = ['src/ui/enhancedStyle.js', 'src/ui/enhancedPlusStyle.js', 
   'src/ui/enhancedHotbar.js', 'src/ui/enhancedPortStyle.js', 'src/ui/nameLayer.js', 'src/ui/navalHud.js', 'src/ui/navalPlunderWindow.js',
   'src/ui/pageWindow.js', 'src/ui/pickupFeed.js', 'src/ui/plusPadBinds.js', 'src/ui/profActStyle.js', 'src/ui/profStationStyle.js',
   'src/ui/profileWindow.js', 'src/ui/travelViewHud.js', 'src/ui/enhancedDeath.js', 'src/ui/enhancedPlayerTrade.js', 'src/ui/plusPad.js',
-  'src/ui/enhancedFrame.js'];
-const GLYPH_ONLY = /::?before|::?after|insignia-word|provlabel/;   // a ◆, a rarity pip, the emblem's word, an SVG's own units
+  'src/ui/enhancedFrame.js', 'src/ui/introScreen.js'];   // AUDIT FONT3 C3: the film's words are the pixel face too
+// a ◆, a rarity pip, the emblem's word, an SVG's own units - and (AUDIT FONT3 C3) the effect words and rounds INSIDE a
+// 16px effect icon (the party card's and the crew's), which are the icon's own marks at the icon's own scale
+const GLYPH_ONLY = /::?before|::?after|insignia-word|provlabel|dfparty-fx[wr]|dfnaval-crew-fxe/;
 test('FONT3: THE FLOOR - no enhanced sheet sets text under 11px, a size the face greys out (mutants: FONT3-FLOOR)', () => {
   const under = [];
   for (const f of FLOOR_SHEETS) {
     const src = read(f).replace(/\$\{[^{}]*\}/g, (m) => '$' + 'X'.repeat(m.length - 1));
     for (const m of src.matchAll(/font-size:\s*(?:calc\()?([\d.]+)px/g)) {
       const v = Number(m[1]);
-      if (v >= 11 || v < 8) continue;
+      if (v >= 11) continue;   // AUDIT FONT3 C3: a 7px word was under the floor and under the pin's old `v < 8` skip
       const open = src.lastIndexOf('{', m.index);
       const sel = src.slice(Math.max(src.lastIndexOf('}', open), src.lastIndexOf('`', open)) + 1, open);
       if (!GLYPH_ONLY.test(sel)) under.push(`${f}:${src.slice(0, m.index).split('\n').length} ${v}px ${sel.trim().slice(-60)}`);
@@ -80,13 +82,15 @@ const lum = (hex) => {
   return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
 };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
-test('FONT3: THE DIM IS READABLE - #7d7460 is a rule\'s colour, never a word\'s, and --dim clears 6:1 on the slate panel', () => {
+test('FONT3: THE DIM IS READABLE - #7d7460 is a rule\'s colour, never a word\'s, and --dim clears 5.5:1 on the slate panel', () => {
   for (const f of FLOOR_SHEETS) {
     assert.doesNotMatch(read(f), /(?<![-\w])color:\s*#7d7460/, `${f}: a word at 3.7:1`);
     assert.doesNotMatch(read(f), /#8b8578\)/, `${f}: a --dim fallback that disagrees with the token`);
   }
   const dim = /--dim: (#[0-9a-f]{6});/.exec(ENHANCED_TOKENS)[1];
-  assert.ok(contrast(dim, '#171b21') >= 6, `--dim ${dim} at ${contrast(dim, '#171b21').toFixed(2)}:1`);
+  assert.ok(contrast(dim, '#171b21') >= 5.5, `--dim ${dim} at ${contrast(dim, '#171b21').toFixed(2)}:1`);
+  // AUDIT FONT3 C2: FONT3 lifted it to #a39d8f, 6.40:1 against the mid tone's 6.57 - the dim and the mid read as one
+  assert.ok(contrast('#a89f88', '#171b21') - contrast(dim, '#171b21') > 0.5, 'the dim stays a step under the mid');
   assert.ok(contrast('#9c937d', '#171b21') >= 5.5, 'the pixel skin\'s dim word');
   assert.ok(contrast('#9c937d', '#171b21') < contrast('#a89f88', '#171b21'), '...and still under the mid tone, so the order holds');
 });
@@ -109,7 +113,7 @@ test('FONT3: ONE FACE - the death screen\'s words, the gate\'s ground warning, t
   // the two inline-only cards name the face first and load nothing for it
   assert.match(read('src/ui/charSheetDoor.js'), /font:500 20px\/1\.6 \$\{PIXEL_FAMILIES\},system-ui,sans-serif;/);
   assert.match(read('src/ui/enhancedChunk.js'), /font:500 14px\/1\.5 \$\{PIXEL_FAMILIES\},system-ui,sans-serif;/);
-  assert.match(read('src/scenes/dataSource.js'), /const face = isEnhanced\(\) \? `\$\{PIXEL_FONT_CSS\}font-size:14px;` : 'font:14px monospace;';/);
+  assert.match(read('src/scenes/dataSource.js'), /const face = isEnhanced\(\) \? `\$\{PIXEL_FONT_CSS\}font-size:14px;` : 'font:14px monospace;-webkit-font-smoothing:antialiased;letter-spacing:normal;';/);
 });
 
 test('FONT3: the dungeon\'s readied-spell line is the classic skin\'s - the enhanced HUD already names the spell', () => {
