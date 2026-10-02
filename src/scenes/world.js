@@ -7034,8 +7034,8 @@ export async function bootWorld(canvas, renderer, params, status) {
       const local = navalWorldToDeck(boat, feet, _leashLocal);
       const floor = deck.heightAt(local[0], local[2], local[1]);
       if (!(Math.abs(local[1] - floor) <= DECK_STEP)) {   // off her deck (NaN off its cells: never within)
-        const was = f.deckLocal;
-        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;
+        const was = f.deckLocal, piece = was ? Math.max(0, deck.pieceAt(was[0], was[2], was[1])) : 0, own = deck.heightAt(local[0], local[2], local[1], piece);   // AUDIT GN-D1: a floor of the piece it last stood on, from any height (navalDeck.js heightAt)
+        if (Number.isNaN(own)) deck.clamp(local[0], local[2], local, piece); else local[1] = own;   // AUDIT GN-D1: else that piece's edge - NEVER ONTO ANOTHER PIECE'S FLOOR MORE THAN A STEP OFF
         navalDeckToWorld(boat, local, feet);
       }
       const kept = f.deckLocal ??= [0, 0, 0];   // where the carry takes it from next frame
@@ -7115,13 +7115,13 @@ export async function bootWorld(canvas, renderer, params, status) {
     const c = navalDeckToWorld(boat, deck.nearest(0, 0));
     return [[w[0], (hit ? hit.point[1] : w[1]) + 0.05, w[2]], Math.atan2(c[0] - w[0], c[2] - w[2])];
   }
-  /** Where a boarder lands on her deck: its point nearest `feet` (over her rail across from where he stood, never her
-   *  middle a haul's length off), facing her middle; null with no deck. */
+  /** Where a boarder lands on her deck: her MAIN deck's point nearest `feet` (AUDIT GN-D2, navalDeck.js `land`) - over
+   *  her rail across from where he stood, never her middle a haul's length off - facing her middle; null with no deck. */
   function navalDeckLanding(boat, feet) {
     const deck = boat?.MeshObject && csa.deckOf?.(boat.hull, boat.variant ?? 0);
     if (!deck?.count || !feet) return null;
     const local = navalWorldToDeck(boat, feet);
-    return navalDeckPoint(boat, deck, deck.clamp(local[0], local[2]));
+    return navalDeckPoint(boat, deck, deck.land(local[0], local[2], local[1]));
   }
   /** `n` points along her rail on the side `toward` lies, spread fore and aft round the point across from it - where a
    *  party comes over, or my hands land - each facing her middle. AUDIT NAV2 F32: A CELL A POINT - her rail's point past
@@ -7132,7 +7132,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     if (!deck?.count || !toward || !(n >= 1)) return [];
     const t = navalWorldToDeck(boat, toward), side = t[0] >= 0 ? 1 : -1, k = Math.floor(n), out = [], taken = new Set();
     for (let i = 0; i < k; i++) {
-      const at = deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP), cell = `${at[0]},${at[2]}`;
+      const at = deck.rail(side, t[2] + (i - (k - 1) / 2) * NAVAL_RAIL_GAP, undefined, mainLevel(deck)), cell = `${at[0]},${at[2]}`;   // AUDIT GN-D2: her MAIN deck's rail, as her muster's (abeam the new galleon's castle all eight stood on her flights and her roof)
       if (taken.has(cell)) continue;
       taken.add(cell);
       out.push(navalDeckPoint(boat, deck, at));

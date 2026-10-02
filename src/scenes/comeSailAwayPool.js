@@ -591,8 +591,14 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
    *  the one the preload bakes, never a throwaway boat spawned and a deck baked mid-voyage (a Coasting Trader's rig 3
    *  first seen cost an 8.6-9.3 ms crew frame, the bake 4.9-16.9 ms); `variant` is a caller's word, never the key.
    *  AUDIT NAV2 F39: and a classic model's collider (a ModelHelper's - the Large Galley's helm - the bed) as the world's
-   *  collider stands it (world.js csaColliderMesh): the pipeline's cpu model, loaded by the preload's `prepare`. */
+   *  collider stands it (world.js csaColliderMesh): the pipeline's cpu model, loaded by the preload's `prepare`.
+   *  AUDIT GN-D7: a part of hers that opens and shuts - one the mod's own walk hung a door's trigger under
+   *  (comeSailAwayBoat.js: a `DoorTrigger` child, the node whose Animator TriggerDoor turns) - is baked `moves`: her
+   *  deck keeps the walls it stands shut, never a floor of it (the new galleon's two hatch covers and the Carrack's two
+   *  cargo doors are holes when open; every door's leaf is a wall across its doorway shut, as before). */
   const decks = new Map();
+  /** AUDIT GN-D7: whether a collider's node is a part that opens - a door, a hatch's cover (a DoorTrigger under it). */
+  const opens = (node) => !!node?.children?.some((k) => k.name === 'DoorTrigger');
   function deckOf(hull, variant = 0) {
     if (!models) return null;
     if (decks.has(hull)) return decks.get(hull);
@@ -600,7 +606,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
     spawnBoat(probe, { models, player: () => ({ position: [0, 0, 0], rotation: [0, 0, 0, 1] }), billboardSize: billboardSizeOf, modelBounds: modelBoundsOf });
     const meshes = [];
     const frame = invertAffine(probe.MeshObject.worldMatrix());
-    for (const { collider: c, world } of colliderPoses(probe.GameObject)) {
+    for (const { node, collider: c, world } of colliderPoses(probe.GameObject)) {
       if (c.m_IsTrigger || c.m_Enabled === false) continue;
       const m = frame ? multiply(frame, world, new Float32Array(16)) : world;
       const cpu = c.classicModel != null ? pipeline?.cpuModels?.get(c.classicModel) : null;   // AUDIT NAV2 F39: its triangles, once the pipeline holds them
@@ -614,7 +620,7 @@ export function createComeSailAwayPool({ renderer = null, pipeline = null, fetch
         out[i + 1] = m[1] * x + m[5] * y + m[9] * z + m[13];
         out[i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
       }
-      meshes.push({ positions: out, indices: g.indices });
+      meshes.push({ positions: out, indices: g.indices, moves: opens(node) });
     }
     const b = hullBuild(hull);
     const deck = buildDeck(meshes, { minX: -b.halfWidth - 1, maxX: b.halfWidth + 1, minZ: b.aftZ - 1, maxZ: b.bowZ + 1 });

@@ -38,6 +38,11 @@
 // it (`more`: her poop, her cabins, the room under her forecastle - `heightAt`, `pieceAt` and `clamp` answer per
 // piece), so a body stays on the piece it stands on. Under her main deck (her lower deck, her hold, a galley's rowers)
 // nothing is deck. And every floor of hers whatever its level (`floors`) is what standing aboard her is (`under`).
+// AUDIT GALLEON (2026-10-02): a part of hers that opens and shuts - a hatch's cover, a door (`moves`) - is a wall of
+// hers as it stands shut and never a floor, so her hatchways are holes in her deck; and a body put aboard her comes
+// down on her main deck's own floor across from where it stood, or on the floor of hers it already stands on (`land`).
+// A wall marks a cell with its own height there, never its whole triangle's - her deck is the same however her faces
+// are cut (D-wall); a floor to stand aboard on looks up; and her open deck is one walk.
 
 import { STEP_OFFSET } from '../../player/motor.js';   // AUDIT NAV2 F34: the motors' own step
 
@@ -59,10 +64,16 @@ export const FLIGHT_CELLS = 24;
 /** GALLEON (2026-10-01): the most two floors a cell apart may differ and still join over a tread between them - two
  *  of the motors' steps (`linked`). */
 export const FLIGHT_JOIN = 2 * DECK_JOIN;
+/** AUDIT GN-D2: how far a cell's floor may stand off her main level and be her main deck's own floor (m) - half a
+ *  step: a landing's (`land`). Every hull's main deck is one flat floor; the foot of a flight stands a tread over it
+ *  (the new galleon's 0.29 m, within DECK_STEP - her muster's band). */
+export const DECK_FLOOR = DECK_STEP / 2;
 /** The level histogram's bin (m) the main deck is read off. */
 const LEVEL_BIN = 0.25;
 /** A near-vertical face (|n.y| under this share of its length) has no height at a point: a wall, a mast's side. */
 const WALL_NY = 0.05;
+/** AUDIT GN-D5: a cell's four side neighbours `[di, dk]`, in the order the walk's own 3 x 3 sweep meets them. */
+const SIDE_STEPS = Object.freeze([[0, -1], [-1, 0], [1, 0], [0, 1]].map((s) => Object.freeze(s)));
 
 /**
  * A world point into a deck's frame: through the inverse of her mesh node's world matrix `m` (column-major, affine),
@@ -95,7 +106,9 @@ export function outOfDeck(m, q, out = [0, 0, 0]) {
 
 /**
  * The deck of a hull.
- * @param {{ positions: ArrayLike<number>, indices: ArrayLike<number> }[]} meshes - triangles in the hull's own frame
+ * @param {{ positions: ArrayLike<number>, indices: ArrayLike<number>, moves?: boolean }[]} meshes - triangles in the
+ *   hull's own frame; AUDIT GN-D7: `moves` a part of hers that opens and shuts (a door, a hatch's cover) - its walls
+ *   hers as it stands shut, never a floor
  * @param {{ minX: number, maxX: number, minZ: number, maxZ: number }} extent
  * @param {{ cell?: number, inset?: number }} [opts]
  */
@@ -107,9 +120,11 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
   const surf = Array.from({ length: nx * nz }, () => []);
   /** @type {number[][]} of those, the flat ones' */
   const flat = Array.from({ length: nx * nz }, () => []);
+  /** @type {number[][]} AUDIT GN-D-wall: of the flat, the ones looking up - what standing aboard her reads (`floors`) */
+  const upFlat = Array.from({ length: nx * nz }, () => []);
   /** @type {number[][]} every wall's [bottom, top] through each cell, flattened - a near-vertical face has no height at
-   *  a point, so its footprint marks every cell its edges cross (a mast's 0.4 m between two cells' centres, a cabin's
-   *  side) with its whole height */
+   *  a point, so its footprint marks every cell it crosses (a mast's 0.4 m between two cells' centres, a cabin's side) -
+   *  AUDIT GN-D-wall: with its own height within the cell (`wallFace`), never the whole triangle's */
   const walls = Array.from({ length: nx * nz }, () => []);
   /** @type {number[][]} GALLEON (2026-10-01): the flat faces' heights at the midpoint of the side each cell shares with
    *  its +x neighbour (`midX`) and its +z neighbour (`midZ`) - the tread between two cells' centres (`linked`) */
@@ -131,18 +146,62 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
       }
     }
   };
-  const wallEdge = (x0, z0, x1, z1, lo, hi) => {
-    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, z1 - z0) / (cell * 0.25)));
-    let last = -1;
-    for (let q = 0; q <= n; q++) {
-      const i = Math.floor((x0 + (x1 - x0) * q / n - minX) / cell), k = Math.floor((z0 + (z1 - z0) * q / n - minZ) / cell);
-      if (i < 0 || k < 0 || i >= nx || k >= nz) continue;
-      const j = k * nx + i;
-      if (j !== last) { walls[j].push(lo, hi); last = j; }
+  // AUDIT GN-D-wall: A WALL'S HEIGHT IN A CELL IS ITS OWN THERE. A near-vertical face marked every cell its three edges
+  // crossed with the whole triangle's lowest and highest point, so her deck hung on how a face happened to be cut into
+  // triangles: re-cut as Blender cuts it (tools/bakeGalleon.mjs), the new galleon's castle front - a flat 16-gon at z
+  // -10.30 - holds a triangle from (-5.32, 6.18) to (-0.77, 8.77) whose sloping edge crosses her port flight's cell
+  // 6.87 m up, and it walled that cell 6.18 to 8.77, over its tread: her castle's roof and her upper flight (168 cells)
+  // fell out of her deck. Each cell a wall stands over is marked with the wall's own part within the cell's square -
+  // the triangle cut to each row's band of z, then to each cell's band of x (Sutherland-Hodgman: never more than seven
+  // corners), its lowest and highest corner - so a flat face walls a cell the same however it is cut (its triangles'
+  // parts in a cell are its own part there, and meet where its cuts run: a bench's test reads them as it reads the
+  // whole). The rows and a row's cells are the ones Math.floor finds under the face's own span (the grid's own rule):
+  // a face on the line between two cells is the farther's alone, as a point on it is. Every hull's moved cells are
+  // floors whose cells hold no wall between a step and a head over them (her side under her deck at the galleon's
+  // entry ports and bow, a stair's stringer over a head under the Carrack's half deck, her forecastle's bulkhead head)
+  // or walls a face's edges missed (a mast's partner, a bulwark's foot): the galleon 828 -> 838, the Carrack 433 ->
+  // 511, the Large Galley 4013 -> 4016, the mod's galleon 714 -> 750, the boats as they were. The bake 0.6-3.5 ms
+  // dearer a hull (the Large Galley's 18 -> 21.5 ms); a 2 cm sampling of each face would visit 35-117 million points.
+  const CUT = Array.from({ length: 5 }, () => new Float64Array(24));
+  /** The `n` corners of `src` (x, y, z each) cut to where `sign` * (p[axis] - v) >= 0, into `dst`; how many it keeps. */
+  const cutTo = (src, n, dst, axis, v, sign) => {
+    let m = 0;
+    for (let q = 0; q < n; q++) {
+      const p = q * 3, r = q + 1 < n ? p + 3 : 0;
+      const dp = sign * (src[p + axis] - v), dr = sign * (src[r + axis] - v);
+      if (dp >= 0) { dst[m] = src[p]; dst[m + 1] = src[p + 1]; dst[m + 2] = src[p + 2]; m += 3; }
+      if ((dp > 0 && dr < 0) || (dp < 0 && dr > 0)) {
+        const t = dp / (dp - dr);
+        dst[m] = src[p] + (src[r] - src[p]) * t; dst[m + 1] = src[p + 1] + (src[r + 1] - src[p + 1]) * t; dst[m + 2] = src[p + 2] + (src[r + 2] - src[p + 2]) * t;
+        m += 3;
+      }
+    }
+    return m / 3;
+  };
+  /** AUDIT GN-D-wall: a near-vertical triangle into `walls` - each cell it stands over, its own [bottom, top] there. */
+  const wallFace = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
+    const [T, R, U, C, D] = CUT;
+    T[0] = ax; T[1] = ay; T[2] = az; T[3] = bx; T[4] = by; T[5] = bz; T[6] = cx; T[7] = cy; T[8] = cz;
+    const k0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - minZ) / cell)), k1 = Math.min(nz - 1, Math.floor((Math.max(az, bz, cz) - minZ) / cell));
+    for (let k = k0; k <= k1; k++) {
+      const z0 = minZ + k * cell, z1 = z0 + cell;
+      const n = cutTo(R, cutTo(T, 3, R, 2, z0, 1), U, 2, z1, -1);
+      if (n < 1) continue;
+      let lo = Infinity, hi = -Infinity;
+      for (let q = 0; q < n * 3; q += 3) { if (U[q] < lo) lo = U[q]; if (U[q] > hi) hi = U[q]; }
+      const i0 = Math.max(0, Math.floor((lo - minX) / cell)), i1 = Math.min(nx - 1, Math.floor((hi - minX) / cell));
+      for (let i = i0; i <= i1; i++) {
+        const x0 = minX + i * cell, x1 = x0 + cell;
+        const m = cutTo(C, cutTo(U, n, C, 0, x0, 1), D, 0, x1, -1);
+        if (m < 1) continue;
+        let bottom = Infinity, top = -Infinity;
+        for (let q = 1; q < m * 3; q += 3) { if (D[q] < bottom) bottom = D[q]; if (D[q] > top) top = D[q]; }
+        walls[k * nx + i].push(bottom, top);
+      }
     }
   };
   for (const m of meshes) {
-    const p = m.positions, ix = m.indices;
+    const p = m.positions, ix = m.indices, moves = !!m.moves;
     for (let t = 0; t + 2 < ix.length; t += 3) {
       const a = ix[t] * 3, b = ix[t + 1] * 3, c = ix[t + 2] * 3;
       const ax = p[a], ay = p[a + 1], az = p[a + 2], bx = p[b], by = p[b + 1], bz = p[b + 2], cx = p[c], cy = p[c + 1], cz = p[c + 2];
@@ -150,11 +209,14 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
       const nX = uy * vz - uz * vy, nY = uz * vx - ux * vz, nZ = ux * vy - uy * vx;
       const len = Math.hypot(nX, nY, nZ);
       if (!(len > 1e-12)) continue;
-      if (Math.abs(nY) < WALL_NY * len) {
-        const lo = Math.min(ay, by, cy), hi = Math.max(ay, by, cy);
-        wallEdge(ax, az, bx, bz, lo, hi); wallEdge(bx, bz, cx, cz, lo, hi); wallEdge(cx, cz, ax, az, lo, hi);
-        continue;
-      }
+      if (Math.abs(nY) < WALL_NY * len) { wallFace(ax, ay, az, bx, by, bz, cx, cy, cz); continue; }
+      // AUDIT GN-D7: A PART THAT OPENS IS NO FLOOR. A hatch's cover, a door - a part the mod's Door Controller swings
+      // (`moves`: the pool's, a collider with a DoorTrigger under it) - stands in her deck as the walls it raises shut
+      // (a door's leaf across its doorway: her great cabin stays a room of its own) and never as a floor: shut, the
+      // new galleon's two covers were 44 cells of her deck at 6.378 over her hatchways (the Carrack's cargo doors 80 at
+      // 3.639 over her hold), and open they are holes - 208 of the 552 walks between her 24 main-deck spots crossed
+      // one, her crew's hatch stood on one, and the leash stood a body fallen down one on the air over it
+      if (moves) continue;
       const isFlat = Math.abs(nY) >= DECK_FLAT * len;
       const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - minX) / cell - 0.5)), i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx, cx) - minX) / cell - 0.5));
       const k0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - minZ) / cell - 0.5)), k1 = Math.min(nz - 1, Math.ceil((Math.max(az, bz, cz) - minZ) / cell - 0.5));
@@ -170,10 +232,13 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
           if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
           const y = l1 * ay + l2 * by + l3 * cy;
           surf[k * nx + i].push(y);
-          if (isFlat) flat[k * nx + i].push(y);
+          if (isFlat) { flat[k * nx + i].push(y); if (nY > 0) upFlat[k * nx + i].push(y); }
         }
       }
-      if (isFlat) {
+      // AUDIT GN-D8: a TREAD is a face looking up - the flat class reads |n.y|, so a tread's underside (or a beam's)
+      // a step from two floors joined them as well as its top; her side's midpoints read upward faces alone (every
+      // join on every hull rests on a tread's top today, its underside beside it - the bakes unchanged)
+      if (isFlat && nY > 0) {
         flatAt(midX, 1, 0.5, nx - 1, nz, ax, ay, az, bx, by, bz, cx, cy, cz, det);
         flatAt(midZ, 0.5, 1, nx, nz - 1, ax, ay, az, bx, by, bz, cx, cy, cz, det);
       }
@@ -181,10 +246,11 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
   }
   // GALLEON (2026-10-01): A FLIGHT FINER THAN A CELL. Her floors join cell to cell within DECK_JOIN, read at the cells'
   // centres - and a stair whose treads run shallower than a cell (the new galleon's castle flights: 0.385 m treads on
-  // 0.25 m risers) puts two risers between two centres as often as one: 0.51 m, and the flight stood cut at every
-  // other tread. Two floors in cells side by side join within FLIGHT_JOIN too where a floor at the midpoint of the side
-  // they share lies a step of the motors' from each - the tread between them, every riser the motors' own step. Never
-  // across a corner: a walk takes a flight square to it.
+  // 0.19-0.29 m risers) puts two risers between two centres at some of their gaps: AUDIT GN-D10, measured - four of a
+  // flight's fourteen tread-to-tread gaps (0.50-0.51 m), three past the motors' step, and each flight stood cut three
+  // times (at z -8.41, -9.91 and -12.91). Two floors in cells side by side join within FLIGHT_JOIN too where a floor at
+  // the midpoint of the side they share lies a step of the motors' from each - the tread between them, every riser the
+  // motors' own step. Never across a corner: a walk takes a flight square to it.
   /** Whether floor `h1` of cell `j` and floor `h2` of `n`, a side's neighbour of it, join. */
   const linked = (j, n, h1, h2) => {
     const d = Math.abs(h1 - h2);
@@ -299,12 +365,14 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
     return { live, piece, open, count: open < 0 ? 0 : sizes[open] };
   };
   // GALLEON (2026-10-01): A FLIGHT KEPT. The inset never takes a raised deck's way up: a stair narrower than its
-  // margin - the new galleon's two 1.4 m flights up her castle, a cell clear between its wells' walls, the cells either
-  // side the walls' - went whole, and her castle with her helm on it stood apart from her open deck, out of every
-  // boarder's and every hand's walk. Where a floor of hers FLIGHT_OVER over her main deck and FLIGHT_CELLS at the least
-  // (a raised deck - never a crate's lid) was parted from her open deck by the inset, every way up to it through nodes
-  // the inset took alone is kept a cell wide: the shortest from her open deck as the inset left it, beside nothing it
-  // left but that deck and the raised one (so never a second file up a flight already kept), again while one is found.
+  // margin - the new galleon's two 1.4 m flights up her castle (AUDIT GN-D10: a cell clear between the port well's
+  // walls, two between the starboard's, the cells either side the walls') - went whole, and her castle with her helm
+  // on it stood apart from her open deck, out of every boarder's and every hand's walk. Where a floor of hers
+  // FLIGHT_OVER over her main deck and FLIGHT_CELLS at the least (a raised deck - never a crate's lid) was parted from
+  // her open deck by the inset, every way up to it through nodes the inset took alone is kept a cell wide: the
+  // shortest from her open deck as the inset left it, beside nothing it left but that deck and the raised one (so
+  // never a second file up a flight already kept - the starboard's second clear cell stays the inset's), again while
+  // one is found.
   const keepFlights = (s0, all) => {
     const high = main + FLIGHT_OVER;
     const sizes = new Int32Array(M);
@@ -335,13 +403,15 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
       let reached = -1;
       for (let q = 0; q < queue.length && reached < 0; q++) {
         const a = queue[q], j = nodeCell[a], i = j % nx, k = (j - i) / nx, h = lv[a];
-        for (let dk = -1; dk <= 1 && reached < 0; dk++) for (let di = -1; di <= 1; di++) {
-          if (!di && !dk) continue;
+        // AUDIT GN-D5: SIDE STEPS ALONE. A way kept is its own nodes alone - a diagonal step in it (its corners joined
+        // in the bare deck, never revived) joined nothing once the way stood: a flight turning on its landing was kept
+        // as six nodes of no piece's, its raised deck still apart. Square steps only, in the walk's own order - every
+        // real hull's way was square already (the bakes unchanged)
+        for (const [di, dk] of SIDE_STEPS) {
           const ii = i + di, kk = k + dk;
           if (ii < 0 || kk < 0 || ii >= nx || kk >= nz) continue;
-          const b = joined(kk * nx + ii, h, all, di && dk ? -1 : j);
+          const b = joined(kk * nx + ii, h, all, j);
           if (b < 0 || back[b] !== -2) continue;
-          if (di && dk && (joined(k * nx + ii, h, all, j) < 0 || joined(kk * nx + i, h, all, j) < 0)) continue;
           if (s.live[b]) {
             if (raised[b] && !from[a]) { back[b] = a; reached = b; break; }
             continue;
@@ -369,6 +439,36 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
   // others (her poop, her cabins, the room under her forecastle)
   const top = new Int32Array(N).fill(-1);
   for (let a = 0; a < M; a++) if (s.live[a] && s.piece[a] === s.open) { y[nodeCell[a]] = lv[a]; top[nodeCell[a]] = a; }
+  // AUDIT GN-D-wall: HER OPEN DECK IS ONE WALK. Her open piece joins her floors at every level, her walk (`path`) the
+  // grid's own alone - so a cell whose open floor lies under the piece's own higher floor all round it stood in her
+  // open deck apart from every walk: once her forecastle's bulkhead walled its opening by its lintel alone (1.8 m and
+  // more over her deck), the room under the Carrack's forecastle opened to her waist, its floor under her forecastle's
+  // but in four cells (x -0.18 and 1.32, z 14 to 15), and her lookout's bow fell in one - out of his walk and a hand's.
+  // A cell of `y` no side step of the walk's own (`linked`) joins to her largest walk keeps its floor beside it (`more`,
+  // piece 0: the leash's, as her deck under her stair is), never a cell of the walk - every hull's walk reached every
+  // cell of hers before, and does again
+  {
+    const comp = new Int32Array(N).fill(-1), sizes = [];
+    for (let j0 = 0; j0 < N; j0++) {
+      if (Number.isNaN(y[j0]) || comp[j0] >= 0) continue;
+      const c = sizes.length, stack = [j0];
+      let n = 0;
+      comp[j0] = c;
+      while (stack.length) {
+        const j = /** @type {number} */ (stack.pop()), i = j % nx;
+        n++;
+        for (let q = 0; q < 4; q++) {
+          const b = q === 0 ? (i > 0 ? j - 1 : -1) : q === 1 ? (i < nx - 1 ? j + 1 : -1) : q === 2 ? j - nx : j + nx;
+          if (b < 0 || b >= N || comp[b] >= 0 || Number.isNaN(y[b]) || !linked(j, b, y[j], y[b])) continue;
+          comp[b] = c; stack.push(b);
+        }
+      }
+      sizes.push(n);
+    }
+    let big = 0;
+    for (let c = 1; c < sizes.length; c++) if (sizes[c] > sizes[big]) big = c;
+    for (let j = 0; j < N; j++) if (comp[j] >= 0 && comp[j] !== big) { y[j] = NaN; top[j] = -1; }
+  }
   const moreAt = new Int32Array(N + 1), moreY = [], morePiece = [], ids = new Map();
   for (let j = 0; j < N; j++) {
     moreAt[j] = moreY.length;
@@ -380,9 +480,20 @@ export function buildDeck(meshes, extent, { cell = DECK_CELL, inset = DECK_INSET
     }
   }
   moreAt[N] = moreY.length;
-  // AUDIT NAV2 F36: and every floor of hers whatever its level (her lower deck, her hold, her rowers', a rail's top)
+  // AUDIT NAV2 F36: and every floor of hers whatever its level (her lower deck, her hold, her rowers', a rail's top).
+  // AUDIT GN-D-wall: A FLOOR TO STAND ABOARD ON LOOKS UP (as a tread does, GN-D8) - a face looking down at a candidate's
+  // height (her bottom under the water, her flare's underside beneath her wale) is the roof over the sea beside her,
+  // never a floor a body stands on. The whole-triangle walls of her hull's sides hid most of them; once a wall marks its
+  // own height in a cell they stood the water round the new galleon aboard - 1.03% of the points round her hull (0.60%
+  // under the old marking over her new cut alone), the Carrack's 1.51%, the Large Galley's 3.00% - and looking up, 0.00%,
+  // 0.39% and 1.48%, every point a body stands on under her main deck aboard as before. Her deck reads both (a mesh
+  // wound either way - the suites' little ships are wound down - and every hull's deck is the same either way)
   const floorAt = new Int32Array(N + 1), floorY = [];
-  for (let j = 0; j < N; j++) { floorAt[j] = floorY.length; for (const q of cand[j]) floorY.push(q); }
+  for (let j = 0; j < N; j++) {
+    floorAt[j] = floorY.length;
+    const up = upFlat[j];
+    for (const q of cand[j]) for (let n = 0; n < up.length; n++) if (Math.abs(up[n] - q) < 1e-3) { floorY.push(q); break; }
+  }
   floorAt[N] = floorY.length;
   // GALLEON: her open deck's flights, for the walk - each side two of its cells share that only a tread joins (past
   // DECK_JOIN), bit 1 a cell's +x side, bit 2 its +z
@@ -415,7 +526,7 @@ const NO_SPOTS = Object.freeze([]);
 /**
  * The deck's questions over a built grid (`buildDeck`'s, or one restored). AUDIT NAV2 F34: `more`, her floors other
  * than her open deck's own a cell (a cell's from `at`, each its `piece` - 0 her open deck, from 1 her others), and F36
- * `floors`, every floor of hers at any level - neither in a grid made of `y` alone. GALLEON: `flights`, the sides of
+ * `floors`, every floor of hers at any level (GN-D-wall: looking up) - neither in a grid made of `y` alone. GALLEON: `flights`, the sides of
  * her open deck's cells a flight's tread joins (bit 1 a cell's +x side, bit 2 its +z) - none in a grid made of `y`.
  * @param {{ cell: number, minX: number, minZ: number, nx: number, nz: number, y: Float32Array,
  *   more?: { at: Int32Array, y: Float32Array, piece: Int32Array } | null, floors?: { at: Int32Array, y: Float32Array } | null,
@@ -448,21 +559,24 @@ export function deckOf(g) {
   if (more) for (let n = 0; n < more.piece.length; n++) if (more.piece[n] >= pieces) pieces = more.piece[n] + 1;
   /** The deck cell whose square lies nearest `(x, z)`, -1 for none: rings out from the point's own cell (clamped onto
    *  the grid), stopping once no farther ring can hold a nearer square - ring r + 1 lies r cells off at the least.
-   *  AUDIT NAV2 F34: a cell of piece `ringPiece`'s (her open deck's, 0, unless asked). */
-  let ringBest = -1, ringD = Infinity, qx = 0, qz = 0, ringPiece = 0;
+   *  AUDIT NAV2 F34: a cell of piece `ringPiece`'s (her open deck's, 0, unless asked). AUDIT GN-D2/D4: whose floor
+   *  stands within `ringBand` (DECK_STEP) of `ringLevel` when one is asked - her main deck's (`mainLevel`: her
+   *  lookout's bow; a landing over her rail her main deck's own floor, DECK_FLOOR), never a raised deck. */
+  let ringBest = -1, ringD = Infinity, qx = 0, qz = 0, ringPiece = 0, ringLevel = NaN, ringBand = DECK_STEP;
   const visit = (i, k) => {
     if (i < 0 || k < 0 || i >= nx || k >= nz) return;
     const j = k * nx + i;
-    if (Number.isNaN(ringPiece ? levelOf(j, ringPiece) : y[j])) return;
+    const h = ringPiece ? levelOf(j, ringPiece) : y[j];
+    if (Number.isNaN(h) || Math.abs(h - ringLevel) > ringBand) return;   // (no level asked: NaN, never over)
     const x0 = minX + i * cell, z0 = minZ + k * cell;
     const dx = qx < x0 ? x0 - qx : qx > x0 + cell ? qx - x0 - cell : 0;
     const dz = qz < z0 ? z0 - qz : qz > z0 + cell ? qz - z0 - cell : 0;
     const d = dx * dx + dz * dz;
     if (d < ringD) { ringD = d; ringBest = j; }
   };
-  const nearestCell = (x, z, p = 0) => {
+  const nearestCell = (x, z, p = 0, level = NaN, band = DECK_STEP) => {
     if (!count || p >= pieces) return -1;
-    ringBest = -1; ringD = Infinity; qx = x; qz = z; ringPiece = p > 0 ? p : 0;
+    ringBest = -1; ringD = Infinity; qx = x; qz = z; ringPiece = p > 0 ? p : 0; ringLevel = level ?? NaN; ringBand = band;
     const ci = Math.min(nx - 1, Math.max(0, Math.floor((x - minX) / cell)));
     const ck = Math.min(nz - 1, Math.max(0, Math.floor((z - minZ) / cell)));
     const far = Math.max(ci, nx - 1 - ci, ck, nz - 1 - ck);
@@ -474,6 +588,15 @@ export function deckOf(g) {
       if (ringBest >= 0 && ringD <= (r * cell) ** 2) break;
     }
     return ringBest;
+  };
+  /** `(x, z)` brought into cell `j`'s square, a hair inside it, at piece `piece`'s floor there - into `out`. */
+  const squareOf = (j, x, z, out, piece) => {
+    const i = j % nx, k = (j - i) / nx, e = cell * 1e-3;
+    const x0 = minX + i * cell, z0 = minZ + k * cell;
+    out[0] = Math.min(x0 + cell - e, Math.max(x0 + e, x));
+    out[1] = piece > 0 ? levelOf(j, piece) : y[j];
+    out[2] = Math.min(z0 + cell - e, Math.max(z0 + e, z));
+    return out;
   };
   /** Whether the straight line from `p0` to `p1` stays on deck: every cell it crosses (a grid walk, never samples - a
    *  sample steps over the corner two blocked cells share), and at a corner it passes through both cells beside it too
@@ -531,8 +654,9 @@ export function deckOf(g) {
   };
   let count = 0, sx = 0, sz = 0;
   for (let j = 0; j < y.length; j++) if (!Number.isNaN(y[j])) { count++; const c = centre(j); sx += c[0]; sz += c[2]; }
-  /** AUDIT NAV2 F58: the spots made, a count's once (frozen); her cells' centres laid out once for them. */
-  const spotsMade = new Map();
+  /** AUDIT NAV2 F58: the spots made, a count's once (frozen); her cells' centres laid out once for them. AUDIT GN-D9:
+   *  and a count's at a level (`spotsAt`, by the level) - each looked up before anything is filtered or laid out. */
+  const spotsMade = new Map(), spotsAt = new Map();
   let spotCells = null, spotX = null, spotZ = null;
   const deck = {
     ...g,
@@ -542,14 +666,26 @@ export function deckOf(g) {
     walkable(x, z) { const j = cellOf(x, z); return j >= 0 && !Number.isNaN(y[j]); },
     /** The deck's height under `(x, z)`, or NaN off it. AUDIT NAV2 F34: of every piece's floors there the one nearest
      *  `h` when it is asked (a body's own height - her deck under her stair, the tread over it, her poop over her
-     *  cabin); her open deck's own when it is not.
-     *  @param {number} x @param {number} z @param {number} [h] */
-    heightAt(x, z, h) {
+     *  cabin); her open deck's own when it is not. AUDIT GN-D1: of `piece`'s floors alone when one is asked (0 her open
+     *  deck's - its top floor there and those of it under that, her deck under her stair) - the floor a body's own
+     *  piece holds there, NaN where that piece has none: the leash (world.js navalLeash) sets a body off every floor
+     *  on its own piece's from any height (up off her bulwark's ramp, out of a fall), else on that piece's edge
+     *  (`clamp`), NEVER ON ANOTHER PIECE'S FLOOR MORE THAN A STEP OFF. The floor nearest its height of any piece's, at
+     *  any distance, dropped a boarder hugging the new galleon's port well wall (x -3.71: the wall stands 3 mm inside a
+     *  cell of her great cabin's floor) off her flight 2.2-4.8 m onto her cabin's floor (192 of the 1275 points on its
+     *  treads), and lifted a foe in her cabin 2.3-4.8 m onto a tread or her castle's roof (364 of 5705).
+     *  @param {number} x @param {number} z @param {number} [h] @param {number} [piece] */
+    heightAt(x, z, h, piece) {
       const j = cellOf(x, z);
       if (j < 0) return NaN;
-      if (h == null || !more) return y[j];
-      let best = y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);
-      for (let n = more.at[j]; n < more.at[j + 1]; n++) { const e = Math.abs(more.y[n] - h); if (e < d) { d = e; best = more.y[n]; } }
+      const p = piece == null ? -1 : Math.max(0, piece);   // -1: every piece's
+      if (h == null || !more) return p > 0 ? NaN : y[j];
+      let best = p > 0 ? NaN : y[j], d = Number.isNaN(best) ? Infinity : Math.abs(best - h);
+      for (let n = more.at[j]; n < more.at[j + 1]; n++) {
+        if (p >= 0 && more.piece[n] !== p) continue;
+        const e = Math.abs(more.y[n] - h);
+        if (e < d) { d = e; best = more.y[n]; }
+      }
       return best;
     },
     /** AUDIT NAV2 F34: the piece whose floor under `(x, z)` stands nearest `h` - 0 her open deck, from 1 her others (her
@@ -583,27 +719,58 @@ export function deckOf(g) {
       }
       return false;
     },
-    /** The centre of the deck cell nearest `(x, z)` - `[x, y, z]` in her frame - or null for a hull with no deck. */
-    nearest(x, z) {
-      const j = nearestCell(x, z);
+    /** The centre of the deck cell nearest `(x, z)` - `[x, y, z]` in her frame - or null for a hull with no deck. AUDIT
+     *  GN-D4: of her cells within DECK_STEP of `level` alone when it is asked (her main deck's - her lookout's bow: the
+     *  Carrack's lookout kept his watch up her forecastle's stair).
+     *  @param {number} x @param {number} z @param {number} [level] */
+    nearest(x, z, level = NaN) {
+      const j = nearestCell(x, z, 0, level);
       return j < 0 ? null : centre(j);
     },
     /**
      * The deck point nearest `(x, z)` - the point itself on deck, else the nearest point of the nearest cell's square,
      * a hair inside it - `[x, y, z]` in her frame, written into `out`; null for a hull with no deck. A body pushed off
      * her deck is put back on its edge, sliding along it as it presses, never snapped to a cell's centre. AUDIT NAV2
-     * F34: of `piece` - her open deck (0) unless another is asked (the one a body stood on: her poop, a cabin).
-     * @param {number} x @param {number} z @param {number[]} [out] @param {number} [piece]
+     * F34: of `piece` - her open deck (0) unless another is asked (the one a body stood on: her poop, a cabin). AUDIT
+     * GN-D-wall: and of its cells within DECK_STEP of `level` alone when one is asked (a talk's place at the floor the
+     * man talked to stands on, crewLife.js - never up a flight beside him); null where none stands there.
+     * @param {number} x @param {number} z @param {number[]} [out] @param {number} [piece] @param {number} [level]
      */
-    clamp(x, z, out = [0, 0, 0], piece = 0) {
-      const j = nearestCell(x, z, piece);
-      if (j < 0) return null;
-      const i = j % nx, k = (j - i) / nx, e = cell * 1e-3;
-      const x0 = minX + i * cell, z0 = minZ + k * cell;
-      out[0] = Math.min(x0 + cell - e, Math.max(x0 + e, x));
-      out[1] = piece > 0 ? levelOf(j, piece) : y[j];
-      out[2] = Math.min(z0 + cell - e, Math.max(z0 + e, z));
-      return out;
+    clamp(x, z, out = [0, 0, 0], piece = 0, level = NaN) {
+      const j = nearestCell(x, z, piece, level);
+      return j < 0 ? null : squareOf(j, x, z, out, piece);
+    },
+    /**
+     * AUDIT GN-D2: where a body put aboard her from `(x, h, z)` (her frame) comes down - a boarder over her rail, the
+     * player at a boarding's start (world.js navalDeckLanding): where it stands when it stands on a floor of hers already
+     * (any piece's, within DECK_STEP of `h`: her castle's roof, a tread, her great cabin - never moved off it), else the
+     * point nearest it of her MAIN deck's own floor (a cell within DECK_FLOOR of `mainLevel`), never a raised deck's
+     * edge nor a flight's tread: from 1.5 m off the new galleon's side aft of z -9 a landing came down on her flights'
+     * treads and her castle's roof, the Carrack's on her forecastle and her stair's head - and her flights' foot treads,
+     * 0.29 m up, lie within a step of her main deck (her muster's rail and spots stand on them as on it). AUDIT
+     * GN-D-wall: ACROSS FROM IT - of the row of cells it stands in, the main-deck cell nearest it, and the nearest of all
+     * only where its row holds none (abeam her castle, past her stem): the nearest of all drew a man 9 m off the new
+     * galleon's side at z 2 along it to the corner her deck turns at her entry port (z 1.09; her bulwark opens there
+     * from z -0.58 to 1.58 and her deck reaches a cell further out - 9.40 m off against 9.86 m across). `[x, y, z]` into
+     * `out`; null for a hull with no deck.
+     * @param {number} x @param {number} z @param {number} h @param {number[]} [out]
+     */
+    land(x, z, h, out = [0, 0, 0]) {
+      if (!count) return null;
+      const on = deck.heightAt(x, z, h);
+      if (Math.abs(on - h) <= DECK_STEP) { out[0] = x; out[1] = on; out[2] = z; return out; }
+      const lv = mainLevel(deck), k = Math.floor((z - minZ) / cell);
+      let j = -1, best = Infinity;
+      if (k >= 0 && k < nz) {
+        for (let i = 0; i < nx; i++) {
+          const c = k * nx + i, x0 = minX + i * cell;
+          if (!(Math.abs(y[c] - lv) <= DECK_FLOOR)) continue;   // (NaN off her deck: never within)
+          const dx = x < x0 ? x0 - x : x > x0 + cell ? x - x0 - cell : 0;
+          if (dx < best) { best = dx; j = c; }
+        }
+      }
+      if (j < 0) j = nearestCell(x, z, 0, lv, DECK_FLOOR);
+      return j < 0 ? null : squareOf(j, x, z, out, 0);
     },
     /**
      * Her rail's deck point on `side` (+1 her starboard, her frame's +x; -1 port) at `z`: the outermost deck cell of the
@@ -641,6 +808,12 @@ export function deckOf(g) {
      *  pass was the Large Galley's spots(24) 1.3 ms and 3.7 MB, every crew stood and every boarding. */
     spots(n, level) {
       if (!count || n <= 0) return NO_SPOTS;
+      // AUDIT GN-D9: THE CACHE FIRST - a cached call at a level filtered her every cell before it looked (130-170 us and
+      // 30-70 KB on the new galleon and the Carrack, each crew stood and each muster; 0.1 us now); a level's spots are
+      // kept by the level, one that keeps her every cell sharing her whole deck's
+      const kept = level == null ? spotsMade : spotsAt.get(level) ?? spotsAt.set(level, new Map()).get(level);
+      let made = kept.get(n);
+      if (made) return made;
       if (!spotCells) {
         spotCells = new Int32Array(count); spotX = new Float64Array(count); spotZ = new Float64Array(count);
         for (let j = 0, q = 0; j < y.length; j++) {
@@ -655,15 +828,16 @@ export function deckOf(g) {
       if (level != null) {
         const keep = [];
         for (let q = 0; q < count; q++) if (Math.abs(y[spotCells[q]] - level) <= DECK_STEP) keep.push(q);
-        if (!keep.length) return NO_SPOTS;
+        if (!keep.length) { kept.set(n, NO_SPOTS); return NO_SPOTS; }
         if (keep.length < count) {
           m = keep.length;
           cells = Int32Array.from(keep, (q) => spotCells[q]); xs = Float64Array.from(keep, (q) => spotX[q]); zs = Float64Array.from(keep, (q) => spotZ[q]);
         }
       }
-      const key = m === count ? n : `${n}@${level}`;
-      let made = spotsMade.get(key);
-      if (made) return made;
+      if (m === count && kept !== spotsMade) {   // the level keeps her every cell: her whole deck's spots, one array
+        made = spotsMade.get(n);
+        if (made) { kept.set(n, made); return made; }
+      }
       let first;
       if (m === count) first = deck.nearest(sx / count, sz / count);
       else {
@@ -688,7 +862,8 @@ export function deckOf(g) {
         out.push(Object.freeze(centre(cells[best])));
       }
       made = Object.freeze(out);
-      spotsMade.set(key, made);
+      kept.set(n, made);
+      if (m === count) spotsMade.set(n, made);
       return made;
     },
     /**

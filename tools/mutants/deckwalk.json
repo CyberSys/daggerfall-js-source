@@ -20,8 +20,8 @@
   {
     "name": "DECK-WALK-wall-footprints-dropped",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "        wallEdge(ax, az, bx, bz, lo, hi); wallEdge(bx, bz, cx, cz, lo, hi); wallEdge(cx, cz, ax, az, lo, hi);\n",
-    "new": "",
+    "old": "if (Math.abs(nY) < WALL_NY * len) { wallFace(ax, ay, az, bx, by, bz, cx, cy, cz); continue; }",
+    "new": "if (Math.abs(nY) < WALL_NY * len) continue;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -65,8 +65,8 @@
   {
     "name": "DECK-WALK-clamp-a-centre",
     "file": "src/systems/naval/navalDeck.js",
-    "old": "      out[0] = Math.min(x0 + cell - e, Math.max(x0 + e, x));",
-    "new": "      out[0] = x0 + cell / 2;",
+    "old": "    out[0] = Math.min(x0 + cell - e, Math.max(x0 + e, x));",
+    "new": "    out[0] = x0 + cell / 2;",
     "tests": [
       "test/deckwalk.test.js"
     ]
@@ -182,8 +182,8 @@
   {
     "name": "DECK-WALK-leash-a-centre",
     "file": "src/scenes/world.js",
-    "old": "        if (Number.isNaN(floor)) deck.clamp(local[0], local[2], local, was ? deck.pieceAt(was[0], was[2], was[1]) : 0); else local[1] = floor;",
-    "new": "        if (Number.isNaN(floor)) { const c = deck.nearest(local[0], local[2]); local[0] = c[0]; local[1] = c[1]; local[2] = c[2]; } else local[1] = floor;",
+    "old": "        if (Number.isNaN(own)) deck.clamp(local[0], local[2], local, piece); else local[1] = own;",
+    "new": "        if (Number.isNaN(own)) { const c = deck.nearest(local[0], local[2]); local[0] = c[0]; local[1] = c[1]; local[2] = c[2]; } else local[1] = own;",
     "tests": [
       "test/deckwalk.test.js"
     ]

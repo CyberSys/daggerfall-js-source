@@ -20,8 +20,8 @@
   {
     "name": "WK-W1-lookout-talked-off-his-way",
     "file": "src/systems/naval/crewLife.js",
-    "old": "|| o === chanty?.leader || o === lookout) continue;",
-    "new": "|| o === chanty?.leader) continue;",
+    "old": "|| o === chanty?.leader || o === lookout || offMain(o)) continue;",
+    "new": "|| o === chanty?.leader || offMain(o)) continue;",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]
@@ -281,8 +281,8 @@
   {
     "name": "WK-D5-runs-post-to-post",
     "file": "src/systems/naval/crewLife.js",
-    "old": "(m === lookout && !battle ? 0 : 1)",
-    "new": "(m === lookout ? 0 : 1)",
+    "old": "(m === lookout && !battle || offMain(m) || onAMan(m) ? 0 : 1)",
+    "new": "(m === lookout || offMain(m) || onAMan(m) ? 0 : 1)",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]
@@ -326,8 +326,8 @@
   {
     "name": "LD-CL-lookout-dawdles",
     "file": "src/systems/naval/crewLife.js",
-    "old": "* (m === lookout && !battle ? 0 : 1); }",
-    "new": "* 1; }",
+    "old": "* (m === lookout && !battle || offMain(m) || onAMan(m) ? 0 : 1); }",
+    "new": "* (offMain(m) || onAMan(m) ? 0 : 1); }",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]
@@ -389,8 +389,8 @@
   {
     "name": "LD-CL-bow-at-stem",
     "file": "src/systems/naval/crewLife.js",
-    "old": "deck.nearest(0, ext[1] - LOOKOUT_BACK)",
-    "new": "deck.nearest(0, ext[1])",
+    "old": "deck.nearest(0, mainExt[1] - LOOKOUT_BACK, main)",
+    "new": "deck.nearest(0, mainExt[1], main)",
     "tests": [
       "test/auditwatchkit_crew.test.js"
     ]
