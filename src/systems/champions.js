@@ -27,6 +27,8 @@ import { lootRarityOn } from './lootRarity.js';
 import { registerPlayerStruckListener, registerPlayerStrikeListener } from '../combat/formulas.js';
 import { hurtPlayer } from '../characters/playerEntity.js';
 import { KNIGHT_CITY_WATCH } from '../characters/mobileTypes.js';
+import { enemyDisplayName } from '../characters/enemyBasics.js';   // LOOT7-CHECK CHAMP-SAID: the name the death line says
+import { popupMessage } from './notify.js';   // LOOT7-CHECK CHAMP-SAID: DaggerfallUI.PopupMessage, the live host's line
 
 /** Per mille of the foes that may be one that stand as a champion. */
 export const CHAMPION_PER_MILLE = 50;
@@ -126,3 +128,34 @@ export function championStrike(attacker, target, damage) {
 export const CHAMPIONS = 'champions';
 registerPlayerStruckListener(CHAMPIONS, championStruck);
 registerPlayerStrikeListener(CHAMPIONS, championStrike);
+
+// ── LOOT7-CHECK CHAMP-SAID: a champion said, on either skin ─────────
+// Mac asked for "single named foes with visible traits", and a LIVING champion was named only on the enhanced skin's
+// target frame (ui/hudFoeTarget.js) and its plaque (the World Tooltips plaque is the enhanced skin's - ui/worldPlaque.js
+// worldPlaqueOn): on the classic skin nothing said one stood until it died, and no screen anywhere said what its trait
+// does (CHAMPION_TRAITS' `text` was read by nothing). So the first blow that lands EITHER WAY - its on me, or mine on
+// it - says it on the line every skin draws (notify.js popupMessage: DaggerfallUI.PopupMessage, the line "%s just
+// died." is said on), in two rows: who it is, then what its trait does. Once per champion (a rebuild or a load is a
+// new one, and says it again at its first blow). The blow seams are the one home every pool already shares - the
+// dungeon's, the street's, a building's, a puppet's - so no host stands it. Off, no champion stands and nothing is said.
+/** The two rows a champion is said by - its name and that it stands as one, then what its trait does - or null. */
+export function championLines(entity) {
+  const t = championOf(entity);
+  const base = t ? enemyDisplayName(entity.mobileType) : null;
+  return base ? [`${championName(entity, base)} stands as a champion.`, `${t.text}.`] : null;
+}
+const _said = new WeakSet();
+/** Say a champion's rows, once per champion (`say` the live host's line unless a caller hands its own). Answers
+ *  whether they were said now. */
+export function sayChampion(entity, say = popupMessage) {
+  if (!entity || _said.has(entity)) return false;
+  const lines = championLines(entity);
+  if (!lines) return false;
+  _said.add(entity);
+  for (const line of lines) say(line);
+  return true;
+}
+export const CHAMPIONS_SAID = 'champions-said';
+// its blow that reached ME (never a peer's copy: another player's screen is theirs), and mine that landed on it
+registerPlayerStruckListener(CHAMPIONS_SAID, (attacker, target, damage) => { if (damage > 0 && target?.isPlayer && !target.peer) sayChampion(attacker); });
+registerPlayerStrikeListener(CHAMPIONS_SAID, (attacker, target, damage) => { if (damage > 0 && attacker?.isPlayer && !attacker.peer) sayChampion(target); });

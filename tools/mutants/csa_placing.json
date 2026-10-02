@@ -194,7 +194,7 @@
     "name": "CSA-C-crewed-spends-item",
     "file": "src/systems/comeSailAway.js",
     "old": "      if (!boat.crewed) removeItem(state.placeItemCollection, state.placeItem);",
-    "new": "      removeItem(state.placeItemCollection, state.placeItem);",
+    "new": "      if (true) removeItem(state.placeItemCollection, state.placeItem);",
     "tests": [
       "test/csa_placing.test.js"
     ]

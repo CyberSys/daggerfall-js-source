@@ -74,8 +74,8 @@
   {
     "name": "NAV-H-my-blow-landed-twice",
     "file": "src/scenes/navalHost.js",
-    "old": "      return;\n    }\n    strike(target, hurt, byMe ? myId() : e.shooter);",
-    "new": "    }\n    strike(target, hurt, byMe ? myId() : e.shooter);",
+    "old": "      return;\n    }\n    strike(target, hurt, byMe ? myId() : e.shooter, undefined, stray);",
+    "new": "    }\n    strike(target, hurt, byMe ? myId() : e.shooter, undefined, stray);",
     "tests": [
       "test/nav_h_host.test.js"
     ]
@@ -174,7 +174,7 @@
   {
     "name": "NAV-H-a-peers-blow-ignored",
     "file": "src/scenes/navalHost.js",
-    "old": "    strike(entry, { hull: hit.hull, sail: hit.sail, crew: hit.crew, fire: hit.fire }, from, true);   // a player's blow",
+    "old": "    strike(entry, hurt, from, true, strayOnAlly(entry, hurt, from));   // a player's blow - SEA-EASE: a stray on an aid weighed as mine",
     "new": "",
     "tests": [
       "test/nav_h_host.test.js"

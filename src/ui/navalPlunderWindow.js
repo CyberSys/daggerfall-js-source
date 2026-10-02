@@ -19,6 +19,10 @@
 //               window without either and she lies taken where she is - Activate opens her again. AUDIT NAV1 (B11):
 //               LEAVE HER is its own way out ('leave') - she lies taken as she is, and the host puts the captor back
 //               at their own helm; the back key or the scrim only shut the window, her deck still underfoot.
+//               SHIP-CLAIM (2026-10-01, Mac: "Claim captured prizes - Keep a ship you take by boarding as your own
+//               boat, instead of scuttling her or casting her adrift"): CLAIM HER, the third - while the host offers it
+//               (`claimOffer`: a prize of mine Come Sail Away can place), its line under the three saying what she
+//               becomes; the press asks the host again, and a refusal stays with a word instead of leaving.
 // A RAID'S PRIZE (Warm Ashes' voyage ambush beaten: scenes/navalHost.js leaveShipGate) has a hold and no choice, and
 // its one way on is SAIL ON - the voyage waits on this window, so shutting it sails on too (the door's host says so).
 //
@@ -30,7 +34,8 @@
 // deps = { model, nameOf(item) -> string, onExit(reason) } - `model` the host's (navalHost.js openPrize /
 // leaveShipGate): { name, captain, classLine, faction, raid, items (the live hold), mine() -> { name, hull, sail,
 // crew } | null, offers() -> [{ id, title, detail, useful }], takeAll() -> { taken, left, where }, chosen() -> id |
-// null, fated() -> string | null, choose(id) -> bool, fate(which), leave()? }.
+// null, fated() -> string | null, choose(id) -> bool, fate(which) -> bool (SHIP-CLAIM: false - refused), leave()?,
+// claimOffer()? -> { detail } | null }.
 import { closeOnOutsideTap } from './enhancedOverlays.js';
 import { overlayAction } from './input.js';
 import { injectEnhancedStyle, injectEnhancedFonts } from './enhancedStyle.js';
@@ -60,6 +65,7 @@ export const NAVAL_PLUNDER_CSS = `
 .dfnaval-note { margin: 5px 0 0; font-size: 12px; color: ${T.brassHi}; text-shadow: 1px 1px 0 #050608; }
 .dfnaval-note.warn { color: #e59a8e; }
 .dfnaval-note[hidden] { display: none; }
+.dfnaval-claim[hidden], .dfnaval-claimnote[hidden] { display: none; }
 .dfnaval-winbody { display: flex; flex-direction: column; gap: 14px; padding: 12px 16px 16px; min-height: 0; overflow: auto; }
 .dfnaval-sec { display: flex; flex-direction: column; gap: 8px; }
 .dfnaval-sechead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0; padding-bottom: 4px;
@@ -116,6 +122,8 @@ export function plunderText(model, nameOf = (it) => String(it?.name ?? '')) {
     rows: items.length > HOLD_ROWS ? [...shown, `and ${items.length - HOLD_ROWS} more`] : shown,
     more: items.length > HOLD_ROWS,
     take: model.raid || !mine ? 'Take all into your pack' : `Take all to your ${mine.name}`,
+    /** SHIP-CLAIM: what claiming her makes of her, while the host offers it - never a raid's. */
+    claim: model.raid ? null : model.claimOffer?.()?.detail ?? null,
   };
 }
 
@@ -213,7 +221,15 @@ export function mountNavalPlunderWindow(host, deps) {
       button('Cast her adrift', 'dfnaval-btn dfnaval-adrift', () => { m.fate?.('adrift'); exit('fate'); }),
     );
   }
-  fateSec.append(fateHead, fateActs);
+  // SHIP-CLAIM: the third beside them - never a raid's (its one way on is Sail on). The host's answer decides it: a
+  // refusal stays, with a word, where the other two leave
+  const claim = sail ? null : button('Claim her', 'dfnaval-btn dfnaval-claim', () => {
+    if (m.fate?.('claim') === false) { note = { text: 'She cannot be claimed.', warn: true }; render(); return; }
+    exit('fate');
+  });
+  if (claim) fateActs.append(claim);
+  const claimNote = el('p', 'dfnaval-lede dfnaval-claimnote');
+  fateSec.append(fateHead, fateActs, claimNote);
   body.append(lede, holdSec, choiceSec, fateSec);
   win.append(head, body);
 
@@ -234,6 +250,10 @@ export function mountNavalPlunderWindow(host, deps) {
     takeAll.textContent = t.take;
     const empty = !(m.items?.length > 0);
     if (empty) { takeAll.setAttribute('disabled', ''); openHold.setAttribute('disabled', ''); } else { takeAll.removeAttribute('disabled'); openHold.removeAttribute('disabled'); }
+    // SHIP-CLAIM: the claim stands while the host offers it, read at every paint, its line under the three
+    for (const n of [claim, claimNote]) if (n) { if (t.claim) n.removeAttribute('hidden'); else n.setAttribute('hidden', ''); }
+    claimNote.textContent = t.claim ?? '';
+    if (claim && t.claim) claim.setAttribute('title', t.claim);
     // the choice: the tiles, once one is taken the rest shut
     const offers = m.offers?.() ?? [];
     choiceSec.style.display = !m.raid && offers.length ? '' : 'none';
