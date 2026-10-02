@@ -17,3 +17,8 @@
 - **After a capture:** the Charter goes back to the guild that held it, at the Standing, Tithe and Legacy it had before the battle; the walls and works the capture knocked down stand again, and anything the capturer started building falls.
 - **After a hold:** the holder keeps the seat but loses the Standing and the next-defence bonus the battle gave it, and the challenger's bar from the seat is lifted.
 - **Rewards already claimed stay claimed** - Honours, silver, Renown and Spoils are never taken back - but no new ones can be claimed from a voided battle.
+
+
+## Standing and Festivals (online)
+- **Standing's trend.** A seat's board now says which way its holder's Standing moved since the last Turning - "Standing 55, up 7 since the last Turning."
+- **A Festival you can hear and see.** While a Festival rules in a town, its streets play the tavern's songs, the holder's banners hang at the taverns' doors and over the bounty boards too, and a lantern glows before every banner after dusk.

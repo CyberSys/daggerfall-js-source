@@ -4928,7 +4928,7 @@ arrival, that is not rare. The blow is dropped instead.
   foe's maul, and your own Daedroth all do literally nothing to a
   puppet. The first two are WORLD2's law on purpose; the third is a gap
   in it.
-- **A foe's blast on a puppet is credited to ME.** `world.js:8571` and
+- **A foe's blast on a puppet is credited to ME.** `world.js:8576` and
   `:2925` pass `foeSinks: (f) => enchantFoeSinks(f)`, dropping the
   provenance argument `applySpellToFoe` hands them (`hostMagic.js:472`)
   - the same shape AUDIT WORLD6b-iii(a) B2 fixed one layer down.
@@ -11908,6 +11908,26 @@ Modelled end to end on the developer's `/seat strike <key>`.
 
 Pinned: `test/siege_void.test.js` (8). Mutants: `tools/mutants/siege_void.json` (39, all dead). A new route and a
 migration; no service version bump (no pin required one) and no relay change.
+
+### STANDING-TREND and FESTIVAL-STAGE - Standing's trend, a Festival's town (2026-10-02)
+
+Mac: "lets finish the build work" - two more of the Seats arc's NOT YETs (Seats-Arc 7.9, 7.6).
+
+- **Standing's trend** (7.9: "Standing and its trend"): the Seat tab's holder line says which way the Standing moved -
+  "Standing 55, up 7 since the last Turning." (`net/townSeatLaw.js` seatHolderLine, standingTrend). Each Turning
+  writes every held seat's Standing as it found it and as it left it, a `town_seat_history` row of kind `standing`,
+  first in its batch (`server-account/src/seatTurning.js` settleWeek); the Chronicle and the Hall of Records never
+  show it (`seatInfluence.js` chronicleOf), and the standings read names the holder's `was` off the last Turning's
+  row where it names this holder (standingWas). No migration; the service stays `acct61` (undeployed, noted on it).
+- **The Festival's town** (7.6: "music, banners, lanterns"; `scenes/seatFestival.js`), while a Festival rules there -
+  the holder's Edict on the seats' list, nothing on the relay or the service: its streets' City music becomes DFU's
+  tavern playlist (`scenes/shared.js` createMusicDirector, festivalEnvironment - the day's song as a tavern picks
+  it); the holder's banners hang at more anchors measured where the pixel is built (festivalBannerAnchors: two beside
+  each tavern's door, a pennant over each bounty board, at most 6; `scenes/seatBanners.js` createSeatBanners); and a
+  lantern burns before every banner the town flies, in the street's lantern pool (festivalLanternsOf,
+  `world/cityLights.js` fillLanternPool's `extra`), lit dusk to dawn and flickering on the slots after the pixel's own.
+
+Pinned: `test/seat_standing_festival.test.js` (6). Mutants: `tools/mutants/seat_standing_festival.json` (23, all dead).
 
 ### CASTLE-GATE - a crown's field and banners at its castle's entrance (2026-10-02)
 

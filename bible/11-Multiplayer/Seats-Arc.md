@@ -755,7 +755,14 @@ BUILT (SEAT1d, 2026-10-01; Online-Arc SEAT1d): the six of any tier - proclaimed 
 Curfew on the player's own client; Open Gates in the town's homes as the service reads them; the Festival's buff a
 game day from the arrival; the Levy at the harvest (its tenth kept by the harvest's own roll); the Bounty's escrow, its
 claims (a camp is a World of Daggerfall site) and its doubled loot. The Royal Tourney and Conscription are CROWN1's.
-NOT YET: the Festival's music, banners and lanterns - only its Festive buff is built (`systems/seatEdicts.js`).
+BUILT (FESTIVAL-STAGE, 2026-10-02; Online-Arc STANDING-TREND and FESTIVAL-STAGE): the Festival's music, banners and
+lanterns, staged by each client while a Festival rules at the town - the holder's Edict as the seats' list dresses it,
+nothing on the relay or the service (`scenes/seatFestival.js`; the buff stays `systems/seatEdicts.js`'s). DECIDED: the
+music is DFU's own tavern playlist (SongManager's TavernSongs - song_square_2, song_tavern, song_folk1-3; FM
+song_fm_sqr_2), the day's song as a tavern picks it, heard in the town's streets by day and night (a building keeps its
+own); the banners are the holder's on the seat banners' cloth, two beside each tavern's door and a pennant over each
+board BOUNTY1 took, at most 6 more; the lanterns are lights in the street's own lantern pool, one before every banner
+the town flies, lit dusk to dawn with its lamps - a glow, no lantern sprite drawn.
 
 BUILT (CROWN1 part one, 2026-10-01; Online-Arc CROWN1): Conscription, a crown's alone (`edictForTier`; a palace's
 proclamation refused, `edict-tier`), made law at no cost and paid at the Turning that ends the week it ruled - after
@@ -833,8 +840,14 @@ BOUNTY1 took one board in two for its hunts; AUDIT 28), carries:
 
 A seat is run from its town's board, in person. That is the point of a physical board: the war has a place.
 
-NOT YET: Standing's trend - the holder's line shows the number alone ("Standing 55.", `townSeatLaw.js` seatHolderLine
-on `ui/seatTab.js`), never which way it moved.
+BUILT (STANDING-TREND, 2026-10-02; Online-Arc STANDING-TREND and FESTIVAL-STAGE): Standing's trend - the holder's line
+says which way it moved ("Standing 55, up 7 since the last Turning.", `townSeatLaw.js` seatHolderLine on
+`ui/seatTab.js`). Each Turning writes every held seat's Standing as it found it and as it left it, a Chronicle row of
+kind `standing` the Chronicle and the Hall of Records never show (`seatTurning.js` settleWeek, `seatInfluence.js`
+chronicleOf); the standings read names the holder's `was` off the last Turning's (standingWas) - no migration, the
+service still `acct61`. DECIDED: the trend is the Standing now less what it was as the last Turning began, so a siege
+held or a revolt put down since moves it too; "up N", "down N" or "steady"; none where the last Turning reckoned no
+Standing for this holder (a Charter it claimed, a seat taken since).
 
 ## 8. What a guild grows
 
