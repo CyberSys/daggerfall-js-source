@@ -117,7 +117,7 @@ The first part of guild town control is in. It is open to the developers first, 
   - every member of a Keeper's guild wears the Season's **banner ribbon** through the next Season: a thin band in the guild's colours under their name, which everyone online sees. A member who joins after that Turning doesn't wear it.
   - Legacy is cleared, and every seat's Standing moves **halfway back toward 50**.
   - The Charters stand, and every seat's Chronicle records who held it at the Season's end.
-- **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your Marks, Stores, profession tracks, titles and Honours are kept.
+- **Season 0's end** wipes the seats, influence, Chronicles, fealty and Pacts. Your silver, Stores, profession tracks, titles and Honours are kept.
 - **The Hall of Records.** Every seat's palace keeps its whole Chronicle as a book: press a shelf in the palace to read it, one chapter a Season. The Chronicle now dates each line by its Season - "In the third week of the Season of Morning Star..." - on the Seat tab too. The three castles keep theirs on their shelves, and every seat's board has a "Read the Hall of Records" button.
 - **Once a Season** now means the Season itself. A Pact lasts to the Season's end, and the same two guilds earn Honours from each other once a Season.
 
