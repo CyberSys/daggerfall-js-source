@@ -73,7 +73,7 @@ place (`world/detStandIns.js`). Positions below are the port's metres,
 `(x, up, z)` in the record's frame.
 
 **WD3 (2026-10-01) read every piece again.** Beautiful Villages and
-Beautiful Cities place the same DET ids some 75,000 times, and the RMB
+Beautiful Cities place the same DET ids some 72,000 times, and the RMB
 Resource Pack's own DET catalogue names each one. Read against that
 catalogue and those placements, six of the ten ship readings were wrong:
 `45145` is Kynareth's tapestry, `45161`, `45162` and `45164` decorative

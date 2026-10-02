@@ -1502,6 +1502,19 @@ export class QuestMachine {
     return sites;
   }
 
+  /** WD3 (AUDIT WD3 S3): every incomplete quest's questor met in a building - its town keeps the layout the questor
+   *  was met in (systems/layoutPins.js layoutRecordsOf). */
+  getAllActiveQuestors() {
+    const out = [];
+    for (const quest of this.quests.values()) {
+      if (quest.questComplete) continue;
+      for (const resource of quest.resources.values()) {
+        if (resource.isPerson && resource.isQuestor && resource.questorData?.buildingKey > 0) out.push(resource.questorData);
+      }
+    }
+    return out;
+  }
+
   /** DISC28-I (Discord: a quest shared by a friend - "we couldn't enter the house after I entered it"): PlayerActivate.
    *  IsActiveQuestBuilding (PlayerActivate.cs:1315-1329), the lock ladder's quest rung and the house market's
    *  exclusion. It reads GetAllActiveQuestSites - EVERY Place of every incomplete quest, matched on building key and map

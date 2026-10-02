@@ -64,7 +64,7 @@ has never seen:
 
 WD3 (2026-10-01) read the same pieces again against DET's catalogue and the
 town mods' placements (Beautiful Villages and Beautiful Cities place them
-some 75,000 times): six of the ten model readings changed - the two
+some 72,000 times): six of the ten model readings changed - the two
 timbers and four cloths - and seven flats are now drawn in code (a rat for
 the cat, cheese, porridge, a cabbage, broken bottles, a rolling pin), a sack
 and a globe moved between records. Each piece has one

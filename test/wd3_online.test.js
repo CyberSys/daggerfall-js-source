@@ -7,7 +7,7 @@
 //
 // Held here, on the real service over node:sqlite with every migration applied: the column and its index; a claim
 // storing its town's layout, the town's first home deciding for every later one (a town of homes from before WD3
-// stays Daggerfall's own whatever a client sends); a bad stamp refused; /v1/homes/layouts - any session's, one row a
+// stays Daggerfall's own), a claim from a client whose town stands in another layout refused; a bad stamp refused; /v1/homes/layouts - any session's, one row a
 // town (its oldest home's), a town released when its last home goes; and by source the client's ask, the boot's wait
 // and retries, and the room's switches.
 import { test } from 'node:test';
@@ -38,7 +38,7 @@ test('WD3 online, the record: migration 0046 adds `homes.layout` (NULL - Daggerf
   assert.ok(ROUTES.has('/v1/homes/layouts') && !OPEN_ROUTES.has('/v1/homes/layouts'), 'behind a session - any session');
 });
 
-test('WD3 online, the service: a claim keeps the layout its client\'s town stands in - for the town\'s FIRST home; every later home of the town takes the first one\'s whatever its client sends; a town of homes from before (NULL) stays Daggerfall\'s own; a stamp the law does not take is refused; an owner\'s homes say their towns\' layouts; the layouts read answers one row a town, its oldest home\'s, to any session, and a town whose last home goes is released', async (t) => {
+test('WD3 online, the service: a claim keeps the layout its client\'s town stands in - for the town\'s FIRST home; a later home claimed in another layout of the town is refused (409 home-layout, naming the town\'s); a town of homes from before (NULL) stays Daggerfall\'s own; a stamp the law does not take is refused; an owner\'s homes say their towns\' layouts; the layouts read answers one row a town, its oldest home\'s, to any session, and a town whose last home goes is released', async (t) => {
   let now = T0;
   t.mock.method(Date, 'now', () => now * 1000);
   const { env, call, registered, seatHome } = await standService();
@@ -50,16 +50,24 @@ test('WD3 online, the service: a claim keeps the layout its client\'s town stand
   const a = await seatHome(aldric, home({ layout: BV }));
   assert.equal(a.status, 200, JSON.stringify(a.body));
   now += 60;
-  const b = await seatHome(mara, home({ buildingKey: 0x10305, layout: BOTH }));
+  // AUDIT WD3 O1: a claim from a client whose town stands in ANOTHER layout is refused, never stored over its word -
+  // its building key names a building of the town it sees; the refusal says the town's, and the client hears the room again
+  const crossed = await seatHome(mara, home({ buildingKey: 0x10305, layout: BOTH }));
+  assert.deepEqual([crossed.status, crossed.body?.error, crossed.body?.layout], [409, 'home-layout', BV]);
+  assert.equal((await seatHome(mara, home({ buildingKey: 0x10305 }))).body?.error, 'home-layout', 'Daggerfall\'s own town is another layout too');
+  const b = await seatHome(mara, home({ buildingKey: 0x10305, layout: BV }));
   assert.equal(b.status, 200);
   const row = (key) => env.DB._raw.prepare('SELECT layout FROM homes WHERE map_id = ? AND building_key = ?').get(TOWN, key)?.layout;
   assert.equal(row(0x10203), BV);
   assert.equal(row(0x10305), BV, 'the town keeps the layout its first home was bought in - one town for the room');
+  assert.equal(env.DB._raw.prepare('SELECT COUNT(*) AS n FROM homes WHERE map_id = ?').get(TOWN).n, 2, 'the refused claims seated nothing');
   // a town whose homes are from before WD3
   env.DB._raw.prepare(`INSERT INTO homes (map_id, building_key, player, char_id, owner_name, region, entry, price, bought_at, paid)
     VALUES (?, ?, ?, ?, 'Old', 17, 'private', 1000, ?, 0)`).run(CLASSIC_TOWN, 0x101, corin.id, 'char-old', T0 - 86400);
   now += 60;
-  assert.equal((await seatHome(corin, home({ mapId: CLASSIC_TOWN, buildingKey: 0x202, layout: BV }))).status, 200);
+  const old = await seatHome(corin, home({ mapId: CLASSIC_TOWN, buildingKey: 0x202, layout: BV }));
+  assert.deepEqual([old.status, old.body?.error, old.body?.layout], [409, 'home-layout', null]);
+  assert.equal((await seatHome(corin, home({ mapId: CLASSIC_TOWN, buildingKey: 0x202 }))).status, 200);
   assert.equal(env.DB._raw.prepare('SELECT layout FROM homes WHERE map_id = ? AND building_key = ?').get(CLASSIC_TOWN, 0x202).layout, null, 'a town bought in before the mods stays Daggerfall\'s own');
   // an owner's own homes say the layout each town keeps; none where it is Daggerfall's
   assert.deepEqual((await call('/v1/homes/mine', {}, mara.secret)).body.homes.map((h) => [h.mapId, h.layout]), [[TOWN, BV]]);
@@ -85,9 +93,18 @@ test('WD3 online, the client: the homes\' towns asked at the boot, before the fi
   assert.match(src('src/net/accountClient.js'), /layouts: \(\) => post\('\/v1\/homes\/layouts', \{\}\),/);
   const W = src('src/scenes/world.js');
   assert.match(W, /let _homeLayoutsAsk = homesApi \? homesApi\.layouts\(\)\.catch\(\(\) => null\) : null;/);
-  assert.match(W, /const heard = await Promise\.race\(\[_homeLayoutsAsk, new Promise\(\(res\) => setTimeout\(\(\) => res\(null\), HOME_LAYOUTS_WAIT_MS\)\)\]\);/);
-  assert.match(W, /if \(attempt > HOME_LAYOUTS_RETRIES \|\| !homesApi\)/);
-  assert.match(W, /\}, HOME_LAYOUTS_WAIT_MS \* attempt\);/);
+  assert.match(W, /const heard = await Promise\.race\(\[ask, new Promise\(\(res\) => setTimeout\(\(\) => res\(null\), HOME_LAYOUTS_WAIT_MS\)\)\]\);/);
+  assert.match(W, /if \(!homesApi \|\| _serverLayoutRecords !== null\) return;/, 'asked until heard (AUDIT WD3 O2)');
+  assert.match(W, /\}, HOME_LAYOUTS_WAIT_MS \* Math\.min\(attempt, HOME_LAYOUTS_RETRIES\)\);/);
+  assert.match(W, /ask\.then\(\(late\) => \{ if \(_serverLayoutRecords === null\) takeHomeLayouts\(late\); \}\);/, 'the first ask\'s late answer heard');
+  assert.match(W, /const forgotten = homeLayoutsOnline && _serverLayoutRecords === null \? 0 : pruneDiscoveryLayouts\(\);/, 'nothing forgotten before the service has said (AUDIT WD3 S4)');
+  assert.match(W, /homeLayoutsHeard: \(\) => !homeLayoutsOnline \|\| _serverLayoutRecords !== null,\n {4}hearHomeLayouts,/);
+  // until heard no home is bought and no home's room furnished; a claim refused for its town's layout hears them again
+  const M = src('src/scenes/worldModes.js');
+  assert.match(M, /if \(host\.homeLayoutsHeard\?\.\(\) === false\) \{ townTalk\?\.say\?\.\(accountRefusalText\('home-layout'\)\); host\.hearHomeLayouts\?\.\(\); return; \}/);
+  assert.match(M, /if \(r\.error === 'home-layout'\) host\.hearHomeLayouts\?\.\(\);/);
+  assert.match(M, /if \(host\.homeLayoutsHeard\?\.\(\) === false\) \{ console\.warn\('\[layout\] the homes\\' towns are not heard yet - the room\\'s pieces wait'\); return; \}/);
+  assert.match(src('server-account/src/index.js'), /if \(r\.error === 'home-layout'\) return json\(\{ error: 'home-layout', layout: r\.layout \?\? null \}, 409, origin\);/);
   assert.match(W, /_serverLayoutRecords = towns\.filter\(\(t\) => Array\.isArray\(t\)\)\.map\(\(\[mapId, layout\]\) => \(\{\n {6}locationKey: _layoutKeyOfMapId\.get\(Number\(mapId\) >>> 0\) \?\? null, stamp: typeof layout === 'string' \? layout : undefined, kind: 'house',/);
   assert.match(W, /const records = homeLayoutsOnline \? \(_serverLayoutRecords \?\? \[\]\) : layoutRecordsOf\(/);
   assert.match(src('src/systems/onlineHomes.js'), /call: \(\/\*\* @type \{any\} \*\/ at\) => homes\.claim\(\{ mapId, buildingKey, region, price, realm: at, \.\.\.\(layout \? \{ layout \} : \{\}\) \}\),/);

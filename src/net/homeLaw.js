@@ -102,6 +102,14 @@ export function homeLayoutOk(v) {
   return true;
 }
 
+/** Whether two stamps are one layout - the same layout mods, whatever versions they name; null (or absent) is
+ *  Daggerfall's own (systems/layoutPins.js layoutsMatch, the same law where the service can read it). */
+export function homeLayoutsMatch(a, b) {
+  const mods = (v) => new Set(typeof v === 'string' && v ? v.split('+').map((p) => p.split('@')[0]).filter((m) => HOME_LAYOUT_MODS.includes(m)) : []);
+  const x = mods(a), y = mods(b);
+  return x.size === y.size && [...x].every((m) => y.has(m));
+}
+
 // ═══ HOME-RENT (2026-09-30) — A ROOM OF A HOME, RENTED TO ANOTHER PLAYER ══
 //
 // Asked: "For houses with multiple rooms, the owner can choose to rent out

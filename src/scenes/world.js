@@ -4361,11 +4361,15 @@ export async function bootWorld(canvas, renderer, params, status) {
   // WD3: online, the homes' towns in their layouts before the first town is built (the ask went out at the boot's top)
   if (_homeLayoutsAsk) {
     status('reading the towns of the homes');
-    const heard = await Promise.race([_homeLayoutsAsk, new Promise((res) => setTimeout(() => res(null), HOME_LAYOUTS_WAIT_MS))]);
+    const ask = _homeLayoutsAsk;
+    const heard = await Promise.race([ask, new Promise((res) => setTimeout(() => res(null), HOME_LAYOUTS_WAIT_MS))]);
     _homeLayoutsAsk = null;
     const landing = takeHomeLayouts(heard);
     if (landing) await landing;
-    else askHomeLayoutsAgain(1);
+    else {
+      ask.then((late) => { if (_serverLayoutRecords === null) takeHomeLayouts(late); });   // AUDIT WD3 O2: the first ask's late answer is still heard
+      askHomeLayoutsAgain(1);
+    }
   }
   let building = false;
 
@@ -11113,11 +11117,21 @@ export async function bootWorld(canvas, renderer, params, status) {
   }
   /** WD3: an answer that did not come in time is asked again, a few times, further apart; the towns it pins are built
    *  again where they stand (applyLayoutPins). */
+  // AUDIT WD3 O2: never given up - until the towns are heard no home is bought, and no home's room furnished (its
+  // building key names a building of the town's layout, which may not be the one standing; worldModes.js
+  // homeLayoutsHeard), so the asking goes on at the longest wait once the first few have passed.
   function askHomeLayoutsAgain(attempt) {
-    if (attempt > HOME_LAYOUTS_RETRIES || !homesApi) { console.warn('[layout] the homes\' towns were not heard - each stands as the room\'s mods lay it out'); return; }
+    if (!homesApi || _serverLayoutRecords !== null) return;
+    if (attempt === HOME_LAYOUTS_RETRIES + 1) console.warn('[layout] the homes\' towns are not heard yet - no home is bought or furnished until they are; still asking');
     setTimeout(() => {
+      if (_serverLayoutRecords !== null) return;
       homesApi.layouts().catch(() => null).then((heard) => { if (!takeHomeLayouts(heard)) askHomeLayoutsAgain(attempt + 1); });
-    }, HOME_LAYOUTS_WAIT_MS * attempt);
+    }, HOME_LAYOUTS_WAIT_MS * Math.min(attempt, HOME_LAYOUTS_RETRIES));
+  }
+  /** AUDIT WD3 O1: the towns asked now (a claim the service refused for its town's layout), their pins answered. */
+  function hearHomeLayouts() {
+    if (!homesApi) return Promise.resolve(null);
+    return homesApi.layouts().catch(() => null).then((heard) => takeHomeLayouts(heard));
   }
   /**
    * WD3: THE SAVE'S TOWNS, IN THE LAYOUTS ITS THINGS WERE MADE IN (systems/layoutPins.js). Called once a save's
@@ -11134,6 +11148,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     const records = homeLayoutsOnline ? (_serverLayoutRecords ?? []) : layoutRecordsOf({
       houses: playerEntity.houses, rooms: playerEntity.rentedRooms,
       sites: questBridge?.machine?.getAllActiveQuestSites?.() ?? [],
+      questors: questBridge?.machine?.getAllActiveQuestors?.() ?? [],   // AUDIT WD3 S3
       repairs: (playerEntity.otherItems ?? []).map((it) => it?.repairData).filter(Boolean),
       anchor: playerEntity.anchorPosition,
       inside: extras?.interior && extras?.world?.pixel ? { pixel: extras.world.pixel, layout: extras.interior.layout } : null,
@@ -11161,7 +11176,8 @@ export async function bootWorld(canvas, renderer, params, status) {
         rebuilt++;
       }
     }
-    const forgotten = pruneDiscoveryLayouts();
+    // AUDIT WD3 S4: online, a town's layout is not known until the service has said it - nothing is forgotten before
+    const forgotten = homeLayoutsOnline && _serverLayoutRecords === null ? 0 : pruneDiscoveryLayouts();
     if (pins.size || changed.size) console.log(`[layout] ${pins.size} town(s) kept in a save's layout (${[...pins.values()].map((p) => p.why).join(', ') || 'none'}); ${changed.size} read again, ${rebuilt} rebuilt${forgotten ? `; ${forgotten} discovered building(s) forgotten where a layout moved` : ''}`);
     else if (forgotten) console.log(`[layout] ${forgotten} discovered building(s) forgotten where a layout moved`);
   }
@@ -20000,6 +20016,9 @@ export async function bootWorld(canvas, renderer, params, status) {
     // opened to their party opens to a player whose party holds the owner (net/homeLaw.js homeMayEnter)
     onlineHomes,
     homesApi,   // HOME-RENT: a home's rooms, through the service's own door (null offline)
+    // WD3 (AUDIT WD3 O1/O2): whether the homes' towns are heard (offline always), and asked again on a claim refused for its town's layout
+    homeLayoutsHeard: () => !homeLayoutsOnline || _serverLayoutRecords !== null,
+    hearHomeLayouts,
     marks: marksBook,   // MARKS1: the Bank of the Empire's Marks, online
     saveSoon: () => saveSoon.changed(),   // PROF-SAVE: a Marks sale's gold in the Bank's account saved soon
     homeDecor,   // DECOR1c: an online home's placed pieces (null offline - the house's and the ship's are the save's)

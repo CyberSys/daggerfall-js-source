@@ -3416,6 +3416,9 @@ export function createWorldModes(host) {
   function cacheInteriorScene() {
     const name = currentInteriorScene();
     if (!name) return;
+    // WD3 (AUDIT WD3 S1): a permanent scene held back for its own layout (restoreInteriorScene below) is the house's
+    // decor, its hidden furniture and its chests - this visit, in another layout, must never write over it
+    if (_sceneHeldForLayout === name) return;
     const state = currentSceneState();
     // WD3: the layout of the town this building stands in, where the host can place the town (systems/layoutPins.js)
     const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
@@ -3428,6 +3431,7 @@ export function createWorldModes(host) {
    *  which is every first visit. */
   function restoreInteriorScene() {
     _keptHidden = [];   // BASE-HIDE: this visit's
+    _sceneHeldForLayout = null;
     const name = currentInteriorScene();
     if (!name || !interiorCtx) return;
     const data = restoreCachedScene(sceneCache(), name);
@@ -3437,7 +3441,7 @@ export function createWorldModes(host) {
     // house, a rented room) is kept, unrestored, for the layout it belongs to - which a save's pins hold its town in.
     const townKey = layoutLocationKeyOfMapId(questSceneCtx?.()?.mapId ?? 0);
     if (townKey != null && !layoutsMatch(data.layout, layoutStampAt(townKey))) {
-      if (containsPermanentScene(sceneCache(), name)) cacheScene(sceneCache(), name, data);
+      if (containsPermanentScene(sceneCache(), name)) { cacheScene(sceneCache(), name, data); _sceneHeldForLayout = name; }
       console.warn(`[layout] ${name}: cached in another layout of this town - not restored`);
       return;
     }
@@ -3493,6 +3497,8 @@ export function createWorldModes(host) {
   }
   /** BASE-HIDE: the save's own list for an online home's building, written back as it came (the service's is the room's). */
   let _keptHidden = [];
+  /** WD3: the permanent scene this visit holds back unrestored (another layout's) - and so never caches over. */
+  let _sceneHeldForLayout = null;
 
   /** DECOR1c: WHO OWNS THE ROOM'S PLACED PIECES - the character whose online home it is; else (offline, or a building
    *  no online home names) the owner of Daggerfall's own house, or of the ship. */
@@ -3666,6 +3672,9 @@ export function createWorldModes(host) {
   function loadHomeDecor() {
     const b = interiorBuilding;
     if (!interiorHome || !host.homeDecor || !b) return;
+    // WD3 (AUDIT WD3 O2): the room is the home's only in its town's layout - until the room's layouts are heard, its
+    // pieces are neither stood nor written (no decorator opens), as when the service is unreachable
+    if (host.homeLayoutsHeard?.() === false) { console.warn('[layout] the homes\' towns are not heard yet - the room\'s pieces wait'); return; }
     const visit = _decorVisit;
     askDecorList({
       ask: () => host.homeDecor.list(homeTownOf(b), b.buildingKey),
@@ -6070,6 +6079,9 @@ export function createWorldModes(host) {
   async function buyHomeAt(bd, price) {
     const homes = host.onlineHomes;
     if (!homes) return;
+    // WD3 (AUDIT WD3 O1/O2): a home is a building key, which names a building only in its town's layout - none is bought
+    // before the room's layouts of the homes' towns are heard, and a claim refused for its town's layout hears them again
+    if (host.homeLayoutsHeard?.() === false) { townTalk?.say?.(accountRefusalText('home-layout')); host.hearHomeLayouts?.(); return; }
     const region = bd.regionIndex ?? 0;
     const mapId = homeTownOf(bd);
     const purse = bankPurse();
@@ -6082,7 +6094,11 @@ export function createWorldModes(host) {
       realm: host.realmAct ? { act: host.realmAct } : null,
     });
     if (r.error === HOME_BUY_BUSY) return;   // AUDIT MERGE-PLUS A1: a second press while the first claim is out - its answer speaks
-    if (!r.ok) { townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : accountRefusalText(r.error)); return; }
+    if (!r.ok) {
+      townTalk?.say?.(r.error === 'gold' ? homeShortLine(price) : accountRefusalText(r.error));
+      if (r.error === 'home-layout') host.hearHomeLayouts?.();   // the town stood another layout here: it is built again as the room's
+      return;
+    }
     addPermanentScene(sceneCache(), homeSceneName(mapId, bd.buildingKey));
     townTalk?.say?.(HOME_BOUGHT_LINE);
   }
@@ -6220,6 +6236,9 @@ export function createWorldModes(host) {
   async function sellHomeAt(bd) {
     const homes = host.onlineHomes;
     if (!homes) return;
+    // WD3 (AUDIT WD3 O1/O2): a home is a building key, which names a building only in its town's layout - none is bought
+    // before the room's layouts of the homes' towns are heard, and a claim refused for its town's layout hears them again
+    if (host.homeLayoutsHeard?.() === false) { townTalk?.say?.(accountRefusalText('home-layout')); host.hearHomeLayouts?.(); return; }
     const region = bd.regionIndex ?? 0;
     const mapId = homeTownOf(bd);
     // AUDIT REALM2 C6: the owner's own things back to the pack, and the scene let go, AS THE SALE IS PAID - inside a realm

@@ -45,7 +45,14 @@ export const assetInjectionOn = () => getBool('Enhancements', 'AssetInjection');
  * whatever the switch says, which keeps the textures and the music it gates elsewhere. Each mod's own switch still
  * decides its files.
  */
-const worldDataOn = () => assetInjectionOn() || isOnlinePage();
+// WD3 (AUDIT WD3 P2/P3): READ ONCE FOR THE GAME. DFU reads AssetInjection at startup - a change waits for a restart -
+// and the boot's location index keeps a pack's grids, whose new blocks only the door can serve: a gate turned shut
+// mid-game would stand holes in every town. The mod loader latches it beside the mods' switches
+// (scenes/modWorldData.js), and a closed door loads no pack and stamps no town with a layout it does not show.
+let _doorLatched = null;
+export function latchWorldDataDoor() { _doorLatched = assetInjectionOn() || isOnlinePage(); return _doorLatched; }
+export const worldDataDoorOpen = () => _doorLatched ?? (assetInjectionOn() || isOnlinePage());
+const worldDataOn = worldDataDoorOpen;
 
 // ---- the mod's assets (ModManager.TryGetAsset / FindAssets, the port's one source) ----
 // WD3: a name may be carried by more than one mod (Beautiful Villages and Beautiful Cities both ship FIGHBM00.RMB,
@@ -164,7 +171,7 @@ export function installWorldDataReplacement() {
 export function _resetWorldDataReplacement({ assets = true } = {}) {
   regions = new Map(); locations = new Map(); blocks = new Map(); buildings = new Map();
   nextBlockIndex = 0; newBlockNames = new Map(); newBlockIndices = new Map(); _blocksFile = null;
-  _refused.clear(); _quietLocations = false;
+  _refused.clear(); _quietLocations = false; _doorLatched = null;
   if (assets) _assets.clear();
 }
 
@@ -462,10 +469,7 @@ export function locationFromJson(json, regionIndex = json.RegionIndex ?? 0) {
     exterior: {
       recordElement: {
         doorCount: 0, doors: [],
-        header: {
-          alwaysOne1: 1, x: h.X ?? 0, y: h.Y ?? 0, isExterior: h.IsExterior ?? 0, unknown1: 0, unknown2: h.Unknown2 ?? 0, alwaysOne2: 1,
-          locationId: h.LocationId ?? 0, isInterior: h.IsInterior ?? 0, exteriorLocationId: h.ExteriorLocationId ?? 0, locationName: h.LocationName ?? json.Name ?? '',
-        },
+        header: recordHeaderFromJson(h, json.Name),
       },
       buildingCount: ext.BuildingCount ?? (ext.Buildings?.length ?? 0),
       unknown1: null,
@@ -476,12 +480,22 @@ export function locationFromJson(json, regionIndex = json.RegionIndex ?? 0) {
         blockIndex: null, blockNumber: null, blockCharacter: null, unknown4: null, unknown5: null, unknown6: 0, blockNames,
       },
     },
-    dungeon: json.Dungeon ? dungeonFromJson(json.Dungeon) : { recordElement: null, header: null, blocks: null },
+    dungeon: json.Dungeon ? dungeonFromJson(json.Dungeon, json.Name) : { recordElement: null, header: null, blocks: null },
   };
 }
-function dungeonFromJson(d) {
+/** LocationRecordElementHeader from its JSON (DFLocation.cs) - the exterior's and the dungeon's alike. */
+function recordHeaderFromJson(h, name) {
   return {
-    recordElement: null,
+    alwaysOne1: 1, x: h.X ?? 0, y: h.Y ?? 0, isExterior: h.IsExterior ?? 0, unknown1: 0, unknown2: h.Unknown2 ?? 0, alwaysOne2: 1,
+    locationId: h.LocationId ?? 0, isInterior: h.IsInterior ?? 0, exteriorLocationId: h.ExteriorLocationId ?? 0, locationName: h.LocationName ?? name ?? '',
+  };
+}
+// WD3 (AUDIT WD3 P1): LocationDungeon.RecordElement is a public field DFU keeps (DFLocation.cs) and every dungeon
+// reader asks its header's LocationId (world/dungeonLayout.js, scenes/dungeonContext.js, systems/save.js) - a town
+// with a dungeon (Castle Daggerfall, Sentinel, Wayrest under Beautiful Cities) carries it, and it is read here.
+function dungeonFromJson(d, name) {
+  return {
+    recordElement: { doorCount: 0, doors: [], header: recordHeaderFromJson(d.RecordElement?.Header ?? {}, name) },
     header: d.Header ? { nullValue1: 0, unknown1: 0, unknown2: 0, blockCount: d.Header.BlockCount ?? (d.Blocks?.length ?? 0), unknown3: null } : null,
     blocks: (d.Blocks ?? []).map((b) => ({ x: b.X ?? 0, z: b.Z ?? 0, isStartingBlock: !!b.IsStartingBlock, blockName: b.BlockName ?? '', blockIndex: b.BlockIndex ?? 0, blockNumber: b.BlockNumber ?? 0, blockCharacter: b.BlockCharacter ?? 0 })),
   };

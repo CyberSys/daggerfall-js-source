@@ -170,10 +170,10 @@ export const DET_MODELS = Object.freeze({
   // DET's 'Pillar - Wood', a segment long, standing on its foot: a squared timber six units thick. In a town it is the
   // shelf of every fireplace's mantel (two, laid along it, the lower one half as deep); on the small ship the topmast
   // over the crow's nest (two, the flag on top), the stern's rails laid on their side, and the two stays it is
-  // stretched 13.8 times along from the masthead to the rail. (DS1 read it as rope; WD3, the catalogue and 9,948 town
+  // stretched 13.8 times along from the masthead to the rail. (DS1 read it as rope; WD3, the catalogue and 10,004 town
   // placements, as timber - see the header.)
   45081: () => timber(TIMBER, 6, DET_SEGMENT_UNITS),
-  // 'Pillar - Wood' again, eight units: the rafters and tie-beams of a beamed hall (28,747 in the towns, stretched along
+  // 'Pillar - Wood' again, eight units: the rafters and tie-beams of a beamed hall (29,249 in the towns, stretched along
   // their length), and the staff the small ship's stern castle stacks three of, a banner at its head.
   45110: () => timber(TIMBER, 8, DET_SEGMENT_UNITS),
   // DET's 'Wind Wane - Dog', at the head of the mainmast's topmast (two timbers carry it above the crow's nest): a

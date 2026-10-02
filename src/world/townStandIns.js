@@ -12,8 +12,8 @@
 //
 //   - the BEDS (42069-42086): Daggerfall's own beds out of the player's ARCH3D under bedclothes recoloured in code
 //     (an alias, world/customModels.js);
-//   - the PAINTINGS (Rosy's 69420-69464, New Paintings 79010-79030): Daggerfall's own framed paintings - the twenty-four
-//     of the Interior_Paintings set, which the climate swap changes from region to region as it does a classic wall's -
+//   - the PAINTINGS (Rosy's 69420-69464, New Paintings 79010-79030): Daggerfall's own framed paintings - the six of the
+//     Interior_Paintings set (twenty-four pictures across the climates), which the climate swap changes from region to region as it does a classic wall's -
 //     on a frame hung where each id hangs;
 //   - DET's pieces, shared with Detailed Ships: world/detStandIns.js;
 //   - Cliffworms' Items (archive 1210 - his bottles, and the classic pieces he moved there): Detailed Ships' pictures of
@@ -242,8 +242,12 @@ function stall(cloth) {
 }
 /** A temple's platform: a stone block four metres square and two high, standing half in the ground. */
 function platform() { const m = new MeshBuilder(); m.box([361, 1], [0, 0, 0], [4, 2, 4], 0.5); return m.build(); }
-/** A building's foundation where the ground falls away: a stone block sixteen metres square and eight deep, half buried. */
-function foundation() { const m = new MeshBuilder(); m.box([317, 0], [0, 0, 0], [16, 8, 16], 0.5); return m.build(); }
+/** A building's foundation where the ground falls away: a stone block sixteen metres square and eight deep. The pack's
+ *  own (Foundation 1.fbx, 8 x 4 x 8 m at its prefab's scale of two) stands centred on its origin - four metres above
+ *  it - and Beautiful Villages stands it only under two temples (TEMPASF1, TEMPASH4), whose floors are 1.55-1.6 m above
+ *  that origin: centred, its top would wall up the temples' front doors (AUDIT WD3 T1). Its top here is the temples'
+ *  floor, 1.6 m up, and the rest goes into the ground. */
+function foundation() { const m = new MeshBuilder(); m.box([317, 0], [0, -2.4, 0], [16, 8, 16], 0.5); return m.build(); }
 /** A tower's dome: a drum and a hemisphere 9.6 m across. */
 function domeCap(roof, drum) {
   const m = new MeshBuilder(), r = 4.8, N = 16, R = 5;
@@ -321,7 +325,7 @@ export const RMBRP_PIECES = Object.freeze({
 });
 
 // ---- the table clutter of archive 56790 ----------------------------------------------------------------------
-/** Archive 56790 is no peer's the manifests name and no catalogue lists (2,800 placements: on tables, at 0.75 m, and on
+/** Archive 56790 is no peer's the manifests name and no catalogue lists (4,827 placements: on tables, at 0.75 m, and on
  *  shelves and ledges, 1.75-2.4 m, among the candles and the food). Each record stands in as a piece of Daggerfall's
  *  own clutter of the kind its height says - tableware and books on the tables, jars, potions and books on the shelves
  *  - one record one picture, so a table is set and a shelf is stocked: [archive, record]. */

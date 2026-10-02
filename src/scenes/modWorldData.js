@@ -8,11 +8,11 @@
 //
 // BROWSER-ONLY: import.meta.glob is a Vite compile-time macro - node
 // tests register their JSON on the door from fs.
-import { registerWorldDataAsset, registerWorldDataPack, installWorldDataReplacement, boundWorldDataBlocks, quietLocationOverrides } from '../formats/worldDataReplacement.js';
+import { registerWorldDataAsset, registerWorldDataPack, installWorldDataReplacement, boundWorldDataBlocks, quietLocationOverrides, latchWorldDataDoor, worldDataDoorOpen } from '../formats/worldDataReplacement.js';
 import { rebuildWorldDataPatch, canonicalSha256 } from '../formats/worldDataPatch.js';
 import { openWorldDataPack, packFileSha256, readPackText } from '../formats/worldDataPack.js';
 import { modSetting, latchModLoaded, modLatchedOn } from '../systems/modSettings.js';
-import { configureLayoutPins } from '../systems/layoutPins.js';   // WD3: the layout a save's towns were made in
+import { configureLayoutPins, vendorsPinnedIn } from '../systems/layoutPins.js';   // WD3: the layout a save's towns were made in
 import { installTownStandIns } from '../world/townStandIns.js';   // WD3: the peer mods' pieces the town packs place, the port's own
 
 // The glob sits INSIDE the loader (Vite rewrites it wherever it stands),
@@ -45,6 +45,7 @@ export async function loadModWorldData() {
   if (_loaded) return _loaded;
   _loaded = (async () => {
     installWorldDataReplacement();
+    const door = latchWorldDataDoor();   // WD3 (AUDIT WD3 P2/P3): Replace Game Artwork (online, the room) read once for the game
     let n = 0;
     await Promise.all(Object.entries(globFiles()).map(async ([path, load]) => {
       const vendor = vendorOf(path);
@@ -63,8 +64,10 @@ export async function loadModWorldData() {
       const vendor = vendorOf(path);
       let on = false;
       try { on = modSetting(vendor, 'Enabled') === true; } catch { on = false; }
-      latchModLoaded(vendor, on);
-      if (on) n += await loadPackFrom(vendor, url, () => true);
+      // a closed door serves none of its towns: the mod is not loaded (no 26 MB fetched for nothing), and a house
+      // bought under it is stamped with the Daggerfall town it stands in (AUDIT WD3 P2)
+      latchModLoaded(vendor, on && door);
+      if (on && door) n += await loadPackFrom(vendor, url, () => true);
     }
     return n;
   })();
@@ -75,11 +78,18 @@ export async function loadModWorldData() {
  *  a house bought while the mod was on keeps its town though the mod was switched off since). Its files answer only
  *  where a pin lets them in. Answers whether the pack is on the door. */
 export async function ensureWorldDataPack(vendor) {
+  if (!worldDataDoorOpen()) return false;   // AUDIT WD3 P2: behind a closed door no pin is honoured - the town stands as it is served
   if (_packs.has(vendor)) return true;
   const entry = Object.entries(globPacks()).find(([path]) => vendorOf(path) === vendor);
   if (!entry) return false;
-  return (await loadPackFrom(vendor, entry[1], () => false)) > 0;
+  // AUDIT WD3 P6: two asks at once (the online layouts' retries) share one fetch
+  if (!_pending.has(vendor)) _pending.set(vendor, loadPackFrom(vendor, entry[1], () => false).finally(() => _pending.delete(vendor)));
+  return (await _pending.get(vendor)) > 0;
 }
+const _pending = new Map();   // vendor -> the pack's load in flight
+
+/** WD3: whether a town pack serves any town - loaded for the game, or let in by a save's pin. */
+const townPacksLive = () => { const pinned = vendorsPinnedIn(); return [..._packs.keys()].some((v) => modLatchedOn(v) === true || pinned.has(v)); };
 
 /** The packs on the door, by vendor. */
 export const loadedWorldDataPacks = () => new Map(_packs);
@@ -95,7 +105,8 @@ async function loadPackFrom(vendor, url, isOn) {
     _packs.set(vendor, pack);
     quietLocationOverrides(true);   // a pack's 7,000 towns are counted once here, not logged one by one as they are read
     const n = registerWorldDataPack(pack, isOn, { priority: WORLD_DATA_PRIORITY[vendor] ?? 0 });
-    installTownStandIns();   // once, whichever pack opens first - for the game or for a pinned town, its blocks place them
+    // once, whichever pack opens first - on while a town pack is loaded for the game or a pin lets one in (AUDIT WD3 T2)
+    installTownStandIns(townPacksLive);
     console.log(`[worlddata] ${vendor}: ${n} files on the door (${pack.mod?.title ?? vendor} ${pack.mod?.version ?? ''})`);
     return n;
   } catch (e) {

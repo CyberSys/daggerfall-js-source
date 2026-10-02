@@ -18,12 +18,12 @@ import { readFileSync } from 'node:fs';
 import {
   registerWorldDataAsset, registerWorldDataPack, installWorldDataReplacement, bindWorldDataBlocks, _resetWorldDataReplacement,
   getDFBlockReplacementData, getDFLocationReplacementData, getDFRegionAdditionalLocationData, worldDataVendorCarries,
-  quietLocationOverrides, blockFromJson,
+  quietLocationOverrides, blockFromJson, locationFromJson, latchWorldDataDoor,
 } from '../src/formats/worldDataReplacement.js';
 import { setLayoutPins, _resetLayoutPins } from '../src/systems/layoutPins.js';
 import { makeLocationKey, readingLocationKeyOf, setLastLocationKeyTo, getLocationVariant, clearWorldDataVariants } from '../src/systems/worldDataVariants.js';
 import { MapsFile } from '../src/formats/mapsFile.js';
-import { blockToDfuJson } from '../src/formats/worldDataJson.js';
+import { blockToDfuJson, locationToDfuJson } from '../src/formats/worldDataJson.js';
 import { setValue, resetToDefaults } from '../src/systems/settings.js';
 import { WORLD_DATA_PRIORITY } from '../src/scenes/modWorldData.js';
 import { layoutRmbBlock, WINDMILL_MODEL_ID } from '../src/world/rmbLayout.js';
@@ -156,7 +156,17 @@ test('WD3 the door is open ONLINE whatever Replace Game Artwork says - the groun
   } finally {
     if (had) Object.defineProperty(globalThis, 'location', had); else delete globalThis.location;
   }
-  assert.match(src('src/formats/worldDataReplacement.js'), /const worldDataOn = \(\) => assetInjectionOn\(\) \|\| isOnlinePage\(\);/);
+  assert.match(src('src/formats/worldDataReplacement.js'), /export const worldDataDoorOpen = \(\) => _doorLatched \?\? \(assetInjectionOn\(\) \|\| isOnlinePage\(\)\);\nconst worldDataOn = worldDataDoorOpen;/);
+  // AUDIT WD3 P3: latched for the game, as DFU reads AssetInjection at startup - a switch turned mid-game moves nothing
+  again();
+  assert.equal(latchWorldDataDoor(), false);
+  setValue('Enhancements', 'AssetInjection', 'True');
+  assert.equal(getDFBlockReplacementData(7, 'FIGHBM00.RMB'), null, 'shut for the game it was read shut in');
+  again();
+  assert.equal(latchWorldDataDoor(), true);
+  setValue('Enhancements', 'AssetInjection', 'False');
+  assert.equal(markOf(getDFBlockReplacementData(7, 'FIGHBM00.RMB')), 222, 'open for the game it was read open in - no holes punched in its towns');
+  again();
   for (const fn of ['getDFRegionAdditionalLocationData', 'getDFLocationReplacementData', 'getDFBlockReplacementData', 'getBuildingReplacementData']) {
     const at = src('src/formats/worldDataReplacement.js').indexOf(`export function ${fn}(`);
     assert.match(src('src/formats/worldDataReplacement.js').slice(at, at + 400), /if \(!worldDataOn\(\)/, `${fn} asks the one gate`);
@@ -225,6 +235,17 @@ test('WD3 a block served from JSON keeps FldHeader.OtherNames - RMBLayout\'s Ord
   assert.equal(blockFromJson(j, 7).rmbBlock.fldHeader.otherNames, null, 'RRFORT01 leaves it out: none');
 });
 
+test('WD3 a town WITH A DUNGEON served from JSON keeps its dungeon\'s RecordElement (LocationDungeon.RecordElement, a field DFU keeps) - Castle Daggerfall, Sentinel and Wayrest stand in Beautiful Cities\' towns, and every dungeon reader asks its header\'s LocationId (dungeonLayout.js, dungeonContext.js, save.js)', () => {
+  const j = structuredClone(LOC);
+  j.HasDungeon = true;
+  j.Dungeon = { RecordElement: { Header: { X: 6782976, Y: 9371649, IsExterior: 0, Unknown2: 242, LocationId: 50027, IsInterior: 1, ExteriorLocationId: 50026, LocationName: 'Daggerfall' } },
+    Header: { BlockCount: 1 }, Blocks: [{ X: 0, Z: 0, IsStartingBlock: true, BlockName: 'S0000999.RDB', BlockIndex: 0, BlockNumber: 999, BlockCharacter: 0 }] };
+  const loc = locationFromJson(j);
+  assert.deepEqual(loc.dungeon.recordElement.header, { alwaysOne1: 1, x: 6782976, y: 9371649, isExterior: 0, unknown1: 0, unknown2: 242, alwaysOne2: 1, locationId: 50027, isInterior: 1, exteriorLocationId: 50026, locationName: 'Daggerfall' });
+  assert.deepEqual(locationFromJson(locationToDfuJson(loc)).dungeon.recordElement.header, loc.dungeon.recordElement.header, 'round trip through the writer');
+  assert.equal(locationFromJson(LOC).dungeon.recordElement, null, 'a town without a dungeon has none');
+});
+
 test('WD3 the windmills: Kamer\'s mill is DFU\'s replacement of model 41600 wherever it stands - a 41600 a block\'s own records place is the mill on the enhanced skin with the Windmills switch, the classic model elsewhere; a block served from world data stands no Kamer placement of its own name, Daggerfall\'s farm does', () => {
   assert.equal(WINDMILL_MODEL_ID, 41600);
   const served = blockFromJson(blockToDfuJson(tinyRmb(7, 'FARMAA01.RMB')), 7);
@@ -266,10 +287,13 @@ test('WD3 the decor catalogue stays what DAGGERFALL furnishes - its blocks read 
 test('WD3 the loader: each pack a URL the build emits (never a chunk), fetched only when its mod is loaded for the game - the switch read once and latched, a town never moving under the player; a pack a save\'s pins let in loaded switched off; the stand-ins installed when a pack opens; the rebuild spot-checked in the background', () => {
   const M = src('src/scenes/modWorldData.js');
   assert.match(M, /import\.meta\.glob\('\.\.\/\.\.\/vendor\/\*\/WorldDataPack\/\*\.pack\.json\.gz', \{ eager: true, query: '\?url', import: 'default' \}\)/);
-  assert.match(M, /latchModLoaded\(vendor, on\);\n {6}if \(on\) n \+= await loadPackFrom\(vendor, url, \(\) => true\);/);
+  assert.match(M, /const door = latchWorldDataDoor\(\);/);
+  assert.match(M, /latchModLoaded\(vendor, on && door\);\n {6}if \(on && door\) n \+= await loadPackFrom\(vendor, url, \(\) => true\);/, 'a closed door loads no pack and stamps none (AUDIT WD3 P2)');
+  assert.match(M, /if \(!worldDataDoorOpen\(\)\) return false;/, 'and honours no pin into one');
   assert.match(M, /configureLayoutPins\(\{ vendorOn: \(v\) => modLatchedOn\(v\) === true, vendorVersion: \(v\) => _packs\.get\(v\)\?\.mod\?\.version \?\? '' \}\);/);
-  assert.match(M, /return \(await loadPackFrom\(vendor, entry\[1\], \(\) => false\)\) > 0;/, 'a pinned pack answers only where a pin lets it in');
-  assert.match(M, /const n = registerWorldDataPack\(pack, isOn, \{ priority: WORLD_DATA_PRIORITY\[vendor\] \?\? 0 \}\);\n {4}installTownStandIns\(\);/);
+  assert.match(M, /_pending\.set\(vendor, loadPackFrom\(vendor, entry\[1\], \(\) => false\)\.finally\(\(\) => _pending\.delete\(vendor\)\)\);\n {2}return \(await _pending\.get\(vendor\)\) > 0;/, 'a pinned pack answers only where a pin lets it in, fetched once however many ask');
+  assert.match(M, /const n = registerWorldDataPack\(pack, isOn, \{ priority: WORLD_DATA_PRIORITY\[vendor\] \?\? 0 \}\);\n(?: {4}\/\/.*\n) {4}installTownStandIns\(townPacksLive\);/);
+  assert.match(M, /const townPacksLive = \(\) => \{ const pinned = vendorsPinnedIn\(\); return \[\.\.\._packs\.keys\(\)\]\.some\(\(v\) => modLatchedOn\(v\) === true \|\| pinned\.has\(v\)\); \};/, 'the stand-ins on while a town pack serves a town (AUDIT WD3 T2)');
   assert.match(M, /if \(name\.startsWith\('location-'\) && \(locations\+\+ % 64\) !== 0\) return;/, 'every block and one location in 64');
   assert.match(M, /console\.error\(`\[worlddata\] \$\{vendor\}: the pack did not load \(\$\{e\?\.message \?\? e\}\) - its towns stand classic`\);/);
 });

@@ -124,7 +124,7 @@ test('WD3 the layout a town is served in now: the mods loaded for the game that 
 
 test('WD3 the pins a save asks for: the strongest record of a town decides (a house, a room, a quest site, an inside save or an anchor, a repair ticket); a town already in its layout needs none; a mod pinned out only where it changes the town, in only where the stamp names it', () => {
   world();
-  assert.deepEqual(RECORD_WEIGHT, { house: 5, room: 4, quest: 3, inside: 2, anchor: 2, repair: 1 });
+  assert.deepEqual(RECORD_WEIGHT, { house: 5, room: 4, quest: 3, questor: 3, inside: 2, anchor: 2, repair: 1 });
   const v = 'beautiful-villages@1.4.2', both = 'beautiful-cities@0.5.0+beautiful-villages@1.4.2';
   // everything made in the towns as the mods serve them now: nothing to pin
   assert.equal(pinsFrom([{ locationKey: VILLAGE, stamp: v, kind: 'house' }, { locationKey: CITY, stamp: both, kind: 'room' }, { locationKey: DUNGEON, stamp: undefined, kind: 'quest' }]).size, 0);
@@ -171,17 +171,19 @@ test('WD3 the pins installed: the towns whose answer changed - pinned, released,
   assert.equal(HOME_LAYOUTS_WAIT_MS, 6000); assert.equal(HOME_LAYOUTS_RETRIES, 4);
 });
 
-test('WD3 a save\'s building-keyed records, as the pins read them: deeds, rooms, quest sites and repair tickets by their town\'s map id (a key and a town each, or nothing), an anchor only inside a building, the save itself made inside one', () => {
+test('WD3 a save\'s building-keyed records, as the pins read them: deeds, rooms, quest sites, questors met indoors and repair tickets by their town\'s map id (a key and a town each, or nothing), an anchor only inside a building, the save itself made inside one', () => {
   world();
   const houses = [{ mapId: 1001, buildingKey: 0x10203, layout: 'beautiful-villages@1.4.2' }, { mapId: 0, buildingKey: 0 }, { mapId: 1002, buildingKey: 0 }, null];
   const rooms = [{ mapId: 1003, buildingKey: 0x305 }];
   const sites = [{ mapId: 1002, buildingKey: 0x10101, layout: 'beautiful-cities@0.5.0' }, { mapId: 1002, buildingKey: 0 }];
   const repairs = [{ buildingKey: 9, mapId: 1001 }, { buildingKey: 9 }];
-  const recs = layoutRecordsOf({ houses, rooms, sites, repairs, anchor: { insideBuilding: true, pixel: { x: 101, y: 200 }, layout: 'x' }, inside: { pixel: { x: 102, y: 200 } } });
+  const questors = [{ mapID: 1003, buildingKey: 0x40, nameSeed: 5, hash: 1, layout: 'beautiful-villages@1.4.2' }, { mapID: 1003, buildingKey: 0 }];   // AUDIT WD3 S3
+  const recs = layoutRecordsOf({ houses, rooms, sites, questors, repairs, anchor: { insideBuilding: true, pixel: { x: 101, y: 200 }, layout: 'x' }, inside: { pixel: { x: 102, y: 200 } } });
   assert.deepEqual(recs, [
     { locationKey: VILLAGE, stamp: 'beautiful-villages@1.4.2', kind: 'house' },
     { locationKey: TAVERN, stamp: undefined, kind: 'room' },
     { locationKey: CITY, stamp: 'beautiful-cities@0.5.0', kind: 'quest' },
+    { locationKey: TAVERN, stamp: 'beautiful-villages@1.4.2', kind: 'questor' },
     { locationKey: VILLAGE, stamp: undefined, kind: 'repair' },
     { locationKey: CITY, stamp: 'x', kind: 'anchor' },
     { locationKey: TAVERN, stamp: undefined, kind: 'inside' },
@@ -228,7 +230,9 @@ test('WD3 an interior\'s cached scene carries its town\'s layout through the sav
   assert.equal(restoreCachedScene(back, 'interior:1001:66051').layout, 'beautiful-villages@1.4.2');
   assert.equal('layout' in restoreCachedScene(back, 'interior:1004:7'), false, 'a classic town\'s scene carries none');
   const W = src('src/scenes/worldModes.js');
-  assert.match(W, /if \(townKey != null && !layoutsMatch\(data\.layout, layoutStampAt\(townKey\)\)\) \{\n {6}if \(containsPermanentScene\(sceneCache\(\), name\)\) cacheScene\(sceneCache\(\), name, data\);\n {6}console\.warn\(`\[layout\] \$\{name\}: cached in another layout of this town - not restored`\);\n {6}return;\n {4}\}/);
+  assert.match(W, /if \(townKey != null && !layoutsMatch\(data\.layout, layoutStampAt\(townKey\)\)\) \{\n {6}if \(containsPermanentScene\(sceneCache\(\), name\)\) \{ cacheScene\(sceneCache\(\), name, data\); _sceneHeldForLayout = name; \}\n {6}console\.warn\(`\[layout\] \$\{name\}: cached in another layout of this town - not restored`\);\n {6}return;\n {4}\}/);
+  // AUDIT WD3 S1: the held scene is never written over by the visit's own leaving (the other layout's empty chests)
+  assert.match(W, /function cacheInteriorScene\(\) \{\n {4}const name = currentInteriorScene\(\);\n {4}if \(!name\) return;\n(?: {4}\/\/.*\n)+ {4}if \(_sceneHeldForLayout === name\) return;/);
 });
 
 test('WD3 the discoveries: a town\'s found buildings carry the layout they were found in, through the save; a load where the layout moved forgets them (the town itself stays found), a town in its layout or one the host cannot place keeps them', () => {
@@ -265,7 +269,29 @@ test('WD3 the load: the save\'s towns in the layouts its things were made in, be
   assert.match(body, /for \(const v of \[\.\.\.pin\.in\]\) if \(!\(await ensureWorldDataPack\(v\)\)\) pin\.in\.delete\(v\);/);
   assert.match(body, /const changed = setLayoutPins\(pins\);/);
   assert.match(body, /if \(built\.has\(pixelKey\)\) \{[\s\S]{0,120}destroyPixel\(px, py, \{ collectLoose: false \}\);\n {8}queue\.push\(\{ px, py \}\);/);
-  assert.match(body, /const forgotten = pruneDiscoveryLayouts\(\);/);
+  assert.match(body, /const forgotten = homeLayoutsOnline && _serverLayoutRecords === null \? 0 : pruneDiscoveryLayouts\(\);/);
   assert.match(W, /await applyLayoutPins\(extras\);   \/\/ WD3: the save's towns in the layouts its things were made in, before its place is built/);
   assert.match(src('src/scenes/dungeonContext.js'), /if \(session\) opts\.layoutPinsLoaded\?\.\(extras\);/);
+});
+
+test('WD3 a deed customs gives back crosses WITH its town\'s layout (AUDIT WD3 S2) - its key names a building only in that layout; a slot the realm held keeps none of its own', async () => {
+  const { reclaimCustomsDeeds } = await import('../src/systems/realmCustoms.js');
+  const { interiorSceneName } = await import('../src/systems/sceneCache.js');
+  const name = interiorSceneName(1017, 5);
+  const realm = { houses: [{ regionIndex: 0, layout: 'beautiful-cities@0.5.0' }, {}], sceneCache: { permanentScenes: [name], scenes: [] } };
+  const offline = { houses: [{}, { regionIndex: 1, location: 'Wayrest', mapId: 1017, buildingKey: 5, layout: 'beautiful-villages@1.4.2' }], sceneCache: { scenes: [] } };
+  reclaimCustomsDeeds(realm, offline);
+  assert.equal(realm.houses[1].layout, 'beautiful-villages@1.4.2');
+  const classic = { houses: [{}, { layout: 'beautiful-cities@0.5.0' }], sceneCache: { permanentScenes: [name], scenes: [] } };
+  reclaimCustomsDeeds(classic, { houses: [{}, { location: 'Wayrest', mapId: 1017, buildingKey: 5 }], sceneCache: { scenes: [] } });
+  assert.equal('layout' in classic.houses[1], false, 'a deed made in Daggerfall\'s own town carries none');
+});
+
+test('WD3 a questor met indoors is stamped with their town\'s layout (AUDIT WD3 S3) - the return to them finds them only there; the save carries it, and the host pins the active quests\' questors', () => {
+  const P = src('src/systems/quest/person.js');
+  assert.match(P, /this\.questorData = stampLayout\(\{ \.\.\.clicked \}, clicked\.buildingKey > 0 \? layoutStampOfMapId\(clicked\.mapID\) : ''\);/);
+  assert.match(P, /questorData: \{ \.\.\.this\.questorData \},/, 'saved with the struct');
+  assert.match(P, /this\.questorData = \{ \.\.\.ZERO_NPC_DATA, \.\.\.\(dataIn\.questorData \?\? \{\}\) \};/, 'and restored with it');
+  assert.match(src('src/systems/quest/machine.js'), /if \(resource\.isPerson && resource\.isQuestor && resource\.questorData\?\.buildingKey > 0\) out\.push\(resource\.questorData\);/);
+  assert.match(src('src/scenes/world.js'), /questors: questBridge\?\.machine\?\.getAllActiveQuestors\?\.\(\) \?\? \[\],/);
 });

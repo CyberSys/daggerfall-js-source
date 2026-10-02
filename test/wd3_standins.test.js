@@ -51,6 +51,8 @@ import { TextureFile } from '../src/formats/textureFile.js';
 import { DFPalette } from '../src/formats/dfPalette.js';
 import { classicRecordRgba } from '../src/formats/derivedTexture.js';
 import { openWorldDataPack } from '../src/formats/worldDataPack.js';
+import { dfMeshToModel } from '../src/world/meshReader.js';
+import { trs, multiply } from '../src/world/mat4.js';
 import { tinyRmb } from './wd3Fakes.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -233,7 +235,7 @@ test('WD3 stand-ins, every built piece is sound - Rosy\'s hangings and rugs, the
   assert.deepEqual([steps.lo, steps.hi].map((v) => v.map((x) => +x.toFixed(3))), [[0, -1.2, -4], [3, 0, 0]], 'the steps: five treads of 0.6 m, falling 0.2 m each');
   // the platform, the foundation, the domes
   assert.deepEqual([box[53160].lo, box[53160].hi], [[-2, -1, -2], [2, 1, 2]]);
-  assert.deepEqual([box[53170].lo, box[53170].hi], [[-8, -4, -8], [8, 4, 8]]);
+  assert.deepEqual([box[53170].lo, box[53170].hi].map((v) => v.map((x) => +x.toFixed(3))), [[-8, -6.4, -8], [8, 1.6, 8]], 'the temples\' floor its top - their doors never walled up (AUDIT WD3 T1)');
   for (const id of [53182, 53187, 53194]) assert.ok(near(box[id].hi[1], 3.6, 1e-5) && near(box[id].lo[1], -1.2, 1e-5), id);
   // Rosy's: the small hangings hang from their rod, the rugs lie on the floor
   for (const id of [69467, 69468, 69469]) assert.ok(box[id].tex.has(`${TOWN_PICTURE_ARCHIVE}_${PICTURE.smallHanging(id - 69467)}`) && near(box[id].lo[1], -0.6, 1e-5), id);
@@ -474,6 +476,66 @@ test('WD3 with ARENA2: HOUSING - every built-in piece a town\'s interior lays ca
   });
   assert.ok(flats > 50000 && models > 100000, `${flats} flats, ${models} models`);
   assert.deepEqual([...bad], [], 'a piece no name can name would be refused whole online and come back at the next load offline');
+});
+
+test('WD3 with ARENA2: no stand-in walls up a door - every exterior door of both packs\' towns, and the step in front of it, stands outside every piece the port stands in for a peer mod (AUDIT WD3 T1: the foundation under two temples)', { skip: HAVE_ARENA2 ? false : 'ARENA2_PATH not set' }, () => {
+  resetAll();
+  installTownStandIns(() => true);
+  const { blocks, maps, arch } = loadArena2();
+  const G = 0.025, RD = 512 / 90;   // MeshReader.GlobalScale; Daggerfall's angle units a degree
+  const doorsOf = new Map(), boxOf = new Map();
+  const doors = (id) => {
+    if (!doorsOf.has(id)) { const i = arch.getRecordIndex(id); doorsOf.set(id, i < 0 ? [] : (dfMeshToModel(arch.getMesh(i), () => ({ width: 64, height: 64 })).doors ?? [])); }
+    return doorsOf.get(id);
+  };
+  const box = (id) => {
+    if (!boxOf.has(id)) {
+      const m = customModelFor(id);
+      if (!m) boxOf.set(id, null);
+      else { const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i < m.positions.length; i += 3) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], m.positions[i + k]); hi[k] = Math.max(hi[k], m.positions[i + k]); } boxOf.set(id, { lo, hi }); }
+    }
+    return boxOf.get(id);
+  };
+  const at = (M, p) => [0, 1, 2].map((k) => M[k] * p[0] + M[4 + k] * p[1] + M[8 + k] * p[2] + M[12 + k]);
+  const local = (M) => {   // the inverse of a TRS
+    const a = [[M[0], M[4], M[8]], [M[1], M[5], M[9]], [M[2], M[6], M[10]]];
+    const det = a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
+    const co = (r, c) => { const m = [0, 1, 2].filter((x) => x !== r), n = [0, 1, 2].filter((x) => x !== c); return ((r + c) % 2 ? -1 : 1) * (a[m[0]][n[0]] * a[m[1]][n[1]] - a[m[0]][n[1]] * a[m[1]][n[0]]); };
+    const I = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) I[c][r] = co(r, c) / det;
+    return (p) => { const q = [p[0] - M[12], p[1] - M[13], p[2] - M[14]]; return [0, 1, 2].map((r) => I[r][0] * q[0] + I[r][1] * q[1] + I[r][2] * q[2]); };
+  };
+  const walled = [];
+  let doorCount = 0;
+  for (const v of ['beautiful-villages', 'beautiful-cities']) {
+    const p = openWorldDataPack(JSON.parse(zlib.gunzipSync(readFileSync(join(ROOT, `vendor/${v}/WorldDataPack/${v}.pack.json.gz`))).toString()), { blocks });
+    for (const name of p.names()) {
+      if (!name.endsWith('.RMB.json')) continue;
+      const rmb = p.rebuild(name, maps).RmbBlock;
+      const ds = [], pieces = [];
+      for (const [ri, sr] of rmb.SubRecords.entries()) {
+        const S = trs(sr.XPos * G, 0, (4096 - sr.ZPos) * G, 0, -sr.YRotation / RD, 0);
+        for (const m of sr.Exterior.Block3dObjectRecords) {
+          const M = multiply(S, trs(m.XPos * G, -m.YPos * G, m.ZPos * G, -m.XRotation / RD, -m.YRotation / RD, -m.ZRotation / RD, m.XScale || 1, m.YScale || 1, m.ZScale || 1));
+          for (const d of doors(m.ModelIdNum)) {
+            const c = [(d.vert0.x + d.vert2.x) / 2, d.vert1.y + 1, (d.vert0.z + d.vert2.z) / 2];
+            ds.push({ ri, id: m.ModelIdNum, pts: [at(M, c), at(M, [c[0] + d.normal.x, c[1], c[2] + d.normal.z])] });
+          }
+          if (box(m.ModelIdNum)) pieces.push({ id: m.ModelIdNum, M });
+        }
+      }
+      for (const m of rmb.Misc3dObjectRecords) if (box(m.ModelIdNum)) pieces.push({ id: m.ModelIdNum, M: trs(m.XPos * G, (-m.YPos - 4) * G, (m.ZPos + 4096) * G, -m.XRotation / RD, -m.YRotation / RD, -m.ZRotation / RD, m.XScale || 1, m.YScale || 1, m.ZScale || 1) });
+      doorCount += ds.length;
+      for (const pc of pieces) {
+        const b = box(pc.id), inv = local(pc.M);
+        for (const d of ds) for (const pt of d.pts) if (inv(pt).every((x, i) => x > b.lo[i] + 0.02 && x < b.hi[i] - 0.02)) walled.push(`${v} ${name}: ${pc.id} at the door of record ${d.ri} (model ${d.id})`);
+      }
+    }
+    p.release();
+  }
+  assert.ok(doorCount > 10000, `${doorCount} doors`);
+  assert.deepEqual([...new Set(walled)], []);
+  resetAll();
 });
 
 test('WD3 with ARENA2: the alias beds are built by the pipeline from the player\'s own ARCH3D - Daggerfall\'s bed, every vertex its own, its bedclothes the colour\'s recoloured pictures', { skip: HAVE_ARENA2 ? false : 'ARENA2_PATH not set' }, async () => {

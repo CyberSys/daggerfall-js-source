@@ -74,7 +74,7 @@ export function modelScaleVector(obj) {
 
 /** WD3: the classic model Kamer's prefab REPLACES (MeshReplacement, `41600.prefab`) - in ARCH3D (record 8176) and
  *  placed by no classic block. Kamer's own seven farms stand it through PLACEMENTS; a town mod's farm stands it among
- *  its own records (Beautiful Villages' FARMAA04, 05 and 07, the mill's subrecord copied from his). */
+ *  its own records (Beautiful Villages' six - FARMAA04, 05, 07 and FARMBA05, 08, 09 - and 34 of Beautiful Cities' blocks). */
 export const WINDMILL_MODEL_ID = 41600;
 
 export function layoutRmbBlock(dfBlock, { enhanced = false, windmills = true } = {}) {

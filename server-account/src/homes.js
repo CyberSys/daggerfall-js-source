@@ -39,7 +39,7 @@ import { prepareRealmRecord, realmActFirst, realmAtOf, recordMovedOf, mustChange
 import { payFromSave, creditSave } from '../../src/net/realmGoldLaw.js';   // REALM P2.2b: the wallet's own order, over the record
 import {
   HOME_CAP, HOME_ENTRY_DEFAULT, HOME_CLAIMS_MAX, HOME_CLAIMS_WINDOW_S, HOME_TOWN_MAX, HOME_LAYOUTS_MAX,
-  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf, homeLayoutOk,
+  homeMapIdOk, homeBuildingKeyOk, homeRegionOk, homePriceOk, homeEntryOk, homeSaleRefund, homeLookOf, homeLayoutOk, homeLayoutsMatch,
 } from '../../src/net/homeLaw.js';
 import { DECOR_OPS_MAX, DECOR_OPS_WINDOW_S } from '../../src/net/decorLaw.js';   // HOME-LOOK: a repaint counts as a decorator's write
 
@@ -68,6 +68,11 @@ async function realmClaim(ctx, player, at, claim) {
   const { db, bucket, nowS } = ctx;
   const held = await db.prepare('SELECT * FROM homes WHERE map_id = ? AND building_key = ?').bind(claim.mapId, claim.buildingKey).first();
   if (held) return held.player === player.id && held.char_id === claim.character ? { ok: true, repeat: true, home: homeOf(held), realm: { seq: at.seq } } : { error: 'home-taken' };
+  // WD3 (AUDIT WD3 O1): A TOWN THAT HOLDS HOMES KEEPS ITS LAYOUT, and a building key names a building only in one layout -
+  // a claim made in another (a client that has not heard the towns' layouts, an old build) names another building, so it
+  // is refused, never stored under the town's layout; the answer says which layout the town keeps
+  const town = await db.prepare('SELECT layout FROM homes WHERE map_id = ? ORDER BY bought_at, building_key LIMIT 1').bind(claim.mapId).first();
+  if (town && !homeLayoutsMatch(town.layout, claim.layout)) return { error: 'home-layout', layout: homeLayoutOk(town.layout) ? town.layout ?? null : null };
   const prep = await prepareRealmRecord(ctx, player.id, at, (save) => (payFromSave(save, claim.price, claim.region) ? null : 'realm-gold'));
   if (prep.error) return prep;
   try {

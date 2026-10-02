@@ -26,7 +26,10 @@ format they ship in - one pack of the authors' edits over the player's own
 Each is one switch in the Mods pane (Features, "Takes effect when the game
 next loads"). The switch is read ONCE, when the world-data loader runs at the
 game's load, and latched (`scenes/modWorldData.js`, `latchModLoaded`): a town
-never moves under the player's feet. Both default on.
+never moves under the player's feet. Both default on. Offline the towns also
+need Replace Game Artwork (DFU's AssetInjection), as in DFU; that gate is read
+once for the game too (`latchWorldDataDoor`) - a closed door loads no pack, and
+a house bought behind it is stamped with the Daggerfall town it stands in.
 
 Both mods ship `FIGHBM00.RMB` and the two differ: Daggerfall Unity serves the
 file of the mod loaded later, Beautiful Cities, and so does the port
@@ -45,7 +48,8 @@ another building when a town's layout changes under it:
   decor placed in its frame, the built-in furniture taken out by name, the
   chests filled, its yard, its painted look;
 - a room rented at an inn, a quest's building and the markers its people stand
-  on, an item left at a smith, a Recall anchor set indoors, a save made inside
+  on, a questor met indoors (the return to them asks the building), an item
+  left at a smith, a Recall anchor set indoors, a save made inside
   a building;
 - the buildings the automap knows by name.
 
@@ -61,8 +65,8 @@ DFU itself lets them wake in the wrong building. The port does not
    file, or a block its grid names - `layoutModTouches`), so a record made where
    a mod changes nothing never holds its town to that mod.
 2. **A load pins each town its records hold** to that layout (`pinsFrom`; the
-   strongest record of a town decides: a house, then a room, a quest site, an
-   inside save or an anchor, a repair ticket). A pin turns a mod OUT of a town
+   strongest record of a town decides: a house, then a room, a quest site or a
+   questor, an inside save or an anchor, a repair ticket). A pin turns a mod OUT of a town
    (a house bought before the mod was switched on keeps its classic town) or
    lets one IN (a house bought in a Beautiful Village keeps its village when
    the mod is switched off since - the mod's pack is fetched for that town
@@ -76,8 +80,9 @@ DFU itself lets them wake in the wrong building. The port does not
    answer (`world.js` `applyLayoutPins`, after the save's player and quests
    are restored and before its place is built - the world load and a dungeon's
    own same-dungeon load both).
-5. **A town is released** the moment nothing holds it - the house sold, the
-   room expired, the quest ended - and next loads as the mods would have it.
+5. **A town is released** once nothing holds it - the house sold, the room
+   expired, the quest ended. The pins are set at a load, so the town stands
+   as it is until the next load, which stands it as the mods would have it.
 
 Two stores that are not records get the same law:
 
@@ -85,7 +90,8 @@ Two stores that are not records get the same law:
   carries its town's layout and is restored only into that layout - an
   ordinary one cached in another layout goes, a permanent one (a house, a
   rented room) is kept unrestored for the layout it belongs to
-  (`worldModes.js` `restoreInteriorScene`);
+  (`worldModes.js` `restoreInteriorScene`), and leaving the visit never writes
+  the other layout's room over it;
 - **a town's discovered buildings** carry the layout they were found in, and a
   town whose layout moved forgets them at the load (the town itself stays
   found; `systems/discovery.js` `pruneDiscoveryLayouts`).
@@ -101,24 +107,43 @@ Every online home bought before WD3 was bought in Daggerfall's own towns. The
 account service keeps the layout each home's town was bought in
 (`homes.layout`, migration `0046_home_layout.sql`; NULL is Daggerfall's own -
 exactly the layout every existing home was bought in). A claim stores the
-layout its client's town stands in unless the town already holds a home, whose
-layout every later one takes (`homes.js` `claimStatement`). Every client reads
+layout its client's town stands in. A town that already holds a home keeps its
+first home's layout: a claim from a client whose town stands in another layout
+is REFUSED (409 `home-layout`, naming the town's layout; `net/homeLaw.js`
+`homeLayoutsMatch`) - its building key names a building of the town that client
+sees, and storing it under the other layout would hand the buyer a stranger's
+house. The client hears the layouts again and builds the town as the room's. Every client reads
 `/v1/homes/layouts` - each town holding a home and its layout - at its online
 boot, before the first town is built, and pins those towns; online, a save's
 own records pin nothing (one player's save would stand one town apart from the
-room's). The decor placed, the look painted, the yard and the rooms let stay in
-the building they were made for.
+room's). Until the service has answered, no home is bought and no home's room
+is furnished (its pieces neither stood nor written), no discovery is forgotten,
+and the asking goes on behind the play (`homeLayoutsHeard`). The decor placed,
+the look painted, the yard and the rooms let stay in the building they were
+made for. A deed that crosses back through customs carries its town's layout
+with it (`systems/realmCustoms.js`).
+
+Deploy the account service (migration `0046`) before the client: an older
+service drops the claim's layout and answers no `/v1/homes/layouts`, and the
+client would ask on until it does.
 
 Online the world-data door is open whatever Replace Game Artwork says
-(`worldDataOn`): the ground is the room's, and a player with the switch off
+(`worldDataDoorOpen`): the ground is the room's, and a player with the switch off
 stood no town of the room's (Detailed Ships' decks and Roleplay & Realism's
 fort had the same hole). The switch keeps the textures and the music it gates
 elsewhere.
 
 ## Daggerfall's own laws the mods meet
 
+- **A town's dungeon.** Beautiful Cities replaces Daggerfall, Sentinel and
+  Wayrest, whose castles are dungeons. A location served from JSON keeps its
+  dungeon's `RecordElement` (DFU's `LocationDungeon.RecordElement`), whose
+  `LocationId` every dungeon reader asks - the castles are entered, and saved
+  in, as in Daggerfall (`formats/worldDataReplacement.js` `dungeonFromJson`).
+
 - **Windmills.** Kamer's mill is DFU's replacement of model `41600` wherever it
-  stands. Four of Beautiful Villages' farms carry his mill subrecord; a `41600`
+  stands. Six of Beautiful Villages' farms (FARMAA04/05/07, FARMBA05/08/09) and
+  34 of Beautiful Cities' blocks place model `41600`; a `41600`
   a block's OWN records place is the port's mill (tower, sails, collider, hum)
   on the enhanced skin with the Windmills switch, and a block served from world
   data stands no Kamer placement of its own name (Beautiful Cities loads after
@@ -169,19 +194,20 @@ one stand-in, on while either mod that places it is loaded.
 | the beds | `42069`-`42086` | 4,029 | Daggerfall's own bed (`42069 + 3k` a `41000`, `+1` a `41001`, `+2` a `41002`, read off where each stands) out of the player's ARCH3D, its three bedclothes (`TEXTURE.090` 5, 6, 7) recoloured in code blue, brown, grey, orange, purple or yellow - the green measured and moved, the sheet and the frame kept (an ALIAS, `world/customModels.js`; Roleplay & Realism rests on it as on its own) |
 | Rosy's and New Paintings' paintings | `69420`-`69464`, `79010`-`79030` (62) | 4,237 | Daggerfall's own six framed paintings (`TEXTURE.048`, which the climate swap changes region by region as it does a classic wall's) on a dark board two units deep, hung as each id hangs - upright, on its side turned up by the author's X rotation, or lying face down - a pixel a unit |
 | Rosy's small hangings and rugs | `69467`-`69469`, `69471`, `69472` | 586 | cloth drawn in code (`world/townPictures.js`): a hanging on its rod, either face out; a rug on the floor |
-| DET's timbers | `45081`, `45110` (shared with Detailed Ships), `45087`, `45111`-`45113`, `45129` | 44,526 | squared timbers four to ten units thick, a segment (85 units) long: every fireplace's mantel, every beamed hall's rafters |
+| DET's timbers | `45081`, `45110` (shared with Detailed Ships), `45111`-`45113`, `45129` | 44,522 | squared timbers four to ten units thick, a segment (85 units) long: every fireplace's mantel, every beamed hall's rafters |
 | DET's chimneys | `45074`, `45076`, `45077` | 14,440 | the sloped base, the stackable flue (53 units square, 114 tall - the step 3,334 stacks climb by) and the topper - a corbelled cap and two pots |
-| DET's tapestries and banners | `45008`-`45070`, `45134`-`45163` (36) | 1,286 | cloth drawn in code: the five regions' arms, the Eight Divines', fourteen patterns - two-sided on a rod, banners swallow-tailed |
-| DET's other town pieces | stumps, planters, column drums and heads, rugs, vanes | 174 | built in code, classic textures |
+| DET's tapestries and banners | `45008`-`45070`, `45134`-`45164` (40; `45145`, `45161`, `45162`, `45164` shared with Detailed Ships) | 1,476 | cloth drawn in code: the five regions' arms, the Eight Divines', fourteen patterns - two-sided on a rod, banners swallow-tailed |
+| DET's other town pieces | stumps, planters, column drums and heads, rugs, vanes (`45087`) | 178 | built in code, classic textures |
 | DET's flats | archives `10009`-`10028` (and the editor's old `1010`, `1021`, `1025`) | 8,916 | the player's own sprite of the same thing where Daggerfall has one (a cow, a horse, the Great Daenian dogs, sacks, crates, a goblet), drawn in code where it has none (`world/standInSprites.js`: fruit, cheeses, porridge, a cabbage, chickens and roosters, sheep, rats, doves, a monkey, firewood, an easel...) |
 | Cliffworms' Items | `1210_10`-`_12`, `_17`-`_20` | 665 | Detailed Ships' pictures of them - the same author's set, which the RMB Resource Pack carries too ("Cliffworms' Items"; his bottles, and classic pieces he moved there), shared (`systems/detailedShips.js` `detailedShipsArtOn`) |
+| DET pieces shared with Detailed Ships | `45082` (ensign staff), `45121` (dog vane), `45190` (sea chest), `45191` (weapon rack) | 1,364 | Detailed Ships' own stand-ins (`world/detStandIns.js`), which the towns share |
 | the table clutter | archive `56790` (22 records) | 4,827 | no peer's catalogue names it; each record a piece of Daggerfall's own clutter of the kind its height says - tableware and books on the tables, jars, potions and books on shelves and ledges |
 | the temple gardens | archive `10035` (7 records) | 151 | no catalogue names it either; rows of one record each on three temples' grounds - each a garden plant of Daggerfall's own (`TEXTURE.301`): cabbages, greens, lavender, flowers, a berry bush |
 | the RMB Resource Pack's rocks | 23 ids | 245 | a boulder of the climate's rock (`302_3`), each the size of the pack's own mesh, measured |
 | its hills | 23 ids | 47 | a mound of the climate's grass or rock, by the catalogue's size |
 | its market stalls | 17 ids | 32 | a stall the pack's size (3.2 m across the counter, 4.9 m along it), its awning the cloth each prefab names (`TEXTURE.049` or `449`) |
 | its docks | `53140`-`53144` | 16 | measured off the pack's meshes: a plank deck whose top is the origin, five-sided piles 5 m below it and 1 m above, a ramp or five steps - which land where the author's do (GENRAS00's ramps at the long dock's two ends; TEMPASH3's three flights across the T-dock's wing) |
-| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks and drum-and-hemisphere domes, classic textures |
+| its platform, foundation and domes | `53160`, `53170`, `53182`, `53187`, `53194` | 22 | stone blocks and drum-and-hemisphere domes, classic textures - the foundation the pack's 16 x 8 x 16 m block, its top the floor of the two temples it stands under (centred, as the pack's mesh is, it walled up their front doors; no stand-in covers any door of either pack's towns) |
 | its crop fields | `53211`-`53214` | 252 | RMBCropBillboardBatch's own law: a grid 85 or 35 m a side, a plant every 4 m nudged up to half a metre, the climate's crop billboard (`TEXTURE.301`: wheat in the woodlands, corn in the mountains, sunflowers in the south, vines in swamp and rainforest; `511_22` stubble in winter), seeded by the spot so a field stands the same every visit (`world/flatFields.js`, sown by `world/rmbFlats.js`) |
 
 ### Not stood in
@@ -198,7 +224,7 @@ packs):
 | `45181` | 568 | DET's chimney smoke, at the flues' tops: an effect |
 | `53210` | 224 | the pack's city-wall piece - every one against a classic wall that already stands |
 | `45179`, `45198`, `45205`, `45206`, `43756` | 286 | DET pieces no catalogue names, in few blocks |
-| `53129`, `53130` | 18 | the pack's wooden bridges: their rails are in its published files, their decks are not, so neither shape nor size can be read - six village streams stand bridgeless |
+| `53129`, `53130` | 18 | the pack's wooden bridges: their rails are in its published files, their decks are not, so neither shape nor size can be read - the six village blocks that place them stand bridgeless |
 | `53132`, `53134` | 13 | its stone bridges: two meshes each under transforms the published files do not settle |
 | `1210_13`, `_16`, `_24` | 75 | Cliffworms' items Detailed Ships does not carry - no picture of them is known |
 | `1230_2` ... `1230_22` (8) | 39 | one record to each of the eight temple blocks' variants, a metre up - by every sign each temple's own deity statue (archive 1230 is King of Worms' and Zoran's statues); only Kynareth's (`1230_30`, Detailed Ships') is known, and it is none of these |
@@ -249,6 +275,6 @@ layout pins above, and by four more things the stand-ins needed:
 - Renders (the headless probe over the player's data): the beds in their six
   colours, the paintings on the walls, the hearths' mantels and the chimneys,
   the temples' tapestries and banners, the food and animals, the crops under
-  snow, the market stalls, the docks - a footbridge over a stream in Agibunu,
+  snow, the market stalls, the docks - a footbridge of dock pieces (`53140`-`53144`) in Agibunu,
   the T-dock and its moored boat in Bubyrydata - and the temple garden in
   Atretturana.

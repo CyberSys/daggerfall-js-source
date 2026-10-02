@@ -126,7 +126,7 @@ export const layoutLocationKeyOfMapId = (mapId) => (mapId ? _keyOfMapId(mapId) ?
 
 /** How strongly a kind of record holds its town: the house outranks the rest (a quest site made in a town a house
  *  pinned is made in the house's layout anyway - the strongest record's stamp is the town's). */
-export const RECORD_WEIGHT = Object.freeze({ house: 5, room: 4, quest: 3, inside: 2, anchor: 2, repair: 1 });
+export const RECORD_WEIGHT = Object.freeze({ house: 5, room: 4, quest: 3, questor: 3, inside: 2, anchor: 2, repair: 1 });
 
 /**
  * The pins a save's records ask for. `records`: [{ locationKey, stamp, kind }] - a record whose town is unknown
@@ -184,6 +184,7 @@ export const layoutPins = () => new Map(_pins);
  *   - houses: banking's per-region deeds { mapId, buildingKey, layout }
  *   - rooms: the tavern's rented rooms { mapId, buildingKey, layout }
  *   - sites: the active quests' building sites (Place.siteDetails) { mapId, buildingKey, layout }
+ *   - questors: the active quests' questors met in a building (Person.questorData { mapID, buildingKey, layout })
  *   - repairs: items at a smith (item.repairData { buildingKey, mapId, layout }) - a ticket from before WD3 names no
  *     town and holds none
  *   - anchor: a Recall anchor set inside a building { pixel, insideBuilding, layout }
@@ -191,11 +192,12 @@ export const layoutPins = () => new Map(_pins);
  *     (worldModes.js restoreInterior), and a door of the same block in another layout is another building
  * The resolvers default to the hosts' (configureLayoutPins).
  */
-export function layoutRecordsOf({ houses = [], rooms = [], sites = [], repairs = [], anchor = null, inside = null } = {}, { locationKeyOfMapId = _keyOfMapId, locationKeyOfPixel = _keyOfPixel } = {}) {
+export function layoutRecordsOf({ houses = [], rooms = [], sites = [], questors = [], repairs = [], anchor = null, inside = null } = {}, { locationKeyOfMapId = _keyOfMapId, locationKeyOfPixel = _keyOfPixel } = {}) {
   const out = [];
   for (const h of houses ?? []) if (h && h.buildingKey > 0 && h.mapId) out.push({ locationKey: locationKeyOfMapId(h.mapId), stamp: h.layout, kind: 'house' });
   for (const r of rooms ?? []) if (r && r.buildingKey > 0 && r.mapId) out.push({ locationKey: locationKeyOfMapId(r.mapId), stamp: r.layout, kind: 'room' });
   for (const s of sites ?? []) if (s && s.buildingKey > 0 && s.mapId) out.push({ locationKey: locationKeyOfMapId(s.mapId), stamp: s.layout, kind: 'quest' });
+  for (const q of questors ?? []) if (q && q.buildingKey > 0 && q.mapID) out.push({ locationKey: locationKeyOfMapId(q.mapID), stamp: q.layout, kind: 'questor' });
   for (const d of repairs ?? []) if (d && d.buildingKey > 0 && d.mapId) out.push({ locationKey: locationKeyOfMapId(d.mapId), stamp: d.layout, kind: 'repair' });
   if (anchor?.insideBuilding && anchor.pixel) out.push({ locationKey: locationKeyOfPixel(anchor.pixel.x, anchor.pixel.y), stamp: anchor.layout, kind: 'anchor' });
   if (inside?.pixel) out.push({ locationKey: locationKeyOfPixel(inside.pixel.x, inside.pixel.y), stamp: inside.layout, kind: 'inside' });
