@@ -13,13 +13,14 @@
  {
   "name": "AUDITREST2-P-P1-no-gap",
   "file": "src/systems/partyRestLaw.js",
-  "old": " && now - rec.answered >= gapMs;",
+  "old": " && (now - rec.answered >= gapMs || !!(typeof due === 'function' ? due() : due));",
   "new": ";",
   "tests": [
    "test/auditrest2_party.test.js",
    "test/auditrestparty.test.js",
    "test/rest5_partynight.test.js"
-  ]
+  ],
+  "note": "AUDIT REST III C1 (PIN MOVED): the gap yields to a night my clock owes me; re-aimed by content - the gap gone whole."
  },
  {
   "name": "AUDITREST2-P-P1-the-gap-is-nothing",
