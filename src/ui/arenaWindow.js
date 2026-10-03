@@ -96,6 +96,7 @@ export function mountArenaWindow(host, deps) {
   let tierPicked = null;
   let boardPicked = 'pve';
   let wagerOpen = false, wagerSide = null, wagerStake = null;
+  let privCode = '';   // ARENA6: the session code typed in the join field, kept across redraws
   let word = null;   // { ok, text } - the status line
   let alive = true;
   let drawn;   // AUDIT PRE-MERGE 1003 U1: the model last drawn, as its words (`refresh` draws only a changed one)
@@ -235,20 +236,77 @@ export function mountArenaWindow(host, deps) {
         if (c.offer.rating != null) vs.append(chip(String(c.offer.rating), 'aw-rating'));
         card.append(vs);
       }
+      // ARENA6: A PRIVATE SESSION'S CODE - large, to be read off a stream and typed (its letters spelled to a screen reader)
+      if (c.kind === 'session' && c.code) {
+        const code = el('p', 'aw-privcode', c.code);
+        code.setAttribute('aria-label', `${ARENA_TEXT.online.privCodeLabel}: ${c.code.split('').join(' ')}`);
+        card.append(code);
+      }
       for (const l of c.lines ?? []) card.append(el('p', 'aw-line', l));
       if (c.acts?.length) {
         const acts = el('div', 'aw-acts');
         for (const a of c.acts) {
           if (a.act === 'wager') acts.append(press(a, () => { wagerOpen = !wagerOpen; wagerSide = null; wagerStake = null; render(); }, wagerOpen ? 'on' : ''));
-          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' ? 'primary' : ''));
+          else acts.append(press(a, () => doAct(/** @type {any} */ (a.act), { hour: c.hour }), a.act === 'fight' || a.act === 'queue' || a.act === 'accept' || a.act === 'privHost' || a.act === 'privGo' ? 'primary' : ''));
         }
         card.append(acts);
       }
+      if (c.kind === 'session') card.append(...sessionParts(c));   // ARENA6
       if (c.kind === 'exhibition' && wagerOpen && !c.acts.find((a) => a.act === 'wager')?.why) card.append(wagerPanel(c));
       grid.append(card);
     }
     body.append(grid);
     if (m.owed > 0) body.append(el('p', 'aw-owed', `${W().owed(m.owed)}.`));
+  }
+  /** ARENA6: A PRIVATE SESSION'S PARTS - its members (each its name and what it is, in words: Host, Red, Blue, Guest,
+   *  Away - never colour alone - and, to the host, the presses that pick it or remove it, each named for whom), its recent
+   *  results, and out of one, the field a code is typed in with Join (Enter joins too; the field keeps its letters and its
+   *  caret across the window's redraws - `data-focus`). */
+  function sessionParts(c) {
+    const O = ARENA_TEXT.online;
+    const out = [];
+    if (c.members?.length) {
+      const ul = el('ul', 'aw-privmembers');
+      for (const x of c.members) {
+        const li = el('li', `aw-privm${x.red ? ' red' : ''}${x.blue ? ' blue' : ''}${x.me ? ' me' : ''}`);
+        const who = el('div', 'aw-privwho');
+        who.append(pennant(x.red ? 'red' : x.blue ? 'blue' : x.banner), el('span', 'aw-fn', x.name));
+        for (const r of x.roles) who.append(chip(r, 'aw-privrole'));
+        li.append(who);
+        if (x.acts.length) {
+          const acts = el('div', 'aw-acts');
+          for (const a of x.acts) acts.append(press(a, () => doAct(/** @type {any} */ (a.act), a.data), '', x.name));
+          li.append(acts);
+        }
+        ul.append(li);
+      }
+      out.push(ul);
+    }
+    if (c.results?.length) {
+      out.push(el('h4', null, O.privResults));
+      const ul = el('ul', 'aw-privresults');
+      for (const r of c.results) ul.append(el('li', 'aw-line', r));
+      out.push(ul);
+    }
+    if (c.join) {
+      const form = el('div', 'aw-privjoin');
+      const input = /** @type {HTMLInputElement} */ (el('input', 'aw-privinput'));
+      input.type = 'text';
+      input.value = privCode;
+      input.maxLength = 9;
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.placeholder = c.join.hint;
+      input.setAttribute('aria-label', c.join.field);
+      input.dataset.focus = 'aw-priv-code';
+      input.addEventListener('input', () => { privCode = input.value.toUpperCase(); });
+      const join = () => doAct('privJoin', { code: privCode });
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !c.join.why) { e.preventDefault(); join(); } });
+      if (c.join.why) input.disabled = true;
+      form.append(input, press({ act: 'privJoin', label: c.join.label, why: c.join.why }, join));
+      out.push(form);
+    }
+    return out;
   }
   /** THE WAGER: whom to back, how much, and the press that places it. */
   function wagerPanel(c) {

@@ -227,6 +227,9 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
   row a bout, both ratings), team membership and season; leaderboards counted from rows (`/v1/arena/board`).
 - **The relay version** - one bump for the whole online slice (new frames, the arena brain, the titles and the
   glyph), so it costs one reconnect.
+- **Private sessions** (ARENA6 - the record below) - a host's own room, `arena:p<code>`: members join by a six-letter
+  code, the host picks the Red and the Blue and calls their bout (casual, refereed, every fighter equally whole), the
+  rest watch from the stands.
 
 ## Recorded, not built (named so they are not mistaken for missing)
 
@@ -244,6 +247,7 @@ names, banners, health; your stamina), the **crowd meter**, the **timer**, the H
 | **ARENA4** (SHIPPED 2026-10-02, finished at ARENA4b - the records below) | online: the account service tables and board, the relay's arena rooms, matchmaking, PVP-REF, the relay-run ladder opponent, spectators, the online titles and the laurel glyph, the online home move | the relay over fake sockets, the service over node:sqlite |
 | **ARENA4b** (SHIPPED 2026-10-03 - the record below) | the online half finished: the relay's exhibition, the ladder's trust (`cl`), the players' blows, the banners billed, the stands' cheer, the realm's Hall and Records, the laurel online, the gate online, a bout's Renown, the displaced online homes, the casual bout | the relay over fake sockets, the service over node:sqlite, the client headless, the UI probes |
 | **ARENA5** (SHIPPED 2026-10-03 - the record below) | the audit: every slice re-read against this page, the probes, the mutants; and what it found unbuilt - the banners on the sand, the Hall's plaque wall, your ladder replay | the mutant lists of every slice, the UI probes, the browser list in its record |
+| **ARENA6** (SHIPPED 2026-10-03 - the record below) | private sessions: a host opens a session under a code, members join by it, the host picks who fights and calls the bout, everyone else watches; equal health; accounts fight, guests watch | the relay over fake sockets, the client end to end on the real Room, the window's model |
 
 ## ARENA1 record (2026-10-02) - SHIPPED
 
@@ -862,3 +866,61 @@ Mac: *"I want to do a comprehensive audit over it and make sure its perfect"*. E
   the passage's mouth, and **a third way out** stands at that mouth, where the Herald stands in the city.
 - **The deploy moved** (M1): the account service is acct72, its migrations `0073_home_layout`, `0074_arena`,
   `0075_arena4b` (main's SILVER-WAYS took acct71 and 0071-0072); the relay stays world155, hashed again in place.
+
+## ARENA6 record (2026-10-03) - SHIPPED: private sessions
+
+The owner: *"I also want to add a way to simply host private matches. In this case, a streamer is hosting a tournement
+later today and I want them to be able to open a session where people can join, watch, participate, and allow the host
+of the session to choose who is fighting and who is in the crowd."* Decided with the owner: **every fighter of a
+session's bout equally whole** (not by level); **registered accounts fight, guests watch**; the host is a registered
+account. Online only (a session is the relay's); nothing of the offline game changes.
+
+**The room.** `arena:p<code>` (`net/arenaLaw.js` `arenaPrivateRoom`, `ARENA_PRIVATE_ROOM_RE`): six of
+`ARENA_PRIVATE_CODE_ALPHABET` - no I, L, O, 0 or 1, so a code read off a stream is typed right
+(`privateCodeTyped` takes it upper-cased, its spaces and dashes gone). A fresh code is drawn on the host's screen from
+the CSPRNG (`arenaPrivateCode`, a byte at or past 248 thrown back so no letter is likelier). The room is an arena floor
+room (`isArenaFloorRoom`): the screen enters the floor's instance as it does for any bout (`arenaFloorRoomOf('p<code>')`),
+its sand holds the two fighters, its stands everyone else - no body drawn, no pose fanned.
+
+**The session** (`net/arenaBrain.js` `openSession` / `sessionJoin` / `sessionPick` / `sessionGoFighters` / `sessionKick`
+/ `sessionWord`; `server/src/index.js` `_sessionWord` and its helpers; kept in the room's storage, `arenasession`):
+- `ps open` - the first registered account's opens it and hosts it (a guest's: `host guest`; another's on an open
+  session: `taken`). `ps join` - a member back, or a newcomer while it has room; a removed account is refused for the
+  session's life (`removed`). At most `ARENA_PRIVATE_MEMBERS_MAX` members (the stands' 60 and the two on the sand); a
+  newcomer to a full one takes the place of the member longest gone, never of one here (`session full` otherwise).
+- The host's alone (`host only` to a member, `not member` to anyone else): `pick` the Red and/or the Blue (member ids;
+  a guest cannot be picked - `guest fighter` - nor one member on both sides, nor a member not here; never while a bout
+  stands - `bout on`), `go` (both picked and here), `void` (the bout ends with no result, nothing kept), `kick` (the
+  member told `removed`, taken off the sand or out of the stands, refused again; a fighter's bout voided), `close`.
+- Every change is every member's `pss` word - the code, the host's name, the members as `m1`, `m2` ... (never an
+  account's id) with their name, guest, here, title and banner, the picks, the bout standing and its phase, and the last
+  `ARENA_PRIVATE_HIST_MAX` (20) results.
+- **The bout** the host calls is the casual players' bout (ARENA4b), refereed by PVP-REF as every relay bout is - no
+  receipt, no rating, nothing kept by the realm, never on the hall's list (`priv`) - with every fighter
+  `ARENA_PRIVATE_VITALITY` (360, a rated bout's level-30 vitality - the middle of the 302-420 a rated bout spans) whole
+  whatever their levels (`openBout`'s `equal`). Finished, it is kept `ARENA_PRIVATE_KEEP_MS` (5 s) past the healers,
+  then cleared: the fighters back to the stands, the session back to choosing, the result in its list.
+- **Its ends**: the host's `close` (`closed`); its host gone `ARENA_PRIVATE_HOST_GONE_MS` (15 min - a blink or a walk to
+  the gate keeps it) or its life out, `ARENA_PRIVATE_LIFE_MS` (8 h) (`ended`; `privateSessionOver`, armed on the room's
+  alarm). Every member's screen leaves the floor's instance on the word.
+
+**The client** (`scenes/arenaOnline.js` `enterSession` / `sessionTick` / `sessionState` / `sessionAct`;
+`systems/arenaBoard.js sessionCard`; `ui/arenaWindow.js`; `scenes/arenaGate.js` routes the `priv*` presses). The Arena
+window's Bouts tab carries a **Private session** card: out of one, *Host a session* (a registered account's) and a code
+box with *Join*; in one, its code spelled large (and letter by letter for a screen reader) to read out, the members
+with each one's role (Host, Red, Blue, Guest, Away) and, to the host, *Red* / *Blue* / *Remove* by each name and
+*Start bout* / *End bout (no result)* / *Close session*; a member's *Leave session*; the recent results. A fighter picked
+is stood on the made level's own arrival mark for the side (`worldModes.js standOnArenaMark` - Red the ladder's, Blue
+the rival's) and back to the stands when it clears; the relay mirror (ARENA4b's) draws the bout, banners red and blue.
+In a session the queue and the casual challenge wait (`You are in a private session`); the pause menu's Arena opens on
+the session. The relay's version: world155 (one deploy with the rest of the arc).
+
+**Tests.** `test/arena6_private.test.js` (10): the relay over fake sockets and fake objects - the door and the code,
+the session opened, the host's words and their refusals, the bout with equal health refereed and kept, void, kick, the
+host's absence and the session's ends, the seats, the wire both ways; the client end to end on the real Room (two
+screens: host, join by code, pick, go, both screens' bout, the result listed); the client's refusals and the card; the
+hosts' seams. Mutants: `tools/mutants/arena6.json` (29, all dead).
+
+**Not done / open.** A session's bout is one against one (the tournament's own format - brackets, rounds - is the
+host's to run by hand). No spectating a session from outside it: the code is the door. The session lives in its room's
+storage, so a deploy of the relay mid-session ends nothing but reconnects every member (one reconnect).

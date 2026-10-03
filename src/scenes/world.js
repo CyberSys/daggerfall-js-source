@@ -13494,7 +13494,7 @@ export async function bootWorld(canvas, renderer, params, status) {
     openPack: () => { const w = makeInventoryWindow(); if (w) townTalk.showOverlay(w); return !!w; },   // DISC10-E L3: a refused pack is null
     openSpellbook: () => { const w = makeSpellbookWindow(); if (w) townTalk.showOverlay(w); return !!w; },
     openChronicle: () => { const w = makeJournalWindow('notebook'); if (w) townTalk.showOverlay(w); return !!w; },
-    openArena: () => arenaGate.openWindow('team'), arenaJoined: () => arenaGate.joined(),   // ARENA3: the Arena window, once a banner is worn (ARENA4b: online the account's)
+    openArena: () => arenaGate.openWindow(arenaOnline?.inSession?.() ? 'bouts' : 'team'), arenaJoined: () => arenaGate.joined() || !!arenaOnline?.inSession?.(),   // ARENA3: the Arena window, once a banner is worn (ARENA4b: online the account's; ARENA6: or a private session stood in, on its card's page)
     quickSave: worldQuickSave,
     quickLoad: worldQuickLoad,
     relock: () => requestLook(canvas),   // MAC1: the pointer comes back with the resume gesture (ui/pauseDoor.js)
@@ -14934,7 +14934,7 @@ export async function bootWorld(canvas, renderer, params, status) {
   // exterior -> the townTalk overlay, interior OR dungeon -> the mode
   // machine's slot. U43-ii shipped the dungeon half: showQuestBox
   // offers the window to `modes.showQuestOverlay` below, and
-  // worldModes answers it in BOTH modes (worldModes.js:10665-10729 -
+  // worldModes answers it in BOTH modes (worldModes.js:10685-10749 -
   // dungeon routes to dungeonCtx.showOverlay), so a dungeon popup is
   // shown rather than logged loudly and dropped.
   // AUDIT 24 (wave 21): DaggerfallMessageBox.Show() is a
@@ -18087,6 +18087,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     store: _spoilsStore,
     bouts: arenaBouts,
     enterFloor: (kind, o) => modes?.enterArenaFloor?.(kind, o) ?? false,
+    standOnMark: (kind) => modes?.standOnArenaMark?.(kind) ?? false,   // ARENA6: a private session's fighter to its mark, and back to the stands
+    leaveFloor: () => modes?.leaveArenaFloor?.() ?? false,   // ARENA6: out of the instance as its gates let me, when the session ends
     closeWindow: () => closeArenaDoor(),
     say: (l) => chatNotice(l),
     notice: (lines) => { for (const l of lines) townTalk.say(l); },
@@ -21876,8 +21878,8 @@ export async function bootWorld(canvas, renderer, params, status) {
     arenaHerald: () => arenaHerald(),
     arenaRecruiter: (role) => arenaGate.recruiter(role),   // ARENA3: the Red and Blue Banners' recruiters
     arenaBookmaker: () => arenaGate.bookmaker(),   // ARENA3: the bookmaker's stall
-    makeArenaWindow: (page) => arenaGate.windowOverlay(page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's)
-    arenaJoined: () => arenaGate.joined(),   // ARENA4b: online the account's banner, offline the save's
+    makeArenaWindow: (page) => arenaGate.windowOverlay(arenaOnline?.inSession?.() ? 'bouts' : page),   // ARENA3: the Arena window for another mode's slot (an interior's, a dungeon's); ARENA6: in a private session, its card's page
+    arenaJoined: () => arenaGate.joined() || !!arenaOnline?.inSession?.(),   // ARENA4b: online the account's banner, offline the save's; ARENA6: or a private session stood in (its host runs it from the window)
     arenaHall: () => arenaGate.hall(),   // ARENA4b: the Keeper of the Hall reads the realm's wall online
     arenaHallPlaques: () => arenaGate.plaques(),   // ARENA5: the names on the Hall's plaque wall (the save's, online the realm's)
     // ARENA-FIX 4: the training pit's practice bout (the Pit Master's choice, scenes/worldModes.js) - a sparring fighter

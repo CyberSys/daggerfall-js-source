@@ -347,8 +347,8 @@
   {
     "name": "AUDIT1003-O9-BOUT-KEPT",
     "file": "src/scenes/arenaOnline.js",
-    "old": "    closeAsk();\n    endBout();\n  }",
-    "new": "    closeAsk();\n  }",
+    "old": "    closeAsk();\n    endBout();\n    sess = null;",
+    "new": "    closeAsk();\n    sess = null;",
     "tests": [
       "test/audit1003_online.test.js"
     ]

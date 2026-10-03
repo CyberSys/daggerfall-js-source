@@ -329,7 +329,7 @@ import { arenaGatePersonOf, arenaGatePersonName, arenaRecordDisplaced, isUndercr
 import { PIT_RING_R } from '../world/arenaUndercroft.js';   // ARENA-FIX 4: the training pit's ring
 import { hallOfChampions } from '../systems/arenaLadder.js';   // ARENA-FIX 4: the Hall of Champions' roll
 import { rosterGrandChampions } from '../systems/arenaLeague.js';   // ARENA3: the banners' Grand Champions on the Hall's wall
-import { arenaFloorLocation, arenaFloorBlocks, isArenaFloor, arenaExitDoors, floorCentre as arenaFloorCentre, ARRIVE as ARENA_ARRIVE } from '../world/arenaFloor.js';   // ARENA2: the floor's instance - a made level on this host's dungeon arm
+import { arenaFloorLocation, arenaFloorBlocks, isArenaFloor, arenaExitDoors, floorCentre as arenaFloorCentre, ARRIVE as ARENA_ARRIVE, floorPoint as arenaFloorPoint } from '../world/arenaFloor.js';   // ARENA2: the floor's instance - a made level on this host's dungeon arm
 import { ARENA_TEXT } from '../systems/arenaText.js';   // ARENA1: the Herald's word
 import { isNpcFlat } from '../world/rdbLayout.js';   // WD3 (AUDIT WD3 G1): a street flat is a person's only in a person archive
 import { WORLD_CONTEXT } from '../systems/teleportAnchor.js';   // A10: SetAnchor's world context, one enum for the three hosts
@@ -7409,6 +7409,26 @@ export function createWorldModes(host) {
     const hit = { dfLocation, blocksFile: arenaFloorBlocks(blocks, kind, host.arenaFloorBanners?.() ?? null), arenaFloor: kind, climateBase: 2, season: 0, group: 'arena:floor', door: null, dfBlock: null, recordIndex: -1 };
     return tryEnterDungeon(hit, [], { preferEnterMarker: false });
   }
+  /** ARENA6: A PRIVATE SESSION'S FIGHTER, MOVED IN THE INSTANCE - called down from the stands to its side's mark
+   *  (`kind` 'ladder' the Red's, 'rival' the Blue's) or sent back up to the terrace ('watch'): the made level's own
+   *  arrival points (world/arenaFloor.js ARRIVE, the start marker's place), stood as a load stands the player, facing as
+   *  the arrival faces. Only inside the floor's instance; answers whether it moved. */
+  function standOnArenaMark(kind) {
+    if (mode !== 'dungeon' || !isArenaFloor(dungeonLoc)) return false;
+    const a = ARENA_ARRIVE[kind];
+    if (!a) return false;
+    placeLoadedPlayer(arenaFloorPoint(a.at[0], a.at[1], a.at[2] + 0.4, arenaFloorCentre()));
+    cam.yaw = a.yaw;
+    cam.pitch = 0;
+    return true;
+  }
+  /** ARENA6: OUT OF THE FLOOR'S INSTANCE by its gates' own way (a session ended, or left from the window) - refused while
+   *  a bout holds me, as the gates are. Answers whether it left. */
+  function leaveArenaFloor() {
+    if (mode !== 'dungeon' || !isArenaFloor(dungeonLoc) || host.arenaHolds?.()) return false;
+    exitDungeonNow();
+    return true;
+  }
   /** ARENA2: the Herald's "Go down to the fighters' hall" - the undercroft's own door (the colosseum's 43600 stair,
    *  world/arenaCity.js), taken as if walked through: the city pixel's door list holds it while the city stands. */
   async function enterArenaUndercroft() {
@@ -11051,7 +11071,7 @@ export function createWorldModes(host) {
     },
     startInDungeon,
     enterGateArena,   // WB3b: the gate's door
-    enterArenaFloor, enterArenaUndercroft, arenaFloorStage, arenaPitStage,   // ARENA2: the floor's instance, the fighters' hall, the instance as a bout's stage
+    enterArenaFloor, enterArenaUndercroft, arenaFloorStage, arenaPitStage, standOnArenaMark, leaveArenaFloor,   // ARENA6: a session's fighter to its mark and back, and out of the instance   // ARENA2: the floor's instance, the fighters' hall, the instance as a bout's stage
     enterAbyss,   // OH-D: the pit's way down
     /** OH-E: RemoveBorrowedQuestResources - every QuestResourceBehaviour under the live dungeon destroyed: the quest
      *  stands this host mounted there, and the quest foes. */

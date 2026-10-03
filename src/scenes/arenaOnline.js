@@ -32,7 +32,8 @@
 //
 // Not a DFU member. Ledger A (ARENA).
 import { foldHall, HALL_EMPTY, verdictOfWord } from '../net/arenaLink.js';
-import { arenaBoutRoom, ARENA_HALL, ARENA_NO_TEXT, ARENA_HIT, arenaLadderOf, arenaExhibitionRoom, bannerClaim, ARENA_EX_BANNERS } from '../net/arenaLaw.js';
+import { arenaBoutRoom, ARENA_HALL, ARENA_NO_TEXT, ARENA_HIT, arenaLadderOf, arenaExhibitionRoom, bannerClaim, ARENA_EX_BANNERS,
+  arenaPrivateRoom, arenaPrivateCode, privateCodeTyped, ARENA_PRIVATE_CODE_RE } from '../net/arenaLaw.js';   // ARENA6: a private session
 import { exhibitionFor, exhibitionBoutId, EXHIBITION_KEPT_HOURS } from '../net/arenaExhibition.js';   // ARENA4b: the hour's exhibition, the relay's
 import { arenaBoutSeed } from '../net/arenaBrain.js';
 import { createArenaClaims, arenaClaimVerdict } from '../net/arenaClaims.js';
@@ -79,6 +80,7 @@ export const hitKindOf = (kind) => (kind === 'arrow' ? ARENA_HIT.Shaft : kind ==
  *   level?: () => number, guest?: () => boolean, struck?: (d: number) => void, myHealth?: (hp: number, max: number) => void,
  *   inBout?: () => boolean, character?: () => (string|null), characterName?: () => (string|null), onRenown?: (data: any) => void,
  *   verdictHeard?: () => void,
+ *   standOnMark?: (kind: string) => boolean, leaveFloor?: () => boolean, rand?: (n: number) => Uint8Array,   // ARENA6: a private session
  * }} deps
  */
 export function createArenaOnline(deps) {
@@ -305,6 +307,7 @@ export function createArenaOnline(deps) {
   }
   /** A word from the bout's room. */
   function word(w, room) {
+    if (sess && room === sess.room && sessionWord(w)) return true;   // ARENA6: the session's own words
     if (!bout || room !== bout.room) return false;
     if (w.k === 'rc') { claims.add(w.r); return true; }
     // AUDIT PRE-MERGE 1003 O2: the relay has no more of this bout (`no bout` - done, or gone from its room; `void` - a
@@ -462,9 +465,131 @@ export function createArenaOnline(deps) {
   }
 
   /** ONE FRAME: the receipts offered when due, the hall kept or let go, my `in` said once I stand in the bout's room. */
+  // ── ARENA6: A PRIVATE SESSION ──
+  // The owner: "a way to simply host private matches ... a session where people can join, watch, participate, and allow
+  // the host of the session to choose who is fighting and who is in the crowd". The session is a room of the relay's
+  // (`arena:p<code>`, net/arenaLaw.js) that this screen stands in as the floor's instance, from the stands: its host's
+  // word picks the Red and the Blue and calls their bout (the casual players' bout, every fighter equally whole), and each
+  // bout is mirrored here as any relay's bout is - mine to fight when I am one of its two, else watched.
+  /** The session this screen is in or going to: `{ code, room, host (this screen asked to open it), sent, seen, at,
+   *  leftAt, state }` - `state` the relay's last `pss` (net/arenaLaw.js validArenaOut) - or null. */
+  let sess = null;
+  /** The session words that end it here: its room's answer that there is none, or that I may not stay. */
+  const SESSION_ENDS = new Set(['closed', 'ended', 'removed', 'no session', 'taken', 'host guest']);
+  /** The session words that are only said: a host's press refused, a bout ended with no result. */
+  const SESSION_SAYS = new Set(['host only', 'not member', 'not here', 'guest fighter', 'same fighter', 'bout on', 'no picks', 'session full', 'voided']);
+  /** INTO A SESSION - its host's (a fresh code, `host`) or one joined: the floor's instance entered from the stands as its
+   *  room (`p<code>`, scenes/worldModes.js enterArenaFloor), the session's word said once that room is open (tick). */
+  async function enterSession(code, host) {
+    sess = { code, room: arenaPrivateRoom(code), host, sent: false, seen: false, at: now(), leftAt: null, state: null };
+    deps.closeWindow?.();
+    say(O.privEntering(code));
+    const ok = await deps.enterFloor('watch', `p${code}`, 0);
+    if (!ok && sess?.code === code) sess = null;
+    return ok;
+  }
+  /** A session word down its room's socket (the presence session's own). */
+  function sessSend(w) {
+    const s = deps.session?.();
+    return !!sess && !!s && s.room === sess.room && s.sendArena?.(w) === true;
+  }
+  /** OUT OF THE SESSION: its bout's mirror let go, and the floor's instance left (`leave` - the session ended, I was
+   *  removed, or I asked to go: its gates' way out, scenes/worldModes.js leaveArenaFloor). */
+  function leaveSession(leave) {
+    if (bout?.priv) endBout();
+    sess = null;
+    if (leave) deps.leaveFloor?.();
+  }
+  /**
+   * THE SESSION'S WORD (`pss`): kept for the window, and the bout it names stood on this screen - mine to fight when my
+   * member id is one of its two (my side's mark on the sand, its mirror a fighter's: the Red side 0, the Blue side 1, each
+   * under its own colours), else watched from the stands. The bout cleared (the session back to choosing): its mirror let
+   * go, and a fighter of it back up to the terrace.
+   */
+  function sessionState(w) {
+    sess.state = w;
+    if (bout?.priv && bout.o !== w.o) {
+      const was = bout.side != null;
+      endBout();
+      if (was) { deps.standOnMark?.('watch'); say(O.privToStands); }
+    }
+    if (!w.o || bout?.o === w.o || w.ph === 'done' || w.ph === 'void') return;
+    const side = w.f.indexOf(w.me);
+    bout = { o: w.o, room: sess.room, kind: side >= 0 ? 'pvp' : 'watch', watchKind: 'pvp', side: side >= 0 ? side : null, casual: true, priv: true, sent: false, seen: true, at: now(), leftAt: null };
+    deps.bouts.ask({
+      where: 'floor', kind: 'relay',
+      relay: {
+        o: w.o, kind: 'pvp', me: side >= 0 ? `p${side}` : '', next: null,
+        names: deps.names ? deps.names(arenaBoutSeed(w.o)) : undefined,
+        send: { hit: (x) => boutSend({ ...x, k: 'hit' }), yield: () => boutSend({ k: 'yd' }), cheer: (c) => boutSend({ k: 'ch', c }) },
+        struck: (d) => deps.struck?.(d), myHealth: (hp, max) => deps.myHealth?.(hp, max),
+        onEnd: () => say(O.casualEnd),
+        banners: { p0: 'red', p1: 'blue' },   // the session's Red and Blue, under their colours on the sand
+        owe: () => {},   // a casual bout pays nothing
+      },
+    });
+    if (side >= 0) { deps.standOnMark?.(side === 1 ? 'rival' : 'ladder'); say(O.privToSand); }
+  }
+  /** A word from the session's room that is the session's own (its `pss`, its refusals and its end) - true when taken. */
+  function sessionWord(w) {
+    if (w.k === 'pss') { sessionState(w); return true; }
+    if (w.k !== 'no') return false;
+    if (SESSION_ENDS.has(w.m)) { say(ARENA_NO_TEXT[w.m] ?? w.m); leaveSession(true); return true; }
+    if (SESSION_SAYS.has(w.m)) { say(ARENA_NO_TEXT[w.m] ?? w.m); return true; }
+    return false;
+  }
+  /** The session as the window draws it (systems/arenaBoard.js sessionCard), or `{ in: false }`. */
+  const sessionView = () => (sess ? { in: true, code: sess.code, host: sess.state ? sess.state.h === 1 : !!sess.host, state: sess.state } : { in: false });
+  /** The session's presses (the window's `priv*`): host one or join one, and the host's own - pick, go, void, kick, close
+   *  - and leaving it. Answers `{ ok, text }`. */
+  function sessionAct(kind, data) {
+    if (kind === 'privHost' || kind === 'privJoin') {
+      if (sess) return { ok: false, text: O.privIn };
+      if (bout || deps.inBout?.() || hall.queue === 'queued' || hall.queue === 'offer') return { ok: false, text: O.whyBusy };
+      if (kind === 'privHost') {
+        if (deps.guest?.()) return { ok: false, text: ARENA_NO_TEXT['host guest'] };
+        const code = arenaPrivateCode((n) => (deps.rand ?? ((k) => globalThis.crypto.getRandomValues(new Uint8Array(k))))(n));
+        void enterSession(code, true);
+        return { ok: true, text: '' };
+      }
+      const code = privateCodeTyped(data.code);
+      if (!ARENA_PRIVATE_CODE_RE.test(code)) return { ok: false, text: O.privBadCode };
+      void enterSession(code, false);
+      return { ok: true, text: '' };
+    }
+    if (!sess) return { ok: false, text: ARENA_NO_TEXT['no session'] };
+    if (kind === 'privLeave') {
+      if (deps.inBout?.()) return { ok: false, text: O.whyBusy };
+      leaveSession(true);
+      return { ok: true, text: '' };
+    }
+    if (sess.state?.h !== 1) return { ok: false, text: ARENA_NO_TEXT['host only'] };
+    const w = kind === 'privPick' ? { k: 'ps', a: 'pick', ...(typeof data.r === 'string' ? { r: data.r } : {}), ...(typeof data.b === 'string' ? { b: data.b } : {}) }
+      : kind === 'privKick' ? { k: 'ps', a: 'kick', m: String(data.m ?? '') }
+        : kind === 'privGo' ? { k: 'ps', a: 'go' } : kind === 'privVoid' ? { k: 'ps', a: 'void' } : kind === 'privClose' ? { k: 'ps', a: 'close' } : null;
+    if (!w) return { ok: false, text: '' };
+    return sessSend(w) ? { ok: true, text: '' } : { ok: false, text: O.hallWait };
+  }
+  /** The session's socket each frame: its word said once its room is open (again after a reconnect - the relay keeps my
+   *  place), and the session let go once this screen has left its room (its gates taken, a door, a load). */
+  function sessionTick(t) {
+    if (!sess) return;
+    const s = deps.session?.();
+    const inRoom = !!s && s.room === sess.room;
+    if (!inRoom || s.status !== 'open') sess.sent = false;
+    else if (!sess.sent) {
+      const bn = bannerClaim(board?.me?.banner);
+      sess.sent = s.sendArena?.({ k: 'ps', a: sess.host && !sess.state ? 'open' : 'join', ...(bn ? { bn } : {}) }) === true;
+    }
+    if (inRoom) { sess.seen = true; sess.leftAt = null; }
+    else if (sess.seen) { if (sess.leftAt == null) sess.leftAt = t; else if (t - sess.leftAt > 5000) leaveSession(false); }
+    else if (t - sess.at > BOUT_ARRIVE_MS) sess = null;
+  }
+
   function tick() {
     const t = now();
     claims.tick();
+    sessionTick(t);   // ARENA6
     // AUDIT PRE-MERGE 1003 O5: THE ARENA'S OWN SOCKETS ARE TICKED HERE - a presence-less link's retry and heartbeat are its
     // own tick (net/online.js; the chat's links are ticked by the host's chatFrame), and nothing ticked these: a hall
     // socket that dropped never came back, so neither did the queue
@@ -506,6 +631,7 @@ export function createArenaOnline(deps) {
     closeCity();
     closeAsk();
     endBout();
+    sess = null;   // ARENA6: its room was the presence session's, left with the seat
   }
 
   // ── THE WINDOW ──
@@ -514,12 +640,14 @@ export function createArenaOnline(deps) {
     if (!live()) return null;
     wantHall();
     askBoard();
-    return { board, hall: { ...hall, status: hallLink?.status === 'open' ? 'open' : 'off' }, guest: !!deps.guest?.(), busy: !!bout || !!deps.inBout?.(), now: now() };
+    return { board, hall: { ...hall, status: hallLink?.status === 'open' ? 'open' : 'off' }, guest: !!deps.guest?.(), busy: !!bout || !!deps.inBout?.() || !!sess, now: now(), session: sessionView() };   // ARENA6: in a session the challenge waits
   }
   /** A press in the window that is the arena online's. */
   function act(kind, data = {}) {
     if (!live()) return { ok: false, text: O.whyOffline };
+    if (typeof kind === 'string' && kind.startsWith('priv')) return sessionAct(kind, data);   // ARENA6: a private session's presses
     if (kind === 'queue' || kind === 'casual') {
+      if (sess) return { ok: false, text: O.privIn };   // ARENA6: one place at a time - the session's room is this screen's
       if (deps.guest?.()) return { ok: false, text: O.whyGuest };
       if (bout || deps.inBout?.()) return { ok: false, text: O.whyBusy };
       // ARENA4b: Casual bout - the same queue word with `u`, paired only with another casual seeker (net/arenaLaw.js pairQueue)
@@ -589,6 +717,9 @@ export function createArenaOnline(deps) {
     exhibitions, watchCity, watchExhibition, exhibitionVerdict,   // ARENA4b: the hour's exhibition, the relay's
     exhibitionBegun,   // AUDIT PRE-MERGE 1003 O3: the hour's fight heard begun here - its book shut
     leaveAll,   // AUDIT PRE-MERGE 1003 O9: the seat given up - the arena's own rooms left
+    /** ARENA6: the private session this screen stands in (or is going to), or null; and whether there is one. */
+    session: () => sess,
+    inSession: () => !!sess,
     /** The account's ladder online (the board's), or null before the board is heard. */
     ladder: () => board?.me?.ladder ?? null,
     board: () => board,

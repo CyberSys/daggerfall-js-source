@@ -310,6 +310,58 @@ export function onlineCards({ hall, me, guest = false, busy = false, now = 0 }) 
   return [players, challenge];
 }
 
+/**
+ * ARENA6: THE PRIVATE SESSION'S CARD (scenes/arenaOnline.js sessionView): out of one, Host a session and Join with a
+ * code; in one, its code to share, who fights now or who is picked, its members - each with what it is (Host, Red, Blue,
+ * Guest, Away) and, to the host alone, the presses that make it the Red or the Blue (a member here and registered, while
+ * no bout is on) or remove it - the host's Start bout, End bout and Close session (a member's Leave), and its recent
+ * results. `busy` a bout or a queue of this screen's (a session waits for it).
+ */
+export function sessionCard(v, { guest = false, busy = false } = {}) {
+  const T = O();
+  if (!v?.in) {
+    return {
+      key: 'session', kind: 'session', title: T.privTitle, state: T.privState.none, fighters: [], lines: [T.privLine],
+      acts: [{ act: 'privHost', label: T.privHost, why: guest ? T.privHostGuest : busy ? T.whyBusy : null }],
+      join: { label: T.privJoin, field: T.privCodeLabel, hint: T.privCodeHint, why: busy ? T.whyBusy : null },
+    };
+  }
+  const w = v.state;
+  const head = { key: 'session', kind: 'session', title: T.privTitleIn(v.code), state: v.host ? T.privState.host : T.privState.member, fighters: [], code: v.code };
+  if (!w) return { ...head, lines: [T.privShare(v.code)], acts: [{ act: 'privLeave', label: T.privLeave, why: null }], members: [], results: [] };
+  const host = w.h === 1;
+  const name = (id) => w.m.find((x) => x[0] === id)?.[1] ?? '';
+  const on = !!w.o && w.ph !== 'done' && w.ph !== 'void';
+  const lines = [T.privShare(v.code)];
+  if (on && w.f.length === 2) lines.push(T.privOn(name(w.f[0]), name(w.f[1])));
+  else { lines.push(T.privWaitHost); if (w.r || w.b) lines.push(T.privPicks(name(w.r), name(w.b))); }
+  lines.push(T.privMembers(w.m.length));
+  const members = w.m.map(([id, n, guestOf, here, , banner]) => {
+    const roles = [];
+    if (id === w.hm) roles.push(T.privRole.host);
+    if (id === w.r) roles.push(T.privRole.red);
+    if (id === w.b) roles.push(T.privRole.blue);
+    if (guestOf) roles.push(T.privRole.guest);
+    if (!here) roles.push(T.privRole.away);
+    /** @type {Array<{ act: string, label: string, why: string|null, data: any }>} */
+    const acts = [];
+    if (host && !on && here && !guestOf) {
+      if (id !== w.r) acts.push({ act: 'privPick', label: T.privMakeRed, why: null, data: { r: id } });
+      if (id !== w.b) acts.push({ act: 'privPick', label: T.privMakeBlue, why: null, data: { b: id } });
+    }
+    if (host && id !== w.hm) acts.push({ act: 'privKick', label: T.privRemove, why: null, data: { m: id } });
+    return { id, name: n, me: id === w.me, banner: banner || null, red: id === w.r, blue: id === w.b, roles, acts };
+  });
+  const acts = host
+    ? [
+      { act: 'privGo', label: T.privStart, why: on ? T.privBoutOn : !(w.r && w.b) ? T.privNoPicks : null },
+      { act: 'privVoid', label: T.privVoid, why: on ? null : T.privNoBout },
+      { act: 'privClose', label: T.privClose, why: null },
+    ]
+    : [{ act: 'privLeave', label: T.privLeave, why: null }];
+  return { ...head, lines, acts, members, results: w.hist.map(([r, b, win, how]) => T.privResult(r, b, win, how)) };
+}
+
 /** THE TEAM PAGE ONLINE, teamPage's own shape over the service's board: the season's points, the laurel, both banners
  *  with their top ten (you pinned in yours). */
 export function teamPageOnline(board) {
@@ -505,6 +557,7 @@ export function arenaBoard(o) {
   if (!on) {
     const m = { header: arenaHeader(o), bouts: boutsPage(o), ladder: ladderPage(o), team: teamPage(o), boards: boardsPage(o), records: recordsPage(o), rules: rulesPage() };
     if (o.online) m.bouts.cards = m.bouts.cards.map((c) => (c.kind === 'players' ? onlineCards({ hall: o.online.hall, me: null, guest: !!o.online.guest, busy: !!o.online.busy, now: o.online.now ?? 0 })[0] : c));
+    if (o.online?.session) m.bouts.cards.push(sessionCard(o.online.session, { guest: !!o.online.guest, busy: !!o.online.busy && !o.online.session.in }));   // ARENA6
     // ARENA4b: online before the realm's board is in, the climb is not the save's - the ladder's Fight waits for it - and
     // neither is the record: the Records page says the realm's is on its way (the save's wagers kept), no purses chip
     if (o.online) {
@@ -521,6 +574,7 @@ export function arenaBoard(o) {
     if (c.kind === 'players') cards.push(...onlineCards({ hall: on.hall, me: on.board.me, guest: !!on.guest, busy: !!on.busy, now: on.now ?? 0 }));
     else cards.push(c);
   }
+  if (on.session) cards.push(sessionCard(on.session, { guest: !!on.guest, busy: !!on.busy && !on.session.in }));   // ARENA6: the private session's card
   bouts.cards = cards;
   const ladder = ladderPage(oo);
   ladder.online = O().ladderOnline;

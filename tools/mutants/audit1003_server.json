@@ -221,8 +221,8 @@
   {
     "name": "AUDIT1003-S7-the-room-named-by-the-offer",
     "file": "server/src/index.js",
-    "old": "    const o = arenaId();\n",
-    "new": "    const o = f.o;\n",
+    "old": "    const o = arenaId();\n    const fighters = [f.a, f.b]",
+    "new": "    const o = f.o;\n    const fighters = [f.a, f.b]",
     "tests": [
       "test/audit1003_server.test.js",
       "test/arena4_relay.test.js"

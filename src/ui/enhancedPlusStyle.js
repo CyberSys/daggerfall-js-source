@@ -1142,6 +1142,25 @@ export const ARENA_WINDOW_CSS = `/* ── ARENA3: THE ARENA WINDOW ── */
 .aw-champline { padding: 4px 8px; border-left: 2px solid #6f8a32; background: rgba(111,138,50,0.1); }
 .aw-online { color: #cfe3ff; }
 @media (max-width: 520px) { .aw-liveb { grid-template-columns: minmax(0, 1fr); } .aw-liveb .aw-acts { grid-column: 1; grid-row: auto; } }
+/* ARENA6: a private session - its code large enough to read off a stream, its members (the Red's and the Blue's marked in
+   words and at the edge), its results, and the join field */
+.aw-privcode { margin: 8px 0 2px; font-size: 26px; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; color: var(--brass-hi);
+  text-shadow: 1px 1px 0 #050608; overflow-wrap: anywhere; }
+.aw-privmembers { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
+.aw-privm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 5px 8px;
+  border-left: 2px solid #3a352a; background: rgba(5,6,8,0.38); }
+.aw-privm.red { border-left-color: var(--red, #c23a2b); }
+.aw-privm.blue { border-left-color: var(--blue, #3768b8); }
+.aw-privm.me .aw-fn { color: var(--brass-hi); }
+.aw-privwho { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
+.aw-privrole { font-size: 11px; }
+.aw-privm .aw-acts { margin: 0; }
+.aw-privresults { list-style: none; margin: 0; padding: 0; }
+.aw-privjoin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
+.aw-privinput { min-width: 0; width: 11ch; padding: 6px 8px; font: inherit; font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: #efe0b8; background: rgba(5,6,8,0.6); border: 1px solid #5a4a2a; }
+.aw-privinput:focus-visible { outline: 2px solid var(--brass-hi); outline-offset: 1px; }
+@media (max-width: 520px) { .aw-privm { grid-template-columns: minmax(0, 1fr); } .aw-privcode { font-size: 22px; } }
 /* the ladder: the ten tiers as a column, the one picked whole beside it */
 .aw-ladder { display: grid; grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.4fr); gap: 14px; align-items: start; }
 .aw-tiers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: 3px; }
@@ -1284,6 +1303,7 @@ body .aw-shell .aw-boutacts .act { min-width: 0; padding: 3px 12px; font-size: 1
 @media (forced-colors: active) {
   .aw-tab.on, .aw-side.on, .aw-stake.on, .aw-subtab.on, .aw-tier.on { outline: 2px solid Highlight; outline-offset: -2px; }
   .aw-pips i.on { background: CanvasText; forced-color-adjust: none; }
+  .aw-privm.red, .aw-privm.blue { border-left-color: Highlight; }   /* ARENA6: a session's picked fighters */
 }`;
 
 /** PROF1 (PROF0 8, 21): THE PROFESSIONS' FACES - the Work tab's writs on the Notice Board (the Court's purple seal), the
