@@ -819,11 +819,12 @@
   {
     "name": "PROF12-svc-brew-count",
     "file": "server-account/src/alchemy.js",
-    "old": "  const count = brewCount(rank, specs[50]);\n  const xp = brewXp",
-    "new": "  const count = brewCount(rank, null);\n  const xp = brewXp",
+    "old": "const count = brewCount(rank, specs[50], potion);",
+    "new": "const count = brewCount(rank, null, potion);",
     "tests": [
       "test/prof12_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 R2-S1 (RE-AIMED): the potion beside the spec."
   },
   {
     "name": "PROF12-svc-brew-first-always",
@@ -1873,11 +1874,12 @@
   {
     "name": "PROF-541-B7-bought",
     "file": "server-account/src/professions.js",
-    "old": "0`).join(' OR ') || '0'} THEN 'marks' END`",
-    "new": "0`).join(' OR ') || '0'} THEN NULL END`",
+    "old": "const boughtWith = `CASE WHEN ${boughtAnySql(13)} THEN 'marks' END`;",
+    "new": "const boughtWith = `CASE WHEN ${boughtAnySql(13)} THEN NULL END`;",
     "tests": [
       "test/prof12_service.test.js"
-    ]
+    ],
+    "note": "AUDIT PROF-541 R2-S5 (RE-AIMED): boughtAnySql shared with the kit."
   },
   {
     "name": "PROF-541-B8-full",
@@ -1932,5 +1934,67 @@
     "tests": [
       "test/prof12_client.test.js"
     ]
+  },
+  {
+    "name": "PROF541-R2-S1-law-one",
+    "file": "src/net/alchemyLaw.js",
+    "old": "  if (potion && !brewFirstPays(potion)) return 1;\n",
+    "new": "",
+    "tests": [
+      "test/prof12_law.test.js",
+      "test/prof12_service.test.js",
+      "test/prof12_client.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S1: the counter's goods alone brew one."
+  },
+  {
+    "name": "PROF541-R2-S1-svc-potion",
+    "file": "server-account/src/alchemy.js",
+    "old": "const count = brewCount(rank, specs[50], potion);",
+    "new": "const count = brewCount(rank, specs[50]);",
+    "tests": [
+      "test/prof12_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S1: the brew's potion asked."
+  },
+  {
+    "name": "PROF541-R2-S1-page-potion",
+    "file": "src/ui/profPages.js",
+    "old": "const made = brewCount(rank, specs[50], potion);",
+    "new": "const made = n;",
+    "tests": [
+      "test/prof12_client.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S1: the station's line the potion's count."
+  },
+  {
+    "name": "PROF541-R2-S1-page-note",
+    "file": "src/ui/profPages.js",
+    "old": "${n > 1 ? ' A potion wholly of the Apothecaries",
+    "new": "${n > 9 ? ' A potion wholly of the Apothecaries",
+    "tests": [
+      "test/prof12_client.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S1: the station says it."
+  },
+  {
+    "name": "PROF541-R2-S6-no-arrows",
+    "file": "server-account/src/alchemy.js",
+    "old": "  if (!pieceListable(p.recipe)) return { error: 'prof-no-essence' };",
+    "new": "  if (false) return { error: 'prof-no-essence' };",
+    "tests": [
+      "test/prof12_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S6: arrows make no Essence."
+  },
+  {
+    "name": "PROF541-R2-S5-origin-read-before",
+    "file": "server-account/src/professions.js",
+    "old": "CASE WHEN ${boughtAnySql(6)} THEN 'bought' ELSE 'own' END, count FROM prof_crafts",
+    "new": "${await (async () => { for (const inp of inputs) if ((await storeOf(db, player.id, character, inp.key)).bought > 0) return \"'bought'\"; return \"'own'\"; })()}, count FROM prof_crafts",
+    "tests": [
+      "test/seat2b_peace_service.test.js"
+    ],
+    "note": "AUDIT PROF-541 R2-S5: the old read before the batch - the raced bought plank misnames the kit."
   }
 ]

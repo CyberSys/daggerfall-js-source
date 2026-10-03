@@ -183,7 +183,7 @@ test('MARKET-ANY service: a looted piece listed out of its seller\'s realm recor
     { error: 'market-gold-realm' });
 });
 
-test('MARKET-ANY service: a crafted piece whose maker\'s record is the seller\'s lists as a crafted piece, one whose record names another lists from the pack; "My listings" says each held piece\'s way (mutants: the piece route skipped; a way misread)', async () => {
+test('MARKET-ANY service: a crafted piece whose maker\'s record is the seller\'s lists as a crafted piece, one whose record names another lists from the pack (not one bought with Drakes - AUDIT PROF-541 R2-S2); "My listings" says each held piece\'s way (mutants: the piece route skipped; a way misread)', async () => {
   const s = await stand();
   const own = mintPiece({ recipe: 'longsword:mithril', quality: 2, seed: 4242, maker: 'Eve' }, '0123456789abcdef');
   const theirs = mintPiece({ recipe: 'dagger:iron', quality: 1, seed: 77, maker: 'Mac' }, 'fedcba9876543210');
@@ -200,6 +200,12 @@ test('MARKET-ANY service: a crafted piece whose maker\'s record is the seller\'s
   assert.deepEqual(ways, { [own.provenance]: 'yours', [theirs.provenance]: 'other', aaaaaaaaaaaaaaaa: 'elsewhere', bbbbbbbbbbbbbbbb: 'none' });
   assert.deepEqual((await s.read(eve, 'mine')).body.ways, {}, 'none named, none said');
   assert.equal(Object.keys((await s.read(eve, 'mine', { pieces: Array.from({ length: 90 }, (_, i) => i.toString(16).padStart(16, '0')) })).body.ways).length, MARKET_HELD_MAX);
+  // AUDIT PROF-541 R2-S2: Mac's make bought with Drakes (or made of goods so bought) keeps its wall in Eve's pack - never
+  // for gold; a gold-bought one lists
+  s.raw.prepare("UPDATE products SET bought_with = 'marks' WHERE provenance = ?").run(theirs.provenance);
+  assert.deepEqual((await s.list(eve, 1)).body, { error: 'market-drakes-goods' });
+  assert.equal(s.record(eve).save.items.length, 2, 'the record untouched');
+  s.raw.prepare("UPDATE products SET bought_with = 'gold' WHERE provenance = ?").run(theirs.provenance);
   const r = await s.list(eve, 1);
   assert.equal(r.status, 200, JSON.stringify(r.body));
   assert.equal(r.body.listing.item.provenance, theirs.provenance, 'Mac\'s make, from Eve\'s pack');

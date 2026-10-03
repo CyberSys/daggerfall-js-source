@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 import {
   DISHES, DISH_TEMPLATES, COOKING_RECIPES, RECIPES, recipeById, dishOf, dishHand, dishMinutes, dishSpell, dishEffectText, DISH_LEVEL,
-  HAND_CHEF, HAND_PROVISIONER, COOK, CHEF, PROVISIONER, CHEF_FEAST, takesQuality, craftCount, cookXp, firstCraftPays, recipeOpen,
+  HAND_CHEF, HAND_PROVISIONER, COOK, CHEF, PROVISIONER, CHEF_FEAST, takesQuality, craftCount, cookXp, firstCraftPays, firstCraftKey, recipeOpen,
   PAN_ACT, panBand, panCount, panWindow, FIRST_CRAFT_XP, pieceLines,
 } from '../src/net/recipeLaw.js';
 import { SPECIALISATIONS, specOk, TIER_RANKS, COOK_FIRE, PROF_RANK_MAX, FOOD_KEYS, PLANT_GROUP_TEMPLATES, topTierOf, ACT_BANDS } from '../src/net/professionLaw.js';
@@ -50,6 +50,9 @@ test('PROF9 law: the four dishes of 9.3 (4.8\'s 685-688) - their inputs as 9.3 w
   assert.deepEqual([dishOf('stew')?.id, dishOf('stew:south')?.id, dishOf(688)?.id, dishOf('stewed:x'), dishOf(684), dishOf(null)], ['stew', 'stew', 'feast', null, null, null]);
   assert.deepEqual([recipeOpen(recipeById('tart:north'), 9), recipeOpen(recipeById('tart:north'), 10), recipeOpen(recipeById('feast:hearth'), 69), recipeOpen(recipeById('feast:hearth'), 70)], [false, true, false, true]);
   assert.ok(COOKING_RECIPES.every((r) => firstCraftPays(r)), 'gathered goods: the first time\'s 500 pays');
+  // AUDIT PROF-541 R2-S7: a dish's first craft its dish's, whichever herb's way - north and south one key
+  assert.deepEqual(COOKING_RECIPES.map((r) => firstCraftKey(r)), ['stew', 'stew', 'supper', 'supper', 'tart', 'tart', 'feast']);
+  assert.deepEqual([firstCraftKey(recipeById('arrows:north')), firstCraftKey(recipeById('ring:gold:ruby'))], ['arrows:north', 'ring:gold'], 'arrows their own id; a jewel its piece and base');
 });
 
 test('PROF9 law: a dish takes no quality and lists among the Dishes (a commission names one at no quality; no auction - no Masterwork); a Cook\'s dish two servings (3.3), never a kit\'s or a Quartermaster\'s dish', () => {

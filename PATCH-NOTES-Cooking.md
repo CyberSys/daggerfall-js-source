@@ -10,7 +10,7 @@
   - Northern and southern herbs both work.
 - **The pan.** Each dish is cooked in three pans (a feast five). Each pan heats from raw to burnt - take it off while it is in the window (Space, Enter or the button). Take every pan off at the right moment for a clean dish and half again the XP. A **Skillet** in your pack widens the window. Quick cook skips it.
 - **Eating a dish** fills you up like a meal (with Climates & Calories on) and gives its bonus. Eating the same dish again refreshes the bonus - it does not stack. Dishes spoil like other food.
-- **XP follows your rank**, and you get +500 the first time you cook each dish.
+- **XP follows your rank**, and you get +500 the first time you cook each dish - once a dish, whichever herb (northern or southern) you cook it with.
 - **Dishes sell on the market** (a new **Dishes** category) and can be asked for in commissions.
 - **Specialisations:**
   - **Cook** (50): every dish makes two servings.

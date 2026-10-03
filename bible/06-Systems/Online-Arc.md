@@ -13387,7 +13387,7 @@ Ledger A departure, extended (`Port-Ledger.md` section A, THE MARKET).
 - **FOUND and fixed:** the Market tab did not read again on `auction-low` - a bid another overtook left the old next bid
   on screen; `MARKS1-13` had aimed at a trigger `0032_market.sql` rebuilt, and survived unseen since PROF5.
 - **Pinned:** `test/prof5b_law.test.js`, `test/prof5b_service.test.js`, `test/prof5b_client.test.js`;
-  `tools/mutants/prof5b.json` (40: 35 dead, five recorded equivalent).
+  `tools/mutants/prof5b.json` (44: 39 dead, five recorded equivalent - AUDIT PROF-541 R2-S4's four among the dead).
 
 ## PROF6 (2026-09-29, Mac: "continue") - Guild writs, the guild Stores and commissions
 
@@ -14051,7 +14051,7 @@ gold can now change hands the way a guild deposit or a house's price does - in t
   migration and the service before the client: an old service refuses every gold word as a bad act, and an old client
   beside a new service sees the Drakes' market as before.
 - **Pinned:** `test/goldmarket_service.test.js` (8) and `test/goldmarket_client.test.js` (9); the schema's table list
-  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (34, all dead). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
+  (accountworker ACC1b). Mutants: `tools/mutants/goldmarket.json` (35, all dead - AUDIT PROF-541 R2-S3's words among them). Patch notes: `PATCH-NOTES-The-Gold-Market.md`.
 
 ## PROF8 (2026-09-30, Mac: "Continue the arc"; "XP follows your rank") - Fishing with the net
 

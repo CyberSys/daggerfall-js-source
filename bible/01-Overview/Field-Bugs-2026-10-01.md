@@ -462,7 +462,7 @@ shop (older; the market walls them now); the four foods are not walled (their te
 almost nothing).
 
 `test/fb1001_market.test.js` (3) and `test/fb1001_market_goods.test.js` (12), red on the code before (the goods file
-fails to load without its modules). `tools/mutants/fb1001_market.json` (64, 64 dead); the 246 market mutants of the
+fails to load without its modules). `tools/mutants/fb1001_market.json` (66, 66 dead - AUDIT PROF-541 R2-S2's two among them); the 246 market mutants of the
 arcs before (prof5, prof5b, audit30, audit31, goldmarket and others) re-run - 236 dead, 9 equivalent as recorded, and
 audit30's U2, which did not parse on the base either, re-aimed and dead. PIN MOVED: AUDIT 31 H1 at `market-listed`, the
 market's views, the gold wiring's pattern, eight `acct43` pins; mutant records re-aimed by content (audit30 S7, U16,

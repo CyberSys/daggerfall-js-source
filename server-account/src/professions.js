@@ -937,10 +937,10 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     : -1;
   // SEAT2b part two (PROF0 4.8: "690 | Ram Kit | Stores (a siege work)"): A SIEGE WORK goes into the crafter's Stores, never
   // the pack - own or bought as its inputs were spent (bought first, as every spend - so bought where any input held a
-  // bought unit: the smelt's rule, professionLaw smeltOrigin, read before the spend), within the Stores' room
+  // bought unit: the smelt's rule, professionLaw smeltOrigin, read before the spend), within the Stores' room. AUDIT
+  // PROF-541 R2-S5: read INSIDE the kit's own INSERT (boughtAnySql, as B7's bought_with), never before the batch - a
+  // bought unit spent or laid in between no longer misnames the kit
   const siege = r.kind === 'siege';
-  let siegeOrigin = 'own';
-  if (siege) for (const inp of inputs) if ((await storeOf(db, player.id, character, inp.key)).bought > 0) siegeOrigin = 'bought';
   const count = craftCount(r, specs[100], specs[50]);   // PROF9: a Cook's dish two
   const maker = makerName(name);
   const marked = carriesMark(r, quality, specs[100]) ? 1 : 0;
@@ -963,16 +963,19 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     held.push(`${spendableSql('?1', '?2', `?${17 + 2 * i}`)} >= ?${18 + 2 * i}`);   // GOLD-MARKET: never gold's units
   });
   // AUDIT PROF-541 J7: a jewel's first craft its piece and base's (recipeLaw firstCraftKey) - any gem of `ring:gold` made
-  // before is the first; ?{after the inputs} the key
+  // before is the first; ?{after the inputs} the key. AUDIT PROF-541 R2-S7: a dish's its dish's (`stew` - either herb's way)
   const fk = `?${binds.length + 1}`;
-  const madeBefore = r.kind === 'jewel' ? `(recipe = ${fk} OR substr(recipe, 1, length(${fk}) + 1) = ${fk} || ':')` : 'recipe = ?4';
-  if (r.kind === 'jewel') binds.push(firstCraftKey(r));
+  const keyed = r.kind === 'jewel' || r.kind === 'dish';   // a plain ring's key its own id, and still its gems' base
+  const madeBefore = keyed ? `(recipe = ${fk} OR substr(recipe, 1, length(${fk}) + 1) = ${fk} || ':')` : 'recipe = ?4';
+  if (keyed) binds.push(firstCraftKey(r));
   const decided = 'EXISTS (SELECT 1 FROM prof_crafts WHERE player = ?1 AND rid = ?5 AND n = ?6)';
   // AUDIT PROF-541 B7: A PIECE MADE OF BOUGHT GOODS IS BOUGHT - 'marks' (GOLD-MARKET's Drakes, products.bought_with) where
   // any input held a bought unit as the pieces are minted, BEFORE the spends (bought first - the smelt's rule, professionLaw
   // smeltOrigin; a craft spends no gold's units): a piece of the counter's Linen was 'own', and its disenchant's Essence
   // own too - listed for gold over the wall. Read inside the batch, as the decision's own (?13 on: the inputs' keys)
-  const boughtWith = `CASE WHEN ${inputs.map((_, i) => `COALESCE((SELECT qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?${13 + i} AND origin = 'bought'), 0) > 0`).join(' OR ') || '0'} THEN 'marks' END`;
+  // (AUDIT PROF-541 R2-S5: `at` the first input key's bind - the kit's statement binds them from ?6)
+  const boughtAnySql = (/** @type {number} */ at) => `${inputs.map((_, i) => `COALESCE((SELECT qty FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = ?${at + i} AND origin = 'bought'), 0) > 0`).join(' OR ') || '0'}`;
+  const boughtWith = `CASE WHEN ${boughtAnySql(13)} THEN 'marks' END`;
   if (siege) held.push(`COALESCE((SELECT SUM(qty) FROM prof_stores WHERE player = ?1 AND char_id = ?2 AND material = '${RAM_KIT.key}'), 0) + ?6 <= ${STORES_MAX}`);   // SEAT2b part two: the kit's room
   await db.batch([
     // THE DECISION: every input held - and the XP what the track can take under the crafter's limit, the first craft's
@@ -987,8 +990,8 @@ export async function craftAtAnvil(ctx, player, env, { character, recipe: id, cl
     // AUDIT PROF-541 B7: and bought where its inputs were, minted BEFORE the inputs go (their bought units read as they stand) -
     // SEAT2b part two: a siege work's kits into the Stores instead
     ...(siege ? [db.prepare(`INSERT INTO prof_stores (player, char_id, material, origin, qty)
-      SELECT ?1, ?2, ?4, ?6, count FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5
-      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, RAM_KIT.key, nonce, siegeOrigin)]
+      SELECT ?1, ?2, ?4, CASE WHEN ${boughtAnySql(6)} THEN 'bought' ELSE 'own' END, count FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5
+      ON CONFLICT (player, char_id, material, origin) DO UPDATE SET qty = prof_stores.qty + excluded.qty`).bind(player.id, character, rid, RAM_KIT.key, nonce, ...inputs.map((inp) => inp.key))]
       : provs.map((p, i) => db.prepare(`INSERT INTO products (provenance, owner, char_id, maker, recipe, template, material, quality, seed, record, made_at, marked, dye, hand, bought_with)
         SELECT ?4, ?1, ?2, ?6, ?7, ?8, ?9, quality, seed, ?10, at, ?11, dye, ?12, ${boughtWith} FROM prof_crafts WHERE player = ?1 AND rid = ?3 AND n = ?5`)
         .bind(player.id, character, rid, p, nonce, maker, r.id, r.templateIndex, r.material, records[i], marked, hand, ...inputs.map((inp) => inp.key)))),   // PROF9: a dish's hand (0069)

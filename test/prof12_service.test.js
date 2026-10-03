@@ -135,6 +135,17 @@ test('PROF12 service: the alchemist\'s ladder asked (Invisibility at 70, refused
   const lev = await s.brew(mac, 'levitation', LEVIT);
   assert.deepEqual([lev.status, lev.body.first, lev.body.xp], [200, false, 80], 'the counter\'s goods alone: tier 4\'s 80 and no 500 (AUDIT 32 S1\'s law) - and not called the first (AUDIT PROF-541 B6: as smeltAtForge\'s)');
   assert.equal(s.raw.prepare("SELECT first FROM prof_brews WHERE potion = 'levitation'").get().first, 0, 'nor stored so');
+  // AUDIT PROF-541 R2-S1: the counter's goods alone brew ONE, whatever the rank or the Brewer - the Apothecaries' silver is
+  // no gold past the Bank; a cauldron with a gathered herb still the rank's
+  s.setXp(mac, 'alchemy', xpForRank(100), { spec50: 'brewer' });
+  s.cauldron(mac, LEVIT, 'bought');
+  const lev3 = await s.brew(mac, 'levitation', LEVIT);
+  assert.deepEqual([lev3.status, lev3.body.count], [200, 1], 'a Master Brewer: one Levitation');
+  const WATER = ['reagent:rain-water', 'reagent:elixir-vitae', 'reagent:ivory'];
+  s.cauldron(mac, WATER, 'bought');
+  const wb = await s.brew(mac, 'waterBreathing', WATER);
+  assert.deepEqual([wb.status, wb.body.count], [200, 1], 'nor three Water Breathing');
+  assert.equal((await steered(0xff, () => plain('brewer', null, 100))).body.count, 3, 'a Healing: the Master\'s three still');
 });
 
 // ─── THE UNBRUISED HERB (4.3, 5.2) ───────────────────────────────────
@@ -240,7 +251,7 @@ test('PROF12 service: a Gold Ruby Ring disenchanted - its record\'s 2,160 points
     VALUES (?, 'again-000001', ?, ?, 'ring:gold:ruby', 2160, 21, 'own', 0, 1, 'x')`).run(mac.id, mac.character, pv), /UNIQUE/);
 });
 
-test('PROF12 service: what may not be disenchanted - another\'s piece (403), a listed one (409), a piece too thin for an Essence - a dish (409), a bad id (400) - nothing moved; a piece bought for silver gives bought Essence, one bought with gold gold\'s', async () => {
+test('PROF12 service: what may not be disenchanted - another\'s piece (403), a listed one (409), a piece too thin for an Essence - a dish (409), arrows (409, AUDIT PROF-541 R2-S6), a bad id (400) - nothing moved; a piece bought for silver gives bought Essence, one bought with gold gold\'s', async () => {
   const s = await stand();
   const mac = await s.registered('Mac');
   const ann = await s.registered('Ann');
@@ -256,6 +267,11 @@ test('PROF12 service: what may not be disenchanted - another\'s piece (403), a l
   const stew = await s.craft(mac, 'stew:north');
   const dish = await s.disenchant(mac, stew);
   assert.deepEqual([dish.status, dish.body], [409, { error: 'prof-no-essence' }]);
+  // AUDIT PROF-541 R2-S6: arrows - a quiver's stack with no provenance in the pack, which the market lists not - make no Essence
+  const quiver = await s.craft(mac, 'arrows:north');
+  const arrows = await s.disenchant(mac, quiver);
+  assert.deepEqual([arrows.status, arrows.body], [409, { error: 'prof-no-essence' }], 'arrows: 150 points, refused all the same');
+  assert.notEqual(s.product(quiver), null, 'the arrows\' row kept');
   assert.deepEqual((await s.disenchant(mac, 'not-a-piece')).body, { error: 'bad-piece' });
   assert.deepEqual([s.stores(mac, 'essence:arcane'), s.xpOf(mac, 'enchanting')], [[], 0], 'nothing moved');
   s.raw.prepare("UPDATE products SET bought_with = 'marks' WHERE provenance = ?").run(mine);

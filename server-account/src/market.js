@@ -165,6 +165,9 @@ const pieceOf = (p, wear) => (p ? {
   ...(p.dye == null ? {} : { dye: Number(p.dye) }),   // PROF7: a garment is the colour it was sewn in
   ...(p.hand == null ? {} : { hand: Number(p.hand) }),   // PROF9: a dish keeps its cook's hand (0069)
 } : null);
+/** AUDIT PROF-541 R2-S4: an auction's piece's recipe - its products row's, or, the piece disenchanted since (the row
+ *  deleted), its disenchant's (prof_disenchants.provenance is UNIQUE: one look-up). `a` the auction, `p` its row. */
+const GONE_RECIPE_SQL = 'COALESCE(p.recipe, (SELECT recipe FROM prof_disenchants WHERE provenance = a.provenance)) AS recipe';
 /** MARKET-ANY: a piece from a pack, as its listing or its delivery carries it - its record, or null. */
 const goodOf = (text) => {
   let v = null;
@@ -597,13 +600,15 @@ export async function marketRead(ctx, player, env, { character, region, view, fa
       .bind(me, nowS - RECENT_S).all();
     const { results: orders = [] } = await db.prepare(`SELECT * FROM market_orders WHERE poster = ?1 AND (state = 'open' OR closed_at > ?2)
       ORDER BY state = 'open' DESC, at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
-    // PROF5b: this account's auctions and its bids (the standing ones, and a week of the rest), each with its piece
-    const { results: auctions = [] } = await db.prepare(`SELECT a.*, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material
-      FROM market_auctions a JOIN products p ON p.provenance = a.provenance
+    // PROF5b: this account's auctions and its bids (the standing ones, and a week of the rest), each with its piece -
+    // AUDIT PROF-541 R2-S4: its row LEFT joined, as the listings' are: a piece disenchanted since (its products row
+    // deleted - alchemy.js disenchantPiece) keeps its history, named by its disenchant's recipe
+    const { results: auctions = [] } = await db.prepare(`SELECT a.*, ${GONE_RECIPE_SQL}, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material
+      FROM market_auctions a LEFT JOIN products p ON p.provenance = a.provenance
       WHERE a.seller = ?1 AND (a.state = 'open' OR a.closed_at > ?2) ORDER BY a.state = 'open' DESC, a.at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
     const { results: bids = [] } = await db.prepare(`SELECT b.*, a.state AS auction_state, a.ends_at, a.high, a.opening, a.bids AS count, a.region AS auction_region,
-        a.wear, p.recipe, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material, p.provenance
-      FROM market_bids b JOIN market_auctions a ON a.id = b.auction JOIN products p ON p.provenance = a.provenance
+        a.wear, ${GONE_RECIPE_SQL}, p.quality, p.seed, p.maker, p.marked, p.dye, p.hand, p.template, p.material AS dfu_material, a.provenance
+      FROM market_bids b JOIN market_auctions a ON a.id = b.auction LEFT JOIN products p ON p.provenance = a.provenance   -- AUDIT PROF-541 R2-S4
       WHERE b.bidder = ?1 AND (b.state = 'high' OR b.at > ?2 OR a.closed_at > ?2)   -- AUDIT 31 S3: and a week from its auction's close
       ORDER BY b.state = 'high' DESC, b.at DESC LIMIT ${MARKET_SHOWN}`).bind(me, nowS - RECENT_S).all();
     return {
@@ -816,8 +821,12 @@ async function listGood(ctx, player, env, { character, region, item, pick, price
   if (!Number.isSafeInteger(pick) || pick < 0) return { error: 'bad-act' };
   if (goodRefusal(item)) return { error: 'market-not-good' };
   if (typeof item.provenance === 'string') {
-    const p = await db.prepare('SELECT owner FROM products WHERE provenance = ?1').bind(item.provenance).first();
+    const p = await db.prepare('SELECT owner, bought_with FROM products WHERE provenance = ?1').bind(item.provenance).first();
     if (p?.owner === me) return { error: 'market-piece-route' };
+    // AUDIT PROF-541 R2-S2: another's make keeps its wall from the pack too - a piece bought with Drakes (or made of goods
+    // they bought, B7) never lists for gold, as the piece route's rule (listPiece's bought_with); this route lists for
+    // gold alone, so a gold-bought piece passes
+    if (p?.bought_with === 'marks') return { error: 'market-drakes-goods' };
   }
   if (await overRate(ctx, `market-post:${me}`, MARKET_POSTS_MAX, MARKET_WINDOW_S)) return { error: 'market-rate' };
   await settle(ctx, player);
