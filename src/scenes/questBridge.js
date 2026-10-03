@@ -460,7 +460,7 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
      * (and, GUIDE1, the step each was written at), and the TIGHTEST
      * RUNNING clock on the quest's resources (Clock carries
      * `remainingTimeInSeconds` in game seconds beside
-     * `clockEnabled`/`clockFinished`, quest/clock.js:125,164). The
+     * `clockEnabled`/`clockFinished`, quest/clock.js:288,164). The
      * archive is the notebook's filed entries; `ended` the completed
      * quests the machine still holds, with their verdict.
      *
@@ -503,7 +503,12 @@ export function createQuestBridge(ctx, { label = 'host' } = {}) {
         if (!messages.length) continue;
         let clockSeconds = null;
         const clocks = [];   // AUDIT GUIDE H1: each counting clock by name - the lens counts only one the journal names
+        // REST8 (2026-10-03, bible/06-Systems/Rest-Arc.md section 8; Mac's OPEN 12): online a DELAY is no time left to
+        // show - it lands on the short wait (quest/clock.js waitsShort) - so the walk skips it, and no surface it feeds
+        // counts a letter down; a DEADLINE keeps its "Time remains", its rail line and the herald's urgency, in played
+        // time. TIMEFREE's walk skipped every clock online.
         for (const r of q.resources.values()) {
+          if (r.waitsShort) continue;   // REST8
           if (r.clockEnabled && !r.clockFinished && Number.isFinite(r.remainingTimeInSeconds) && clockCounts(q, r)) {   // DEAD-CLOCK
             const left = r.liveRemainingSeconds(q);   // QT-LIVE1: as of NOW, not as of the last tick the pause gate let through
             clockSeconds = clockSeconds == null ? left : Math.min(clockSeconds, left);
