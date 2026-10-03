@@ -36,7 +36,8 @@ import { setSpellRecordsByIndex, shownSpellName } from '../src/systems/loot.js';
 import { liveBundles, dispellableBundles, dispelBundle, DISPEL_MAGIC_TEXT } from '../src/systems/mysticism.js';
 import { effectRows } from '../src/ui/enhancedHud.js';
 import { createPlayerMagic } from '../src/scenes/hostMagic.js';
-import { allyCastable, allyReachFor, allyCastPlaqueLine } from '../src/systems/allyCast.js';
+import { allyCastable, allyReachFor, allyCastPlaqueLine, strangerCastable } from '../src/systems/allyCast.js';
+import { championName } from '../src/systems/champions.js';   // LOOT7 (main): a champion's body by its name
 import { corpseEntityName } from '../src/scenes/corpseMarker.js';
 import { corpseName, npcHoverName } from '../src/systems/worldTooltips.js';
 import { enemyDisplayName } from '../src/characters/enemyBasics.js';
@@ -388,11 +389,11 @@ test('L10N3e scenes: the Dispel Magic pickers list bundle.name (DispelMagic.cs:9
 
 test('L10N3e scenes: the readied spell on the classic HUD (dungeonContext.js) and the enhanced HUD\'s ready chip and spell tiles (effectRows - HUDActiveSpells.cs:304) name the spell as the book shows it', async () => {
   setSpellRecordsByIndex(new Map([[4, LEVITATE]]));
-  const ready = find('dungeonContext.js', (x) => x.type === 'IfStatement' && slice('dungeonContext.js', x.test) === 'hudFont && magic.readied()', 'the readied line');
+  const ready = find('dungeonContext.js', (x) => x.type === 'IfStatement' && slice('dungeonContext.js', x.test) === 'hudFont && magic.readied() && !isEnhanced()', 'the readied line');
   const classic = (sp) => {
     const drawn = [];
     mount(`${slice('dungeonContext.js', ready)}\nreturn null;`, {
-      hudFont: {}, magic: { readied: () => sp }, hudScaleFor: () => 1, canvas: { width: 640, height: 400 }, renderer: {},
+      hudFont: {}, magic: { readied: () => sp, readiedCost: () => 12 }, isEnhanced: () => false, hudScaleFor: () => 1, canvas: { width: 640, height: 400 }, renderer: {},
       drawText: (r, f, text) => drawn.push(text), calculateCastCost: () => ({ sp: 12 }), playerEntity: {}, shownSpellName,
     });
     return drawn;
@@ -474,11 +475,11 @@ test('L10N3e scenes: the caster\'s ally-cast line names the spell as the book sh
 
 test('L10N3e scenes: the plaque over a party mate names my readied spell as the book shows it (world.js peerHoverName, run whole)', () => {
   setSpellRecordsByIndex(new Map([[90, BALM]]));
-  const plaque = (sp) => mount(`${declSrc('world.js', 'peerHoverName')}\nreturn peerHoverName;`, {
+  const plaque = (sp) => mount(`${fnSrc('world.js', 'castPlaqueLine')}\n${declSrc('world.js', 'peerHoverName')}\nreturn peerHoverName;`, {   // SPELL-GIFT (main): the line has its own function
     peerIdOfKey: (k) => k.split(':')[1], peerMenuFor: 'peer-0002', peerName: () => 'Bran', online: { badgeOf: () => null, renownOf: () => null },
     glyphMarks: () => '', social: { isPartyPeer: () => true }, peerActsFor: () => null, peerRelationText: () => null, socialPlaqueRows: () => [],
     modes: { mode: 'exterior' }, magic: { readied: () => sp, allyInReach: () => ({ id: 'peer-0002' }) }, cam: { pos: [0, 0, 0] }, socialFwd: () => [0, 0, 1],
-    allyCastable, allyReachFor, allyCastPlaqueLine, shownSpellName,
+    allyCastable, allyReachFor, allyCastPlaqueLine, strangerCastable, shownSpellName,
   })('peer:peer-0002').subs;
   const { en, fr } = inFrench({ Internal_Spells: [['90', 'Baume factice']] }, () => [plaque({ ...BALM }), plaque({ ...BALM, name: 'My Balm', index: -1 })]);
   assert.deepEqual(en, [['Cast Balyna\'s Balm on Bran'], ['Cast My Balm on Bran']]);
@@ -489,7 +490,7 @@ test('L10N3e scenes: the plaque over a party mate names my readied spell as the 
 
 test('L10N3e scenes: the dungeon\'s corpse plaque is loot.entityName (GameObjectHelper.cs:701) - corpseEntityName, as the other pools\' plaques read it (World Tooltips .cs:526); dungeonContext.js _dungeonHoverName, run whole', () => {
   const hover = (foes) => mount(`${fnSrc('dungeonContext.js', '_dungeonHoverName')}\nreturn _dungeonHoverName;`, {
-    worldTooltipsOn: () => false, hideInteractTooltip: () => false, foes, lootableBody: (f) => !!f, corpseName, corpseEntityName, enemyDisplayName,
+    worldTooltipsOn: () => false, hideInteractTooltip: () => false, foes, lootableBody: (f) => !!f, corpseName, corpseEntityName, enemyDisplayName, championName,
   });
   const enemyNames = Array.from({ length: 62 }, (_, i) => (i === 23 ? 'Spectre factice' : `Ennemi ${i}`)).join('\n');
   const { en, fr } = inFrench({ Internal_Strings: [['enemyNames', enemyNames]] }, () => hover([{ mobileType: 23 }])('corpse:0'));

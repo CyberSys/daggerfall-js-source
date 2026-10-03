@@ -174,7 +174,7 @@ function withSaves(fn) {
 }
 const pauseMenu = (at, hooks) => {
   const host = document.createElement('div');
-  host.isConnected = true;
+  document.body.append(host);   // connected, as main's fake DOM reads it (chargenDom.mjs isConnected walks to the body)
   quiet(() => mountEnhancedMenu(host, { mode: 'pause', hooks, at }));
   return host;
 };
@@ -359,7 +359,7 @@ test('L10N3d windows - the journal: its five tooltips, the move and remove boxes
   assert.deepEqual(fr.tips, ['«dialogButtonInfo»', '«activeQuestsInfo»', '«finishedQuestsInfo»', '«notebookInfo»', '«messagesInfo»']);
   assert.deepEqual(fr.tables, [
     { dialog: '«dialogButtonInfo»', activeQuests: '«activeQuestsInfo»', finishedQuests: '«finishedQuestsInfo»', notebook: '«notebookInfo»', messages: '«messagesInfo»' },
-    { head: '«confirmFindHead»', action: '«confirmFind»', note: '«confirmFind2»' },
+    { head: '«confirmFindHead»', action: '«confirmFind»', note: '«confirmFind2»', locationInRegion: locationInRegionText },   // GUIDE2 (main): the quest lens's one home, itself in the language
     { moveHead: '«confirmMoveHead»', move: '«confirmMove»', move2: '«confirmMove2»', removeHead: '«confirmRemoveHead»', remove: '«confirmRemove»', remove2: '«confirmRemove2»' },
   ], 'the three tables keep the port\'s own names over DFU\'s keys');
   assert.deepEqual(fr.boxes, [

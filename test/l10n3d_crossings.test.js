@@ -96,10 +96,13 @@ test('L10N3d crossings, by source: the hosts say each crossing line through its 
     /initiate fast travel during the day/, /\bLOCKED_EXTERIOR_DOOR_TEXT\b/, /'Locked\.'/, /Interaction is now in \$\{/,
   ];
   for (const [h, s] of Object.entries(hosts)) for (const re of BARE) assert.equal(re.test(s), false, `${h}.js says ${re} bare`);
-  for (const h of ['world', 'exterior', 'dungeonContext', 'worldModes']) assert.match(hosts[h], /out\.inWater \? \[exhaustedInWaterText\(\)\] :/, `${h}: the exhausted swimmer`);
+  // SWIM-SPENT (main, 2026-09-30): the three hosts with water drown a swimmer by a share of the health and the port's
+  // own line (rest.js EXHAUSTED_SWIMMING_LINE, L10N4's); DFU's watery grave stands in the interior host alone
+  for (const h of ['world', 'exterior', 'dungeonContext']) assert.match(hosts[h], /out\.kind === 'drown'/, `${h}: the drowning swimmer`);
+  assert.match(hosts.worldModes, /out\.inWater \? \[exhaustedInWaterText\(\)\] :/, 'worldModes: the exhausted swimmer');
   assert.match(hosts.worldModes, /townTalk\?\.say\?\.\(lockedExteriorDoorText\(\)\);/, 'the locked door');
-  assert.match(hosts.world, /townTalk\.say\(sunlightTravelText\(\)\);/, 'the travel map door');
-  assert.match(hosts.world, /&& isDayFromMinutes\(nowMin\)\) return sunlightTravelText\(\);/, 'the party\'s refusal');
+  assert.match(hosts.world, /sayWithNightfall\(sunlightTravelText\(\)\);/, 'the travel map door (LIVED1: and the world\'s nightfall after it)');
+  assert.match(hosts.world, /&& isDayFromMinutes\(nowMin\)\) return withNightfall\(sunlightTravelText\(\)\);/, 'the party\'s refusal');
   for (const h of ['world', 'exterior']) assert.match(hosts[h], /tooFarText: tooFarAwayText,/, `${h}: the horse cart's refusal`);
   assert.match(hosts.dungeon, /\{ setMidScreenText\(tooFarAwayText\(\)\); return true; \}/, 'the dungeon\'s own reach');
   for (const [p, n] of [['systems/diseases.js', 1], ['systems/poisons.js', 1]]) {

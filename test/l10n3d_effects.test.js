@@ -82,10 +82,11 @@ test('L10N3d effects: each effect class\'s GroupName and SubGroupName read by th
   assert.equal(row('13,0')[3], `${FR('invisibility')} (${FR('normal')})`, 'the six concealment classes\' "{0} ({1})"');
   assert.equal(row('23,1')[3], `${FR('chameleon')} (True)`, '"true" is the vendored table\'s TRUE: English');
   assert.deepEqual(row('45,255').slice(1, 4), ['Resurrect', '', 'Resurrect'], 'the port\'s own effect');
+  assert.deepEqual(row('46,255').slice(1, 4), ['Shared Cartography', '', 'Shared Cartography'], 'PARTY-MAP\'s, the port\'s own too');
   for (const [k, g, s, , dfuKey] of fr.rows) {
     const [, gEn, sEn, , dfuEn] = english.find(([key]) => key === k);
     assert.equal(dfuKey, dfuEn, `${k}: DFU's effect Key stays English`);
-    if (k !== '45,255') assert.ok(g.startsWith('«'), `${k}: ${gEn} reads its row`);
+    if (k !== '45,255' && k !== '46,255') assert.ok(g.startsWith('«'), `${k}: ${gEn} reads its row`);   // PARTY-MAP's Shared Cartography (46,255) is the port's own too
     if (sEn && sEn !== 'True') assert.ok(s.startsWith('«'), `${k}: ${sEn} reads its row`);
   }
   assert.deepEqual(fr.groups, [...new Set(fr.rows.filter(([k]) => effectByKey(k).craftable).map(([, g]) => g))].sort(),
@@ -119,8 +120,8 @@ test('L10N3d effects: the drain, regeneration, absorption and landing lines, and
   routes(['youAreInvisible'], () => said([effectRec(13, 0, { dur: 3 })]), ['You are invisible.'], [FR('youAreInvisible')]);   // ConcealmentEffect.cs:70
   const landing = { invisNormal: 'youAreInvisible', invisTrue: 'youAreInvisible', chameleonNormal: 'youAreBlending', chameleonTrue: 'youAreBlending', shadeNormal: 'youAreAShade', shadeTrue: 'youAreAShade', silenced: 'youAreSilenced' };
   const english = { ...BUFF_START_TEXT };
-  assert.deepEqual(Object.keys(english), Object.keys(landing));
-  routes(Object.values(landing), () => ({ ...BUFF_START_TEXT }), english, Object.fromEntries(Object.entries(landing).map(([k, key]) => [k, FR(key)])));
+  assert.deepEqual(Object.keys(english), [...Object.keys(landing), 'sharedCartography'], 'DFU\'s seven, and PARTY-MAP\'s own line - the port\'s (L10N4)');
+  routes(Object.values(landing), () => ({ ...BUFF_START_TEXT }), english, { ...Object.fromEntries(Object.entries(landing).map(([k, key]) => [k, FR(key)])), sharedCartography: english.sharedCartography });
   assert.ok(Object.isFrozen(BUFF_START_TEXT));
   routes(['spellReflected'], () => spellReflectedText(), 'Spell was reflected.', FR('spellReflected'));   // EntityEffectManager.cs:1234
   routes(['youAreSilenced', 'pressButtonToFireSpell'], () => [silencedText(), pressButtonToFireSpellText()],

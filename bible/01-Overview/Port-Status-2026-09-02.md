@@ -297,7 +297,7 @@ reference surface absent · **Departure** = deliberate, ledgered.
 | Area | then | now | what moved, and what is left |
 |---|---|---|---|
 | **formats-core** | Verbatim | **Verbatim** | 46/50 API classes cited, `API/Save` 14/14. The malformed-CIF runaway parse was in the AUDIT-44 wave. Residue: `DFValidator`, `PowerOfTwo`. |
-| **formats-game** | Verbatim readers / broken consumer | **Verbatim** | The `ItemRecord` conversions were in the wave; ROAD-A A4 took the classic-import stragglers (building-level MAPSAVE, the native bank record, `LegacyArtifactIndexBitfieldCheck`). ~~Ledger row `:780`'s one residue is the phone path - no zip arm in the saves picker, a desktop-first charter call.~~ **CLOSED (OT1, 2026-09-10): the saves picker took the ARENA2 door's zip arm, and the row is struck whole.** |
+| **formats-game** | Verbatim readers / broken consumer | **Verbatim** | The `ItemRecord` conversions were in the wave; ROAD-A A4 took the classic-import stragglers (building-level MAPSAVE, the native bank record, `LegacyArtifactIndexBitfieldCheck`). ~~Ledger row `:781`'s one residue is the phone path - no zip arm in the saves picker, a desktop-first charter call.~~ **CLOSED (OT1, 2026-09-10): the saves picker took the ARENA2 door's zip arm, and the row is struck whole.** |
 | **formats-mw** | Departure lane, faithful within it | **Departure lane, now consumed** | `clipSweepTimes` has a production caller: `combat/fpArm.js:2211` runs the whole-clip reach sweep the superseded page said had never run in the game. 17 modules / 8,842 lines. |
 | **world-terrain** | Near-1:1 | **Near-1:1** | ROAD-A A1 moved the texture season onto `DaggerfallDateTime.SeasonValue` - climate swaps, the winter sunlight term and sky selection - and demoted `?season` to a debug override. The lightning flash stays a recorded enhanced-lane departure. |
 | **world-layout** | Near-1:1 | **Near-1:1** | `rmbLayout`'s shared-block mutation is gated: `attachWindmillRecord` runs only when `enhanced` is true, is idempotent by a `subs.findIndex(r => r?.windmill)` guard, and the header names `subRecords.length` as the count three subsystems bind on (`world/rmbLayout.js:154-165` the gated call, `:208` the guard). |
@@ -840,7 +840,7 @@ STRUCK: SHIPPED at AUDIT 28 W4**), and two say inside their own text that
 they are closed (`RegionPowerAndConditionsUpdate`, vampirism/lycanthropy).
 
 That accounts for 16 of the 19, leaving **3 unstruck rows that carry a
-route** - plus `:783`, struck at its head but carrying a live PENDING
+route** - plus `:784`, struck at its head but carrying a live PENDING
 clause in its tail, for **five rows that still owe work: items 1-4 and 6
 below** (item 5 was the sixth, OT1 struck it; item 7 the seventh, DR1). The measurement this section was first written over read 246
 rows, 216 struck and fourteen still owing; what closed the gap is the
@@ -852,7 +852,7 @@ ships, which is the warning the section's own preamble opens with.
 
 *Genuinely open:*
 
-1. **`:701` FaceUVTool's 1,803-UV residual at matched precision** ->
+1. **`:702` FaceUVTool's 1,803-UV residual at matched precision** ->
    Readers arc. **NARROWED (E-group, 2026-09-02), not closed.** The
    surface is fenced from DFU's own sources: `API/Vector3.cs` is double
    throughout, so the whole basis walk was already matched and cannot
@@ -870,14 +870,14 @@ ships, which is the warning the section's own preamble opens with.
    fixed in `tools/parity/js/faceuv.mjs`. The re-run still needs ARENA2
    and mono.
    The 1,803 itself still needs ARENA2 plus mono to re-measure.
-2. **`:714` the custom builder's hidden `ResetBonusPool` control** (STRUCK at E2, landing after this list was written: the control is live) ->
+2. **`:715` the custom builder's hidden `ResetBonusPool` control** (STRUCK at E2, landing after this list was written: the control is live) ->
    UI arc (a keybinding slice). **Its stated blocker is now retired**:
    the row says "the port has no keybinding registry to hang it on", and
    `systems/dialogShortcuts.js:205`/`:333` carries `ResetBonusPool` with
    its `Ctrl-U` default since A8. Nothing in `ui/chargen.js`,
    `ui/chargenArt.js` or `systems/customClass.js` consumes it. This is
    the smallest open row in the section.
-3. ~~**`:684` remainder: the overlay mouse-UP seam** -> UI arc. A7 shipped
+3. ~~**`:685` remainder: the overlay mouse-UP seam** -> UI arc. A7 shipped
    the thumb drag and the picker's double-click law; the port has no
    overlay mouse-up seam, so the latch drops on the first hover after
    the button comes up (`ListPickerWindow.release()`,
@@ -890,18 +890,18 @@ ships, which is the warning the section's own preamble opens with.
    `release()` is the callee.** The spellbook's own drag stays the
    F159/F170/F180 departure; the closeout narrowed its superseded
    REASON without removing the departure.
-4. ~~**`:727` the quest machine** -> `playSound`'s busy-skip, the one
+4. ~~**`:728` the quest machine** -> `playSound`'s busy-skip, the one
    recorded delta, because the port's one-shot engine has no busy
    state.~~ **CLOSED (E-group, 2026-09-02):** `systems/audio.js` grew
    the `QuestAudioSource` DFU's QuestMachine carries, IsPlaying reading
    the end time of the clip `playOneShot` already reported, and the
    world host's hook is PlaySound.cs:110-116 line for line.
-5. ~~**`:780` the classic `.SAV` reader** -> the phone path: no zip arm in
+5. ~~**`:781` the classic `.SAV` reader** -> the phone path: no zip arm in
    the saves picker, a desktop-first charter call.~~ **CLOSED (OT1, 2026-09-10).**
-6. **`:783` (struck, with a live clause) the keybinding registry** ->
+6. **`:784` (struck, with a live clause) the keybinding registry** ->
    the mouse/advanced and joystick sub-windows, the two of DFU's 65
    game windows the port does not cite.
-7. ~~**`:792` the standalone dungeon host has no trade window** -> a
+7. ~~**`:793` the standalone dungeon host has no trade window** -> a
    dungeon-host lane. **Adjudicated by the closeout as BLOCKED** (see
    list 1): there is no DFU original for a standalone dungeon scene, so
    this is an owner decision about a dev route, not a routed gap.~~
@@ -919,7 +919,7 @@ ships, which is the warning the section's own preamble opens with.
    mount omits is one of DFU's own Buy/Repair/Sell mode gates, named in
    the struck row. Three DR1 pins in `x11b.test.js`, each red when its
    arm's mount is reverted to the PR1 refusal.
-8. ~~**`:793` three stale probes**~~ **CLOSED (E-group, 2026-09-02).**
+8. ~~**`:794` three stale probes**~~ **CLOSED (E-group, 2026-09-02).**
    `tools/shopProbe.mjs` is RETIRED - it drove the keyed browse window
    U8c/U40 replaced, and its subject is covered twice over by
    `tradeModeProbe`/`nativeTradeProbe`. `tools/toneProbe.mjs` and
@@ -933,15 +933,15 @@ ships, which is the warning the section's own preamble opens with.
 
 *Stale - the row is a claim the tree has outrun:*
 
-9. **`:679` UseItem's unbuilt destinations.** Every arm the row names is
+9. **`:680` UseItem's unbuilt destinations.** Every arm the row names is
    built: `DrinkPotion` (`systems/useItem.js:265`, `:360-370`),
    `RecordLocationFromMap`/`DiscoverRandomLocation`
-   (`ui/nativeInventory.js:868-872`, `scenes/world.js:9649`), the
+   (`ui/nativeInventory.js:868-872`, `scenes/world.js:9650`), the
    quest-item click (`useItem.js:316`, `:324-325`) and
    `DoItemEnchantmentPayloads(Used)` (already struck at E2). D10 closed
    the last residue in the row's book-reader clause - the fixed 10px row
    is now `LayoutBookLabels` in each label's own face.
-10. **`:729` fast-travel residue.** Its three named survivors are spent:
+10. **`:730` fast-travel residue.** Its three named survivors are spent:
     the horse and cart mint on the general store's own shelf
     (`systems/shopStock.js:10`, "general stores always shelve a Horse
     and a Small Cart"), the ship purchase shipped at D6
@@ -956,9 +956,9 @@ ships, which is the warning the section's own preamble opens with.
     of this clause - a merge had left the sentence saying the same
     thing twice with two different second cites, which is how a reader
     comes away with the wrong one.
-11. **`:734` `PatchRegionIndex` legacy-save fix.** Ported verbatim at
+11. **`:735` `PatchRegionIndex` legacy-save fix.** Ported verbatim at
     `src/formats/mapsFile.js:95`, with the C# line range cited.
-12. **`:778` the magic crafting windows.** The row's FLAGGED residue is
+12. **`:779` the magic crafting windows.** The row's FLAGGED residue is
     three items and all three are answered: spell icons ship and are
     drawn (`ui/spellIcons.js`, imported at
     `ui/spellbookWindow.js:137-139`, drawn at `:1044`), the icon picker
@@ -968,15 +968,15 @@ ships, which is the warning the section's own preamble opens with.
     window is a keyed text window here.~~ **THAT SHIPPED TOO (E-group,
     2026-09-02): the window is native, and the row's last unstruck
     clause goes with it.**
-13. **`:728` the talk manager.** The row's own tail already says both
+13. **`:729` the talk manager.** The row's own tail already says both
     named PENDING gaps closed at TK-vi; A9 then took the questor name
     bank behind `%pqn`, which the row's parent list still implies is
     owed. `AddNonQuestRumor`'s producer - the regional faction sim -
     shipped at S41-S44/RS1.
-14. **`:758` the small-residue trio** (biography GP arm, arrow roll
+14. **`:759` the small-residue trio** (biography GP arm, arrow roll
     notes, the faceUV zero-length guard) -> their arcs. The biography GP
     arm has a Ledger A row of its own and is inert on all 18 shipping
-    `BIOG*.TXT` files; the faceUV guard rides row `:701`.
+    `BIOG*.TXT` files; the faceUV guard rides row `:702`.
 
 ## 3. The deliberate departures, which are not on the road
 

@@ -1,6 +1,6 @@
 [
   {"name":"L10N3f-openLocalizedBookFile","file":"src/systems/localizedBook.js","old":"  const lines = readAllLines(text);\n  return lines.length ? parseLocalizedBook(lines) : null;","new":"  return null;","tests":["test/l10n3f_readers.test.js"]},
-  {"name":"L10N3f-the-door-s-LOC-arm","file":"src/ui/bookDoor.js","old":"const localized = openLocalizedBookFile(name);","new":"const localized = null;","tests":["test/l10n3f_readers.test.js"]},
+  {"name":"L10N3f-the-door-s-LOC-arm","file":"src/ui/bookDoor.js","old":"const localized = name ? openLocalizedBookFile(name) : null;","new":"const localized = null;","tests":["test/l10n3f_readers.test.js"]},
   {"name":"L10N3f-the-LOC-author-to-ba","file":"src/ui/bookDoor.js","old":"      setBookAuthor(item?.message, localized.author);\n","new":"","tests":["test/l10n3f_readers.test.js"]},
   {"name":"L10N3f-the-window-lays-a-LocalizedBook-out","file":"src/ui/bookReader.js","old":"typeof book?.content === 'string' ? layoutLocalizedBookLines(book.content) : layoutBookLines(book)","new":"layoutBookLines(book)","tests":["test/l10n3f_readers.test.js"]},
   {"name":"L10N3f-the-font-held-across-a-blank-line","file":"src/ui/bookReader.js","old":"      center = false; color = null; scale = 1;\n","new":"      center = false; color = null; scale = 1; font = 0;\n","tests":["test/l10n3f_readers.test.js"]},

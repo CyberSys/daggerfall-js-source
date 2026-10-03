@@ -75,6 +75,7 @@ const ROUTED = {
   'src/systems/itemPowers.js': 13,
   'src/systems/itemTransfer.js': 4,
   'src/systems/knightlyGifts.js': 1,
+  'src/systems/legalBands.js': 14,   // REP5 (main): the %ltn ladder's one home
   'src/systems/lycanthropy.js': 2,
   'src/systems/mysticism.js': 14,
   'src/systems/notebook.js': 5,
@@ -83,7 +84,7 @@ const ROUTED = {
   'src/systems/quest/actions.js': 2,
   'src/systems/quest/offerFlow.js': 2,
   'src/systems/quest/place.js': 1,
-  'src/systems/quest/questMacros.js': 48,
+  'src/systems/quest/questMacros.js': 34,   // REP5 (main): %ltn's fourteen bands live in legalBands.js now
   'src/systems/repairService.js': 4,
   'src/systems/rest.js': 1,
   'src/systems/restSession.js': 7,
@@ -125,7 +126,9 @@ const ROUTED = {
   'src/ui/potionMakerWindow.js': 4,
   'src/ui/prisonScreen.js': 1,
   'src/ui/profileWindow.js': 19,
-  'src/ui/questJournal.js': 20,
+  'src/ui/questJournal.js': 19,   // GUIDE2 (main): locationInRegionProvince lives in questLens.js now
+  'src/ui/questLens.js': 1,
+  'src/ui/questRail.js': 1,   // GUIDE3 (main): the journal's date header read off the language's dateFormatString
   'src/ui/saveWindow.js': 18,
   'src/ui/settingsCopy.js': 6,
   'src/ui/settingsLaw.js': 15,

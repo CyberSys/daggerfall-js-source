@@ -95,6 +95,7 @@ function painter() {
     at(x, y) { return drawn.find((d) => (x == null || d.x === x) && d.y === y)?.text ?? null; },
     uploadTexture: () => 'tex', releaseTexture() {}, createTexture: () => ({}),
     setScreenScissor() {}, clearScreenScissor() {}, screenScissor(_rect, body) { return body(); },
+    endUiRun() {},   // PERF-2D (main): the talk window closes the frame's 2D run as its draw's last call
     drawScreenQuad(tex, dst) { if (tex == null) rects.push(dst); },
     drawScreenQuadRun(_tex, run) {
       let text = '';
