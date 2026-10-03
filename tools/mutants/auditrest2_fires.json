@@ -247,38 +247,32 @@
   {
     "name": "AUDITREST2-F8-the-fires-outlive-their-flames",
     "file": "src/scenes/dungeonContext.js",
-    "old": "        if (isFixture(DUNGEON_FIRE_FLAT.archive, DUNGEON_FIRE_FLAT.record)) dropDungeonFires();",
-    "new": "        void 0;",
+    "old": "        dropDungeonFires(isFixture);",
+    "new": "        void isFixture;",
     "tests": [
       "test/auditrest2_fires.test.js"
-    ]
-  },
-  {
-    "name": "AUDITREST2-F8-any-removal-puts-them-out",
-    "file": "src/scenes/dungeonContext.js",
-    "old": "        if (isFixture(DUNGEON_FIRE_FLAT.archive, DUNGEON_FIRE_FLAT.record)) dropDungeonFires();",
-    "new": "        dropDungeonFires();",
-    "tests": [
-      "test/auditrest2_fires.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III E4 (PIN MOVED): every hearth whose flame is a fixture goes, asked of its own flat; re-aimed by content."
   },
   {
     "name": "AUDITREST2-F8-the-hearths-stay-under-the-water",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (first >= 0) dungeonHearths.length = first;\n",
+    "old": "    dungeonHearths.length = 0;\n    dungeonHearths.push(...kept);\n",
     "new": "",
     "tests": [
       "test/auditrest2_fires.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III E4 (PIN MOVED): every hearth whose flame is a fixture goes, asked of its own flat; re-aimed by content."
   },
   {
     "name": "AUDITREST2-F8-the-marks-and-the-ward-stay",
     "file": "src/scenes/dungeonContext.js",
-    "old": "    if (first >= 0) dungeonHearths.length = first;\n    dungeonFires.length = 0;\n",
-    "new": "    if (first >= 0) dungeonHearths.length = first;\n",
+    "old": "    dungeonHearths.push(...kept);\n    dungeonFires.length = 0;\n",
+    "new": "    dungeonHearths.push(...kept);\n",
     "tests": [
       "test/auditrest2_fires.test.js"
-    ]
+    ],
+    "note": "AUDIT REST III E4 (PIN MOVED): every hearth whose flame is a fixture goes, asked of its own flat; re-aimed by content."
   },
   {
     "name": "AUDITREST2-F9-a-roster-every-frame",

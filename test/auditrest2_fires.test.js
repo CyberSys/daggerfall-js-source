@@ -28,6 +28,7 @@ import { runRestNight, ambushNight } from '../src/systems/restAct.js';
 import { REST_TEXT, MINUTES_PER_TICK } from '../src/systems/restSession.js';
 import { isDungeonLightFixture } from '../src/world/oceanHoles.js';
 import { withFireMarks } from '../src/ui/nodeMarks.js';
+import { isHearthFlat } from '../src/systems/survival/hearth.js';
 
 const { DFIRE, fireCandidates, landCandidates, colliderFireProbe, placeDungeonFires, fireLayoutInputs, inFireWard } = DF;
 const rd = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
@@ -371,7 +372,7 @@ test('AUDIT REST II F5: the law says which layout fire it took for the entrance\
  *  mounted from dungeonContext.js's own statements over the real law. */
 async function hostFires({ hearths, blocks, size = { w: 1, h: 2 } }) {
   const at = D.indexOf('  const firePlan = isGateArena(dfLocation)');
-  const endMark = '  function dropDungeonFires() {';
+  const endMark = '  function dropDungeonFires(isFixture) {';
   const fnEnd = D.indexOf('\n  }\n', D.indexOf(endMark)) + 4;
   const body = at >= 0 && D.indexOf(endMark) > at ? D.slice(at, fnEnd) : '';
   const state = {
@@ -434,18 +435,24 @@ test('AUDIT REST II F7: an exit door is measured from its face\'s centre (doorWo
   assert.deepEqual(landCandidates([cand], { probe: { floor: () => ({ y: c[1], ny: 1 }), room: () => true }, doors }), []);
 });
 
-test('AUDIT REST II F8: the drowned abyss puts the fires out - the light fixtures\' removal takes the placed fires\' hearths, the ward and the marks with their flames; the layout\'s own hearths stand', async () => {
+test('AUDIT REST II F8: the drowned abyss puts the fires out - the light fixtures\' removal takes the placed fires\' hearths, the ward and the marks with their flames; AUDIT REST III E4 (RE-AIMED): and the layout\'s own braziers, the one taken for the entrance\'s among them - no flameless "Fire" to cook at under the water', async () => {
   const blocks = row(12);
-  const brazier = { x: 8, y: 1, z: 8, foot: 0, lawFoot: 0, w: 1, h: 2 };
+  const brazier = { x: 8, y: 1, z: 8, foot: 0, lawFoot: 0, w: 1, h: 2, archive: 210, record: 0 };   // a layout row names its flat (E4)
   const { dungeonFires, abyss, state } = await hostFires({ hearths: [brazier], blocks });
   assert.equal(dungeonFires.length, 4);
-  abyss.removeLightFixtures((a, r) => a === 210 && r === 99);   // a removal that spares 210/1: the fires stand
+  assert.deepEqual(state.dungeonHearths.filter((h) => h.placed).map((h) => [h.archive, h.record]), [[210, 1], [210, 1], [210, 1]], 'each placed row names its flat');
+  abyss.removeLightFixtures((a, r) => a === 210 && r === 99);   // a removal that spares every hearth's flat: the fires stand
   assert.equal(dungeonFires.length, 4);
   assert.equal(state.dungeonHearths.length, 4);
   abyss.removeLightFixtures(isDungeonLightFixture);   // There's a Hole in the Bottom of the Ocean's RemoveDungeonLightFixtures
   assert.deepEqual(dungeonFires, [], 'no ward, no compass mark, no map mark');
-  assert.deepEqual(state.dungeonHearths, [brazier], 'no placed hearth under the water; the layout\'s rows untouched');
+  assert.deepEqual(state.dungeonHearths, [], 'no hearth under the water - placed or the layout\'s own');
   assert.equal(inFireWard(dungeonFires, { x: 8, y: 0, z: 8 }), false);
+  // the invariant the abyss leans on: every hearth's flame, and the placed fires', is a dungeon light fixture
+  for (let r = 0; r < 64; r++) if (isHearthFlat(210, r)) assert.equal(isDungeonLightFixture(210, r), true, `hearth 210/${r}`);
+  assert.equal(isDungeonLightFixture(DF.DUNGEON_FIRE_FLAT.archive, DF.DUNGEON_FIRE_FLAT.record), true);
+  // a layout row is built naming its flat
+  assert.match(D, /lawFoot: lawSize \? f\.y - lawSize\.h \/ 2 : undefined, archive: f\.archive, record: f\.record \}\);/);
 });
 
 test('AUDIT REST II F9: the cold-fire sweep reads the room\'s roster at most once a second, and only while a peer\'s camp stands - no roster minted every frame', () => {

@@ -644,10 +644,16 @@ export class Collider {
       ];
     };
     const part = bucket.parts++;   // FIELD BUGS 2026-10-02 ROCK-FREE: each call one collider of the bucket's
+    // AUDIT REST III E2: A MIRRORED PLACEMENT'S WINDING, AS THE WORLD PASS WINDS IT - a negative determinant turns every
+    // triangle over, and the static batch swaps each one's last two corners back (staticBatch.js WOD5), so the face the
+    // game draws faces the eye. The answer's normal is turned to face the ray either way; `back` (AUDIT REST II F4) reads
+    // the winding, and read a mirrored floor's top as its back. No dungeon placement mirrors today (getModelMatrix is a
+    // turn); World of Daggerfall's one wall does.
+    const mirrored = !!m && m[0] * (m[5] * m[10] - m[6] * m[9]) - m[4] * (m[1] * m[10] - m[2] * m[9]) + m[8] * (m[1] * m[6] - m[2] * m[5]) < 0;
     for (let i = 0; i < indices.length; i += 3) {
       const a = tx(indices[i]);
-      const b = tx(indices[i + 1]);
-      const c = tx(indices[i + 2]);
+      const b = tx(indices[mirrored ? i + 2 : i + 1]);
+      const c = tx(indices[mirrored ? i + 1 : i + 2]);
       const idx = bucket.tris.length;
       bucket.tris.push([a, b, c]);
       bucket.part[idx] = part;

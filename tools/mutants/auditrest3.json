@@ -461,5 +461,50 @@
     "tests": [
       "test/auditrest2_party.test.js"
     ]
+  },
+  {
+    "name": "AUDITREST3-E4-the-layout-s-braziers-stay",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "const kept = dungeonHearths.filter((h) => !isFixture(h?.archive, h?.record));",
+    "new": "const kept = dungeonHearths.filter((h) => !h?.placed);",
+    "tests": [
+      "test/auditrest2_fires.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-E4-a-layout-row-names-no-flat",
+    "file": "src/scenes/dungeonContext.js",
+    "old": ", archive: f.archive, record: f.record });",
+    "new": " });",
+    "tests": [
+      "test/auditrest2_fires.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-E4-a-placed-row-names-no-flat",
+    "file": "src/scenes/dungeonContext.js",
+    "old": "placed: true, archive, record });",
+    "new": "placed: true });",
+    "tests": [
+      "test/auditrest2_fires.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-E2-the-mirror-unread",
+    "file": "src/player/collider.js",
+    "old": "    const mirrored = !!m && m[0] * (m[5] * m[10] - m[6] * m[9])",
+    "new": "    const mirrored = false && m[0] * (m[5] * m[10] - m[6] * m[9])",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
+  },
+  {
+    "name": "AUDITREST3-E2-every-placement-turned",
+    "file": "src/player/collider.js",
+    "old": "m[8] * (m[1] * m[6] - m[2] * m[5]) < 0;",
+    "new": "m[8] * (m[1] * m[6] - m[2] * m[5]) < 1e9;",
+    "tests": [
+      "test/auditrest3.test.js"
+    ]
   }
 ]

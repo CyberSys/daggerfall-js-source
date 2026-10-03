@@ -860,7 +860,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         const t = await getTexture(f.archive);
         const size = t && f.record < t.recordCount ? billboardSize(t, f.record) : null;
         const lawSize = t && f.record < t.recordCount ? classicBillboardSize(t, f.record) : null;   // AUDIT REST-PARTY C7: the fires' law reads the CLASSIC height - a texture mod's XML scale is this client's alone, and the law must place the same fires on every client
-        dungeonHearths.push({ x: f.x + b.originX, y: f.y, z: f.z + b.originZ, foot: size ? f.y - size.h / 2 : undefined, w: size?.w, h: size?.h, lawFoot: lawSize ? f.y - lawSize.h / 2 : undefined });
+        dungeonHearths.push({ x: f.x + b.originX, y: f.y, z: f.z + b.originZ, foot: size ? f.y - size.h / 2 : undefined, w: size?.w, h: size?.h, lawFoot: lawSize ? f.y - lawSize.h / 2 : undefined, archive: f.archive, record: f.record });   // AUDIT REST III E4: and its flat, which the abyss asks of a fixture
       }
     }
     for (const m of b.layout.markers) {
@@ -958,7 +958,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
       torches.push({ pos: [p[0], cy, p[2]], handle: null });
       iilLightFlats.push({ x: p[0], y: cy, z: p[2] });
       lights.push({ x: p[0], y: p[1] + FIRE_LIGHT_UP, z: p[2], range: FIRE_LIGHT_RANGE });
-      dungeonHearths.push({ x: p[0], y: cy, z: p[2], foot: p[1], w: size.w, h: size.h, placed: true });
+      dungeonHearths.push({ x: p[0], y: cy, z: p[2], foot: p[1], w: size.w, h: size.h, placed: true, archive, record });
     }
   }
   // AUDIT REST II F5: THE FIRES THAT KEEP A CAMPFIRE'S PROMISES - the ward (encounterSpot), the compass (withFireMarks)
@@ -970,10 +970,16 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
    *  it is built (WaterizeDungeon) and takes every light fixture with it (RemoveDungeonLightFixtures - the 210/1 batch
    *  the placed fires burn in among them, so their flames and lights went), on every way in (the pit, a Recall, a
    *  load). The fires stayed: hearths under the water, marked on the compass and the map, warding. They go with their
-   *  flames - the placed hearths (the list's tail, pushed last at the build), and every mark and ward. */
-  function dropDungeonFires() {
-    const first = dungeonHearths.findIndex((h) => h?.placed);
-    if (first >= 0) dungeonHearths.length = first;
+   *  flames, and every mark and ward. AUDIT REST III E4: EVERY FIRE WHOSE FLAME IS A FIXTURE - F8 took the placed
+   *  hearths alone and kept the layout's own braziers, the one taken for the entrance's fire among them, so the abyss
+   *  stood a flameless "Fire" to cook at under the water. Each hearth row names its flat, and the removal's own
+   *  predicate (`isFixture`, the mod's) is asked of it; with any gone, the ward and the marks go (every hearth record is
+   *  a dungeon light fixture - pinned - so in the abyss it is every fire). */
+  function dropDungeonFires(isFixture) {
+    const kept = dungeonHearths.filter((h) => !isFixture(h?.archive, h?.record));
+    if (kept.length === dungeonHearths.length) return;
+    dungeonHearths.length = 0;
+    dungeonHearths.push(...kept);
     dungeonFires.length = 0;
   }
 
@@ -7757,7 +7763,7 @@ export async function buildDungeonContext(deps, dfLocation, blocks, climateBaseT
         }
         for (const t of torches) { t.handle?.stop(); t.handle = null; }
         torches.length = 0;
-        if (isFixture(DUNGEON_FIRE_FLAT.archive, DUNGEON_FIRE_FLAT.record)) dropDungeonFires();   // AUDIT REST II F8: the placed fires' flame is a fixture - the fires go with it
+        dropDungeonFires(isFixture);   // AUDIT REST II F8: the placed fires' flame is a fixture - the fires go with it; AUDIT REST III E4: and every hearth whose flame is one
       },
     },
     /** WATER-D1: the host names the climate ground archive whose record 0

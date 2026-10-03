@@ -237,3 +237,21 @@ test('AUDIT REST III B5, H12 by behaviour (lens F8): an Ember Jar\'s fire is nam
     assert.equal(rests.length, online ? 0 : 1, online ? 'the plaque\'s Rest rests nobody at a cold fire online' : 'offline it rests, as DFU rests anywhere');
   }
 });
+
+test('AUDIT REST III E2: a mirrored placement\'s floor looks up to the collider as the world pass draws it - its winding turned back (staticBatch.js WOD5), so `back` is the game\'s own face on every placement; the normal faces the ray either way (mutant: the mirror unread)', async () => {
+  const { Collider } = await import('../src/player/collider.js');
+  const positions = [-1, 0, -1, -1, 0, 1, 1, 0, 1, 1, 0, -1];   // a floor, wound to look up
+  const indices = [0, 1, 2, 0, 2, 3];
+  const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  const MX = [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];   // an x mirror (scale -1)
+  for (const [name, m] of [['as placed', I], ['mirrored', MX]]) {
+    const c = new Collider(() => -Infinity);
+    c.addMesh('dungeon', positions, indices, m);
+    const down = c.raycastHit([0.2, 2, 0.3], [0, -1, 0], 5);
+    assert.equal(down.dist, 2, name);
+    assert.equal(down.back, false, `${name}: a floor's top, seen from above, is its front`);
+    assert.deepEqual(down.normal.map((v) => Math.round(v * 1000) / 1000 + 0), [0, 1, 0], `${name}: the normal faces the ray`);
+    const up = c.raycastHit([0.2, -2, 0.3], [0, 1, 0], 5);
+    assert.equal(up.back, true, `${name}: from under, its back`);
+  }
+});
