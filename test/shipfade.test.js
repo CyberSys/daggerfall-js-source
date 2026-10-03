@@ -258,7 +258,7 @@ test('SHIP-FADE THE RENDERER\'S DISSOLVE: both mesh shaders - the classic and En
 test('SHIP-FADE HER TAG WITH HER: a tag\'s opacity is its distance\'s times her share of the world', () => {
   destroyNavalHud();
   const pt = (o = {}) => ({ id: 'a:1', name: 'The Gilded Cog', faction: 'merchant', hostile: false, friendly: true, hull: 1, state: 'afloat', boarded: false, target: false, distance: 500, x: 400, y: 200, ...o });
-  drawNavalTags([pt({ fade: 0.5 }), pt({ id: 'b:2' }), pt({ id: 'c:3', fade: 0 })], { scale: 1, reach: 700 });
+  drawNavalTags([pt({ fade: 0.5 }), pt({ id: 'b:2', x: 700 }), pt({ id: 'c:3', fade: 0, x: 1000 })], { scale: 1, reach: 700 });   // SHIP-CLUTTER: apart, or the nearer covers the rest
   const [layer] = byClass(globalThis.document.body, 'dfnaval-tags');
   const ops = byClass(layer, 'dfnaval-tag').map((n) => n.style.opacity);
   const r = (v) => String(Math.round(v * 100) / 100);

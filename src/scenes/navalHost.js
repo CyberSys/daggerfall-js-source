@@ -313,6 +313,17 @@ export const BOW_RECOIL = 2;
  *  (systems/horseCartWire.js easeToward), a ship's scale. */
 export const PUPPET_EASE = 6;
 export const PUPPET_SNAP_M = 25;
+/** PUPPET-GLIDE (FIELD BUGS 2026-10-02d, Discord: "Ai ships move very janky and quick"): another player's ship UNDER WAY
+ *  sails on between their words at the way her word says, along her own heading, and the gap to where the word puts her
+ *  is taken up at PUPPET_CATCH a second, never faster than PUPPET_CATCH_MPS plus PUPPET_CATCH_SHARE of her way. Eased
+ *  straight onto each word (PUPPET_EASE), a word's latency read as her place: every word a little late or early
+ *  (a relay's 50-400 ms) moved the point she eased to by her way times the difference - a galley at 4 m/s was drawn at
+ *  up to 10, lurching each word, a step astern in sixty frames; gliding she is drawn within a fifth of her way, never
+ *  astern, and half as far off her stander's. A ship lying still, struck, going down or orphaned is still eased onto
+ *  her word. */
+export const PUPPET_CATCH = 1;
+export const PUPPET_CATCH_MPS = 0.3;
+export const PUPPET_CATCH_SHARE = 0.1;
 /** How often the room's roster is read for owners who left (s), and how long a quiet owner's ships stand (s). */
 export const OWNER_SWEEP_S = 2;
 export const OWNER_STALE_S = 6;
@@ -3291,7 +3302,7 @@ export function createNavalHost(deps) {
       if (!e.owner || e.ship.damage.state !== SHIP_STATES.sinking) continue;
       if (e.ship.damage.sinkOn(d) && e.lost) drop(e);
     }
-    // the others' ships: eased toward their word
+    // the others' ships: eased toward their word - PUPPET-GLIDE: under way, sailed on and caught up to it
     for (const e of sea.values()) {
       if (!e.owner || !e.target || boarding?.shipId === e.id) continue;
       const tgt = e.target;
@@ -3301,8 +3312,22 @@ export function createNavalHost(deps) {
       const at = [tgt.pos[0] + Math.sin(tgt.yaw) * ahead, tgt.pos[1], tgt.pos[2] + Math.cos(tgt.yaw) * ahead];
       if (dist2d(e.ship.pos, at) > PUPPET_SNAP_M) { e.ship.pos = at; e.ship.yaw = tgt.yaw; continue; }
       const k = 1 - Math.exp(-PUPPET_EASE * d);
-      e.ship.pos = [e.ship.pos[0] + (at[0] - e.ship.pos[0]) * k, at[1], e.ship.pos[2] + (at[2] - e.ship.pos[2]) * k];
       e.ship.yaw = wrapAngle(e.ship.yaw + wrapAngle(tgt.yaw - e.ship.yaw) * k);
+      if (e.orphan != null || e.ship.damage.state !== SHIP_STATES.afloat || !((tgt.speed ?? 0) > 0)) {   // lying still, struck, going down, or her stander gone: eased onto her word
+        e.ship.pos = [e.ship.pos[0] + (at[0] - e.ship.pos[0]) * k, at[1], e.ship.pos[2] + (at[2] - e.ship.pos[2]) * k];
+        continue;
+      }
+      // PUPPET-GLIDE: under way she sails on at her word's way along her own heading (none once the word is
+      // PREDICT_MAX_S old), and what the word says she is off by is taken up at PUPPET_CATCH a second, never faster than
+      // PUPPET_CATCH_MPS + PUPPET_CATCH_SHARE of her way
+      const v = clock - (tgt.at ?? clock) < PREDICT_MAX_S ? tgt.speed : 0;
+      let x = e.ship.pos[0] + Math.sin(e.ship.yaw) * v * d, z = e.ship.pos[2] + Math.cos(e.ship.yaw) * v * d;
+      const ex = at[0] - x, ez = at[2] - z, off = Math.hypot(ex, ez);
+      if (off > 1e-9) {
+        const take = Math.min(off * (1 - Math.exp(-PUPPET_CATCH * d)), (PUPPET_CATCH_MPS + PUPPET_CATCH_SHARE * v) * d) / off;
+        x += ex * take; z += ez * take;
+      }
+      e.ship.pos = [x, at[1], z];
     }
     stepBoarding(d);
     for (const e of sea.values()) glintRunOut(e, d, seaY);

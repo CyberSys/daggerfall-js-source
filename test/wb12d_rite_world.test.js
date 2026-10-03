@@ -311,7 +311,7 @@ test('WB12d the word: to the circle\'s cell every 5 s while the rite holds, at o
   assert.equal(RITE_SAY_REACH_M, RITE_REACH_M - 5);
   const r = rig();
   r.at(10); r.host.frame(); await settle();
-  assert.deepEqual(r.words.map((x) => x.w), [{ d: DAY, px: PX, py: PY, s: 0, f: 0 }]);
+  assert.deepEqual(r.words.map((x) => x.w), [{ d: DAY, px: PX, py: PY, s: 0, f: 0, c: 0 }]);
   assert.equal(r.words[0].cell, worldRoom(PX, PY));
   r.host.frame();
   assert.equal(r.words.length, 1, 'not every frame');
@@ -322,7 +322,7 @@ test('WB12d the word: to the circle\'s cell every 5 s while the rite holds, at o
   assert.equal(RITE_WORD_MS, 5000);
   r.struck.set(r.foes[3], 123);
   r.step(1); r.host.frame();
-  assert.deepEqual(r.words.at(-1).w, { d: DAY, px: PX, py: PY, s: 1, f: 0 }, 'struck: at once');
+  assert.deepEqual(r.words.at(-1).w, { d: DAY, px: PX, py: PY, s: 1, f: 0, c: 0 }, 'struck: at once');
   r.step(RITE_RESAY_MS - 2); r.host.frame();
   assert.equal(r.words.length, 3);
   r.step(2); r.host.frame();
@@ -338,7 +338,14 @@ test('WB12d the word: to the circle\'s cell every 5 s while the rite holds, at o
   assert.equal(r.words.at(-1).w.f, 0, 'gone without a body: walked away, no fall');
   r.foes[0].corpse = true;
   r.host.frame();
-  assert.deepEqual(r.words.at(-1).w, { d: DAY, px: PX, py: PY, s: 1, f: 1 }, 'the Summoner fallen: at once');
+  assert.deepEqual(r.words.at(-1).w, { d: DAY, px: PX, py: PY, s: 1, f: 1, c: 0 }, 'the Summoner fallen: at once');
+  // BROKER-CAGE: every one of them fallen - `c`, at once
+  for (const f of r.foes.filter((x) => !x.dead).slice(1)) { f.dead = true; f.corpse = true; }
+  r.step(1); r.host.frame();
+  assert.equal(r.words.at(-1).w.c, 0, 'one of the faithful still standing: not all');
+  for (const f of r.foes) { f.dead = true; f.corpse = true; }
+  r.step(1); r.host.frame();
+  assert.deepEqual(r.words.at(-1).w, { d: DAY, px: PX, py: PY, s: 1, f: 1, c: 1 }, 'every one of them fallen: at once');
   const n = r.words.length;
   r.at(RITE_SAY_REACH_M + 1); r.step(RITE_WORD_MS); r.host.frame();
   assert.equal(r.words.length, n, 'past 55 m');

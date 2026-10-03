@@ -237,7 +237,7 @@ opposite of their own code and deserve a slice's attention:
 (world.js:5282 → :2412); `Quest-Arc.md:724`/`:2911`
 (worldModes.js:660 → :903); `Player-Arc.md:979` (worldModes.js:1012 →
 :2764), `:304` (world.js "531 lines" → 3,564); `Characters-Arc.md:190`
-(CHAR_PIXEL "7" - `renderer.js:674` ships 9, and the doc missed two
+(CHAR_PIXEL "7" - `renderer.js:681` ships 9, and the doc missed two
 later revisions recorded in `paperdollViewer.js:138`), `:2114`
 (interiorContext.js:216 → :199); `Rendering.md:175`
 (CHAR_SPRITE_RT_SIZE "256" → 512).

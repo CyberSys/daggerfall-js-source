@@ -106,8 +106,25 @@ export const CLIMATE_OCEAN = CLIMATES.Ocean;
  *  `roadsModEnabled` is the OTHER mod's switch, exactly as
  *  `ModManager.GetMod("BasicRoads").Enabled` is (:302-303): the port's
  *  Basic Roads is `roads-hazelnut`, and its `RiversAndStreams` key is
- *  the same one the mod reads at :307 for the waterways arms. */
-export function readTravelOptionsSettings(read = modSetting) {
+ *  the same one the mod reads at :307 for the waterways arms.
+ *
+ *  TO-LIVE (2026-10-02, Discord: "Whether or not I have the first setting
+ *  for the Travel Options mod switched on or off, both cautious and
+ *  reckless travel initiate time accelerated travel ... this requires a
+ *  relog"): `boot` is the bag read at the world's load. Handed in, the
+ *  restart half (TRAVEL_OPTIONS_RESTART_KEYS) is carried from it and the
+ *  rest read afresh - DFU re-runs LoadSettings on every change of the
+ *  mod's settings (mod.LoadSettingsCallback), so its keys are live there
+ *  and only the starred ones wait for a restart. Read once at boot, the
+ *  first dial ("Cautiously" begins a journey) answered its boot value
+ *  all session. */
+export const TRAVEL_OPTIONS_RESTART_KEYS = Object.freeze([
+  // :316-323 and :325-329 - Awake's, from the starred keys (TravelOptions.txt :66-85)
+  'roadsIntegration', 'variableSizeDots', 'roadsJunctionMap', 'waterwaysEnabled', 'streamsToggle', 'teleportCost',
+  // the junction map's starred placement and dress (TravelOptions.txt :79-85)
+  'junctionMapSize', 'junctionMapX', 'junctionMapY', 'junctionMapOpaque', 'junctionMapBackground',
+]);
+export function readTravelOptionsSettings(read = modSetting, boot = null) {
   const get = (k) => read(TRAVEL_OPTIONS_VENDOR, k);
   const roadsModEnabled = !!read('roads-hazelnut', 'Enabled');
   const riversStreams = !!read('roads-hazelnut', 'RiversAndStreams');
@@ -115,12 +132,12 @@ export function readTravelOptionsSettings(read = modSetting) {
   // :316-323 - the roads arms are ALL gated on the other mod being on.
   const roadsIntegration = !!get('RoadsIntegration.Enable') && roadsModEnabled;
   const variableSizeDots = roadsIntegration ? !!get('RoadsIntegration.VariableSizeDots') : false;
-  const roadsJunctionMap = roadsIntegration ? !!get('RoadsJunctionMap.Enable') : false;
+  const roadsJunctionMap = boot ? !!boot.roadsJunctionMap : (roadsIntegration ? !!get('RoadsJunctionMap.Enable') : false);   // TO-LIVE: its live keys gate on the map that was built
   const waterwaysEnabled = roadsIntegration ? (!!get('RoadsIntegration.EnableWaterways') && riversStreams) : false;
   const streamsToggle = roadsIntegration ? (!!get('RoadsIntegration.EnableStreamsToggle') && riversStreams) : false;
 
   const speedPenalty = get('CautiousTravel.SpeedPenalty') | 0;
-  return Object.freeze({
+  const bag = {
     // :203-207
     targetCoordsAllowed: !!get('GeneralOptions.AllowTargetingMapCoordinates'),
     enableWeather: !!get('GeneralOptions.AllowWeather'),
@@ -175,7 +192,9 @@ export function readTravelOptionsSettings(read = modSetting) {
       'DungeonLabyrinth', 'DungeonKeep', 'DungeonRuin', 'Graveyard', 'Coven', 'Farm', 'WealthyHome',
       'PoorHome', 'Temple', 'Cult', 'Tavern', 'City', 'Hamlet', 'Village',
     ].map((n) => colorKeyRgba(get(`LocationColours.${n}`)))),
-  });
+  };
+  if (boot) for (const k of TRAVEL_OPTIONS_RESTART_KEYS) bag[k] = boot[k];   // TO-LIVE: the restart half, as the world loaded it
+  return Object.freeze(bag);
 }
 
 /** :126 - GetTravelSpeedMultiplier. */
